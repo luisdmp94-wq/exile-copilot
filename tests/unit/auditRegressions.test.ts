@@ -208,6 +208,77 @@ describe("auditoría 3 — exportGggBuild no muta el plan de entrada", () => {
   });
 });
 
+describe("auditoría 5 — pistas del plan sin restos de markup GGG", () => {
+  // El markup oficial (<tag>{...}) abre y cierra en líneas distintas: la línea
+  // final del bloque ("3. Increased Armour}") conservaba la llave de cierre y
+  // la recomendación mostraba "Increased Armour}; ...".
+  const markupBuild = {
+    name: "Plan con markup multilínea",
+    inventory_slots: [
+      {
+        inventory_id: "BodyArmour1",
+        additional_text:
+          "<red>{Armour (Str Base)}\n\n<grey>{Stat Priority\n-------------------\n1. Increased Health\n2. Increased Resistances\n3. Increased Armour}",
+      },
+      {
+        inventory_id: "Ring1",
+        additional_text:
+          "<silver>{Any Ring (Resistance Base)}\n\n<grey>{Stat Priority\n-------------------\n1. Flat damage to attacks\n2. Increased Life}",
+      },
+    ],
+  };
+
+  it("las pistas quedan limpias: sin llaves, sin '};' y con el texto exacto", async () => {
+    const { generateRecommendations } = await import("../../server/engine/engine.js");
+    const result = await generateRecommendations(emptyProfile(), {
+      budget: { amount: 50, currency: "divine" },
+      goal: { kind: "balanced" },
+      league: "Runes of Aldur",
+      patch: "0.5.4f",
+      target: targetFromBuild(markupBuild),
+    });
+    const ref = result.recommendations.find((r) => r.id === "rec-mods-objetivo");
+    expect(ref).toBeDefined();
+    const action = ref!.action;
+    // Texto exacto ya limpio, tal y como se muestra al usuario.
+    expect(action).toContain("Increased Health; Increased Resistances; Increased Armour");
+    expect(action).toContain("Flat damage to attacks; Increased Life");
+    // Sin restos de sintaxis del markup original.
+    expect(action).not.toMatch(/[{}]/);
+    expect(action).not.toContain("};");
+    expect(action).not.toMatch(/<[^>]+>/);
+  });
+
+  it("no rompe texto legítimo: markup anidado y desiredMods del usuario intactos", async () => {
+    const { generateRecommendations } = await import("../../server/engine/engine.js");
+    const target = targetFromBuild({
+      name: "Plan anidado",
+      inventory_slots: [
+        {
+          inventory_id: "Amulet1",
+          // Markup anidado en una sola línea + pista sin markup.
+          additional_text: "<m>{<red>{Increased Strength}}\nMaximum Mana",
+        },
+      ],
+    });
+    target.desiredMods = ["increased spell damage (10-20)"];
+    const result = await generateRecommendations(emptyProfile(), {
+      budget: { amount: 50, currency: "divine" },
+      goal: { kind: "balanced" },
+      league: "Runes of Aldur",
+      patch: "0.5.4f",
+      target,
+    });
+    const ref = result.recommendations.find((r) => r.id === "rec-mods-objetivo");
+    expect(ref).toBeDefined();
+    expect(ref!.action).toContain("Increased Strength");
+    expect(ref!.action).toContain("Maximum Mana");
+    // Los paréntesis legítimos del usuario no se tocan.
+    expect(ref!.action).toContain("increased spell damage (10-20)");
+    expect(ref!.action).not.toMatch(/[{}]/);
+  });
+});
+
 describe("auditoría 4 — solo se exportan mejoras aplicadas del resultado vigente", () => {
   it("descarta ids marcados en una generación anterior que ya no existen", () => {
     const applied = {

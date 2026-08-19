@@ -51,6 +51,25 @@ El formato oficial **no puede almacenar** nivel, liga, parche, atributos, resist
 Los campos de un plan importado que el esquema v1 no documenta se conservan tal
 cual (el importador los declara en los avisos) y se reexportan sin pérdida.
 
+### Validación manual dentro del juego (2026-08-20)
+
+Además de las pruebas automatizadas (que validan contra el esquema documentado,
+no contra el juego), un archivo `.build` exportado por Exile Copilot —el plan
+Titan Warrior con una mejora aplicada incrustada— se importó manualmente en
+Path of Exile 2 real. El juego lo aceptó y mostró:
+
+- Nombre y ascendencia («Titan Warrior», planificador del juego): [captura del árbol](docs/screenshots/ingame-arbol-pasivas.jpg).
+- Las 34 pasivas del plan con sus rutas resaltadas en el árbol (misma captura).
+- Las 4 habilidades: Boneshatter (Destrozahuesos), Earthquake (Terremoto),
+  Infernal Cry (Grito infernal) y Shockwave Totem (Tótem de onda sísmica):
+  [captura de habilidades](docs/screenshots/ingame-habilidades.jpg).
+- Los 9 huecos de equipo con sus pistas, incluido el texto añadido al anillo
+  «Mejora planificada: Cubrir resistencias elementales hasta el cap»:
+  [captura del equipo](docs/screenshots/ingame-equipo-mejora-incrustada.jpg).
+
+Esta validación manual cubre **ese archivo concreto** en esa sesión de juego;
+no convierte a todos los exports en «probados en el juego».
+
 ## Estructura
 
 - `shared/` — esquemas zod: dominio interno, contrato API y esquema oficial GGG Build Planner v1.

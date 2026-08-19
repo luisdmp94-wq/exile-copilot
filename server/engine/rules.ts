@@ -383,6 +383,25 @@ export const lifeRule: Rule = ({ profile }) => {
 // Regla 7: huecos frente a la build objetivo (referenceOnly, nunca verdad absoluta)
 // ---------------------------------------------------------------------------
 
+/**
+ * Elimina el markup oficial de los planes GGG (`<tag>{...}`, anidable y con
+ * bloques que abren y cierran en líneas distintas) dejando solo el texto.
+ * Se aplica al additional_text COMPLETO antes de trocearlo en líneas: limpiar
+ * línea a línea dejaba la llave de cierre del bloque ("3. Increased Armour}").
+ * Solo se eliminan las llaves del markup (de dentro hacia fuera); las llaves
+ * o paréntesis de texto legítimo fuera de un wrapper `<tag>{...}` no se tocan.
+ */
+function stripGggMarkup(text: string): string {
+  let out = text;
+  for (;;) {
+    // Wrapper más interno: <tag>{contenido sin llaves} → contenido.
+    const next = out.replace(/<[^<>{}]+>\{([^{}]*)\}/g, "$1");
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
 /** Normaliza texto de mods para comparación aproximada (minúsculas, sin números ni signos). */
 function normalizeModText(text: string): string {
   return text
@@ -403,9 +422,11 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
   const planSlots = target.plan?.build.inventory_slots ?? [];
   for (const slot of planSlots) {
     if (!slot.additional_text) continue;
-    // Líneas tipo "1. Increased Health" de las pistas de prioridad de stats.
-    for (const rawLine of slot.additional_text.split("\n")) {
-      const line = rawLine.replace(/<[^>]+>/g, " ").replace(/^\s*\d+[.)]\s*/, "").trim();
+    // El markup se limpia sobre el texto completo (los bloques <tag>{...}
+    // abren y cierran en líneas distintas) y DESPUÉS se trocea en líneas
+    // tipo "1. Increased Health" de las pistas de prioridad de stats.
+    for (const rawLine of stripGggMarkup(slot.additional_text).split("\n")) {
+      const line = rawLine.replace(/^\s*\d+[.)]\s*/, "").trim();
       if (/^(increased|flat|level of|maximum|highest)/i.test(line) && line.length < 60) {
         planHints.push(line);
       }
