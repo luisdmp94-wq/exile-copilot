@@ -38,6 +38,14 @@ export const RECOMMENDATION_SLOT_HINTS: Record<
 };
 
 export const RESISTANCE_CAP = 75;
+/**
+ * Tope de pistas de texto que se recogen de los inventory_slots del plan y
+ * tope de carencias que se enumeran en la acción. Un `.build` puede traer
+ * miles de líneas: sin estos límites la recomendación sería inmanejable.
+ * Al truncar se declara expresamente cuántas quedan fuera.
+ */
+export const MAX_PLAN_HINTS = 40;
+export const MAX_LISTED_GAPS = 12;
 /** Heurística de vida mínima: nivel × 30 (documentada, no verificada). */
 export const LIFE_PER_LEVEL = 30;
 /** Mínimo de supports razonable en la skill principal. */
@@ -384,22 +392,103 @@ export const lifeRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 
 /**
+ * Longitud máxima admitida para el nombre de una etiqueta de markup. Acota el
+ * avance al buscar el `>` de apertura: sin este tope, una entrada como
+ * "<<<<<…>" obligaría a reescanear y el recorrido dejaría de ser O(n).
+ */
+const MAX_MARKUP_TAG_LENGTH = 32;
+
+/**
+ * Si en `index` empieza una apertura de wrapper `<tag>{`, devuelve ese texto
+ * literal (para poder restaurarlo si el wrapper nunca se cierra); si no, null.
+ * El nombre de la etiqueta no puede contener `<`, `>`, `{` ni `}`.
+ */
+function matchWrapperOpen(text: string, index: number): string | null {
+  const limit = Math.min(text.length, index + 1 + MAX_MARKUP_TAG_LENGTH);
+  for (let j = index + 1; j < limit; j++) {
+    const char = text[j];
+    if (char === "<" || char === "{" || char === "}") return null;
+    if (char === ">") {
+      // Etiqueta no vacía y seguida de `{`: es una apertura de wrapper.
+      return j > index + 1 && text[j + 1] === "{" ? text.slice(index, j + 2) : null;
+    }
+  }
+  return null;
+}
+
+/**
  * Elimina el markup oficial de los planes GGG (`<tag>{...}`, anidable y con
  * bloques que abren y cierran en líneas distintas) dejando solo el texto.
  * Se aplica al additional_text COMPLETO antes de trocearlo en líneas: limpiar
  * línea a línea dejaba la llave de cierre del bloque ("3. Increased Armour}").
- * Solo se eliminan las llaves del markup (de dentro hacia fuera); las llaves
- * o paréntesis de texto legítimo fuera de un wrapper `<tag>{...}` no se tocan.
+ *
+ * Parser de UN SOLO RECORRIDO, O(n): una pila registra qué llave abierta
+ * pertenece a un wrapper (su cierre se descarta) y cuál es texto literal (su
+ * cierre se conserva). La versión iterativa anterior reescribía la cadena
+ * completa por cada nivel anidado, con coste cuadrático: un `.build` malicioso
+ * de hasta 2 MB podía bloquear el servidor.
+ *
+ * Garantías: las llaves y paréntesis que no forman parte de un wrapper
+ * reconocido se conservan literalmente, igual que un wrapper sin cierre (se
+ * restaura su texto original). Es una función pura: el plan crudo que se
+ * conserva para reexportar nunca se modifica.
  */
 function stripGggMarkup(text: string): string {
-  let out = text;
-  for (;;) {
-    // Wrapper más interno: <tag>{contenido sin llaves} → contenido.
-    const next = out.replace(/<[^<>{}]+>\{([^{}]*)\}/g, "$1");
-    if (next === out) break;
-    out = next;
+  const chunks: string[] = [];
+  /** Llaves abiertas: objeto = wrapper (con hueco reservado); null = llave literal. */
+  const open: Array<{ slot: number; raw: string } | null> = [];
+  let plainStart = 0;
+  let i = 0;
+
+  const flushPlain = (end: number): void => {
+    if (end > plainStart) chunks.push(text.slice(plainStart, end));
+  };
+
+  while (i < text.length) {
+    const char = text[i];
+
+    if (char === "<") {
+      const wrapper = matchWrapperOpen(text, i);
+      if (wrapper === null) {
+        i += 1; // `<` suelto: texto literal
+        continue;
+      }
+      flushPlain(i);
+      // Hueco reservado: si este wrapper no llega a cerrarse, se restaura aquí
+      // su texto original en lugar de perderlo.
+      open.push({ slot: chunks.length, raw: wrapper });
+      chunks.push("");
+      i += wrapper.length;
+      plainStart = i;
+      continue;
+    }
+
+    if (char === "{") {
+      open.push(null); // llave literal: su cierre también será literal
+      i += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      const entry = open.pop();
+      if (entry === undefined || entry === null) {
+        i += 1; // llave literal o sin pareja: se conserva
+        continue;
+      }
+      flushPlain(i); // cierre de wrapper: se descarta la llave
+      i += 1;
+      plainStart = i;
+      continue;
+    }
+
+    i += 1;
   }
-  return out;
+
+  flushPlain(text.length);
+  for (const entry of open) {
+    if (entry !== null) chunks[entry.slot] = entry.raw;
+  }
+  return chunks.join("");
 }
 
 /** Normaliza texto de mods para comparación aproximada (minúsculas, sin números ni signos). */
@@ -421,11 +510,13 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
   const planHints: string[] = [];
   const planSlots = target.plan?.build.inventory_slots ?? [];
   for (const slot of planSlots) {
+    if (planHints.length >= MAX_PLAN_HINTS) break;
     if (!slot.additional_text) continue;
     // El markup se limpia sobre el texto completo (los bloques <tag>{...}
     // abren y cierran en líneas distintas) y DESPUÉS se trocea en líneas
     // tipo "1. Increased Health" de las pistas de prioridad de stats.
     for (const rawLine of stripGggMarkup(slot.additional_text).split("\n")) {
+      if (planHints.length >= MAX_PLAN_HINTS) break;
       const line = rawLine.replace(/^\s*\d+[.)]\s*/, "").trim();
       if (/^(increased|flat|level of|maximum|highest)/i.test(line) && line.length < 60) {
         planHints.push(line);
@@ -451,6 +542,12 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
   });
   if (missing.length === 0) return [];
 
+  // La acción enumera como mucho MAX_LISTED_GAPS carencias; el resto se
+  // declara por número, nunca se oculta.
+  const listed = missing.slice(0, MAX_LISTED_GAPS);
+  const omitted = missing.length - listed.length;
+  const listedText = `${listed.join("; ")}${omitted > 0 ? ` (y ${omitted} más no enumeradas)` : ""}`;
+
   const extraSources: SourceEvidence[] = [
     {
       kind: "community",
@@ -471,7 +568,7 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
     {
       ruleId: "mods-objetivo",
       title: "Acercarse a la build de referencia",
-      action: `La build de referencia "${target.name}" sugiere stats que no tienes: ${missing.join("; ")}. Valora piezas que los cubran.`,
+      action: `La build de referencia "${target.name}" sugiere stats que no tienes: ${listedText}. Valora piezas que los cubran.`,
       reason:
         "Comparación de los mods de tu equipo con los desiredMods y las pistas del plan de referencia (matching por texto normalizado).",
       impactMetric: "mods objetivo",

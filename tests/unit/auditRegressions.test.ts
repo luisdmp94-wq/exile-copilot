@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { importBuild } from "../../server/importers/buildImporter.js";
 import { exportGggBuild } from "../../server/exporters/gggBuildExporter.js";
+import {
+  MAX_LISTED_GAPS,
+  MAX_PLAN_HINTS,
+  targetGapsRule,
+} from "../../server/engine/rules.js";
 import { selectAppliedRecommendationIds } from "../../src/lib/appliedRecommendations.js";
 import {
   GggBuildPlannerV1Schema,
@@ -276,6 +281,143 @@ describe("auditoría 5 — pistas del plan sin restos de markup GGG", () => {
     // Los paréntesis legítimos del usuario no se tocan.
     expect(ref!.action).toContain("increased spell damage (10-20)");
     expect(ref!.action).not.toMatch(/[{}]/);
+  });
+});
+
+describe("auditoría 6 — limpieza de markup en un solo recorrido (O(n)) y límites", () => {
+  /** Ejecuta la regla de referencia sobre un plan y devuelve su acción. */
+  function actionFor(rawBuild: unknown, desiredMods: string[] = []): string {
+    const target = targetFromBuild(rawBuild);
+    target.desiredMods = desiredMods;
+    const candidates = targetGapsRule({
+      profile: emptyProfile(),
+      league: "Runes of Aldur",
+      patch: "0.5.4f",
+      target,
+    });
+    expect(candidates).toHaveLength(1);
+    return candidates[0]!.action;
+  }
+
+  it("wrappers anidados y multilínea quedan limpios, incluida la línea de cierre", () => {
+    const action = actionFor({
+      name: "Plan anidado multilínea",
+      inventory_slots: [
+        {
+          inventory_id: "BodyArmour1",
+          additional_text:
+            "<red>{Armour (Str Base)}\n\n<grey>{Stat Priority\n-------------------\n1. Increased Health\n2. <m>{<red>{Increased Resistances}}\n3. Increased Armour}",
+        },
+      ],
+    });
+    expect(action).toContain("Increased Health; Increased Resistances; Increased Armour");
+    expect(action).not.toMatch(/[{}]/);
+    expect(action).not.toContain("};");
+    expect(action).not.toMatch(/<[^>]+>/);
+  });
+
+  it("conserva literalmente llaves y paréntesis fuera de un wrapper reconocido", () => {
+    const action = actionFor(
+      {
+        name: "Plan con literales",
+        inventory_slots: [
+          {
+            inventory_id: "Ring1",
+            // Llaves y paréntesis dentro del wrapper pero SIN etiqueta propia:
+            // son texto legítimo del autor del plan y deben sobrevivir.
+            additional_text:
+              "<grey>{Stat Priority\n1. Increased Damage rango {10-20}\n2. Maximum Life (10-20)}",
+          },
+        ],
+      },
+      // Y un desiredMod del usuario con paréntesis legítimos.
+      ["Flat damage rango {5-7}"],
+    );
+    expect(action).toContain("Increased Damage rango {10-20}");
+    expect(action).toContain("Maximum Life (10-20)");
+    expect(action).toContain("Flat damage rango {5-7}");
+    // No queda ningún resto del wrapper que sí era markup.
+    expect(action).not.toContain("<grey>");
+    expect(action).not.toContain("Stat Priority}");
+  });
+
+  it("un wrapper sin cerrar se conserva verbatim (no se pierde texto)", () => {
+    const action = actionFor({
+      name: "Plan con wrapper abierto",
+      inventory_slots: [
+        { inventory_id: "Helm1", additional_text: "Increased Armour <red>{sin cerrar" },
+      ],
+    });
+    expect(action).toContain("Increased Armour <red>{sin cerrar");
+  });
+
+  it("entrada profundamente anidada: sin regresión cuadrática y con salida correcta", () => {
+    // 50 000 niveles ≈ 350 kB, muy por debajo del límite de 2 MB de la API.
+    // El limpiador iterativo anterior reescribía toda la cadena por nivel:
+    // medido en esta máquina daba 243 ms a 5 000 niveles, así que 50 000 (×10,
+    // coste ×100) rondaría los 20-25 s. Un solo recorrido tarda milisegundos.
+    // El umbral de 2 s no es frágil: separa dos órdenes de magnitud, no
+    // "rápido" de "un poco menos rápido".
+    const depth = 50_000;
+    const rawBuild = {
+      name: "Plan patológico",
+      inventory_slots: [
+        {
+          inventory_id: "Weapon1",
+          additional_text: `${"<red>{".repeat(depth)}Increased Armour${"}".repeat(depth)}`,
+        },
+      ],
+    };
+    const started = performance.now();
+    const action = actionFor(rawBuild);
+    const elapsedMs = performance.now() - started;
+
+    expect(action).toContain("Increased Armour");
+    expect(action).not.toMatch(/[{}]/);
+    expect(elapsedMs).toBeLessThan(2000);
+  });
+
+  it("limita las pistas recogidas y declara cuántas carencias no enumera", () => {
+    // 60 pistas distintas: por encima de MAX_PLAN_HINTS (40) y de MAX_LISTED_GAPS (12).
+    // El sufijo es alfabético a propósito: normalizeModText descarta los
+    // dígitos, así que unas pistas numeradas se deduplicarían entre sí.
+    const suffix = (i: number): string =>
+      String.fromCharCode(97 + Math.floor(i / 26)) + String.fromCharCode(97 + (i % 26));
+    const slots = Array.from({ length: 60 }, (_, i) => ({
+      inventory_id: `Slot${i}`,
+      additional_text: `<grey>{Increased Stat ${suffix(i)}}`,
+    }));
+    const action = actionFor({ name: "Plan enorme", inventory_slots: slots });
+
+    const listed = action.split("Increased Stat ").length - 1;
+    expect(listed).toBe(MAX_LISTED_GAPS);
+    // El truncamiento se declara: 40 recogidas − 12 enumeradas = 28 restantes.
+    expect(action).toContain(`(y ${MAX_PLAN_HINTS - MAX_LISTED_GAPS} más no enumeradas)`);
+    expect(action.length).toBeLessThan(1000);
+  });
+
+  it("la limpieza no toca el plan crudo: reexportar lo devuelve idéntico", () => {
+    const rawText =
+      "<red>{Armour (Str Base)}\n\n<grey>{Stat Priority\n-------------------\n1. Increased Health\n2. Increased Armour}";
+    const target = targetFromBuild({
+      name: "Plan intacto",
+      inventory_slots: [{ inventory_id: "BodyArmour1", additional_text: rawText }],
+    });
+    const planBefore = structuredClone(target.plan!.build);
+
+    // Ejecutar la regla (que limpia el markup) no puede alterar el plan.
+    targetGapsRule({
+      profile: emptyProfile(),
+      league: "Runes of Aldur",
+      patch: "0.5.4f",
+      target,
+    });
+    expect(target.plan!.build).toEqual(planBefore);
+
+    const exported = exportGggBuild(emptyProfile(), target);
+    const parsed = GggBuildPlannerV1Schema.parse(JSON.parse(exported.content));
+    expect(parsed.inventory_slots?.[0]?.additional_text).toBe(rawText);
+    expect(parsed.inventory_slots).toEqual(planBefore.inventory_slots);
   });
 });
 
