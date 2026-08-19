@@ -48,6 +48,8 @@ Separación de conceptos:
 - **GggBuildPlannerV1** (`shared/gggBuildPlanner.ts`): el archivo oficial exportable al juego.
 
 El formato oficial **no puede almacenar** nivel, liga, parche, atributos, resistencias, vida/defensas, mods concretos de objetos, presupuesto ni objetivo. Además, pasivas y gemas solo se exportan cuando existe un **id oficial verificable** (tablas `PassiveSkills` / `BaseItemTypes`); lo que no lo tiene aparece en `skippedUnverified` del informe de exportación. Por tanto NO es un round-trip sin pérdida: la app informa siempre de lo omitido.
+Los campos de un plan importado que el esquema v1 no documenta se conservan tal
+cual (el importador los declara en los avisos) y se reexportan sin pérdida.
 
 ## Estructura
 

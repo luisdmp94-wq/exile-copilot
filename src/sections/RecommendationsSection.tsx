@@ -22,6 +22,7 @@ import type { RecommendationsState } from "@/hooks/useRecommendations";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { buildTargetFromDraft } from "@/lib/buildTarget";
 import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
+import { selectAppliedRecommendationIds } from "@/lib/appliedRecommendations";
 import { formatDateTime } from "@/lib/format";
 
 interface RecommendationsSectionProps {
@@ -47,6 +48,15 @@ export function RecommendationsSection({
 }: RecommendationsSectionProps) {
   const { result, exportResult, loading, exporting, error } = recommendations;
   const [appliedIds, setAppliedIds] = useState<Record<string, boolean>>({});
+
+  // Cada generación (o invalidación) parte de cero: una marca de una
+  // generación anterior nunca sobrevive como "mejora aplicada".
+  // (Ajuste de estado durante el render, patrón recomendado por React.)
+  const [lastResult, setLastResult] = useState(result);
+  if (result !== lastResult) {
+    setLastResult(result);
+    setAppliedIds({});
+  }
 
   const canGenerate = !!profile && !!league && !!patch && !loading;
   const selectedCount = Object.values(appliedIds).filter(Boolean).length;
@@ -150,9 +160,11 @@ export function RecommendationsSection({
                   void recommendations.exportBuild({
                     profile,
                     target: buildTargetFromDraft(targetDraft),
-                    appliedRecommendations: Object.entries(appliedIds)
-                      .filter(([, applied]) => applied)
-                      .map(([id]) => id),
+                    // Solo ids marcados que existen en el resultado VIGENTE.
+                    appliedRecommendations: selectAppliedRecommendationIds(
+                      appliedIds,
+                      result.recommendations,
+                    ),
                   });
                 }}
               >

@@ -58,7 +58,7 @@ export function ImportPanel({ busy, onImport }: ImportPanelProps) {
           id="build-paste"
           value={pasted}
           onChange={(e) => setPasted(e.target.value)}
-          placeholder='{"formatVersion": 1, …} o código PoB en base64'
+          placeholder='{"name": "…", "passives": […], …} (Build Planner v1) o código PoB en base64'
           rows={4}
           disabled={busy}
           className="font-mono text-xs"

@@ -11,22 +11,30 @@ import { z } from "zod";
  * CharacterProfileSnapshot interno y se informa como no exportable.
  */
 
+/** Doc oficial: "?(array of uint, or uint)" — un uint o un array de uint (longitud no restringida). */
 const LevelIntervalSchema = z.union([
   z.number().int().nonnegative(),
-  z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]),
+  z.array(z.number().int().nonnegative()),
 ]);
 
+/**
+ * Los objetos del esquema son "loose" (conservan campos no documentados):
+ * un `.build` con campos que el esquema v1 no documenta se importa y se
+ * reexporta sin pérdida silenciosa; el importador los declara en warnings.
+ */
+
 /** BuildPassive: pasiva del árbol. `id` es un id de la tabla PassiveSkills (p. ej. "strength89"). */
-export const GggBuildPassiveSchema = z.object({
+export const GggBuildPassiveSchema = z.looseObject({
   id: z.string(),
   level_interval: LevelIntervalSchema.optional(),
+  /** Doc oficial: "a weapon set index between 0 and 2 (inclusive)". */
   weapon_set: z.number().int().min(0).max(2).optional(),
   additional_text: z.string().optional(),
 });
 export type GggBuildPassive = z.infer<typeof GggBuildPassiveSchema>;
 
 /** BuildSupport: support de una skill. `id` es un id de BaseItemTypes (p. ej. "Metadata/Items/Gems/SupportGemFastForward"). */
-export const GggBuildSupportSchema = z.object({
+export const GggBuildSupportSchema = z.looseObject({
   id: z.string(),
   level_interval: LevelIntervalSchema.optional(),
   additional_text: z.string().optional(),
@@ -34,7 +42,7 @@ export const GggBuildSupportSchema = z.object({
 export type GggBuildSupport = z.infer<typeof GggBuildSupportSchema>;
 
 /** BuildSkill: skill del build. `id` es un id de BaseItemTypes (p. ej. "Metadata/Items/Gems/SkillGemEarthquake"). */
-export const GggBuildSkillSchema = z.object({
+export const GggBuildSkillSchema = z.looseObject({
   id: z.string(),
   level_interval: LevelIntervalSchema.optional(),
   additional_text: z.string().optional(),
@@ -45,7 +53,7 @@ export const GggBuildSkillSchema = z.object({
 export type GggBuildSkill = z.infer<typeof GggBuildSkillSchema>;
 
 /** BuildInventorySlot: pista sobre un hueco de inventario. `inventory_id` es un id de Inventories (p. ej. "Weapon1"). */
-export const GggBuildInventorySlotSchema = z.object({
+export const GggBuildInventorySlotSchema = z.looseObject({
   inventory_id: z.string(),
   slot_x: z.number().int().nonnegative().optional(),
   slot_y: z.number().int().nonnegative().optional(),
@@ -56,7 +64,7 @@ export const GggBuildInventorySlotSchema = z.object({
 export type GggBuildInventorySlot = z.infer<typeof GggBuildInventorySlotSchema>;
 
 /** Build: objeto raíz del archivo `.build` oficial. */
-export const GggBuildPlannerV1Schema = z.object({
+export const GggBuildPlannerV1Schema = z.looseObject({
   name: z.string(),
   author: z.string().optional(),
   link: z.string().optional(),

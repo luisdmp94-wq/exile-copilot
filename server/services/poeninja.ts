@@ -418,10 +418,12 @@ export class PriceService {
       .map((ov) => asExchangeOverview(ov.payload).core?.primary)
       .find((p): p is string => typeof p === "string");
     const primary = mapPrimaryCurrency(primaryRaw);
-    const primaryCurrency: CurrencyKind | null = primaryRaw ? primary.currency : null;
     /** verified solo es posible si la primaria es una moneda reconocida. */
     const primaryRecognized =
       primaryRaw === "divine" || primaryRaw === "exalted" || primaryRaw === "chaos";
+    // Una primaria desconocida sigue siendo desconocida: null, nunca una
+    // afirmación concreta (los quotes individuales llevan su nota "No verificado").
+    const primaryCurrency: CurrencyKind | null = primaryRecognized ? primary.currency : null;
 
     // Tasas de conversión con origen y verificación (null si no hubo exchange).
     const ratesOverview = currencyOverviews.find(

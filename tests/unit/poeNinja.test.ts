@@ -261,8 +261,9 @@ describe("poe.ninja — caché con ETag (endpoints documentados)", () => {
     const service = new PriceService(client);
 
     const result = await service.getQuotes(["Divine Orb", "Storm Cantor"], LEAGUE);
-    // Fallback documentado: se reporta como exalted, pero NADA queda verificado.
-    expect(result.primaryCurrency).toBe("exalted");
+    // Una primaria desconocida sigue siendo desconocida: primaryCurrency es null
+    // (nunca se convierte en una afirmación concreta) y NADA queda verificado.
+    expect(result.primaryCurrency).toBeNull();
     expect(result.rates?.origin).toBe("live");
     expect(result.rates?.verified).toBe(false); // primaria no reconocida → tasas no verificadas
     expect(result.quotes[0]?.value).toBe(1); // el valor existe...

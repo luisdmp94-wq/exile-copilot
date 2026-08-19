@@ -105,7 +105,10 @@ export function exportGggBuild(
   // --- Skills --------------------------------------------------------------
   let skills: Array<string | GggBuildSkill> | undefined;
   if (plan) {
-    skills = plan.build.skills ? [...plan.build.skills] : undefined;
+    // Copia por elemento: la anotación de mejoras nunca muta el plan de entrada.
+    skills = plan.build.skills
+      ? plan.build.skills.map((s) => (typeof s === "object" ? { ...s } : s))
+      : undefined;
   } else {
     const out: GggBuildSkill[] = [];
     for (const skill of profile.skills) {
@@ -193,7 +196,26 @@ export function exportGggBuild(
     );
   }
 
+  // Campos raíz NO documentados del plan importado: se conservan tal cual
+  // (el esquema es loose); la reconstrucción del objeto raíz no debe perderlos.
+  const DOCUMENTED_ROOT_KEYS = new Set([
+    "name",
+    "author",
+    "link",
+    "description",
+    "ascendancy",
+    "passives",
+    "skills",
+    "inventory_slots",
+  ]);
+  const extraRootFields = plan
+    ? Object.fromEntries(
+        Object.entries(plan.build).filter(([key]) => !DOCUMENTED_ROOT_KEYS.has(key)),
+      )
+    : {};
+
   const build: GggBuildPlannerV1 = {
+    ...extraRootFields,
     name: plan?.build.name ?? profile.name,
     ...(plan?.build.author !== undefined
       ? { author: plan.build.author }
