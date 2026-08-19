@@ -1,0 +1,43 @@
+{
+  "lines": [
+    {
+      "id": 9001,
+      "itemId": "fixture-unique-crossbow-1",
+      "detailsId": "storm-cantor-heavy-crossbow",
+      "name": "Storm Cantor",
+      "baseType": "Heavy Crossbow",
+      "variant": "",
+      "category": "UniqueWeapons",
+      "primaryValue": 0.35,
+      "listingCount": 27,
+      "corrupted": false,
+      "levelRequired": 62
+    },
+    {
+      "id": 9002,
+      "itemId": "fixture-unique-crossbow-2",
+      "detailsId": "gale-hymn-varnished-crossbow",
+      "name": "Gale Hymn",
+      "baseType": "Varnished Crossbow",
+      "variant": "",
+      "category": "UniqueWeapons",
+      "primaryValue": 1.2,
+      "listingCount": 11,
+      "corrupted": false,
+      "levelRequired": 70
+    },
+    {
+      "id": 9003,
+      "itemId": "fixture-unique-crossbow-3",
+      "detailsId": "hollow-peal-siege-crossbow",
+      "name": "Hollow Peal",
+      "baseType": "Siege Crossbow",
+      "variant": "",
+      "category": "UniqueWeapons",
+      "primaryValue": 0.08,
+      "listingCount": 63,
+      "corrupted": false,
+      "levelRequired": 45
+    }
+  ]
+}

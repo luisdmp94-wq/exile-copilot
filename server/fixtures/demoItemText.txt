@@ -1,0 +1,24 @@
+Item Class: Crossbows
+Rarity: Rare
+Doom Song
+Varnished Crossbow
+--------
+Quality: +20%
+Physical Damage: 118-196
+Critical Hit Chance: 5.00%
+Attacks per Second: 1.10
+Reload Time: 0.80
+--------
+Requirements:
+Level: 68
+Str: 90
+Dex: 200
+--------
+Item Level: 82
+--------
++2 to Level of all Projectile Skills (implicit)
+--------
+42% increased Physical Damage
+Adds 14 to 27 Physical Damage
++112 to Accuracy Rating
++31% to Lightning Resistance

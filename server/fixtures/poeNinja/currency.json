@@ -1,0 +1,51 @@
+{
+  "core": {
+    "items": [
+      {
+        "id": "divine",
+        "name": "Divine Orb",
+        "image": "/gen/image/fixture/divine.png",
+        "category": "Currency",
+        "detailsId": "divine-orb"
+      },
+      {
+        "id": "exalted",
+        "name": "Exalted Orb",
+        "image": "/gen/image/fixture/exalted.png",
+        "category": "Currency",
+        "detailsId": "exalted-orb"
+      },
+      {
+        "id": "chaos",
+        "name": "Chaos Orb",
+        "image": "/gen/image/fixture/chaos.png",
+        "category": "Currency",
+        "detailsId": "chaos-orb"
+      },
+      {
+        "id": "alch",
+        "name": "Orb of Alchemy",
+        "image": "/gen/image/fixture/alch.png",
+        "category": "Currency",
+        "detailsId": "orb-of-alchemy"
+      },
+      {
+        "id": "regal",
+        "name": "Regal Orb",
+        "image": "/gen/image/fixture/regal.png",
+        "category": "Currency",
+        "detailsId": "regal-orb"
+      }
+    ],
+    "rates": { "exalted": 105, "chaos": 35.44 },
+    "primary": "divine",
+    "secondary": "chaos"
+  },
+  "lines": [
+    { "id": "divine", "primaryValue": 1, "volumePrimaryValue": 4021.7 },
+    { "id": "exalted", "primaryValue": 0.0095, "volumePrimaryValue": 1280.3 },
+    { "id": "chaos", "primaryValue": 0.0282, "volumePrimaryValue": 912.6 },
+    { "id": "alch", "primaryValue": 0.0047, "volumePrimaryValue": 210.4 },
+    { "id": "regal", "primaryValue": 0.0019, "volumePrimaryValue": 155.2 }
+  ]
+}
