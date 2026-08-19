@@ -1,24 +1,18 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 2 (fase de corrección), 2026-08-19.
+> Informe para el propietario. Última actualización: sesión 3 (fase de corrección), 2026-08-19.
 
-## Qué funciona (verificado en esta sesión)
+## Qué funciona (verificado en esta sesión, incluido checkout limpio)
 
-- **Formato `.build` oficial (GGG Build Planner v1)**: importador y exportador del esquema documentado en <https://www.pathofexile.com/developer/docs/game>. El archivo descargado termina en `.build` y valida contra el esquema oficial. Fixture verbatim del ejemplo oficial «Titan Warrior» de GGG.
-- **Separación de formatos**: `CharacterProfileSnapshot` (interno, completo) vs `GggBuildPlannerV1` (oficial, limitado). La exportación incluye un **informe honesto**: qué se exportó, qué no puede almacenar el formato (nivel, liga, resistencias, vida, mods, presupuesto…) y qué se omitió por falta de id oficial verificable. Ya NO se afirma «round-trip sin pérdida».
-- **Exactitud de datos**:
-  - Valores desconocidos = `null`/«Desconocido» en toda la app; nunca se convierten a 0 ni generan afirmaciones tipo «tienes 0%» ni recomendaciones de confianza alta derivadas de ellos (tests específicos).
-  - Los objetos raros nunca se valoran con precios de únicos por coincidencia de base (test específico).
-  - Eliminado el rango inventado `precio × 1,5`; sin precio consultable → «No verificado».
-  - Precios offline/fixture marcados «No verificado» aunque tengan valor numérico (test específico).
-  - Comparación con presupuesto solo tras normalizar divine/exalted/chaos con las tasas reales (`core.rates`) de poe.ninja; sin tasas → «No verificado si entra en el presupuesto» (tests de conversión y de caso sin tasas).
-- **Comportamiento**:
-  - La **build objetivo** (mods deseados) influye de verdad en el motor: test que demuestra salidas diferentes con y sin target.
-  - Las recomendaciones se **invalidan** al cambiar personaje, equipo, objetivo, liga o presupuesto (huella de inputs en cliente + `inputFingerprint` del servidor).
-  - El personaje guardado se **recupera tras recargar** (localStorage + `GET /api/character/:id`); botón «Empezar de nuevo».
-  - Formulario manual completo: vida, energy shield, evasión, armadura, nivel, liga y parche, además de atributos/resistencias/items/skills/pasivas.
-  - Parche con **versión de contenido y hotfix separados**, con fuente y fecha (`server/data/patches.json`); nada etiquetado como «actual».
-- **Seguridad/robustez**: importador PoB con límite de descompresión (2 MB) y de entrada (1M chars) con tests; caché SQLite corrupta manejada sin derribar la petición (borra la fila y sigue); ESLint en 0 errores en todo el repo.
+- **Integridad del repo**: `server/data/patches.json` estaba ignorado por un patrón `.gitignore` demasiado amplio (`data`); corregido a `/data/` y versionado. Verificado con `git ls-files` y con clon limpio (ver «Pruebas ejecutadas»).
+- **Separación personaje actual vs plan `.build`**: un `.build` oficial de GGG ya NO se convierte en snapshot del personaje. Importarlo crea un **BuildTargetPlan** (sección «Build objetivo», con aviso «no es tu personaje actual») y conserva el objeto oficial crudo. El motor nunca ejecuta reglas de equipo/quality/mods/resistencias sobre inventory_slots del planner. Eliminado el `archetype: "mercenary-crossbow"` hardcodeado. Test obligatorio incluido: importar «Titan Warrior» nunca menciona ballesta, quality ni «0 mods».
+- **Fidelidad del `.build`**: importar y reexportar conserva `level_interval`, `weapon_set`, `additional_text` (con markup), coordenadas `slot_x/slot_y`, `author` y `link` (test con `toEqual` sobre el fixture oficial). Las pérdidas se listan expresamente en el informe. `ascendancyId` (id oficial) separado del nombre visible. `unique_name` solo se exporta si es verificada (por defecto no, y se reporta). En la UI y docs: «válido contra el esquema GGG», nunca «probado en el juego».
+- **Persistencia**: restauración corregida para React Strict Mode (efecto idempotente, no se queda en «Restaurando…»); el id solo se guarda en localStorage tras un `POST /api/character` exitoso (perfil real en SQLite). Verificado en navegador, en producción y desarrollo: guardar vida=2150 → recargar → exactamente vida=2150, y la respuesta de guardado se comprueba (200 + `profile.life === 2150`).
+- **Recomendaciones aplicadas**: el servidor ya no las descarta — se incrustan como texto legible en `description` («Mejoras planificadas: 1) …») y en `additional_text` del slot/skill relacionado. Test que comprueba el contenido del archivo, no solo el HTTP 200.
+- **Mercado**: `verified: true` exige moneda primaria reconocida (test de primaria desconocida); las tasas transportan origen (`live`/`cache-fresh`/`cache-stale`/`fixture`) y verificación; tasas fixture/stale nunca justifican afirmar que una compra entra en el presupuesto (test de quote live + rates stale).
+- **Datos**: parche local actualizado a `content: 0.5.4`, `hotfix: f`, `asOf: 2026-08-12`, fuente: hilo oficial «0.5.4f Hotfix» (Stacey_GGG, foro de parches de pathofexile.com) — verificado en el foro oficial en esta sesión.
+- **Fixture PoB2 real**: los tests del adaptador PoB usan un código REAL extraído de la issue #2412 del repo PathOfBuilding-PoE2 (decodifica a XML `PathOfBuilding2` de 12 929 bytes, clase Ranger), con `PROVENANCE.txt`; los payloads sintéticos solo cubren los límites de seguridad.
+- `docs/PLAN.md` reescrito: ya no documenta el formato propietario eliminado.
 
 ## Cómo abrir la aplicación
 
@@ -30,70 +24,70 @@ npm run dev    # http://localhost:7100 (frontend + API en un solo servidor)
 
 ## Cómo probar el flujo principal
 
-Manual: «Cargar ejemplo» → editar vida → «Guardar correcciones» → presupuesto 5 → «Generar recomendaciones» → marcar recomendación → «Descargar .build» → ver informe → recargar la página (el personaje vuelve solo).
+Manual: «Cargar ejemplo» → editar vida → «Guardar correcciones» → presupuesto → «Generar recomendaciones» → marcar una → «Descargar .build» → ver informe → recargar (el personaje vuelve con la vida exacta). Importar un `.build` oficial lo añade como build objetivo (plan), no como personaje.
 
-Automatizada en navegador real:
+Automatizada (navegador real, Edge):
 
 ```bash
 npm run build
-npm run test:browser   # Edge headless vía Playwright, capturas en docs/screenshots/
+npm run test:browser        # producción
+node scripts/browser-smoke.mjs --all   # producción + desarrollo (Strict Mode)
 ```
 
-## Capturas / descripción visual
+## Capturas
 
-Capturas reales de esta sesión en `docs/screenshots/` (`recomendaciones.png`, `app-completa.png`). Cabecera oscura con badge de parche (contenido+hotfix, tooltip con fuente y fecha). Cuatro secciones: **Mi personaje** (importación y edición completa), **Build objetivo**, **Mercado actual** (precios con badges «desde caché»/«modo degradado»/«No verificado») y **Próximas mejoras** (3 tarjetas con prioridad, riesgo, confianza, parche, fuentes, «Falta por verificar», advertencias de pérdida de mods e irreversibilidad, checkbox para incluir en la exportación, informe de exportación con lo que el formato oficial no puede guardar).
+`docs/screenshots/flujo-prod.png` y `flujo-dev.png` (capturas reales de esta sesión).
 
-## Decisiones tomadas (sesión 2)
+## Decisiones tomadas (sesión 3)
 
-- El formato propietario anterior se eliminó por completo: solo GGG Build Planner v1 como archivo `.build`.
-- El demo sigue siendo rico (resistencias conocidas, vida baja, dex insuficiente) vía snapshot interno (`server/fixtures/demoSnapshot.json`); el `.build` oficial de demo es mínimo y honesto porque GGG no publica los ids de gemas de ballesta — no se inventaron.
-- Solo se exportan pasivas/gemas con id oficial verificable; lo demás se declara omitido.
-- La persistencia usa la tabla `characters` de SQLite + id en localStorage del navegador.
+- El `.build` oficial se trata siempre como PLAN: la importación aterriza en «Build objetivo»; solo los códigos PoB rellenan un personaje parcial.
+- Fidelidad vía conservación del objeto crudo en `target.plan`: la reexportación parte del plan original y declara cualquier pérdida.
+- Las mejoras aplicadas se exportan como texto legible (description/additional_text), no como datos estructurados inventados.
+- La restauración del personaje hace una doble petición GET bajo Strict Mode (idempotente); se priorizó corrección sobre ahorro.
 
 ## Supuestos
 
-- GGG no procesa nuevas apps OAuth → adaptador preparado pero desactivado.
-- La ascendencia oficial usa ids tipo `Warrior1`; sin mapeo oficial clase↔ascendencia documentado, la clase importada queda «Desconocida» salvo dato explícito.
-- PoB/POBb.in: adaptador básico (Hito 6 pendiente), no bloquea el flujo principal.
+- GGG no procesa nuevas apps OAuth → adaptador desactivado por flag.
+- Sin tabla oficial de nombres de PassiveSkills/BaseItemTypes: los nombres legibles de pasivas importadas se muestran como «no verificado».
+- PoB/POBb.in: adaptador básico (Hito 6 pendiente).
 
-## Pruebas ejecutadas (salidas reales)
+## Pruebas ejecutadas (salidas reales de esta sesión)
 
 - `npx tsc -b` → 0 errores.
-- `npx vitest run` → **7 archivos, 57/57 verdes** (incl. tests nuevos: esquema oficial, null-safety, conversión de monedas, sin tasas, rare-vs-unique, fixture offline, efecto de target, caché corrupta, límites PoB, persistencia).
+- `npx vitest run` → **7 archivos, 65/65 verdes**.
 - `npm run lint` → 0 errores.
-- `npx vite build` → OK (149 kB gzip).
-- `node scripts/browser-smoke.mjs` (Edge real, modo producción) → **9/9 comprobaciones**: carga, demo, corrección manual, 3 recomendaciones, descarga `.build`, Build válido, informe visible, persistencia tras recargar.
-- Verificación en vivo de poe.ninja (sesión anterior, 2026-08-19): Divine 1 div, Exalted ≈ 0.0029 div, Chaos ≈ 0.097 div, liga Runes of Aldur.
+- `npx vite build` → OK (~150 kB gzip).
+- `node scripts/browser-smoke.mjs --all` → **20/20** (10 comprobaciones en producción + 10 en desarrollo con Strict Mode): carga, sin «Restaurando…» atascado, demo, guardado 200 con vida=2150, 3 recomendaciones, descarga `.build`, esquema GGG completo, recomendación aplicada incrustada en description, vida restaurada exactamente 2150.
+- Verificación desde **checkout limpio**: ver sección siguiente.
+
+## Verificación desde checkout limpio
+
+_(se completa al final de la sesión — ver commit)_
 
 ## Funciones incompletas
 
-- Adaptador PoB: extracción básica; no importa árboles completos.
-- POBb.in: sin vía pública documentada; no integrado.
-- Explicador LLM: stub desactivado por flag.
-- Los nombres legibles de pasivas importadas desde `.build` oficial no se resuelven (se muestra el id con warning «nombre no verificado»); haría falta una tabla oficial de nombres.
+- Tabla de ids oficiales (PassiveSkills/BaseItemTypes): pendiente a petición expresa del propietario (no añadida en esta fase).
+- Adaptador PoB: extracción básica. POBb.in: sin vía pública documentada.
+- Explicador LLM: stub desactivado.
 
 ## Errores conocidos
 
-- El precio de objetos raros no existe en poe.ninja (solo únicos y divisa): las mejoras sobre rares muestran coste «No verificado» (intencionado).
-- El bundle JS supera 500 kB (aviso de Vite sin impacto funcional).
+- Precios de objetos raros: «No verificado» (poe.ninja solo cotiza únicos y divisa).
+- Bundle JS > 500 kB (aviso de Vite sin impacto funcional).
 
 ## Riesgos legales o de datos
 
-- Solo API económica pública documentada de poe.ninja, desde servidor, con User-Agent descriptivo, caché/ETag. Sin endpoints internos, sin scraping, sin OAuth.
-- Cero secretos en el repo (`.env` ignorado).
+- Solo API económica documentada de poe.ninja desde servidor, con User-Agent, caché/ETag. Sin scraping ni endpoints internos. Cero secretos en el repo.
 
 ## Próximo paso recomendado
 
-Integrar una tabla versionada de nombres/ids oficiales (PassiveSkills y BaseItemTypes de gemas de ballesta) para resolver nombres legibles y poder exportar skills/pasivas del arquetipo MVP con ids verificables.
+Cuando el propietario lo autorice: tabla versionada de ids oficiales para resolver nombres legibles y exportar skills/pasivas del arquetipo con ids verificables.
 
 ## Archivos importantes
 
-- `README.md` — cómo ejecutar y probar. `docs/PLAN.md` — arquitectura y contrato.
-- `shared/domain.ts` (snapshot interno), `shared/gggBuildPlanner.ts` (esquema oficial), `shared/api.ts` (contrato).
-- `server/importers/gggBuildImporter.ts`, `server/exporters/gggBuildExporter.ts` — formato oficial.
-- `server/services/poeninja.ts` — economía con caché/ETag/rates.
-- `server/engine/` — motor determinista (null-safe, target, fingerprint).
-- `server/fixtures/ggg/titanWarrior.build.json` (ejemplo oficial GGG), `demoMercenary.build`, `demoSnapshot.json`.
-- `server/data/patches.json` — parches versionados con fuente.
-- `src/` — frontend. `scripts/browser-smoke.mjs` — prueba de navegador real.
-- `tests/` — unitarias, integración, e2e.
+- `README.md`, `docs/PLAN.md`, `HANDOFF.md`.
+- `shared/domain.ts` (snapshot), `shared/gggBuildPlanner.ts` (oficial + BuildTargetPlan), `shared/api.ts`.
+- `server/importers/gggBuildImporter.ts` (→ plan), `server/exporters/gggBuildExporter.ts` (fidelidad + informe + mejoras planificadas).
+- `server/services/poeninja.ts` (rates con origen/verificación), `server/engine/`, `server/data/patches.json`.
+- `server/fixtures/ggg/titanWarrior.build.json` (oficial verbatim), `server/fixtures/pob2/` (código PoB2 real + procedencia), `server/fixtures/demoSnapshot.json`.
+- `src/` (frontend, Strict Mode), `scripts/browser-smoke.mjs`, `tests/`.

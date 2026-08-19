@@ -14,13 +14,15 @@ export function buildTargetFromDraft(draft: TargetDraft): BuildTarget | undefine
     draft.name.trim().length > 0 ||
     draft.sourceUrl.trim().length > 0 ||
     draft.summary.trim().length > 0 ||
-    desiredMods.length > 0;
+    desiredMods.length > 0 ||
+    draft.plan !== null;
   if (!hasContent) return undefined;
   return {
-    name: draft.name.trim() || "Build objetivo",
+    name: draft.name.trim() || draft.plan?.build.name || "Build objetivo",
     sourceUrl: draft.sourceUrl.trim() || undefined,
     summary: draft.summary.trim() || undefined,
     desiredMods,
     referenceOnly: true,
+    plan: draft.plan,
   };
 }

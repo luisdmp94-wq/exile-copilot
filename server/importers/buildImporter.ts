@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CharacterProfile } from "../../shared/domain.js";
+import type { BuildTargetPlan } from "../../shared/gggBuildPlanner.js";
 import { ApiHttpError } from "../errors.js";
 import { decodePobCode, looksLikePobCode } from "../adapters/pob.js";
 import { importGggBuildPlanner, parseGggBuildPlanner } from "./gggBuildImporter.js";
@@ -8,15 +9,21 @@ import { importGggBuildPlanner, parseGggBuildPlanner } from "./gggBuildImporter.
  * Dispatcher de importación de builds.
  *
  * Detecta:
- *  (a) JSON del formato OFICIAL `.build` (GGG Build Planner v1) → gggBuildImporter.
- *  (b) Código Path of Building (base64url + zlib) → adaptador PoB best-effort.
+ *  (a) JSON del formato OFICIAL `.build` (GGG Build Planner v1) → devuelve
+ *      `plan` (BuildTargetPlan con el objeto oficial crudo). NUNCA un perfil:
+ *      un .build oficial es un plan objetivo, no una captura del personaje.
+ *  (b) Código Path of Building (base64url + zlib) → `profile` parcial
+ *      (adaptador best-effort, todo marcado "No verificado").
  *  (c) Cualquier otra cosa → ApiHttpError(400) claro.
+ *
+ * La respuesta lleva `plan` XOR `profile` según el formato detectado.
  */
 
 export interface ImportBuildResult {
-  profile: CharacterProfile;
   warnings: string[];
   detectedFormat: "ggg-build-planner-v1" | "pob-code" | "unknown";
+  plan?: BuildTargetPlan;
+  profile?: CharacterProfile;
 }
 
 export interface ImportDefaults {
@@ -41,9 +48,11 @@ function importFromPob(content: string, defaults: ImportDefaults): ImportBuildRe
     id: randomUUID(),
     name: "Personaje importado desde PoB",
     characterClass: partial.characterClass ?? "Desconocida",
-    ...(partial.ascendancy !== undefined ? { ascendancy: partial.ascendancy } : {}),
+    // ascendClassName de PoB es un nombre visible, no un id oficial verificado.
+    ascendancy: partial.ascendancy ?? null,
+    ascendancyId: null,
     level: partial.level ?? 1,
-    archetype: "mercenary-crossbow",
+    archetype: null, // nunca hardcodeado: el usuario lo declara si quiere
     league: defaults.league,
     patch: defaults.patch,
     items: [],
@@ -69,22 +78,22 @@ function importFromPob(content: string, defaults: ImportDefaults): ImportBuildRe
   return { profile, warnings, detectedFormat: "pob-code" };
 }
 
-export function importBuild(content: string, defaults: ImportDefaults): ImportBuildResult {
+export function importBuild(content: string, _defaults: ImportDefaults): ImportBuildResult {
   const trimmed = content.trim();
   if (trimmed.length === 0) {
     throw new ApiHttpError(400, "contenido-vacio", "El contenido a importar está vacío.");
   }
 
-  // (a) JSON del formato oficial GGG Build Planner v1
+  // (a) JSON del formato oficial GGG Build Planner v1 → PLAN (nunca perfil)
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
     const build = parseGggBuildPlanner(trimmed);
-    const { profile, warnings } = importGggBuildPlanner(build, defaults);
-    return { profile, warnings, detectedFormat: "ggg-build-planner-v1" };
+    const { plan, warnings } = importGggBuildPlanner(build);
+    return { plan, warnings, detectedFormat: "ggg-build-planner-v1" };
   }
 
-  // (b) Código PoB
+  // (b) Código PoB → perfil parcial
   if (looksLikePobCode(trimmed)) {
-    return importFromPob(trimmed, defaults);
+    return importFromPob(trimmed, _defaults);
   }
 
   // (c) Desconocido

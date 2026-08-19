@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { CharacterProfileSchema, type BuildTarget, type CharacterProfile } from "../../shared/domain.js";
+import type { MarketRates } from "../../shared/api.js";
 import {
   computeInputFingerprint,
   convertBudget,
@@ -29,11 +30,15 @@ function offlinePriceService(): PriceService {
 const BASE_OPTIONS = {
   budget: { amount: 50, currency: "chaos" as const },
   league: "Runes of Aldur",
-  patch: "0.5.0",
+  patch: "0.5.4f",
 };
 
+function liveRates(values: Record<string, number>): MarketRates {
+  return { values, origin: "live", verified: true, fetchedAt: "2026-08-19T10:00:00.000Z" };
+}
+
 /** PriceLookup falso con quote verificado en divine y tasas configurables. */
-function fakePriceLookup(opts: { value: number; rates: Record<string, number> | null }): PriceLookup {
+function fakePriceLookup(opts: { value: number; rates: MarketRates | null }): PriceLookup {
   const quote = {
     itemName: "Fake Unique",
     currency: "divine" as const,
@@ -85,7 +90,7 @@ describe("engine — exactitud y contratos", () => {
       expect(rec.id).toBeTruthy();
       expect(rec.impact.isPartialMetric).toBe(true); // nunca DPS ficticio
       expect(rec.impact.description).not.toMatch(/\bDPS\b/i);
-      expect(rec.patch).toBe("0.5.0");
+      expect(rec.patch).toBe("0.5.4f");
       expect(rec.sources.some((s) => s.kind === "calculation")).toBe(true);
       // Nunca rangos inventados: si el coste es conocido, max queda null
       if (rec.cost.known) expect(rec.cost.max).toBeNull();
@@ -111,17 +116,14 @@ describe("engine — exactitud y contratos", () => {
       { priceService: offlinePriceService() },
     );
 
-    // No hay regla de resistencias ni de caos basada en datos inexistentes
     expect(result.recommendations.some((r) => r.id === "rec-resistencias-elementales")).toBe(false);
     expect(result.recommendations.some((r) => r.id === "rec-resistencia-caos")).toBe(false);
-    // En su lugar: recomendación de completar datos, confidence low, coste null
     const gap = result.recommendations.find((r) => r.id === "rec-datos-resistencias");
     expect(gap).toBeDefined();
     expect(gap?.confidence).toBe("low");
     expect(gap?.cost.known).toBe(false);
     expect(gap?.cost.min).toBeNull();
     expect(gap?.unverified.some((u) => u.includes("No verificado"))).toBe(true);
-    // Nadie afirma un porcentaje inventado
     for (const rec of result.recommendations) {
       expect(rec.action + rec.reason).not.toContain("0%");
     }
@@ -130,7 +132,6 @@ describe("engine — exactitud y contratos", () => {
   it("arma rare NUNCA se valora con precios de únicos aunque coincida el nombre/base", async () => {
     const profile = demoProfile();
     const weapon = profile.items.find((i) => i.slot === "weapon");
-    // Nombre idéntico a un único del fixture, pero rare:
     if (weapon) {
       weapon.name = "Gale Hymn";
       weapon.rarity = "rare";
@@ -148,7 +149,6 @@ describe("engine — exactitud y contratos", () => {
   });
 
   it("quote offline (fixture) queda No verificado aunque tenga valor numérico", async () => {
-    // Arma ÚNICA que sí existe en el fixture offline → hay valor, pero jamás verified
     const profile = profileWithUniqueWeapon();
     const weapon = profile.items.find((i) => i.slot === "weapon");
     if (weapon) weapon.name = "Gale Hymn";
@@ -164,17 +164,31 @@ describe("engine — exactitud y contratos", () => {
 });
 
 describe("engine — conversión de presupuesto entre monedas", () => {
-  it("convertBudget: misma moneda, tasas y casos no verificables", () => {
+  it("convertBudget: misma moneda, tasas verificadas y casos no verificables", () => {
     expect(convertBudget({ amount: 50, currency: "chaos" }, "chaos", null)).toBe(50);
-    // rates.exalted = 1000 → 1 divine = 1000 exalted
-    expect(convertBudget({ amount: 1500, currency: "exalted" }, "divine", { exalted: 1000 })).toBe(1.5);
-    expect(convertBudget({ amount: 70.88, currency: "chaos" }, "divine", { chaos: 35.44 })).toBe(2);
-    // Sin tasas o moneda ausente → no verificable
+    // rates.values.exalted = 1000 → 1 divine = 1000 exalted
+    expect(
+      convertBudget({ amount: 1500, currency: "exalted" }, "divine", liveRates({ exalted: 1000 })),
+    ).toBe(1.5);
+    expect(
+      convertBudget({ amount: 70.88, currency: "chaos" }, "divine", liveRates({ chaos: 35.44 })),
+    ).toBe(2);
+    // Sin tasas, tasas NO verificadas o moneda ausente → no verificable
     expect(convertBudget({ amount: 1500, currency: "exalted" }, "divine", null)).toBeNull();
-    expect(convertBudget({ amount: 100, currency: "gold" }, "divine", { exalted: 1000 })).toBeNull();
+    expect(
+      convertBudget({ amount: 1500, currency: "exalted" }, "divine", {
+        values: { exalted: 1000 },
+        origin: "fixture",
+        verified: false,
+        fetchedAt: "2026-08-19T10:00:00.000Z",
+      }),
+    ).toBeNull();
+    expect(
+      convertBudget({ amount: 100, currency: "gold" }, "divine", liveRates({ exalted: 1000 })),
+    ).toBeNull();
   });
 
-  it("coste en divine vs presupuesto en exalted: se convierte con rates y se penaliza si excede", async () => {
+  it("coste en divine vs presupuesto en exalted: se convierte con rates verificadas", async () => {
     const profile = profileWithUniqueWeapon();
     const opts = {
       league: BASE_OPTIONS.league,
@@ -182,7 +196,7 @@ describe("engine — conversión de presupuesto entre monedas", () => {
       goal: { kind: "damage" as const },
       budget: { amount: 1500, currency: "exalted" as const }, // = 1.5 divine con rates
     };
-    const lookup = fakePriceLookup({ value: 2, rates: { exalted: 1000 } });
+    const lookup = fakePriceLookup({ value: 2, rates: liveRates({ exalted: 1000 }) });
 
     const result = await generateRecommendations(profile, opts, { priceService: lookup });
     const rec = result.recommendations.find((r) => r.id === "rec-mejora-arma");
@@ -190,11 +204,8 @@ describe("engine — conversión de presupuesto entre monedas", () => {
     expect(rec?.cost.min).toBe(2);
     expect(rec?.cost.max).toBeNull(); // nunca rango inventado
     expect(rec?.cost.currency).toBe("divine");
-    // Conversión verificada disponible: no se dice "No verificado si entra"
     expect(rec?.unverified.some((u) => u.includes("No verificado si entra en el presupuesto"))).toBe(false);
 
-    // Con presupuesto holgado (3000 ex = 3 div > 2 div) no hay penalización:
-    // el score relativo sube y la recomendación no pierde posiciones.
     const rich = await generateRecommendations(
       profile,
       { ...opts, budget: { amount: 3000, currency: "exalted" } },
@@ -203,9 +214,17 @@ describe("engine — conversión de presupuesto entre monedas", () => {
     expect(rich.recommendations[0]?.id).toBe("rec-mejora-arma");
   });
 
-  it("sin rates → NO se afirma que entra en el presupuesto", async () => {
+  it("quote live + rates stale → NO se afirma que entra en el presupuesto", async () => {
     const profile = profileWithUniqueWeapon();
-    const lookup = fakePriceLookup({ value: 2, rates: null });
+    const lookup = fakePriceLookup({
+      value: 2,
+      rates: {
+        values: { exalted: 1000 },
+        origin: "cache-stale",
+        verified: false, // tasas de caché antigua: no verificadas
+        fetchedAt: "2026-08-10T10:00:00.000Z",
+      },
+    });
     const result = await generateRecommendations(
       profile,
       {
@@ -217,7 +236,7 @@ describe("engine — conversión de presupuesto entre monedas", () => {
       { priceService: lookup },
     );
     const rec = result.recommendations.find((r) => r.id === "rec-mejora-arma");
-    expect(rec?.cost.known).toBe(true);
+    expect(rec?.cost.known).toBe(true); // el quote sí es verificado
     expect(rec?.unverified.some((u) => u.includes("No verificado si entra en el presupuesto"))).toBe(true);
   });
 });
@@ -228,6 +247,7 @@ describe("engine — target e fingerprint", () => {
     sourceUrl: "https://mobalytics.gg/poe-2/builds/example",
     desiredMods: ["increased projectile damage", "maximum life"],
     referenceOnly: true,
+    plan: null,
   };
 
   it("el target cambia las recomendaciones (mismas entradas ±target)", async () => {
@@ -246,13 +266,46 @@ describe("engine — target e fingerprint", () => {
     expect(idsCon).not.toEqual(idsSin);
     const targetRec = con.recommendations.find((r) => r.id === "rec-mods-objetivo");
     expect(targetRec).toBeDefined();
-    // "maximum life" sí existe en el perfil (max Life mods): solo falta projectile damage
     expect(targetRec?.action).toContain("projectile damage");
     expect(targetRec?.action).not.toContain("maximum life");
     expect(targetRec?.sources.some((s) => s.kind === "community")).toBe(true);
     expect(targetRec?.unverified.some((u) => u.includes("referenceOnly"))).toBe(true);
-    // El fingerprint también cambia con target
     expect(con.inputFingerprint).not.toBe(sin.inputFingerprint);
+  });
+
+  it("target con plan oficial: lee pistas de inventory_slots como referencia (sin stats)", async () => {
+    const titanRaw = readFileSync(
+      fileURLToPath(new URL("../../server/fixtures/ggg/titanWarrior.build.json", import.meta.url)),
+      "utf8",
+    );
+    const plan = {
+      build: JSON.parse(titanRaw),
+      importedAt: "2026-08-19T10:00:00.000Z",
+    };
+    const targetConPlan: BuildTarget = {
+      name: "Titan Warrior",
+      desiredMods: [],
+      referenceOnly: true,
+      plan,
+    };
+    // Perfil vacío (sin items): el plan es solo referencia, nunca stats.
+    const emptyProfile = demoProfile();
+    emptyProfile.items = [];
+    emptyProfile.resistances = { fire: null, cold: null, lightning: null, chaos: null };
+
+    const result = await generateRecommendations(
+      emptyProfile,
+      { ...BASE_OPTIONS, goal: { kind: "balanced" }, target: targetConPlan },
+      { priceService: offlinePriceService() },
+    );
+    const targetRec = result.recommendations.find((r) => r.id === "rec-mods-objetivo");
+    expect(targetRec).toBeDefined();
+    expect(targetRec?.action).toContain("Titan Warrior");
+    expect(targetRec?.sources.some((s) => s.kind === "user")).toBe(true);
+    // El plan es un plan: nunca se menciona equipo del planner como si fuera del personaje
+    for (const rec of result.recommendations) {
+      expect(rec.action + rec.reason).not.toMatch(/ballesta|crossbow|quality|0 mods/i);
+    }
   });
 
   it("fingerprint estable para mismos inputs y distinto si cambia el presupuesto", async () => {

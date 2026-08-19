@@ -213,8 +213,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // { fileName (".build"), content (string JSON), report (ExportReport) }
   app.post("/export/build", (req, res, next) => {
     try {
-      const { profile, target } = ExportBuildRequestSchema.parse(req.body);
-      res.json(exportGggBuild(profile, target));
+      const { profile, target, appliedRecommendations } = ExportBuildRequestSchema.parse(req.body);
+      res.json(exportGggBuild(profile, target, appliedRecommendations ?? []));
     } catch (err) {
       next(err);
     }

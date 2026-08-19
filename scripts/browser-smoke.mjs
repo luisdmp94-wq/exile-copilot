@@ -2,23 +2,27 @@
  * Prueba real de navegador del flujo principal de Exile Copilot.
  * Usa Microsoft Edge instalado en el sistema (sin descargar Chromium).
  *
- * Uso: node scripts/browser-smoke.mjs
- * Requiere: `npm run build` previo (sirve dist/ en modo producción).
+ * Uso:
+ *   node scripts/browser-smoke.mjs          → producción (requiere `npm run build` previo)
+ *   node scripts/browser-smoke.mjs --dev    → modo desarrollo (Vite + Strict Mode)
+ *   node scripts/browser-smoke.mjs --all    → ambos
  */
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-const PORT = 7199;
-const BASE = `http://localhost:${PORT}`;
 const SHOT_DIR = fileURLToPath(new URL("../docs/screenshots/", import.meta.url));
+const args = process.argv.slice(2);
+const modes = args.includes("--all")
+  ? ["prod", "dev"]
+  : args.includes("--dev")
+    ? ["dev"]
+    : ["prod"];
 
-function wait(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function waitForServer(url, attempts = 60) {
+async function waitForServer(url, attempts = 90) {
   for (let i = 0; i < attempts; i++) {
     try {
       const res = await fetch(url);
@@ -31,108 +35,25 @@ async function waitForServer(url, attempts = 60) {
   throw new Error("El servidor no respondió a tiempo");
 }
 
-// Arranque real del servidor de producción con tsx
-const proc = spawn(
-  "npx",
-  ["tsx", "server/index.ts"],
-  {
-    env: { ...process.env, PORT: String(PORT), NODE_ENV: "production" },
+function startServer(mode, port) {
+  const cmd =
+    mode === "prod"
+      ? ["tsx", "server/index.ts"]
+      : ["vite", "--port", String(port), "--strictPort"];
+  const proc = spawn("npx", cmd, {
+    env: {
+      ...process.env,
+      PORT: String(port),
+      NODE_ENV: mode === "prod" ? "production" : "development",
+    },
     shell: true,
     stdio: ["ignore", "pipe", "pipe"],
-  },
-);
-proc.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`));
+  });
+  proc.stderr.on("data", (d) => process.stderr.write(`[server:${mode}] ${d}`));
+  return proc;
+}
 
-let browser;
-let failures = 0;
-const check = (name, ok) => {
-  console.log(`${ok ? "✅" : "❌"} ${name}`);
-  if (!ok) failures++;
-};
-
-try {
-  await waitForServer(`${BASE}/api/health`);
-  check("servidor producción responde /api/health", true);
-
-  browser = await chromium.launch({ channel: "msedge", headless: true });
-  const context = await browser.newContext({ acceptDownloads: true });
-  const page = await context.newPage();
-  mkdirSync(SHOT_DIR, { recursive: true });
-
-  // 1. Carga inicial
-  await page.goto(BASE, { waitUntil: "networkidle" });
-  check(
-    "página carga con cabecera Exile Copilot",
-    await page.getByText("Exile Copilot").first().isVisible(),
-  );
-
-  // 2. Cargar ejemplo
-  await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
-  await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
-  check("ejemplo precargado muestra el personaje demo", true);
-
-  // 3. Editar vida (manual) y guardar correcciones (persistencia)
-  await page.locator("#def-life").fill("2150");
-  const saveBtn = page.getByRole("button", { name: /Guardar correcciones/i });
-  await saveBtn.click();
-  await wait(800);
-  check("corrección manual guardada (vida 2150)", true);
-
-  // 4. Presupuesto y generación de recomendaciones
-  await page.locator("#market-budget").fill("5");
-  await page
-    .getByRole("button", { name: "Generar recomendaciones" })
-    .click();
-  await page.waitForSelector("text=/Prioridad|prioridad/i", { timeout: 15000 });
-  await wait(1000);
-  const cards = await page.locator("text=/Confianza|confianza/").count();
-  check(`se generan recomendaciones (${cards} tarjetas visibles)`, cards >= 3);
-  await page.screenshot({ path: `${SHOT_DIR}recomendaciones.png`, fullPage: true });
-
-  // 5. Exportar .build oficial
-  const [download] = await Promise.all([
-    page.waitForEvent("download", { timeout: 15000 }),
-    page.getByRole("button", { name: /Descargar \.build/ }).click(),
-  ]);
-  const fileName = download.suggestedFilename();
-  check(`descarga termina en .build (${fileName})`, fileName.endsWith(".build"));
-  const path = await download.path();
-  const { readFileSync } = await import("node:fs");
-  const parsed = JSON.parse(readFileSync(path, "utf8"));
-  check(
-    "el archivo descargado es un Build válido (name + array de pasivas/skills)",
-    typeof parsed.name === "string" &&
-      (parsed.passives === undefined || Array.isArray(parsed.passives)) &&
-      (parsed.skills === undefined || Array.isArray(parsed.skills)),
-  );
-
-  // 6. Informe de exportación honesto visible
-  check(
-    "informe de exportación visible (lo que el formato NO puede guardar)",
-    await page
-      .getByText(/no puede guardar|NO puede/i)
-      .first()
-      .isVisible()
-      .catch(() => false),
-  );
-
-  // 7. Persistencia tras recargar
-  await page.reload({ waitUntil: "networkidle" });
-  const restored = await page
-    .getByText("Demo Gemling")
-    .first()
-    .isVisible({ timeout: 8000 })
-    .catch(() => false);
-  check("el personaje guardado se recupera tras recargar", restored);
-
-  await page.screenshot({ path: `${SHOT_DIR}app-completa.png`, fullPage: true });
-} catch (err) {
-  console.error("ERROR en la prueba de navegador:", err.message);
-  failures++;
-} finally {
-  if (browser) await browser.close();
-  proc.kill();
-  // En Windows, matar el árbol de procesos de npx
+async function stopServer(proc) {
   try {
     const { execSync } = await import("node:child_process");
     execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: "ignore" });
@@ -141,5 +62,138 @@ try {
   }
 }
 
-console.log(failures === 0 ? "\nTODAS LAS COMPROBACIONES PASARON" : `\n${failures} COMPROBACIONES FALLARON`);
+let failures = 0;
+const check = (name, ok) => {
+  console.log(`${ok ? "✅" : "❌"} ${name}`);
+  if (!ok) failures++;
+};
+
+async function runFlow(mode, port) {
+  const BASE = `http://localhost:${port}`;
+  console.log(`\n=== MODO ${mode.toUpperCase()} (${BASE}) ===`);
+  const proc = startServer(mode, port);
+  let browser;
+  try {
+    await waitForServer(`${BASE}/api/health`);
+    check(`[${mode}] servidor responde /api/health`, true);
+
+    browser = await chromium.launch({ channel: "msedge", headless: true });
+    const context = await browser.newContext({ acceptDownloads: true });
+    const page = await context.newPage();
+    mkdirSync(SHOT_DIR, { recursive: true });
+
+    // 1. Carga inicial (Strict Mode en dev: no debe quedarse en "Restaurando…")
+    await page.goto(BASE, { waitUntil: "networkidle" });
+    check(
+      `[${mode}] cabecera Exile Copilot visible`,
+      await page.getByText("Exile Copilot").first().isVisible(),
+    );
+    const stuckRestoring = await page
+      .getByText(/Restaurando/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    check(`[${mode}] no se queda en "Restaurando…" (Strict Mode)`, !stuckRestoring);
+
+    // 2. Cargar ejemplo
+    await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
+    check(`[${mode}] ejemplo precargado visible`, true);
+
+    // 3. Editar vida y guardar: comprobar la RESPUESTA de guardado (200 + perfil)
+    await page.locator("#def-life").fill("2150");
+    const [saveResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/api/character") && r.request().method() === "POST",
+        { timeout: 10000 },
+      ),
+      page.getByRole("button", { name: /Guardar correcciones/i }).click(),
+    ]);
+    const savedBody = await saveResponse.json().catch(() => null);
+    check(
+      `[${mode}] respuesta de guardado 200 con vida=2150`,
+      saveResponse.status() === 200 && savedBody?.profile?.life === 2150,
+    );
+
+    // 4. Presupuesto y recomendaciones
+    await page.locator("#market-budget").fill("5");
+    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    await page.waitForSelector("text=/Confianza|confianza/", { timeout: 15000 });
+    const cards = await page.locator("text=/Confianza|confianza/").count();
+    check(`[${mode}] se generan ${cards} tarjetas de recomendación`, cards >= 3);
+
+    // 5. Marcar una recomendación como aplicada y exportar
+    const checkbox = page
+      .getByRole("checkbox", { name: /Ya la apliqué/i })
+      .first();
+    if (await checkbox.isVisible().catch(() => false)) await checkbox.check();
+    const [download] = await Promise.all([
+      page.waitForEvent("download", { timeout: 15000 }),
+      page.getByRole("button", { name: /Descargar \.build/ }).click(),
+    ]);
+    const fileName = download.suggestedFilename();
+    check(`[${mode}] descarga termina en .build (${fileName})`, fileName.endsWith(".build"));
+
+    // 6. Esquema completo del archivo descargado
+    const path = await download.path();
+    const parsed = JSON.parse(readFileSync(path, "utf8"));
+    const allowed = new Set([
+      "name",
+      "author",
+      "link",
+      "description",
+      "ascendancy",
+      "passives",
+      "skills",
+      "inventory_slots",
+    ]);
+    const keysOk = Object.keys(parsed).every((k) => allowed.has(k));
+    const shapesOk =
+      typeof parsed.name === "string" &&
+      (parsed.passives === undefined || Array.isArray(parsed.passives)) &&
+      (parsed.skills === undefined || Array.isArray(parsed.skills)) &&
+      (parsed.inventory_slots === undefined ||
+        parsed.inventory_slots.every(
+          (s) => typeof s === "object" && typeof s.inventory_id === "string",
+        ));
+    check(
+      `[${mode}] archivo válido contra el esquema GGG (claves y formas)`,
+      keysOk && shapesOk,
+    );
+    check(
+      `[${mode}] recomendación aplicada incrustada en description`,
+      typeof parsed.description === "string" &&
+        parsed.description.includes("Mejoras planificadas"),
+    );
+    await page.screenshot({
+      path: `${SHOT_DIR}flujo-${mode}.png`,
+      fullPage: true,
+    });
+
+    // 7. Persistencia: recargar y comprobar EXACTAMENTE vida=2150
+    await page.reload({ waitUntil: "networkidle" });
+    await page.locator("#def-life").waitFor({ timeout: 10000 });
+    const restoredLife = await page.locator("#def-life").inputValue();
+    check(
+      `[${mode}] vida restaurada tras recargar = ${restoredLife} (esperado 2150)`,
+      restoredLife === "2150",
+    );
+  } catch (err) {
+    console.error(`ERROR en la prueba de navegador (${mode}):`, err.message);
+    failures++;
+  } finally {
+    if (browser) await browser.close();
+    await stopServer(proc);
+  }
+}
+
+for (const mode of modes) {
+  await runFlow(mode, mode === "prod" ? 7199 : 7198);
+}
+
+console.log(
+  failures === 0
+    ? "\nTODAS LAS COMPROBACIONES PASARON"
+    : `\n${failures} COMPROBACIONES FALLARON`,
+);
 process.exit(failures === 0 ? 0 : 1);

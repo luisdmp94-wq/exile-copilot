@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
@@ -14,6 +16,26 @@ function makePobCode(xml: string): string {
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 }
+
+describe("pob adapter — fixture real (PathOfBuilding2)", () => {
+  // Código real exportado de Path of Building PoE2 (ver fixtures/pob2/PROVENANCE.txt).
+  const realCode = readFileSync(
+    fileURLToPath(new URL("../../server/fixtures/pob2/realBuildCode.txt", import.meta.url)),
+    "utf8",
+  ).trim();
+
+  it("decodifica un código real de PathOfBuilding2 (Ranger, nivel 1, ascendencia None)", () => {
+    expect(looksLikePobCode(realCode)).toBe(true);
+    const result = decodePobCode(realCode);
+    expect(result.ok).toBe(true);
+    expect(result.xml).toContain("<PathOfBuilding2>");
+    expect(result.partial.characterClass).toBe("Ranger");
+    expect(result.partial.level).toBe(1);
+    expect(result.partial.ascendancy).toBe("None");
+    // Todo lo extraído va marcado como no verificado.
+    expect(result.warnings.some((w) => w.includes("No verificado"))).toBe(true);
+  });
+});
 
 describe("pob adapter — robustez", () => {
   it("decodifica un código PoB válido", () => {

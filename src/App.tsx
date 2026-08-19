@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Budget, GoalKind } from "@shared/domain.js";
+import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
@@ -19,20 +20,39 @@ const EMPTY_TARGET: TargetDraft = {
   sourceUrl: "",
   summary: "",
   desiredModsText: "",
+  plan: null,
 };
 
 export default function App() {
   const { health, meta, loading: metaLoading, error: metaError } = useMeta();
-  const character = useCharacter();
-  const market = useMarket();
-  const recommendations = useRecommendations();
-  const { resultInputsKey, clear } = recommendations;
 
   const [league, setLeague] = useState("");
   const [patch, setPatch] = useState("");
   const [budget, setBudget] = useState<Budget>({ amount: 50, currency: "exalted" });
   const [goal, setGoal] = useState<GoalKind>("balanced");
   const [targetDraft, setTargetDraft] = useState<TargetDraft>(EMPTY_TARGET);
+  const [targetWarnings, setTargetWarnings] = useState<string[]>([]);
+
+  // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
+  const characterOptions = useMemo(
+    () => ({
+      onPlanImported: (plan: BuildTargetPlan, warns: string[]) => {
+        setTargetDraft({
+          name: plan.build.name,
+          sourceUrl: plan.build.link ?? plan.sourceUrl ?? "",
+          summary: plan.build.description ?? "",
+          desiredModsText: "",
+          plan,
+        });
+        setTargetWarnings(warns);
+      },
+    }),
+    [],
+  );
+  const character = useCharacter(characterOptions);
+  const market = useMarket();
+  const recommendations = useRecommendations();
+  const { resultInputsKey, clear } = recommendations;
 
   // Valores por defecto en cuanto llegan /api/meta y /api/health.
   useEffect(() => {
@@ -97,7 +117,14 @@ export default function App() {
         <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
           <div className="flex flex-col gap-6">
             <CharacterSection character={character} meta={meta} />
-            <TargetSection draft={targetDraft} onChange={setTargetDraft} />
+            <TargetSection
+              draft={targetDraft}
+              warnings={targetWarnings}
+              onChange={(draft) => {
+                setTargetDraft(draft);
+                if (draft.plan !== targetDraft.plan) setTargetWarnings([]);
+              }}
+            />
           </div>
           <div className="flex flex-col gap-6">
             <MarketSection

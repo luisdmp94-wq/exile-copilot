@@ -10,7 +10,10 @@ import {
   PriceQuoteSchema,
   RecommendationSchema,
 } from "./domain.js";
-import { ExportReportSchema } from "./gggBuildPlanner.js";
+import {
+  BuildTargetPlanSchema,
+  ExportReportSchema,
+} from "./gggBuildPlanner.js";
 
 /**
  * Contrato de la API REST v1 (toda bajo /api).
@@ -41,13 +44,18 @@ export const MetaResponseSchema = z.object({
 export type MetaResponse = z.infer<typeof MetaResponseSchema>;
 
 // POST /api/import/build
+// Un `.build` oficial de GGG es un PLAN (BuildTargetPlan), no una captura del
+// personaje: la respuesta lleva `plan` XOR `profile` según el formato detectado.
 export const ImportBuildRequestSchema = z.object({
   content: z.string().min(1),
 });
 export const ImportBuildResponseSchema = z.object({
-  profile: CharacterProfileSchema,
   warnings: z.array(z.string()),
   detectedFormat: z.enum(["ggg-build-planner-v1", "pob-code", "unknown"]),
+  /** Presente cuando se importa un `.build` oficial: va a la sección Build objetivo. */
+  plan: BuildTargetPlanSchema.optional(),
+  /** Presente solo para importaciones parciales de personaje (p. ej. código PoB). */
+  profile: CharacterProfileSchema.optional(),
 });
 export type ImportBuildRequest = z.infer<typeof ImportBuildRequestSchema>;
 export type ImportBuildResponse = z.infer<typeof ImportBuildResponseSchema>;
@@ -94,13 +102,22 @@ export const MarketPricesResponseSchema = z.object({
   /** Moneda primaria de cotización de la liga (p. ej. "divine"). */
   primaryCurrency: CurrencyKind.nullable(),
   /**
-   * Tasas de conversión contra la moneda primaria, recibidas de poe.ninja
-   * (core.rates: id de moneda → cuántas unidades valen 1 unidad de la primaria).
-   * null = sin conversión verificable: no se puede afirmar que algo entra en presupuesto.
+   * Tasas de conversión contra la moneda primaria, con origen y estado de
+   * verificación. null = sin conversión verificable: no se puede afirmar que
+   * algo entra en presupuesto. Jamás se usan tasas de fixture o caché antigua
+   * para afirmar que una compra entra o no en el presupuesto.
    */
-  rates: z.record(z.string(), z.number()).nullable(),
+  rates: z
+    .object({
+      values: z.record(z.string(), z.number()),
+      origin: z.enum(["live", "cache-fresh", "cache-stale", "fixture"]),
+      verified: z.boolean(),
+      fetchedAt: z.string(),
+    })
+    .nullable(),
 });
 export type MarketPricesResponse = z.infer<typeof MarketPricesResponseSchema>;
+export type MarketRates = NonNullable<MarketPricesResponse["rates"]>;
 
 // POST /api/recommendations
 export const RecommendationsRequestSchema = z.object({

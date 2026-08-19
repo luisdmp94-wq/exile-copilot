@@ -59,6 +59,14 @@ interface MarketSectionProps {
 const GOALS = Object.keys(GOAL_LABELS) as GoalKind[];
 const CURRENCIES = Object.keys(CURRENCY_LABELS) as CurrencyKind[];
 
+/** Origen de las tasas de conversión, en lenguaje discreto para la UI. */
+const RATES_ORIGIN_LABELS: Record<"live" | "cache-fresh" | "cache-stale" | "fixture", string> = {
+  live: "en vivo (poe.ninja)",
+  "cache-fresh": "caché reciente",
+  "cache-stale": "caché antigua",
+  fixture: "datos de ejemplo",
+};
+
 export function MarketSection({
   meta,
   metaLoading,
@@ -279,13 +287,22 @@ export function MarketSection({
                 </AlertDescription>
               </Alert>
             )}
-            {prices.rates === null && (
+            {prices.rates !== null && (
+              <p
+                className="text-xs text-muted-foreground"
+                title={`Tasas recibidas: ${formatDateTime(prices.rates.fetchedAt)}`}
+              >
+                Tasas de conversión: {RATES_ORIGIN_LABELS[prices.rates.origin]}
+                {prices.rates.verified ? "" : " (sin verificar)"}
+              </p>
+            )}
+            {(prices.rates === null || !prices.rates.verified) && (
               <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
                 <AlertTitle>Sin tasas de conversión verificables</AlertTitle>
                 <AlertDescription>
-                  No se recibieron tasas de cambio entre monedas: no se puede confirmar
-                  si un coste entra en el presupuesto. Compara cada precio en su propia
-                  moneda.
+                  No hay tasas de cambio verificables entre monedas: no se puede
+                  confirmar si un coste entra en el presupuesto. Compara cada precio en
+                  su propia moneda.
                 </AlertDescription>
               </Alert>
             )}

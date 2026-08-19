@@ -58,10 +58,10 @@ describe("api (integración, app Express con db :memory:)", () => {
     const body = await jsonOf(res);
     expect(body.ok).toBe(true);
     expect(body.patch).toEqual({
-      content: "0.5.0",
-      hotfix: null,
-      asOf: "2026-05-29",
-      source: expect.stringContaining("pathofexile.com"),
+      content: "0.5.4",
+      hotfix: "f",
+      asOf: "2026-08-12",
+      source: expect.stringContaining("0.5.4f Hotfix"),
     });
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
@@ -71,22 +71,26 @@ describe("api (integración, app Express con db :memory:)", () => {
     const body = await jsonOf(res);
     expect(body.leagues).toContain("Runes of Aldur");
     expect(body.leagues).toContain("Standard");
-    expect(body.patches.map((p: { id: string }) => p.id)).toEqual(["0.5.0", "0.3.0"]);
-    expect(body.patches[0].asOf).toBe("2026-05-29");
+    expect(body.patches.map((p: { id: string }) => p.id)).toEqual(["0.5.4f", "0.5.0", "0.3.0"]);
+    expect(body.patches[0].asOf).toBe("2026-08-12");
     expect(body.patches[0].source).toContain("pathofexile.com");
     expect(body.goals).toContain("survival");
     expect(body.currencies).toEqual(["chaos", "exalted", "divine", "gold"]);
   });
 
-  it("POST /import/build con el ejemplo oficial de GGG", async () => {
+  it("POST /import/build con el ejemplo oficial de GGG devuelve PLAN (nunca perfil)", async () => {
     const res = await postJson("/import/build", { content: titanBuildContent });
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.detectedFormat).toBe("ggg-build-planner-v1");
-    expect(CharacterProfileSchema.safeParse(body.profile).success).toBe(true);
-    expect(body.profile.name).toBe("Titan Warrior");
-    expect(body.profile.resistances.fire).toBeNull(); // desconocido, nunca 0
-    expect(body.profile.passives.allocated[0].isOfficialId).toBe(true);
+    // Un .build oficial es un plan objetivo: plan presente, profile ausente.
+    expect(body.profile).toBeUndefined();
+    expect(body.plan).toBeDefined();
+    expect(body.plan.build.name).toBe("Titan Warrior");
+    expect(body.plan.build.ascendancy).toBe("Warrior1");
+    expect(typeof body.plan.importedAt).toBe("string");
+    // El plan crudo no fabrica stats del personaje.
+    expect(JSON.stringify(body.plan)).not.toContain("resistances");
     expect(body.warnings.length).toBeGreaterThan(0);
   });
 
@@ -115,6 +119,8 @@ describe("api (integración, app Express con db :memory:)", () => {
   it("POST /character + GET /character/:id: el personaje se recupera tras guardarlo", async () => {
     const demoRes = await fetch(`${base}/character/demo`);
     const { profile } = await jsonOf(demoRes);
+    // Corrección manual del usuario: vida exacta que debe sobrevivir al round-trip.
+    profile.life = 2150;
     const save = await postJson("/character", { profile });
     expect(save.status).toBe(200);
 
@@ -124,6 +130,7 @@ describe("api (integración, app Express con db :memory:)", () => {
     const body = await jsonOf(get);
     expect(body.profile.id).toBe(profile.id);
     expect(body.profile.name).toBe(profile.name);
+    expect(body.profile.life).toBe(2150); // exacto, sin truncar ni "mejorar"
     expect(body.profile.resistances).toEqual(profile.resistances);
     expect(body.profile.skills).toEqual(profile.skills);
 
@@ -146,13 +153,17 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.profile.resistances.lightning).toBe(40);
   });
 
-  it("GET /market/prices offline: fixtures degradados + primaryCurrency + rates", async () => {
+  it("GET /market/prices offline: fixtures degradados + primaryCurrency + rates (objeto con origen)", async () => {
     const res = await fetch(`${base}/market/prices?names=Divine%20Orb,Cosa%20Inventada`);
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.degraded).toBe(true);
     expect(body.primaryCurrency).toBe("divine");
-    expect(body.rates).toEqual({ exalted: 105, chaos: 35.44 });
+    // rates es un objeto {values, origin, verified, fetchedAt}; fixture → NO verificado
+    expect(body.rates.values).toEqual({ exalted: 105, chaos: 35.44 });
+    expect(body.rates.origin).toBe("fixture");
+    expect(body.rates.verified).toBe(false);
+    expect(typeof body.rates.fetchedAt).toBe("string");
     expect(body.quotes[0].value).toBe(1); // Divine Orb = primaria del fixture
     expect(body.quotes[0].currency).toBe("divine");
     expect(body.quotes[0].verified).toBe(false); // fixture → No verificado aunque tenga valor
@@ -188,10 +199,13 @@ describe("api (integración, app Express con db :memory:)", () => {
     }
   });
 
-  it("POST /export/build devuelve JSON {fileName .build, content, report}", async () => {
+  it("POST /export/build devuelve JSON {fileName .build, content, report} con mejoras legibles", async () => {
     const demoRes = await fetch(`${base}/character/demo`);
     const { profile } = await jsonOf(demoRes);
-    const res = await postJson("/export/build", { profile, appliedRecommendations: ["rec-x"] });
+    const res = await postJson("/export/build", {
+      profile,
+      appliedRecommendations: ["rec-resistencias-elementales"],
+    });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/json");
     const body = await jsonOf(res);
@@ -201,5 +215,8 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.report.notExportable.length).toBeGreaterThan(0);
     expect(body.report.skippedUnverified.length).toBeGreaterThan(0); // pasivas/skills del demo sin id oficial
     expect(body.report.exported.inventorySlots).toBeGreaterThan(0);
+    // La recomendación aplicada aparece como texto legible en el .build
+    expect(body.content).toContain("Mejoras planificadas:");
+    expect(body.content).toContain("Cubrir resistencias elementales hasta el cap");
   });
 });

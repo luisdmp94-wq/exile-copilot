@@ -36,7 +36,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     poeNinjaCacheTtlSeconds: int(env.POE_NINJA_CACHE_TTL_SECONDS, 900),
     poeNinjaOffline: bool(env.POE_NINJA_OFFLINE, false),
     defaultLeague: env.DEFAULT_LEAGUE ?? "Runes of Aldur",
-    defaultPatch: env.DEFAULT_PATCH ?? "0.5.0",
+    defaultPatch: env.DEFAULT_PATCH ?? "0.5.4f",
     databasePath: env.DATABASE_PATH ?? "./data/exile-copilot.db",
     gggOauthEnabled: bool(env.GGG_OAUTH_ENABLED, false),
     explainerLlmEnabled: bool(env.EXPLAINER_LLM_ENABLED, false),

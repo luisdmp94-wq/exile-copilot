@@ -314,11 +314,35 @@ function ProfileEditor({ profile, meta, onUpdate, onMutate }: ProfileEditorProps
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-ascendancy">Ascendencia</Label>
+          <Label htmlFor="char-ascendancy">Ascendencia (nombre visible)</Label>
           <Input
             id="char-ascendancy"
             value={profile.ascendancy ?? ""}
-            onChange={(e) => onUpdate({ ascendancy: e.target.value || undefined })}
+            placeholder="Desconocida"
+            onChange={(e) => onUpdate({ ascendancy: e.target.value || null })}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="char-ascendancy-id">ID de ascendencia (oficial, opcional)</Label>
+          <Input
+            id="char-ascendancy-id"
+            value={profile.ascendancyId ?? ""}
+            placeholder="p. ej. Warrior1"
+            aria-describedby="char-ascendancy-id-help"
+            onChange={(e) => onUpdate({ ascendancyId: e.target.value || null })}
+            className="font-mono text-xs"
+          />
+          <p id="char-ascendancy-id-help" className="text-xs text-muted-foreground">
+            Solo si lo conoces; se exporta como id oficial en el archivo .build.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="char-archetype">Arquetipo (opcional)</Label>
+          <Input
+            id="char-archetype"
+            value={profile.archetype ?? ""}
+            placeholder="p. ej. mercenario con ballesta"
+            onChange={(e) => onUpdate({ archetype: e.target.value || null })}
           />
         </div>
         <div className="flex flex-col gap-1.5">

@@ -13,6 +13,30 @@ import type { BuildTarget, CharacterProfile, GoalKind, SourceEvidence } from "..
 
 export const ENGINE_VERSION = "1.0.0";
 
+/** Etiquetas legibles de recomendación (para la sección "Mejoras planificadas" del exportador). */
+export const RECOMMENDATION_LABELS: Record<string, string> = {
+  "rec-resistencias-elementales": "Cubrir resistencias elementales hasta el cap",
+  "rec-resistencia-caos": "Corregir la resistencia al caos negativa",
+  "rec-requisitos-atributos": "Resolver requisitos de atributos no cumplidos",
+  "rec-mejora-arma": "Mejorar el arma",
+  "rec-enlaces-skill": "Completar los supports de la skill principal",
+  "rec-vida-baja": "Subir la vida máxima",
+  "rec-datos-resistencias": "Completar datos del personaje: resistencias",
+  "rec-datos-atributos": "Completar datos del personaje: atributos",
+  "rec-datos-vida": "Completar datos del personaje: vida máxima",
+  "rec-mods-objetivo": "Acercarse a la build de referencia",
+};
+
+/** Hueco/skill relacionado con una recomendación (para additional_text al exportar). */
+export const RECOMMENDATION_SLOT_HINTS: Record<
+  string,
+  { kind: "inventory"; inventoryId: string } | { kind: "skill" }
+> = {
+  "rec-mejora-arma": { kind: "inventory", inventoryId: "Weapon1" },
+  "rec-resistencias-elementales": { kind: "inventory", inventoryId: "Ring1" },
+  "rec-enlaces-skill": { kind: "skill" },
+};
+
 export const RESISTANCE_CAP = 75;
 /** Heurística de vida mínima: nivel × 30 (documentada, no verificada). */
 export const LIFE_PER_LEVEL = 30;
@@ -259,9 +283,9 @@ export const weaponUpgradeRule: Rule = ({ profile }) => {
   return [
     {
       ruleId: "mejora-arma",
-      title: "Mejorar la ballesta",
-      action: `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca una ${weapon.baseType} o base similar con mejor daño físico y quality dentro de tu presupuesto.`,
-      reason: "En el arquetipo mercenario-ballesta el arma es la principal palanca de daño; una base mejor compensa varios upgrades menores.",
+      title: "Mejorar el arma",
+      action: `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca una ${weapon.baseType} o base similar con mejores mods dentro de tu presupuesto.`,
+      reason: "El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.",
       impactMetric: "daño del arma",
       impactDescription: "Impacto estimado en daño por mejora de base/mods del arma (métrica parcial orientativa).",
       magnitude: "high",
@@ -370,14 +394,35 @@ function normalizeModText(text: string): string {
 }
 
 export const targetGapsRule: Rule = ({ profile, target }) => {
-  if (!target || target.desiredMods.length === 0) return [];
+  if (!target) return [];
+
+  // Referencias del target: desiredMods explícitos + pistas de texto de los
+  // inventory_slots del plan oficial (additional_text). Son REFERENCIA
+  // (community/user, referenceOnly): nunca se convierten en stats.
+  const planHints: string[] = [];
+  const planSlots = target.plan?.build.inventory_slots ?? [];
+  for (const slot of planSlots) {
+    if (!slot.additional_text) continue;
+    // Líneas tipo "1. Increased Health" de las pistas de prioridad de stats.
+    for (const rawLine of slot.additional_text.split("\n")) {
+      const line = rawLine.replace(/<[^>]+>/g, " ").replace(/^\s*\d+[.)]\s*/, "").trim();
+      if (/^(increased|flat|level of|maximum|highest)/i.test(line) && line.length < 60) {
+        planHints.push(line);
+      }
+    }
+  }
+
+  const desired = [...target.desiredMods, ...planHints];
+  if (desired.length === 0) return [];
 
   const owned = new Set(
     profile.items.flatMap((i) => i.modifiers.map((m) => normalizeModText(m.text))),
   );
-  const missing = target.desiredMods.filter((desired) => {
-    const norm = normalizeModText(desired);
-    if (norm.length === 0) return false;
+  const seen = new Set<string>();
+  const missing = desired.filter((d) => {
+    const norm = normalizeModText(d);
+    if (norm.length === 0 || seen.has(norm)) return false;
+    seen.add(norm);
     for (const have of owned) {
       if (have.includes(norm) || norm.includes(have)) return false;
     }
@@ -393,14 +438,21 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
       retrievedAt: new Date().toISOString(),
     },
   ];
+  if (target.plan) {
+    extraSources.push({
+      kind: "user",
+      label: `Plan oficial .build importado: ${target.plan.build.name}`,
+      retrievedAt: target.plan.importedAt,
+    });
+  }
 
   return [
     {
       ruleId: "mods-objetivo",
       title: "Acercarse a la build de referencia",
-      action: `La build de referencia "${target.name}" pide mods que no tienes: ${missing.join("; ")}. Valora piezas que los cubran.`,
+      action: `La build de referencia "${target.name}" sugiere stats que no tienes: ${missing.join("; ")}. Valora piezas que los cubran.`,
       reason:
-        "Comparación de los mods de tu equipo con los desiredMods de la build de referencia (matching por texto normalizado).",
+        "Comparación de los mods de tu equipo con los desiredMods y las pistas del plan de referencia (matching por texto normalizado).",
       impactMetric: "mods objetivo",
       impactDescription: "Acercamiento a la build de referencia (métrica parcial orientativa).",
       magnitude: "medium",
@@ -412,7 +464,7 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
       goalWeights: { damage: 1.4, survival: 1, mapping: 1.2, bossing: 1, balanced: 1.6 },
       confidenceBase: "low",
       unverified: [
-        "No verificado — la build objetivo es una referencia comunitaria (referenceOnly), nunca verdad absoluta.",
+        "No verificado — la build objetivo es una referencia comunitaria/oficial (referenceOnly), nunca verdad absoluta.",
         "No verificado — el matching de mods es por texto normalizado y puede producir falsos positivos/negativos.",
       ],
       extraSources,

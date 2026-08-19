@@ -7,16 +7,27 @@ import {
   type GggBuildSkill,
 } from "../../shared/gggBuildPlanner.js";
 import type { BuildTarget, CharacterProfile, ItemSlot } from "../../shared/domain.js";
+import { RECOMMENDATION_LABELS, RECOMMENDATION_SLOT_HINTS } from "../engine/rules.js";
 
 /**
  * Exportador al formato OFICIAL `.build` (GGG Build Planner v1).
  *
- * Principio rector: el informe (`report`) es la verdad. NUNCA se promete
- * round-trip sin pérdida: el formato oficial no puede almacenar nivel, liga,
- * parche, atributos, resistencias, vida/defensas, mods concretos de objetos,
- * presupuesto ni objetivo. Solo se exportan pasivas con id oficial
- * (`isOfficialId`), skills con `mainSkillGemId` y supports con `gemId`;
- * el resto va a `report.skippedUnverified`.
+ * Principios:
+ *  - El informe (`report`) es la verdad: nunca se promete round-trip sin
+ *    pérdida. El resultado es "válido contra el esquema GGG", NUNCA
+ *    "probado en el juego".
+ *  - Fidelidad del plan: si `target.plan` existe, se parte del objeto oficial
+ *    CRUDO importado y se preservan TODOS sus campos (author, link,
+ *    level_interval, weapon_set, additional_text, slot_x/slot_y…). Lo que no
+ *    se pueda preservar se lista en `report.skippedUnverified`.
+ *  - `ascendancy` se escribe SOLO desde `profile.ascendancyId` (id oficial);
+ *    el nombre visible nunca se escribe como id. `unique_name` solo se
+ *    exporta si es una entrada verificada: sin tabla oficial disponible, por
+ *    defecto NO se exporta y se reporta.
+ *  - Las recomendaciones aplicadas se DESCARTAN como dato estructurado, pero
+ *    se incluyen como texto legible en `description` ("Mejoras planificadas:
+ *    1) … 2) …") y, cuando hay slot/skill relacionado, también en
+ *    `additional_text`.
  */
 
 export interface GggExportResult {
@@ -48,86 +59,167 @@ function sanitizeFileName(name: string): string {
   return `${cleaned.length > 0 ? cleaned : "exile-copilot-build"}.build`;
 }
 
+/** Texto legible de una recomendación aplicada (label conocido o el id crudo). */
+function recommendationLabel(recId: string): string {
+  return RECOMMENDATION_LABELS[recId] ?? recId;
+}
+
+/** Sección legible en español con las mejoras planificadas. */
+function plannedImprovementsText(appliedRecommendations: string[]): string {
+  const lines = appliedRecommendations.map((id, i) => `${i + 1}) ${recommendationLabel(id)}`);
+  return `Mejoras planificadas:\n${lines.join("\n")}`;
+}
+
 export function exportGggBuild(
   profile: CharacterProfile,
   target?: BuildTarget,
+  appliedRecommendations: string[] = [],
 ): GggExportResult {
   const skippedUnverified: string[] = [];
+  const plan = target?.plan ?? null;
 
-  // Pasivas: solo ids oficiales de PassiveSkills.
-  const passives: Array<string | GggBuildPassive> = [];
-  for (const node of profile.passives.allocated) {
-    if (!node.isOfficialId) {
-      skippedUnverified.push(
-        `Pasiva "${node.ref}" sin id oficial de PassiveSkills (nombre no verificado).`,
-      );
-      continue;
-    }
-    if (node.additionalText !== undefined) {
-      passives.push({ id: node.ref, additional_text: node.additionalText });
-    } else {
-      passives.push(node.ref);
-    }
-  }
-
-  // Skills: solo gemas con id oficial de BaseItemTypes.
-  const skills: GggBuildSkill[] = [];
-  for (const skill of profile.skills) {
-    if (skill.mainSkillGemId === null) {
-      skippedUnverified.push(
-        `Skill "${skill.mainSkill}" sin id oficial de BaseItemTypes (mainSkillGemId null).`,
-      );
-      continue;
-    }
-    const supports: string[] = [];
-    for (const support of skill.supports) {
-      if (support.gemId === null) {
+  // --- Pasivas -------------------------------------------------------------
+  // Con plan: se preservan CRUDAS del objeto oficial (fidelidad total).
+  // Sin plan: solo pasivas del snapshot con id oficial verificado.
+  let passives: Array<string | GggBuildPassive> | undefined;
+  if (plan) {
+    passives = plan.build.passives ? [...plan.build.passives] : undefined;
+  } else {
+    const out: Array<string | GggBuildPassive> = [];
+    for (const node of profile.passives.allocated) {
+      if (!node.isOfficialId) {
         skippedUnverified.push(
-          `Support "${support.name}" de "${skill.mainSkill}" sin id oficial (gemId null).`,
+          `Pasiva "${node.ref}" sin id oficial de PassiveSkills (nombre no verificado).`,
         );
         continue;
       }
-      supports.push(support.gemId);
+      if (node.additionalText !== undefined) {
+        out.push({ id: node.ref, additional_text: node.additionalText });
+      } else {
+        out.push(node.ref);
+      }
     }
-    const entry: GggBuildSkill = { id: skill.mainSkillGemId };
-    if (supports.length > 0) entry.support_skills = supports;
-    skills.push(entry);
+    if (out.length > 0) passives = out;
   }
 
-  // Inventory slots: pistas de texto por hueco (el formato no guarda mods).
-  const inventorySlots: GggBuildInventorySlot[] = [];
-  for (const item of profile.items) {
-    const inventoryId = SLOT_TO_INVENTORY[item.slot];
-    if (!inventoryId) continue;
-    const slot: GggBuildInventorySlot = {
-      inventory_id: inventoryId,
-      additional_text: `${item.name} (${item.baseType}) — pista generada por Exile Copilot; los mods concretos no son exportables al formato oficial.`,
-    };
-    if (item.rarity === "unique") slot.unique_name = item.name;
-    inventorySlots.push(slot);
+  // --- Skills --------------------------------------------------------------
+  let skills: Array<string | GggBuildSkill> | undefined;
+  if (plan) {
+    skills = plan.build.skills ? [...plan.build.skills] : undefined;
+  } else {
+    const out: GggBuildSkill[] = [];
+    for (const skill of profile.skills) {
+      if (skill.mainSkillGemId === null) {
+        skippedUnverified.push(
+          `Skill "${skill.mainSkill}" sin id oficial de BaseItemTypes (mainSkillGemId null).`,
+        );
+        continue;
+      }
+      const supports: string[] = [];
+      for (const support of skill.supports) {
+        if (support.gemId === null) {
+          skippedUnverified.push(
+            `Support "${support.name}" de "${skill.mainSkill}" sin id oficial (gemId null).`,
+          );
+          continue;
+        }
+        supports.push(support.gemId);
+      }
+      const entry: GggBuildSkill = { id: skill.mainSkillGemId };
+      if (supports.length > 0) entry.support_skills = supports;
+      out.push(entry);
+    }
+    if (out.length > 0) skills = out;
+  }
+
+  // --- Inventory slots -------------------------------------------------------
+  let inventorySlots: GggBuildInventorySlot[] | undefined;
+  if (plan) {
+    inventorySlots = plan.build.inventory_slots
+      ? plan.build.inventory_slots.map((s) => ({ ...s }))
+      : undefined;
+  } else {
+    const out: GggBuildInventorySlot[] = [];
+    for (const item of profile.items) {
+      const inventoryId = SLOT_TO_INVENTORY[item.slot];
+      if (!inventoryId) continue;
+      if (item.rarity === "unique") {
+        // Sin tabla oficial de UniqueName disponible: por defecto NO se exporta.
+        skippedUnverified.push(
+          `unique_name "${item.name}" no exportado: no hay tabla oficial de UniqueName disponible para verificarlo.`,
+        );
+      }
+      out.push({
+        inventory_id: inventoryId,
+        additional_text: `${item.name} (${item.baseType}) — pista generada por Exile Copilot; los mods concretos no son exportables al formato oficial.`,
+      });
+    }
+    if (out.length > 0) inventorySlots = out;
+  }
+
+  // --- Recomendaciones aplicadas → texto legible -----------------------------
+  if (appliedRecommendations.length > 0) {
+    for (const recId of appliedRecommendations) {
+      const hint = RECOMMENDATION_SLOT_HINTS[recId];
+      if (!hint) continue; // sin mapeo: igualmente aparece en description
+      const label = recommendationLabel(recId);
+      if (hint.kind === "inventory" && inventorySlots) {
+        const slot = inventorySlots.find((s) => s.inventory_id === hint.inventoryId);
+        if (slot) {
+          slot.additional_text = `${slot.additional_text ?? ""}\n\nMejora planificada: ${label}`.trim();
+        }
+      } else if (hint.kind === "skill" && skills && skills.length > 0) {
+        const first = skills[0];
+        if (typeof first === "object") {
+          first.additional_text = `${first.additional_text ?? ""}\n\nMejora planificada: ${label}`.trim();
+        }
+      }
+    }
+  }
+
+  // --- description: plan/target + mejoras planificadas -----------------------
+  const descriptionParts: string[] = [];
+  if (plan?.build.description) descriptionParts.push(plan.build.description);
+  else if (target?.summary) descriptionParts.push(target.summary);
+  if (appliedRecommendations.length > 0) {
+    descriptionParts.push(plannedImprovementsText(appliedRecommendations));
+  }
+
+  // --- ascendancy: SOLO el id oficial (ascendancyId), nunca el nombre visible
+  const ascendancyId = profile.ascendancyId ?? plan?.build.ascendancy;
+  if (profile.ascendancy !== null && profile.ascendancyId === null) {
+    skippedUnverified.push(
+      `Ascendencia "${profile.ascendancy}" es solo un nombre visible sin id oficial: no se exporta como ascendancy.`,
+    );
   }
 
   const build: GggBuildPlannerV1 = {
-    name: profile.name,
-    author: "Exile Copilot",
-    ...(target?.sourceUrl !== undefined ? { link: target.sourceUrl } : {}),
-    ...(target?.summary !== undefined ? { description: target.summary } : {}),
-    ...(profile.ascendancy !== undefined ? { ascendancy: profile.ascendancy } : {}),
-    ...(passives.length > 0 ? { passives } : {}),
-    ...(skills.length > 0 ? { skills } : {}),
-    ...(inventorySlots.length > 0 ? { inventory_slots: inventorySlots } : {}),
+    name: plan?.build.name ?? profile.name,
+    ...(plan?.build.author !== undefined
+      ? { author: plan.build.author }
+      : { author: "Exile Copilot" }),
+    ...(plan?.build.link !== undefined
+      ? { link: plan.build.link }
+      : target?.sourceUrl !== undefined
+        ? { link: target.sourceUrl }
+        : {}),
+    ...(descriptionParts.length > 0 ? { description: descriptionParts.join("\n\n") } : {}),
+    ...(ascendancyId !== undefined && ascendancyId !== null ? { ascendancy: ascendancyId } : {}),
+    ...(passives !== undefined ? { passives } : {}),
+    ...(skills !== undefined ? { skills } : {}),
+    ...(inventorySlots !== undefined ? { inventory_slots: inventorySlots } : {}),
   };
 
-  // Validación defensiva contra el esquema oficial antes de devolver.
+  // Validación defensiva: el resultado es "válido contra el esquema GGG".
   const validated = GggBuildPlannerV1Schema.parse(build);
 
   const report: ExportReport = {
     exported: {
       name: true,
-      ascendancy: profile.ascendancy !== undefined,
-      passives: passives.length,
-      skills: skills.length,
-      inventorySlots: inventorySlots.length,
+      ascendancy: validated.ascendancy !== undefined,
+      passives: validated.passives?.length ?? 0,
+      skills: validated.skills?.length ?? 0,
+      inventorySlots: validated.inventory_slots?.length ?? 0,
     },
     notExportable: [
       "Nivel del personaje",
@@ -137,11 +229,11 @@ export function exportGggBuild(
       "Vida y defensas (ES/evasión/armadura)",
       "Mods concretos, calidad y requisitos de los objetos (los inventory_slots solo son pistas de texto)",
       "Presupuesto y objetivo del jugador",
-      "Recomendaciones aplicadas",
+      "Recomendaciones aplicadas como dato estructurado (se incluyen como texto legible en description/additional_text)",
     ],
     skippedUnverified,
   };
 
-  const fileName = sanitizeFileName(profile.name);
+  const fileName = sanitizeFileName(validated.name);
   return { fileName, content: JSON.stringify(validated, null, 2), report };
 }

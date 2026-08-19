@@ -73,6 +73,19 @@ export type GggBuildPlannerV1 = z.infer<typeof GggBuildPlannerV1Schema>;
 export const GGG_BUILD_PLANNER_VERSION = 1 as const;
 
 /**
+ * Plan objetivo importado: un `.build` oficial de GGG es un PLAN/instructor,
+ * NO una captura del personaje equipado. Se conserva el objeto oficial crudo
+ * para reexportarlo con fidelidad (level_interval, weapon_set, additional_text,
+ * coordenadas, author, link…).
+ */
+export const BuildTargetPlanSchema = z.object({
+  build: GggBuildPlannerV1Schema,
+  importedAt: z.string(), // ISO 8601
+  sourceUrl: z.string().optional(),
+});
+export type BuildTargetPlan = z.infer<typeof BuildTargetPlanSchema>;
+
+/**
  * Informe de exportación: qué se pudo exportar al formato oficial y qué
  * información del snapshot interno NO puede representarse en Build Planner v1.
  */

@@ -1,5 +1,13 @@
 [
   {
+    "id": "0.5.4f",
+    "label": "PoE2 0.5.4f",
+    "content": "0.5.4",
+    "hotfix": "f",
+    "asOf": "2026-08-12",
+    "source": "pathofexile.com — foro oficial de parches, hilo '0.5.4f Hotfix' (Stacey_GGG, 2026-08-12)"
+  },
+  {
     "id": "0.5.0",
     "label": "PoE2 0.5.0",
     "content": "0.5.0",

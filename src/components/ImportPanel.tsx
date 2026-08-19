@@ -47,7 +47,8 @@ export function ImportPanel({ busy, onImport }: ImportPanelProps) {
           />
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <FileUp className="size-3.5" aria-hidden="true" />
-            JSON de Exile Copilot o código de Path of Building
+            Archivo .build oficial (se importa como build objetivo) o código de Path of
+            Building (personaje)
           </span>
         </div>
       </div>

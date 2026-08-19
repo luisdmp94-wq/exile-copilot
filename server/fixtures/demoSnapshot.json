@@ -6,7 +6,7 @@
   "level": 70,
   "archetype": "mercenary-crossbow",
   "league": "Runes of Aldur",
-  "patch": "0.5.0",
+  "patch": "0.5.4f",
   "attributes": { "str": 95, "dex": 185, "int": 42 },
   "resistances": { "fire": 75, "cold": 61, "lightning": 40, "chaos": -10 },
   "life": 1380,

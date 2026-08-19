@@ -1,24 +1,31 @@
-import { BookOpen } from "lucide-react";
+import { BookOpen, FileCheck2, X } from "lucide-react";
+import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDateTime } from "@/lib/format";
 
 export interface TargetDraft {
   name: string;
   sourceUrl: string;
   summary: string;
   desiredModsText: string;
+  /** Plan oficial importado de un `.build` de GGG; se conserva crudo. */
+  plan: BuildTargetPlan | null;
 }
 
 interface TargetSectionProps {
   draft: TargetDraft;
+  warnings: string[];
   onChange: (draft: TargetDraft) => void;
 }
 
 /** Build objetivo opcional: solo una referencia, nunca verdad absoluta. */
-export function TargetSection({ draft, onChange }: TargetSectionProps) {
+export function TargetSection({ draft, warnings, onChange }: TargetSectionProps) {
   return (
     <Card>
       <CardHeader>
@@ -30,6 +37,15 @@ export function TargetSection({ draft, onChange }: TargetSectionProps) {
           >
             Referencia, no verificada
           </Badge>
+          {draft.plan && (
+            <Badge
+              variant="outline"
+              className="border-primary/50 bg-primary/10 text-primary"
+            >
+              <FileCheck2 className="size-3.5" aria-hidden="true" />
+              Plan .build oficial importado
+            </Badge>
+          )}
         </div>
         <p className="text-sm text-muted-foreground">
           Estos datos SÍ se envían al motor y pueden cambiar tus recomendaciones: el
@@ -39,6 +55,47 @@ export function TargetSection({ draft, onChange }: TargetSectionProps) {
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {draft.plan && (
+          <Alert className="border-primary/50 bg-primary/10 [&>svg]:text-primary">
+            <FileCheck2 className="size-4" aria-hidden="true" />
+            <AlertTitle>Plan importado desde un archivo .build oficial</AlertTitle>
+            <AlertDescription className="flex flex-col gap-2">
+              <span>
+                Archivo de plan importado como build objetivo — no es tu personaje
+                actual. Contiene {draft.plan.build.passives?.length ?? 0} pasiva(s),{" "}
+                {draft.plan.build.skills?.length ?? 0} habilidad(es) y{" "}
+                {draft.plan.build.inventory_slots?.length ?? 0} hueco(s) de inventario.
+                Importado el {formatDateTime(draft.plan.importedAt)}. El plan original
+                se conserva íntegro y se reenvía al motor tal cual.
+              </span>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onChange({ ...draft, plan: null })}
+                >
+                  <X className="size-4" aria-hidden="true" />
+                  Quitar plan importado
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {warnings.length > 0 && (
+          <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
+            <AlertTitle>Avisos de importación del plan</AlertTitle>
+            <AlertDescription>
+              <ul className="list-inside list-disc">
+                {warnings.map((warning, i) => (
+                  <li key={i}>{warning}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="target-name">Nombre de la build objetivo</Label>
@@ -50,10 +107,7 @@ export function TargetSection({ draft, onChange }: TargetSectionProps) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label
-              htmlFor="target-url"
-              className="inline-flex items-center gap-1.5"
-            >
+            <Label htmlFor="target-url" className="inline-flex items-center gap-1.5">
               <BookOpen className="size-3.5 text-muted-foreground" aria-hidden="true" />
               Enlace de referencia
             </Label>
@@ -83,7 +137,9 @@ export function TargetSection({ draft, onChange }: TargetSectionProps) {
             value={draft.desiredModsText}
             onChange={(e) => onChange({ ...draft, desiredModsText: e.target.value })}
             rows={4}
-            placeholder={"+% de daño físico aumentado\n+ vida máxima\nresistencias de fuego"}
+            placeholder={
+              "+% de daño físico aumentado\n+ vida máxima\nresistencias de fuego"
+            }
             className="font-mono text-xs"
           />
         </div>

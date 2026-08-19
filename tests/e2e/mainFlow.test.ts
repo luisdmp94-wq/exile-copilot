@@ -69,7 +69,7 @@ describe("e2e: flujo principal (demo → recomendaciones → export → reimport
     expect(recBody.inputFingerprint).toMatch(/^[0-9a-f]{64}$/);
     expect(recBody.recommendations[0].id).toBe("rec-resistencias-elementales");
 
-    // 3. Exportar al formato oficial .build
+    // 3. Exportar al formato oficial .build (con las recomendaciones aplicadas)
     const exportRes = await postJson("/export/build", {
       profile,
       appliedRecommendations: recBody.recommendations.map((r: { id: string }) => r.id),
@@ -81,37 +81,47 @@ describe("e2e: flujo principal (demo → recomendaciones → export → reimport
     // El informe declara lo no exportable: nivel, resistencias, mods, presupuesto...
     expect(exportBody.report.notExportable.length).toBeGreaterThan(0);
     expect(exportBody.report.skippedUnverified.length).toBeGreaterThan(0);
+    // Las recomendaciones aplicadas viajan como texto legible, nunca como dato estructurado
+    expect(exportBody.content).toContain("Mejoras planificadas:");
+    expect(exportBody.content).toContain("Cubrir resistencias elementales hasta el cap");
 
-    // 4. Reimportar el .build exportado → snapshot honesto (datos ausentes = null)
+    // 4. Reimportar el .build exportado → vuelve como PLAN (un .build oficial es un plan,
+    //    no una captura del personaje): plan presente, profile ausente.
     const reimportRes = await postJson("/import/build", { content: exportBody.content });
     expect(reimportRes.status).toBe(200);
     const reimportBody = await jsonOf(reimportRes);
     expect(reimportBody.detectedFormat).toBe("ggg-build-planner-v1");
     expect(reimportBody.warnings.length).toBeGreaterThan(0);
+    expect(reimportBody.profile).toBeUndefined();
+    expect(reimportBody.plan).toBeDefined();
+    expect(reimportBody.plan.build.name).toBe(profile.name);
+    // Las mejoras planificadas sobreviven al round-trip como texto legible
+    expect(reimportBody.plan.build.description).toContain("Mejoras planificadas:");
+    // El plan no fabrica stats del personaje
+    expect(JSON.stringify(reimportBody.plan)).not.toContain("resistances");
 
-    const p = reimportBody.profile;
-    expect(p.name).toBe(profile.name);
-    expect(p.ascendancy).toBe(profile.ascendancy);
-    // Nivel/estadísticas NO viajan en el formato oficial: desconocidos, nunca 0
-    expect(p.level).toBe(1);
-    expect(p.resistances).toEqual({ fire: null, cold: null, lightning: null, chaos: null });
-    expect(p.attributes).toEqual({ str: null, dex: null, int: null });
-    // Las pasivas del demo no tenían id oficial → no se exportaron (declarado en el informe)
-    expect(p.passives.allocated).toHaveLength(0);
-
-    // 5. El motor sigue funcionando sobre el snapshot reimportado sin afirmar datos inexistentes
+    // 5. El motor sigue funcionando sobre el snapshot demo original (el plan importado
+    //    puede usarse como target de referencia, nunca como personaje)
     const recRes2 = await postJson("/recommendations", {
-      profile: p,
+      profile,
+      target: {
+        name: reimportBody.plan.build.name,
+        referenceOnly: true,
+        desiredMods: [],
+        plan: reimportBody.plan,
+      },
       budget: { amount: 50, currency: "chaos" },
       goal: { kind: "survival" },
-      league: p.league,
-      patch: p.patch,
+      league: profile.league,
+      patch: profile.patch,
     });
     expect(recRes2.status).toBe(200);
     const recBody2 = await jsonOf(recRes2);
     expect(recBody2.recommendations.length).toBeGreaterThan(0);
+    expect(recBody2.recommendations.length).toBeLessThanOrEqual(3);
     for (const rec of recBody2.recommendations) {
-      expect(rec.confidence).not.toBe("high"); // sin datos clave no hay confianza alta
+      expect(rec.impact.isPartialMetric).toBe(true);
+      expect(rec.sources.some((s: { kind: string }) => s.kind === "calculation")).toBe(true);
     }
   });
 });

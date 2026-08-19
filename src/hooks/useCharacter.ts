@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { CharacterProfile, Item } from "@shared/domain.js";
+import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import { api, getErrorMessage } from "@/lib/api";
 
 export type CharacterOrigin = "empty" | "demo" | "imported";
@@ -27,8 +28,17 @@ export interface CharacterState {
   reset: () => void;
 }
 
+export interface UseCharacterOptions {
+  /**
+   * Un `.build` oficial importado es un PLAN de build objetivo, no un personaje.
+   * Se invoca con el plan crudo y sus warnings para que la sección «Build
+   * objetivo» lo recoja.
+   */
+  onPlanImported?: (plan: BuildTargetPlan, warnings: string[]) => void;
+}
+
 /** Estado del perfil del personaje + acciones de importación, guardado y restauración. */
-export function useCharacter(): CharacterState {
+export function useCharacter(options?: UseCharacterOptions): CharacterState {
   const [profile, setProfile] = useState<CharacterProfile | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [origin, setOrigin] = useState<CharacterOrigin>("empty");
@@ -37,12 +47,11 @@ export function useCharacter(): CharacterState {
     () => localStorage.getItem(STORAGE_KEY) !== null,
   );
   const [dirty, setDirty] = useState(false);
-  const restoreAttempted = useRef(false);
 
   // Restaura el último personaje guardado tras recargar la página.
+  // Idempotente bajo StrictMode (doble montaje): la limpieza cancela la primera
+  // petición y la segunda completa el ciclo; nunca hay setState tras abortar.
   useEffect(() => {
-    if (restoreAttempted.current) return;
-    restoreAttempted.current = true;
     const savedId = localStorage.getItem(STORAGE_KEY);
     if (!savedId) return;
     let cancelled = false;
@@ -68,6 +77,8 @@ export function useCharacter(): CharacterState {
     };
   }, []);
 
+  // El id SOLO se guarda tras un POST /api/character exitoso (perfil
+  // realmente persistido en el servidor). Demo e importación no persisten.
   const persistId = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id);
   }, []);
@@ -77,7 +88,6 @@ export function useCharacter(): CharacterState {
     try {
       const res = await api.demoCharacter();
       setProfile(res.profile);
-      persistId(res.profile.id);
       setWarnings([]);
       setOrigin("demo");
       setDirty(false);
@@ -87,24 +97,37 @@ export function useCharacter(): CharacterState {
     } finally {
       setBusy(null);
     }
-  }, [persistId]);
+  }, []);
 
   const importBuild = useCallback(
     async (content: string) => {
       setBusy("build");
       try {
         const res = await api.importBuild({ content });
-        setProfile(res.profile);
-        persistId(res.profile.id);
-        setWarnings(res.warnings);
-        setOrigin("imported");
-        setDirty(false);
-        if (res.warnings.length > 0) {
-          toast.warning(`Build importada con ${res.warnings.length} aviso(s)`, {
+        if (res.plan) {
+          // `.build` oficial: es un PLAN de build objetivo, no el personaje.
+          options?.onPlanImported?.(res.plan, res.warnings);
+          toast.warning(
+            "Archivo de plan importado como build objetivo — no es tu personaje actual",
+            { description: res.warnings[0] },
+          );
+        } else if (res.profile) {
+          setProfile(res.profile);
+          setWarnings(res.warnings);
+          setOrigin("imported");
+          setDirty(false);
+          if (res.warnings.length > 0) {
+            toast.warning(`Build importada con ${res.warnings.length} aviso(s)`, {
+              description: res.warnings[0],
+            });
+          } else {
+            toast.success(`Build importada: ${res.profile.name}`);
+          }
+        } else {
+          setWarnings(res.warnings);
+          toast.warning("No se pudo interpretar el contenido del archivo", {
             description: res.warnings[0],
           });
-        } else {
-          toast.success(`Build importada: ${res.profile.name}`);
         }
       } catch (err) {
         toast.error("No se pudo importar la build", {
@@ -114,7 +137,7 @@ export function useCharacter(): CharacterState {
         setBusy(null);
       }
     },
-    [persistId],
+    [options],
   );
 
   const importItemText = useCallback(

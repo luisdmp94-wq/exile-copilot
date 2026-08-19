@@ -11,6 +11,7 @@ import type {
   Recommendation,
   SourceEvidence,
 } from "../../shared/domain.js";
+import type { MarketRates } from "../../shared/api.js";
 import {
   ENGINE_VERSION,
   RULES,
@@ -90,18 +91,20 @@ export function computeInputFingerprint(input: {
 
 /**
  * Convierte el presupuesto a la moneda de cotización.
- * rates de poe.ninja: unidades de X por 1 unidad de la moneda primaria
- * (p. ej. rates.exalted = 1000 → 1 divine = 1000 exalted).
- * Devuelve null si la conversión no es verificable.
+ * rates.values de poe.ninja: unidades de X por 1 unidad de la moneda primaria
+ * (p. ej. rates.values.exalted = 1000 → 1 divine = 1000 exalted).
+ * Devuelve null si la conversión no es verificable (sin tasas o tasas NO
+ * verificadas: fixture/caché antigua). El motor NUNCA usa tasas no
+ * verificadas para afirmar que algo entra o no en el presupuesto.
  */
 export function convertBudget(
   budget: Budget,
   quoteCurrency: CurrencyKind,
-  rates: Record<string, number> | null,
+  rates: MarketRates | null,
 ): number | null {
   if (budget.currency === quoteCurrency) return budget.amount;
-  if (!rates) return null;
-  const budgetRate = rates[budget.currency]; // unidades de la moneda del presupuesto por 1 primaria
+  if (!rates || !rates.verified) return null;
+  const budgetRate = rates.values[budget.currency]; // unidades de la moneda del presupuesto por 1 primaria
   if (typeof budgetRate !== "number" || budgetRate <= 0) return null;
   return budget.amount / budgetRate;
 }

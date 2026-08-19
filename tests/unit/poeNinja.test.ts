@@ -108,9 +108,11 @@ describe("poe.ninja — endpoints documentados (shapes reales)", () => {
     expect(result.quotes[0]?.detail).toContain("fixture offline");
     expect(result.quotes[1]?.value).toBeNull();
     expect(result.quotes[1]?.verified).toBe(false);
-    // La respuesta expone moneda primaria y tasas del exchange
+    // La respuesta expone moneda primaria y tasas del exchange (objeto con origen y verificación)
     expect(result.primaryCurrency).toBe("divine");
-    expect(result.rates).toEqual({ exalted: 105, chaos: 35.44 });
+    expect(result.rates?.values).toEqual({ exalted: 105, chaos: 35.44 });
+    expect(result.rates?.origin).toBe("fixture");
+    expect(result.rates?.verified).toBe(false); // fixture → tasas NO verificadas
     expect(result.degraded).toBe(true);
   });
 
@@ -235,13 +237,39 @@ describe("poe.ninja — caché con ETag (endpoints documentados)", () => {
     const result = await service.getQuotes(["Divine Orb", "Storm Cantor"], LEAGUE);
     expect(result.degraded).toBe(false);
     expect(result.primaryCurrency).toBe("divine");
-    expect(result.rates).toEqual({ exalted: 105, chaos: 35.44 });
+    expect(result.rates?.values).toEqual({ exalted: 105, chaos: 35.44 });
+    expect(result.rates?.origin).toBe("live");
+    expect(result.rates?.verified).toBe(true); // live + primaria reconocida
     expect(result.quotes[0]?.verified).toBe(true);
     expect(result.quotes[0]?.value).toBe(1);
     expect(result.quotes[0]?.currency).toBe("divine");
     expect(result.quotes[1]?.verified).toBe(true);
     expect(result.quotes[1]?.value).toBe(0.35);
     expect(result.quotes[1]?.currency).toBe("divine");
+  });
+
+  it("primaria desconocida: quotes y rates quedan NO verificados aunque el dato sea live", async () => {
+    const mutated = JSON.parse(currencyFixture) as { core?: { primary?: string } };
+    if (mutated.core) mutated.core.primary = "algo-raro";
+    const db = createDatabase(":memory:");
+    const { fetchImpl } = fetchByUrl({
+      exchange: () => ({ status: 200, body: JSON.stringify(mutated), etag: '"e1"' }),
+      stash: () => ({ status: 200, body: itemFixture, etag: '"e2"' }),
+    });
+    const config = offlineConfig({ poeNinjaOffline: false, poeNinjaCacheTtlSeconds: 900 });
+    const client = new PoeNinjaClient({ db, config, fetchImpl });
+    const service = new PriceService(client);
+
+    const result = await service.getQuotes(["Divine Orb", "Storm Cantor"], LEAGUE);
+    // Fallback documentado: se reporta como exalted, pero NADA queda verificado.
+    expect(result.primaryCurrency).toBe("exalted");
+    expect(result.rates?.origin).toBe("live");
+    expect(result.rates?.verified).toBe(false); // primaria no reconocida → tasas no verificadas
+    expect(result.quotes[0]?.value).toBe(1); // el valor existe...
+    expect(result.quotes[0]?.verified).toBe(false); // ...pero no se puede dar por verificado
+    expect(result.quotes[0]?.detail).toContain("No verificado");
+    expect(result.quotes[0]?.detail).toContain("algo-raro");
+    expect(result.quotes[1]?.verified).toBe(false);
   });
 
   it("caché corrupta: borra la fila, trata como miss y no derriba la petición", async () => {

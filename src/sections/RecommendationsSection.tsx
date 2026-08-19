@@ -167,14 +167,25 @@ export function RecommendationsSection({
           </>
         )}
 
-        {exportResult && <ExportReportView exportResult={exportResult} />}
+        {exportResult && (
+          <ExportReportView
+            exportResult={exportResult}
+            appliedCount={recommendations.exportAppliedCount}
+          />
+        )}
       </CardContent>
     </Card>
   );
 }
 
 /** Informe honesto de exportación: qué contiene el archivo y qué se perdió. */
-function ExportReportView({ exportResult }: { exportResult: ExportBuildResponse }) {
+function ExportReportView({
+  exportResult,
+  appliedCount,
+}: {
+  exportResult: ExportBuildResponse;
+  appliedCount: number;
+}) {
   const { report, fileName } = exportResult;
   const exportedItems: string[] = [
     report.exported.name ? "Nombre de la build" : "",
@@ -191,6 +202,9 @@ function ExportReportView({ exportResult }: { exportResult: ExportBuildResponse 
       <p className="text-sm font-medium text-foreground">
         Informe de exportación de <span className="font-mono">{fileName}</span>
       </p>
+      <p className="text-xs text-muted-foreground">
+        Archivo válido contra el esquema GGG Build Planner v1.
+      </p>
 
       <div>
         <p className="text-sm font-medium text-foreground">Qué contiene el archivo</p>
@@ -203,6 +217,11 @@ function ExportReportView({ exportResult }: { exportResult: ExportBuildResponse 
         ) : (
           <p className="text-sm text-muted-foreground">
             El archivo se generó vacío de contenido exportable.
+          </p>
+        )}
+        {appliedCount > 0 && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Mejoras planificadas incluidas en el archivo: {appliedCount}
           </p>
         )}
       </div>

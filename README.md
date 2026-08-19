@@ -25,16 +25,16 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm run build` — typecheck completo (`tsc -b`) + build de producción.
 - `npm test` — pruebas automatizadas (unitarias, integración y e2e del flujo principal).
 - `npm run lint` — ESLint sobre todo el repo.
-- `npm run test:browser` — prueba real de navegador del flujo principal con Edge (Playwright, `channel: msedge`, sin descargar navegadores). Requiere `npm run build` previo. Guarda capturas en `docs/screenshots/`.
+- `npm run test:browser` — prueba real de navegador del flujo principal con Edge (Playwright, `channel: msedge`, sin descargar navegadores). `--dev` la ejecuta contra el servidor de desarrollo (Strict Mode), `--all` contra ambos. Requiere `npm run build` previo para el modo producción. Guarda capturas en `docs/screenshots/`.
 
 ## Cómo probar el flujo principal (sin credenciales)
 
 1. Abre http://localhost:7100 y pulsa **«Cargar ejemplo»** (perfil demo: Mercenario Gemling con ballesta, nivel 70, con carencias deliberadas).
-2. Revisa/corrige campos en **Mi personaje** (atributos, resistencias, vida y defensas; «Desconocido» = sin dato, nunca 0) y pulsa **Guardar correcciones**. El personaje se recupera automáticamente al recargar la página.
-3. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; si no hay red, fixtures marcados como «No verificado»).
-4. (Opcional) Define una **Build objetivo**: sus mods deseados influyen en las recomendaciones.
+2. Revisa/corrige campos en **Mi personaje** (atributos, resistencias, vida y defensas; «Desconocido» = sin dato, nunca 0) y pulsa **Guardar correcciones**. El personaje se recupera automáticamente al recargar la página (el id solo se guarda tras persistir de verdad en el servidor).
+3. Importa un **`.build` oficial** de GGG: se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building** sí rellena un personaje parcial.
+4. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; tasas de conversión con origen y verificación visibles).
 5. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza. Si cambias cualquier dato, las tarjetas se invalidan.
-6. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo **`.build` oficial** (GGG Build Planner v1) importable por el juego, junto a un informe honesto de lo exportado y lo que el formato no puede guardar.
+6. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo **`.build` oficial** (GGG Build Planner v1) con las mejoras planificadas incrustadas en `description`/`additional_text`, junto a un informe honesto de lo exportado y lo omitido.
 
 ## Formato `.build` — GGG Build Planner v1
 

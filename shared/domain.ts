@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BuildTargetPlanSchema } from "./gggBuildPlanner.js";
 
 /**
  * Modelo de dominio normalizado de Exile Copilot.
@@ -199,10 +200,13 @@ export type Attributes = z.infer<typeof AttributesSchema>;
 export const CharacterProfileSchema = z.object({
   id: z.string(),
   name: z.string(),
-  characterClass: z.string(), // p. ej. "Mercenary"
-  ascendancy: z.string().optional(), // p. ej. "Gemling Legionnaire"
+  characterClass: z.string(), // p. ej. "Mercenary"; "Desconocida" si no verificable
+  ascendancy: z.string().nullable().default(null), // nombre visible, p. ej. "Gemling Legionnaire"
+  /** Id oficial de ascendencia del esquema GGG (p. ej. "Warrior1"). null = no verificado. */
+  ascendancyId: z.string().nullable().default(null),
   level: z.number().int().min(1).max(100).default(1),
-  archetype: z.string().default("mercenary-crossbow"), // arquetipo MVP
+  /** Arquetipo opcional declarado por el usuario; NUNCA hardcodeado por defecto. */
+  archetype: z.string().nullable().default(null),
   league: z.string(),
   patch: z.string(),
   items: z.array(ItemSchema).default([]),
@@ -235,6 +239,13 @@ export const BuildTargetSchema = z.object({
   summary: z.string().optional(),
   desiredMods: z.array(z.string()).default([]),
   referenceOnly: z.literal(true).default(true),
+  /**
+   * Plan oficial importado de un `.build` de GGG (Build Planner v1).
+   * Se conserva crudo para reexportarlo con fidelidad. Es un PLAN,
+   * no una captura del personaje: el motor no ejecuta reglas de equipo
+   * sobre sus inventory_slots.
+   */
+  plan: BuildTargetPlanSchema.nullable().default(null),
 });
 export type BuildTarget = z.infer<typeof BuildTargetSchema>;
 

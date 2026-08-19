@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import type { CurrencyKind, ItemRarity, PriceQuote } from "../../shared/domain.js";
+import type { MarketRates } from "../../shared/api.js";
 import type { ServerConfig } from "../config.js";
 import type { Database } from "../db/database.js";
 import {
@@ -367,8 +368,12 @@ export interface QuotesResult {
   degraded: boolean;
   /** Moneda primaria de cotización de la liga (core.primary del exchange). */
   primaryCurrency: CurrencyKind | null;
-  /** Tasas de core.rates (unidades de X por 1 unidad de la primaria); null si no se obtuvo. */
-  rates: Record<string, number> | null;
+  /**
+   * Tasas de core.rates con origen y verificación. verified solo si el dato
+   * es live/cache-fresh Y la moneda primaria es reconocida (divine/exalted/chaos).
+   * Jamás se usan tasas de fixture o caché antigua para afirmar presupuesto.
+   */
+  rates: MarketRates | null;
 }
 
 /**
@@ -414,12 +419,28 @@ export class PriceService {
       .find((p): p is string => typeof p === "string");
     const primary = mapPrimaryCurrency(primaryRaw);
     const primaryCurrency: CurrencyKind | null = primaryRaw ? primary.currency : null;
+    /** verified solo es posible si la primaria es una moneda reconocida. */
+    const primaryRecognized =
+      primaryRaw === "divine" || primaryRaw === "exalted" || primaryRaw === "chaos";
 
-    // Tasas de conversión de core.rates (null si no se obtuvo ningún exchange).
-    const rates =
-      currencyOverviews
-        .map((ov) => asExchangeOverview(ov.payload).core?.rates)
-        .find((r): r is Record<string, number> => typeof r === "object" && r !== null) ?? null;
+    // Tasas de conversión con origen y verificación (null si no hubo exchange).
+    const ratesOverview = currencyOverviews.find(
+      (ov) => typeof asExchangeOverview(ov.payload).core?.rates === "object",
+    );
+    const ratesValues = ratesOverview
+      ? (asExchangeOverview(ratesOverview.payload).core?.rates ?? null)
+      : null;
+    const rates: MarketRates | null =
+      ratesOverview && ratesValues
+        ? {
+            values: ratesValues,
+            origin: ratesOverview.origin,
+            verified:
+              (ratesOverview.origin === "live" || ratesOverview.origin === "cache-fresh") &&
+              primaryRecognized,
+            fetchedAt: ratesOverview.fetchedAt,
+          }
+        : null;
 
     const anyFromCache = overviews.some((o) => o.fromCache);
     const anyDegraded = overviews.some((o) => o.degraded) || overviews.length === 0;
@@ -451,9 +472,16 @@ export class PriceService {
         });
         if (line) {
           const value = typeof line.primaryValue === "number" ? line.primaryValue : null;
+          // verified solo si el dato es live/cache-fresh Y la primaria es reconocida.
           const verified =
-            (ov.origin === "live" || ov.origin === "cache-fresh") && value !== null;
-          const detail = [originDetail(ov.origin), primary.note].filter(Boolean).join(" ");
+            (ov.origin === "live" || ov.origin === "cache-fresh") &&
+            value !== null &&
+            primaryRecognized;
+          const primaryNote = !primaryRecognized
+            ? (primary.note ??
+              "No verificado — moneda primaria no reconocida: el quote queda sin verificar.")
+            : null;
+          const detail = [originDetail(ov.origin), primaryNote].filter(Boolean).join(" ");
           return {
             itemName: name,
             currency: primary.currency,
@@ -479,9 +507,16 @@ export class PriceService {
           );
           if (line) {
             const value = typeof line.primaryValue === "number" ? line.primaryValue : null;
+            // verified solo si el dato es live/cache-fresh Y la primaria es reconocida.
             const verified =
-              (ov.origin === "live" || ov.origin === "cache-fresh") && value !== null;
-            const detail = [originDetail(ov.origin), primary.note].filter(Boolean).join(" ");
+              (ov.origin === "live" || ov.origin === "cache-fresh") &&
+              value !== null &&
+              primaryRecognized;
+            const primaryNote = !primaryRecognized
+              ? (primary.note ??
+                "No verificado — moneda primaria no reconocida: el quote queda sin verificar.")
+              : null;
+            const detail = [originDetail(ov.origin), primaryNote].filter(Boolean).join(" ");
             return {
               itemName: name,
               currency: primary.currency,

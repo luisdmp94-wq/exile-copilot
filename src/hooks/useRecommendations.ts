@@ -14,6 +14,8 @@ export interface RecommendationsState {
   resultInputsKey: string | null;
   /** Último informe de exportación { fileName, report }; null si no se ha exportado. */
   exportResult: ExportBuildResponse | null;
+  /** Nº de mejoras marcadas como aplicadas en la última exportación. */
+  exportAppliedCount: number;
   loading: boolean;
   exporting: boolean;
   error: string | null;
@@ -27,6 +29,7 @@ export function useRecommendations(): RecommendationsState {
   const [result, setResult] = useState<RecommendationsResponse | null>(null);
   const [resultInputsKey, setResultInputsKey] = useState<string | null>(null);
   const [exportResult, setExportResult] = useState<ExportBuildResponse | null>(null);
+  const [exportAppliedCount, setExportAppliedCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function useRecommendations(): RecommendationsState {
       anchor.remove();
       URL.revokeObjectURL(url);
       setExportResult(res);
+      setExportAppliedCount(payload.appliedRecommendations?.length ?? 0);
       if (res.report.notExportable.length > 0 || res.report.skippedUnverified.length > 0) {
         toast.warning(`Archivo ${res.fileName} descargado con pérdidas`, {
           description:
@@ -90,6 +94,7 @@ export function useRecommendations(): RecommendationsState {
     setResult(null);
     setResultInputsKey(null);
     setExportResult(null);
+    setExportAppliedCount(0);
     setError(null);
   }, []);
 
@@ -97,6 +102,7 @@ export function useRecommendations(): RecommendationsState {
     result,
     resultInputsKey,
     exportResult,
+    exportAppliedCount,
     loading,
     exporting,
     error,

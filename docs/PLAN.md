@@ -2,78 +2,70 @@
 
 Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu presupuesto y recibe las próximas mejoras ordenadas por impacto, coste y riesgo».
 
+> Actualizado en la fase de corrección 3 (2026-08-19). El formato `.build` propietario inicial fue eliminado: se usa exclusivamente el esquema oficial GGG Build Planner v1.
+
 ## Decisiones de arquitectura
 
-- **Monorepo simple**: frontend (React + Vite + Tailwind + shadcn/ui) y backend (Express + TypeScript) en el mismo proyecto.
-- **Backend**: Express 4 ejecutado con `tsx` en desarrollo. API REST bajo `/api`. Vite actúa de proxy hacia el backend en dev.
-- **Base de datos**: `node:sqlite` (`DatabaseSync`, integrado en Node 24, cero dependencias nativas). Capa de acceso fina en `server/db/`. Esquema pensado para migrar a PostgreSQL (solo SQL estándar, sin tipos exóticos).
-- **Validación**: zod en shared (esquemas compartidos entre front y back).
-- **Motor de recomendaciones**: 100 % determinista, reglas configurables en `server/engine/rules.ts`. Sin IA en el núcleo.
-- **Capa de explicación IA**: abstracción `ExplainerProvider` con dos implementaciones: `DeterministicExplainer` (por defecto, sin API key) y `LlmExplainer` (stub desactivado por flag `EXPLAINER_LLM_ENABLED=false`).
-- **Adaptadores externos**:
-  - `PoeNinjaClient` (server/services/poeninja.ts): usa exclusivamente la API económica pública documentada (`https://poe.ninja/api/data/...`). Caché en SQLite con ETag, TTL configurable, User-Agent descriptivo configurable (`POE_NINJA_USER_AGENT`), fallback a último valor en caché y luego a fixtures. Nunca se llama desde el navegador.
-  - `GggOAuthAdapter` (server/adapters/ggg.ts): interfaz preparada, desactivada con `GGG_OAUTH_ENABLED=false`. El MVP no depende de él.
-  - `PobAdapter` (server/adapters/pob.ts): interfaz para Path of Building / POBb.in con soporte básico (decodifica el formato base64+zlib de PoB si `pako` disponible; si no, devuelve «No verificado»). No bloquea el flujo principal.
-  - `MobalyticsAdapter`: solo guarda un enlace como referencia. Sin scraping.
-- **Formato `.build`**: GGG no publica un esquema formal estable del `.build` de PoE2. Decisión: importador tolerante que acepta JSON con el esquema documentado en `shared/buildFile.ts` (validado con zod) y también intenta parsear PoB code. El exportador emite el mismo esquema JSON versionado (`formatVersion: 1`). Documentado como supuesto en HANDOFF.
-- **Arquetipo inicial**: Mercenario/Gemling con ballesta. El modelo admite otros arquetipos vía `archetype` en el perfil.
+- **Monorepo simple**: frontend (React + Vite + Tailwind + shadcn/ui) y backend (Express + TypeScript) en el mismo proyecto. En desarrollo, la API Express se monta como middleware de Vite (un solo `npm run dev`); en producción `npm start` sirve `dist/` + API.
+- **Base de datos**: `node:sqlite` (`DatabaseSync`, integrado en Node 24, cero dependencias nativas). Capa fina en `server/db/`. Migrable a PostgreSQL.
+- **Validación**: zod en `shared/` (esquemas compartidos entre front y back).
+- **Motor de recomendaciones**: 100 % determinista, reglas en `server/engine/rules.ts`. Sin IA en el núcleo. Null-safe: un dato desconocido (`null`) nunca se convierte en 0 ni genera afirmaciones de confianza alta.
+- **Capa de explicación IA**: abstracción `ExplainerProvider`; `DeterministicExplainer` por defecto; `LlmExplainer` stub tras flag `EXPLAINER_LLM_ENABLED=false`.
+
+## Modelo de datos — separación clave
+
+- **CharacterProfileSnapshot** (`shared/domain.ts`): estado interno del personaje ACTUAL (nivel, liga, atributos, resistencias, vida/defensas, items con mods, skills, pasivas). Los stats desconocidos son `null`, nunca 0.
+- **GggBuildPlannerV1** (`shared/gggBuildPlanner.ts`): el archivo `.build` OFICIAL de GGG (https://www.pathofexile.com/developer/docs/game). Es un **plan/instructor**, no una captura del personaje: solo guarda `name`, `author`, `link`, `description`, `ascendancy` (id oficial), `passives` (ids PassiveSkills), `skills` (ids BaseItemTypes) e `inventory_slots` (pistas de texto).
+- **BuildTargetPlan**: un `.build` importado se conserva crudo como plan objetivo (sección «Build objetivo»), nunca se convierte en snapshot. El motor no ejecuta reglas de equipo/quality/mods/resistencias sobre sus inventory_slots.
+- El exportador snapshot → `.build` oficial genera un **informe honesto** (`ExportReport`): exportado / no exportable por el formato / omitido por falta de id oficial verificable. `ascendancyId` (id oficial) se separa del nombre visible. `unique_name` solo se exporta si es entrada verificada.
+
+## Fuentes externas
+
+- **poe.ninja**: solo API económica pública documentada (`/poe2/api/economy/leagues`, `/poe2/api/economy/exchange/current/overview`, `/poe2/api/economy/stash/current/item/overview`). Llamadas solo desde el servidor, caché SQLite + ETag (tolerante a corrupción), TTL configurable, User-Agent descriptivo, fallback a caché antigua y luego fixtures (marcadas «No verificado»). Las tasas de conversión (`core.rates`) transportan origen y estado de verificación; tasas fixture/stale nunca justifican afirmar que una compra entra en el presupuesto. `verified: true` exige moneda primaria reconocida.
+- **GGG OAuth**: adaptador preparado, desactivado (`GGG_OAUTH_ENABLED=false`); GGG no procesa nuevas aplicaciones.
+- **PoB**: adaptador básico base64url+zlib con límites de entrada y de descompresión (`maxOutputLength`); fixture real del repo PathOfBuilding-PoE2 (`server/fixtures/pob2/`, procedencia documentada).
+- **Mobalytics**: solo enlace guardado como referencia. Sin scraping.
 
 ## Estructura
 
 ```
 exile-copilot/
-  shared/            esquemas zod y tipos compartidos (domain.ts, buildFile.ts, api.ts)
+  shared/            domain.ts (snapshot), gggBuildPlanner.ts (oficial + plan), api.ts (contrato)
   server/
-    index.ts         arranque Express
-    app.ts           creación de app (para tests)
-    config.ts        variables de entorno documentadas
-    db/              node:sqlite (conexión, esquema, repos)
-    importers/       buildFileImporter, itemTextParser, pobAdapter
-    services/        poeninja (caché+fixtures), priceService
-    engine/          reglas deterministas + motor de recomendaciones
-    explainers/      DeterministicExplainer, LlmExplainer (stub)
-    adapters/        ggg.ts (flag off), mobalytics.ts (referencia), pob.ts
-    exporters/       buildFileExporter
-    routes/          character, market, recommendations, export, meta
-    fixtures/        build de ejemplo, items, respuestas poe.ninja, precios
-  src/               frontend React
-  tests/             unit (vitest), integration (api), e2e (flujo principal)
-  docs/PLAN.md       este archivo
-  HANDOFF.md         informe vivo para el propietario
-  .env.example       variables documentadas
+    index.ts         arranque standalone (dist/ + API)
+    app.ts           createApiApp (rutas sin prefijo, montadas en /api)
+    config.ts        variables de entorno
+    data/patches.json  parches versionados (content + hotfix, fuente y fecha)
+    db/              node:sqlite (price_cache, characters)
+    importers/       buildImporter (dispatcher), gggBuildImporter (→ plan), itemTextParser
+    services/        poeninja (caché+ETag+fixtures+rates), priceService
+    engine/          reglas deterministas null-safe + fingerprint
+    explainers/      DeterministicExplainer, LlmExplainer (stub, flag)
+    adapters/        ggg.ts (off), mobalytics.ts (referencia), pob.ts (límites)
+    exporters/       gggBuildExporter (informe honesto + mejoras planificadas)
+    fixtures/        demoSnapshot.json, demoMercenary.build, ggg/titanWarrior.build.json (oficial verbatim), pob2/ (código real), poeNinja/
+  src/               frontend React (español, tema oscuro, Strict Mode)
+  tests/             vitest: unit, integration, e2e
+  scripts/browser-smoke.mjs  prueba real de navegador (Edge, prod y dev)
 ```
 
-## Modelo de datos (shared/domain.ts)
+## Contrato API (v1, bajo /api)
 
-Entidades: `CharacterProfile`, `BuildTarget`, `Item`, `Modifier`, `SkillSetup`, `PassiveSelection`, `Budget`, `Goal`, `PriceQuote`, `PatchVersion`, `SourceEvidence`, `Recommendation`. Todas con esquemas zod. `Recommendation` incluye: prioridad, acción, motivo, coste/rango, impacto esperado, riesgo, pérdida potencial de mods, irreversibilidad, parche, fuentes, fecha de datos, confianza y campos no verificados.
-
-## Contrato API (v1)
-
-- `GET  /api/health` → `{ ok: true, patch, dataUpdatedAt }`
-- `GET  /api/meta` → ligas, parches y objetivos disponibles.
-- `POST /api/import/build` `{ content: string }` → `{ profile: CharacterProfile, warnings: string[] }` (detecta JSON .build, PoB code o texto).
-- `POST /api/import/item-text` `{ text: string }` → `{ item: Item, warnings: string[] }`.
-- `POST /api/character` guarda/actualiza el perfil normalizado (correcciones manuales).
-- `GET  /api/character/demo` → perfil de demostración precargado.
-- `GET  /api/market/prices?league=...&names=a,b,c` → `{ quotes: PriceQuote[], source, updatedAt, fromCache, degraded }`.
-- `POST /api/recommendations` `{ profile, target?, budget, goal, league, patch }` → `{ recommendations: Recommendation[3] }`.
-- `POST /api/export/build` `{ profile, appliedRecommendations?: string[] }` → descarga `.build` (JSON versionado, content-disposition attachment).
-
-## Hitos
-
-1. Estructura, modelo de datos, página principal, fixtures, ejemplo cargable.
-2. Importación/validación `.build`, texto de objetos, corrección manual, perfil normalizado.
-3. poe.ninja: caché, errores, fallback, evidencia y fechas.
-4. Motor de recomendaciones: presupuesto, objetivo, riesgo, 3 acciones, explicaciones.
-5. Exportación `.build`, validación, pruebas completas, accesibilidad, docs.
-6. (Opcional) Adaptador PoB inicial / POBb.in si hay vía pública permitida.
+- `GET  /health` → `{ ok, patch: {content, hotfix, asOf, source}, dataUpdatedAt }`
+- `GET  /meta` → ligas (poe.ninja, con fallback), parches versionados, goals, currencies, arquetipos.
+- `POST /import/build` → `{ warnings, detectedFormat, plan? | profile? }` (plan XOR profile).
+- `POST /import/item-text` → `{ item, warnings }`.
+- `POST /character` / `GET /character/:id` / `GET /character/demo`.
+- `GET  /market/prices?league=&names=` → quotes + `primaryCurrency` + `rates {values, origin, verified, fetchedAt} | null`.
+- `POST /recommendations` → 3 recomendaciones + `inputFingerprint`.
+- `POST /export/build` → `{ fileName (.build), content, report }`.
 
 ## Pruebas
 
-- Unitarias (vitest): parsers, motor de reglas, exportador, caché.
-- Integración: rutas API con app Express en memoria.
-- E2E: arranca el servidor real en puerto efímero y recorre el flujo principal (demo → precios → recomendaciones → exportación → reimportación).
+- Unitarias e integración (vitest): parsers, esquema oficial, fidelidad de reexportación, null-safety, conversión de monedas (y caso sin tasas / primaria desconocida / rates stale), rare-vs-unique, efecto del target, caché corrupta, límites PoB, persistencia, contenido de recomendaciones aplicadas.
+- E2E del flujo principal (servidor real en puerto efímero).
+- Navegador real (Edge vía Playwright): `npm run test:browser` (prod), `--dev` (Strict Mode), `--all`.
 
 ## Criterios de aceptación
 
-Ver brief: carga `.build` de ejemplo; muestra ascendencia/pasivas/skills; analiza texto de objeto; corrección manual; presupuesto y objetivo; precios poe.ninja reales o simulados con fallback; 3 recomendaciones estructuradas con coste/impacto/riesgo/confianza/fuente/parche; exporta `.build` válido; funciona sin API key; tests pasan; sin scraping ni APIs internas; README y HANDOFF completos.
+Verificados desde un checkout limpio: tests, lint, build y prueba de navegador en verde; `.build` válido contra el esquema GGG (nunca «probado en el juego»); desconocidos como null; precios honestos; README y HANDOFF actualizados.
