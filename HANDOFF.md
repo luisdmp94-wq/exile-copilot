@@ -62,7 +62,7 @@ node scripts/browser-smoke.mjs --all   # producción + desarrollo (Strict Mode)
 
 ## Verificación desde checkout limpio
 
-_(se completa al final de la sesión — ver commit)_
+Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm install` → `npx tsc -b` (0 errores) → `npx vitest run` (65/65) → `npm run lint` (0 errores) → `npx vite build` (OK) → `node scripts/browser-smoke.mjs --all` (**20/20**, producción y desarrollo con Strict Mode). `server/data/patches.json` presente en el clon (`git ls-files` lo confirma). Clon eliminado tras la verificación; sin procesos residuales.
 
 ## Funciones incompletas
 
