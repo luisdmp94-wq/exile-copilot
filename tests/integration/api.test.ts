@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { BuildFileSchema } from "../../shared/buildFile.js";
+import { GggBuildPlannerV1Schema } from "../../shared/gggBuildPlanner.js";
 import { CharacterProfileSchema } from "../../shared/domain.js";
 import { createApiApp } from "../../server/app.js";
 
@@ -42,8 +42,8 @@ async function jsonOf(res: globalThis.Response): Promise<any> {
   return res.json();
 }
 
-const demoBuildContent = readFileSync(
-  fileURLToPath(new URL("../../server/fixtures/demoBuild.build.json", import.meta.url)),
+const titanBuildContent = readFileSync(
+  fileURLToPath(new URL("../../server/fixtures/ggg/titanWarrior.build.json", import.meta.url)),
   "utf8",
 );
 const demoItemText = readFileSync(
@@ -52,31 +52,42 @@ const demoItemText = readFileSync(
 );
 
 describe("api (integración, app Express con db :memory:)", () => {
-  it("GET /health responde ok con parche", async () => {
+  it("GET /health responde ok con patch objeto {content, hotfix, asOf, source}", async () => {
     const res = await fetch(`${base}/health`);
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.ok).toBe(true);
-    expect(body.patch).toBe("0.5.0");
+    expect(body.patch).toEqual({
+      content: "0.5.0",
+      hotfix: null,
+      asOf: "2026-05-29",
+      source: expect.stringContaining("pathofexile.com"),
+    });
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
-  it("GET /meta devuelve ligas, parches, goals y divisas", async () => {
+  it("GET /meta: ligas desde poe.ninja (fixture offline) y parches versionados", async () => {
     const res = await fetch(`${base}/meta`);
     const body = await jsonOf(res);
     expect(body.leagues).toContain("Runes of Aldur");
+    expect(body.leagues).toContain("Standard");
+    expect(body.patches.map((p: { id: string }) => p.id)).toEqual(["0.5.0", "0.3.0"]);
+    expect(body.patches[0].asOf).toBe("2026-05-29");
+    expect(body.patches[0].source).toContain("pathofexile.com");
     expect(body.goals).toContain("survival");
     expect(body.currencies).toEqual(["chaos", "exalted", "divine", "gold"]);
-    expect(body.archetypes[0].id).toBe("mercenary-crossbow");
   });
 
-  it("POST /import/build con el fixture devuelve perfil válido", async () => {
-    const res = await postJson("/import/build", { content: demoBuildContent });
+  it("POST /import/build con el ejemplo oficial de GGG", async () => {
+    const res = await postJson("/import/build", { content: titanBuildContent });
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
-    expect(body.detectedFormat).toBe("build-json");
+    expect(body.detectedFormat).toBe("ggg-build-planner-v1");
     expect(CharacterProfileSchema.safeParse(body.profile).success).toBe(true);
-    expect(body.profile.name).toBe("Demo Gemling");
+    expect(body.profile.name).toBe("Titan Warrior");
+    expect(body.profile.resistances.fire).toBeNull(); // desconocido, nunca 0
+    expect(body.profile.passives.allocated[0].isOfficialId).toBe(true);
+    expect(body.warnings.length).toBeGreaterThan(0);
   });
 
   it("POST /import/build con basura devuelve 400 con ApiError", async () => {
@@ -101,35 +112,50 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.item.baseType).toBe("Varnished Crossbow");
   });
 
-  it("POST /character guarda y GET /character/:id recupera", async () => {
+  it("POST /character + GET /character/:id: el personaje se recupera tras guardarlo", async () => {
     const demoRes = await fetch(`${base}/character/demo`);
     const { profile } = await jsonOf(demoRes);
     const save = await postJson("/character", { profile });
     expect(save.status).toBe(200);
 
+    // Recuperación (el frontend guarda el id y recarga)
     const get = await fetch(`${base}/character/${profile.id}`);
     expect(get.status).toBe(200);
     const body = await jsonOf(get);
     expect(body.profile.id).toBe(profile.id);
     expect(body.profile.name).toBe(profile.name);
+    expect(body.profile.resistances).toEqual(profile.resistances);
+    expect(body.profile.skills).toEqual(profile.skills);
+
+    // Segunda lectura: persiste más allá de la primera recuperación
+    const getAgain = await fetch(`${base}/character/${profile.id}`);
+    expect(getAgain.status).toBe(200);
+
+    const missing = await fetch(`${base}/character/no-existo`);
+    expect(missing.status).toBe(404);
+    const missingBody = await jsonOf(missing);
+    expect(missingBody.error).toBe("personaje-no-encontrado");
   });
 
-  it("GET /character/demo devuelve el perfil de demostración", async () => {
+  it("GET /character/demo devuelve el snapshot de demostración", async () => {
     const res = await fetch(`${base}/character/demo`);
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(CharacterProfileSchema.safeParse(body.profile).success).toBe(true);
     expect(body.profile.characterClass).toBe("Mercenary");
+    expect(body.profile.resistances.lightning).toBe(40);
   });
 
-  it("GET /market/prices offline usa fixtures (degraded) y nunca inventa precios", async () => {
+  it("GET /market/prices offline: fixtures degradados + primaryCurrency + rates", async () => {
     const res = await fetch(`${base}/market/prices?names=Divine%20Orb,Cosa%20Inventada`);
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.degraded).toBe(true);
-    expect(body.quotes[0].value).toBe(1); // Divine Orb = moneda primaria del fixture
+    expect(body.primaryCurrency).toBe("divine");
+    expect(body.rates).toEqual({ exalted: 105, chaos: 35.44 });
+    expect(body.quotes[0].value).toBe(1); // Divine Orb = primaria del fixture
     expect(body.quotes[0].currency).toBe("divine");
-    expect(body.quotes[0].verified).toBe(false);
+    expect(body.quotes[0].verified).toBe(false); // fixture → No verificado aunque tenga valor
     expect(body.quotes[1].value).toBeNull();
     expect(body.quotes[1].detail).toContain("No verificado");
   });
@@ -139,7 +165,7 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(res.status).toBe(400);
   });
 
-  it("POST /recommendations devuelve hasta 3 recomendaciones válidas", async () => {
+  it("POST /recommendations devuelve hasta 3 recomendaciones + inputFingerprint", async () => {
     const demoRes = await fetch(`${base}/character/demo`);
     const { profile } = await jsonOf(demoRes);
     const res = await postJson("/recommendations", {
@@ -152,6 +178,7 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.engineVersion).toBe("1.0.0");
+    expect(body.inputFingerprint).toMatch(/^[0-9a-f]{64}$/);
     expect(body.recommendations.length).toBeGreaterThan(0);
     expect(body.recommendations.length).toBeLessThanOrEqual(3);
     expect(body.recommendations[0].id).toBe("rec-resistencias-elementales");
@@ -161,15 +188,18 @@ describe("api (integración, app Express con db :memory:)", () => {
     }
   });
 
-  it("POST /export/build descarga JSON válido con Content-Disposition", async () => {
+  it("POST /export/build devuelve JSON {fileName .build, content, report}", async () => {
     const demoRes = await fetch(`${base}/character/demo`);
     const { profile } = await jsonOf(demoRes);
-    const res = await postJson("/export/build", { profile, appliedRecommendations: ["rec-resistencias-elementales"] });
+    const res = await postJson("/export/build", { profile, appliedRecommendations: ["rec-x"] });
     expect(res.status).toBe(200);
-    expect(res.headers.get("content-disposition")).toBe('attachment; filename="exile-copilot.build.json"');
     expect(res.headers.get("content-type")).toContain("application/json");
-    const text = await res.text();
-    const parsed = BuildFileSchema.safeParse(JSON.parse(text));
-    expect(parsed.success).toBe(true);
+    const body = await jsonOf(res);
+
+    expect(body.fileName.endsWith(".build")).toBe(true);
+    expect(GggBuildPlannerV1Schema.safeParse(JSON.parse(body.content)).success).toBe(true);
+    expect(body.report.notExportable.length).toBeGreaterThan(0);
+    expect(body.report.skippedUnverified.length).toBeGreaterThan(0); // pasivas/skills del demo sin id oficial
+    expect(body.report.exported.inventorySlots).toBeGreaterThan(0);
   });
 });

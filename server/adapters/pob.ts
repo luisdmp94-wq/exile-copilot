@@ -28,6 +28,11 @@ export interface PobDecodeResult {
 
 const POB_WARNING = "No verificado — adaptador PoB básico";
 
+/** Límite de tamaño del código de entrada (caracteres base64url). */
+export const POB_MAX_INPUT_CHARS = 1_000_000;
+/** Límite de descompresión (zip-bomb guard): el XML inflado no puede superar 2 MB. */
+export const POB_MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+
 /** Heurística: ¿parece un código PoB (base64url compacto, sin espacios)? */
 export function looksLikePobCode(content: string): boolean {
   const trimmed = content.trim();
@@ -43,7 +48,8 @@ function fromPobBase64(code: string): Buffer {
 function tryInflate(buf: Buffer): string | null {
   for (const inflate of [inflateSync, inflateRawSync]) {
     try {
-      const out = inflate(buf).toString("utf8");
+      // maxOutputLength: defensa zip-bomb; si se supera, zlib lanza y probamos la siguiente variante.
+      const out = inflate(buf, { maxOutputLength: POB_MAX_OUTPUT_BYTES }).toString("utf8");
       if (out.length > 0) return out;
     } catch {
       // probar la siguiente variante
@@ -97,6 +103,12 @@ function extractXmlFields(xml: string): PobPartial {
 export function decodePobCode(code: string): PobDecodeResult {
   const warnings: string[] = [];
   try {
+    if (code.length > POB_MAX_INPUT_CHARS) {
+      warnings.push(
+        `No verificado — el código PoB supera el límite de entrada (${POB_MAX_INPUT_CHARS} caracteres); rechazado por seguridad.`,
+      );
+      return { ok: false, partial: { mainSkills: [] }, warnings };
+    }
     const buf = fromPobBase64(code);
     if (buf.length === 0) {
       warnings.push("No verificado — el código PoB no es base64 válido");
@@ -104,7 +116,9 @@ export function decodePobCode(code: string): PobDecodeResult {
     }
     const xml = tryInflate(buf);
     if (!xml) {
-      warnings.push("No verificado — no se pudo descomprimir el código PoB (zlib)");
+      warnings.push(
+        "No verificado — no se pudo descomprimir el código PoB (zlib) o supera el límite de descompresión de 2 MB",
+      );
       return { ok: false, partial: { mainSkills: [] }, warnings };
     }
     if (!/<(PathOfBuilding|Build)\b/i.test(xml)) {

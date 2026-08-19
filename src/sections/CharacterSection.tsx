@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Loader2, Plus, Save, ScanSearch, Sparkles, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  RotateCcw,
+  Save,
+  ScanSearch,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import type { MetaResponse } from "@shared/api.js";
 import type {
   Attributes,
@@ -51,9 +59,31 @@ const ATTRIBUTE_FIELDS: { key: keyof Attributes; label: string }[] = [
   { key: "int", label: "Inteligencia" },
 ];
 
-function toInt(value: string, fallback: number): number {
+const DEFENSE_FIELDS: {
+  key: "life" | "energyShield" | "evasion" | "armour";
+  label: string;
+}[] = [
+  { key: "life", label: "Vida" },
+  { key: "energyShield", label: "Escudo de energía" },
+  { key: "evasion", label: "Evasión" },
+  { key: "armour", label: "Armadura" },
+];
+
+/** number | null: "" → null (desconocido); nunca mostrar null como 0. */
+function nullableToInput(value: number | null | undefined): string | number {
+  return value ?? "";
+}
+
+function inputToNullable(value: string): number | null {
+  if (value.trim() === "") return null;
   const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function inputToOptional(value: string): number | undefined {
+  if (value.trim() === "") return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 const ORIGIN_BADGES = {
@@ -69,35 +99,16 @@ const ORIGIN_BADGES = {
 } as const;
 
 export function CharacterSection({ character, meta }: CharacterSectionProps) {
-  const { profile, warnings, origin, busy, dirty } = character;
+  const { profile, warnings, origin, busy, restoring, dirty } = character;
   const [itemText, setItemText] = useState("");
-  const [supportsDrafts, setSupportsDrafts] = useState<Record<string, string>>({});
 
   const originBadge = ORIGIN_BADGES[origin];
-
-  const addSkill = () => {
-    if (!profile) return;
-    const skill: SkillSetup = {
-      id: `skill-${Date.now()}`,
-      label: "",
-      mainSkill: "",
-      supports: [],
-    };
-    character.updateProfile({ skills: [...profile.skills, skill] });
-  };
-
-  const updateSkill = (id: string, patch: Partial<SkillSetup>) => {
-    if (!profile) return;
-    character.updateProfile({
-      skills: profile.skills.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-    });
-  };
 
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <CardTitle className="text-xl">1. Mi personaje</CardTitle>
             <Badge variant="outline" className={originBadge.className}>
               {originBadge.label}
@@ -116,18 +127,33 @@ export function CharacterSection({ character, meta }: CharacterSectionProps) {
               </Badge>
             )}
           </div>
-          <Button
-            type="button"
-            onClick={() => void character.loadDemo()}
-            disabled={busy !== null}
-          >
-            {busy === "demo" ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Sparkles className="size-4" aria-hidden="true" />
+          <div className="flex items-center gap-2">
+            {profile && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={character.reset}
+                disabled={busy !== null}
+                className="text-muted-foreground"
+              >
+                <RotateCcw className="size-4" aria-hidden="true" />
+                Empezar de nuevo
+              </Button>
             )}
-            Cargar ejemplo
-          </Button>
+            <Button
+              type="button"
+              onClick={() => void character.loadDemo()}
+              disabled={busy !== null || restoring}
+            >
+              {busy === "demo" ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Sparkles className="size-4" aria-hidden="true" />
+              )}
+              Cargar ejemplo
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
@@ -146,11 +172,16 @@ export function CharacterSection({ character, meta }: CharacterSectionProps) {
           </Alert>
         )}
 
-        {busy === "demo" && !profile ? (
+        {restoring || (busy === "demo" && !profile) ? (
           <div className="flex flex-col gap-3" aria-busy="true">
             <Skeleton className="h-8 w-1/2" />
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
+            {restoring && (
+              <p className="text-sm text-muted-foreground">
+                Restaurando tu último personaje…
+              </p>
+            )}
           </div>
         ) : !profile ? (
           <Empty className="border border-dashed border-border">
@@ -176,17 +207,12 @@ export function CharacterSection({ character, meta }: CharacterSectionProps) {
           <ProfileEditor
             profile={profile}
             meta={meta}
-            busy={busy}
-            supportsDrafts={supportsDrafts}
-            setSupportsDrafts={setSupportsDrafts}
             onUpdate={character.updateProfile}
             onMutate={character.mutateProfile}
-            onAddSkill={addSkill}
-            onUpdateSkill={updateSkill}
           />
         )}
 
-        {profile && (
+        {profile && !restoring && (
           <>
             <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
               <Label htmlFor="item-text">
@@ -244,25 +270,30 @@ export function CharacterSection({ character, meta }: CharacterSectionProps) {
 interface ProfileEditorProps {
   profile: CharacterProfile;
   meta: MetaResponse | null;
-  busy: CharacterState["busy"];
-  supportsDrafts: Record<string, string>;
-  setSupportsDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onUpdate: (patch: Partial<CharacterProfile>) => void;
   onMutate: (updater: (profile: CharacterProfile) => CharacterProfile) => void;
-  onAddSkill: () => void;
-  onUpdateSkill: (id: string, patch: Partial<SkillSetup>) => void;
 }
 
-function ProfileEditor({
-  profile,
-  meta,
-  supportsDrafts,
-  setSupportsDrafts,
-  onUpdate,
-  onMutate,
-  onAddSkill,
-  onUpdateSkill,
-}: ProfileEditorProps) {
+function ProfileEditor({ profile, meta, onUpdate, onMutate }: ProfileEditorProps) {
+  const [supportsDrafts, setSupportsDrafts] = useState<Record<string, string>>({});
+
+  const addSkill = () => {
+    const skill: SkillSetup = {
+      id: `skill-${Date.now()}`,
+      label: "",
+      mainSkill: "",
+      mainSkillGemId: null,
+      supports: [],
+    };
+    onUpdate({ skills: [...profile.skills, skill] });
+  };
+
+  const updateSkill = (id: string, patch: Partial<SkillSetup>) => {
+    onUpdate({
+      skills: profile.skills.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+    });
+  };
+
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -287,9 +318,7 @@ function ProfileEditor({
           <Input
             id="char-ascendancy"
             value={profile.ascendancy ?? ""}
-            onChange={(e) =>
-              onUpdate({ ascendancy: e.target.value || undefined })
-            }
+            onChange={(e) => onUpdate({ ascendancy: e.target.value || undefined })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -300,20 +329,21 @@ function ProfileEditor({
             min={1}
             max={100}
             value={profile.level}
-            onChange={(e) =>
-              onUpdate({ level: Math.min(100, Math.max(1, toInt(e.target.value, 1))) })
-            }
+            onChange={(e) => {
+              const parsed = inputToNullable(e.target.value) ?? 1;
+              onUpdate({ level: Math.min(100, Math.max(1, parsed)) });
+            }}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="char-league">Liga</Label>
-          {meta && meta.leagues.includes(profile.league) ? (
+          {meta && meta.leagues.length > 0 ? (
             <Select
-              value={profile.league}
+              value={meta.leagues.includes(profile.league) ? profile.league : ""}
               onValueChange={(value) => onUpdate({ league: value })}
             >
               <SelectTrigger id="char-league">
-                <SelectValue />
+                <SelectValue placeholder={profile.league || "Elige una liga"} />
               </SelectTrigger>
               <SelectContent>
                 {meta.leagues.map((league) => (
@@ -331,10 +361,39 @@ function ProfileEditor({
             />
           )}
         </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="char-patch">Parche</Label>
+          {meta && meta.patches.length > 0 ? (
+            <Select
+              value={meta.patches.some((p) => p.id === profile.patch) ? profile.patch : ""}
+              onValueChange={(value) => onUpdate({ patch: value })}
+            >
+              <SelectTrigger id="char-patch">
+                <SelectValue placeholder={profile.patch || "Elige un parche"} />
+              </SelectTrigger>
+              <SelectContent>
+                {meta.patches.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              id="char-patch"
+              value={profile.patch}
+              onChange={(e) => onUpdate({ patch: e.target.value })}
+            />
+          )}
+        </div>
       </div>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">Atributos</legend>
+        <p className="text-xs text-muted-foreground">
+          Deja el campo vacío si no lo sabes: «desconocido» no es lo mismo que 0.
+        </p>
         <div className="grid grid-cols-3 gap-3">
           {ATTRIBUTE_FIELDS.map(({ key, label }) => (
             <div key={key} className="flex flex-col gap-1.5">
@@ -343,15 +402,17 @@ function ProfileEditor({
                 id={`attr-${key}`}
                 type="number"
                 min={0}
-                value={profile.attributes[key]}
-                onChange={(e) =>
+                value={nullableToInput(profile.attributes[key])}
+                placeholder="Desconocido"
+                onChange={(e) => {
+                  const parsed = inputToNullable(e.target.value);
                   onUpdate({
                     attributes: {
                       ...profile.attributes,
-                      [key]: Math.max(0, toInt(e.target.value, 0)),
+                      [key]: parsed === null ? null : Math.max(0, parsed),
                     },
-                  })
-                }
+                  });
+                }}
               />
             </div>
           ))}
@@ -367,12 +428,13 @@ function ProfileEditor({
               <Input
                 id={`res-${key}`}
                 type="number"
-                value={profile.resistances[key]}
+                value={nullableToInput(profile.resistances[key])}
+                placeholder="Desconocido"
                 onChange={(e) =>
                   onUpdate({
                     resistances: {
                       ...profile.resistances,
-                      [key]: toInt(e.target.value, 0),
+                      [key]: inputToNullable(e.target.value),
                     },
                   })
                 }
@@ -383,7 +445,28 @@ function ProfileEditor({
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Objetos ({profile.items.length})</legend>
+        <legend className="text-sm font-medium">Defensas</legend>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {DEFENSE_FIELDS.map(({ key, label }) => (
+            <div key={key} className="flex flex-col gap-1.5">
+              <Label htmlFor={`def-${key}`}>{label}</Label>
+              <Input
+                id={`def-${key}`}
+                type="number"
+                min={0}
+                value={nullableToInput(profile[key])}
+                placeholder="Desconocido"
+                onChange={(e) => onUpdate({ [key]: inputToOptional(e.target.value) })}
+              />
+            </div>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium">
+          Objetos ({profile.items.length})
+        </legend>
         {profile.items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Sin objetos. Analiza un objeto copiado del juego con el panel de abajo.
@@ -430,12 +513,20 @@ function ProfileEditor({
                     id={`skill-main-${skill.id}`}
                     value={skill.mainSkill}
                     onChange={(e) =>
-                      onUpdateSkill(skill.id, {
+                      updateSkill(skill.id, {
                         mainSkill: e.target.value,
                         label: e.target.value,
                       })
                     }
                   />
+                  {skill.mainSkillGemId === null && (
+                    <Badge
+                      variant="outline"
+                      className="w-fit border-amber-500/40 bg-amber-500/10 text-amber-300"
+                    >
+                      id no verificado
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`skill-supports-${skill.id}`}>
@@ -443,7 +534,10 @@ function ProfileEditor({
                   </Label>
                   <Input
                     id={`skill-supports-${skill.id}`}
-                    value={supportsDrafts[skill.id] ?? skill.supports.join(", ")}
+                    value={
+                      supportsDrafts[skill.id] ??
+                      skill.supports.map((s) => s.name).join(", ")
+                    }
                     onChange={(e) =>
                       setSupportsDrafts((prev) => ({
                         ...prev,
@@ -453,11 +547,17 @@ function ProfileEditor({
                     onBlur={() => {
                       const draft = supportsDrafts[skill.id];
                       if (draft !== undefined) {
-                        onUpdateSkill(skill.id, {
-                          supports: draft
-                            .split(",")
-                            .map((s) => s.trim())
-                            .filter((s) => s.length > 0),
+                        const names = draft
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter((s) => s.length > 0);
+                        updateSkill(skill.id, {
+                          supports: names.map((name) => {
+                            const existing = skill.supports.find(
+                              (s) => s.name === name,
+                            );
+                            return { name, gemId: existing?.gemId ?? null };
+                          }),
                         });
                         setSupportsDrafts((prev) => {
                           const next = { ...prev };
@@ -467,6 +567,21 @@ function ProfileEditor({
                       }
                     }}
                   />
+                  {skill.supports.some((s) => s.gemId === null) && (
+                    <div className="flex flex-wrap gap-1">
+                      {skill.supports
+                        .filter((s) => s.gemId === null)
+                        .map((s) => (
+                          <Badge
+                            key={s.name}
+                            variant="outline"
+                            className="border-amber-500/40 bg-amber-500/10 text-amber-300"
+                          >
+                            {s.name}: id no verificado
+                          </Badge>
+                        ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <Button
@@ -488,34 +603,98 @@ function ProfileEditor({
           </div>
         ))}
         <div>
-          <Button type="button" variant="outline" size="sm" onClick={onAddSkill}>
+          <Button type="button" variant="outline" size="sm" onClick={addSkill}>
             <Plus className="size-4" aria-hidden="true" />
             Añadir habilidad
           </Button>
         </div>
       </fieldset>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="passives-list">
-          Pasivas asignadas ({profile.passives.allocated.length}, una por línea)
-        </Label>
-        <Textarea
-          id="passives-list"
-          rows={5}
-          value={profile.passives.allocated.join("\n")}
-          onChange={(e) =>
-            onUpdate({
-              passives: {
-                allocated: e.target.value
-                  .split("\n")
-                  .map((line) => line.trim())
-                  .filter((line) => line.length > 0),
-              },
-            })
-          }
-          className="font-mono text-xs"
-        />
-      </div>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium">
+          Pasivas asignadas ({profile.passives.allocated.length})
+        </legend>
+        {profile.passives.allocated.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Sin pasivas. Añade nodos del árbol por nombre o por id oficial.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {profile.passives.allocated.map((node, index) => (
+              <div key={`${node.ref}-${index}`} className="flex items-center gap-2">
+                <Input
+                  value={node.ref}
+                  aria-label={`Pasiva ${index + 1}`}
+                  onChange={(e) =>
+                    onMutate((p) => ({
+                      ...p,
+                      passives: {
+                        allocated: p.passives.allocated.map((n, i) =>
+                          i === index ? { ...n, ref: e.target.value } : n,
+                        ),
+                      },
+                    }))
+                  }
+                  className="font-mono text-xs"
+                />
+                {node.isOfficialId ? (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                  >
+                    id oficial
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 border-amber-500/40 bg-amber-500/10 text-amber-300"
+                  >
+                    nombre sin verificar
+                  </Badge>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Eliminar pasiva ${node.ref || index + 1}`}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() =>
+                    onMutate((p) => ({
+                      ...p,
+                      passives: {
+                        allocated: p.passives.allocated.filter((_, i) => i !== index),
+                      },
+                    }))
+                  }
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              onMutate((p) => ({
+                ...p,
+                passives: {
+                  allocated: [
+                    ...p.passives.allocated,
+                    { ref: "", isOfficialId: false },
+                  ],
+                },
+              }))
+            }
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Añadir pasiva
+          </Button>
+        </div>
+      </fieldset>
     </div>
   );
 }

@@ -10,6 +10,7 @@ No es un chatbot: construye un perfil estructurado del personaje, consulta datos
 
 - Node.js 24+ (usa `node:sqlite`, sin dependencias nativas)
 - npm
+- (Opcional, solo para `npm run test:browser`) Microsoft Edge instalado
 
 ## Puesta en marcha
 
@@ -22,25 +23,39 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm run dev` — servidor de desarrollo único (Vite sirve el frontend y monta la API Express bajo `/api`).
 - `npm start` — modo producción: sirve `dist/` + API en el puerto `PORT` (default 7177). Requiere `npm run build` previo.
 - `npm run build` — typecheck completo (`tsc -b`) + build de producción.
-- `npm test` — 45 pruebas (unitarias, integración y una e2e del flujo principal).
+- `npm test` — pruebas automatizadas (unitarias, integración y e2e del flujo principal).
+- `npm run lint` — ESLint sobre todo el repo.
+- `npm run test:browser` — prueba real de navegador del flujo principal con Edge (Playwright, `channel: msedge`, sin descargar navegadores). Requiere `npm run build` previo. Guarda capturas en `docs/screenshots/`.
 
 ## Cómo probar el flujo principal (sin credenciales)
 
 1. Abre http://localhost:7100 y pulsa **«Cargar ejemplo»** (perfil demo: Mercenario Gemling con ballesta, nivel 70, con carencias deliberadas).
-2. Revisa/corrige campos en **Mi personaje** y pulsa **Guardar correcciones**.
-3. En **Mercado actual** elige liga `Runes of Aldur`, presupuesto (p. ej. 2 divine) y objetivo; consulta precios (datos reales de poe.ninja con caché; si no hay red, fixtures degradados marcados como «No verificado»).
-4. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza.
-5. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo `.build.json` reimportable (puedes volver a importarlo en el paso 1).
+2. Revisa/corrige campos en **Mi personaje** (atributos, resistencias, vida y defensas; «Desconocido» = sin dato, nunca 0) y pulsa **Guardar correcciones**. El personaje se recupera automáticamente al recargar la página.
+3. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; si no hay red, fixtures marcados como «No verificado»).
+4. (Opcional) Define una **Build objetivo**: sus mods deseados influyen en las recomendaciones.
+5. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza. Si cambias cualquier dato, las tarjetas se invalidan.
+6. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo **`.build` oficial** (GGG Build Planner v1) importable por el juego, junto a un informe honesto de lo exportado y lo que el formato no puede guardar.
 
-También puedes pegar texto de un objeto copiado del juego («Analizar objeto») o importar un `.build` / código de Path of Building (adaptador básico).
+## Formato `.build` — GGG Build Planner v1
+
+El archivo exportado sigue el esquema oficial documentado por GGG en
+<https://www.pathofexile.com/developer/docs/game>: un único objeto `Build` JSON con
+`name`, `author`, `link`, `description`, `ascendancy`, `passives`, `skills` e `inventory_slots`.
+
+Separación de conceptos:
+
+- **CharacterProfileSnapshot** (`shared/domain.ts`): estado interno completo (nivel, liga, resistencias, vida, mods de objetos, presupuesto…).
+- **GggBuildPlannerV1** (`shared/gggBuildPlanner.ts`): el archivo oficial exportable al juego.
+
+El formato oficial **no puede almacenar** nivel, liga, parche, atributos, resistencias, vida/defensas, mods concretos de objetos, presupuesto ni objetivo. Además, pasivas y gemas solo se exportan cuando existe un **id oficial verificable** (tablas `PassiveSkills` / `BaseItemTypes`); lo que no lo tiene aparece en `skippedUnverified` del informe de exportación. Por tanto NO es un round-trip sin pérdida: la app informa siempre de lo omitido.
 
 ## Estructura
 
-- `shared/` — esquemas zod y tipos compartidos (dominio, API, formato `.build`).
-- `server/` — API Express: importadores, adaptadores (GGG OAuth desactivado por flag, PoB básico, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag y fixtures, motor determinista de recomendaciones, explicadores (determinista por defecto; LLM stub por flag), exportador `.build`.
+- `shared/` — esquemas zod: dominio interno, contrato API y esquema oficial GGG Build Planner v1.
+- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista de recomendaciones, explicadores (determinista por defecto; LLM stub por flag), exportador `.build` oficial con informe.
 - `src/` — frontend React + Tailwind + shadcn/ui (español, tema oscuro).
-- `tests/` — vitest: unit, integration, e2e.
-- `docs/PLAN.md` — plan, arquitectura y contrato API. `HANDOFF.md` — informe para el propietario.
+- `tests/` — vitest: unit, integration, e2e. `scripts/browser-smoke.mjs` — prueba de navegador real.
+- `docs/PLAN.md` — plan y arquitectura. `HANDOFF.md` — informe para el propietario.
 
 ## Variables de entorno
 
@@ -48,10 +63,11 @@ Todas documentadas en `.env.example`. Destacadas:
 
 - `POE_NINJA_OFFLINE=true` — nunca hace red; sirve fixtures (ideal para demos/tests).
 - `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
-- `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — flags desactivadas por defecto; el MVP no depende de ellas.
+- `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — flags desactivadas por defecto.
 
 ## Reglas de datos
 
-- Solo API económica pública documentada de poe.ninja, llamada desde el servidor, con caché/ETag y fallback. Sin scraping ni endpoints internos (poe.ninja, Mobalytics) ni OAuth de GGG.
-- Nunca se inventan precios, mods ni estadísticas: sin dato verificable se muestra **«No verificado»** y qué falta.
-- Cada recomendación lleva fuente, parche y fecha de actualización de los datos.
+- Solo API económica pública documentada de poe.ninja (`/poe2/api/economy/...`), llamada desde el servidor, con caché/ETag y fallback. Sin scraping ni endpoints internos ni OAuth de GGG.
+- Los valores desconocidos permanecen `null` («Desconocido»); nunca se convierten en cero ni generan afirmaciones falsas.
+- Los objetos raros nunca se valoran con precios de únicos por coincidencia de base; no se inventan rangos de precio.
+- Los presupuestos se comparan solo tras normalizar divine/exalted/chaos con las tasas reales de poe.ninja; sin tasas verificables no se afirma que algo «entra en el presupuesto».

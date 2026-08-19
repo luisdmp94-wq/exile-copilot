@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- componentes shadcn/ui vendorizados (scaffold) */
 "use client"
 
 import * as React from "react"

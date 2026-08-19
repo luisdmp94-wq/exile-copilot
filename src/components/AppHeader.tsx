@@ -9,6 +9,16 @@ interface AppHeaderProps {
   loading: boolean;
 }
 
+function patchLabel(health: HealthResponse): string {
+  const { content, hotfix } = health.patch;
+  return hotfix ? `${content}${hotfix}` : content;
+}
+
+function patchTitle(health: HealthResponse): string {
+  const { asOf, source } = health.patch;
+  return `Versión del juego según ${source}, a fecha de ${formatDateTime(asOf)}`;
+}
+
 export function AppHeader({ health, loading }: AppHeaderProps) {
   return (
     <header className="border-b border-border bg-card/60">
@@ -25,9 +35,9 @@ export function AppHeader({ health, loading }: AppHeaderProps) {
           <Badge
             variant="outline"
             className="border-primary/50 bg-primary/10 text-primary"
-            title={`Datos actualizados: ${formatDateTime(health.dataUpdatedAt)}`}
+            title={patchTitle(health)}
           >
-            Parche {health.patch}
+            Parche {patchLabel(health)}
           </Badge>
         ) : (
           <Badge variant="destructive">API sin conexión</Badge>

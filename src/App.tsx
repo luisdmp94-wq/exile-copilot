@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { Budget, GoalKind } from "@shared/domain.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Toaster } from "@/components/ui/sonner";
@@ -11,6 +12,7 @@ import { useCharacter } from "@/hooks/useCharacter";
 import { useMarket } from "@/hooks/useMarket";
 import { useMeta } from "@/hooks/useMeta";
 import { useRecommendations } from "@/hooks/useRecommendations";
+import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
 
 const EMPTY_TARGET: TargetDraft = {
   name: "",
@@ -24,6 +26,7 @@ export default function App() {
   const character = useCharacter();
   const market = useMarket();
   const recommendations = useRecommendations();
+  const { resultInputsKey, clear } = recommendations;
 
   const [league, setLeague] = useState("");
   const [patch, setPatch] = useState("");
@@ -36,23 +39,45 @@ export default function App() {
     if (meta && !league && meta.leagues.length > 0) {
       setLeague(meta.leagues[0]);
     }
-    if (health && !patch) {
-      setPatch(health.patch);
-    } else if (meta && !patch && meta.patches.length > 0) {
-      setPatch(meta.patches[0].id);
+    if (!patch) {
+      if (meta && meta.patches.length > 0) {
+        setPatch(meta.patches[0].id);
+      } else if (health) {
+        setPatch(health.patch.content);
+      }
     }
   }, [meta, health, league, patch]);
 
-  // Si el perfil importado trae liga/parche propios, respetarlos.
+  // Si el perfil importado/restaurado trae liga y parche propios, respetarlos.
   useEffect(() => {
     const profile = character.profile;
     if (profile) {
       setLeague(profile.league || league);
       setPatch(profile.patch || patch);
     }
-    // Solo reacciona al cambio de perfil importado, no a cada edición de campos.
+    // Solo reacciona al cambio de perfil cargado, no a cada edición de campos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character.profile?.id]);
+
+  // Invalidación: si los inputs cambian tras generar, las recomendaciones quedan obsoletas.
+  const currentInputsKey = character.profile
+    ? JSON.stringify(
+        buildRecommendationsRequest(
+          character.profile,
+          targetDraft,
+          budget,
+          goal,
+          league,
+          patch,
+        ),
+      )
+    : null;
+  useEffect(() => {
+    if (resultInputsKey && resultInputsKey !== currentInputsKey) {
+      clear();
+      toast.info("Los datos han cambiado — vuelve a generar las recomendaciones");
+    }
+  }, [currentInputsKey, resultInputsKey, clear]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">

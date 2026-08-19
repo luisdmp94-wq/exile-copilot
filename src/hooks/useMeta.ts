@@ -37,7 +37,8 @@ export function useMeta(): MetaState {
   }, []);
 
   useEffect(() => {
-    void load();
+    // El primer setState ocurre tras el await, no de forma síncrona en el efecto.
+    void Promise.resolve().then(load);
   }, [load]);
 
   return { health, meta, loading, error, reload: load };

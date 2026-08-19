@@ -1,0 +1,28 @@
+{
+  "name": "Demo Mercenary",
+  "author": "Exile Copilot",
+  "description": "Build de demostracion en formato oficial Build Planner v1. Todos los ids aparecen verbatim en la documentacion oficial de GGG (ejemplo Titan Warrior): NO se inventan ids de gemas de ballesta ni de pasivas de mercenario.",
+  "passives": [
+    "melee17",
+    "melee18",
+    {
+      "id": "strength89",
+      "additional_text": "<m>{<red>{Strength +5 is recommended}}"
+    }
+  ],
+  "skills": [
+    {
+      "id": "Metadata/Items/Gems/SkillGemEarthquake",
+      "additional_text": "Skill de ejemplo del documento oficial (no es una gema de ballesta; la documentacion no publica ids de gemas de ballesta).",
+      "support_skills": [
+        "Metadata/Items/Gems/SupportGemFastForward"
+      ]
+    }
+  ],
+  "inventory_slots": [
+    {
+      "inventory_id": "Weapon1",
+      "additional_text": "<silver>{Any Crossbow}\n\n<grey>{Pista de demo: el formato oficial solo admite pistas de texto por hueco.}"
+    }
+  ]
+}

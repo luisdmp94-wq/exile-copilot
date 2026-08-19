@@ -95,18 +95,39 @@ describe("poe.ninja — endpoints documentados (shapes reales)", () => {
     expect(exalted?.value).toBe(0.0095);
   });
 
-  it("offline: items únicos desde fixture de stash (shape PoE2)", async () => {
+  it("offline: items únicos desde fixture de stash (match exacto de nombre de único)", async () => {
     const db = createDatabase(":memory:");
     const client = new PoeNinjaClient({ db, config: offlineConfig() });
     const service = new PriceService(client);
 
     const result = await service.getQuotes(["Gale Hymn", "Varnished Crossbow"], LEAGUE);
-    // Por nombre exacto y por baseType, ambos al mismo único
+    // Match exacto de nombre de único; la base sola NO se valora con precio de único
     expect(result.quotes[0]?.value).toBe(1.2);
     expect(result.quotes[0]?.currency).toBe("divine");
-    expect(result.quotes[1]?.value).toBe(1.2);
-    expect(result.quotes[0]?.verified).toBe(false);
+    expect(result.quotes[0]?.verified).toBe(false); // fixture → No verificado aunque tenga valor
+    expect(result.quotes[0]?.detail).toContain("fixture offline");
+    expect(result.quotes[1]?.value).toBeNull();
+    expect(result.quotes[1]?.verified).toBe(false);
+    // La respuesta expone moneda primaria y tasas del exchange
+    expect(result.primaryCurrency).toBe("divine");
+    expect(result.rates).toEqual({ exalted: 105, chaos: 35.44 });
     expect(result.degraded).toBe(true);
+  });
+
+  it("un objeto declarado rare nunca se valora con precio de único aunque coincida el nombre", async () => {
+    const db = createDatabase(":memory:");
+    const client = new PoeNinjaClient({ db, config: offlineConfig() });
+    const service = new PriceService(client);
+
+    const result = await service.getQuotes([{ name: "Gale Hymn", rarity: "rare" }], LEAGUE);
+    expect(result.quotes[0]?.value).toBeNull();
+    expect(result.quotes[0]?.verified).toBe(false);
+    expect(result.quotes[0]?.detail).toContain("no es único");
+
+    // La misma consulta declarada única sí encuentra el valor (del fixture, no verificado)
+    const asUnique = await service.getQuotes([{ name: "Gale Hymn", rarity: "unique" }], LEAGUE);
+    expect(asUnique.quotes[0]?.value).toBe(1.2);
+    expect(asUnique.quotes[0]?.verified).toBe(false);
   });
 
   it("nombre desconocido → value null, verified:false, detail No verificado", async () => {
@@ -213,12 +234,45 @@ describe("poe.ninja — caché con ETag (endpoints documentados)", () => {
 
     const result = await service.getQuotes(["Divine Orb", "Storm Cantor"], LEAGUE);
     expect(result.degraded).toBe(false);
+    expect(result.primaryCurrency).toBe("divine");
+    expect(result.rates).toEqual({ exalted: 105, chaos: 35.44 });
     expect(result.quotes[0]?.verified).toBe(true);
     expect(result.quotes[0]?.value).toBe(1);
     expect(result.quotes[0]?.currency).toBe("divine");
     expect(result.quotes[1]?.verified).toBe(true);
     expect(result.quotes[1]?.value).toBe(0.35);
     expect(result.quotes[1]?.currency).toBe("divine");
+  });
+
+  it("caché corrupta: borra la fila, trata como miss y no derriba la petición", async () => {
+    const db = createDatabase(":memory:");
+    // Inserta una fila con payload JSON inválido directamente en la tabla
+    db.prepare(
+      "INSERT INTO price_cache (key, league, category, payload, etag, fetched_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(`${LEAGUE}:Currency`, LEAGUE, "Currency", "{json-roto", '"etag-x"', new Date(0).toISOString());
+
+    const { fetchImpl, calls } = fetchByUrl({
+      exchange: () => ({ status: 200, body: currencyFixture, etag: '"e-new"' }),
+    });
+    const config = offlineConfig({ poeNinjaOffline: false, poeNinjaCacheTtlSeconds: 900 });
+    const client = new PoeNinjaClient({ db, config, fetchImpl });
+
+    const result = await client.getOverview(LEAGUE, "Currency");
+    expect(result?.origin).toBe("live"); // miss → red, sin excepción
+    expect(calls).toHaveLength(1);
+    // La fila corrupta fue reemplazada por una válida
+    const row = db.prepare("SELECT payload FROM price_cache WHERE key = ?").get(`${LEAGUE}:Currency`) as { payload: string };
+    expect(() => JSON.parse(row.payload)).not.toThrow();
+
+    // Modo offline con caché corrupta → cae a fixture sin lanzar
+    const db2 = createDatabase(":memory:");
+    db2.prepare(
+      "INSERT INTO price_cache (key, league, category, payload, etag, fetched_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(`${LEAGUE}:Currency`, LEAGUE, "Currency", "no-json", null, new Date().toISOString());
+    const offlineClient = new PoeNinjaClient({ db: db2, config: offlineConfig() });
+    const offlineResult = await offlineClient.getOverview(LEAGUE, "Currency");
+    expect(offlineResult?.origin).toBe("fixture");
+    expect(offlineResult?.degraded).toBe(true);
   });
 });
 

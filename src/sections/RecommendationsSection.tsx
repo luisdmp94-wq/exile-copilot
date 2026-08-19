@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Download, Lightbulb, Loader2, Sparkles } from "lucide-react";
+import type { ExportBuildResponse } from "@shared/api.js";
 import type {
-  BuildTarget,
   Budget,
   CharacterProfile,
   GoalKind,
@@ -20,6 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import type { RecommendationsState } from "@/hooks/useRecommendations";
 import type { TargetDraft } from "@/sections/TargetSection";
+import { buildTargetFromDraft } from "@/lib/buildTarget";
+import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
 import { formatDateTime } from "@/lib/format";
 
 interface RecommendationsSectionProps {
@@ -33,20 +35,6 @@ interface RecommendationsSectionProps {
   onLoadDemo: () => Promise<void>;
 }
 
-function buildTarget(draft: TargetDraft): BuildTarget | undefined {
-  if (!draft.name.trim()) return undefined;
-  return {
-    name: draft.name.trim(),
-    sourceUrl: draft.sourceUrl.trim() || undefined,
-    summary: draft.summary.trim() || undefined,
-    desiredMods: draft.desiredModsText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0),
-    referenceOnly: true,
-  };
-}
-
 export function RecommendationsSection({
   profile,
   targetDraft,
@@ -57,7 +45,7 @@ export function RecommendationsSection({
   recommendations,
   onLoadDemo,
 }: RecommendationsSectionProps) {
-  const { result, loading, exporting, error } = recommendations;
+  const { result, exportResult, loading, exporting, error } = recommendations;
   const [appliedIds, setAppliedIds] = useState<Record<string, boolean>>({});
 
   const canGenerate = !!profile && !!league && !!patch && !loading;
@@ -75,14 +63,9 @@ export function RecommendationsSection({
             type="button"
             onClick={() => {
               if (!profile) return;
-              void recommendations.generate({
-                profile,
-                target: buildTarget(targetDraft),
-                budget,
-                goal: { kind: goal },
-                league,
-                patch,
-              });
+              void recommendations.generate(
+                buildRecommendationsRequest(profile, targetDraft, budget, goal, league, patch),
+              );
             }}
             disabled={!canGenerate}
           >
@@ -164,12 +147,13 @@ export function RecommendationsSection({
                 disabled={exporting || !profile}
                 onClick={() => {
                   if (!profile) return;
-                  void recommendations.exportBuild(
+                  void recommendations.exportBuild({
                     profile,
-                    Object.entries(appliedIds)
+                    target: buildTargetFromDraft(targetDraft),
+                    appliedRecommendations: Object.entries(appliedIds)
                       .filter(([, applied]) => applied)
                       .map(([id]) => id),
-                  );
+                  });
                 }}
               >
                 {exporting ? (
@@ -182,7 +166,72 @@ export function RecommendationsSection({
             </div>
           </>
         )}
+
+        {exportResult && <ExportReportView exportResult={exportResult} />}
       </CardContent>
     </Card>
+  );
+}
+
+/** Informe honesto de exportación: qué contiene el archivo y qué se perdió. */
+function ExportReportView({ exportResult }: { exportResult: ExportBuildResponse }) {
+  const { report, fileName } = exportResult;
+  const exportedItems: string[] = [
+    report.exported.name ? "Nombre de la build" : "",
+    report.exported.ascendancy ? "Ascendencia" : "",
+    report.exported.passives > 0 ? `${report.exported.passives} pasiva(s)` : "",
+    report.exported.skills > 0 ? `${report.exported.skills} habilidad(es)` : "",
+    report.exported.inventorySlots > 0
+      ? `${report.exported.inventorySlots} hueco(s) de inventario`
+      : "",
+  ].filter((item) => item.length > 0);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-primary/40 bg-primary/5 p-4">
+      <p className="text-sm font-medium text-foreground">
+        Informe de exportación de <span className="font-mono">{fileName}</span>
+      </p>
+
+      <div>
+        <p className="text-sm font-medium text-foreground">Qué contiene el archivo</p>
+        {exportedItems.length > 0 ? (
+          <ul className="list-inside list-disc text-sm text-muted-foreground">
+            {exportedItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            El archivo se generó vacío de contenido exportable.
+          </p>
+        )}
+      </div>
+
+      {report.notExportable.length > 0 && (
+        <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
+          <AlertTitle>Lo que el formato oficial NO puede guardar</AlertTitle>
+          <AlertDescription>
+            <ul className="list-inside list-disc">
+              {report.notExportable.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {report.skippedUnverified.length > 0 && (
+        <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
+          <AlertTitle>Omitido por falta de id oficial</AlertTitle>
+          <AlertDescription>
+            <ul className="list-inside list-disc">
+              {report.skippedUnverified.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }

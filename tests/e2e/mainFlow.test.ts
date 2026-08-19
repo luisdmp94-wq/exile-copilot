@@ -1,12 +1,14 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { BuildFileSchema } from "../../shared/buildFile.js";
+import { GggBuildPlannerV1Schema } from "../../shared/gggBuildPlanner.js";
 import { createApiApp } from "../../server/app.js";
 
 /**
  * E2E del flujo principal contra un servidor real en puerto efímero:
- * demo → recommendations (budget+goal) → export → reimport → perfil equivalente.
+ * demo → recommendations (budget+goal) → export (.build oficial) → reimport.
+ * El formato oficial NO hace round-trip sin pérdida: el e2e verifica que el
+ * informe lo declara y que el reimport es honesto (datos ausentes = null).
  */
 
 let server: Server;
@@ -46,14 +48,14 @@ async function jsonOf(res: globalThis.Response): Promise<any> {
 }
 
 describe("e2e: flujo principal (demo → recomendaciones → export → reimport)", () => {
-  it("recorre el flujo completo sin errores y con equivalencia de perfil", async () => {
-    // 1. Cargar el perfil demo
+  it("recorre el flujo completo con honestidad de formato oficial", async () => {
+    // 1. Cargar el snapshot demo
     const demoRes = await fetch(`${base}/character/demo`);
     expect(demoRes.status).toBe(200);
     const { profile } = await jsonOf(demoRes);
     expect(profile.name).toBe("Demo Gemling");
 
-    // 2. Pedir recomendaciones con presupuesto y objetivo
+    // 2. Recomendaciones con presupuesto y objetivo
     const recRes = await postJson("/recommendations", {
       profile,
       budget: { amount: 50, currency: "chaos" },
@@ -64,42 +66,40 @@ describe("e2e: flujo principal (demo → recomendaciones → export → reimport
     expect(recRes.status).toBe(200);
     const recBody = await jsonOf(recRes);
     expect(recBody.recommendations).toHaveLength(3);
-    const appliedIds: string[] = recBody.recommendations.map((r: { id: string }) => r.id);
-    expect(appliedIds[0]).toBe("rec-resistencias-elementales");
+    expect(recBody.inputFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(recBody.recommendations[0].id).toBe("rec-resistencias-elementales");
 
-    // 3. Exportar el .build con las recomendaciones aplicadas
+    // 3. Exportar al formato oficial .build
     const exportRes = await postJson("/export/build", {
       profile,
-      appliedRecommendations: appliedIds,
+      appliedRecommendations: recBody.recommendations.map((r: { id: string }) => r.id),
     });
     expect(exportRes.status).toBe(200);
-    expect(exportRes.headers.get("content-disposition")).toContain("attachment");
-    const exportedText = await exportRes.text();
-    expect(BuildFileSchema.safeParse(JSON.parse(exportedText)).success).toBe(true);
+    const exportBody = await jsonOf(exportRes);
+    expect(exportBody.fileName.endsWith(".build")).toBe(true);
+    expect(GggBuildPlannerV1Schema.safeParse(JSON.parse(exportBody.content)).success).toBe(true);
+    // El informe declara lo no exportable: nivel, resistencias, mods, presupuesto...
+    expect(exportBody.report.notExportable.length).toBeGreaterThan(0);
+    expect(exportBody.report.skippedUnverified.length).toBeGreaterThan(0);
 
-    // 4. Reimportar el archivo exportado
-    const reimportRes = await postJson("/import/build", { content: exportedText });
+    // 4. Reimportar el .build exportado → snapshot honesto (datos ausentes = null)
+    const reimportRes = await postJson("/import/build", { content: exportBody.content });
     expect(reimportRes.status).toBe(200);
     const reimportBody = await jsonOf(reimportRes);
-    expect(reimportBody.detectedFormat).toBe("build-json");
-    expect(reimportBody.warnings).toHaveLength(0);
+    expect(reimportBody.detectedFormat).toBe("ggg-build-planner-v1");
+    expect(reimportBody.warnings.length).toBeGreaterThan(0);
 
-    // 5. Verificar equivalencia del perfil (ignorando ids/ importedAt regenerados)
     const p = reimportBody.profile;
     expect(p.name).toBe(profile.name);
-    expect(p.characterClass).toBe(profile.characterClass);
     expect(p.ascendancy).toBe(profile.ascendancy);
-    expect(p.level).toBe(profile.level);
-    expect(p.league).toBe(profile.league);
-    expect(p.patch).toBe(profile.patch);
-    expect(p.attributes).toEqual(profile.attributes);
-    expect(p.resistances).toEqual(profile.resistances);
-    expect(p.life).toBe(profile.life);
-    expect(p.items).toHaveLength(profile.items.length);
-    expect(p.skills).toEqual(profile.skills);
-    expect(p.passives).toEqual(profile.passives);
+    // Nivel/estadísticas NO viajan en el formato oficial: desconocidos, nunca 0
+    expect(p.level).toBe(1);
+    expect(p.resistances).toEqual({ fire: null, cold: null, lightning: null, chaos: null });
+    expect(p.attributes).toEqual({ str: null, dex: null, int: null });
+    // Las pasivas del demo no tenían id oficial → no se exportaron (declarado en el informe)
+    expect(p.passives.allocated).toHaveLength(0);
 
-    // 6. Las recomendaciones reaplicadas sobre el perfil reimportado son idénticas
+    // 5. El motor sigue funcionando sobre el snapshot reimportado sin afirmar datos inexistentes
     const recRes2 = await postJson("/recommendations", {
       profile: p,
       budget: { amount: 50, currency: "chaos" },
@@ -107,7 +107,11 @@ describe("e2e: flujo principal (demo → recomendaciones → export → reimport
       league: p.league,
       patch: p.patch,
     });
+    expect(recRes2.status).toBe(200);
     const recBody2 = await jsonOf(recRes2);
-    expect(recBody2.recommendations.map((r: { id: string }) => r.id)).toEqual(appliedIds);
+    expect(recBody2.recommendations.length).toBeGreaterThan(0);
+    for (const rec of recBody2.recommendations) {
+      expect(rec.confidence).not.toBe("high"); // sin datos clave no hay confianza alta
+    }
   });
 });

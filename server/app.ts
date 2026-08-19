@@ -10,15 +10,16 @@ import {
   SaveCharacterRequestSchema,
   type ApiError,
 } from "../shared/api.js";
+import { CharacterProfileSchema, PatchVersionSchema, type PatchVersion } from "../shared/domain.js";
 import { loadConfig, type ServerConfig } from "./config.js";
 import { createDatabase } from "./db/database.js";
 import { getCharacter, saveCharacter } from "./db/repositories.js";
-import { importBuild } from "./importers/buildFileImporter.js";
+import { importBuild } from "./importers/buildImporter.js";
 import { parseItemText } from "./importers/itemTextParser.js";
 import { PoeNinjaClient, PriceService } from "./services/poeninja.js";
 import { generateRecommendations } from "./engine/engine.js";
 import { getExplainer } from "./explainers/index.js";
-import { exportBuild } from "./exporters/buildFileExporter.js";
+import { exportGggBuild } from "./exporters/gggBuildExporter.js";
 import { ApiHttpError } from "./errors.js";
 
 /**
@@ -38,8 +39,16 @@ export interface CreateApiAppOptions {
   fetchImpl?: ConstructorParameters<typeof PoeNinjaClient>[0]["fetchImpl"];
 }
 
-function demoFixturePath(): string {
-  return fileURLToPath(new URL("./fixtures/demoBuild.build.json", import.meta.url));
+function fixtureUrl(rel: string): URL {
+  return new URL(`./fixtures/${rel}`, import.meta.url);
+}
+
+/** Parches versionados en server/data/patches.json (fuente y fecha, sin "actual" hardcodeado). */
+function loadPatches(): PatchVersion[] {
+  const raw = readFileSync(fileURLToPath(new URL("./data/patches.json", import.meta.url)), "utf8");
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((p) => PatchVersionSchema.parse(p));
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): Express {
@@ -48,6 +57,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const ninjaClient = new PoeNinjaClient({ db, config, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) });
   const priceService = new PriceService(ninjaClient);
   const explainer = getExplainer(config);
+  const patches = loadPatches();
+
+  const importDefaults = { league: config.defaultLeague, patch: config.defaultPatch };
 
   const app = express();
   app.use(express.json({ limit: "2mb" }));
@@ -60,13 +72,24 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     next();
   });
 
-  // GET /health
+  // GET /health — patch como objeto {content, hotfix, asOf, source}
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, patch: config.defaultPatch, dataUpdatedAt: new Date().toISOString() });
+    const current =
+      patches.find((p) => p.id === config.defaultPatch) ?? patches[0];
+    res.json({
+      ok: true,
+      patch: {
+        content: current?.content ?? current?.id ?? config.defaultPatch,
+        hotfix: current?.hotfix ?? null,
+        asOf: current?.asOf ?? "desconocida",
+        source: current?.source ?? "desconocida",
+      },
+      dataUpdatedAt: new Date().toISOString(),
+    });
   });
 
   // GET /meta — ligas reales desde poe.ninja (endpoint documentado /economy/leagues),
-  // con fallback degradado a fixture si no hay red.
+  // con fallback degradado a fixture si no hay red. Parches desde datos versionados.
   app.get("/meta", async (_req, res, next) => {
     try {
       const { leagues } = await ninjaClient.getLeagues();
@@ -74,10 +97,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       if (!leagueIds.includes("Standard")) leagueIds.push("Standard");
       res.json({
         leagues: leagueIds,
-        patches: [
-          { id: "0.5.0", label: "PoE2 0.5.0 (actual)" },
-          { id: "0.3.0", label: "PoE2 0.3.0" },
-        ],
+        patches,
         goals: ["damage", "survival", "mapping", "bossing", "balanced"],
         currencies: ["chaos", "exalted", "divine", "gold"],
         archetypes: [{ id: "mercenary-crossbow", label: "Mercenario con ballesta (Gemling)" }],
@@ -87,11 +107,11 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // POST /import/build
+  // POST /import/build — detecta .build oficial (GGG Build Planner v1) o código PoB
   app.post("/import/build", (req, res, next) => {
     try {
       const { content } = ImportBuildRequestSchema.parse(req.body);
-      res.json(importBuild(content));
+      res.json(importBuild(content, importDefaults));
     } catch (err) {
       next(err);
     }
@@ -118,11 +138,11 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // GET /character/demo — perfil de demostración precargado (antes de /:id)
+  // GET /character/demo — snapshot interno de demostración precargado
   app.get("/character/demo", (_req, res, next) => {
     try {
-      const content = readFileSync(demoFixturePath(), "utf8");
-      const { profile } = importBuild(content);
+      const raw = readFileSync(fileURLToPath(fixtureUrl("demoSnapshot.json")), "utf8");
+      const profile = CharacterProfileSchema.parse(JSON.parse(raw));
       res.json({ profile });
     } catch (err) {
       next(err);
@@ -140,7 +160,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // GET /market/prices?league=&names=a,b,c
+  // GET /market/prices?league=&names=a,b,c — incluye primaryCurrency y rates
   app.get("/market/prices", async (req, res, next) => {
     try {
       const league = typeof req.query.league === "string" && req.query.league.length > 0
@@ -157,7 +177,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // POST /recommendations
+  // POST /recommendations — incluye inputFingerprint; target opcional influye en las reglas
   app.post("/recommendations", async (req, res, next) => {
     try {
       const body = RecommendationsRequestSchema.parse(req.body);
@@ -168,6 +188,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           goal: body.goal,
           league: body.league,
           patch: body.patch,
+          ...(body.target !== undefined ? { target: body.target } : {}),
         },
         { priceService },
       );
@@ -188,14 +209,12 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // POST /export/build — descarga .build (JSON versionado)
+  // POST /export/build — archivo .build oficial (GGG Build Planner v1) como JSON:
+  // { fileName (".build"), content (string JSON), report (ExportReport) }
   app.post("/export/build", (req, res, next) => {
     try {
-      const { profile, appliedRecommendations } = ExportBuildRequestSchema.parse(req.body);
-      const content = exportBuild(profile, appliedRecommendations ?? []);
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.setHeader("Content-Disposition", 'attachment; filename="exile-copilot.build.json"');
-      res.send(content);
+      const { profile, target } = ExportBuildRequestSchema.parse(req.body);
+      res.json(exportGggBuild(profile, target));
     } catch (err) {
       next(err);
     }

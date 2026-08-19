@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import type { CurrencyKind, PriceQuote } from "../../shared/domain.js";
+import type { CurrencyKind, ItemRarity, PriceQuote } from "../../shared/domain.js";
 import type { ServerConfig } from "../config.js";
 import type { Database } from "../db/database.js";
 import {
+  deleteCacheEntry,
   getCacheEntry,
   setCacheEntry,
   touchCacheEntry,
@@ -190,12 +191,25 @@ export class PoeNinjaClient {
   }): Promise<OverviewResult | null> {
     const { key, league, category, url, fixtureFile } = args;
     const now = new Date();
-    const cached = getCacheEntry(this.#db, key);
+    let cached = getCacheEntry(this.#db, key);
+    let cachedPayload: unknown = null;
+
+    // Caché corrupta: si el payload no parsea, se borra la fila y se trata
+    // como miss (sin derribar la petición).
+    if (cached) {
+      try {
+        cachedPayload = JSON.parse(cached.payload);
+      } catch {
+        console.warn(`[poeninja] caché corrupta para "${key}" — se borra la fila y se trata como miss.`);
+        deleteCacheEntry(this.#db, key);
+        cached = null;
+      }
+    }
 
     // 1) Caché fresca: ni siquiera tocamos la red.
     if (cached && this.#isFresh(cached, now)) {
       return {
-        payload: JSON.parse(cached.payload),
+        payload: cachedPayload,
         origin: "cache-fresh",
         fetchedAt: cached.fetched_at,
         fromCache: true,
@@ -207,7 +221,7 @@ export class PoeNinjaClient {
     if (this.#config.poeNinjaOffline) {
       if (cached) {
         return {
-          payload: JSON.parse(cached.payload),
+          payload: cachedPayload,
           origin: "cache-stale",
           fetchedAt: cached.fetched_at,
           fromCache: true,
@@ -232,7 +246,7 @@ export class PoeNinjaClient {
         // Not Modified: refrescamos fetched_at y servimos la caché.
         touchCacheEntry(this.#db, key, fetchedAt);
         return {
-          payload: JSON.parse(cached.payload),
+          payload: cachedPayload,
           origin: "cache-fresh",
           fetchedAt,
           fromCache: true,
@@ -265,7 +279,7 @@ export class PoeNinjaClient {
     // 4) Fallback: caché antigua aunque esté expirada.
     if (cached) {
       return {
-        payload: JSON.parse(cached.payload),
+        payload: cachedPayload,
         origin: "cache-stale",
         fetchedAt: cached.fetched_at,
         fromCache: true,
@@ -351,6 +365,21 @@ export interface QuotesResult {
   updatedAt: string;
   fromCache: boolean;
   degraded: boolean;
+  /** Moneda primaria de cotización de la liga (core.primary del exchange). */
+  primaryCurrency: CurrencyKind | null;
+  /** Tasas de core.rates (unidades de X por 1 unidad de la primaria); null si no se obtuvo. */
+  rates: Record<string, number> | null;
+}
+
+/**
+ * Consulta de precio. `rarity` da contexto: un objeto RARE nunca se valora
+ * con precios de únicos aunque coincida la base — solo hay match de stash
+ * cuando la consulta es de un único (o no lleva contexto de rareza, p. ej.
+ * la ruta de mercado) y el nombre coincide EXACTAMENTE con el del único.
+ */
+export interface PriceQuery {
+  name: string;
+  rarity?: ItemRarity;
 }
 
 /**
@@ -365,7 +394,7 @@ export class PriceService {
     this.#client = client;
   }
 
-  async getQuotes(names: string[], league: string): Promise<QuotesResult> {
+  async getQuotes(queries: Array<string | PriceQuery>, league: string): Promise<QuotesResult> {
     // 1) Exchange de divisas primero: también nos da la moneda primaria de la liga.
     const currencyOverviews: OverviewResult[] = [];
     for (const type of CURRENCY_TYPES) {
@@ -384,6 +413,13 @@ export class PriceService {
       .map((ov) => asExchangeOverview(ov.payload).core?.primary)
       .find((p): p is string => typeof p === "string");
     const primary = mapPrimaryCurrency(primaryRaw);
+    const primaryCurrency: CurrencyKind | null = primaryRaw ? primary.currency : null;
+
+    // Tasas de conversión de core.rates (null si no se obtuvo ningún exchange).
+    const rates =
+      currencyOverviews
+        .map((ov) => asExchangeOverview(ov.payload).core?.rates)
+        .find((r): r is Record<string, number> => typeof r === "object" && r !== null) ?? null;
 
     const anyFromCache = overviews.some((o) => o.fromCache);
     const anyDegraded = overviews.some((o) => o.degraded) || overviews.length === 0;
@@ -400,8 +436,9 @@ export class PriceService {
           ? "No verificado — caché antigua servida tras fallo del servicio."
           : undefined;
 
-    const quotes: PriceQuote[] = names.map((rawName) => {
-      const name = rawName.trim();
+    const quotes: PriceQuote[] = queries.map((rawQuery) => {
+      const query: PriceQuery = typeof rawQuery === "string" ? { name: rawQuery } : rawQuery;
+      const name = query.name.trim();
       const needle = name.toLowerCase();
 
       // a) Divisas (exchange): lines[].id → core.items[].name; valor = primaryValue.
@@ -410,7 +447,7 @@ export class PriceService {
         const itemsById = new Map((exchange.core?.items ?? []).map((i) => [i.id, i.name]));
         const line = (exchange.lines ?? []).find((l) => {
           const lineName = (itemsById.get(l.id) ?? l.id).toLowerCase();
-          return lineName === needle || lineName.includes(needle) || needle.includes(lineName);
+          return lineName === needle;
         });
         if (line) {
           const value = typeof line.primaryValue === "number" ? line.primaryValue : null;
@@ -431,34 +468,32 @@ export class PriceService {
         }
       }
 
-      // b) Items únicos (stash): nombre = line.name (o baseType); valor = primaryValue,
-      //    en la misma moneda primaria de la liga (obtenida del exchange).
-      for (const ov of itemOverviews) {
-        const line = stashLinesOf(ov.payload).find((l) => {
-          const candidates = [l.name, l.baseType].filter(
-            (s): s is string => typeof s === "string",
+      // b) Items únicos (stash): SOLO match exacto de nombre de único, y nunca
+      //    cuando la consulta declara que el objeto NO es único (un rare jamás
+      //    se valora con precios de únicos aunque coincida la base).
+      const mayBeUnique = query.rarity === undefined || query.rarity === "unique";
+      if (mayBeUnique) {
+        for (const ov of itemOverviews) {
+          const line = stashLinesOf(ov.payload).find(
+            (l) => typeof l.name === "string" && l.name.toLowerCase() === needle,
           );
-          return candidates.some((c) => {
-            const lc = c.toLowerCase();
-            return lc === needle || lc.includes(needle) || needle.includes(lc);
-          });
-        });
-        if (line) {
-          const value = typeof line.primaryValue === "number" ? line.primaryValue : null;
-          const verified =
-            (ov.origin === "live" || ov.origin === "cache-fresh") && value !== null;
-          const detail = [originDetail(ov.origin), primary.note].filter(Boolean).join(" ");
-          return {
-            itemName: name,
-            currency: primary.currency,
-            value,
-            source: "poe.ninja",
-            league,
-            fetchedAt: ov.fetchedAt,
-            fromCache: ov.fromCache,
-            verified,
-            ...(detail ? { detail } : {}),
-          } satisfies PriceQuote;
+          if (line) {
+            const value = typeof line.primaryValue === "number" ? line.primaryValue : null;
+            const verified =
+              (ov.origin === "live" || ov.origin === "cache-fresh") && value !== null;
+            const detail = [originDetail(ov.origin), primary.note].filter(Boolean).join(" ");
+            return {
+              itemName: name,
+              currency: primary.currency,
+              value,
+              source: "poe.ninja",
+              league,
+              fetchedAt: ov.fetchedAt,
+              fromCache: ov.fromCache,
+              verified,
+              ...(detail ? { detail } : {}),
+            } satisfies PriceQuote;
+          }
         }
       }
 
@@ -471,10 +506,21 @@ export class PriceService {
         fetchedAt: updatedAt,
         fromCache: anyFromCache,
         verified: false,
-        detail: `No verificado — "${name}" no aparece en los overviews consultados de poe.ninja.`,
+        detail:
+          query.rarity !== undefined && query.rarity !== "unique"
+            ? `No verificado — "${name}" no es único: los precios de mercado de únicos no aplican a objetos ${query.rarity}.`
+            : `No verificado — "${name}" no aparece en los overviews consultados de poe.ninja.`,
       } satisfies PriceQuote;
     });
 
-    return { quotes, league, updatedAt, fromCache: anyFromCache, degraded: anyDegraded };
+    return {
+      quotes,
+      league,
+      updatedAt,
+      fromCache: anyFromCache,
+      degraded: anyDegraded,
+      primaryCurrency,
+      rates,
+    };
   }
 }

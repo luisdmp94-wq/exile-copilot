@@ -3,6 +3,8 @@ import type { CharacterProfile } from "@shared/domain.js";
 import {
   ApiErrorSchema,
   DemoCharacterResponseSchema,
+  ExportBuildResponseSchema,
+  GetCharacterResponseSchema,
   HealthResponseSchema,
   ImportBuildResponseSchema,
   ImportItemTextResponseSchema,
@@ -11,6 +13,9 @@ import {
   RecommendationsResponseSchema,
   SaveCharacterResponseSchema,
   type DemoCharacterResponse,
+  type ExportBuildRequest,
+  type ExportBuildResponse,
+  type GetCharacterResponse,
   type HealthResponse,
   type ImportBuildRequest,
   type ImportBuildResponse,
@@ -122,6 +127,9 @@ export const api = {
   demoCharacter: (): Promise<DemoCharacterResponse> =>
     request("/api/character/demo", DemoCharacterResponseSchema),
 
+  getCharacter: (id: string): Promise<GetCharacterResponse> =>
+    request(`/api/character/${encodeURIComponent(id)}`, GetCharacterResponseSchema),
+
   marketPrices: (league: string, names: string[]): Promise<MarketPricesResponse> => {
     const params = new URLSearchParams({ league, names: names.join(",") });
     return request(`/api/market/prices?${params.toString()}`, MarketPricesResponseSchema);
@@ -131,36 +139,12 @@ export const api = {
     request("/api/recommendations", RecommendationsResponseSchema, jsonInit(payload)),
 
   /**
-   * Descarga el archivo .build. La respuesta es un adjunto binario, no JSON,
-   * así que no se valida con zod; devuelve el blob y el nombre de archivo.
+   * Exporta la build al formato oficial GGG Build Planner v1.
+   * La respuesta es JSON: { fileName, content, report }.
+   * El archivo descargable se construye en el cliente con un Blob a partir de `content`.
    */
-  exportBuild: async (
-    profile: CharacterProfile,
-    appliedRecommendations: string[],
-  ): Promise<{ blob: Blob; filename: string }> => {
-    let res: Response;
-    try {
-      res = await fetch(
-        "/api/export/build",
-        jsonInit({ profile, appliedRecommendations }),
-      );
-    } catch {
-      throw new ApiRequestError(
-        "No se pudo conectar con el servidor. ¿Está el backend en marcha?",
-      );
-    }
-    if (!res.ok) {
-      const body = await parseJsonSafe(res);
-      const apiError = ApiErrorSchema.safeParse(body);
-      if (apiError.success) {
-        throw new ApiRequestError(apiError.data.error, res.status, apiError.data.detail);
-      }
-      throw new ApiRequestError(`Error del servidor (HTTP ${res.status})`, res.status);
-    }
-    const blob = await res.blob();
-    const disposition = res.headers.get("Content-Disposition") ?? "";
-    const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-    const filename = match?.[1] ?? "exile-copilot.build";
-    return { blob, filename };
-  },
+  exportBuild: (
+    payload: ExportBuildRequest,
+  ): Promise<ExportBuildResponse> =>
+    request("/api/export/build", ExportBuildResponseSchema, jsonInit(payload)),
 };

@@ -29,8 +29,14 @@ export const SourceEvidenceSchema = z.object({
 export type SourceEvidence = z.infer<typeof SourceEvidenceSchema>;
 
 export const PatchVersionSchema = z.object({
-  id: z.string(), // p. ej. "0.3.0"
+  id: z.string(), // p. ej. "0.5.0"
   label: z.string(),
+  /** Versión de contenido (p. ej. "0.5.0") y hotfix (p. ej. "f") por separado. */
+  content: z.string().optional(),
+  hotfix: z.string().nullable().optional(),
+  /** Fecha y fuente del dato; nunca etiquetar una versión hardcodeada como "actual". */
+  asOf: z.string().optional(),
+  source: z.string().optional(),
 });
 export type PatchVersion = z.infer<typeof PatchVersionSchema>;
 
@@ -110,16 +116,34 @@ export type Item = z.infer<typeof ItemSchema>;
 // Skills y pasivas
 // ---------------------------------------------------------------------------
 
+export const SupportGemSchema = z.object({
+  name: z.string(),
+  /** Id oficial de BaseItemTypes (p. ej. "Metadata/Items/Gems/SupportGemMomentum"). null = no verificado. */
+  gemId: z.string().nullable().default(null),
+});
+export type SupportGem = z.infer<typeof SupportGemSchema>;
+
 export const SkillSetupSchema = z.object({
   id: z.string(),
   label: z.string(),
   mainSkill: z.string(),
-  supports: z.array(z.string()).default([]),
+  /** Id oficial de BaseItemTypes de la gema principal. null = no verificado. */
+  mainSkillGemId: z.string().nullable().default(null),
+  supports: z.array(SupportGemSchema).default([]),
 });
 export type SkillSetup = z.infer<typeof SkillSetupSchema>;
 
+/** Nodo de pasiva: puede ser un id oficial de PassiveSkills o un nombre no verificado. */
+export const PassiveNodeSchema = z.object({
+  ref: z.string(),
+  /** true si `ref` es un id oficial de la tabla PassiveSkills (exportable); false si es solo un nombre. */
+  isOfficialId: z.boolean().default(false),
+  additionalText: z.string().optional(),
+});
+export type PassiveNode = z.infer<typeof PassiveNodeSchema>;
+
 export const PassiveSelectionSchema = z.object({
-  allocated: z.array(z.string()).default([]), // nombres o ids de nodos
+  allocated: z.array(PassiveNodeSchema).default([]),
 });
 export type PassiveSelection = z.infer<typeof PassiveSelectionSchema>;
 
@@ -156,17 +180,19 @@ export type Goal = z.infer<typeof GoalSchema>;
 // ---------------------------------------------------------------------------
 
 export const ResistancesSchema = z.object({
-  fire: z.number().default(0),
-  cold: z.number().default(0),
-  lightning: z.number().default(0),
-  chaos: z.number().default(0),
+  /** null = desconocido (NUNCA convertir a 0; un desconocido no es "tienes 0%"). */
+  fire: z.number().nullable().default(null),
+  cold: z.number().nullable().default(null),
+  lightning: z.number().nullable().default(null),
+  chaos: z.number().nullable().default(null),
 });
 export type Resistances = z.infer<typeof ResistancesSchema>;
 
 export const AttributesSchema = z.object({
-  str: z.number().int().default(0),
-  dex: z.number().int().default(0),
-  int: z.number().int().default(0),
+  /** null = desconocido. */
+  str: z.number().int().nullable().default(null),
+  dex: z.number().int().nullable().default(null),
+  int: z.number().int().nullable().default(null),
 });
 export type Attributes = z.infer<typeof AttributesSchema>;
 
@@ -182,12 +208,12 @@ export const CharacterProfileSchema = z.object({
   items: z.array(ItemSchema).default([]),
   skills: z.array(SkillSetupSchema).default([]),
   passives: PassiveSelectionSchema.default({ allocated: [] }),
-  attributes: AttributesSchema.default({ str: 0, dex: 0, int: 0 }),
+  attributes: AttributesSchema.default({ str: null, dex: null, int: null }),
   resistances: ResistancesSchema.default({
-    fire: 0,
-    cold: 0,
-    lightning: 0,
-    chaos: 0,
+    fire: null,
+    cold: null,
+    lightning: null,
+    chaos: null,
   }),
   life: z.number().int().optional(),
   energyShield: z.number().int().optional(),

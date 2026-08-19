@@ -241,8 +241,17 @@ export function MarketSection({
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>
                 Liga <span className="font-medium text-foreground">{prices.league}</span>{" "}
-                · Fuente: <span className="font-medium text-foreground">poe.ninja</span> ·
-                Consultado: {formatDateTime(prices.updatedAt)}
+                · Fuente: <span className="font-medium text-foreground">poe.ninja</span>
+                {prices.primaryCurrency && (
+                  <>
+                    {" "}
+                    · Moneda primaria:{" "}
+                    <span className="font-medium text-foreground">
+                      {CURRENCY_LABELS[prices.primaryCurrency]}
+                    </span>
+                  </>
+                )}{" "}
+                · Consultado: {formatDateTime(prices.updatedAt)}
               </span>
               {prices.fromCache && (
                 <Badge
@@ -270,6 +279,16 @@ export function MarketSection({
                 </AlertDescription>
               </Alert>
             )}
+            {prices.rates === null && (
+              <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
+                <AlertTitle>Sin tasas de conversión verificables</AlertTitle>
+                <AlertDescription>
+                  No se recibieron tasas de cambio entre monedas: no se puede confirmar
+                  si un coste entra en el presupuesto. Compara cada precio en su propia
+                  moneda.
+                </AlertDescription>
+              </Alert>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -285,21 +304,38 @@ export function MarketSection({
                     <TableCell className="font-medium">
                       <div className="flex flex-col gap-1">
                         <span>{quote.itemName}</span>
-                        {quote.fromCache && (
-                          <Badge
-                            variant="outline"
-                            className="w-fit border-sky-500/40 bg-sky-500/10 text-sky-300"
-                          >
-                            desde caché
-                          </Badge>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {quote.fromCache && (
+                            <Badge
+                              variant="outline"
+                              className="w-fit border-sky-500/40 bg-sky-500/10 text-sky-300"
+                            >
+                              desde caché
+                            </Badge>
+                          )}
+                          {!quote.verified && (
+                            <Badge
+                              variant="outline"
+                              className="w-fit border-amber-500/40 bg-amber-500/10 text-amber-300"
+                            >
+                              No verificado
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {quote.value === null ? (
                         <span className="text-muted-foreground">No verificado</span>
-                      ) : (
+                      ) : quote.verified ? (
                         formatNumber(quote.value)
+                      ) : (
+                        <span
+                          className="text-muted-foreground/70"
+                          title="Valor de referencia sin verificar"
+                        >
+                          ~{formatNumber(quote.value)}
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>{CURRENCY_LABELS[quote.currency]}</TableCell>

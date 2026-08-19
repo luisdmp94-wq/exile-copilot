@@ -31,6 +31,12 @@ export function TargetSection({ draft, onChange }: TargetSectionProps) {
             Referencia, no verificada
           </Badge>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Estos datos SÍ se envían al motor y pueden cambiar tus recomendaciones: el
+          nombre, el resumen y los mods deseados orientan las mejoras hacia tu build
+          objetivo. El enlace solo se guarda como referencia: no se descarga ni se
+          verifica su contenido.
+        </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -61,6 +61,11 @@ export function touchCacheEntry(db: Database, key: string, fetchedAt: string): v
   );
 }
 
+/** Borra una entrada de caché (p. ej. cuando el payload almacenado está corrupto). */
+export function deleteCacheEntry(db: Database, key: string): void {
+  db.prepare("DELETE FROM price_cache WHERE key = ?").run(key);
+}
+
 export interface CharacterRow {
   id: string;
   payload: string;
