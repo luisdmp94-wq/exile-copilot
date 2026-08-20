@@ -1,19 +1,37 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
 import {
   ExportBuildRequestSchema,
+  CreateJournalEntryRequestSchema,
   ImportBuildRequestSchema,
   ImportItemTextRequestSchema,
   RecommendationsRequestSchema,
   SaveCharacterRequestSchema,
+  UpdateJournalEntryRequestSchema,
   type ApiError,
 } from "../shared/api.js";
-import { CharacterProfileSchema, PatchVersionSchema, type PatchVersion } from "../shared/domain.js";
+import {
+  CharacterProfileSchema,
+  JournalEntrySchema,
+  PatchVersionSchema,
+  type CharacterJournal,
+  type JournalEntry,
+  type PatchVersion,
+} from "../shared/domain.js";
 import { loadConfig, type ServerConfig } from "./config.js";
 import { createDatabase } from "./db/database.js";
-import { getCharacter, saveCharacter } from "./db/repositories.js";
+import {
+  getCharacter,
+  getJournalEntry,
+  getJournalPrimaryEntryId,
+  listJournalEntries,
+  saveCharacter,
+  saveJournalEntry,
+  setJournalPrimaryEntryId,
+} from "./db/repositories.js";
 import { importBuild } from "./importers/buildImporter.js";
 import { parseItemText } from "./importers/itemTextParser.js";
 import { PoeNinjaClient, PriceService } from "./services/poeninja.js";
@@ -50,6 +68,24 @@ function loadPatches(): PatchVersion[] {
   const parsed: unknown = JSON.parse(raw);
   if (!Array.isArray(parsed)) return [];
   return parsed.map((p) => PatchVersionSchema.parse(p));
+}
+
+function readJournal(db: ReturnType<typeof createDatabase>, characterId: string): CharacterJournal {
+  const entries = listJournalEntries(db, characterId).map((row) =>
+    JournalEntrySchema.parse(JSON.parse(row.payload)),
+  );
+  const storedPrimaryId = getJournalPrimaryEntryId(db, characterId);
+  const primaryEntry =
+    entries.find(
+      (entry) =>
+        entry.id === storedPrimaryId &&
+        (entry.status === "active" || entry.status === "waiting_result"),
+    ) ?? null;
+
+  // Un id obsoleto nunca se presenta como acción activa. La lectura no repara
+  // ni muta el estado: las transiciones de escritura mantienen la referencia.
+  const primaryEntryId = primaryEntry?.id ?? null;
+  return { characterId, primaryEntryId, primaryEntry, entries };
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): Express {
@@ -163,6 +199,125 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       const row = getCharacter(db, req.params.id);
       if (!row) throw new ApiHttpError(404, "personaje-no-encontrado", `No existe un personaje con id "${req.params.id}".`);
       res.json({ profile: JSON.parse(row.payload) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /journal/:characterId — memoria persistente y única próxima acción.
+  app.get("/journal/:characterId", (req, res, next) => {
+    try {
+      res.json(readJournal(db, req.params.characterId));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /journal/:characterId/entries — registra una decisión, experimento,
+  // craft, hito o nota. Registrar no significa que el jugador ya lo ejecutó.
+  app.post("/journal/:characterId/entries", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = CreateJournalEntryRequestSchema.parse(req.body);
+      const now = new Date().toISOString();
+      const entry: JournalEntry = JournalEntrySchema.parse({
+        id: randomUUID(),
+        characterId,
+        kind: input.kind,
+        status: "active",
+        title: input.title,
+        summary: input.summary,
+        nextAction: input.nextAction,
+        result: null,
+        relatedItemIds: input.relatedItemIds,
+        sources: input.sources,
+        context: input.context,
+        recommendationSnapshot: input.recommendationSnapshot,
+        createdAt: now,
+        updatedAt: now,
+        resolvedAt: null,
+      });
+      saveJournalEntry(db, {
+        id: entry.id,
+        characterId,
+        payload: JSON.stringify(entry),
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (input.makePrimary) setJournalPrimaryEntryId(db, characterId, entry.id);
+      res.status(201).json({ journal: readJournal(db, characterId), entry });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // PATCH /journal/:characterId/entries/:entryId — actualiza el estado cuando
+  // el jugador informa del resultado. No existe DELETE en este hito: la memoria
+  // se completa o cancela, no desaparece silenciosamente.
+  app.patch("/journal/:characterId/entries/:entryId", (req, res, next) => {
+    try {
+      const { characterId, entryId } = req.params;
+      const input = UpdateJournalEntryRequestSchema.parse(req.body);
+      const row = getJournalEntry(db, entryId);
+      if (!row || row.character_id !== characterId) {
+        throw new ApiHttpError(
+          404,
+          "entrada-diario-no-encontrada",
+          `No existe la entrada "${entryId}" para este personaje.`,
+        );
+      }
+      const previous = JournalEntrySchema.parse(JSON.parse(row.payload));
+      const now = new Date().toISOString();
+      const status = input.status ?? previous.status;
+      const resolved = status === "completed" || status === "cancelled";
+      const entry = JournalEntrySchema.parse({
+        ...previous,
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.summary !== undefined ? { summary: input.summary } : {}),
+        ...(input.nextAction !== undefined ? { nextAction: input.nextAction } : {}),
+        ...(input.result !== undefined ? { result: input.result } : {}),
+        status,
+        updatedAt: now,
+        resolvedAt: resolved ? previous.resolvedAt ?? now : null,
+      });
+      if (entry.status === "waiting_result" && entry.nextAction === null) {
+        throw new ApiHttpError(
+          400,
+          "proxima-accion-requerida",
+          "No se puede esperar el resultado de una entrada sin acción concreta.",
+        );
+      }
+      if (entry.status === "completed" && entry.result === null) {
+        throw new ApiHttpError(
+          400,
+          "resultado-requerido",
+          "Una entrada solo se completa cuando el jugador informa del resultado.",
+        );
+      }
+      if (input.makePrimary === true && (entry.nextAction === null || resolved)) {
+        throw new ApiHttpError(
+          400,
+          "proxima-accion-requerida",
+          "La próxima acción principal debe estar activa y contener una acción concreta.",
+        );
+      }
+      saveJournalEntry(db, {
+        id: entry.id,
+        characterId,
+        payload: JSON.stringify(entry),
+        createdAt: entry.createdAt,
+        updatedAt: now,
+      });
+
+      const currentPrimary = getJournalPrimaryEntryId(db, characterId);
+      if (resolved && currentPrimary === entry.id) {
+        setJournalPrimaryEntryId(db, characterId, null);
+      } else if (input.makePrimary === true) {
+        setJournalPrimaryEntryId(db, characterId, entry.id);
+      } else if (input.makePrimary === false && currentPrimary === entry.id) {
+        setJournalPrimaryEntryId(db, characterId, null);
+      }
+      res.json({ journal: readJournal(db, characterId), entry });
     } catch (err) {
       next(err);
     }

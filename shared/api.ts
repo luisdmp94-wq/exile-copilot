@@ -2,13 +2,19 @@ import { z } from "zod";
 import {
   BuildTargetSchema,
   BudgetSchema,
+  CharacterJournalSchema,
   CharacterProfileSchema,
   CurrencyKind,
   GoalSchema,
   ItemSchema,
+  JournalContextSchema,
+  JournalEntryKind,
+  JournalEntrySchema,
+  JournalEntryStatus,
   PatchVersionSchema,
   PriceQuoteSchema,
   RecommendationSchema,
+  SourceEvidenceSchema,
 } from "./domain.js";
 import {
   BuildTargetPlanSchema,
@@ -143,6 +149,45 @@ export const RecommendationsResponseSchema = z.object({
 });
 export type RecommendationsRequest = z.infer<typeof RecommendationsRequestSchema>;
 export type RecommendationsResponse = z.infer<typeof RecommendationsResponseSchema>;
+
+// Character Journal — memoria persistente del mentor
+export const CreateJournalEntryRequestSchema = z.object({
+  kind: JournalEntryKind,
+  title: z.string().trim().min(1).max(160),
+  summary: z.string().trim().min(1).max(4000),
+  nextAction: z.string().trim().min(1).max(2000).nullable().default(null),
+  relatedItemIds: z.array(z.string()).default([]),
+  sources: z.array(SourceEvidenceSchema).default([]),
+  context: JournalContextSchema,
+  recommendationSnapshot: RecommendationSchema.nullable().default(null),
+  makePrimary: z.boolean().default(false),
+}).refine((value) => !value.makePrimary || value.nextAction !== null, {
+  message: "Una entrada principal necesita una próxima acción.",
+  path: ["nextAction"],
+});
+export type CreateJournalEntryRequest = z.infer<typeof CreateJournalEntryRequestSchema>;
+
+export const UpdateJournalEntryRequestSchema = z
+  .object({
+    status: JournalEntryStatus.optional(),
+    title: z.string().trim().min(1).max(160).optional(),
+    summary: z.string().trim().min(1).max(4000).optional(),
+    nextAction: z.string().trim().min(1).max(2000).nullable().optional(),
+    result: z.string().trim().min(1).max(4000).nullable().optional(),
+    makePrimary: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "Incluye al menos un cambio.",
+  });
+export type UpdateJournalEntryRequest = z.infer<typeof UpdateJournalEntryRequestSchema>;
+
+export const JournalResponseSchema = CharacterJournalSchema;
+export const JournalEntryResponseSchema = z.object({
+  journal: CharacterJournalSchema,
+  entry: JournalEntrySchema,
+});
+export type JournalResponse = z.infer<typeof JournalResponseSchema>;
+export type JournalEntryResponse = z.infer<typeof JournalEntryResponseSchema>;
 
 // POST /api/export/build — archivo `.build` oficial (GGG Build Planner v1)
 export const ExportBuildRequestSchema = z.object({

@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:equipment": "node scripts/equipment-smoke.mjs"
+    "test:equipment": "node scripts/equipment-smoke.mjs",
+    "test:journal": "node scripts/journal-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

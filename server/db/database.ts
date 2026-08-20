@@ -24,6 +24,23 @@ CREATE TABLE IF NOT EXISTS characters (
   payload TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS journal_entries (
+  id TEXT PRIMARY KEY,
+  character_id TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS journal_entries_character_updated
+  ON journal_entries(character_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS journal_state (
+  character_id TEXT PRIMARY KEY,
+  primary_entry_id TEXT,
+  updated_at TEXT NOT NULL
+);
 `;
 
 export function createDatabase(dbPath: string): Database {

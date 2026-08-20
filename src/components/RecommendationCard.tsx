@@ -1,4 +1,11 @@
-import { AlertTriangle, ExternalLink, OctagonAlert, PackageSearch, Undo2 } from "lucide-react";
+import {
+  AlertTriangle,
+  BookMarked,
+  ExternalLink,
+  OctagonAlert,
+  PackageSearch,
+  Undo2,
+} from "lucide-react";
 import type { Budget, Recommendation } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +33,9 @@ interface RecommendationCardProps {
    * deduce el hueco a partir del texto de la recomendación.
    */
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
+  /** Guarda la decisión y la convierte en la única próxima acción del mentor. */
+  onTrack: (recommendation: Recommendation) => void;
+  tracking: boolean;
 }
 
 const PRIORITY_CLASSES: Record<number, string> = {
@@ -40,6 +50,8 @@ export function RecommendationCard({
   onAppliedChange,
   budget,
   onFocusItem,
+  onTrack,
+  tracking,
 }: RecommendationCardProps) {
   const overBudget =
     rec.cost.currency === budget.currency &&
@@ -196,8 +208,17 @@ export function RecommendationCard({
 
         {/* Solo con vínculo estructurado del motor (relatedItemIds). Sin él no
             se ofrece navegación ni se adivina el hueco por el texto. */}
-        {rec.relatedItemIds.length > 0 && (
-          <div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => onTrack(rec)}
+            disabled={tracking}
+          >
+            <BookMarked className="size-3.5" aria-hidden="true" />
+            Guardar como próximo paso
+          </Button>
+          {rec.relatedItemIds.length > 0 && (
             <Button
               type="button"
               variant="outline"
@@ -212,8 +233,8 @@ export function RecommendationCard({
               Ver el objeto evaluado
               {rec.relatedItemIds.length > 1 && ` (${rec.relatedItemIds.length})`}
             </Button>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="flex items-center gap-2 border-t border-border pt-3">
           <Checkbox

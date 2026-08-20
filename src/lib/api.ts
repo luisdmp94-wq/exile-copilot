@@ -8,6 +8,8 @@ import {
   HealthResponseSchema,
   ImportBuildResponseSchema,
   ImportItemTextResponseSchema,
+  JournalEntryResponseSchema,
+  JournalResponseSchema,
   MarketPricesResponseSchema,
   MetaResponseSchema,
   RecommendationsResponseSchema,
@@ -21,10 +23,14 @@ import {
   type ImportBuildResponse,
   type ImportItemTextRequest,
   type ImportItemTextResponse,
+  type CreateJournalEntryRequest,
+  type JournalEntryResponse,
+  type JournalResponse,
   type MarketPricesResponse,
   type MetaResponse,
   type RecommendationsRequest,
   type RecommendationsResponse,
+  type UpdateJournalEntryRequest,
 } from "@shared/api.js";
 
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
@@ -102,9 +108,9 @@ async function request<S extends z.ZodTypeAny>(
   return parsed.data;
 }
 
-function jsonInit(payload: unknown): RequestInit {
+function jsonInit(payload: unknown, method: "POST" | "PATCH" = "POST"): RequestInit {
   return {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   };
@@ -129,6 +135,30 @@ export const api = {
 
   getCharacter: (id: string): Promise<GetCharacterResponse> =>
     request(`/api/character/${encodeURIComponent(id)}`, GetCharacterResponseSchema),
+
+  journal: (characterId: string): Promise<JournalResponse> =>
+    request(`/api/journal/${encodeURIComponent(characterId)}`, JournalResponseSchema),
+
+  createJournalEntry: (
+    characterId: string,
+    payload: CreateJournalEntryRequest,
+  ): Promise<JournalEntryResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/entries`,
+      JournalEntryResponseSchema,
+      jsonInit(payload),
+    ),
+
+  updateJournalEntry: (
+    characterId: string,
+    entryId: string,
+    payload: UpdateJournalEntryRequest,
+  ): Promise<JournalEntryResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/entries/${encodeURIComponent(entryId)}`,
+      JournalEntryResponseSchema,
+      jsonInit(payload, "PATCH"),
+    ),
 
   marketPrices: (league: string, names: string[]): Promise<MarketPricesResponse> => {
     const params = new URLSearchParams({ league, names: names.join(",") });

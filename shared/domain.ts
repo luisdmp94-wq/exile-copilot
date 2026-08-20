@@ -319,3 +319,71 @@ export const RecommendationSchema = z.object({
   relatedItemIds: z.array(z.string()).default([]),
 });
 export type Recommendation = z.infer<typeof RecommendationSchema>;
+
+// ---------------------------------------------------------------------------
+// Character Journal — memoria persistente del mentor
+// ---------------------------------------------------------------------------
+
+export const JournalEntryKind = z.enum([
+  "decision",
+  "experiment",
+  "craft",
+  "milestone",
+  "note",
+]);
+export type JournalEntryKind = z.infer<typeof JournalEntryKind>;
+
+export const JournalEntryStatus = z.enum([
+  "active",
+  "waiting_result",
+  "completed",
+  "cancelled",
+]);
+export type JournalEntryStatus = z.infer<typeof JournalEntryStatus>;
+
+/**
+ * Contexto congelado en el momento de tomar la decisión. No sustituye al
+ * snapshot actual: permite recordar con qué nivel, liga, parche y presupuesto
+ * se tomó una decisión aunque el personaje cambie después.
+ */
+export const JournalContextSchema = z.object({
+  characterLevel: z.number().int().min(1).max(100).nullable().default(null),
+  league: z.string().nullable().default(null),
+  patch: z.string().nullable().default(null),
+  budget: BudgetSchema.nullable().default(null),
+  goal: GoalKind.nullable().default(null),
+});
+export type JournalContext = z.infer<typeof JournalContextSchema>;
+
+/**
+ * Una entrada es memoria, no una orden ejecutada. `nextAction` expresa el
+ * único paso siguiente; `result` solo se rellena cuando el jugador informa de
+ * lo ocurrido. Las recomendaciones se conservan como snapshot para no perder
+ * coste, riesgo, confianza ni evidencia cuando el motor vuelva a ejecutarse.
+ */
+export const JournalEntrySchema = z.object({
+  id: z.string().min(1),
+  characterId: z.string().min(1),
+  kind: JournalEntryKind,
+  status: JournalEntryStatus,
+  title: z.string().trim().min(1).max(160),
+  summary: z.string().trim().min(1).max(4000),
+  nextAction: z.string().trim().min(1).max(2000).nullable().default(null),
+  result: z.string().trim().min(1).max(4000).nullable().default(null),
+  relatedItemIds: z.array(z.string()).default([]),
+  sources: z.array(SourceEvidenceSchema).default([]),
+  context: JournalContextSchema,
+  recommendationSnapshot: RecommendationSchema.nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  resolvedAt: z.string().nullable().default(null),
+});
+export type JournalEntry = z.infer<typeof JournalEntrySchema>;
+
+export const CharacterJournalSchema = z.object({
+  characterId: z.string().min(1),
+  primaryEntryId: z.string().nullable(),
+  primaryEntry: JournalEntrySchema.nullable(),
+  entries: z.array(JournalEntrySchema),
+});
+export type CharacterJournal = z.infer<typeof CharacterJournalSchema>;

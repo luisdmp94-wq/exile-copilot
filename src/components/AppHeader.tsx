@@ -43,8 +43,8 @@ export function AppHeader({ health, loading }: AppHeaderProps) {
           <Badge variant="destructive">API sin conexión</Badge>
         )}
         <p className="w-full text-sm text-muted-foreground">
-          Importa tu build, indica tu presupuesto y recibe las próximas mejoras
-          ordenadas por impacto, coste y riesgo.
+          Tu mentor persistente de PoE2: conoce tu personaje, recuerda tus decisiones
+          y te guía con una sola próxima acción basada en evidencia.
         </p>
       </div>
     </header>

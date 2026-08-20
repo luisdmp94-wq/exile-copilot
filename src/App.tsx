@@ -18,6 +18,9 @@ import { useMarket } from "@/hooks/useMarket";
 import { useMeta } from "@/hooks/useMeta";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
+import { journalEntryFromRecommendation } from "@/lib/journal";
+import { useJournal } from "@/hooks/useJournal";
+import { JournalSection } from "@/sections/JournalSection";
 
 const EMPTY_TARGET: TargetDraft = {
   name: "",
@@ -67,6 +70,7 @@ export default function App() {
     [],
   );
   const character = useCharacter(characterOptions);
+  const journal = useJournal(character.profile?.id ?? null);
   const market = useMarket();
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
@@ -131,6 +135,13 @@ export default function App() {
           </Alert>
         )}
 
+        <JournalSection
+          profile={character.profile}
+          budget={budget}
+          goal={goal}
+          journal={journal}
+        />
+
         <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
           <div className="flex flex-col gap-6">
             <CharacterSection
@@ -180,6 +191,18 @@ export default function App() {
                 dialogTriggerRef.current = trigger;
                 setFocusedItemId(itemId);
               }}
+              onTrackRecommendation={(recommendation) => {
+                if (!character.profile) return;
+                void journal.createEntry(
+                  journalEntryFromRecommendation(
+                    recommendation,
+                    character.profile,
+                    budget,
+                    goal,
+                  ),
+                );
+              }}
+              trackingRecommendation={journal.saving}
             />
           </div>
         </div>
