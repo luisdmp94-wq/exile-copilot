@@ -1,6 +1,7 @@
-import { AlertTriangle, ExternalLink, OctagonAlert, Undo2 } from "lucide-react";
+import { AlertTriangle, ExternalLink, OctagonAlert, PackageSearch, Undo2 } from "lucide-react";
 import type { Budget, Recommendation } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,12 @@ interface RecommendationCardProps {
   applied: boolean;
   onAppliedChange: (applied: boolean) => void;
   budget: Budget;
+  /**
+   * Abre el objeto que la regla evaluó. Solo se ofrece cuando el motor declara
+   * `relatedItemIds`: sin vínculo estructurado no se muestra el botón ni se
+   * deduce el hueco a partir del texto de la recomendación.
+   */
+  onFocusItem: (itemId: string) => void;
 }
 
 const PRIORITY_CLASSES: Record<number, string> = {
@@ -32,6 +39,7 @@ export function RecommendationCard({
   applied,
   onAppliedChange,
   budget,
+  onFocusItem,
 }: RecommendationCardProps) {
   const overBudget =
     rec.cost.currency === budget.currency &&
@@ -185,6 +193,27 @@ export function RecommendationCard({
         <p className="text-xs text-muted-foreground/80">
           Datos actualizados: {formatDateTime(rec.dataUpdatedAt)}
         </p>
+
+        {/* Solo con vínculo estructurado del motor (relatedItemIds). Sin él no
+            se ofrece navegación ni se adivina el hueco por el texto. */}
+        {rec.relatedItemIds.length > 0 && (
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid={`ver-objeto-${rec.id}`}
+              onClick={() => {
+                const first = rec.relatedItemIds[0];
+                if (first !== undefined) onFocusItem(first);
+              }}
+            >
+              <PackageSearch className="size-3.5" aria-hidden="true" />
+              Ver el objeto evaluado
+              {rec.relatedItemIds.length > 1 && ` (${rec.relatedItemIds.length})`}
+            </Button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 border-t border-border pt-3">
           <Checkbox

@@ -4,6 +4,7 @@ import type {
   GoalKind,
   ItemRarity,
   ItemSlot,
+  ModifierKind,
   RiskLevel,
 } from "@shared/domain.js";
 
@@ -47,6 +48,15 @@ export const RARITY_LABELS: Record<ItemRarity, string> = {
   currency: "Moneda",
   gem: "Gema",
   other: "Otro",
+};
+
+/** Tipos de modificador del dominio, en español. */
+export const MODIFIER_KIND_LABELS: Record<ModifierKind, string> = {
+  implicit: "Implícitos",
+  explicit: "Explícitos",
+  enchant: "Encantamiento",
+  rune: "Runas",
+  quality: "Calidad",
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {

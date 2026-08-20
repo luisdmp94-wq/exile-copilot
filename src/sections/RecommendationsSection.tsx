@@ -34,6 +34,8 @@ interface RecommendationsSectionProps {
   patch: string;
   recommendations: RecommendationsState;
   onLoadDemo: () => Promise<void>;
+  /** Navegación recomendación → objeto; solo se usa con vínculo estructurado. */
+  onFocusItem: (itemId: string) => void;
 }
 
 export function RecommendationsSection({
@@ -45,6 +47,7 @@ export function RecommendationsSection({
   patch,
   recommendations,
   onLoadDemo,
+  onFocusItem,
 }: RecommendationsSectionProps) {
   const { result, exportResult, loading, exporting, error } = recommendations;
   const [appliedIds, setAppliedIds] = useState<Record<string, boolean>>({});
@@ -65,7 +68,7 @@ export function RecommendationsSection({
     setAppliedIds((prev) => ({ ...prev, [id]: applied }));
 
   return (
-    <Card>
+    <Card id="seccion-recomendaciones">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-xl">4. Próximas mejoras</CardTitle>
@@ -143,6 +146,7 @@ export function RecommendationsSection({
                 applied={appliedIds[rec.id] ?? false}
                 onAppliedChange={(applied) => toggleApplied(rec.id, applied)}
                 budget={budget}
+                onFocusItem={onFocusItem}
               />
             ))}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">

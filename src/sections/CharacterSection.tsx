@@ -8,10 +8,13 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import { useState as useReactState } from "react";
 import type { MetaResponse } from "@shared/api.js";
 import type {
   Attributes,
   CharacterProfile,
+  Item,
+  Recommendation,
   Resistances,
   SkillSetup,
 } from "@shared/domain.js";
@@ -39,11 +42,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ImportPanel } from "@/components/ImportPanel";
 import { ItemEditor } from "@/components/ItemEditor";
+import { EquipmentPanel } from "@/components/EquipmentPanel";
+import { ItemDetailDialog } from "@/components/ItemDetailDialog";
+import { collectHighlightedItemIds } from "@/lib/equipment";
 import type { CharacterState } from "@/hooks/useCharacter";
 
 interface CharacterSectionProps {
   character: CharacterState;
   meta: MetaResponse | null;
+  /** Recomendaciones vigentes: solo para resaltar objetos con vínculo estructurado. */
+  recommendations: Recommendation[];
+  /** Id de objeto que otra sección pide abrir (navegación recomendación → objeto). */
+  focusedItemId: string | null;
+  onFocusHandled: () => void;
 }
 
 const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
@@ -98,11 +109,46 @@ const ORIGIN_BADGES = {
   },
 } as const;
 
-export function CharacterSection({ character, meta }: CharacterSectionProps) {
+export function CharacterSection({
+  character,
+  meta,
+  recommendations,
+  focusedItemId,
+  onFocusHandled,
+}: CharacterSectionProps) {
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const [itemText, setItemText] = useState("");
+  const [selectedItemId, setSelectedItemId] = useReactState<string | null>(null);
 
   const originBadge = ORIGIN_BADGES[origin];
+  const items = profile?.items ?? [];
+  // Vínculo estructurado del motor; si no lo hay, el conjunto queda vacío y
+  // ningún hueco se marca (nunca se deduce el slot por texto).
+  const highlightedItemIds = collectHighlightedItemIds(recommendations);
+
+  // El objeto abierto es el elegido localmente o, si no hay, el que pide otra
+  // sección (navegación recomendación → objeto). Se DERIVA: nada de setState
+  // durante el render, que además invalidaría el render del padre.
+  const openItemId = selectedItemId ?? focusedItemId;
+  const selectedItem: Item | null = items.find((i) => i.id === openItemId) ?? null;
+
+  const closeDetail = () => {
+    setSelectedItemId(null);
+    if (focusedItemId !== null) onFocusHandled();
+  };
+  const relatedRecommendations = recommendations.filter(
+    (rec) => selectedItem !== null && rec.relatedItemIds.includes(selectedItem.id),
+  );
+
+  const goToRecommendations = () => {
+    closeDetail();
+    const target = document.getElementById("seccion-recomendaciones");
+    if (!target) return;
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
 
   return (
     <Card>
@@ -204,12 +250,19 @@ export function CharacterSection({ character, meta }: CharacterSectionProps) {
             </EmptyContent>
           </Empty>
         ) : (
-          <ProfileEditor
-            profile={profile}
-            meta={meta}
-            onUpdate={character.updateProfile}
-            onMutate={character.mutateProfile}
-          />
+          <>
+            <EquipmentPanel
+              items={profile.items}
+              highlightedItemIds={highlightedItemIds}
+              onSelectItem={(item) => setSelectedItemId(item.id)}
+            />
+            <ProfileEditor
+              profile={profile}
+              meta={meta}
+              onUpdate={character.updateProfile}
+              onMutate={character.mutateProfile}
+            />
+          </>
         )}
 
         {profile && !restoring && (
@@ -249,6 +302,7 @@ export function CharacterSection({ character, meta }: CharacterSectionProps) {
             <div className="flex justify-end">
               <Button
                 type="button"
+                data-testid="guardar-correcciones"
                 onClick={() => void character.saveCorrections()}
                 disabled={busy !== null || !dirty}
               >
@@ -262,6 +316,15 @@ export function CharacterSection({ character, meta }: CharacterSectionProps) {
             </div>
           </>
         )}
+
+        <ItemDetailDialog
+          item={selectedItem}
+          relatedRecommendations={relatedRecommendations}
+          onOpenChange={(open) => {
+            if (!open) closeDetail();
+          }}
+          onGoToRecommendations={goToRecommendations}
+        />
       </CardContent>
     </Card>
   );

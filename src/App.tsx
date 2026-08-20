@@ -39,6 +39,8 @@ export default function App() {
   // Resolución de ids del plan contra el registro oficial: se guarda APARTE del
   // plan para no alterar nunca el `.build` crudo que se reexporta.
   const [targetResolution, setTargetResolution] = useState<PlanResolution | null>(null);
+  // Navegación recomendación → objeto (solo con vínculo estructurado del motor).
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
 
   // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
   const characterOptions = useMemo(
@@ -128,7 +130,13 @@ export default function App() {
 
         <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
           <div className="flex flex-col gap-6">
-            <CharacterSection character={character} meta={meta} />
+            <CharacterSection
+              character={character}
+              meta={meta}
+              recommendations={recommendations.result?.recommendations ?? []}
+              focusedItemId={focusedItemId}
+              onFocusHandled={() => setFocusedItemId(null)}
+            />
             <TargetSection
               draft={targetDraft}
               warnings={targetWarnings}
@@ -164,6 +172,7 @@ export default function App() {
               patch={patch}
               recommendations={recommendations}
               onLoadDemo={character.loadDemo}
+              onFocusItem={setFocusedItemId}
             />
           </div>
         </div>

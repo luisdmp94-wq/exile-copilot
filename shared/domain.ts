@@ -311,5 +311,11 @@ export const RecommendationSchema = z.object({
   dataUpdatedAt: z.string(), // ISO 8601 de los datos usados
   confidence: ConfidenceLevel,
   unverified: z.array(z.string()).default([]), // información que falta por verificar
+  /**
+   * Ids de objetos del perfil que la regla leyó REALMENTE para emitir esta
+   * recomendación (vínculo estructurado, nunca inferido por texto). Vacío
+   * cuando la recomendación no se refiere a una pieza equipada concreta.
+   */
+  relatedItemIds: z.array(z.string()).default([]),
 });
 export type Recommendation = z.infer<typeof RecommendationSchema>;

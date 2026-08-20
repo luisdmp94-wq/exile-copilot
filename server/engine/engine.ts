@@ -267,6 +267,7 @@ export async function generateRecommendations(
       dataUpdatedAt,
       confidence,
       unverified,
+      relatedItemIds: candidate.relatedItemIds ?? [],
     };
   });
 

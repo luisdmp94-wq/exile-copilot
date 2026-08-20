@@ -163,6 +163,52 @@ describe("engine — exactitud y contratos", () => {
   });
 });
 
+describe("engine — vínculo estructurado recomendación → objeto", () => {
+  it("la regla del arma declara exactamente el arma que evaluó", async () => {
+    const profile = demoProfile();
+    const weapon = profile.items.find((i) => i.slot === "weapon");
+    expect(weapon).toBeDefined();
+    const result = await generateRecommendations(
+      profile,
+      { ...BASE_OPTIONS, goal: { kind: "damage" } },
+      { priceService: offlinePriceService() },
+    );
+    const rec = result.recommendations.find((r) => r.id === "rec-mejora-arma");
+    expect(rec?.relatedItemIds).toEqual([weapon!.id]);
+  });
+
+  it("las reglas que no evalúan una pieza concreta no declaran ningún objeto", async () => {
+    const profile = demoProfile();
+    const result = await generateRecommendations(
+      profile,
+      { ...BASE_OPTIONS, goal: { kind: "survival" } },
+      { priceService: offlinePriceService() },
+    );
+    // Resistencias/vida no leen una pieza equipada: sin vínculo, la interfaz
+    // no resaltará ningún hueco (nunca se deduce por el texto).
+    const resist = result.recommendations.find((r) => r.id === "rec-resistencias-elementales");
+    expect(resist).toBeDefined();
+    expect(resist?.relatedItemIds).toEqual([]);
+  });
+
+  it("la regla de requisitos declara los objetos cuyos requisitos no se cumplen", async () => {
+    const profile = demoProfile();
+    profile.attributes = { str: 1, dex: 1, int: 1 };
+    const result = await generateRecommendations(
+      profile,
+      { ...BASE_OPTIONS, goal: { kind: "balanced" } },
+      { priceService: offlinePriceService() },
+    );
+    const rec = result.recommendations.find((r) => r.id === "rec-requisitos-atributos");
+    if (rec) {
+      expect(rec.relatedItemIds.length).toBeGreaterThan(0);
+      // Todos los ids declarados existen de verdad en el perfil.
+      for (const id of rec.relatedItemIds) {
+        expect(profile.items.some((i) => i.id === id)).toBe(true);
+      }
+    }
+  });
+});
 describe("engine — conversión de presupuesto entre monedas", () => {
   it("convertBudget: misma moneda, tasas verificadas y casos no verificables", () => {
     expect(convertBudget({ amount: 50, currency: "chaos" }, "chaos", null)).toBe(50);

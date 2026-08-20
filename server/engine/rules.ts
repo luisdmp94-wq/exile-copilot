@@ -81,6 +81,12 @@ export interface RuleCandidate {
   unverified: string[];
   /** Fuentes extra (p. ej. la build de referencia comunitaria del target). */
   extraSources: SourceEvidence[];
+  /**
+   * Ids de objetos del perfil que la regla leyó para emitir el candidato.
+   * Solo se rellena cuando la regla accede a una pieza concreta del equipo
+   * (p. ej. el arma que evalúa); jamás por coincidencia de texto.
+   */
+  relatedItemIds?: string[];
 }
 
 export interface RuleContext {
@@ -124,6 +130,7 @@ function dataGapCandidate(args: {
     confidenceBase: "low",
     unverified: [`No verificado — falta el dato "${args.what}" en el perfil. ${args.detail}`],
     extraSources: [],
+    relatedItemIds: [],
   };
 }
 
@@ -226,6 +233,7 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
   }
 
   const problems: string[] = [];
+  const problemItemIds: string[] = [];
   for (const item of itemsWithReqs) {
     const req = item.requirements;
     if (!req) continue;
@@ -234,7 +242,10 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
     if (req.dex !== undefined && req.dex > (attrs.dex ?? 0)) unmet.push(`Dex ${req.dex} (tienes ${attrs.dex})`);
     if (req.int !== undefined && req.int > (attrs.int ?? 0)) unmet.push(`Int ${req.int} (tienes ${attrs.int})`);
     if (req.level !== undefined && req.level > profile.level) unmet.push(`nivel ${req.level} (eres ${profile.level})`);
-    if (unmet.length > 0) problems.push(`${item.name} (${item.slot}): ${unmet.join(", ")}`);
+    if (unmet.length > 0) {
+      problems.push(`${item.name} (${item.slot}): ${unmet.join(", ")}`);
+      problemItemIds.push(item.id);
+    }
   }
   if (problems.length === 0) return [];
 
@@ -258,6 +269,8 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
         "No verificado — los atributos del perfil dependen de lo importado; revísalos antes de comprar nada.",
       ],
       extraSources: [],
+      // Vínculo demostrable: son exactamente los objetos cuyos requisitos no se cumplen.
+      relatedItemIds: problemItemIds,
     },
   ];
 };
@@ -306,6 +319,8 @@ export const weaponUpgradeRule: Rule = ({ profile }) => {
       confidenceBase: "medium",
       unverified,
       extraSources: [],
+      // Vínculo demostrable: la regla evalúa exactamente esta pieza.
+      relatedItemIds: [weapon.id],
     },
   ];
 };
