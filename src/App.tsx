@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Budget, GoalKind } from "@shared/domain.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
+import {
+  GGG_AFFILIATION_NOTICE,
+  type PlanResolution,
+} from "@shared/passiveRegistry.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
@@ -32,11 +36,18 @@ export default function App() {
   const [goal, setGoal] = useState<GoalKind>("balanced");
   const [targetDraft, setTargetDraft] = useState<TargetDraft>(EMPTY_TARGET);
   const [targetWarnings, setTargetWarnings] = useState<string[]>([]);
+  // Resolución de ids del plan contra el registro oficial: se guarda APARTE del
+  // plan para no alterar nunca el `.build` crudo que se reexporta.
+  const [targetResolution, setTargetResolution] = useState<PlanResolution | null>(null);
 
   // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
   const characterOptions = useMemo(
     () => ({
-      onPlanImported: (plan: BuildTargetPlan, warns: string[]) => {
+      onPlanImported: (
+        plan: BuildTargetPlan,
+        warns: string[],
+        resolution: PlanResolution | null,
+      ) => {
         setTargetDraft({
           name: plan.build.name,
           sourceUrl: plan.build.link ?? plan.sourceUrl ?? "",
@@ -45,6 +56,7 @@ export default function App() {
           plan,
         });
         setTargetWarnings(warns);
+        setTargetResolution(resolution);
       },
     }),
     [],
@@ -120,9 +132,13 @@ export default function App() {
             <TargetSection
               draft={targetDraft}
               warnings={targetWarnings}
+              resolution={targetResolution}
               onChange={(draft) => {
                 setTargetDraft(draft);
-                if (draft.plan !== targetDraft.plan) setTargetWarnings([]);
+                if (draft.plan !== targetDraft.plan) {
+                  setTargetWarnings([]);
+                  setTargetResolution(null);
+                }
               }}
             />
           </div>
@@ -152,9 +168,12 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="mt-10 border-t border-border pt-4 text-center text-xs text-muted-foreground">
-          Exile Copilot no está afiliado a Grinding Gear Games. Los precios proceden de
-          poe.ninja y las referencias de builds de la comunidad no están verificadas.
+        <footer className="mt-10 flex flex-col gap-1 border-t border-border pt-4 text-center text-xs text-muted-foreground">
+          <p>{GGG_AFFILIATION_NOTICE}</p>
+          <p>
+            Los precios proceden de poe.ninja y las referencias de builds de la comunidad
+            no están verificadas.
+          </p>
         </footer>
       </main>
 

@@ -351,6 +351,32 @@ describe("auditoría 6 — limpieza de markup en un solo recorrido (O(n)) y lím
     expect(action).toContain("Increased Armour <red>{sin cerrar");
   });
 
+  it("frontera de etiqueta: 32 caracteres es markup; 33 se conserva literal", () => {
+    // MAX_MARKUP_TAG_LENGTH = 32 y el límite es INCLUSIVO: una etiqueta de
+    // exactamente 32 caracteres debe reconocerse como wrapper. Antes se
+    // rechazaba por un desfase de uno (solo llegaba a 31).
+    const tag32 = "a".repeat(32);
+    const tag33 = "a".repeat(33);
+
+    const conTag32 = actionFor({
+      name: "Etiqueta de 32",
+      inventory_slots: [
+        { inventory_id: "Helm1", additional_text: `Increased <${tag32}>{Armour}` },
+      ],
+    });
+    expect(conTag32).toContain("Increased Armour");
+    expect(conTag32).not.toContain(tag32);
+    expect(conTag32).not.toMatch(/[{}]/);
+
+    const conTag33 = actionFor({
+      name: "Etiqueta de 33",
+      inventory_slots: [
+        { inventory_id: "Helm1", additional_text: `Increased <${tag33}>{Armour}` },
+      ],
+    });
+    // Supera el límite documentado: no es markup, se conserva literal.
+    expect(conTag33).toContain(`Increased <${tag33}>{Armour}`);
+  });
   it("entrada profundamente anidada: sin regresión cuadrática y con salida correcta", () => {
     // 50 000 niveles ≈ 350 kB, muy por debajo del límite de 2 MB de la API.
     // El limpiador iterativo anterior reescribía toda la cadena por nivel:

@@ -1,6 +1,35 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 5 (validación en el juego + corrección de markup), 2026-08-20.
+> Informe para el propietario. Última actualización: sesión 7 (Hito 4A: registro de pasivas), 2026-08-20.
+
+## Sesión 7 — Hito 4A: resolución de pasivas y ascendencias (export oficial de GGG)
+
+- **Registro interno** derivado solo del export oficial `grindinggear/poe2-skilltree-export`,
+  commit fijado `1e9eb2d8c1946398c3aaaacfbaead5c75c0d1fa6`, SHA-256 del `data.json`
+  `f83c94ce7b09f2bfc5b3b1d63523c2ab3d2582d0e964f6aeec34b8b0390abcfe` (5 141 380 bytes),
+  obtenido el 2026-08-20. Datos de Grinding Gear Games; **licencia explícita: no encontrada**.
+  4912 nodos, 12 clases y 25 ascendencias; sin sprites ni recursos gráficos.
+- **El parche no se atribuye a la fuente**: el commit de origen se etiqueta a sí mismo como
+  `0.5.2`; nosotros solo declaramos `testedAgainstPatch: "0.5.4f"` (compatibilidad probada).
+  Por eso el artefacto se llama `passiveRegistry.1e9eb2d8.json` y no `passives.0.5.4f.json`.
+- **Proceso offline y reproducible** (`scripts/build-passive-registry.ts`): verifica el
+  SHA-256 de la revisión fijada, valida entrada y salida con esquemas estrictos y falla
+  con mensaje claro si la estructura oficial cambia. En runtime no hay red ni descargas.
+- **Servicio de solo lectura** (`server/registry/passiveRegistry.ts`): id de pasiva → nombre
+  inglés verificado; ascendancy id → nombre y clase; desconocido → explícitamente no
+  verificado con el id crudo siempre disponible. El nombre nunca se deduce del id.
+- **Integración**: `POST /import/build` devuelve `resolution` en PARALELO al plan; el `.build`
+  crudo no se toca (test: importar, resolver y reexportar Titan Warrior es verbatim).
+  Titan Warrior resuelve **34/34** pasivas y `Warrior1` → **Titan** (clase Warrior). La UI
+  muestra nombre inglés + id, y los desconocidos como «No verificado».
+- **Aviso obligatorio** visible en la interfaz: «This product isn't affiliated with or
+  endorsed by Grinding Gear Games in any way.»
+- Corregido de paso el desfase de `MAX_MARKUP_TAG_LENGTH`: una etiqueta de exactamente 32
+  caracteres ya respeta el límite documentado (prueba de frontera 32/33 que fallaba antes).
+- Verificado: `tsc -b` 0 errores, **98/98** tests, ESLint 0 errores, build OK, 20/20 smoke
+  (prod+dev) y 14/14 comprobaciones de navegador del flujo del registro.
+- Limitaciones: la fuente publica algunas ascendencias sin nombre (`Ranger2`, `Druid3`) y se
+  marcan como no verificadas; no se resuelven gemas ni supports (fuera de alcance).
 
 ## Sesión 5 — validación manual dentro del juego y corrección de markup
 

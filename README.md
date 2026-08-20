@@ -70,6 +70,37 @@ Path of Exile 2 real. El juego lo aceptó y mostró:
 Esta validación manual cubre **ese archivo concreto** en esa sesión de juego;
 no convierte a todos los exports en «probados en el juego».
 
+## Registro de pasivas y ascendencias (Hito 4A)
+
+Los ids de `passives` y `ascendancy` de un `.build` se resuelven a su **nombre
+inglés oficial** con un registro interno derivado EXCLUSIVAMENTE del export
+oficial del árbol de pasivas de GGG:
+
+- Fuente: <https://github.com/grindinggear/poe2-skilltree-export> (`data.json`).
+- Revisión fijada: commit `1e9eb2d8c1946398c3aaaacfbaead5c75c0d1fa6` (2026-06-15).
+- SHA-256 del archivo original: `f83c94ce7b09f2bfc5b3b1d63523c2ab3d2582d0e964f6aeec34b8b0390abcfe` (5 141 380 bytes).
+- Propietario de los datos: **Grinding Gear Games**. Licencia explícita: **no encontrada**.
+- Compatibilidad **probada** con el parche `0.5.4f`. GGG no afirma esa
+  correspondencia: el commit de origen lleva su propia etiqueta (`0.5.2`), por eso
+  el artefacto se nombra por commit y no por parche.
+
+No se usan RePoE, Path of Building, poe2db, scraping ni extracción del cliente, y
+no se copian sprites ni recursos gráficos: solo id, nombre inglés, stats, tipo de
+nodo, ascendencia y clases.
+
+El registro se genera **offline** y se versiona; en runtime jamás se descarga nada:
+
+```bash
+npx tsx scripts/build-passive-registry.ts --download
+```
+
+El proceso verifica el SHA-256 de la revisión fijada, valida la entrada y la salida
+con esquemas estrictos y falla de forma explícita si la estructura oficial cambia.
+Un id que no esté en el registro se muestra siempre como «No verificado» junto a su
+id crudo: el nombre nunca se deduce del texto del id.
+
+> This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
+
 ## Estructura
 
 - `shared/` — esquemas zod: dominio interno, contrato API y esquema oficial GGG Build Planner v1.

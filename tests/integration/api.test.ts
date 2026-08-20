@@ -94,6 +94,29 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.warnings.length).toBeGreaterThan(0);
   });
 
+  it("POST /import/build resuelve ids contra el registro oficial sin tocar el plan crudo", async () => {
+    const res = await postJson("/import/build", { content: titanBuildContent });
+    const body = await jsonOf(res);
+
+    // Resolución PARALELA al plan: 34/34 pasivas y ascendencia oficial.
+    expect(body.resolution).toBeDefined();
+    expect(body.resolution.totalCount).toBe(34);
+    expect(body.resolution.resolvedCount).toBe(34);
+    expect(body.resolution.ascendancy).toEqual({
+      id: "Warrior1",
+      name: "Titan",
+      className: "Warrior",
+      verified: true,
+    });
+    expect(body.resolution.source.sourceCommit).toBe(
+      "1e9eb2d8c1946398c3aaaacfbaead5c75c0d1fa6",
+    );
+    expect(body.resolution.source.testedAgainstPatch).toBe("0.5.4f");
+
+    // El `.build` crudo del plan sigue siendo idéntico al archivo original.
+    const original = JSON.parse(titanBuildContent);
+    expect(body.plan.build).toEqual(original);
+  });
   it("POST /import/build con basura devuelve 400 con ApiError", async () => {
     const res = await postJson("/import/build", { content: "basura total" });
     expect(res.status).toBe(400);

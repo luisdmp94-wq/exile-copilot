@@ -392,7 +392,8 @@ export const lifeRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Longitud máxima admitida para el nombre de una etiqueta de markup. Acota el
+ * Longitud máxima admitida (inclusive) para el nombre de una etiqueta de markup:
+ * una etiqueta de exactamente 32 caracteres se reconoce; una de 33 ya no. Acota el
  * avance al buscar el `>` de apertura: sin este tope, una entrada como
  * "<<<<<…>" obligaría a reescanear y el recorrido dejaría de ser O(n).
  */
@@ -404,7 +405,7 @@ const MAX_MARKUP_TAG_LENGTH = 32;
  * El nombre de la etiqueta no puede contener `<`, `>`, `{` ni `}`.
  */
 function matchWrapperOpen(text: string, index: number): string | null {
-  const limit = Math.min(text.length, index + 1 + MAX_MARKUP_TAG_LENGTH);
+  const limit = Math.min(text.length, index + 2 + MAX_MARKUP_TAG_LENGTH);
   for (let j = index + 1; j < limit; j++) {
     const char = text[j];
     if (char === "<" || char === "{" || char === "}") return null;

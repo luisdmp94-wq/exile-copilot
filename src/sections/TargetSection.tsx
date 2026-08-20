@@ -1,5 +1,9 @@
 import { BookOpen, FileCheck2, X } from "lucide-react";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
+import {
+  GGG_AFFILIATION_NOTICE,
+  type PlanResolution,
+} from "@shared/passiveRegistry.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,11 +25,21 @@ export interface TargetDraft {
 interface TargetSectionProps {
   draft: TargetDraft;
   warnings: string[];
+  /**
+   * Resolución de los ids del plan contra el registro oficial de GGG.
+   * Es información PARALELA: el `.build` crudo de `draft.plan` no se toca.
+   */
+  resolution: PlanResolution | null;
   onChange: (draft: TargetDraft) => void;
 }
 
 /** Build objetivo opcional: solo una referencia, nunca verdad absoluta. */
-export function TargetSection({ draft, warnings, onChange }: TargetSectionProps) {
+export function TargetSection({
+  draft,
+  warnings,
+  resolution,
+  onChange,
+}: TargetSectionProps) {
   return (
     <Card>
       <CardHeader>
@@ -96,6 +110,8 @@ export function TargetSection({ draft, warnings, onChange }: TargetSectionProps)
           </Alert>
         )}
 
+        {draft.plan && resolution && <PlanResolutionView resolution={resolution} />}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="target-name">Nombre de la build objetivo</Label>
@@ -145,5 +161,72 @@ export function TargetSection({ draft, warnings, onChange }: TargetSectionProps)
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Identificadores del plan resueltos contra el export oficial del árbol de
+ * pasivas de GGG. Siempre se muestra el id crudo; un id que no está en el
+ * registro aparece como «No verificado» y su nombre NUNCA se deduce del id.
+ */
+function PlanResolutionView({ resolution }: { resolution: PlanResolution }) {
+  const { ascendancy, passives, resolvedCount, totalCount, source } = resolution;
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-foreground">
+          Identificadores resueltos con el árbol oficial de GGG
+        </p>
+        <Badge
+          variant="outline"
+          className={
+            resolvedCount === totalCount
+              ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+              : "border-amber-500/40 bg-amber-500/15 text-amber-300"
+          }
+        >
+          {resolvedCount}/{totalCount} pasivas resueltas
+        </Badge>
+      </div>
+
+      {ascendancy && (
+        <p className="text-sm text-muted-foreground">
+          Ascendencia:{" "}
+          {ascendancy.verified ? (
+            <>
+              <span className="font-medium text-foreground">{ascendancy.name}</span>
+              {ascendancy.className !== null && <> · clase {ascendancy.className}</>}
+            </>
+          ) : (
+            <span className="text-amber-300">No verificado</span>
+          )}{" "}
+          <span className="font-mono text-xs">({ascendancy.id})</span>
+        </p>
+      )}
+
+      {passives.length > 0 && (
+        <ul className="grid max-h-64 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto text-sm sm:grid-cols-2">
+          {passives.map((passive, index) => (
+            <li key={`${passive.id}-${index}`} className="flex flex-wrap items-baseline gap-1.5">
+              {passive.verified ? (
+                <span className="text-foreground">{passive.name}</span>
+              ) : (
+                <span className="text-amber-300">No verificado</span>
+              )}
+              <span className="font-mono text-xs text-muted-foreground">{passive.id}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Fuente: {source.sourceRepository} @{" "}
+        <span className="font-mono">{source.sourceCommit.slice(0, 8)}</span> · datos de{" "}
+        {source.dataOwner} · licencia:{" "}
+        {source.license ?? "no encontrada"} · compatibilidad probada con el parche{" "}
+        {source.testedAgainstPatch} (GGG no afirma esa correspondencia).
+      </p>
+      <p className="text-xs text-muted-foreground">{GGG_AFFILIATION_NOTICE}</p>
+    </div>
   );
 }

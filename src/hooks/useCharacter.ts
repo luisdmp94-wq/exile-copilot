@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { CharacterProfile, Item } from "@shared/domain.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
+import type { PlanResolution } from "@shared/passiveRegistry.js";
 import { api, getErrorMessage } from "@/lib/api";
 
 export type CharacterOrigin = "empty" | "demo" | "imported";
@@ -31,10 +32,15 @@ export interface CharacterState {
 export interface UseCharacterOptions {
   /**
    * Un `.build` oficial importado es un PLAN de build objetivo, no un personaje.
-   * Se invoca con el plan crudo y sus warnings para que la sección «Build
-   * objetivo» lo recoja.
+   * Se invoca con el plan crudo, sus warnings y la resolución de ids contra el
+   * registro oficial (paralela al plan) para que la sección «Build objetivo»
+   * los recoja.
    */
-  onPlanImported?: (plan: BuildTargetPlan, warnings: string[]) => void;
+  onPlanImported?: (
+    plan: BuildTargetPlan,
+    warnings: string[],
+    resolution: PlanResolution | null,
+  ) => void;
 }
 
 /** Estado del perfil del personaje + acciones de importación, guardado y restauración. */
@@ -106,7 +112,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         const res = await api.importBuild({ content });
         if (res.plan) {
           // `.build` oficial: es un PLAN de build objetivo, no el personaje.
-          options?.onPlanImported?.(res.plan, res.warnings);
+          options?.onPlanImported?.(res.plan, res.warnings, res.resolution ?? null);
           toast.warning(
             "Archivo de plan importado como build objetivo — no es tu personaje actual",
             { description: res.warnings[0] },

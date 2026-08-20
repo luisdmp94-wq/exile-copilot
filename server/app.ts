@@ -21,6 +21,7 @@ import { generateRecommendations } from "./engine/engine.js";
 import { getExplainer } from "./explainers/index.js";
 import { exportGggBuild } from "./exporters/gggBuildExporter.js";
 import { ApiHttpError } from "./errors.js";
+import { resolvePlan } from "./registry/passiveRegistry.js";
 
 /**
  * Crea la app Express de la API. Las rutas se definen SIN prefijo: el caller
@@ -111,7 +112,14 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.post("/import/build", (req, res, next) => {
     try {
       const { content } = ImportBuildRequestSchema.parse(req.body);
-      res.json(importBuild(content, importDefaults));
+      const result = importBuild(content, importDefaults);
+      // Un plan oficial viaja con la resolución de sus ids contra el registro
+      // de GGG. La resolución es PARALELA: el `.build` crudo no se toca.
+      if (result.plan !== undefined) {
+        res.json({ ...result, resolution: resolvePlan(result.plan.build) });
+        return;
+      }
+      res.json(result);
     } catch (err) {
       next(err);
     }

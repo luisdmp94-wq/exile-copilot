@@ -14,6 +14,7 @@ import {
   BuildTargetPlanSchema,
   ExportReportSchema,
 } from "./gggBuildPlanner.js";
+import { PlanResolutionSchema } from "./passiveRegistry.js";
 
 /**
  * Contrato de la API REST v1 (toda bajo /api).
@@ -54,6 +55,11 @@ export const ImportBuildResponseSchema = z.object({
   detectedFormat: z.enum(["ggg-build-planner-v1", "pob-code", "unknown"]),
   /** Presente cuando se importa un `.build` oficial: va a la sección Build objetivo. */
   plan: BuildTargetPlanSchema.optional(),
+  /**
+   * Resolución de los ids del plan contra el registro oficial de GGG.
+   * Va en PARALELO al plan: el `.build` crudo nunca se modifica.
+   */
+  resolution: PlanResolutionSchema.optional(),
   /** Presente solo para importaciones parciales de personaje (p. ej. código PoB). */
   profile: CharacterProfileSchema.optional(),
 });
