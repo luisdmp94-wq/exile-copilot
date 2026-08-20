@@ -20,6 +20,7 @@ import { GggBuildPlannerV1Schema } from "../../shared/gggBuildPlanner.js";
 import { importBuild } from "../../server/importers/buildImporter.js";
 import { exportGggBuild } from "../../server/exporters/gggBuildExporter.js";
 import { CharacterProfileSchema, type CharacterProfile } from "../../shared/domain.js";
+import { describeAscendancy } from "../../src/lib/ascendancyDisplay.js";
 
 /**
  * Hito 4A — registro de pasivas y ascendencias derivado EXCLUSIVAMENTE del
@@ -182,6 +183,44 @@ describe("registro: resolución de pasivas y ascendencias", () => {
   });
 });
 
+describe("UI: texto de ascendencias parcialmente conocidas", () => {
+  it("Ranger2 (sin nombre publicado) muestra la clase conocida sin inventar el nombre", () => {
+    const line = describeAscendancy(resolveAscendancy("Ranger2"));
+    expect(line).toBe("Nombre no verificado · clase Ranger");
+    expect(line).toContain("clase Ranger"); // la clase conocida sigue visible
+    expect(line).not.toMatch(/Ranger2/); // el id se muestra aparte, nunca como nombre
+  });
+
+  it("Druid3 (sin nombre publicado) conserva su clase visible", () => {
+    expect(describeAscendancy(resolveAscendancy("Druid3"))).toBe(
+      "Nombre no verificado · clase Druid",
+    );
+  });
+
+  it("verificada y desconocida mantienen su texto propio", () => {
+    expect(describeAscendancy(resolveAscendancy("Warrior1"))).toBe("Titan · clase Warrior");
+    expect(describeAscendancy(resolveAscendancy("NoExisteXYZ"))).toBe("No verificado");
+  });
+});
+describe("registro: los avisos de importación reflejan el estado real", () => {
+  it("importar Titan Warrior nunca afirma que sus pasivas no son resolubles", () => {
+    const result = importBuild(titanRaw, { league: "Runes of Aldur", patch: "0.5.4f" });
+    const warnings = result.warnings.join(" | ");
+
+    // La afirmación antigua (pre-registro) no puede volver.
+    expect(warnings).not.toMatch(/no son resolubles/i);
+    expect(warnings).not.toContain("sin datos del juego");
+
+    // El aviso vigente describe el comportamiento real:
+    // pasivas → registro oficial; desconocidos → visibles y no verificados;
+    // skills/support skills → aún sin fuente incorporada.
+    const passivesWarning = result.warnings.find((w) => w.includes("registro"));
+    expect(passivesWarning).toBeDefined();
+    expect(passivesWarning).toContain("nombre inglés oficial");
+    expect(passivesWarning).toContain("no verificado");
+    expect(passivesWarning).toMatch(/skills y support skills todavía no se resuelven/);
+  });
+});
 describe("registro: el `.build` crudo nunca se altera", () => {
   it("importar, resolver y reexportar Titan Warrior conserva ids y campos originales", () => {
     const original = JSON.parse(titanRaw) as Record<string, unknown>;

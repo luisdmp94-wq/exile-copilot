@@ -96,8 +96,9 @@ export function importGggBuildPlanner(build: GggBuildPlannerV1): GggPlanImportRe
   const warnings: string[] = [
     "El archivo .build oficial es un PLAN de build objetivo (instructor), no una captura de tu personaje: " +
       "se ha guardado como build de referencia. Tu personaje actual no se modifica.",
-    "Los nombres visibles de pasivas y skills no son resolubles desde sus ids oficiales sin datos del juego: " +
-      "se muestran los ids (nombre no verificado).",
+    "Las pasivas se resuelven a su nombre inglés oficial con el registro derivado del export de GGG " +
+      "cuando el id existe en él; un id desconocido permanece visible y se marca como no verificado. " +
+      "Los nombres de skills y support skills todavía no se resuelven: no hay una fuente incorporada para ellos.",
   ];
   if ((build.inventory_slots ?? []).length > 0) {
     warnings.push(

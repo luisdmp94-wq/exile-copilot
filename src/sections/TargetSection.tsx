@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/format";
+import { describeAscendancy } from "@/lib/ascendancyDisplay";
 
 export interface TargetDraft {
   name: string;
@@ -192,14 +193,18 @@ function PlanResolutionView({ resolution }: { resolution: PlanResolution }) {
       {ascendancy && (
         <p className="text-sm text-muted-foreground">
           Ascendencia:{" "}
-          {ascendancy.verified ? (
-            <>
-              <span className="font-medium text-foreground">{ascendancy.name}</span>
-              {ascendancy.className !== null && <> · clase {ascendancy.className}</>}
-            </>
-          ) : (
-            <span className="text-amber-300">No verificado</span>
-          )}{" "}
+          {/* Tres realidades por separado: nombre verificado, nombre no
+              publicado pero clase conocida, o id desconocido. El nombre nunca
+              se inventa; el id crudo se muestra siempre. */}
+          <span
+            className={
+              ascendancy.verified
+                ? "font-medium text-foreground"
+                : "text-amber-300"
+            }
+          >
+            {describeAscendancy(ascendancy)}
+          </span>{" "}
           <span className="font-mono text-xs">({ascendancy.id})</span>
         </p>
       )}

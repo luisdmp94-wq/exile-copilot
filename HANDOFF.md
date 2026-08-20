@@ -1,6 +1,13 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 7 (Hito 4A: registro de pasivas), 2026-08-20.
+> Informe para el propietario. Última actualización: sesión 8 (consistencia y reproducibilidad), 2026-08-20.
+
+## Sesión 8 — consistencia y reproducibilidad
+
+- **Aviso de importación actualizado**: ya no afirma que las pasivas «no son resolubles». El aviso vigente dice que las pasivas se resuelven con el registro oficial cuando el id existe, que los ids desconocidos permanecen visibles y marcados como no verificados, y que los nombres de skills/support skills todavía no se resuelven por falta de fuente incorporada. Regresión que falla con el mensaje antiguo.
+- **Reproducibilidad byte a byte**: `.gitattributes` fija `eol=lf` para `server/data/passives/*.json`; regenerar el registro desde un checkout limpio de Windows produce exactamente los mismos bytes y deja `git status` limpio (verificado, no solo comparación semántica).
+- **Ascendencias parcialmente conocidas**: cuando la fuente no publica el nombre pero sí la clase (Ranger2, Druid3), la UI muestra ambas realidades por separado — «Nombre no verificado · clase Ranger (Ranger2)» — vía `describeAscendancy` (helper puro con tests).
+- Este documento revisado por completo: las secciones antiguas quedan marcadas como históricas y los supuestos/pendientes reflejan el estado real tras el Hito 4A.
 
 ## Sesión 7 — Hito 4A: resolución de pasivas y ascendencias (export oficial de GGG)
 
@@ -49,7 +56,12 @@ Las afirmaciones de la sesión 3 se verificaron de forma independiente: `tsc -b`
 
 Notas sin cambio de código: la afirmación de fidelidad de la sesión 3 se apoyaba en el fixture oficial Titan Warrior, que **no contiene** `level_interval`, `weapon_set` ni coordenadas; ahora existe un test con un plan sintético que ejercita todos los campos documentados. `meta.archetypes` sigue hardcodeado y sin uso en el frontend (P3). `demoMercenary.build` no lo usa ningún código ni test (P3). La reproducibilidad depende de Node 24+ en PATH (en esta máquina solo existe el Node 24.15 empaquetado con kimi-desktop).
 
-## Qué funciona (verificado en esta sesión, incluido checkout limpio)
+## HISTÓRICO — sesión 3: qué funcionaba entonces
+
+> Redactado en la sesión 3 y conservado como historial. Varios puntos han
+> evolucionado después: la sesión 5 añadió una validación manual dentro del
+> juego y la sesión 7 incorporó el registro oficial de pasivas. El estado
+> vigente es el de las secciones de sesión más reciente y «Pruebas ejecutadas».
 
 - **Integridad del repo**: `server/data/patches.json` estaba ignorado por un patrón `.gitignore` demasiado amplio (`data`); corregido a `/data/` y versionado. Verificado con `git ls-files` y con clon limpio (ver «Pruebas ejecutadas»).
 - **Separación personaje actual vs plan `.build`**: un `.build` oficial de GGG ya NO se convierte en snapshot del personaje. Importarlo crea un **BuildTargetPlan** (sección «Build objetivo», con aviso «no es tu personaje actual») y conserva el objeto oficial crudo. El motor nunca ejecuta reglas de equipo/quality/mods/resistencias sobre inventory_slots del planner. Eliminado el `archetype: "mercenary-crossbow"` hardcodeado. Test obligatorio incluido: importar «Titan Warrior» nunca menciona ballesta, quality ni «0 mods».
@@ -83,37 +95,38 @@ node scripts/browser-smoke.mjs --all   # producción + desarrollo (Strict Mode)
 
 ## Capturas
 
-`docs/screenshots/flujo-prod.png` y `flujo-dev.png` (capturas reales de esta sesión).
+`docs/screenshots/flujo-prod.png` y `flujo-dev.png` (smoke automatizado, regeneradas en cada ejecución) e `ingame-*.jpg` (validación manual dentro del juego, sesión 5).
 
-## Decisiones tomadas (sesión 3)
+## HISTÓRICO — decisiones tomadas (sesión 3)
 
 - El `.build` oficial se trata siempre como PLAN: la importación aterriza en «Build objetivo»; solo los códigos PoB rellenan un personaje parcial.
 - Fidelidad vía conservación del objeto crudo en `target.plan`: la reexportación parte del plan original y declara cualquier pérdida.
 - Las mejoras aplicadas se exportan como texto legible (description/additional_text), no como datos estructurados inventados.
 - La restauración del personaje hace una doble petición GET bajo Strict Mode (idempotente); se priorizó corrección sobre ahorro.
 
-## Supuestos
+## Supuestos (vigentes)
 
-- GGG no procesa nuevas apps OAuth → adaptador desactivado por flag.
-- Sin tabla oficial de nombres de PassiveSkills/BaseItemTypes: los nombres legibles de pasivas importadas se muestran como «no verificado».
+- Adaptador GGG OAuth desactivado por flag (`GGG_OAUTH_ENABLED=false`). No hemos verificado el estado actual del proceso de solicitudes OAuth de GGG; activarlo exigiría comprobarlo primero.
+- Pasivas y ascendencias SÍ se resuelven a su nombre inglés oficial con el registro derivado del export de GGG (Hito 4A); los ids fuera del registro se muestran como «No verificado». Sigue sin existir fuente incorporada para `BaseItemTypes`: los nombres de skills y support skills no se resuelven todavía.
 - PoB/POBb.in: adaptador básico (Hito 6 pendiente).
 
-## Pruebas ejecutadas (salidas reales; reverificadas en la sesión 4 tras las correcciones)
+## Pruebas ejecutadas (salidas reales de la sesión 8, 2026-08-20)
 
 - `npx tsc -b` → 0 errores.
-- `npx vitest run` → **8 archivos, 80/80 verdes** (65 previas + 15 regresiones de auditoría; reverificado en la sesión 6).
+- `npx vitest run` → **9 archivos, 102/102 verdes**.
 - `npm run lint` → 0 errores.
-- `npx vite build` → OK (~150 kB gzip).
-- `node scripts/browser-smoke.mjs --all` → **20/20** (10 comprobaciones en producción + 10 en desarrollo con Strict Mode): carga, sin «Restaurando…» atascado, demo, guardado 200 con vida=2150, 3 recomendaciones, descarga `.build`, esquema GGG completo, recomendación aplicada incrustada en description, vida restaurada exactamente 2150.
+- `npx vite build` → OK (~151 kB gzip).
+- `node scripts/browser-smoke.mjs --all` → **20/20** (10 comprobaciones en producción + 10 en desarrollo con Strict Mode).
+- Flujo del registro en navegador (plan Titan Warrior): resolución 34/34 visible, nombre inglés + id, ascendencia Titan, procedencia y aviso de GGG.
 - Verificación desde **checkout limpio**: ver sección siguiente.
 
 ## Verificación desde checkout limpio
 
-Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm install` → `npx tsc -b` (0 errores) → `npx vitest run` (65/65) → `npm run lint` (0 errores) → `npx vite build` (OK) → `node scripts/browser-smoke.mjs --all` (**20/20**, producción y desarrollo con Strict Mode). `server/data/patches.json` presente en el clon (`git ls-files` lo confirma). Clon eliminado tras la verificación; sin procesos residuales.
+Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm install` → `npx tsc -b` (0 errores) → `npx vitest run` (102/102) → `npm run lint` (0 errores) → `npx vite build` (OK). Además, regenerar el registro de pasivas desde el `data.json` fijado (`npx tsx scripts/build-passive-registry.ts --input …`) produce **exactamente los mismos bytes** que el artefacto versionado y deja `git status` limpio, gracias a la regla `eol=lf` de `.gitattributes`. Clon eliminado tras la verificación; sin procesos residuales.
 
 ## Funciones incompletas
 
-- Tabla de ids oficiales (PassiveSkills/BaseItemTypes): pendiente a petición expresa del propietario (no añadida en esta fase).
+- Resolución de skills y support skills (`BaseItemTypes`): sin fuente incorporada; sus nombres siguen sin resolverse. (La resolución de PassiveSkills y ascendencias está TERMINADA — Hito 4A.)
 - Adaptador PoB: extracción básica. POBb.in: sin vía pública documentada.
 - Explicador LLM: stub desactivado.
 
@@ -128,7 +141,7 @@ Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm
 
 ## Próximo paso recomendado
 
-Cuando el propietario lo autorice: tabla versionada de ids oficiales para resolver nombres legibles y exportar skills/pasivas del arquetipo con ids verificables.
+La resolución de PassiveSkills y ascendencias ya está hecha (Hito 4A, registro oficial versionado). El siguiente paso natural, cuando el propietario lo autorice, es decidir una fuente oficial verificable para `BaseItemTypes` y resolver así los nombres de gemas y supports. No iniciado.
 
 ## Archivos importantes
 

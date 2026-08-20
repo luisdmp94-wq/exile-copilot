@@ -1,0 +1,4 @@
+# Artefactos generados: bytes idénticos en cualquier plataforma.
+# El generador (scripts/build-passive-registry.ts) escribe LF; el checkout
+# debe restaurar LF también en Windows para que regenerar deje git limpio.
+server/data/passives/*.json text eol=lf
