@@ -508,6 +508,87 @@ describe("api (integración, app Express con db :memory:)", () => {
     ).toBe(true);
   });
 
+  it("POST /recommendations rechaza una decisión si el diario cambia durante el cálculo", async () => {
+    let releaseExplainer!: () => void;
+    let markExplainerStarted!: () => void;
+    const explainerGate = new Promise<void>((resolve) => {
+      releaseExplainer = resolve;
+    });
+    const explainerStarted = new Promise<void>((resolve) => {
+      markExplainerStarted = resolve;
+    });
+    const raceApp = createApiApp({
+      dbPath: ":memory:",
+      config: { poeNinjaOffline: true },
+      explainer: {
+        name: "delayed-test",
+        explain: async (recommendation) => {
+          markExplainerStarted();
+          await explainerGate;
+          return recommendation.reason;
+        },
+      },
+    });
+    const raceServer = await new Promise<Server>((resolve) => {
+      const listening = raceApp.listen(0, () => resolve(listening));
+    });
+    const racePort = (raceServer.address() as AddressInfo).port;
+    const raceBase = `http://127.0.0.1:${racePort}`;
+
+    try {
+      const { profile } = await jsonOf(await fetch(`${raceBase}/character/demo`));
+      profile.id = "toctou-character";
+      const pendingRecommendation = fetch(`${raceBase}/recommendations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile,
+          budget: { amount: 50, currency: "chaos" },
+          goal: { kind: "survival" },
+          league: profile.league,
+          patch: profile.patch,
+        }),
+      });
+
+      await explainerStarted;
+      const createPrimary = await fetch(
+        `${raceBase}/journal/${profile.id}/entries`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "craft",
+            title: "Acción creada desde otra pestaña",
+            summary: "Debe invalidar el cálculo que ya estaba esperando.",
+            nextAction: "Esperar el resultado de esta acción.",
+            relatedItemIds: [],
+            sources: [],
+            context: {
+              characterLevel: profile.level,
+              league: profile.league,
+              patch: profile.patch,
+              budget: null,
+              goal: null,
+            },
+            recommendationSnapshot: null,
+            makePrimary: true,
+          }),
+        },
+      );
+      expect(createPrimary.status).toBe(201);
+      releaseExplainer();
+
+      const response = await pendingRecommendation;
+      expect(response.status).toBe(409);
+      expect((await jsonOf(response)).error).toBe("memoria-diario-obsoleta");
+    } finally {
+      releaseExplainer();
+      await new Promise<void>((resolve, reject) =>
+        raceServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
   it("POST /export/build devuelve JSON {fileName .build, content, report} con mejoras legibles", async () => {
     const demoRes = await fetch(`${base}/character/demo`);
     const { profile } = await jsonOf(demoRes);

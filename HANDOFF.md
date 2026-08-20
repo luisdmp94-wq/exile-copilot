@@ -1,6 +1,40 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 8 (consistencia y reproducibilidad), 2026-08-20.
+> Informe para el propietario. Última actualización: sesión 10 (Hito 5B y correcciones de auditoría), 2026-08-20.
+
+## Sesión 10 — Hito 5B: la memoria influye en la siguiente decisión
+
+- El servidor proyecta el Character Journal a un contexto autoritativo de
+  tamaño acotado: acción principal y hasta diez resultados de recomendaciones.
+- Una acción `active`/`waiting_result` detiene el motor antes de precios: cero
+  tareas paralelas. Si una recomendación completada sigue activándose, se
+  reemplaza por una única acción `profile_sync`; el resultado libre se conserva
+  como evidencia, pero jamás se analiza como estadísticas o mods.
+- `journalRevision` detecta UI obsoleta; una segunda lectura después de precios
+  y explainer cierra la carrera entre pestañas (409 antes de responder). La UI
+  reconoce ese 409 y recarga el diario en vez de quedar atascada.
+- Lectura del motor indexada y acotada en SQLite. Migración aditiva de entradas
+  5A: añade metadatos, conserva los payloads y no borra filas (regresión sobre
+  esquema antiguo).
+- Acciones `profile_sync` no muestran el control de exportación. La selección
+  frontend las descarta y el exportador vuelve a validarlo: ids desconocidos se
+  omiten y se declaran en `skippedUnverified`, nunca aparecen crudos en `.build`.
+- Auditoría independiente del commit inicial `0052e06`: 1 P1, 3 P2 y varios P3
+  encontrados; todos corregidos con regresiones específicas antes del cierre.
+- Verificado tras las correcciones: TypeScript 0 errores, **145/145 tests** (13
+  archivos), ESLint 0 errores, build de producción correcto y **54/54**
+  comprobaciones de navegador 5A/5B en producción + Strict Mode.
+
+## Sesión 9 — Hito 5A: memoria persistente del mentor
+
+- Diario SQLite por personaje para decisiones, experimentos, crafts, hitos y
+  notas; una sola próxima acción principal.
+- Separación real entre acción pendiente, ejecutada/esperando resultado y
+  completada. Una acción no puede completarse sin resultado del jugador.
+- Recomendaciones convertibles en decisiones auditables con snapshot, fuentes,
+  coste, riesgo, confianza, parche, presupuesto y objetivo del momento.
+- Interfaz «Mentor del personaje», historial y seguimiento manual; persistencia
+  tras recargar y responsive comprobado en 320/360/390 px.
 
 ## Sesión 8 — consistencia y reproducibilidad
 
@@ -110,7 +144,7 @@ node scripts/browser-smoke.mjs --all   # producción + desarrollo (Strict Mode)
 - Pasivas y ascendencias SÍ se resuelven a su nombre inglés oficial con el registro derivado del export de GGG (Hito 4A); los ids fuera del registro se muestran como «No verificado». Sigue sin existir fuente incorporada para `BaseItemTypes`: los nombres de skills y support skills no se resuelven todavía.
 - PoB/POBb.in: adaptador básico (Hito 6 pendiente).
 
-## Pruebas ejecutadas (salidas reales de la sesión 8, 2026-08-20)
+## HISTÓRICO — pruebas ejecutadas en la sesión 8 (2026-08-20)
 
 - `npx tsc -b` → 0 errores.
 - `npx vitest run` → **9 archivos, 102/102 verdes**.
@@ -141,11 +175,14 @@ Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm
 
 ## Próximo paso recomendado
 
-La resolución de PassiveSkills y ascendencias ya está hecha (Hito 4A, registro oficial versionado). El siguiente paso natural, cuando el propietario lo autorice, es decidir una fuente oficial verificable para `BaseItemTypes` y resolver así los nombres de gemas y supports. No iniciado.
+Auditar y, si se aprueba, integrar el Hito 5B sobre `main`. Después, diseñar el
+contrato del **Copilot conversacional v1** encima de esta memoria, inicialmente
+determinista y sin proveedor LLM. La resolución de `BaseItemTypes` continúa
+pendiente, pero no es necesaria para validar el flujo del mentor.
 
 ## Archivos importantes
 
-- `README.md`, `docs/PLAN.md`, `HANDOFF.md`.
+- `README.md`, `docs/PLAN.md`, `docs/HITO_5A.md`, `docs/HITO_5B.md`, `HANDOFF.md`.
 - `shared/domain.ts` (snapshot), `shared/gggBuildPlanner.ts` (oficial + BuildTargetPlan), `shared/api.ts`.
 - `server/importers/gggBuildImporter.ts` (→ plan), `server/exporters/gggBuildExporter.ts` (fidelidad + informe + mejoras planificadas).
 - `server/services/poeninja.ts` (rates con origen/verificación), `server/engine/`, `server/data/patches.json`.

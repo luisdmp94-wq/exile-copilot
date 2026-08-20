@@ -250,6 +250,7 @@ describe("engine — memoria del mentor", () => {
     );
 
     expect(reconciliation).toBeDefined();
+    expect(reconciliation?.actionKind).toBe("profile_sync");
     expect(reconciliation?.title).toContain("Cubrir resistencias elementales");
     expect(reconciliation?.title).not.toContain("Intento antiguo");
     expect(reconciliation?.action).toContain("Actualiza en «Mi personaje»");

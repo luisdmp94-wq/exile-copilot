@@ -106,9 +106,17 @@ async function runFlow(mode, port) {
     const page = await context.newPage();
     const externalRequests = [];
     const errors = [];
+    const recommendationPayloads = [];
 
     page.on("request", (request) => {
       const url = request.url();
+      if (url === `${base}/api/recommendations` && request.method() === "POST") {
+        try {
+          recommendationPayloads.push(request.postDataJSON());
+        } catch {
+          errors.push("Payload no JSON en POST /api/recommendations");
+        }
+      }
       if (!url.startsWith(base) && !url.startsWith("data:") && !url.startsWith("blob:")) {
         externalRequests.push(url);
       }
@@ -229,6 +237,14 @@ async function runFlow(mode, port) {
     await page.getByText("El diario influyó en esta decisión").waitFor({
       timeout: 20_000,
     });
+    const latestRecommendationPayload = recommendationPayloads.at(-1);
+    check(
+      `[${mode}] la UI envía la revisión del diario`,
+      typeof latestRecommendationPayload?.journalRevision === "string" &&
+        /^journal-memory-v1:[0-9a-f]{16}$/.test(
+          latestRecommendationPayload.journalRevision,
+        ),
+    );
     check(
       `[${mode}] un resultado previo cambia la siguiente decisión`,
       await page.getByText(/Actualizar el perfil tras/).first().isVisible(),
@@ -239,6 +255,12 @@ async function runFlow(mode, port) {
         .locator("#seccion-recomendaciones")
         .getByText("Cubrir resistencias elementales", { exact: true })
         .count()) === 0,
+    );
+    check(
+      `[${mode}] la reconciliación se declara no exportable`,
+      await page
+        .getByText("Acción de datos: no modifica el juego ni se incluye en el archivo .build.")
+        .isVisible(),
     );
 
     await page.getByText("Crear seguimiento manual").click();

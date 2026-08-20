@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   BookMarked,
   ExternalLink,
+  FileWarning,
   OctagonAlert,
   PackageSearch,
   Undo2,
@@ -236,20 +237,27 @@ export function RecommendationCard({
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-border pt-3">
-          <Checkbox
-            id={`applied-${rec.id}`}
-            checked={applied}
-            onCheckedChange={(checked) => onAppliedChange(checked === true)}
-          />
-          <Label
-            htmlFor={`applied-${rec.id}`}
-            className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-normal"
-          >
-            <Undo2 className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            Ya la apliqué — incluir al exportar el .build
-          </Label>
-        </div>
+        {rec.actionKind === "profile_sync" ? (
+          <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
+            <FileWarning className="size-4 text-sky-300" aria-hidden="true" />
+            Acción de datos: no modifica el juego ni se incluye en el archivo .build.
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 border-t border-border pt-3">
+            <Checkbox
+              id={`applied-${rec.id}`}
+              checked={applied}
+              onCheckedChange={(checked) => onAppliedChange(checked === true)}
+            />
+            <Label
+              htmlFor={`applied-${rec.id}`}
+              className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-normal"
+            >
+              <Undo2 className="size-3.5 text-muted-foreground" aria-hidden="true" />
+              Ya la apliqué — incluir al exportar el .build
+            </Label>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

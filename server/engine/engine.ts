@@ -146,7 +146,7 @@ function reconcileCandidateWithMemory(
     ],
     relatedItemIds: Array.from(
       new Set([...(candidate.relatedItemIds ?? []), ...memoryEntry.relatedItemIds]),
-    ),
+    ).slice(0, 100),
   };
 }
 
@@ -334,6 +334,12 @@ export async function generateRecommendations(
 
   const recommendations: Recommendation[] = top.map((entry, index) => {
     const { candidate, cost, quote, unverified, confidence, extraSources } = entry;
+    const relatedItemIds = (candidate.relatedItemIds ?? []).slice(0, 100);
+    if ((candidate.relatedItemIds?.length ?? 0) > relatedItemIds.length) {
+      unverified.push(
+        `No verificado — se omitieron ${(candidate.relatedItemIds?.length ?? 0) - relatedItemIds.length} vínculos de objeto por el límite de 100.`,
+      );
+    }
 
     const sources: SourceEvidence[] = [
       {
@@ -367,6 +373,9 @@ export async function generateRecommendations(
       title: candidate.title,
       action: candidate.action,
       reason: candidate.reason,
+      actionKind: candidate.ruleId.startsWith("memoria-")
+        ? "profile_sync"
+        : "game_change",
       cost,
       impact: {
         metric: candidate.impactMetric,
@@ -382,7 +391,7 @@ export async function generateRecommendations(
       dataUpdatedAt,
       confidence,
       unverified,
-      relatedItemIds: candidate.relatedItemIds ?? [],
+      relatedItemIds,
     };
   });
 

@@ -118,6 +118,38 @@ describe("Character Journal", () => {
     expect(parsed.success).toBe(false);
   });
 
+  it("acota los objetos relacionados que llegan desde el cliente", () => {
+    const baseInput = {
+      kind: "note",
+      title: "Nota acotada",
+      summary: "Contexto",
+      nextAction: null,
+      sources: [],
+      context: {
+        characterLevel: 67,
+        league: "Runes of Aldur",
+        patch: "0.5.4f",
+        budget: null,
+        goal: null,
+      },
+      recommendationSnapshot: null,
+      makePrimary: false,
+    };
+
+    expect(
+      CreateJournalEntryRequestSchema.safeParse({
+        ...baseInput,
+        relatedItemIds: Array.from({ length: 101 }, (_, index) => `item-${index}`),
+      }).success,
+    ).toBe(false);
+    expect(
+      CreateJournalEntryRequestSchema.safeParse({
+        ...baseInput,
+        relatedItemIds: ["x".repeat(201)],
+      }).success,
+    ).toBe(false);
+  });
+
   it("proyecta solo la acción primaria y hasta diez resultados explícitos", () => {
     const primary = JournalEntrySchema.parse({
       id: "primary-1",
@@ -180,5 +212,20 @@ describe("Character Journal", () => {
       ],
     });
     expect(changedResult.revision).not.toBe(memory.revision);
+
+    const newerManualResults = Array.from({ length: 12 }, (_, index) => ({
+      ...completed,
+      id: `manual-${index}`,
+      title: `Resultado manual ${index}`,
+      recommendationSnapshot: null,
+      updatedAt: `2026-08-21T10:${String(index).padStart(2, "0")}:00.000Z`,
+      resolvedAt: `2026-08-21T10:${String(index).padStart(2, "0")}:00.000Z`,
+    }));
+    const memoryWithManualNoise = buildRecommendationMemory({
+      ...journal,
+      entries: [primary, ...newerManualResults, completed],
+    });
+    expect(memoryWithManualNoise.recentCompleted).toHaveLength(1);
+    expect(memoryWithManualNoise.recentCompleted[0]?.entryId).toBe(completed.id);
   });
 });

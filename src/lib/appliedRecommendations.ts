@@ -7,9 +7,15 @@
  */
 export function selectAppliedRecommendationIds(
   applied: Record<string, boolean>,
-  currentRecommendations: ReadonlyArray<{ id: string }>,
+  currentRecommendations: ReadonlyArray<{
+    id: string;
+    actionKind?: "game_change" | "profile_sync";
+  }>,
 ): string[] {
   return currentRecommendations
-    .filter((rec) => applied[rec.id] === true)
+    .filter(
+      (rec) =>
+        applied[rec.id] === true && rec.actionKind !== "profile_sync",
+    )
     .map((rec) => rec.id);
 }

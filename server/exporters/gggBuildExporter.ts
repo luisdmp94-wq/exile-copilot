@@ -59,9 +59,9 @@ function sanitizeFileName(name: string): string {
   return `${cleaned.length > 0 ? cleaned : "exile-copilot-build"}.build`;
 }
 
-/** Texto legible de una recomendación aplicada (label conocido o el id crudo). */
+/** Texto legible de una recomendación aplicada ya validada. */
 function recommendationLabel(recId: string): string {
-  return RECOMMENDATION_LABELS[recId] ?? recId;
+  return RECOMMENDATION_LABELS[recId]!;
 }
 
 /** Sección legible en español con las mejoras planificadas. */
@@ -76,6 +76,13 @@ export function exportGggBuild(
   appliedRecommendations: string[] = [],
 ): GggExportResult {
   const skippedUnverified: string[] = [];
+  const exportableAppliedRecommendations = appliedRecommendations.filter((id) => {
+    if (RECOMMENDATION_LABELS[id] !== undefined) return true;
+    skippedUnverified.push(
+      `Recomendación aplicada "${id}" omitida: no es una mejora de juego exportable con etiqueta verificada.`,
+    );
+    return false;
+  });
   const plan = target?.plan ?? null;
 
   // --- Pasivas -------------------------------------------------------------
@@ -161,8 +168,8 @@ export function exportGggBuild(
   }
 
   // --- Recomendaciones aplicadas → texto legible -----------------------------
-  if (appliedRecommendations.length > 0) {
-    for (const recId of appliedRecommendations) {
+  if (exportableAppliedRecommendations.length > 0) {
+    for (const recId of exportableAppliedRecommendations) {
       const hint = RECOMMENDATION_SLOT_HINTS[recId];
       if (!hint) continue; // sin mapeo: igualmente aparece en description
       const label = recommendationLabel(recId);
@@ -184,8 +191,8 @@ export function exportGggBuild(
   const descriptionParts: string[] = [];
   if (plan?.build.description) descriptionParts.push(plan.build.description);
   else if (target?.summary) descriptionParts.push(target.summary);
-  if (appliedRecommendations.length > 0) {
-    descriptionParts.push(plannedImprovementsText(appliedRecommendations));
+  if (exportableAppliedRecommendations.length > 0) {
+    descriptionParts.push(plannedImprovementsText(exportableAppliedRecommendations));
   }
 
   // --- ascendancy: SOLO el id oficial (ascendancyId), nunca el nombre visible

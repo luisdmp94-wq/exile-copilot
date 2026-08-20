@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS journal_entries (
   id TEXT PRIMARY KEY,
   character_id TEXT NOT NULL,
   payload TEXT NOT NULL,
+  status TEXT,
+  recommendation_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -55,4 +57,25 @@ export function createDatabase(dbPath: string): Database {
 /** Creación de esquema idempotente. */
 export function applySchema(db: Database): void {
   db.exec(SCHEMA_SQL);
+  const columns = db.prepare("PRAGMA table_info(journal_entries)").all() as unknown as Array<{
+    name: string;
+  }>;
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has("status")) {
+    db.exec("ALTER TABLE journal_entries ADD COLUMN status TEXT");
+  }
+  if (!names.has("recommendation_id")) {
+    db.exec("ALTER TABLE journal_entries ADD COLUMN recommendation_id TEXT");
+  }
+
+  // Migración aditiva: conserva cada payload y deriva únicamente columnas de
+  // índice para las entradas anteriores al Hito 5B.
+  db.exec(`
+    UPDATE journal_entries
+       SET status = json_extract(payload, '$.status'),
+           recommendation_id = json_extract(payload, '$.recommendationSnapshot.id')
+     WHERE status IS NULL AND json_valid(payload) = 1;
+    CREATE INDEX IF NOT EXISTS journal_entries_character_status_updated
+      ON journal_entries(character_id, status, updated_at DESC);
+  `);
 }
