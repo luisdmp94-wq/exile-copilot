@@ -14,6 +14,7 @@ import type {
   RecommendationMemoryImpact,
   SourceEvidence,
 } from "../../shared/domain.js";
+import { compactJournalTitle } from "../../shared/domain.js";
 import type { MarketRates } from "../../shared/api.js";
 import {
   ENGINE_VERSION,
@@ -112,7 +113,7 @@ function reconcileCandidateWithMemory(
   const originalRecommendationId = `rec-${candidate.ruleId}`;
   return {
     ruleId: `memoria-${candidate.ruleId}`,
-    title: `Actualizar el perfil tras «${memoryEntry.title}»`,
+    title: compactJournalTitle(`Actualizar el perfil tras «${memoryEntry.title}»`),
     action:
       `Actualiza en «Mi personaje» los datos afectados por «${memoryEntry.title}» ` +
       "usando el resultado que guardaste; después vuelve a generar recomendaciones.",

@@ -48,7 +48,7 @@ export function buildRecommendationMemory(
       (entry) =>
         entry.status === "completed" &&
         entry.result !== null &&
-        entry.recommendationSnapshot !== null,
+        entry.recommendationSnapshot?.actionKind === "game_change",
     )
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, MAX_COMPLETED_ENTRIES)

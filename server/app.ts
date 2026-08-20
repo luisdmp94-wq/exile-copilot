@@ -275,6 +275,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         payload: JSON.stringify(entry),
         status: entry.status,
         recommendationId: entry.recommendationSnapshot?.id ?? null,
+        recommendationActionKind:
+          entry.recommendationSnapshot?.actionKind ?? null,
         createdAt: now,
         updatedAt: now,
       });
@@ -341,6 +343,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         payload: JSON.stringify(entry),
         status: entry.status,
         recommendationId: entry.recommendationSnapshot?.id ?? null,
+        recommendationActionKind:
+          entry.recommendationSnapshot?.actionKind ?? null,
         createdAt: entry.createdAt,
         updatedAt: now,
       });

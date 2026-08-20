@@ -12,17 +12,20 @@
   como evidencia, pero jamás se analiza como estadísticas o mods.
 - `journalRevision` detecta UI obsoleta; una segunda lectura después de precios
   y explainer cierra la carrera entre pestañas (409 antes de responder). La UI
-  reconoce ese 409 y recarga el diario en vez de quedar atascada.
+  reconoce ese 409, retira inmediatamente las decisiones obsoletas y recarga el
+  diario en vez de quedar atascada.
 - Lectura del motor indexada y acotada en SQLite. Migración aditiva de entradas
   5A: añade metadatos, conserva los payloads y no borra filas (regresión sobre
-  esquema antiguo).
+  esquema antiguo). Solo resultados `game_change` ocupan las diez plazas: las
+  reconciliaciones `profile_sync` no pueden expulsar la memoria original.
 - Acciones `profile_sync` no muestran el control de exportación. La selección
   frontend las descarta y el exportador vuelve a validarlo: ids desconocidos se
   omiten y se declaran en `skippedUnverified`, nunca aparecen crudos en `.build`.
-- Auditoría independiente del commit inicial `0052e06`: 1 P1, 3 P2 y varios P3
-  encontrados; todos corregidos con regresiones específicas antes del cierre.
-- Verificado tras las correcciones: TypeScript 0 errores, **145/145 tests** (13
-  archivos), ESLint 0 errores, build de producción correcto y **54/54**
+- Dos rondas de auditoría independiente sobre el commit inicial `0052e06` y
+  sus correcciones: cerradas la carrera entre pestañas, la evicción de memoria,
+  la invalidación tardía del 409 y la frontera de títulos persistentes.
+- Verificado tras las correcciones: TypeScript 0 errores, **147/147 tests** (13
+  archivos), ESLint 0 errores, build de producción correcto y **58/58**
   comprobaciones de navegador 5A/5B en producción + Strict Mode.
 
 ## Sesión 9 — Hito 5A: memoria persistente del mentor

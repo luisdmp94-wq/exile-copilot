@@ -97,6 +97,22 @@ describe("Character Journal", () => {
     expect(compact.slice(0, -1)).toBe(reason.slice(0, 597));
   });
 
+  it("recorta de forma segura un título generado antes de guardarlo", () => {
+    const longRecommendation = RecommendationSchema.parse({
+      ...recommendation,
+      title: `Actualizar el perfil tras «${"x".repeat(160)}»`,
+    });
+    const input = journalEntryFromRecommendation(
+      longRecommendation,
+      profile,
+      { amount: 25, currency: "exalted" },
+      "survival",
+    );
+    expect(input.title).toHaveLength(160);
+    expect(input.title.endsWith("…")).toBe(true);
+    expect(CreateJournalEntryRequestSchema.safeParse(input).success).toBe(true);
+  });
+
   it("rechaza una entrada principal sin próxima acción", () => {
     const parsed = CreateJournalEntryRequestSchema.safeParse({
       kind: "note",
@@ -227,5 +243,26 @@ describe("Character Journal", () => {
     });
     expect(memoryWithManualNoise.recentCompleted).toHaveLength(1);
     expect(memoryWithManualNoise.recentCompleted[0]?.entryId).toBe(completed.id);
+
+    const profileSyncRecommendation = RecommendationSchema.parse({
+      ...recommendation,
+      id: "rec-memoria-resistencias-elementales",
+      title: "Actualizar el perfil",
+      actionKind: "profile_sync",
+    });
+    const newerProfileSyncResults = Array.from({ length: 12 }, (_, index) => ({
+      ...completed,
+      id: `profile-sync-${index}`,
+      title: `Reconciliación ${index}`,
+      recommendationSnapshot: profileSyncRecommendation,
+      updatedAt: `2026-08-22T10:${String(index).padStart(2, "0")}:00.000Z`,
+      resolvedAt: `2026-08-22T10:${String(index).padStart(2, "0")}:00.000Z`,
+    }));
+    const memoryWithProfileSyncNoise = buildRecommendationMemory({
+      ...journal,
+      entries: [primary, ...newerProfileSyncResults, completed],
+    });
+    expect(memoryWithProfileSyncNoise.recentCompleted).toHaveLength(1);
+    expect(memoryWithProfileSyncNoise.recentCompleted[0]?.entryId).toBe(completed.id);
   });
 });

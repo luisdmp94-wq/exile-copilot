@@ -107,6 +107,7 @@ async function runFlow(mode, port) {
     const externalRequests = [];
     const errors = [];
     const recommendationPayloads = [];
+    let recommendationConflicts = 0;
 
     page.on("request", (request) => {
       const url = request.url();
@@ -123,12 +124,26 @@ async function runFlow(mode, port) {
     });
     page.on("console", (message) => {
       const text = `${message.text()} @ ${message.location()?.url ?? "?"}`;
-      if (message.type() === "error" && !text.includes(`${base}/favicon.ico`)) {
+      const expectedConflict =
+        text.includes("409 (Conflict)") &&
+        text.includes(`${base}/api/recommendations`);
+      if (
+        message.type() === "error" &&
+        !text.includes(`${base}/favicon.ico`) &&
+        !expectedConflict
+      ) {
         errors.push(text);
       }
     });
     page.on("pageerror", (error) => errors.push(String(error)));
     page.on("response", (response) => {
+      if (
+        response.status() === 409 &&
+        response.url() === `${base}/api/recommendations`
+      ) {
+        recommendationConflicts += 1;
+        return;
+      }
       if (response.status() >= 400 && !response.url().endsWith("/favicon.ico")) {
         errors.push(`HTTP ${response.status()} ${response.url()}`);
       }
@@ -166,6 +181,97 @@ async function runFlow(mode, port) {
     const trackButtons = page.getByRole("button", { name: "Guardar como próximo paso" });
     await trackButtons.first().waitFor({ timeout: 25_000 });
     check(`[${mode}] cada recomendación puede seguirse`, (await trackButtons.count()) === 3);
+
+    // Otra pestaña crea una acción mientras esta UI conserva recomendaciones
+    // antiguas. El 409 debe retirar esas tarjetas ANTES de esperar el GET de
+    // recarga, para que no puedan guardarse ni exportarse durante la ventana.
+    const concurrentResponse = await fetch(
+      `${base}/api/journal/${persistedCharacterId}/entries`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "note",
+          title: "Cambio concurrente",
+          summary: "Creado por la prueba desde una segunda pestaña.",
+          nextAction: "Revisar la memoria antes de decidir.",
+          relatedItemIds: [],
+          sources: [],
+          context: {
+            characterLevel: null,
+            league: null,
+            patch: null,
+            budget: null,
+            goal: null,
+          },
+          recommendationSnapshot: null,
+          makePrimary: true,
+        }),
+      },
+    );
+    if (!concurrentResponse.ok) {
+      throw new Error(`no se pudo crear la entrada concurrente: HTTP ${concurrentResponse.status}`);
+    }
+    const concurrentEntry = (await concurrentResponse.json()).entry;
+
+    let releaseJournalReload = () => {};
+    const journalReloadHold = new Promise((resolve) => {
+      releaseJournalReload = resolve;
+    });
+    let signalJournalReload = () => {};
+    const journalReloadStarted = new Promise((resolve) => {
+      signalJournalReload = resolve;
+    });
+    await page.route(
+      `${base}/api/journal/${persistedCharacterId}`,
+      async (route) => {
+        signalJournalReload();
+        await journalReloadHold;
+        await route.continue();
+      },
+      { times: 1 },
+    );
+    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    await journalReloadStarted;
+    await page.waitForFunction(
+      () =>
+        !Array.from(document.querySelectorAll("button")).some((button) =>
+          button.textContent?.includes("Guardar como próximo paso"),
+        ),
+      undefined,
+      { timeout: 10_000 },
+    );
+    check(
+      `[${mode}] un 409 retira decisiones obsoletas antes de recargar`,
+      (await trackButtons.count()) === 0,
+    );
+    releaseJournalReload();
+    await page.getByText("El mentor ya te ha dado un siguiente paso").waitFor({
+      timeout: 15_000,
+    });
+    check(
+      `[${mode}] el 409 recupera la memoria concurrente`,
+      recommendationConflicts === 1,
+    );
+
+    const resolveConcurrent = await fetch(
+      `${base}/api/journal/${persistedCharacterId}/entries/${concurrentEntry.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "completed",
+          result: "Entrada concurrente reconocida por la prueba.",
+        }),
+      },
+    );
+    if (!resolveConcurrent.ok) {
+      throw new Error(`no se pudo cerrar la entrada concurrente: HTTP ${resolveConcurrent.status}`);
+    }
+    await page.reload({ waitUntil: "networkidle" });
+    await page.locator("#market-budget").fill("5");
+    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    await trackButtons.first().waitFor({ timeout: 25_000 });
 
     await trackButtons.first().click();
     const nextAction = page.getByText("Haz esto ahora");
