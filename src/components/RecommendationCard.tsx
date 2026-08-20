@@ -25,7 +25,7 @@ interface RecommendationCardProps {
    * `relatedItemIds`: sin vínculo estructurado no se muestra el botón ni se
    * deduce el hueco a partir del texto de la recomendación.
    */
-  onFocusItem: (itemId: string) => void;
+  onFocusItem: (itemId: string, trigger: HTMLElement) => void;
 }
 
 const PRIORITY_CLASSES: Record<number, string> = {
@@ -203,9 +203,9 @@ export function RecommendationCard({
               variant="outline"
               size="sm"
               data-testid={`ver-objeto-${rec.id}`}
-              onClick={() => {
+              onClick={(event) => {
                 const first = rec.relatedItemIds[0];
-                if (first !== undefined) onFocusItem(first);
+                if (first !== undefined) onFocusItem(first, event.currentTarget);
               }}
             >
               <PackageSearch className="size-3.5" aria-hidden="true" />

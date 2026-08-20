@@ -116,52 +116,119 @@ export function formatQuality(quality: number | undefined): string {
   return `${quality}%`;
 }
 
-export type ItemDataOrigin = "oficial" | "usuario" | "no-verificado" | "sin-fuente";
+export type ItemDataOrigin =
+  | "oficial"
+  | "interna"
+  | "usuario"
+  | "mercado"
+  | "comunidad"
+  | "calculo"
+  | "sin-fuente";
 
 export interface ItemDataState {
   origin: ItemDataOrigin;
   label: string;
   detail: string;
+  /** Tono visual: solo "oficial" es fuente oficial de GGG. */
+  tone: "oficial" | "interna" | "sin-verificar";
 }
 
 /**
- * Estado de los datos de un objeto a partir de `sources` (nunca inventado):
- *  - kind "ggg"/"internal" → "Fuente oficial"
- *  - kind "user"           → "Lo has indicado tú" (importar NO verifica nada)
- *  - otras procedencias    → "No verificado"
- *  - sin `sources`         → "Fuente no disponible"
+ * PRECEDENCIA de procedencia, de más a menos autoridad:
+ *   ggg > internal > user > poe.ninja > community > calculation
+ *
+ * Se muestra la fuente de mayor autoridad presente y, si hay varias, el
+ * detalle enumera TODAS. Cada categoría dice lo que realmente es:
+ *  - "ggg"         → «Fuente oficial (GGG)»   (única que puede decir "oficial")
+ *  - "internal"    → «Datos internos verificados» (propios, NUNCA "oficial")
+ *  - "user"        → «Lo has indicado tú»
+ *  - "poe.ninja"   → «Dato de poe.ninja»
+ *  - "community"   → «Referencia comunitaria»
+ *  - "calculation" → «Calculado por Exile Copilot»
+ *  - sin sources   → «Fuente no disponible»
  *
  * Importar desde `.build`, PoB o texto NO convierte los datos en verificados;
  * cada `modifier.verified` se respeta por separado en el detalle.
  */
+const ORIGIN_BY_KIND: Array<{
+  kind: Item["sources"][number]["kind"];
+  origin: ItemDataOrigin;
+  label: string;
+  detail: string;
+  tone: ItemDataState["tone"];
+}> = [
+  {
+    kind: "ggg",
+    origin: "oficial",
+    label: "Fuente oficial (GGG)",
+    detail: "Procede de datos oficiales de Grinding Gear Games.",
+    tone: "oficial",
+  },
+  {
+    kind: "internal",
+    origin: "interna",
+    label: "Datos internos verificados",
+    detail:
+      "Datos propios de Exile Copilot, versionados y verificados. No son datos oficiales de GGG.",
+    tone: "interna",
+  },
+  {
+    kind: "user",
+    origin: "usuario",
+    label: "Lo has indicado tú",
+    detail:
+      "Dato proporcionado manualmente o importado por ti: no está verificado contra una fuente oficial.",
+    tone: "sin-verificar",
+  },
+  {
+    kind: "poe.ninja",
+    origin: "mercado",
+    label: "Dato de poe.ninja",
+    detail: "Procede de la API económica pública de poe.ninja. No es una fuente oficial de GGG.",
+    tone: "sin-verificar",
+  },
+  {
+    kind: "community",
+    origin: "comunidad",
+    label: "Referencia comunitaria",
+    detail: "Procede de una referencia de la comunidad: nunca es verdad absoluta ni oficial.",
+    tone: "sin-verificar",
+  },
+  {
+    kind: "calculation",
+    origin: "calculo",
+    label: "Calculado por Exile Copilot",
+    detail: "Resultado de un cálculo determinista propio, no de una fuente externa.",
+    tone: "sin-verificar",
+  },
+];
+
 export function describeItemDataState(item: Item): ItemDataState {
   if (item.sources.length === 0) {
     return {
       origin: "sin-fuente",
       label: "Fuente no disponible",
       detail: "El objeto no registra ninguna procedencia.",
+      tone: "sin-verificar",
     };
   }
-  if (item.sources.some((source) => source.kind === "ggg" || source.kind === "internal")) {
+  const kinds = new Set(item.sources.map((source) => source.kind));
+  const match = ORIGIN_BY_KIND.find((entry) => kinds.has(entry.kind));
+  if (match === undefined) {
+    // Tipo de fuente no contemplado: se declara sin verificar, nunca "oficial".
     return {
-      origin: "oficial",
-      label: "Fuente oficial",
-      detail: "Procede de datos oficiales de GGG o de datos internos verificados.",
+      origin: "sin-fuente",
+      label: "Fuente no disponible",
+      detail: `Procedencia no reconocida: ${[...kinds].join(", ")}.`,
+      tone: "sin-verificar",
     };
   }
-  if (item.sources.some((source) => source.kind === "user")) {
-    return {
-      origin: "usuario",
-      label: "Lo has indicado tú",
-      detail:
-        "Dato proporcionado manualmente o importado por ti: no está verificado contra una fuente oficial.",
-    };
-  }
-  return {
-    origin: "no-verificado",
-    label: "No verificado",
-    detail: `Procedencia: ${item.sources.map((source) => source.kind).join(", ")}.`,
-  };
+  // Con varias fuentes se muestra la de mayor autoridad y se enumeran todas.
+  const detail =
+    kinds.size > 1
+      ? `${match.detail} Fuentes registradas: ${[...kinds].join(", ")}.`
+      : match.detail;
+  return { origin: match.origin, label: match.label, detail, tone: match.tone };
 }
 
 /** Agrupa los modificadores por tipo conservando el orden original dentro de cada grupo. */

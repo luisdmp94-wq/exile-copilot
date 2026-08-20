@@ -35,7 +35,7 @@ interface RecommendationsSectionProps {
   recommendations: RecommendationsState;
   onLoadDemo: () => Promise<void>;
   /** Navegación recomendación → objeto; solo se usa con vínculo estructurado. */
-  onFocusItem: (itemId: string) => void;
+  onFocusItem: (itemId: string, trigger: HTMLElement) => void;
 }
 
 export function RecommendationsSection({

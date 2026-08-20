@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Budget, GoalKind } from "@shared/domain.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
@@ -41,6 +41,9 @@ export default function App() {
   const [targetResolution, setTargetResolution] = useState<PlanResolution | null>(null);
   // Navegación recomendación → objeto (solo con vínculo estructurado del motor).
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  // Elemento que abrió el detalle: puede ser un hueco del paperdoll o el botón
+  // «Ver el objeto evaluado» de una recomendación. Al cerrar se le devuelve el foco.
+  const dialogTriggerRef = useRef<HTMLElement | null>(null);
 
   // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
   const characterOptions = useMemo(
@@ -136,6 +139,7 @@ export default function App() {
               recommendations={recommendations.result?.recommendations ?? []}
               focusedItemId={focusedItemId}
               onFocusHandled={() => setFocusedItemId(null)}
+              dialogTriggerRef={dialogTriggerRef}
             />
             <TargetSection
               draft={targetDraft}
@@ -172,7 +176,10 @@ export default function App() {
               patch={patch}
               recommendations={recommendations}
               onLoadDemo={character.loadDemo}
-              onFocusItem={setFocusedItemId}
+              onFocusItem={(itemId, trigger) => {
+                dialogTriggerRef.current = trigger;
+                setFocusedItemId(itemId);
+              }}
             />
           </div>
         </div>

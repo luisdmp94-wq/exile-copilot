@@ -121,6 +121,87 @@ describe("datos desconocidos", () => {
 });
 
 describe("procedencia y verificación", () => {
+  /** Construye un objeto con las procedencias indicadas. */
+  function conFuentes(...kinds: Array<Item["sources"][number]["kind"]>): Item {
+    return item({
+      sources: kinds.map((kind, i) => ({
+        kind,
+        label: `fuente ${i}`,
+        retrievedAt: "2026-08-20T10:00:00.000Z",
+      })),
+    });
+  }
+
+  it("ggg es la ÚNICA procedencia que puede llamarse oficial", () => {
+    const state = describeItemDataState(conFuentes("ggg"));
+    expect(state.origin).toBe("oficial");
+    expect(state.label).toBe("Fuente oficial (GGG)");
+    expect(state.tone).toBe("oficial");
+  });
+
+  it("internal son datos internos verificados y NUNCA dice «oficial»", () => {
+    const state = describeItemDataState(conFuentes("internal"));
+    expect(state.origin).toBe("interna");
+    expect(state.label).toBe("Datos internos verificados");
+    expect(state.tone).toBe("interna");
+    expect(state.label.toLowerCase()).not.toContain("oficial");
+    // El detalle aclara expresamente que no son datos de GGG.
+    expect(state.detail).toContain("No son datos oficiales de GGG");
+  });
+
+  it("poe.ninja conserva su procedencia real", () => {
+    const state = describeItemDataState(conFuentes("poe.ninja"));
+    expect(state.origin).toBe("mercado");
+    expect(state.label).toBe("Dato de poe.ninja");
+    expect(state.tone).toBe("sin-verificar");
+    expect(state.label.toLowerCase()).not.toContain("oficial");
+  });
+
+  it("community conserva su procedencia real", () => {
+    const state = describeItemDataState(conFuentes("community"));
+    expect(state.origin).toBe("comunidad");
+    expect(state.label).toBe("Referencia comunitaria");
+    expect(state.tone).toBe("sin-verificar");
+  });
+
+  it("calculation conserva su procedencia real", () => {
+    const state = describeItemDataState(conFuentes("calculation"));
+    expect(state.origin).toBe("calculo");
+    expect(state.label).toBe("Calculado por Exile Copilot");
+    expect(state.tone).toBe("sin-verificar");
+  });
+
+  it("precedencia con varias fuentes: ggg > internal > user > poe.ninja > community > calculation", () => {
+    // Cada mezcla muestra la fuente de mayor autoridad presente...
+    expect(describeItemDataState(conFuentes("user", "ggg")).origin).toBe("oficial");
+    expect(describeItemDataState(conFuentes("internal", "ggg")).origin).toBe("oficial");
+    expect(describeItemDataState(conFuentes("user", "internal")).origin).toBe("interna");
+    expect(describeItemDataState(conFuentes("community", "internal")).origin).toBe("interna");
+    expect(describeItemDataState(conFuentes("poe.ninja", "user")).origin).toBe("usuario");
+    expect(describeItemDataState(conFuentes("community", "poe.ninja")).origin).toBe("mercado");
+    expect(describeItemDataState(conFuentes("calculation", "community")).origin).toBe("comunidad");
+
+    // ...y el detalle enumera TODAS las procedencias registradas.
+    const mezcla = describeItemDataState(conFuentes("internal", "user", "community"));
+    expect(mezcla.detail).toContain("Fuentes registradas:");
+    expect(mezcla.detail).toContain("internal");
+    expect(mezcla.detail).toContain("user");
+    expect(mezcla.detail).toContain("community");
+  });
+
+  it("una mezcla sin ggg jamás se presenta como oficial", () => {
+    for (const mezcla of [
+      ["internal", "user"],
+      ["poe.ninja", "community"],
+      ["calculation", "user", "internal"],
+    ] as const) {
+      const state = describeItemDataState(conFuentes(...mezcla));
+      expect(state.origin).not.toBe("oficial");
+      expect(state.tone).not.toBe("oficial");
+      expect(state.label.toLowerCase()).not.toContain("oficial");
+    }
+  });
+
   it("sin sources → «Fuente no disponible» (nunca «pendiente»)", () => {
     const state = describeItemDataState(item({ sources: [] }));
     expect(state.origin).toBe("sin-fuente");
@@ -134,22 +215,6 @@ describe("procedencia y verificación", () => {
     expect(state.origin).toBe("usuario");
     expect(state.label).toBe("Lo has indicado tú");
     expect(state.detail).toContain("no está verificado");
-  });
-
-  it("kind ggg → fuente oficial", () => {
-    const state = describeItemDataState(
-      item({ sources: [{ kind: "ggg", label: "API oficial", retrievedAt: "2026-08-20T10:00:00.000Z" }] }),
-    );
-    expect(state.origin).toBe("oficial");
-    expect(state.label).toBe("Fuente oficial");
-  });
-
-  it("otras procedencias → No verificado", () => {
-    const state = describeItemDataState(
-      item({ sources: [{ kind: "community", label: "Guía", retrievedAt: "2026-08-20T10:00:00.000Z" }] }),
-    );
-    expect(state.origin).toBe("no-verificado");
-    expect(state.label).toBe("No verificado");
   });
 
   it("importar no verifica los mods: cada modifier.verified se respeta por separado", () => {

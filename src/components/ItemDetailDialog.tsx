@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import type { Item, Recommendation } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,8 +28,20 @@ import { cn } from "@/lib/utils";
  * ausente se declara «Desconocido»: no se rellena con ceros ni estimaciones.
  */
 
+/** Clases por tono de procedencia; solo "oficial" es fuente oficial de GGG. */
+const TONE_BADGE: Record<"oficial" | "interna" | "sin-verificar", string> = {
+  oficial: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  interna: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  "sin-verificar": "border-amber-500/40 bg-amber-500/10 text-amber-300",
+};
+
 interface ItemDetailDialogProps {
   item: Item | null;
+  /**
+   * Elemento que abrió el diálogo (hueco del paperdoll o botón «Ver el objeto
+   * evaluado»). Al cerrar se le devuelve el foco.
+   */
+  triggerRef: RefObject<HTMLElement | null>;
   /** Recomendaciones vigentes que declaran este objeto en `relatedItemIds`. */
   relatedRecommendations: Recommendation[];
   onOpenChange: (open: boolean) => void;
@@ -39,6 +51,7 @@ interface ItemDetailDialogProps {
 
 export function ItemDetailDialog({
   item,
+  triggerRef,
   relatedRecommendations,
   onOpenChange,
   onGoToRecommendations,
@@ -57,6 +70,7 @@ export function ItemDetailDialog({
       {shown !== null && (
         <ItemDetailContent
           item={shown}
+          triggerRef={triggerRef}
           relatedRecommendations={relatedRecommendations}
           onGoToRecommendations={onGoToRecommendations}
         />
@@ -67,10 +81,12 @@ export function ItemDetailDialog({
 
 function ItemDetailContent({
   item,
+  triggerRef,
   relatedRecommendations,
   onGoToRecommendations,
 }: {
   item: Item;
+  triggerRef: RefObject<HTMLElement | null>;
   relatedRecommendations: Recommendation[];
   onGoToRecommendations: () => void;
 }) {
@@ -85,12 +101,25 @@ function ItemDetailContent({
       // Al cerrar, el foco vuelve explícitamente al hueco que abrió el detalle
       // (o al del objeto mostrado si se llegó desde una recomendación), en
       // lugar de quedar suelto en <body>.
+      // Cascada documentada para devolver el foco al cerrar:
+      //  1) el elemento que ABRIÓ el diálogo (hueco del paperdoll o botón
+      //     «Ver el objeto evaluado»), si sigue en el documento;
+      //  2) si ya no existe, el hueco de ese objeto en el paperdoll;
+      //  3) si tampoco existe, no se fuerza nada y Radix aplica su
+      //     comportamiento por defecto.
       onCloseAutoFocus={(event) => {
-        const selector = `[data-item-id="${CSS.escape(item.id)}"]`;
-        const trigger = document.querySelector<HTMLElement>(selector);
-        if (trigger !== null) {
+        const trigger = triggerRef.current;
+        if (trigger !== null && trigger.isConnected) {
           event.preventDefault();
           trigger.focus();
+          return;
+        }
+        const cell = document.querySelector<HTMLElement>(
+          `[data-item-id="${CSS.escape(item.id)}"]`,
+        );
+        if (cell !== null) {
+          event.preventDefault();
+          cell.focus();
         }
       }}
     >
@@ -108,11 +137,7 @@ function ItemDetailContent({
             </Badge>
             <Badge
               variant="outline"
-              className={
-                dataState.origin === "oficial"
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                  : "border-amber-500/40 bg-amber-500/10 text-amber-300"
-              }
+              className={TONE_BADGE[dataState.tone]}
               title={dataState.detail}
             >
               {dataState.label}

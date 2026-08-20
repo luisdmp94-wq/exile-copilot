@@ -70,6 +70,13 @@ const SLOT_POSITION: Record<EquipmentSlot, string> = {
   ring2: "lg:col-start-3 lg:row-start-4",
 };
 
+/** Tono por procedencia: solo "oficial" corresponde a una fuente oficial de GGG. */
+const TONE_CLASSES: Record<"oficial" | "interna" | "sin-verificar", string> = {
+  oficial: "text-emerald-300",
+  interna: "text-sky-300",
+  "sin-verificar": "text-amber-300",
+};
+
 /** Superficie oscura diferenciada con sombra interior muy sutil (profundidad). */
 const SURFACE = "bg-background/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]";
 
@@ -77,7 +84,8 @@ interface EquipmentPanelProps {
   items: Item[];
   /** Ids señalados por recomendaciones (vínculo estructurado; vacío si no lo hay). */
   highlightedItemIds: Set<string>;
-  onSelectItem: (item: Item) => void;
+  /** Recibe también el elemento pulsado para devolverle el foco al cerrar. */
+  onSelectItem: (item: Item, trigger: HTMLElement) => void;
 }
 
 export function EquipmentPanel({
@@ -236,7 +244,7 @@ interface EquipmentCellButtonProps {
   slot: EquipmentSlot | "flask" | null;
   item: Item | null;
   highlighted: boolean;
-  onSelect: (item: Item) => void;
+  onSelect: (item: Item, trigger: HTMLElement) => void;
 }
 
 function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCellButtonProps) {
@@ -274,7 +282,7 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
       data-slot={slot ?? "other"}
       data-item-id={item.id}
       data-highlighted={highlighted ? "true" : "false"}
-      onClick={() => onSelect(item)}
+      onClick={(event) => onSelect(item, event.currentTarget)}
       aria-label={`${slotLabel}: ${item.name}, ${item.baseType}, ${RARITY_LABELS[item.rarity]}${
         highlighted ? ". Señalado por una recomendación" : ""
       }`}
@@ -299,10 +307,7 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
       <span className="mt-auto flex flex-wrap items-center gap-x-1">
         <span className={cn("text-[11px]", rarity.text)}>{RARITY_LABELS[item.rarity]}</span>
         <span
-          className={cn(
-            "text-[11px]",
-            dataState.origin === "oficial" ? "text-emerald-300" : "text-amber-300",
-          )}
+          className={cn("text-[11px]", TONE_CLASSES[dataState.tone])}
           title={dataState.detail}
         >
           · {dataState.label}

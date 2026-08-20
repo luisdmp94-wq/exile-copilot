@@ -9,6 +9,7 @@ import {
   generateRecommendations,
   type PriceLookup,
 } from "../../server/engine/engine.js";
+import { attributeRequirementsRule } from "../../server/engine/rules.js";
 import { createDatabase } from "../../server/db/database.js";
 import { PoeNinjaClient, PriceService, type QuotesResult } from "../../server/services/poeninja.js";
 import { loadConfig } from "../../server/config.js";
@@ -191,22 +192,44 @@ describe("engine — vínculo estructurado recomendación → objeto", () => {
     expect(resist?.relatedItemIds).toEqual([]);
   });
 
-  it("la regla de requisitos declara los objetos cuyos requisitos no se cumplen", async () => {
+  it("la regla de requisitos declara los objetos cuyos requisitos no se cumplen", () => {
+    // Se comprueba contra la REGLA, no contra el top 3 del motor: con este
+    // perfil la recomendación queda fuera de las tres primeras y la versión
+    // anterior del test (envuelta en `if (rec)`) no comprobaba nada.
     const profile = demoProfile();
     profile.attributes = { str: 1, dex: 1, int: 1 };
-    const result = await generateRecommendations(
+
+    const candidates = attributeRequirementsRule({
       profile,
-      { ...BASE_OPTIONS, goal: { kind: "balanced" } },
-      { priceService: offlinePriceService() },
-    );
-    const rec = result.recommendations.find((r) => r.id === "rec-requisitos-atributos");
-    if (rec) {
-      expect(rec.relatedItemIds.length).toBeGreaterThan(0);
-      // Todos los ids declarados existen de verdad en el perfil.
-      for (const id of rec.relatedItemIds) {
-        expect(profile.items.some((i) => i.id === id)).toBe(true);
-      }
+      league: BASE_OPTIONS.league,
+      patch: BASE_OPTIONS.patch,
+    });
+
+    // Si la regla deja de emitir el candidato, el test falla.
+    expect(candidates).toHaveLength(1);
+    const candidate = candidates[0]!;
+    expect(candidate.ruleId).toBe("requisitos-atributos");
+    // Igualdad exacta: los tres objetos del demo con requisitos incumplidos.
+    expect(candidate.relatedItemIds).toEqual([
+      "demo-item-weapon",
+      "demo-item-helmet",
+      "demo-item-body",
+    ]);
+    for (const id of candidate.relatedItemIds ?? []) {
+      expect(profile.items.some((i) => i.id === id)).toBe(true);
     }
+  });
+
+  it("sin requisitos incumplidos la regla no emite candidato ni vínculo", () => {
+    const profile = demoProfile();
+    profile.attributes = { str: 999, dex: 999, int: 999 };
+    expect(
+      attributeRequirementsRule({
+        profile,
+        league: BASE_OPTIONS.league,
+        patch: BASE_OPTIONS.patch,
+      }),
+    ).toEqual([]);
   });
 });
 describe("engine — conversión de presupuesto entre monedas", () => {

@@ -8,7 +8,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useState as useReactState } from "react";
+import { useState as useReactState, type RefObject } from "react";
 import type { MetaResponse } from "@shared/api.js";
 import type {
   Attributes,
@@ -55,6 +55,11 @@ interface CharacterSectionProps {
   /** Id de objeto que otra sección pide abrir (navegación recomendación → objeto). */
   focusedItemId: string | null;
   onFocusHandled: () => void;
+  /**
+   * Elemento que abrió el diálogo. Lo escribe esta sección (hueco del
+   * paperdoll) o App (botón «Ver el objeto evaluado») para devolverle el foco.
+   */
+  dialogTriggerRef: RefObject<HTMLElement | null>;
 }
 
 const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
@@ -115,6 +120,7 @@ export function CharacterSection({
   recommendations,
   focusedItemId,
   onFocusHandled,
+  dialogTriggerRef,
 }: CharacterSectionProps) {
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const [itemText, setItemText] = useState("");
@@ -173,7 +179,7 @@ export function CharacterSection({
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {profile && (
               <Button
                 type="button"
@@ -254,7 +260,10 @@ export function CharacterSection({
             <EquipmentPanel
               items={profile.items}
               highlightedItemIds={highlightedItemIds}
-              onSelectItem={(item) => setSelectedItemId(item.id)}
+              onSelectItem={(item, trigger) => {
+                dialogTriggerRef.current = trigger;
+                setSelectedItemId(item.id);
+              }}
             />
             <ProfileEditor
               profile={profile}
@@ -319,6 +328,7 @@ export function CharacterSection({
 
         <ItemDetailDialog
           item={selectedItem}
+          triggerRef={dialogTriggerRef}
           relatedRecommendations={relatedRecommendations}
           onOpenChange={(open) => {
             if (!open) closeDetail();

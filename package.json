@@ -12,7 +12,8 @@
     "test:browser": "node scripts/browser-smoke.mjs",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:equipment": "node scripts/equipment-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

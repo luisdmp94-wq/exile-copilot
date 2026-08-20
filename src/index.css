@@ -73,3 +73,17 @@
     @apply bg-background text-foreground;
   }
 }
+/**
+ * Movimiento reducido: cuando el usuario lo pide, el diálogo de detalle de
+ * objeto (y sus superposiciones) aparece sin zoom, fade ni desplazamiento.
+ * Se hace con una regla explícita porque las utilidades `motion-reduce:*` de
+ * Tailwind pierden frente a `animate-in`, que fija `animation-name: enter`.
+ * Fuera de esta media query las animaciones normales no se tocan.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"] {
+    animation: none !important;
+    transition: none !important;
+  }
+}
