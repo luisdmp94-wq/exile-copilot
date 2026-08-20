@@ -1,5 +1,5 @@
 /**
- * Prueba de navegador del Hito 5A — memoria persistente del mentor.
+ * Prueba de navegador de los Hitos 5A/5B — memoria persistente y contexto.
  *
  * Uso:
  *   node scripts/journal-smoke.mjs        → producción (requiere build)
@@ -96,7 +96,7 @@ async function persistDemo(base) {
 
 async function runFlow(mode, port) {
   const base = `http://localhost:${port}`;
-  console.log(`\n=== HITO 5A — ${mode.toUpperCase()} (${base}) ===`);
+  console.log(`\n=== HITOS 5A/5B — ${mode.toUpperCase()} (${base}) ===`);
   const server = startServer(mode, port);
   let browser;
   try {
@@ -166,6 +166,10 @@ async function runFlow(mode, port) {
     check(`[${mode}] conserva confianza`, await page.getByText(/Confianza /).first().isVisible());
     check(`[${mode}] conserva riesgo`, await page.getByText(/Riesgo /).first().isVisible());
     check(`[${mode}] conserva fuentes`, await page.getByText(/^Fuentes:/).isVisible());
+    check(
+      `[${mode}] una acción activa bloquea tareas paralelas`,
+      await page.getByRole("button", { name: "Generar recomendaciones" }).isDisabled(),
+    );
 
     const characterId = await page.evaluate(() =>
       localStorage.getItem("exile-copilot:characterId"),
@@ -205,6 +209,36 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] resultado cierra el paso y permanece en historial`,
       await page.getByText("No hay un siguiente paso activo").isVisible(),
+    );
+
+    const generateAfterResult = page.getByRole("button", {
+      name: "Generar recomendaciones",
+    });
+    await generateAfterResult.waitFor({ state: "visible", timeout: 15_000 });
+    await page.waitForFunction(
+      () => {
+        const button = Array.from(document.querySelectorAll("button")).find(
+          (entry) => entry.textContent?.includes("Generar recomendaciones"),
+        );
+        return button instanceof HTMLButtonElement && !button.disabled;
+      },
+      undefined,
+      { timeout: 15_000 },
+    );
+    await generateAfterResult.click();
+    await page.getByText("El diario influyó en esta decisión").waitFor({
+      timeout: 20_000,
+    });
+    check(
+      `[${mode}] un resultado previo cambia la siguiente decisión`,
+      await page.getByText(/Actualizar el perfil tras/).first().isVisible(),
+    );
+    check(
+      `[${mode}] no repite la mejora antes de reconciliar datos`,
+      (await page
+        .locator("#seccion-recomendaciones")
+        .getByText("Cubrir resistencias elementales", { exact: true })
+        .count()) === 0,
     );
 
     await page.getByText("Crear seguimiento manual").click();
@@ -263,7 +297,7 @@ for (const mode of modes) {
 
 console.log(
   failures === 0
-    ? `\nHITO 5A: ${total}/${total} COMPROBACIONES PASARON`
-    : `\nHITO 5A: ${failures} de ${total} COMPROBACIONES FALLARON`,
+    ? `\nHITOS 5A/5B: ${total}/${total} COMPROBACIONES PASARON`
+    : `\nHITOS 5A/5B: ${failures} de ${total} COMPROBACIONES FALLARON`,
 );
 globalThis.process.exit(failures === 0 ? 0 : 1);

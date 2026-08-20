@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { CreateJournalEntryRequestSchema } from "../../shared/api.js";
 import {
+  CharacterJournalSchema,
   CharacterProfileSchema,
+  JournalEntrySchema,
   RecommendationSchema,
 } from "../../shared/domain.js";
+import { buildRecommendationMemory } from "../../shared/journalMemory.js";
 import {
   compactRecommendationReason,
   journalEntryFromRecommendation,
@@ -113,5 +116,69 @@ describe("Character Journal", () => {
       makePrimary: true,
     });
     expect(parsed.success).toBe(false);
+  });
+
+  it("proyecta solo la acción primaria y hasta diez resultados explícitos", () => {
+    const primary = JournalEntrySchema.parse({
+      id: "primary-1",
+      characterId: profile.id,
+      kind: "craft",
+      status: "waiting_result",
+      title: "Craft activo",
+      summary: "Esperando el resultado real.",
+      nextAction: "Aplicar una moneda.",
+      result: null,
+      relatedItemIds: ["weapon-1"],
+      sources: [],
+      context: {
+        characterLevel: profile.level,
+        league: profile.league,
+        patch: profile.patch,
+        budget: null,
+        goal: null,
+      },
+      recommendationSnapshot: null,
+      createdAt: "2026-08-20T10:00:00.000Z",
+      updatedAt: "2026-08-20T10:01:00.000Z",
+      resolvedAt: null,
+    });
+    const completed = JournalEntrySchema.parse({
+      ...primary,
+      id: "completed-1",
+      kind: "decision",
+      status: "completed",
+      title: recommendation.title,
+      nextAction: null,
+      result: "El anillo nuevo mantiene la vida.",
+      recommendationSnapshot: recommendation,
+      updatedAt: "2026-08-20T10:02:00.000Z",
+      resolvedAt: "2026-08-20T10:02:00.000Z",
+    });
+    const journal = CharacterJournalSchema.parse({
+      characterId: profile.id,
+      primaryEntryId: primary.id,
+      primaryEntry: primary,
+      entries: [primary, completed],
+    });
+
+    const memory = buildRecommendationMemory(journal);
+    expect(memory.primaryEntry?.entryId).toBe(primary.id);
+    expect(memory.primaryEntry?.result).toBeNull();
+    expect(memory.recentCompleted).toHaveLength(1);
+    expect(memory.recentCompleted[0]).toMatchObject({
+      entryId: completed.id,
+      result: completed.result,
+      recommendationId: recommendation.id,
+    });
+    expect(memory.revision).toMatch(/^journal-memory-v1:[0-9a-f]{16}$/);
+
+    const changedResult = buildRecommendationMemory({
+      ...journal,
+      entries: [
+        primary,
+        { ...completed, result: "Un resultado distinto en el mismo timestamp." },
+      ],
+    });
+    expect(changedResult.revision).not.toBe(memory.revision);
   });
 });

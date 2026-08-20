@@ -78,12 +78,14 @@ Cuando falta un dato, se dice que falta.
 
 ## Próxima dirección
 
-Cerrado el Paperdoll (Hito 4B), el siguiente paso es:
+Cerrados el Paperdoll (Hito 4B) y la primera memoria operativa, la dirección es:
 
-1. **Character Journal** — la memoria persistente: decisiones, experimentos,
-   crafts activos e historial de la liga.
-2. **Copilot conversacional v1** — la interfaz de mentor sobre esa memoria,
+1. **Character Journal (Hitos 5A/5B, implementado)** — memoria persistente de
+   decisiones, experimentos y crafts; una acción activa detiene al motor y un
+   resultado previo evita repetir la misma mejora sin reconciliar el perfil.
+2. **Copilot conversacional v1 (pendiente)** — la interfaz de mentor sobre esa memoria,
    respetando el patrón de respuesta y el flujo de crafting de arriba.
 
-Ninguna de las dos está implementada todavía. El dashboard actual es su
-cimiento: memoria, evidencia y herramientas.
+La conversación libre no está implementada. El dashboard ya funciona como
+memoria, evidencia y herramienta; el futuro copiloto deberá apoyarse en estos
+contratos en lugar de saltárselos.

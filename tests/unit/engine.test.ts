@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { CharacterProfileSchema, type BuildTarget, type CharacterProfile } from "../../shared/domain.js";
+import {
+  CharacterProfileSchema,
+  RecommendationMemorySchema,
+  type BuildTarget,
+  type CharacterProfile,
+} from "../../shared/domain.js";
 import type { MarketRates } from "../../shared/api.js";
 import {
   computeInputFingerprint,
@@ -82,7 +87,7 @@ describe("engine — exactitud y contratos", () => {
       { priceService: offlinePriceService() },
     );
 
-    expect(result.engineVersion).toBe("1.0.0");
+    expect(result.engineVersion).toBe("1.1.0");
     expect(result.inputFingerprint).toMatch(/^[0-9a-f]{64}$/);
     expect(result.recommendations).toHaveLength(3);
     expect(result.recommendations.map((r) => r.priority)).toEqual([1, 2, 3]);
@@ -161,6 +166,129 @@ describe("engine — exactitud y contratos", () => {
     const rec = result.recommendations.find((r) => r.id === "rec-mejora-arma");
     expect(rec?.cost.known).toBe(false);
     expect(rec?.unverified.some((u) => u.includes("No verificado"))).toBe(true);
+  });
+});
+
+describe("engine — memoria del mentor", () => {
+  it("se detiene ante una acción primaria y no consulta precios", async () => {
+    let priceCalls = 0;
+    const priceLookup: PriceLookup = {
+      getQuotes: async () => {
+        priceCalls += 1;
+        throw new Error("No debería consultar precios con una acción activa");
+      },
+    };
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1|active",
+      primaryEntry: {
+        entryId: "active-1",
+        status: "waiting_result",
+        title: "Probar anillo",
+        nextAction: "Equipar el anillo.",
+        result: null,
+        recommendationId: "rec-resistencias-elementales",
+        relatedItemIds: ["demo-item-ring1"],
+        updatedAt: "2026-08-20T10:00:00.000Z",
+        patch: "0.5.4f",
+      },
+      recentCompleted: [],
+    });
+
+    const result = await generateRecommendations(
+      demoProfile(),
+      { ...BASE_OPTIONS, goal: { kind: "survival" }, memory },
+      { priceService: priceLookup },
+    );
+
+    expect(result.recommendations).toEqual([]);
+    expect(result.memoryImpact).toEqual({
+      revision: memory.revision,
+      blockedByPrimaryEntryId: "active-1",
+      usedEntryIds: ["active-1"],
+      repeatedRecommendationIds: [],
+    });
+    expect(priceCalls).toBe(0);
+  });
+
+  it("no repite una mejora completada: pide reconciliar el perfil sin interpretar el resultado", async () => {
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1|completed",
+      primaryEntry: null,
+      recentCompleted: [
+        {
+          entryId: "completed-resists",
+          status: "completed",
+          title: "Cubrir resistencias elementales",
+          nextAction: null,
+          result: "Texto libre: ahora tengo 999% y costó 3 mirrors.",
+          recommendationId: "rec-resistencias-elementales",
+          relatedItemIds: [],
+          updatedAt: "2026-08-20T10:00:00.000Z",
+          patch: "0.5.4f",
+        },
+        {
+          entryId: "older-resists",
+          status: "completed",
+          title: "Intento antiguo que no debe prevalecer",
+          nextAction: null,
+          result: "Resultado anterior.",
+          recommendationId: "rec-resistencias-elementales",
+          relatedItemIds: [],
+          updatedAt: "2026-08-19T10:00:00.000Z",
+          patch: "0.5.4f",
+        },
+      ],
+    });
+
+    const result = await generateRecommendations(
+      demoProfile(),
+      { ...BASE_OPTIONS, goal: { kind: "survival" }, memory },
+      { priceService: offlinePriceService() },
+    );
+    const reconciliation = result.recommendations.find(
+      (entry) => entry.id === "rec-memoria-resistencias-elementales",
+    );
+
+    expect(reconciliation).toBeDefined();
+    expect(reconciliation?.title).toContain("Cubrir resistencias elementales");
+    expect(reconciliation?.title).not.toContain("Intento antiguo");
+    expect(reconciliation?.action).toContain("Actualiza en «Mi personaje»");
+    const renderedText = `${reconciliation?.action ?? ""}${reconciliation?.reason ?? ""}`;
+    expect(renderedText).not.toContain("999%");
+    expect(renderedText).not.toContain("3 mirrors");
+    expect(reconciliation?.cost.known).toBe(false);
+    expect(reconciliation?.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "user",
+          label: expect.stringContaining("Resultado del diario"),
+        }),
+      ]),
+    );
+    expect(result.memoryImpact.usedEntryIds).toEqual(["completed-resists"]);
+    expect(result.memoryImpact.repeatedRecommendationIds).toEqual([
+      "rec-resistencias-elementales",
+    ]);
+  });
+
+  it("la revisión de memoria forma parte de la huella de entrada", async () => {
+    const profile = demoProfile();
+    const baseMemory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1|a",
+      primaryEntry: null,
+      recentCompleted: [],
+    });
+    const a = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "balanced" },
+      memory: baseMemory,
+    });
+    const b = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "balanced" },
+      memory: { ...baseMemory, revision: "journal-memory-v1|b" },
+    });
+    expect(a.inputFingerprint).not.toBe(b.inputFingerprint);
   });
 });
 

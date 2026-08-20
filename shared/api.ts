@@ -14,6 +14,7 @@ import {
   PatchVersionSchema,
   PriceQuoteSchema,
   RecommendationSchema,
+  RecommendationMemoryImpactSchema,
   SourceEvidenceSchema,
 } from "./domain.js";
 import {
@@ -139,6 +140,8 @@ export const RecommendationsRequestSchema = z.object({
   goal: GoalSchema,
   league: z.string(),
   patch: z.string(),
+  /** Revisión que vio la UI; el servidor carga el diario autoritativo. */
+  journalRevision: z.string().min(1).max(4000).nullable().optional(),
 });
 export const RecommendationsResponseSchema = z.object({
   recommendations: z.array(RecommendationSchema).max(3),
@@ -146,6 +149,7 @@ export const RecommendationsResponseSchema = z.object({
   engineVersion: z.string(),
   /** Huella de los inputs usados; el frontend invalida recomendaciones si cambia. */
   inputFingerprint: z.string(),
+  memoryImpact: RecommendationMemoryImpactSchema,
 });
 export type RecommendationsRequest = z.infer<typeof RecommendationsRequestSchema>;
 export type RecommendationsResponse = z.infer<typeof RecommendationsResponseSchema>;

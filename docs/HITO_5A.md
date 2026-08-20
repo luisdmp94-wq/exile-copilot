@@ -41,9 +41,9 @@ Rutas bajo `/api`:
 - El servidor no exige que el personaje exista antes de crear un diario. Esto
   mantiene compatible el flujo actual de importación, pero deberá revisarse al
   introducir cuentas y autenticación.
-- La memoria aún no alimenta automáticamente una siguiente recomendación. El
-  siguiente hito debe incorporar el último resultado al contexto del motor antes
-  de generar el paso posterior.
+- El Hito 5A por sí solo no alimentaba el motor. Esta limitación queda resuelta
+  de forma acotada por [HITO_5B.md](HITO_5B.md): acción activa bloqueante y
+  reconciliación explícita de recomendaciones ya completadas.
 
 ## Verificación
 

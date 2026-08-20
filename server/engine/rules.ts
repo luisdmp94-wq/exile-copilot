@@ -11,7 +11,7 @@ import type { BuildTarget, CharacterProfile, GoalKind, SourceEvidence } from "..
  *    se declara en `unverified`.
  */
 
-export const ENGINE_VERSION = "1.0.0";
+export const ENGINE_VERSION = "1.1.0";
 
 /** Etiquetas legibles de recomendación (para la sección "Mejoras planificadas" del exportador). */
 export const RECOMMENDATION_LABELS: Record<string, string> = {

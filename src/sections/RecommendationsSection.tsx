@@ -3,6 +3,7 @@ import { Download, Lightbulb, Loader2, Sparkles } from "lucide-react";
 import type { ExportBuildResponse } from "@shared/api.js";
 import type {
   Budget,
+  CharacterJournal,
   CharacterProfile,
   GoalKind,
   Recommendation,
@@ -33,6 +34,8 @@ interface RecommendationsSectionProps {
   goal: GoalKind;
   league: string;
   patch: string;
+  journal: CharacterJournal | null;
+  journalLoading: boolean;
   recommendations: RecommendationsState;
   onLoadDemo: () => Promise<void>;
   /** Navegación recomendación → objeto; solo se usa con vínculo estructurado. */
@@ -48,6 +51,8 @@ export function RecommendationsSection({
   goal,
   league,
   patch,
+  journal,
+  journalLoading,
   recommendations,
   onLoadDemo,
   onFocusItem,
@@ -66,7 +71,14 @@ export function RecommendationsSection({
     setAppliedIds({});
   }
 
-  const canGenerate = !!profile && !!league && !!patch && !loading;
+  const activeJournalEntry = journal?.primaryEntry ?? null;
+  const canGenerate =
+    !!profile &&
+    !!league &&
+    !!patch &&
+    !loading &&
+    !journalLoading &&
+    activeJournalEntry === null;
   const selectedCount = Object.values(appliedIds).filter(Boolean).length;
 
   const toggleApplied = (id: string, applied: boolean) =>
@@ -82,7 +94,15 @@ export function RecommendationsSection({
             onClick={() => {
               if (!profile) return;
               void recommendations.generate(
-                buildRecommendationsRequest(profile, targetDraft, budget, goal, league, patch),
+                buildRecommendationsRequest(
+                  profile,
+                  targetDraft,
+                  budget,
+                  goal,
+                  league,
+                  patch,
+                  journal,
+                ),
               );
             }}
             disabled={!canGenerate}
@@ -97,6 +117,16 @@ export function RecommendationsSection({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {activeJournalEntry && (
+          <Alert className="border-primary/40 bg-primary/5">
+            <AlertTitle>El mentor ya te ha dado un siguiente paso</AlertTitle>
+            <AlertDescription>
+              Termina «{activeJournalEntry.title}» e informa del resultado antes de
+              generar tareas nuevas. Así evitamos recomendaciones paralelas o crafts
+              encadenados a ciegas.
+            </AlertDescription>
+          </Alert>
+        )}
         {!profile ? (
           <Empty className="border border-dashed border-border">
             <EmptyHeader>
@@ -144,6 +174,17 @@ export function RecommendationsSection({
               Generadas el {formatDateTime(result.generatedAt)} · motor{" "}
               {result.engineVersion}
             </p>
+            {result.memoryImpact.usedEntryIds.length > 0 && (
+              <Alert className="border-sky-500/40 bg-sky-500/5 text-sky-100">
+                <AlertTitle>El diario influyó en esta decisión</AlertTitle>
+                <AlertDescription>
+                  Se usaron {result.memoryImpact.usedEntryIds.length} entrada(s) del
+                  historial. {result.memoryImpact.repeatedRecommendationIds.length > 0
+                    ? "El perfil todavía activa una mejora ya intentada; primero se pide reconciliar el resultado guardado con los datos actuales."
+                    : "La memoria activa impidió generar tareas paralelas."}
+                </AlertDescription>
+              </Alert>
+            )}
             {result.recommendations.map((rec) => (
               <RecommendationCard
                 key={rec.id}

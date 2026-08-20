@@ -9,7 +9,9 @@ próxima acción:
 No es un chatbot genérico: construye un perfil estructurado del personaje,
 consulta datos verificables (API económica pública documentada de poe.ninja),
 devuelve acciones concretas y conserva el resultado de cada decisión en el
-diario del personaje.
+diario del personaje. Mientras haya un paso activo no genera tareas paralelas;
+si una mejora ya se intentó, exige reconciliar el resultado con el perfil antes
+de repetirla.
 
 ## Requisitos
 
@@ -118,7 +120,9 @@ id crudo: el nombre nunca se deduce del texto del id.
 - `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente del mentor, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista de recomendaciones, explicadores (determinista por defecto; LLM stub por flag), exportador `.build` oficial con informe.
 - `src/` — frontend React + Tailwind + shadcn/ui (español, tema oscuro).
 - `tests/` — vitest: unit, integration, e2e. `scripts/browser-smoke.mjs` — prueba de navegador real.
-- `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — contrato y límites de la memoria persistente. `HANDOFF.md` — informe para el propietario.
+- `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — memoria persistente.
+  `docs/HITO_5B.md` — memoria como contexto del motor. `HANDOFF.md` — informe
+  para el propietario.
 
 ## Variables de entorno
 

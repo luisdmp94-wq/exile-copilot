@@ -2,7 +2,7 @@
 
 Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu presupuesto y recibe las próximas mejoras ordenadas por impacto, coste y riesgo».
 
-> Actualizado para el Hito 5A (2026-08-20). El formato `.build` propietario inicial fue eliminado: se usa exclusivamente el esquema oficial GGG Build Planner v1.
+> Actualizado para el Hito 5B (2026-08-20). El formato `.build` propietario inicial fue eliminado: se usa exclusivamente el esquema oficial GGG Build Planner v1.
 
 ## Decisiones de arquitectura
 
@@ -15,6 +15,10 @@ Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu
   experimentos, crafts, hitos y notas. Una referencia separada mantiene una sola
   próxima acción principal; ejecutar una acción la deja esperando resultado y
   solo el resultado del jugador permite cerrarla.
+- **Memoria en el motor**: el servidor proyecta el diario a un contexto acotado.
+  Una acción activa detiene nuevas recomendaciones; una recomendación completada
+  que sigue activándose se convierte en una acción de reconciliación de datos.
+  El texto del resultado nunca se interpreta como estadísticas.
 
 ## Modelo de datos — separación clave
 
@@ -65,6 +69,8 @@ exile-copilot/
   `PATCH /journal/:characterId/entries/:entryId`.
 - `GET  /market/prices?league=&names=` → quotes + `primaryCurrency` + `rates {values, origin, verified, fetchedAt} | null`.
 - `POST /recommendations` → 3 recomendaciones + `inputFingerprint`.
+  Acepta `journalRevision` y devuelve `memoryImpact`; una revisión obsoleta
+  produce `409` y una acción principal activa produce cero tareas nuevas.
 - `POST /export/build` → `{ fileName (.build), content, report }`.
 
 ## Pruebas
