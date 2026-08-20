@@ -18,23 +18,34 @@
  *   2. sin personaje, el mentor lo dice honestamente y no inventa
  *   3. la sección ofrece sugerencias reconocidas
  *   4. «¿Qué mejoro ahora?» responde con UNA sola próxima acción
- *   5. la respuesta muestra fuentes
- *   6. la respuesta muestra confianza
- *   7. la respuesta muestra «falta por verificar»
- *   8. el turno del jugador y el del mentor se distinguen
- *   9. «¿Cuál es mi principal problema?» explica la prioridad
- *  10. una pregunta no soportada se declara como tal y ofrece ejemplos
- *  11. una pregunta no soportada no propone ninguna acción
- *  12. el texto malicioso se muestra como TEXTO, nunca como HTML
- *  13. guardar la acción invalida la conversación (cambia la revisión del diario)
- *  14. la acción guardada aparece como acción activa del diario
- *  15. con acción activa el mentor RECUERDA el paso y no crea otro
- *  16. con acción activa no se ofrece volver a guardarla
- *  17. cambiar el presupuesto reinicia la conversación
- *  17. sin peticiones a hosts externos
- *  18. sin errores de consola relevantes
- *  19-21. sin desbordamiento horizontal a 320/360/390 px
- *  22. el campo de pregunta es accesible por teclado y envía con Enter
+ *   5. la respuesta muestra confianza (en español)
+ *   6. el turno del jugador y el del mentor se distinguen
+ *   7. la respuesta no muestra identificadores internos del contrato
+ *   8. la respuesta no muestra niveles en inglés (high/medium/low)
+ *   9. la versión del motor no se muestra por defecto
+ *  10. «Ver evidencia y limitaciones» existe y está plegada
+ *  11. la evidencia se abre con TECLADO y muestra fuentes
+ *  12. la evidencia muestra «falta por verificar»
+ *  13. la evidencia conserva motor, fecha y tipo de consulta en español
+ *  14. la evidencia traduce los tipos de fuente (nunca «calculation»)
+ *  15. «¿Cuál es mi principal problema?» explica la prioridad
+ *  16. una pregunta no soportada se declara como tal y ofrece ejemplos
+ *  17. una pregunta no soportada no propone ninguna acción
+ *  18. el texto malicioso se muestra como TEXTO, nunca como HTML
+ *  19. hay turnos suficientes para desbordar el hilo
+ *  20. el último mensaje queda visible dentro del hilo
+ *  21. añadir un turno NO desplaza la página entera
+ *  22. con «prefers-reduced-motion» el último turno sigue visible
+ *  23. guardar la acción invalida la conversación (cambia la revisión del diario)
+ *  24. la acción guardada aparece como acción activa del diario
+ *  25. con acción activa el mentor RECUERDA el paso y no crea otro
+ *  26. con acción activa no se ofrece volver a guardarla
+ *  27. hay conversación antes de cambiar los inputs
+ *  28. cambiar el presupuesto reinicia la conversación
+ *  29-31. sin desbordamiento horizontal a 320/360/390 px
+ *  32. el campo de pregunta es accesible por teclado y envía con Enter
+ *  33. sin peticiones a hosts externos
+ *  34. sin errores de consola relevantes
  */
 import { spawn, execSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
@@ -112,6 +123,28 @@ async function preguntar(page, texto) {
   await page.getByTestId("mentor-cargando").waitFor({ state: "detached", timeout: 25000 });
 }
 
+/**
+ * Holgura en px al comprobar el desplazamiento. El desplazamiento suave puede
+ * detenerse en una posición fraccionaria, así que la espera y la comprobación
+ * de visibilidad usan la MISMA tolerancia: si no, la comprobación falla por
+ * unos pocos píxeles aunque el hilo esté abajo del todo. Un fallo real (no
+ * desplazar) deja el último turno cientos de píxeles fuera.
+ */
+const HOLGURA_SCROLL = 8;
+
+/** Espera a que el desplazamiento suave del hilo termine en el último turno. */
+async function esperarHiloAbajo(page) {
+  await page.waitForFunction(
+    (holgura) => {
+      const cont = document.querySelector('[data-testid="mentor-hilo"]');
+      if (cont === null) return false;
+      return cont.scrollTop + cont.clientHeight >= cont.scrollHeight - holgura;
+    },
+    HOLGURA_SCROLL,
+    { timeout: 15000 },
+  );
+}
+
 async function runFlow(mode, port) {
   const BASE = `http://localhost:${port}`;
   console.log(`\n=== HITO 6A — MODO ${mode.toUpperCase()} (${BASE}) ===`);
@@ -166,17 +199,71 @@ async function runFlow(mode, port) {
       (await proximaAccion.count()) === 1,
     );
     const textoMentor = await seccion.innerText();
-    check(`[${mode}] la respuesta muestra fuentes`, /fuentes/i.test(textoMentor));
     check(`[${mode}] la respuesta muestra confianza`, /confianza/i.test(textoMentor));
-    check(
-      `[${mode}] la respuesta muestra «falta por verificar»`,
-      (await page.getByTestId("mentor-no-verificado").count()) >= 1,
-    );
     check(
       `[${mode}] los turnos de jugador y mentor se distinguen`,
       (await page.getByTestId("mentor-turno-jugador").count()) >= 1 &&
         (await page.getByTestId("mentor-turno-mentor").count()) >= 1,
     );
+
+    // --- Presentación humana: nada de valores internos por defecto ----------
+    // Los identificadores del contrato (`next_improvement`, `explain_priority`,
+    // `calculation`, `user`) y los niveles en inglés no se pintan nunca; la
+    // versión del motor y la fecha técnica solo dentro de la sección plegable.
+    const internos = ["next_improvement", "explain_priority", "calculation", "inputFingerprint"];
+    check(
+      `[${mode}] la respuesta no muestra identificadores internos del contrato`,
+      internos.every((token) => !textoMentor.includes(token)),
+    );
+    check(
+      `[${mode}] la respuesta no muestra niveles en inglés (high/medium/low)`,
+      !/\b(high|medium|low)\b/.test(textoMentor),
+    );
+    check(
+      `[${mode}] la versión del motor no se muestra por defecto`,
+      !textoMentor.includes("1.1.0"),
+    );
+
+    // La evidencia existe, es accesible y está PLEGADA por defecto.
+    const evidencia = page.getByTestId("mentor-evidencia").last();
+    const fuentes = evidencia.locator('[data-testid="mentor-fuentes"]');
+    const noVerificado = evidencia.locator('[data-testid="mentor-no-verificado"]');
+    check(
+      `[${mode}] «Ver evidencia y limitaciones» existe y está plegada`,
+      (await page.getByTestId("mentor-evidencia").count()) === 1 &&
+        (await evidencia.locator("summary").innerText()).includes(
+          "Ver evidencia y limitaciones",
+        ) &&
+        !(await fuentes.isVisible()) &&
+        !(await noVerificado.isVisible()),
+    );
+
+    // Se abre con TECLADO (details/summary nativo), no solo con el ratón.
+    await evidencia.locator("summary").focus();
+    await page.keyboard.press("Enter");
+    await fuentes.waitFor({ state: "visible", timeout: 10000 });
+    const textoEvidencia = await evidencia.innerText();
+    check(
+      `[${mode}] la evidencia se abre con teclado y muestra fuentes`,
+      await fuentes.isVisible(),
+    );
+    check(
+      `[${mode}] la evidencia muestra «falta por verificar»`,
+      await noVerificado.isVisible(),
+    );
+    check(
+      `[${mode}] la evidencia conserva motor, fecha y tipo de consulta en español`,
+      textoEvidencia.includes("Motor 1.1.0") &&
+        textoEvidencia.includes("Respondido el") &&
+        textoEvidencia.includes("Tipo de consulta: Qué mejorar ahora"),
+    );
+    check(
+      `[${mode}] la evidencia traduce los tipos de fuente (nunca «calculation»)`,
+      !textoEvidencia.includes("calculation") && !textoEvidencia.includes("(user)"),
+    );
+    // Se vuelve a plegar para no alterar las comprobaciones siguientes.
+    await evidencia.locator("summary").focus();
+    await page.keyboard.press("Enter");
 
     // --- explain_priority --------------------------------------------------
     await preguntar(page, "¿Cuál es mi principal problema?");
@@ -206,6 +293,63 @@ async function runFlow(mode, port) {
       (await turnoJugador.innerText()).includes("<img src=x onerror=alert(1)>") &&
         (await turnoJugador.locator("img, b").count()) === 0,
     );
+
+    // --- Desplazamiento del chat -------------------------------------------
+    // Con suficientes turnos el hilo desborda su alto máximo. Al añadir una
+    // pregunta, una respuesta o el estado de carga el contenedor debe quedar en
+    // el último turno, SIN mover la página entera.
+    await preguntar(page, "¿Qué debería hacer primero?");
+    await preguntar(page, "¿Por qué me recomiendas esto?");
+    await preguntar(page, "¿Cuál es el siguiente paso?");
+    await esperarHiloAbajo(page);
+
+    const antesDeScroll = await page.evaluate(() => window.scrollY);
+    await preguntar(page, "¿Qué mejoro ahora?");
+    await esperarHiloAbajo(page);
+
+    const scroll = await page.evaluate((holgura) => {
+      const cont = document.querySelector('[data-testid="mentor-hilo"]');
+      const turnos = cont.querySelectorAll('[data-testid="mentor-turno-mentor"]');
+      const ultimo = turnos[turnos.length - 1];
+      const caja = cont.getBoundingClientRect();
+      const cajaUltimo = ultimo.getBoundingClientRect();
+      return {
+        turnos: turnos.length,
+        desbordado: cont.scrollHeight > cont.clientHeight + 1,
+        // El final del último mensaje entra en la parte visible del contenedor.
+        ultimoVisible:
+          cajaUltimo.bottom <= caja.bottom + holgura && cajaUltimo.bottom > caja.top,
+        paginaY: window.scrollY,
+      };
+    }, HOLGURA_SCROLL);
+
+    check(
+      `[${mode}] hay turnos suficientes para desbordar el hilo (${scroll.turnos} respuestas)`,
+      scroll.turnos >= 6 && scroll.desbordado,
+    );
+    check(
+      `[${mode}] el último mensaje queda visible dentro del hilo`,
+      scroll.ultimoVisible,
+    );
+    check(
+      `[${mode}] añadir un turno no desplaza la página entera (${antesDeScroll} → ${scroll.paginaY})`,
+      scroll.paginaY === antesDeScroll,
+    );
+
+    // Con `prefers-reduced-motion: reduce` el salto es inmediato, pero el
+    // último turno tiene que quedar igual de visible.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await preguntar(page, "¿Cuál es mi principal problema?");
+    await esperarHiloAbajo(page);
+    const reducido = await page.evaluate((holgura) => {
+      const cont = document.querySelector('[data-testid="mentor-hilo"]');
+      const turnos = cont.querySelectorAll('[data-testid="mentor-turno-mentor"]');
+      const cajaUltimo = turnos[turnos.length - 1].getBoundingClientRect();
+      const caja = cont.getBoundingClientRect();
+      return cajaUltimo.bottom <= caja.bottom + holgura && cajaUltimo.bottom > caja.top;
+    }, HOLGURA_SCROLL);
+    check(`[${mode}] con «prefers-reduced-motion» el último turno sigue visible`, reducido);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
 
     // --- Guardar la acción en el diario ------------------------------------
     await preguntar(page, "¿Qué mejoro ahora?");

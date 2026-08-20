@@ -1,14 +1,20 @@
-import { useCallback, useState } from "react";
+import { useCallback, useReducer } from "react";
 import { toast } from "sonner";
-import {
-  mentorInputsKey,
-  type MentorAnswer,
-  type MentorQueryRequest,
-} from "@shared/mentorQuery.js";
+import { mentorInputsKey, type MentorQueryRequest } from "@shared/mentorQuery.js";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
+import {
+  initialMentorThreadState,
+  mentorThreadReducer,
+  type MentorThreadState,
+} from "@/lib/mentorThread";
+
+export type { MentorTurn, MentorTurnRole } from "@/lib/mentorThread";
 
 /**
  * Conversación con el mentor (Hito 6A).
+ *
+ * Capa fina sobre el reductor puro `mentorThreadReducer`: aquí solo vive la
+ * llamada HTTP y los avisos; las transiciones del hilo se prueban sin DOM.
  *
  * LIMITACIÓN DELIBERADA: el hilo vive SOLO en memoria de la interfaz. No se
  * persiste ni se envía al servidor como contexto. Si cambian los inputs
@@ -17,25 +23,9 @@ import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
  * obsoletas.
  */
 
-export type MentorTurnRole = "player" | "mentor";
-
-export interface MentorTurn {
-  id: string;
-  role: MentorTurnRole;
-  /** Texto tal cual: la interfaz lo pinta como TEXTO, nunca como HTML. */
-  text: string;
-  /** Respuesta estructurada del mentor; null en los turnos del jugador. */
-  answer: MentorAnswer | null;
-}
-
 export type MentorAskOutcome = "ok" | "journal-stale" | "error";
 
-export interface MentorState {
-  turns: MentorTurn[];
-  loading: boolean;
-  error: string | null;
-  /** Inputs con los que se abrió el hilo; si cambian, se invalida. */
-  threadInputsKey: string | null;
+export interface MentorState extends MentorThreadState {
   ask: (request: MentorQueryRequest) => Promise<MentorAskOutcome>;
   clear: () => void;
 }
@@ -47,48 +37,40 @@ function nextTurnId(prefix: string): string {
 }
 
 export function useMentor(): MentorState {
-  const [turns, setTurns] = useState<MentorTurn[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [threadInputsKey, setThreadInputsKey] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(mentorThreadReducer, initialMentorThreadState);
 
   const clear = useCallback(() => {
-    setTurns([]);
-    setError(null);
-    setThreadInputsKey(null);
+    dispatch({ type: "clear" });
   }, []);
 
   const ask = useCallback(async (request: MentorQueryRequest): Promise<MentorAskOutcome> => {
-    setLoading(true);
-    setError(null);
-    setTurns((prev) => [
-      ...prev,
-      { id: nextTurnId("player"), role: "player", text: request.question, answer: null },
-    ]);
+    dispatch({ type: "ask", turnId: nextTurnId("player"), question: request.question });
 
     try {
       const { answer } = await api.mentorQuery(request);
-      setTurns((prev) => [
-        ...prev,
-        { id: nextTurnId("mentor"), role: "mentor", text: answer.answer, answer },
-      ]);
-      setThreadInputsKey(mentorInputsKey(request));
+      dispatch({
+        type: "answered",
+        turnId: nextTurnId("mentor"),
+        answer,
+        inputsKey: mentorInputsKey(request),
+      });
       return "ok";
     } catch (err) {
       const message = getErrorMessage(err);
-      setError(message);
       if (err instanceof ApiRequestError && err.status === 409) {
+        // La memoria autoritativa cambió: el hilo entero (incluida la pregunta
+        // recién fallada) se descarta ANTES de que el jugador pueda reintentar.
+        dispatch({ type: "journal-stale", message });
         toast.warning("Tu diario cambió en otra pestaña", {
-          description: "Recarga el diario y vuelve a preguntar al mentor.",
+          description: "Hemos recargado el diario y reiniciado la conversación. Vuelve a preguntar.",
         });
         return "journal-stale";
       }
+      dispatch({ type: "failed", message });
       toast.error("No se pudo consultar al mentor", { description: message });
       return "error";
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  return { turns, loading, error, threadInputsKey, ask, clear };
+  return { ...state, ask, clear };
 }

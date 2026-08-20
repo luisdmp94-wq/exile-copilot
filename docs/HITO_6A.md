@@ -1,7 +1,10 @@
 # Hito 6A — Primera conversación real con el mentor
 
-> Vertical slice **determinista**. No hay LLM, no hay red y no hay generación de
-> texto libre: cada respuesta se compone a partir de datos que ya existían.
+> Vertical slice **basado en reglas**, **sin IA generativa**. No hay LLM y no hay
+> generación de texto libre: cada respuesta se compone a partir de datos que ya
+> existían. Sí puede haber red: el mentor delega en el mismo motor que el resto
+> de la aplicación, y ese motor consulta el servicio documentado de precios
+> cuando lo necesita.
 
 ## Qué está implementado
 
@@ -36,14 +39,59 @@ ni se consultan precios. Ejemplos que hoy caen aquí: tasación de objetos
 («¿cuánto vale mi arma?»), comparación con el meta, dudas generales de PoE2,
 saludos y texto sin forma de pregunta reconocible.
 
-## Determinismo
+## Qué se puede afirmar (y qué no)
 
-- Misma pregunta + mismos datos ⇒ misma respuesta, palabra por palabra.
-- La clasificación es puro emparejamiento de cadenas normalizadas.
-- Los textos del mentor son plantillas fijas rellenadas con campos del motor
+Afirmaciones **verificables** por las pruebas de este hito:
+
+- **La decisión procede del motor, no de generación libre.** El servicio llama a
+  `generateRecommendations` y transmite su resultado: la próxima acción, las
+  fuentes, la confianza y lo no verificado son campos del motor o del diario,
+  nunca texto inventado.
+- **No hay IA generativa.** No se llama a ningún LLM en ninguna ruta de este
+  hito; el explicador LLM sigue siendo un stub desactivado por flag.
+- **La clasificación es puro emparejamiento** de cadenas normalizadas contra una
+  lista corta y explícita.
+- Los textos del mentor son **plantillas fijas** rellenadas con campos del motor
   (`title`, `reason`, `impact.description`, `risk`), del diario (`title`,
   `nextAction`) o constantes.
-- No se inventan estadísticas, DPS, precios, mods ni conocimiento del juego.
+- **No se inventan** estadísticas, DPS, precios, mods ni conocimiento del juego.
+
+Lo que **no** se afirma:
+
+- **No se afirma que la respuesta sea idéntica palabra por palabra** entre dos
+  consultas. La respuesta incluye `generatedAt`, y las fuentes llevan su
+  `retrievedAt`: **fechas y evidencia cambian**. Si además cambian los precios
+  del servicio o el contenido del diario, el motor puede priorizar otra decisión
+  y el texto cambia con ella.
+- **No se afirma que funcione sin red.** Cuando el motor necesita precios, el
+  mentor usa el mismo **servicio documentado de poe.ninja** que el resto de la
+  aplicación (desde el servidor, con caché SQLite y ETag; `POE_NINJA_OFFLINE`
+  lo desactiva en pruebas). El único caso en que se garantiza que no se consulta
+  precios es el que el motor ya cortaba antes: una acción principal activa en el
+  diario, o una pregunta no soportada.
+
+## Presentación de la respuesta
+
+La respuesta principal se lee como la contaría una persona y **en este orden**:
+diagnóstico, **única próxima acción** y confianza (en español: «Confianza Alta»,
+nunca `high`).
+
+Los valores internos del contrato — `next_improvement`, `explain_priority`,
+`calculation`, `user`, la versión del motor y la fecha técnica — **no se pintan
+por defecto**. La trazabilidad completa (fuentes con su tipo traducido, lo que
+falta por verificar, tipo de consulta, versión del motor y momento de la
+respuesta) vive en la sección plegable **«Ver evidencia y limitaciones»**, que es
+un `<details>` nativo y se abre con teclado.
+
+El contrato estructurado no cambia: el backend sigue devolviendo `intent`,
+`inputFingerprint`, `engineVersion`, `generatedAt` y `memoryImpact` intactos.
+
+## Desplazamiento del chat
+
+Al añadir una pregunta, una respuesta o el estado de carga, el hilo se desplaza a
+su último turno con `scrollTo` **sobre el propio contenedor**, nunca sobre la
+página: la sección no salta bajo el cursor. Con `prefers-reduced-motion: reduce`
+el salto es inmediato (`behavior: "auto"`) en vez de suave.
 
 ## Reutilización del motor (no hay un segundo sistema de consejos)
 
@@ -72,6 +120,22 @@ diario, así que hereda todas las reglas del Hito 5B:
 3. **vuelve a comprobar** la revisión tras la espera asíncrona, de modo que una
    acción creada en otra pestaña invalida la respuesta en vuelo.
 
+### Recuperación en la interfaz
+
+Ante un 409 la interfaz **reinicia limpiamente el hilo** (`journal-stale` en
+`src/lib/mentorThread.ts`) y recarga el diario, conservando solo el aviso.
+
+Esto importa especialmente en la **primera** consulta: hasta que hay una
+respuesta correcta el hilo todavía no tiene huella de inputs, así que la
+invalidación por cambio de inputs no lo limpiaba y la pregunta recién fallada se
+quedaba pintada; al recargar el diario y reintentar, la misma pregunta aparecía
+dos veces. Tras el reinicio el jugador puede reintentar **sin pregunta
+duplicada, sin respuesta antigua y sin acción guardable obsoleta**.
+
+Un fallo que **no** sea 409 (por ejemplo, red caída) es distinto: la memoria del
+servidor no ha cambiado, así que el hilo válido anterior se conserva y solo se
+retira la pregunta que no llegó a responderse.
+
 ## Limitación: la conversación no se persiste
 
 El hilo vive **solo en memoria de la interfaz** (`src/hooks/useMentor.ts`):
@@ -97,14 +161,26 @@ diario**. Nunca debe generar estadísticas, precios ni conocimiento del juego.
 
 ## Pruebas
 
-- `tests/unit/mentorIntent.test.ts` — intenciones, normalización, determinismo.
+- `tests/unit/mentorIntent.test.ts` — intenciones, normalización, estabilidad de
+  la clasificación.
 - `tests/unit/mentorService.test.ts` — cada intención, acción activa, cero
-  consultas de precio cuando el diario bloquea, reconciliación, honestidad.
-- `tests/unit/mentorThread.test.ts` — invalidación del hilo y contrato de memoria.
+  consultas de precio cuando el diario bloquea, reconciliación, honestidad y
+  ausencia de niveles internos (`low`/`medium`/`high`) en el texto visible.
+- `tests/unit/mentorThread.test.ts` — invalidación del hilo, contrato de memoria
+  y **recuperación del 409 empezando con el hilo vacío**: la pregunta que acaba
+  de fallar no se queda pintada, al reintentar no se duplica y no sobrevive
+  ninguna respuesta antigua ni acción guardable obsoleta.
 - `tests/integration/mentorApi.test.ts` — ruta, 409 por revisión obsoleta,
   carrera entre pestañas, inyección de memoria descartada.
 - `scripts/mentor-smoke.mjs` — navegador real, base SQLite temporal y servidores
   propios (`npm run test:mentor`, `--dev`, `--all`, `--update-screenshots`).
+  Cubre además la presentación (nada de identificadores internos por defecto, la
+  evidencia plegada que se abre con teclado) y el **desplazamiento del chat** con
+  turnos suficientes para desbordar el hilo: el último mensaje queda visible, la
+  página no se mueve y `prefers-reduced-motion` se respeta.
+
+El reductor del hilo vive aparte de React (`src/lib/mentorThread.ts`) justamente
+para que esas transiciones se puedan probar sin navegador ni DOM.
 
 Capturas: `docs/screenshots/mentor-seccion.png`,
 `mentor-escritorio-prod.png`, `mentor-movil-prod.png`.

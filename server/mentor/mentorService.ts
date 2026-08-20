@@ -22,7 +22,8 @@ import {
 import { ENGINE_VERSION } from "../engine/rules.js";
 
 /**
- * Mentor conversacional (Hito 6A) — vertical slice determinista.
+ * Mentor conversacional (Hito 6A) — vertical slice basado en reglas, sin IA
+ * generativa.
  *
  * NO es un segundo sistema de consejos: clasifica la intención y delega en el
  * motor existente (`generateRecommendations`), que ya aplica las reglas del
@@ -49,6 +50,16 @@ export interface MentorQueryOptions {
   /** Memoria AUTORITATIVA leída por el servidor; el cliente nunca la construye. */
   memory: RecommendationMemory;
 }
+
+/**
+ * Niveles del dominio en español: la respuesta la lee una persona, así que
+ * nunca se le muestra el identificador interno (`low`/`medium`/`high`).
+ */
+const RISK_LEVEL_ES: Record<Recommendation["risk"]["level"], string> = {
+  low: "bajo",
+  medium: "medio",
+  high: "alto",
+};
 
 const UNSUPPORTED_REASON =
   "Todavía no sé responder esa pregunta con seguridad. Solo respondo a partir de tu " +
@@ -206,7 +217,7 @@ async function buildAnswer(
   const answer =
     intent === "explain_priority"
       ? `Tu principal problema ahora es «${top.title}». ${top.reason} ` +
-        `${top.impact.description} Riesgo ${top.risk.level}: ${top.risk.description}`
+        `${top.impact.description} Riesgo ${RISK_LEVEL_ES[top.risk.level]}: ${top.risk.description}`
       : `Lo siguiente que haría: ${top.title}. ${top.reason}`;
 
   return MentorAnswerSchema.parse({

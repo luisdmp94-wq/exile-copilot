@@ -1,6 +1,7 @@
 import type {
   ConfidenceLevel,
   CurrencyKind,
+  EvidenceSourceKind,
   GoalKind,
   ItemRarity,
   ItemSlot,
@@ -57,6 +58,19 @@ export const MODIFIER_KIND_LABELS: Record<ModifierKind, string> = {
   enchant: "Encantamiento",
   rune: "Runas",
   quality: "Calidad",
+};
+
+/**
+ * Tipos de fuente del dominio, en español. Los identificadores internos
+ * (`calculation`, `user`, …) nunca se muestran crudos en la interfaz.
+ */
+export const SOURCE_KIND_LABELS: Record<EvidenceSourceKind, string> = {
+  ggg: "Datos oficiales de GGG",
+  internal: "Datos propios verificados",
+  calculation: "Cálculo del motor",
+  "poe.ninja": "Economía (poe.ninja)",
+  community: "Referencia de la comunidad",
+  user: "Dato que nos diste tú",
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {

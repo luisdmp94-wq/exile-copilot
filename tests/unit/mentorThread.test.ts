@@ -13,6 +13,18 @@ import {
   mentorInputsKey,
   type MentorQueryRequest,
 } from "../../shared/mentorQuery.js";
+import { RecommendationMemorySchema } from "../../shared/domain.js";
+import {
+  initialMentorThreadState,
+  lastMentorAnswer,
+  mentorThreadReducer,
+  savableNextAction,
+  type MentorThreadState,
+} from "../../src/lib/mentorThread.js";
+import { answerMentorQuery } from "../../server/mentor/mentorService.js";
+import { createDatabase } from "../../server/db/database.js";
+import { PoeNinjaClient, PriceService } from "../../server/services/poeninja.js";
+import { loadConfig } from "../../server/config.js";
 
 /**
  * Hito 6A — invalidación del hilo conversacional.
@@ -134,5 +146,187 @@ describe("huella del hilo conversacional", () => {
 
   it("sin diario cargado no se envía revisión (el servidor decide)", () => {
     expect(requestFor({ journal: null }).journalRevision).toBeUndefined();
+  });
+});
+
+/**
+ * Recuperación del 409 `memoria-diario-obsoleta`.
+ *
+ * El caso que fallaba: en la PRIMERA consulta el hilo todavía no tiene huella
+ * de inputs, así que la invalidación por cambio de inputs no lo limpiaba y la
+ * pregunta recién fallada se quedaba pintada. Al recargar el diario y volver a
+ * preguntar, la misma pregunta aparecía dos veces.
+ *
+ * Estas regresiones empiezan SIEMPRE con el hilo vacío.
+ */
+
+const MENSAJE_409 = "La memoria del personaje cambió. Recárgala antes de volver a preguntar.";
+
+function offlinePriceService(): PriceService {
+  const config = { ...loadConfig({}), poeNinjaOffline: true };
+  const client = new PoeNinjaClient({ db: createDatabase(":memory:"), config });
+  return new PriceService(client);
+}
+
+/** Respuesta REAL del servicio: la acción guardable no es un fixture inventado. */
+async function respuestaRealGuardable() {
+  const profile = demoProfile();
+  const answer = await answerMentorQuery(
+    {
+      question: "¿Qué mejoro ahora?",
+      profile,
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: "Runes of Aldur",
+      patch: "0.5.4f",
+      memory: RecommendationMemorySchema.parse({
+        revision: "journal-memory-v1:0000000000000000",
+        primaryEntry: null,
+        recentCompleted: [],
+      }),
+    },
+    { priceService: offlinePriceService() },
+  );
+  return answer;
+}
+
+describe("hilo del mentor — recuperación del 409 de memoria obsoleta", () => {
+  it("el hilo arranca vacío, sin error y sin huella", () => {
+    expect(initialMentorThreadState.turns).toHaveLength(0);
+    expect(initialMentorThreadState.error).toBeNull();
+    expect(initialMentorThreadState.threadInputsKey).toBeNull();
+  });
+
+  it("un 409 en la PRIMERA pregunta retira el turno que acaba de fallar", () => {
+    let state: MentorThreadState = initialMentorThreadState;
+
+    state = mentorThreadReducer(state, {
+      type: "ask",
+      turnId: "player-1",
+      question: "¿Qué mejoro ahora?",
+    });
+    expect(state.turns).toHaveLength(1);
+    expect(state.loading).toBe(true);
+
+    state = mentorThreadReducer(state, { type: "journal-stale", message: MENSAJE_409 });
+
+    expect(state.turns).toHaveLength(0);
+    expect(state.loading).toBe(false);
+    expect(state.threadInputsKey).toBeNull();
+    // El aviso permanece para que el jugador sepa por qué se reinició.
+    expect(state.error).toBe(MENSAJE_409);
+  });
+
+  it("tras recargar el diario, reintentar no duplica la pregunta", () => {
+    let state: MentorThreadState = initialMentorThreadState;
+    const pregunta = "¿Qué mejoro ahora?";
+
+    state = mentorThreadReducer(state, { type: "ask", turnId: "player-1", question: pregunta });
+    state = mentorThreadReducer(state, { type: "journal-stale", message: MENSAJE_409 });
+    // Reintento después de recargar el diario.
+    state = mentorThreadReducer(state, { type: "ask", turnId: "player-2", question: pregunta });
+
+    const repetidas = state.turns.filter((turn) => turn.role === "player" && turn.text === pregunta);
+    expect(repetidas).toHaveLength(1);
+    expect(state.error).toBeNull();
+  });
+
+  it("un 409 no deja respuesta antigua ni acción guardable obsoleta", async () => {
+    const answer = await respuestaRealGuardable();
+    // La respuesta del motor sobre un diario vacío sí ofrece acción guardable.
+    expect(answer.nextAction?.canSaveToJournal).toBe(true);
+
+    let state: MentorThreadState = initialMentorThreadState;
+    state = mentorThreadReducer(state, {
+      type: "ask",
+      turnId: "player-1",
+      question: "¿Qué mejoro ahora?",
+    });
+    state = mentorThreadReducer(state, {
+      type: "answered",
+      turnId: "mentor-1",
+      answer,
+      inputsKey: "clave-vieja",
+    });
+    expect(savableNextAction(state.turns)).not.toBeNull();
+
+    state = mentorThreadReducer(state, {
+      type: "ask",
+      turnId: "player-2",
+      question: "¿Cuál es mi principal problema?",
+    });
+    state = mentorThreadReducer(state, { type: "journal-stale", message: MENSAJE_409 });
+
+    expect(state.turns).toHaveLength(0);
+    expect(lastMentorAnswer(state.turns)).toBeNull();
+    expect(savableNextAction(state.turns)).toBeNull();
+    expect(state.threadInputsKey).toBeNull();
+  });
+
+  it("un fallo que NO es 409 conserva el hilo y solo retira la pregunta fallada", async () => {
+    const answer = await respuestaRealGuardable();
+    let state: MentorThreadState = initialMentorThreadState;
+
+    state = mentorThreadReducer(state, {
+      type: "ask",
+      turnId: "player-1",
+      question: "¿Qué mejoro ahora?",
+    });
+    state = mentorThreadReducer(state, {
+      type: "answered",
+      turnId: "mentor-1",
+      answer,
+      inputsKey: "clave",
+    });
+    state = mentorThreadReducer(state, {
+      type: "ask",
+      turnId: "player-2",
+      question: "¿Cuál es mi principal problema?",
+    });
+    state = mentorThreadReducer(state, { type: "failed", message: "Red caída" });
+
+    // Sigue la conversación válida anterior; la pregunta sin responder se va.
+    expect(state.turns.map((turn) => turn.id)).toEqual(["player-1", "mentor-1"]);
+    expect(state.error).toBe("Red caída");
+    expect(state.threadInputsKey).toBe("clave");
+  });
+
+  it("una acción RECORDADA del diario nunca se ofrece como guardable", () => {
+    const state = mentorThreadReducer(initialMentorThreadState, {
+      type: "answered",
+      turnId: "mentor-1",
+      inputsKey: "clave",
+      answer: {
+        intent: "next_improvement",
+        normalizedQuestion: "que mejoro ahora",
+        answer: "Ya tienes una acción en marcha.",
+        nextAction: {
+          text: "Compra un anillo de resistencia.",
+          recommendationId: null,
+          relatedItemIds: [],
+          canSaveToJournal: false,
+          recommendation: null,
+          recalledFromEntryId: "entry-1",
+        },
+        usedRecommendationIds: [],
+        relatedItemIds: [],
+        sources: [],
+        confidence: null,
+        unverified: [],
+        memoryImpact: {
+          revision: "journal-memory-v1:abc",
+          blockedByPrimaryEntryId: "entry-1",
+          usedEntryIds: [],
+          repeatedRecommendationIds: [],
+        },
+        inputFingerprint: "huella",
+        unsupported: null,
+        generatedAt: "2026-08-21T10:00:00.000Z",
+        engineVersion: "test",
+      },
+    });
+
+    expect(lastMentorAnswer(state.turns)).not.toBeNull();
+    expect(savableNextAction(state.turns)).toBeNull();
   });
 });

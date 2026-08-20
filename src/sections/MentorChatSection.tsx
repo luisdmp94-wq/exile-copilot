@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BookmarkPlus, Loader2, MessageCircleQuestion, PackageSearch, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { BookmarkPlus, Loader2, PackageSearch, Send } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import { MENTOR_SUGGESTIONS } from "@shared/mentorQuery.js";
@@ -9,8 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { MentorState, MentorTurn } from "@/hooks/useMentor";
-import { CONFIDENCE_LABELS, LEVEL_BADGE_CLASSES, formatDateTime } from "@/lib/format";
+import type { MentorState } from "@/hooks/useMentor";
+import type { MentorTurn } from "@/lib/mentorThread";
+import { savableNextAction } from "@/lib/mentorThread";
+import {
+  CONFIDENCE_LABELS,
+  LEVEL_BADGE_CLASSES,
+  SOURCE_KIND_LABELS,
+  formatDateTime,
+} from "@/lib/format";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +27,22 @@ import { cn } from "@/lib/utils";
  * Es OTRA forma de consultar al mentor, no un sustituto del resto de la app:
  * convive con personaje, equipo, recomendaciones y diario.
  *
+ * PRESENTACIÓN: la respuesta principal se lee como la contaría una persona —
+ * diagnóstico, una única próxima acción y confianza. La trazabilidad (fuentes,
+ * fecha, versión del motor, tipo de consulta y lo no verificado) sigue completa,
+ * pero vive en «Ver evidencia y limitaciones»: nunca se muestran identificadores
+ * internos (`next_improvement`, `calculation`, `high`…) en el texto visible.
+ *
  * El hilo vive solo en memoria (ver `useMentor`). Todo el texto se pinta como
  * TEXTO mediante JSX: React escapa el contenido y nunca se interpreta HTML.
  */
+
+/** Tipo de consulta en español; el id interno nunca se muestra. */
+const INTENT_LABELS: Record<MentorAnswer["intent"], string> = {
+  next_improvement: "Qué mejorar ahora",
+  explain_priority: "Por qué esa es tu prioridad",
+  unsupported: "Fuera de lo que sé responder",
+};
 
 interface MentorChatSectionProps {
   profile: CharacterProfile | null;
@@ -45,8 +65,24 @@ export function MentorChatSection({
 }: MentorChatSectionProps) {
   const [question, setQuestion] = useState("");
   const { turns, loading, error } = mentor;
+  const threadRef = useRef<HTMLDivElement | null>(null);
 
   const canAsk = profile !== null && question.trim().length > 0 && !loading;
+
+  // Cada pregunta, respuesta o estado de carga deja el ÚLTIMO turno a la vista.
+  // Se desplaza el CONTENEDOR del hilo (`scrollTo` sobre el propio elemento),
+  // nunca la página: la sección no salta bajo el cursor del jugador.
+  useEffect(() => {
+    const container = threadRef.current;
+    if (container === null) return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [turns.length, loading]);
 
   const submit = (value: string) => {
     const texto = value.trim();
@@ -61,13 +97,14 @@ export function MentorChatSection({
         <div className="flex flex-wrap items-center gap-3">
           <CardTitle className="text-xl">5. Habla con tu mentor</CardTitle>
           <Badge variant="outline" className="text-muted-foreground">
-            Respuestas deterministas
+            Basado en reglas
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           El mentor responde solo con tu personaje, tu build objetivo, tu presupuesto y tu
-          diario. No inventa estadísticas, precios ni conocimiento del juego, y da una
-          única próxima acción cada vez.
+          diario. La decisión sale del motor de recomendaciones, no de texto generado: no
+          inventa estadísticas, mods ni conocimiento del juego, y da una única próxima
+          acción cada vez.
         </p>
       </CardHeader>
 
@@ -104,7 +141,8 @@ export function MentorChatSection({
             </div>
 
             <div
-              className="flex max-h-[28rem] flex-col gap-3 overflow-y-auto"
+              ref={threadRef}
+              className="flex max-h-[28rem] flex-col gap-3 overflow-y-auto overscroll-contain"
               data-testid="mentor-hilo"
               aria-live="polite"
             >
@@ -194,11 +232,13 @@ function LastActionActions({
   savingNextAction: boolean;
   onSaveNextAction: (answer: MentorAnswer) => void;
 }) {
-  const lastMentorTurn = [...turns].reverse().find((turn) => turn.answer !== null);
-  const answer = lastMentorTurn?.answer ?? null;
-  if (answer === null || answer.nextAction === null) return null;
+  const savable = savableNextAction(turns);
 
-  if (!answer.nextAction.canSaveToJournal) {
+  if (savable === null) {
+    // Solo se avisa de la acción RECORDADA cuando existe y ya está en el diario.
+    const lastMentorTurn = [...turns].reverse().find((turn) => turn.answer !== null);
+    const recalled = lastMentorTurn?.answer ?? null;
+    if (recalled === null || recalled.nextAction === null) return null;
     return (
       <p className="text-xs text-muted-foreground" data-testid="mentor-accion-recordada">
         Esta acción ya está registrada en tu diario: termínala y anota el resultado.
@@ -214,7 +254,7 @@ function LastActionActions({
         size="sm"
         disabled={savingNextAction}
         data-testid="mentor-guardar-accion"
-        onClick={() => onSaveNextAction(answer)}
+        onClick={() => onSaveNextAction(savable)}
       >
         {savingNextAction ? (
           <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -282,6 +322,7 @@ function MentorAnswerDetail({
         </Alert>
       )}
 
+      {/* 1) La única próxima acción. */}
       {answer.nextAction !== null && (
         <div
           className="rounded-md border border-primary/40 bg-primary/5 p-2"
@@ -296,6 +337,7 @@ function MentorAnswerDetail({
         </div>
       )}
 
+      {/* 2) Confianza (siempre en español) y estado del diario. */}
       <div className="flex flex-wrap items-center gap-2">
         {answer.confidence !== null && (
           <Badge variant="outline" className={LEVEL_BADGE_CLASSES[answer.confidence]}>
@@ -333,42 +375,70 @@ function MentorAnswerDetail({
         </div>
       )}
 
-      {answer.sources.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Fuentes
-          </p>
-          <ul className="list-inside list-disc text-xs text-muted-foreground">
-            {answer.sources.map((source, index) => (
-              <li key={`${source.kind}-${index}`}>
-                {source.label} ({source.kind}) · {formatDateTime(source.retrievedAt)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {answer.unverified.length > 0 && (
-        <div className="flex flex-col gap-1" data-testid="mentor-no-verificado">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-amber-300">
-            Falta por verificar
-          </p>
-          <ul className="list-inside list-disc text-xs text-amber-200/90">
-            {answer.unverified.map((nota, index) => (
-              <li key={index}>{nota}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <p className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
-        <span>
-          <MessageCircleQuestion className="mr-1 inline size-3" aria-hidden="true" />
-          Intención: {answer.intent}
-        </span>
-        <span>· motor {answer.engineVersion}</span>
-        <span>· {formatDateTime(answer.generatedAt)}</span>
-      </p>
+      {/* 3) Trazabilidad completa, plegada por defecto. */}
+      <MentorEvidence answer={answer} />
     </div>
+  );
+}
+
+/**
+ * «Ver evidencia y limitaciones»: fuentes, lo que falta por verificar, tipo de
+ * consulta, versión del motor y momento de la respuesta. Se conserva TODA la
+ * trazabilidad, pero fuera de la lectura principal. `<details>` nativo: se abre
+ * con teclado y los lectores de pantalla lo anuncian como grupo desplegable.
+ */
+function MentorEvidence({ answer }: { answer: MentorAnswer }) {
+  return (
+    <details
+      className="rounded-md border border-border/60 bg-background/40"
+      data-testid="mentor-evidencia"
+    >
+      <summary className="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground">
+        Ver evidencia y limitaciones
+      </summary>
+
+      <div className="flex flex-col gap-3 px-2 pb-2 pt-1">
+        {answer.sources.length > 0 && (
+          <div className="flex flex-col gap-1" data-testid="mentor-fuentes">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Fuentes
+            </p>
+            <ul className="list-inside list-disc text-xs text-muted-foreground">
+              {answer.sources.map((source, index) => (
+                <li key={`${source.kind}-${index}`}>
+                  {source.label} · {SOURCE_KIND_LABELS[source.kind]} ·{" "}
+                  {formatDateTime(source.retrievedAt)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {answer.unverified.length > 0 && (
+          <div className="flex flex-col gap-1" data-testid="mentor-no-verificado">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-amber-300">
+              Falta por verificar
+            </p>
+            <ul className="list-inside list-disc text-xs text-amber-200/90">
+              {answer.unverified.map((nota, index) => (
+                <li key={index}>{nota}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <p className="text-[11px] text-muted-foreground">
+          Las fechas y la evidencia pueden cambiar: los precios proceden del servicio
+          documentado de poe.ninja cuando el motor los necesita, y el diario se actualiza
+          con lo que vas registrando.
+        </p>
+
+        <p className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+          <span>Tipo de consulta: {INTENT_LABELS[answer.intent]}</span>
+          <span>· Motor {answer.engineVersion}</span>
+          <span>· Respondido el {formatDateTime(answer.generatedAt)}</span>
+        </p>
+      </div>
+    </details>
   );
 }

@@ -9,10 +9,32 @@ Trabajo hecho en la rama `hito-6a-conversational-mentor` (worktree aislado), **s
 - **Sección «5. Habla con tu mentor»**: campo de texto, sugerencias, turnos
   diferenciados, estado de carga, respuesta estructurada con fuentes, confianza
   y «falta por verificar», y botón para guardar la próxima acción en el diario.
-- **Determinista**: un clasificador de intención pequeño y explícito
-  (`next_improvement`, `explain_priority`, `unsupported`). Sin LLM, sin red y sin
-  texto inventado; las respuestas son plantillas rellenadas con datos del motor
-  y del diario.
+- **Basado en reglas, sin IA generativa**: un clasificador de intención pequeño y
+  explícito (`next_improvement`, `explain_priority`, `unsupported`). Sin LLM y sin
+  texto inventado; las respuestas son plantillas rellenadas con datos del motor y
+  del diario. **La decisión procede del motor, no de generación libre**: esa es la
+  afirmación verificable del hito.
+- **Sí puede haber red**: cuando el motor necesita precios, el mentor usa el mismo
+  servicio documentado de poe.ninja que el resto de la app (desde el servidor, con
+  caché SQLite y ETag). Por eso ya **no se afirma «sin red» ni «misma respuesta
+  palabra por palabra»**: `generatedAt` y el `retrievedAt` de las fuentes cambian,
+  y si cambian precios o diario el motor puede priorizar otra decisión.
+- **Presentación humana**: la respuesta se lee primero como diagnóstico, única
+  próxima acción y confianza (en español; nunca `high`/`medium`/`low`). Los
+  valores internos (`next_improvement`, `explain_priority`, `calculation`, `user`,
+  versión del motor y fecha técnica) no se muestran por defecto; fuentes, fecha,
+  motor y lo no verificado siguen accesibles en «Ver evidencia y limitaciones»
+  (`<details>` nativo, se abre con teclado). El contrato estructurado y la
+  trazabilidad del backend no cambian.
+- **Recuperación del primer 409**: ante `memoria-diario-obsoleta` la interfaz
+  reinicia limpiamente el hilo y recarga el diario, así que al reintentar no hay
+  pregunta duplicada, respuesta antigua ni acción guardable obsoleta. Antes, en la
+  PRIMERA consulta el hilo aún no tenía huella de inputs y la pregunta recién
+  fallada se quedaba pintada. Regresión que empieza con el hilo vacío en
+  `tests/unit/mentorThread.test.ts`.
+- **Desplazamiento del chat**: al añadir pregunta, respuesta o estado de carga, el
+  contenedor del hilo va al último turno sin mover la página entera, y respeta
+  `prefers-reduced-motion`.
 - **Reutiliza el motor**: con una acción activa el mentor RECUERDA ese paso y no
   consulta precios; una memoria completada se reconcilia como `profile_sync`; el
   resultado libre del jugador sigue siendo evidencia, nunca estadística.
@@ -203,10 +225,19 @@ Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm
 
 ## Próximo paso recomendado
 
-Auditar y, si se aprueba, integrar el Hito 5B sobre `main`. Después, diseñar el
-contrato del **Copilot conversacional v1** encima de esta memoria, inicialmente
-determinista y sin proveedor LLM. La resolución de `BaseItemTypes` continúa
-pendiente, pero no es necesaria para validar el flujo del mentor.
+El Hito 5B ya está integrado en `main` y el mentor conversacional (Hito 6A) ya
+está diseñado e implementado: ese paso anterior quedó obsoleto.
+
+Lo que toca ahora es **auditar la rama `hito-6a-conversational-mentor` y, si se
+aprueba, integrarla en `main`**. Después, sobre esa base, **Copilot
+conversacional v1**: historial persistente de la conversación (hoy el hilo vive
+solo en memoria de la interfaz), reconocimiento de intención más amplio y
+seguimiento de crafts paso a paso — manteniendo la regla de que la decisión, la
+próxima acción, las fuentes, la confianza y lo no verificado salgan siempre del
+motor y del diario, aunque algún día se añada un LLM para redactar.
+
+La resolución de `BaseItemTypes` (nombres de skills y support skills) continúa
+pendiente, pero no bloquea nada de lo anterior.
 
 ## Archivos importantes
 

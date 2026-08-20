@@ -70,7 +70,7 @@ exile-copilot/
   `PATCH /journal/:characterId/entries/:entryId`.
 - `GET  /market/prices?league=&names=` → quotes + `primaryCurrency` + `rates {values, origin, verified, fetchedAt} | null`.
 - `POST /recommendations` → 3 recomendaciones + `inputFingerprint`.
-- `POST /mentor/query` → respuesta conversacional determinista (intención, una
+- `POST /mentor/query` → respuesta conversacional basada en reglas (intención, una
   próxima acción o `null`, ids usados, fuentes, confianza, no verificado,
   impacto del diario y huella). Mismas protecciones 409 de revisión que
   `/recommendations`; el cliente solo envía `journalRevision`.

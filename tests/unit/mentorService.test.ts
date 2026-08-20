@@ -106,6 +106,16 @@ describe("mentor — intención explain_priority", () => {
     expect(explicacion.nextAction?.text).toBe(siguiente.nextAction?.text);
     expect(explicacion.answer).not.toBe(siguiente.answer);
   });
+
+  it("no muestra niveles internos (low/medium/high) en el texto que lee la persona", async () => {
+    const explicacion = await answerMentorQuery(
+      { ...BASE, question: "¿Cuál es mi principal problema?", memory: emptyMemory() },
+      { priceService: offlinePriceService() },
+    );
+
+    expect(explicacion.answer).toMatch(/Riesgo (bajo|medio|alto):/);
+    expect(explicacion.answer).not.toMatch(/\b(low|medium|high)\b/);
+  });
 });
 
 describe("mentor — pregunta no soportada", () => {

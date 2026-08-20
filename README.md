@@ -118,7 +118,10 @@ id crudo: el nombre nunca se deduce del texto del id.
 ## Habla con tu mentor (Hito 6A)
 
 La sección «5. Habla con tu mentor» permite preguntar en español y recibir una
-respuesta **determinista**: sin LLM, sin red y sin texto inventado.
+respuesta **basada en reglas**: **sin IA generativa**. No hay LLM y no se genera
+texto libre — la decisión, la próxima acción, las fuentes, la confianza y lo no
+verificado salen del motor de recomendaciones y del Character Journal, y el
+texto son plantillas fijas rellenadas con esos campos.
 
 Preguntas que entiende hoy:
 
@@ -130,8 +133,16 @@ ejemplos válidos: el mentor prefiere decir «esto todavía no lo sé» a improv
 
 La conversación reutiliza el motor y el Character Journal: si ya tienes una
 acción activa, el mentor **recuerda ese paso** en lugar de crear otro y no
-consulta precios. Cada respuesta muestra su única próxima acción, fuentes,
-confianza y lo que falta por verificar.
+consulta precios. Cuando el motor sí necesita precios, el mentor usa el mismo
+**servicio documentado de poe.ninja** que el resto de la aplicación (desde el
+servidor, con caché y ETag). Por eso **las fechas y la evidencia pueden
+cambiar**: la misma pregunta con los mismos datos puede citar precios o fechas
+distintos más adelante, aunque la decisión siga saliendo del motor.
+
+Cada respuesta se lee primero como te la contaría una persona — diagnóstico,
+única próxima acción y confianza —; las fuentes, la fecha, la versión del motor
+y lo que falta por verificar están completas dentro de «Ver evidencia y
+limitaciones».
 
 **Limitación:** el hilo vive solo en memoria de la interfaz. No se persiste, se
 pierde al recargar y se descarta cuando cambian los datos relevantes para no

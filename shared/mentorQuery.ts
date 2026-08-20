@@ -13,10 +13,11 @@ import {
 /**
  * Contrato de la conversación con el mentor (Hito 6A).
  *
- * Es un vertical slice DETERMINISTA: no hay LLM, no hay generación de texto
- * libre y no se inventa conocimiento de PoE2. Toda respuesta procede del
- * perfil, la build objetivo, el presupuesto/objetivo, el Character Journal y
- * el motor de recomendaciones que ya existen.
+ * Es un vertical slice BASADO EN REGLAS, sin IA generativa: no hay LLM, no hay
+ * generación de texto libre y no se inventa conocimiento de PoE2. Toda respuesta
+ * procede del perfil, la build objetivo, el presupuesto/objetivo, el Character
+ * Journal y el motor de recomendaciones que ya existen. La DECISIÓN sale del
+ * motor; el mentor solo la traduce a conversación.
  */
 
 /**

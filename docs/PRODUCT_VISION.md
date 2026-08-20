@@ -83,10 +83,11 @@ Cerrados el Paperdoll (Hito 4B) y la primera memoria operativa, la dirección es
 1. **Character Journal (Hitos 5A/5B, implementado)** — memoria persistente de
    decisiones, experimentos y crafts; una acción activa detiene al motor y un
    resultado previo evita repetir la misma mejora sin reconciliar el perfil.
-2. **Conversación con el mentor (Hito 6A, implementado como slice determinista)** —
-   la sección «Habla con tu mentor» responde a un conjunto pequeño y explícito de
-   preguntas reutilizando el motor y el diario. Sin LLM y sin texto inventado;
-   toda pregunta fuera de ese conjunto se declara no soportada.
+2. **Conversación con el mentor (Hito 6A, implementado como slice basado en
+   reglas)** — la sección «Habla con tu mentor» responde a un conjunto pequeño y
+   explícito de preguntas reutilizando el motor y el diario. Sin IA generativa y
+   sin texto inventado: la decisión sale del motor, no de generación libre. Toda
+   pregunta fuera de ese conjunto se declara no soportada.
 3. **Copilot conversacional v1 (pendiente)** — comprensión más amplia, historial
    persistente y seguimiento de crafts paso a paso.
 
