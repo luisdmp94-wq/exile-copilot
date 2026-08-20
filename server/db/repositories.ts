@@ -88,3 +88,74 @@ export function getCharacter(db: Database, id: string): CharacterRow | null {
     .get(id);
   return (row as CharacterRow | undefined) ?? null;
 }
+
+export interface JournalEntryRow {
+  id: string;
+  character_id: string;
+  payload: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function saveJournalEntry(
+  db: Database,
+  entry: {
+    id: string;
+    characterId: string;
+    payload: string;
+    createdAt: string;
+    updatedAt: string;
+  },
+): void {
+  db.prepare(
+    `INSERT INTO journal_entries (id, character_id, payload, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       character_id = excluded.character_id,
+       payload = excluded.payload,
+       updated_at = excluded.updated_at`,
+  ).run(entry.id, entry.characterId, entry.payload, entry.createdAt, entry.updatedAt);
+}
+
+export function getJournalEntry(db: Database, id: string): JournalEntryRow | null {
+  const row = db
+    .prepare(
+      `SELECT id, character_id, payload, created_at, updated_at
+       FROM journal_entries WHERE id = ?`,
+    )
+    .get(id);
+  return (row as JournalEntryRow | undefined) ?? null;
+}
+
+export function listJournalEntries(db: Database, characterId: string): JournalEntryRow[] {
+  const rows = db
+    .prepare(
+      `SELECT id, character_id, payload, created_at, updated_at
+       FROM journal_entries
+       WHERE character_id = ?
+       ORDER BY updated_at DESC, created_at DESC, id DESC`,
+    )
+    .all(characterId);
+  return rows as unknown as JournalEntryRow[];
+}
+
+export function getJournalPrimaryEntryId(db: Database, characterId: string): string | null {
+  const row = db
+    .prepare("SELECT primary_entry_id FROM journal_state WHERE character_id = ?")
+    .get(characterId) as { primary_entry_id: string | null } | undefined;
+  return row?.primary_entry_id ?? null;
+}
+
+export function setJournalPrimaryEntryId(
+  db: Database,
+  characterId: string,
+  entryId: string | null,
+): void {
+  db.prepare(
+    `INSERT INTO journal_state (character_id, primary_entry_id, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(character_id) DO UPDATE SET
+       primary_entry_id = excluded.primary_entry_id,
+       updated_at = excluded.updated_at`,
+  ).run(characterId, entryId, new Date().toISOString());
+}

@@ -5,6 +5,7 @@ import type {
   Budget,
   CharacterProfile,
   GoalKind,
+  Recommendation,
 } from "@shared/domain.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,8 @@ interface RecommendationsSectionProps {
   onLoadDemo: () => Promise<void>;
   /** Navegación recomendación → objeto; solo se usa con vínculo estructurado. */
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
+  onTrackRecommendation: (recommendation: Recommendation) => void;
+  trackingRecommendation: boolean;
 }
 
 export function RecommendationsSection({
@@ -48,6 +51,8 @@ export function RecommendationsSection({
   recommendations,
   onLoadDemo,
   onFocusItem,
+  onTrackRecommendation,
+  trackingRecommendation,
 }: RecommendationsSectionProps) {
   const { result, exportResult, loading, exporting, error } = recommendations;
   const [appliedIds, setAppliedIds] = useState<Record<string, boolean>>({});
@@ -147,6 +152,8 @@ export function RecommendationsSection({
                 onAppliedChange={(applied) => toggleApplied(rec.id, applied)}
                 budget={budget}
                 onFocusItem={onFocusItem}
+                onTrack={onTrackRecommendation}
+                tracking={trackingRecommendation}
               />
             ))}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">

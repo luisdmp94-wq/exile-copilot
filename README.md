@@ -1,10 +1,15 @@
 # Exile Copilot
 
-Aplicación web para jugadores de **Path of Exile 2**:
+Aplicación web para jugadores de **Path of Exile 2**. Su núcleo es un mentor
+persistente que conoce el personaje, recuerda decisiones y mantiene una sola
+próxima acción:
 
 > «Importa tu build, indica tu presupuesto y recibe las próximas mejoras ordenadas por impacto, coste y riesgo.»
 
-No es un chatbot: construye un perfil estructurado del personaje, consulta datos verificables (API económica pública documentada de poe.ninja) y devuelve tres acciones concretas con coste, impacto, riesgo, confianza, fuentes y parche.
+No es un chatbot genérico: construye un perfil estructurado del personaje,
+consulta datos verificables (API económica pública documentada de poe.ninja),
+devuelve acciones concretas y conserva el resultado de cada decisión en el
+diario del personaje.
 
 ## Requisitos
 
@@ -26,6 +31,7 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm test` — pruebas automatizadas (unitarias, integración y e2e del flujo principal).
 - `npm run lint` — ESLint sobre todo el repo.
 - `npm run test:browser` — prueba real de navegador del flujo principal con Edge (Playwright, `channel: msedge`, sin descargar navegadores). `--dev` la ejecuta contra el servidor de desarrollo (Strict Mode), `--all` contra ambos. Requiere `npm run build` previo para el modo producción. Guarda capturas en `docs/screenshots/`.
+- `npm run test:journal` — prueba del flujo persistente del mentor en una base temporal; acepta también `--dev` y `--all` y nunca modifica los datos del usuario.
 
 ## Cómo probar el flujo principal (sin credenciales)
 
@@ -34,7 +40,12 @@ npm run dev            # frontend + API en http://localhost:7100
 3. Importa un **`.build` oficial** de GGG: se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building** sí rellena un personaje parcial.
 4. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; tasas de conversión con origen y verificación visibles).
 5. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza. Si cambias cualquier dato, las tarjetas se invalidan.
-6. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo **`.build` oficial** (GGG Build Planner v1) con las mejoras planificadas incrustadas en `description`/`additional_text`, junto a un informe honesto de lo exportado y lo omitido.
+6. Guarda una recomendación como **próximo paso**. Cuando la ejecutes, el mentor
+   espera el resultado real antes de cerrarla y conserva decisión, contexto,
+   fuentes y resultado en el historial del personaje.
+7. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo
+   **`.build` oficial** (GGG Build Planner v1) con las mejoras planificadas
+   incrustadas, junto a un informe honesto de lo exportado y lo omitido.
 
 ## Formato `.build` — GGG Build Planner v1
 
@@ -104,10 +115,10 @@ id crudo: el nombre nunca se deduce del texto del id.
 ## Estructura
 
 - `shared/` — esquemas zod: dominio interno, contrato API y esquema oficial GGG Build Planner v1.
-- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista de recomendaciones, explicadores (determinista por defecto; LLM stub por flag), exportador `.build` oficial con informe.
+- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente del mentor, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista de recomendaciones, explicadores (determinista por defecto; LLM stub por flag), exportador `.build` oficial con informe.
 - `src/` — frontend React + Tailwind + shadcn/ui (español, tema oscuro).
 - `tests/` — vitest: unit, integration, e2e. `scripts/browser-smoke.mjs` — prueba de navegador real.
-- `docs/PLAN.md` — plan y arquitectura. `HANDOFF.md` — informe para el propietario.
+- `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — contrato y límites de la memoria persistente. `HANDOFF.md` — informe para el propietario.
 
 ## Variables de entorno
 

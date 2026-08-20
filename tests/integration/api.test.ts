@@ -36,6 +36,14 @@ async function postJson(path: string, body: unknown) {
   });
 }
 
+async function patchJson(path: string, body: unknown) {
+  return fetch(`${base}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Los types de Node 24 tipan res.json() como unknown: casteamos en tests. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function jsonOf(res: globalThis.Response): Promise<any> {
@@ -174,6 +182,193 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(CharacterProfileSchema.safeParse(body.profile).success).toBe(true);
     expect(body.profile.characterClass).toBe("Mercenary");
     expect(body.profile.resistances.lightning).toBe(40);
+  });
+
+  it("Character Journal persiste una única próxima acción y conserva el resultado", async () => {
+    const characterId = "journal-character";
+
+    const emptyRes = await fetch(`${base}/journal/${characterId}`);
+    expect(emptyRes.status).toBe(200);
+    const empty = await jsonOf(emptyRes);
+    expect(empty).toEqual({
+      characterId,
+      primaryEntryId: null,
+      primaryEntry: null,
+      entries: [],
+    });
+
+    const createRes = await postJson(`/journal/${characterId}/entries`, {
+      kind: "decision",
+      title: "Cubrir resistencia de rayo",
+      summary: "Rayo está en 40%; es el cuello de botella defensivo conocido.",
+      nextAction: "Enséñame el primer anillo candidato antes de comprarlo.",
+      relatedItemIds: ["demo-item-ring1"],
+      sources: [
+        {
+          kind: "user",
+          label: "Perfil del personaje",
+          retrievedAt: "2026-08-20T10:00:00.000Z",
+        },
+      ],
+      context: {
+        characterLevel: 70,
+        league: "Runes of Aldur",
+        patch: "0.5.4f",
+        budget: { amount: 50, currency: "exalted" },
+        goal: "survival",
+      },
+      recommendationSnapshot: null,
+      makePrimary: true,
+    });
+    expect(createRes.status).toBe(201);
+    const created = await jsonOf(createRes);
+    expect(created.entry.status).toBe("active");
+    expect(created.entry.result).toBeNull();
+    expect(created.journal.primaryEntryId).toBe(created.entry.id);
+    expect(created.journal.primaryEntry.nextAction).toContain("anillo candidato");
+
+    // Una nota secundaria se conserva sin reemplazar la próxima acción.
+    const noteRes = await postJson(`/journal/${characterId}/entries`, {
+      kind: "note",
+      title: "Restricción de la build",
+      summary: "No perder Lightning Infusion durante la prueba.",
+      nextAction: null,
+      relatedItemIds: [],
+      sources: [],
+      context: {
+        characterLevel: 70,
+        league: "Runes of Aldur",
+        patch: "0.5.4f",
+        budget: null,
+        goal: null,
+      },
+      recommendationSnapshot: null,
+      makePrimary: false,
+    });
+    expect(noteRes.status).toBe(201);
+    const note = await jsonOf(noteRes);
+    expect(note.journal.primaryEntryId).toBe(created.entry.id);
+    expect(note.journal.entries).toHaveLength(2);
+
+    const waitingRes = await patchJson(
+      `/journal/${characterId}/entries/${created.entry.id}`,
+      { status: "waiting_result" },
+    );
+    expect(waitingRes.status).toBe(200);
+    const waiting = await jsonOf(waitingRes);
+    expect(waiting.entry.status).toBe("waiting_result");
+    expect(waiting.journal.primaryEntryId).toBe(created.entry.id);
+
+    const completedRes = await patchJson(
+      `/journal/${characterId}/entries/${created.entry.id}`,
+      {
+        status: "completed",
+        result: "El anillo dejó rayo en 75% sin perder vida.",
+      },
+    );
+    expect(completedRes.status).toBe(200);
+    const completed = await jsonOf(completedRes);
+    expect(completed.entry.status).toBe("completed");
+    expect(completed.entry.resolvedAt).toEqual(expect.any(String));
+    expect(completed.journal.primaryEntryId).toBeNull();
+    expect(completed.journal.primaryEntry).toBeNull();
+
+    const persistedRes = await fetch(`${base}/journal/${characterId}`);
+    const persisted = await jsonOf(persistedRes);
+    expect(persisted.entries).toHaveLength(2);
+    expect(
+      persisted.entries.find((entry: { id: string }) => entry.id === created.entry.id).result,
+    ).toContain("75%");
+
+    const wrongCharacter = await patchJson(
+      `/journal/otro-personaje/entries/${created.entry.id}`,
+      { status: "cancelled" },
+    );
+    expect(wrongCharacter.status).toBe(404);
+
+    const reopenResolvedAsPrimary = await patchJson(
+      `/journal/${characterId}/entries/${created.entry.id}`,
+      { makePrimary: true },
+    );
+    expect(reopenResolvedAsPrimary.status).toBe(400);
+  });
+
+  it("Character Journal no completa sin resultado ni espera una acción inexistente", async () => {
+    const characterId = "journal-invariants";
+    const noteRes = await postJson(`/journal/${characterId}/entries`, {
+      kind: "note",
+      title: "Dato pendiente",
+      summary: "Todavía no hay una acción definida.",
+      nextAction: null,
+      relatedItemIds: [],
+      sources: [],
+      context: {
+        characterLevel: 70,
+        league: "Runes of Aldur",
+        patch: "0.5.4f",
+        budget: null,
+        goal: null,
+      },
+      recommendationSnapshot: null,
+      makePrimary: false,
+    });
+    const note = await jsonOf(noteRes);
+
+    const waitingWithoutAction = await patchJson(
+      `/journal/${characterId}/entries/${note.entry.id}`,
+      { status: "waiting_result" },
+    );
+    expect(waitingWithoutAction.status).toBe(400);
+
+    const actionRes = await postJson(`/journal/${characterId}/entries`, {
+      kind: "experiment",
+      title: "Probar el anillo",
+      summary: "La hipótesis todavía necesita un resultado real.",
+      nextAction: "Equipar el anillo y comprobar las resistencias.",
+      relatedItemIds: [],
+      sources: [],
+      context: {
+        characterLevel: 70,
+        league: "Runes of Aldur",
+        patch: "0.5.4f",
+        budget: null,
+        goal: "survival",
+      },
+      recommendationSnapshot: null,
+      makePrimary: true,
+    });
+    const action = await jsonOf(actionRes);
+    const completedWithoutResult = await patchJson(
+      `/journal/${characterId}/entries/${action.entry.id}`,
+      { status: "completed" },
+    );
+    expect(completedWithoutResult.status).toBe(400);
+    const body = await jsonOf(completedWithoutResult);
+    expect(body.error).toBe("resultado-requerido");
+  });
+
+  it("Character Journal no permite una próxima acción principal vacía", async () => {
+    const res = await postJson("/journal/demo-gemling/entries", {
+      kind: "note",
+      title: "Nota sin acción",
+      summary: "Información de contexto.",
+      nextAction: null,
+      relatedItemIds: [],
+      sources: [],
+      context: {
+        characterLevel: 70,
+        league: "Runes of Aldur",
+        patch: "0.5.4f",
+        budget: null,
+        goal: null,
+      },
+      recommendationSnapshot: null,
+      makePrimary: true,
+    });
+    expect(res.status).toBe(400);
+    const body = await jsonOf(res);
+    expect(body.error).toBe("validacion-fallida");
+    expect(body.detail).toContain("próxima acción");
   });
 
   it("GET /market/prices offline: fixtures degradados + primaryCurrency + rates (objeto con origen)", async () => {

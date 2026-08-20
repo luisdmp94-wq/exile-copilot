@@ -2,7 +2,7 @@
 
 Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu presupuesto y recibe las próximas mejoras ordenadas por impacto, coste y riesgo».
 
-> Actualizado en la fase de corrección 3 (2026-08-19). El formato `.build` propietario inicial fue eliminado: se usa exclusivamente el esquema oficial GGG Build Planner v1.
+> Actualizado para el Hito 5A (2026-08-20). El formato `.build` propietario inicial fue eliminado: se usa exclusivamente el esquema oficial GGG Build Planner v1.
 
 ## Decisiones de arquitectura
 
@@ -11,6 +11,10 @@ Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu
 - **Validación**: zod en `shared/` (esquemas compartidos entre front y back).
 - **Motor de recomendaciones**: 100 % determinista, reglas en `server/engine/rules.ts`. Sin IA en el núcleo. Null-safe: un dato desconocido (`null`) nunca se convierte en 0 ni genera afirmaciones de confianza alta.
 - **Capa de explicación IA**: abstracción `ExplainerProvider`; `DeterministicExplainer` por defecto; `LlmExplainer` stub tras flag `EXPLAINER_LLM_ENABLED=false`.
+- **Memoria del mentor**: diario SQLite por personaje con decisiones,
+  experimentos, crafts, hitos y notas. Una referencia separada mantiene una sola
+  próxima acción principal; ejecutar una acción la deja esperando resultado y
+  solo el resultado del jugador permite cerrarla.
 
 ## Modelo de datos — separación clave
 
@@ -36,7 +40,7 @@ exile-copilot/
     app.ts           createApiApp (rutas sin prefijo, montadas en /api)
     config.ts        variables de entorno
     data/patches.json  parches versionados (content + hotfix, fuente y fecha)
-    db/              node:sqlite (price_cache, characters)
+    db/              node:sqlite (price_cache, characters, journal_entries, journal_state)
     importers/       buildImporter (dispatcher), gggBuildImporter (→ plan), itemTextParser
     services/        poeninja (caché+ETag+fixtures+rates), priceService
     engine/          reglas deterministas null-safe + fingerprint
@@ -47,6 +51,7 @@ exile-copilot/
   src/               frontend React (español, tema oscuro, Strict Mode)
   tests/             vitest: unit, integration, e2e
   scripts/browser-smoke.mjs  prueba real de navegador (Edge, prod y dev)
+  scripts/journal-smoke.mjs  flujo persistente del mentor con SQLite temporal
 ```
 
 ## Contrato API (v1, bajo /api)
@@ -56,6 +61,8 @@ exile-copilot/
 - `POST /import/build` → `{ warnings, detectedFormat, plan? | profile? }` (plan XOR profile).
 - `POST /import/item-text` → `{ item, warnings }`.
 - `POST /character` / `GET /character/:id` / `GET /character/demo`.
+- `GET /journal/:characterId` / `POST /journal/:characterId/entries` /
+  `PATCH /journal/:characterId/entries/:entryId`.
 - `GET  /market/prices?league=&names=` → quotes + `primaryCurrency` + `rates {values, origin, verified, fetchedAt} | null`.
 - `POST /recommendations` → 3 recomendaciones + `inputFingerprint`.
 - `POST /export/build` → `{ fileName (.build), content, report }`.
