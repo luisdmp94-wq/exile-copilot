@@ -1,6 +1,31 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 10 (Hito 5B y correcciones de auditoría), 2026-08-20.
+> Informe para el propietario. Última actualización: sesión 11 (Hito 6A: conversación con el mentor), 2026-08-21.
+
+## Sesión 11 — Hito 6A: primera conversación real con el mentor
+
+Trabajo hecho en la rama `hito-6a-conversational-mentor` (worktree aislado), **sin integrar en main**.
+
+- **Sección «5. Habla con tu mentor»**: campo de texto, sugerencias, turnos
+  diferenciados, estado de carga, respuesta estructurada con fuentes, confianza
+  y «falta por verificar», y botón para guardar la próxima acción en el diario.
+- **Determinista**: un clasificador de intención pequeño y explícito
+  (`next_improvement`, `explain_priority`, `unsupported`). Sin LLM, sin red y sin
+  texto inventado; las respuestas son plantillas rellenadas con datos del motor
+  y del diario.
+- **Reutiliza el motor**: con una acción activa el mentor RECUERDA ese paso y no
+  consulta precios; una memoria completada se reconcilia como `profile_sync`; el
+  resultado libre del jugador sigue siendo evidencia, nunca estadística.
+- **`POST /api/mentor/query`** con las mismas protecciones que
+  `/api/recommendations`: memoria autoritativa del servidor, 409 por revisión
+  obsoleta y segunda comprobación tras la espera asíncrona.
+- **Limitación declarada**: la conversación NO se persiste. Vive en memoria de la
+  interfaz y se descarta al cambiar personaje, build objetivo, presupuesto,
+  objetivo, liga, parche o revisión del diario.
+- Verificado: `tsc -b` 0 errores, ESLint 0 errores, **181/181** tests, build OK,
+  smoke del mentor **48/48** (24 × producción + desarrollo con Strict Mode) y sin
+  regresiones en los smokes previos (principal, equipo 35/35, diario 29/29).
+- Detalle completo en `docs/HITO_6A.md`.
 
 ## Sesión 10 — Hito 5B: la memoria influye en la siguiente decisión
 

@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:equipment": "node scripts/equipment-smoke.mjs",
-    "test:journal": "node scripts/journal-smoke.mjs"
+    "test:journal": "node scripts/journal-smoke.mjs",
+    "test:mentor": "node scripts/mentor-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

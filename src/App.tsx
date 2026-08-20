@@ -19,6 +19,10 @@ import { useMeta } from "@/hooks/useMeta";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
 import { journalEntryFromRecommendation } from "@/lib/journal";
+import { MentorChatSection } from "@/sections/MentorChatSection";
+import { useMentor } from "@/hooks/useMentor";
+import { buildMentorRequest } from "@/lib/mentorRequest";
+import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 
@@ -71,6 +75,7 @@ export default function App() {
   );
   const character = useCharacter(characterOptions);
   const journal = useJournal(character.profile?.id ?? null);
+  const mentor = useMentor();
   const characterJournal =
     character.profile && journal.journal?.characterId === character.profile.id
       ? journal.journal
@@ -126,6 +131,30 @@ export default function App() {
       toast.info("Los datos han cambiado — vuelve a generar las recomendaciones");
     }
   }, [currentInputsKey, resultInputsKey, clear]);
+
+  // La conversación NO se persiste y se descarta en cuanto cambian los inputs
+  // relevantes: así el hilo nunca muestra respuestas obsoletas.
+  const currentMentorInputsKey = character.profile
+    ? mentorInputsKey(
+        buildMentorRequest(
+          "",
+          character.profile,
+          targetDraft,
+          budget,
+          goal,
+          league,
+          patch,
+          characterJournal,
+        ),
+      )
+    : null;
+  const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
+  useEffect(() => {
+    if (mentorThreadKey && mentorThreadKey !== currentMentorInputsKey) {
+      clearMentor();
+      toast.info("Los datos han cambiado — la conversación con el mentor se ha reiniciado");
+    }
+  }, [currentMentorInputsKey, mentorThreadKey, clearMentor]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -213,6 +242,47 @@ export default function App() {
                 );
               }}
               trackingRecommendation={journal.saving}
+            />
+
+            <MentorChatSection
+              profile={character.profile}
+              mentor={mentor}
+              savingNextAction={journal.saving}
+              onAsk={(question) => {
+                if (!character.profile) return;
+                void mentor
+                  .ask(
+                    buildMentorRequest(
+                      question,
+                      character.profile,
+                      targetDraft,
+                      budget,
+                      goal,
+                      league,
+                      patch,
+                      characterJournal,
+                    ),
+                  )
+                  .then((outcome) => {
+                    if (outcome === "journal-stale") void journal.reload();
+                  });
+              }}
+              onSaveNextAction={(answer) => {
+                const recommendation = answer.nextAction?.recommendation ?? null;
+                if (!character.profile || recommendation === null) return;
+                void journal.createEntry(
+                  journalEntryFromRecommendation(
+                    recommendation,
+                    character.profile,
+                    budget,
+                    goal,
+                  ),
+                );
+              }}
+              onFocusItem={(itemId, trigger) => {
+                dialogTriggerRef.current = trigger;
+                setFocusedItemId(itemId);
+              }}
             />
           </div>
         </div>

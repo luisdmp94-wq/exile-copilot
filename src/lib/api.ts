@@ -1,6 +1,11 @@
 import type { z } from "zod";
 import type { CharacterProfile } from "@shared/domain.js";
 import {
+  MentorQueryResponseSchema,
+  type MentorQueryRequest,
+  type MentorQueryResponse,
+} from "@shared/mentorQuery.js";
+import {
   ApiErrorSchema,
   DemoCharacterResponseSchema,
   ExportBuildResponseSchema,
@@ -164,6 +169,10 @@ export const api = {
     const params = new URLSearchParams({ league, names: names.join(",") });
     return request(`/api/market/prices?${params.toString()}`, MarketPricesResponseSchema);
   },
+
+  /** Conversación determinista con el mentor (Hito 6A). */
+  mentorQuery: (payload: MentorQueryRequest): Promise<MentorQueryResponse> =>
+    request("/api/mentor/query", MentorQueryResponseSchema, jsonInit(payload)),
 
   recommendations: (payload: RecommendationsRequest): Promise<RecommendationsResponse> =>
     request("/api/recommendations", RecommendationsResponseSchema, jsonInit(payload)),

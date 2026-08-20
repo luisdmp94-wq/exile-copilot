@@ -83,9 +83,15 @@ Cerrados el Paperdoll (Hito 4B) y la primera memoria operativa, la dirección es
 1. **Character Journal (Hitos 5A/5B, implementado)** — memoria persistente de
    decisiones, experimentos y crafts; una acción activa detiene al motor y un
    resultado previo evita repetir la misma mejora sin reconciliar el perfil.
-2. **Copilot conversacional v1 (pendiente)** — la interfaz de mentor sobre esa memoria,
-   respetando el patrón de respuesta y el flujo de crafting de arriba.
+2. **Conversación con el mentor (Hito 6A, implementado como slice determinista)** —
+   la sección «Habla con tu mentor» responde a un conjunto pequeño y explícito de
+   preguntas reutilizando el motor y el diario. Sin LLM y sin texto inventado;
+   toda pregunta fuera de ese conjunto se declara no soportada.
+3. **Copilot conversacional v1 (pendiente)** — comprensión más amplia, historial
+   persistente y seguimiento de crafts paso a paso.
 
-La conversación libre no está implementada. El dashboard ya funciona como
-memoria, evidencia y herramienta; el futuro copiloto deberá apoyarse en estos
-contratos en lugar de saltárselos.
+La conversación libre **no** está implementada: hoy solo se reconocen las
+intenciones `next_improvement` y `explain_priority`, y el hilo no se persiste.
+Si en el futuro se incorpora un LLM, podrá reformular o ampliar el
+reconocimiento de intención, pero la decisión, la próxima acción, las fuentes,
+la confianza y lo no verificado seguirán saliendo del motor y del diario.

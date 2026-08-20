@@ -56,6 +56,7 @@ exile-copilot/
   tests/             vitest: unit, integration, e2e
   scripts/browser-smoke.mjs  prueba real de navegador (Edge, prod y dev)
   scripts/journal-smoke.mjs  flujo persistente del mentor con SQLite temporal
+  scripts/mentor-smoke.mjs   conversación con el mentor (Hito 6A), SQLite temporal
 ```
 
 ## Contrato API (v1, bajo /api)
@@ -69,6 +70,10 @@ exile-copilot/
   `PATCH /journal/:characterId/entries/:entryId`.
 - `GET  /market/prices?league=&names=` → quotes + `primaryCurrency` + `rates {values, origin, verified, fetchedAt} | null`.
 - `POST /recommendations` → 3 recomendaciones + `inputFingerprint`.
+- `POST /mentor/query` → respuesta conversacional determinista (intención, una
+  próxima acción o `null`, ids usados, fuentes, confianza, no verificado,
+  impacto del diario y huella). Mismas protecciones 409 de revisión que
+  `/recommendations`; el cliente solo envía `journalRevision`.
   Acepta `journalRevision` y devuelve `memoryImpact`; una revisión obsoleta
   produce `409` y una acción principal activa produce cero tareas nuevas.
 - `POST /export/build` → `{ fileName (.build), content, report }`.

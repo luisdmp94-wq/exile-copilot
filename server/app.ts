@@ -40,6 +40,8 @@ import { PoeNinjaClient, PriceService } from "./services/poeninja.js";
 import { generateRecommendations } from "./engine/engine.js";
 import { getExplainer, type ExplainerProvider } from "./explainers/index.js";
 import { exportGggBuild } from "./exporters/gggBuildExporter.js";
+import { MentorQueryRequestSchema } from "../shared/mentorQuery.js";
+import { answerMentorQuery } from "./mentor/mentorService.js";
 import { ApiHttpError } from "./errors.js";
 import { resolvePlan } from "./registry/passiveRegistry.js";
 
@@ -430,6 +432,56 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         );
       }
       res.json({ ...result, recommendations });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /mentor/query — conversación determinista con el mentor (Hito 6A).
+  // Mismas protecciones que /recommendations: el servidor carga la memoria
+  // autoritativa del diario, rechaza una revisión obsoleta con 409 y vuelve a
+  // comprobarla tras cualquier espera asíncrona (carrera entre pestañas).
+  app.post("/mentor/query", async (req, res, next) => {
+    try {
+      const body = MentorQueryRequestSchema.parse(req.body);
+      const memory = readRecommendationMemory(db, body.profile.id);
+      if (
+        body.journalRevision !== undefined &&
+        body.journalRevision !== null &&
+        body.journalRevision !== memory.revision
+      ) {
+        throw new ApiHttpError(
+          409,
+          "memoria-diario-obsoleta",
+          "La memoria del personaje cambió. Recárgala antes de volver a preguntar al mentor.",
+        );
+      }
+
+      const answer = await answerMentorQuery(
+        {
+          question: body.question,
+          profile: body.profile,
+          budget: body.budget,
+          goal: body.goal,
+          league: body.league,
+          patch: body.patch,
+          memory,
+          ...(body.target !== undefined ? { target: body.target } : {}),
+        },
+        { priceService },
+      );
+
+      // Segunda lectura tras la espera asíncrona: si otra pestaña creó o cerró
+      // una acción mientras respondíamos, esta respuesta ya no es válida.
+      if (readRecommendationMemory(db, body.profile.id).revision !== memory.revision) {
+        throw new ApiHttpError(
+          409,
+          "memoria-diario-obsoleta",
+          "La memoria del personaje cambió mientras se preparaba la respuesta. Recárgala y vuelve a preguntar.",
+        );
+      }
+
+      res.json({ answer });
     } catch (err) {
       next(err);
     }

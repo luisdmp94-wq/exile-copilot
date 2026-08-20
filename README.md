@@ -34,6 +34,7 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm run lint` — ESLint sobre todo el repo.
 - `npm run test:browser` — prueba real de navegador del flujo principal con Edge (Playwright, `channel: msedge`, sin descargar navegadores). `--dev` la ejecuta contra el servidor de desarrollo (Strict Mode), `--all` contra ambos. Requiere `npm run build` previo para el modo producción. Guarda capturas en `docs/screenshots/`.
 - `npm run test:journal` — prueba del flujo persistente del mentor en una base temporal; acepta también `--dev` y `--all` y nunca modifica los datos del usuario.
+- `npm run test:mentor` — prueba de navegador de la conversación con el mentor (Hito 6A) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
 
 ## Cómo probar el flujo principal (sin credenciales)
 
@@ -113,6 +114,28 @@ Un id que no esté en el registro se muestra siempre como «No verificado» junt
 id crudo: el nombre nunca se deduce del texto del id.
 
 > This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
+
+## Habla con tu mentor (Hito 6A)
+
+La sección «5. Habla con tu mentor» permite preguntar en español y recibir una
+respuesta **determinista**: sin LLM, sin red y sin texto inventado.
+
+Preguntas que entiende hoy:
+
+- «¿Qué mejoro ahora?», «¿Qué debería hacer primero?» → siguiente paso.
+- «¿Por qué me recomiendas esto?», «¿Cuál es mi principal problema?» → explicación.
+
+Cualquier otra pregunta se declara **no soportada**, sin proponer nada y con
+ejemplos válidos: el mentor prefiere decir «esto todavía no lo sé» a improvisar.
+
+La conversación reutiliza el motor y el Character Journal: si ya tienes una
+acción activa, el mentor **recuerda ese paso** en lugar de crear otro y no
+consulta precios. Cada respuesta muestra su única próxima acción, fuentes,
+confianza y lo que falta por verificar.
+
+**Limitación:** el hilo vive solo en memoria de la interfaz. No se persiste, se
+pierde al recargar y se descarta cuando cambian los datos relevantes para no
+mostrar respuestas obsoletas. Detalles en `docs/HITO_6A.md`.
 
 ## Estructura
 
