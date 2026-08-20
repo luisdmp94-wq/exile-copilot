@@ -103,18 +103,32 @@ export function saveJournalEntry(
     id: string;
     characterId: string;
     payload: string;
+    status: string;
+    recommendationId: string | null;
     createdAt: string;
     updatedAt: string;
   },
 ): void {
   db.prepare(
-    `INSERT INTO journal_entries (id, character_id, payload, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO journal_entries (
+       id, character_id, payload, status, recommendation_id, created_at, updated_at
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        character_id = excluded.character_id,
        payload = excluded.payload,
+       status = excluded.status,
+       recommendation_id = excluded.recommendation_id,
        updated_at = excluded.updated_at`,
-  ).run(entry.id, entry.characterId, entry.payload, entry.createdAt, entry.updatedAt);
+  ).run(
+    entry.id,
+    entry.characterId,
+    entry.payload,
+    entry.status,
+    entry.recommendationId,
+    entry.createdAt,
+    entry.updatedAt,
+  );
 }
 
 export function getJournalEntry(db: Database, id: string): JournalEntryRow | null {
@@ -136,6 +150,27 @@ export function listJournalEntries(db: Database, characterId: string): JournalEn
        ORDER BY updated_at DESC, created_at DESC, id DESC`,
     )
     .all(characterId);
+  return rows as unknown as JournalEntryRow[];
+}
+
+/** Lectura acotada usada por el motor: solo resultados de recomendaciones. */
+export function listCompletedRecommendationJournalEntries(
+  db: Database,
+  characterId: string,
+  limit: number,
+): JournalEntryRow[] {
+  const safeLimit = Math.max(1, Math.min(Math.trunc(limit), 100));
+  const rows = db
+    .prepare(
+      `SELECT id, character_id, payload, created_at, updated_at
+       FROM journal_entries
+       WHERE character_id = ?
+         AND status = 'completed'
+         AND recommendation_id IS NOT NULL
+       ORDER BY updated_at DESC, created_at DESC, id DESC
+       LIMIT ?`,
+    )
+    .all(characterId, safeLimit);
   return rows as unknown as JournalEntryRow[];
 }
 

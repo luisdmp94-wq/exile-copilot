@@ -44,7 +44,12 @@ export function buildRecommendationMemory(
     ? toMemoryEntry(journal.primaryEntry)
     : null;
   const recentCompleted = journal.entries
-    .filter((entry) => entry.status === "completed" && entry.result !== null)
+    .filter(
+      (entry) =>
+        entry.status === "completed" &&
+        entry.result !== null &&
+        entry.recommendationSnapshot !== null,
+    )
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, MAX_COMPLETED_ENTRIES)
     .map(toMemoryEntry);

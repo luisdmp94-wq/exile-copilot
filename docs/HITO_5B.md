@@ -14,11 +14,15 @@ decisión mediante dos reglas explícitas:
 
 ## Flujo de datos
 
-- `buildRecommendationMemory()` proyecta el diario completo a una vista de
-  tamaño limitado: acción principal y diez resultados recientes.
+- El servidor lee por índice la acción principal y hasta diez resultados
+  recientes vinculados a recomendaciones; no carga el historial completo para
+  decidir. `buildRecommendationMemory()` los proyecta a una vista acotada.
 - La interfaz envía únicamente la revisión que ha visto (`journalRevision`).
 - El servidor carga el diario autoritativo desde SQLite. Si la revisión de la
   interfaz está obsoleta responde `409 memoria-diario-obsoleta`.
+- Después de esperar precios/explicación, el servidor vuelve a leer la revisión:
+  un cambio simultáneo desde otra pestaña invalida la respuesta antes de enviarla.
+  La UI reconoce el 409 y recarga el diario.
 - La memoria forma parte de `inputFingerprint`; cualquier cambio invalida las
   recomendaciones anteriores.
 - `memoryImpact` explica las entradas utilizadas, el bloqueo por acción activa
@@ -36,6 +40,8 @@ Las acciones de reconciliación:
 
 - no consultan precios;
 - no modifican objetos;
+- llevan `actionKind: profile_sync`, no muestran «incluir en .build» y el
+  exportador también las rechaza como defensa de servidor;
 - conservan una fuente `user` que enlaza conceptualmente con la entrada del
   diario;
 - muestran por qué el perfil y la memoria están en conflicto.
@@ -48,12 +54,14 @@ Las acciones de reconciliación:
 - No hay extracción automática de datos desde el resultado.
 - No hay conversación libre ni LLM; ese será otro hito y deberá operar sobre
   estos contratos, nunca sustituirlos.
+- Los ids relacionados están limitados a 100 elementos de 200 caracteres y las
+  fuentes del diario a 50; el cuerpo HTTP conserva además el límite del servidor.
 
 ## Verificación
 
 - Unidad: bloqueo sin consultas de precio, reconciliación sin interpretar texto
   y fingerprint sensible a la revisión de memoria.
-- Integración: acción activa, revisión obsoleta y resultado completado que
-  cambia la siguiente respuesta.
+- Integración: acción activa, revisión obsoleta, migración aditiva, carrera entre
+  pestañas y resultado completado que cambia la siguiente respuesta.
 - Navegador: ciclo completo en producción y Strict Mode, incluida recarga,
   bloqueo, resultado y reconciliación, con SQLite temporal.

@@ -194,6 +194,7 @@ export default function App() {
               patch={patch}
               journal={characterJournal}
               journalLoading={characterJournalLoading}
+              onJournalStale={journal.reload}
               recommendations={recommendations}
               onLoadDemo={character.loadDemo}
               onFocusItem={(itemId, trigger) => {

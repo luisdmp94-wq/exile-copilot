@@ -292,12 +292,17 @@ export const ExpectedImpactSchema = z.object({
 });
 export type ExpectedImpact = z.infer<typeof ExpectedImpactSchema>;
 
+export const RecommendationActionKind = z.enum(["game_change", "profile_sync"]);
+export type RecommendationActionKind = z.infer<typeof RecommendationActionKind>;
+
 export const RecommendationSchema = z.object({
   id: z.string(),
   priority: z.number().int().min(1).max(3),
   title: z.string(),
   action: z.string(), // acción concreta
   reason: z.string(), // motivo
+  /** `profile_sync` corrige datos de la app y nunca se exporta al `.build`. */
+  actionKind: RecommendationActionKind.default("game_change"),
   cost: CostEstimateSchema,
   impact: ExpectedImpactSchema,
   risk: z.object({
@@ -316,7 +321,7 @@ export const RecommendationSchema = z.object({
    * recomendación (vínculo estructurado, nunca inferido por texto). Vacío
    * cuando la recomendación no se refiere a una pieza equipada concreta.
    */
-  relatedItemIds: z.array(z.string()).default([]),
+  relatedItemIds: z.array(z.string().min(1).max(200)).max(100).default([]),
 });
 export type Recommendation = z.infer<typeof RecommendationSchema>;
 
@@ -370,8 +375,8 @@ export const JournalEntrySchema = z.object({
   summary: z.string().trim().min(1).max(4000),
   nextAction: z.string().trim().min(1).max(2000).nullable().default(null),
   result: z.string().trim().min(1).max(4000).nullable().default(null),
-  relatedItemIds: z.array(z.string()).default([]),
-  sources: z.array(SourceEvidenceSchema).default([]),
+  relatedItemIds: z.array(z.string().min(1).max(200)).max(100).default([]),
+  sources: z.array(SourceEvidenceSchema).max(50).default([]),
   context: JournalContextSchema,
   recommendationSnapshot: RecommendationSchema.nullable().default(null),
   createdAt: z.string(),
@@ -400,7 +405,7 @@ export const RecommendationMemoryEntrySchema = z.object({
   nextAction: z.string().min(1).max(2000).nullable(),
   result: z.string().min(1).max(4000).nullable(),
   recommendationId: z.string().min(1).nullable(),
-  relatedItemIds: z.array(z.string()),
+  relatedItemIds: z.array(z.string().min(1).max(200)).max(100),
   updatedAt: z.string(),
   patch: z.string().nullable(),
 });

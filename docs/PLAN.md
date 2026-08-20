@@ -81,4 +81,8 @@ exile-copilot/
 
 ## Criterios de aceptación
 
-Verificados desde un checkout limpio: tests, lint, build y prueba de navegador en verde; `.build` válido contra el esquema GGG (nunca «probado en el juego»); desconocidos como null; precios honestos; README y HANDOFF actualizados.
+Antes de integrar una rama de hito: tests, lint, build y prueba de navegador en
+verde; `.build` válido contra el esquema GGG (nunca «probado en el juego»);
+desconocidos como null; precios honestos; README y HANDOFF actualizados. La
+verificación desde checkout limpio se registra expresamente cuando se realiza;
+no se presume por ejecutar sobre un worktree.

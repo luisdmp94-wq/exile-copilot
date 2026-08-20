@@ -28,6 +28,7 @@ import {
   getCharacter,
   getJournalEntry,
   getJournalPrimaryEntryId,
+  listCompletedRecommendationJournalEntries,
   listJournalEntries,
   saveCharacter,
   saveJournalEntry,
@@ -37,7 +38,7 @@ import { importBuild } from "./importers/buildImporter.js";
 import { parseItemText } from "./importers/itemTextParser.js";
 import { PoeNinjaClient, PriceService } from "./services/poeninja.js";
 import { generateRecommendations } from "./engine/engine.js";
-import { getExplainer } from "./explainers/index.js";
+import { getExplainer, type ExplainerProvider } from "./explainers/index.js";
 import { exportGggBuild } from "./exporters/gggBuildExporter.js";
 import { ApiHttpError } from "./errors.js";
 import { resolvePlan } from "./registry/passiveRegistry.js";
@@ -57,6 +58,8 @@ export interface CreateApiAppOptions {
   config?: Partial<ServerConfig>;
   /** Fetch inyectable para tests del cliente poe.ninja. */
   fetchImpl?: ConstructorParameters<typeof PoeNinjaClient>[0]["fetchImpl"];
+  /** Explainer inyectable para comprobar carreras sin usar servicios externos. */
+  explainer?: ExplainerProvider;
 }
 
 function fixtureUrl(rel: string): URL {
@@ -89,12 +92,40 @@ function readJournal(db: ReturnType<typeof createDatabase>, characterId: string)
   return { characterId, primaryEntryId, primaryEntry, entries };
 }
 
+/** Contexto acotado del motor: una primaria por id + diez completadas indexadas. */
+function readRecommendationMemory(
+  db: ReturnType<typeof createDatabase>,
+  characterId: string,
+) {
+  const storedPrimaryId = getJournalPrimaryEntryId(db, characterId);
+  const primaryRow = storedPrimaryId ? getJournalEntry(db, storedPrimaryId) : null;
+  const parsedPrimary =
+    primaryRow?.character_id === characterId
+      ? JournalEntrySchema.parse(JSON.parse(primaryRow.payload))
+      : null;
+  const primaryEntry =
+    parsedPrimary?.status === "active" || parsedPrimary?.status === "waiting_result"
+      ? parsedPrimary
+      : null;
+  const completedEntries = listCompletedRecommendationJournalEntries(
+    db,
+    characterId,
+    10,
+  ).map((row) => JournalEntrySchema.parse(JSON.parse(row.payload)));
+  return buildRecommendationMemory({
+    characterId,
+    primaryEntryId: primaryEntry?.id ?? null,
+    primaryEntry,
+    entries: completedEntries,
+  });
+}
+
 export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const config: ServerConfig = { ...loadConfig(), ...(options.config ?? {}) };
   const db = createDatabase(options.dbPath ?? config.databasePath);
   const ninjaClient = new PoeNinjaClient({ db, config, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) });
   const priceService = new PriceService(ninjaClient);
-  const explainer = getExplainer(config);
+  const explainer = options.explainer ?? getExplainer(config);
   const patches = loadPatches();
 
   const importDefaults = { league: config.defaultLeague, patch: config.defaultPatch };
@@ -242,6 +273,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         id: entry.id,
         characterId,
         payload: JSON.stringify(entry),
+        status: entry.status,
+        recommendationId: entry.recommendationSnapshot?.id ?? null,
         createdAt: now,
         updatedAt: now,
       });
@@ -306,6 +339,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         id: entry.id,
         characterId,
         payload: JSON.stringify(entry),
+        status: entry.status,
+        recommendationId: entry.recommendationSnapshot?.id ?? null,
         createdAt: entry.createdAt,
         updatedAt: now,
       });
@@ -345,7 +380,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.post("/recommendations", async (req, res, next) => {
     try {
       const body = RecommendationsRequestSchema.parse(req.body);
-      const memory = buildRecommendationMemory(readJournal(db, body.profile.id));
+      const memory = readRecommendationMemory(db, body.profile.id);
       if (
         body.journalRevision !== undefined &&
         body.journalRevision !== null &&
@@ -380,6 +415,16 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           }),
         })),
       );
+      // Segunda lectura tras cualquier espera asíncrona (precios/explainer):
+      // una acción creada en otra pestaña invalida esta respuesta antes de que
+      // pueda presentar tareas paralelas.
+      if (readRecommendationMemory(db, body.profile.id).revision !== memory.revision) {
+        throw new ApiHttpError(
+          409,
+          "memoria-diario-obsoleta",
+          "La memoria del personaje cambió mientras se calculaba la decisión. Recárgala y vuelve a intentarlo.",
+        );
+      }
       res.json({ ...result, recommendations });
     } catch (err) {
       next(err);

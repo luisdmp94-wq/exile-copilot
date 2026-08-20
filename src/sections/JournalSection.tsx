@@ -411,7 +411,7 @@ function PrimaryEntry({
             id={`journal-result-${entry.id}`}
             value={resultText}
             onChange={(event) => onResultTextChange(event.target.value)}
-            placeholder="Describe el objeto obtenido, el nuevo valor o lo que cambió. El mentor usará este resultado en la siguiente decisión."
+            placeholder="Describe lo que ocurrió. Se guardará como evidencia; actualiza también «Mi personaje» para que el motor use los nuevos valores."
             className="mt-2"
             maxLength={4000}
           />

@@ -453,16 +453,31 @@ describe("auditoría 4 — solo se exportan mejoras aplicadas del resultado vige
       "rec-vida-baja": true, // de una generación anterior, ya no vigente
       "rec-resistencias-elementales": true,
       "rec-mejora-arma": false,
+      "rec-memoria-resistencias-elementales": true,
     };
     const current = [
       { id: "rec-resistencias-elementales" },
       { id: "rec-mejora-arma" },
       { id: "rec-enlaces-skill" },
+      {
+        id: "rec-memoria-resistencias-elementales",
+        actionKind: "profile_sync" as const,
+      },
     ];
     expect(selectAppliedRecommendationIds(applied, current)).toEqual([
       "rec-resistencias-elementales",
     ]);
     expect(selectAppliedRecommendationIds(applied, [])).toEqual([]);
     expect(selectAppliedRecommendationIds({}, current)).toEqual([]);
+  });
+
+  it("el servidor omite ids internos/no exportables en vez de escribirlos en .build", () => {
+    const internalId = "rec-memoria-resistencias-elementales";
+    const exported = exportGggBuild(emptyProfile(), undefined, [internalId]);
+    expect(exported.content).not.toContain(internalId);
+    expect(exported.content).not.toContain("Mejoras planificadas:");
+    expect(exported.report.skippedUnverified).toEqual(
+      expect.arrayContaining([expect.stringContaining(`${internalId}`)]),
+    );
   });
 });

@@ -36,6 +36,7 @@ interface RecommendationsSectionProps {
   patch: string;
   journal: CharacterJournal | null;
   journalLoading: boolean;
+  onJournalStale: () => Promise<void>;
   recommendations: RecommendationsState;
   onLoadDemo: () => Promise<void>;
   /** Navegación recomendación → objeto; solo se usa con vínculo estructurado. */
@@ -53,6 +54,7 @@ export function RecommendationsSection({
   patch,
   journal,
   journalLoading,
+  onJournalStale,
   recommendations,
   onLoadDemo,
   onFocusItem,
@@ -93,17 +95,20 @@ export function RecommendationsSection({
             type="button"
             onClick={() => {
               if (!profile) return;
-              void recommendations.generate(
-                buildRecommendationsRequest(
-                  profile,
-                  targetDraft,
-                  budget,
-                  goal,
-                  league,
-                  patch,
-                  journal,
-                ),
-              );
+              void (async () => {
+                const outcome = await recommendations.generate(
+                  buildRecommendationsRequest(
+                    profile,
+                    targetDraft,
+                    budget,
+                    goal,
+                    league,
+                    patch,
+                    journal,
+                  ),
+                );
+                if (outcome === "journal-stale") await onJournalStale();
+              })();
             }}
             disabled={!canGenerate}
           >

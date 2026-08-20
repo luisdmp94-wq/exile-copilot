@@ -6,7 +6,9 @@ import type {
   RecommendationsRequest,
   RecommendationsResponse,
 } from "@shared/api.js";
-import { api, getErrorMessage } from "@/lib/api";
+import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
+
+export type RecommendationGenerationOutcome = "ok" | "journal-stale" | "error";
 
 export interface RecommendationsState {
   result: RecommendationsResponse | null;
@@ -19,7 +21,9 @@ export interface RecommendationsState {
   loading: boolean;
   exporting: boolean;
   error: string | null;
-  generate: (request: RecommendationsRequest) => Promise<void>;
+  generate: (
+    request: RecommendationsRequest,
+  ) => Promise<RecommendationGenerationOutcome>;
   exportBuild: (payload: ExportBuildRequest) => Promise<void>;
   clear: () => void;
 }
@@ -34,7 +38,9 @@ export function useRecommendations(): RecommendationsState {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const generate = useCallback(async (request: RecommendationsRequest) => {
+  const generate = useCallback(async (
+    request: RecommendationsRequest,
+  ): Promise<RecommendationGenerationOutcome> => {
     setLoading(true);
     setError(null);
     try {
@@ -47,12 +53,23 @@ export function useRecommendations(): RecommendationsState {
       } else {
         toast.success(`${res.recommendations.length} recomendación(es) generadas`);
       }
+      return "ok";
     } catch (err) {
+      if (
+        err instanceof ApiRequestError &&
+        err.status === 409 &&
+        err.message === "memoria-diario-obsoleta"
+      ) {
+        setError(null);
+        toast.info("La memoria del mentor cambió; la estamos recargando");
+        return "journal-stale";
+      }
       const message = getErrorMessage(err);
       setError(message);
       toast.error("No se pudieron generar las recomendaciones", {
         description: message,
       });
+      return "error";
     } finally {
       setLoading(false);
     }

@@ -266,10 +266,13 @@ describe("exportador oficial (fidelidad de plan + mejoras legibles)", () => {
     expect(weapon1?.additional_text).toContain("Prioritize highest physical dps");
   });
 
-  it("recomendación desconocida aparece en description con su id (sin slot asociado)", () => {
+  it("recomendación desconocida se omite y queda declarada en el informe", () => {
     const exported = exportGggBuild(emptyProfile(), titanTarget(), ["rec-inventada"]);
     const parsed = GggBuildPlannerV1Schema.parse(JSON.parse(exported.content));
-    expect(parsed.description).toContain("1) rec-inventada");
+    expect(parsed.description ?? "").not.toContain("rec-inventada");
+    expect(exported.report.skippedUnverified).toEqual(
+      expect.arrayContaining([expect.stringContaining("rec-inventada")]),
+    );
   });
 
   it("el informe declara lo no exportable del formato oficial", () => {
