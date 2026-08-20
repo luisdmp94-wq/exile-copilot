@@ -348,11 +348,45 @@ export type JournalEntryStatus = z.infer<typeof JournalEntryStatus>;
 
 export const MAX_JOURNAL_TITLE_LENGTH = 160;
 
-/** Mantiene cualquier título generado dentro del contrato persistente. */
+const HIGH_SURROGATE_START = 0xd800;
+const HIGH_SURROGATE_END = 0xdbff;
+const LOW_SURROGATE_START = 0xdc00;
+const LOW_SURROGATE_END = 0xdfff;
+
+/**
+ * Descarta un surrogate aislado al final del texto.
+ *
+ * Recortar por unidades UTF-16 puede partir un par (p. ej. un emoji) y dejar
+ * el alto surrogate suelto. También se descarta un bajo surrogate final que no
+ * venga precedido de su alto, que solo puede llegar de una entrada malformada.
+ */
+function dropLoneTrailingSurrogate(text: string): string {
+  if (text.length === 0) return text;
+  const last = text.charCodeAt(text.length - 1);
+  if (last >= HIGH_SURROGATE_START && last <= HIGH_SURROGATE_END) {
+    // Un alto surrogate al final siempre está suelto: su pareja iría después.
+    return text.slice(0, -1);
+  }
+  if (last >= LOW_SURROGATE_START && last <= LOW_SURROGATE_END) {
+    const previous = text.length >= 2 ? text.charCodeAt(text.length - 2) : 0;
+    const emparejado = previous >= HIGH_SURROGATE_START && previous <= HIGH_SURROGATE_END;
+    if (!emparejado) return text.slice(0, -1);
+  }
+  return text;
+}
+
+/**
+ * Mantiene cualquier título generado dentro del contrato persistente
+ * (máximo `MAX_JOURNAL_TITLE_LENGTH` unidades UTF-16, elipsis incluida) sin
+ * dejar nunca un surrogate aislado al cortar.
+ */
 export function compactJournalTitle(title: string): string {
   const trimmed = title.trim();
   if (trimmed.length <= MAX_JOURNAL_TITLE_LENGTH) return trimmed;
-  return `${trimmed.slice(0, MAX_JOURNAL_TITLE_LENGTH - 1).trimEnd()}…`;
+  const cortado = dropLoneTrailingSurrogate(
+    trimmed.slice(0, MAX_JOURNAL_TITLE_LENGTH - 1),
+  );
+  return `${cortado.trimEnd()}…`;
 }
 
 /**

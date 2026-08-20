@@ -4,7 +4,9 @@ import {
   CharacterJournalSchema,
   CharacterProfileSchema,
   JournalEntrySchema,
+  MAX_JOURNAL_TITLE_LENGTH,
   RecommendationSchema,
+  compactJournalTitle,
 } from "../../shared/domain.js";
 import { buildRecommendationMemory } from "../../shared/journalMemory.js";
 import {
@@ -111,6 +113,47 @@ describe("Character Journal", () => {
     expect(input.title).toHaveLength(160);
     expect(input.title.endsWith("…")).toBe(true);
     expect(CreateJournalEntryRequestSchema.safeParse(input).success).toBe(true);
+  });
+
+  it("recorta títulos sin dejar surrogates aislados (ASCII, emojis y frontera)", () => {
+    // Un surrogate suelto es un alto sin su bajo, o un bajo sin su alto.
+    const surrogateSuelto =
+      /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+    // Frontera exacta: 160 unidades se conservan tal cual; 161 se recortan.
+    const justo = "a".repeat(MAX_JOURNAL_TITLE_LENGTH);
+    expect(compactJournalTitle(justo)).toBe(justo);
+    expect(compactJournalTitle(justo)).toHaveLength(MAX_JOURNAL_TITLE_LENGTH);
+
+    const unaMas = "a".repeat(MAX_JOURNAL_TITLE_LENGTH + 1);
+    const recortado = compactJournalTitle(unaMas);
+    expect(recortado).toHaveLength(MAX_JOURNAL_TITLE_LENGTH);
+    expect(recortado.endsWith("…")).toBe(true);
+    expect(surrogateSuelto.test(recortado)).toBe(false);
+
+    // Emoji partido justo en el corte: "🗡" ocupa 2 unidades y empieza en la
+    // 159, así que el recorte por unidades caía en mitad del par.
+    const emojiEnLaFrontera = `${"a".repeat(MAX_JOURNAL_TITLE_LENGTH - 2)}🗡🛡`;
+    expect(emojiEnLaFrontera.length).toBeGreaterThan(MAX_JOURNAL_TITLE_LENGTH);
+    const conEmoji = compactJournalTitle(emojiEnLaFrontera);
+    expect(conEmoji.length).toBeLessThanOrEqual(MAX_JOURNAL_TITLE_LENGTH);
+    expect(conEmoji.endsWith("…")).toBe(true);
+    expect(surrogateSuelto.test(conEmoji)).toBe(false);
+    // El emoji entero anterior al corte sobrevive; el partido desaparece.
+    expect(conEmoji).toBe(`${"a".repeat(MAX_JOURNAL_TITLE_LENGTH - 2)}…`);
+
+    // Título íntegramente de emojis: tampoco puede partir ninguno.
+    const soloEmojis = "🗡".repeat(MAX_JOURNAL_TITLE_LENGTH);
+    const emojisRecortados = compactJournalTitle(soloEmojis);
+    expect(emojisRecortados.length).toBeLessThanOrEqual(MAX_JOURNAL_TITLE_LENGTH);
+    expect(emojisRecortados.endsWith("…")).toBe(true);
+    expect(surrogateSuelto.test(emojisRecortados)).toBe(false);
+
+    // Un emoji completo justo antes del corte NO se descarta por precaución.
+    const emojiCompletoAntes = `${"a".repeat(MAX_JOURNAL_TITLE_LENGTH - 3)}🗡bb`;
+    const conservado = compactJournalTitle(emojiCompletoAntes);
+    expect(conservado).toBe(`${"a".repeat(MAX_JOURNAL_TITLE_LENGTH - 3)}🗡…`);
+    expect(surrogateSuelto.test(conservado)).toBe(false);
   });
 
   it("rechaza una entrada principal sin próxima acción", () => {

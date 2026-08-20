@@ -74,6 +74,12 @@ export function applySchema(db: Database): void {
 
   // Migración aditiva: conserva cada payload y deriva únicamente columnas de
   // índice para las entradas anteriores al Hito 5B.
+  //
+  // El UPDATE se limita a las filas a las que les FALTA algún metadato: sin
+  // ese filtro reescribía todas las filas válidas en cada arranque. Como
+  // `recommendationSnapshot` siempre trae `id` (RecommendationSchema lo exige)
+  // y `recommendation_action_kind` tiene respaldo 'game_change', una sola
+  // pasada deja la fila completa y las siguientes no la seleccionan.
   db.exec(`
     UPDATE journal_entries
        SET status = COALESCE(status, json_extract(payload, '$.status')),
@@ -90,7 +96,18 @@ export function applySchema(db: Database): void {
                ELSE NULL
              END
            )
-     WHERE json_valid(payload) = 1;
+     WHERE json_valid(payload) = 1
+       AND (
+         status IS NULL
+         OR (
+           json_extract(payload, '$.recommendationSnapshot.id') IS NOT NULL
+           AND recommendation_id IS NULL
+         )
+         OR (
+           json_extract(payload, '$.recommendationSnapshot.id') IS NOT NULL
+           AND recommendation_action_kind IS NULL
+         )
+       );
     CREATE INDEX IF NOT EXISTS journal_entries_character_status_updated
       ON journal_entries(character_id, status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS journal_entries_character_memory_updated
