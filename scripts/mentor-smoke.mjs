@@ -110,6 +110,22 @@ function stopServer(proc) {
 }
 
 let failures = 0;
+/**
+ * Navegación por áreas (Mentor / Personaje / Plan y mercado). Los tres paneles
+ * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
+ * de interactuar con sus controles.
+ */
+async function irA(page, area) {
+  await page.getByTestId(`tab-${area}`).click();
+  await page.waitForFunction(
+    (a) =>
+      document.querySelector(`[data-testid="tab-${a}"]`)?.getAttribute("data-state") ===
+      "active",
+    area,
+    { timeout: 10000 },
+  );
+}
+
 let total = 0;
 const check = (name, ok) => {
   total += 1;
@@ -173,6 +189,7 @@ async function runFlow(mode, port) {
     await page.goto(BASE, { waitUntil: "networkidle" });
 
     // --- Sin personaje: honestidad ----------------------------------------
+    await irA(page, "mentor");
     const seccion = page.locator("#seccion-mentor-chat");
     await seccion.waitFor({ timeout: 20000 });
     const sinPersonaje = await seccion.innerText();
@@ -182,8 +199,10 @@ async function runFlow(mode, port) {
         sinPersonaje.includes("no voy a improvisar"),
     );
 
+    await irA(page, "personaje");
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
+    await irA(page, "mentor");
 
     check(
       `[${mode}] la sección ofrece sugerencias reconocidas`,
@@ -392,8 +411,10 @@ async function runFlow(mode, port) {
       `[${mode}] hay conversación antes de cambiar los inputs`,
       (await page.getByTestId("mentor-turno-mentor").count()) > 0,
     );
+    await irA(page, "plan");
     await page.locator("#market-budget").fill("777");
     await page.locator("#market-budget").blur();
+    await irA(page, "mentor");
     await wait(1000);
     check(
       `[${mode}] cambiar el presupuesto reinicia la conversación`,

@@ -89,7 +89,7 @@ export function MarketSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl">3. Mercado actual</CardTitle>
+        <CardTitle className="text-xl">Mercado actual</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

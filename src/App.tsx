@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Compass, MessageCircleQuestion, UserRound } from "lucide-react";
 import type { Budget, GoalKind } from "@shared/domain.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import {
@@ -7,8 +8,10 @@ import {
   type PlanResolution,
 } from "@shared/passiveRegistry.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
+import { WelcomePanel } from "@/components/WelcomePanel";
 import { CharacterSection } from "@/sections/CharacterSection";
 import { MarketSection } from "@/sections/MarketSection";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
@@ -34,6 +37,18 @@ const EMPTY_TARGET: TargetDraft = {
   plan: null,
 };
 
+/** Las tres áreas del espacio de trabajo. */
+type WorkspaceTab = "mentor" | "personaje" | "plan";
+
+/**
+ * Los tres paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
+ * Cambiar de pestaña no puede perder campos sin guardar, resultados generados ni
+ * la conversación: buena parte de ese estado es local de cada sección
+ * (borradores de objetos, texto del chat, recomendaciones aplicadas…).
+ */
+const PANEL_CLASSES =
+  "flex flex-col gap-6 focus-visible:outline-none data-[state=inactive]:hidden";
+
 export default function App() {
   const { health, meta, loading: metaLoading, error: metaError } = useMeta();
 
@@ -51,6 +66,9 @@ export default function App() {
   // Elemento que abrió el detalle: puede ser un hueco del paperdoll o el botón
   // «Ver el objeto evaluado» de una recomendación. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
+  // Área visible. `null` solo mientras se decide la de entrada (ver más abajo).
+  const [tab, setTab] = useState<WorkspaceTab | null>(null);
+  const entryTabDecided = useRef(false);
 
   // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
   const characterOptions = useMemo(
@@ -85,6 +103,23 @@ export default function App() {
   const market = useMarket();
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
+
+  const hasProfile = character.profile !== null;
+  const activeTab: WorkspaceTab = tab ?? "personaje";
+
+  /**
+   * El área de entrada se decide UNA sola vez, cuando termina la restauración:
+   * con personaje se entra por «Mentor»; sin personaje, por «Personaje», que es
+   * donde viven la bienvenida y la importación.
+   *
+   * Después no se cambia sola nunca más: cargar el ejemplo o importar no debe
+   * arrancar al jugador de la pantalla en la que está trabajando.
+   */
+  useEffect(() => {
+    if (entryTabDecided.current || character.restoring) return;
+    entryTabDecided.current = true;
+    setTab(character.profile !== null ? "mentor" : "personaje");
+  }, [character.restoring, character.profile]);
 
   // Valores por defecto en cuanto llegan /api/meta y /api/health.
   useEffect(() => {
@@ -156,11 +191,20 @@ export default function App() {
     }
   }, [currentMentorInputsKey, mentorThreadKey, clearMentor]);
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <AppHeader health={health} loading={metaLoading} />
+  const focusItem = (itemId: string, trigger: HTMLElement) => {
+    dialogTriggerRef.current = trigger;
+    setFocusedItemId(itemId);
+  };
 
-      <main className="mx-auto max-w-7xl px-4 py-6">
+  // La bienvenida sustituye a los paneles vacíos, pero no debe aparecer mientras
+  // se restaura un personaje guardado (si no, parpadearía antes de cargarlo).
+  const showWelcome = !hasProfile && !character.restoring;
+
+  return (
+    <div className="min-h-screen text-foreground">
+      <AppHeader health={health} loading={metaLoading} profile={character.profile} />
+
+      <main className="mx-auto max-w-7xl px-4 pb-10 pt-4">
         {metaError && (
           <Alert variant="destructive" className="mb-6">
             <AlertTitle>No se pudo cargar la configuración del servidor</AlertTitle>
@@ -171,15 +215,139 @@ export default function App() {
           </Alert>
         )}
 
-        <JournalSection
-          profile={character.profile}
-          budget={budget}
-          goal={goal}
-          journal={journal}
-        />
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setTab(value as WorkspaceTab)}
+          className="gap-0"
+        >
+          {/* Navegación segmentada: se queda a la vista al desplazarse, pero
+              ocupa poco. El propio Radix aporta teclado (flechas, Home/End). */}
+          <div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-border bg-background/90 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+            <TabsList
+              aria-label="Áreas de Exile Copilot"
+              className="h-auto w-full gap-1 bg-muted/50 p-1 sm:w-auto"
+            >
+              <TabsTrigger
+                value="mentor"
+                data-testid="tab-mentor"
+                className="min-w-0 flex-1 gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15 data-[state=active]:text-primary sm:flex-none"
+              >
+                <MessageCircleQuestion className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">Mentor</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="personaje"
+                data-testid="tab-personaje"
+                className="min-w-0 flex-1 gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15 data-[state=active]:text-primary sm:flex-none"
+              >
+                <UserRound className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">Personaje</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="plan"
+                data-testid="tab-plan"
+                className="min-w-0 flex-1 gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15 data-[state=active]:text-primary sm:flex-none"
+              >
+                <Compass className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate sm:hidden">Plan</span>
+                <span className="hidden truncate sm:inline">Plan y mercado</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
-          <div className="flex flex-col gap-6">
+          {/* --- Área 1: Mentor -------------------------------------------- */}
+          {/* Orden: acción actual → conversación → recomendaciones → historial.
+              El historial reciente vive dentro de JournalSection, junto a la
+              acción activa que documenta. */}
+          <TabsContent value="mentor" forceMount className={PANEL_CLASSES}>
+            <JournalSection
+              profile={character.profile}
+              budget={budget}
+              goal={goal}
+              journal={journal}
+            />
+
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+              <MentorChatSection
+                profile={character.profile}
+                mentor={mentor}
+                savingNextAction={journal.saving}
+                onAsk={(question) => {
+                  if (!character.profile) return;
+                  void mentor
+                    .ask(
+                      buildMentorRequest(
+                        question,
+                        character.profile,
+                        targetDraft,
+                        budget,
+                        goal,
+                        league,
+                        patch,
+                        characterJournal,
+                      ),
+                    )
+                    .then((outcome) => {
+                      if (outcome === "journal-stale") void journal.reload();
+                    });
+                }}
+                onSaveNextAction={(answer) => {
+                  const recommendation = answer.nextAction?.recommendation ?? null;
+                  if (!character.profile || recommendation === null) return;
+                  void journal.createEntry(
+                    journalEntryFromRecommendation(
+                      recommendation,
+                      character.profile,
+                      budget,
+                      goal,
+                    ),
+                  );
+                }}
+                onFocusItem={focusItem}
+              />
+
+              <RecommendationsSection
+                profile={character.profile}
+                targetDraft={targetDraft}
+                budget={budget}
+                goal={goal}
+                league={league}
+                patch={patch}
+                journal={characterJournal}
+                journalLoading={characterJournalLoading}
+                onJournalStale={journal.reload}
+                recommendations={recommendations}
+                onLoadDemo={character.loadDemo}
+                onFocusItem={focusItem}
+                onTrackRecommendation={(recommendation) => {
+                  if (!character.profile) return;
+                  void journal.createEntry(
+                    journalEntryFromRecommendation(
+                      recommendation,
+                      character.profile,
+                      budget,
+                      goal,
+                    ),
+                  );
+                }}
+                trackingRecommendation={journal.saving}
+              />
+            </div>
+          </TabsContent>
+
+          {/* --- Área 2: Personaje ----------------------------------------- */}
+          <TabsContent value="personaje" forceMount className={PANEL_CLASSES}>
+            {showWelcome && (
+              <WelcomePanel
+                loadingDemo={character.busy === "demo"}
+                onLoadDemo={() => void character.loadDemo()}
+                onGoToImport={() => {
+                  const panel = document.getElementById("panel-importacion");
+                  panel?.scrollIntoView({ block: "center", behavior: "auto" });
+                  panel?.focus();
+                }}
+              />
+            )}
             <CharacterSection
               character={character}
               meta={meta}
@@ -188,104 +356,39 @@ export default function App() {
               onFocusHandled={() => setFocusedItemId(null)}
               dialogTriggerRef={dialogTriggerRef}
             />
-            <TargetSection
-              draft={targetDraft}
-              warnings={targetWarnings}
-              resolution={targetResolution}
-              onChange={(draft) => {
-                setTargetDraft(draft);
-                if (draft.plan !== targetDraft.plan) {
-                  setTargetWarnings([]);
-                  setTargetResolution(null);
-                }
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-6">
-            <MarketSection
-              meta={meta}
-              metaLoading={metaLoading}
-              profile={character.profile}
-              league={league}
-              onLeagueChange={setLeague}
-              budget={budget}
-              onBudgetChange={setBudget}
-              goal={goal}
-              onGoalChange={setGoal}
-              market={market}
-            />
-            <RecommendationsSection
-              profile={character.profile}
-              targetDraft={targetDraft}
-              budget={budget}
-              goal={goal}
-              league={league}
-              patch={patch}
-              journal={characterJournal}
-              journalLoading={characterJournalLoading}
-              onJournalStale={journal.reload}
-              recommendations={recommendations}
-              onLoadDemo={character.loadDemo}
-              onFocusItem={(itemId, trigger) => {
-                dialogTriggerRef.current = trigger;
-                setFocusedItemId(itemId);
-              }}
-              onTrackRecommendation={(recommendation) => {
-                if (!character.profile) return;
-                void journal.createEntry(
-                  journalEntryFromRecommendation(
-                    recommendation,
-                    character.profile,
-                    budget,
-                    goal,
-                  ),
-                );
-              }}
-              trackingRecommendation={journal.saving}
-            />
+          </TabsContent>
 
-            <MentorChatSection
-              profile={character.profile}
-              mentor={mentor}
-              savingNextAction={journal.saving}
-              onAsk={(question) => {
-                if (!character.profile) return;
-                void mentor
-                  .ask(
-                    buildMentorRequest(
-                      question,
-                      character.profile,
-                      targetDraft,
-                      budget,
-                      goal,
-                      league,
-                      patch,
-                      characterJournal,
-                    ),
-                  )
-                  .then((outcome) => {
-                    if (outcome === "journal-stale") void journal.reload();
-                  });
-              }}
-              onSaveNextAction={(answer) => {
-                const recommendation = answer.nextAction?.recommendation ?? null;
-                if (!character.profile || recommendation === null) return;
-                void journal.createEntry(
-                  journalEntryFromRecommendation(
-                    recommendation,
-                    character.profile,
-                    budget,
-                    goal,
-                  ),
-                );
-              }}
-              onFocusItem={(itemId, trigger) => {
-                dialogTriggerRef.current = trigger;
-                setFocusedItemId(itemId);
-              }}
-            />
-          </div>
-        </div>
+          {/* --- Área 3: Plan y mercado ------------------------------------ */}
+          {/* Dos columnas en escritorio, una sola en móvil. */}
+          <TabsContent value="plan" forceMount className={PANEL_CLASSES}>
+            <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+              <TargetSection
+                draft={targetDraft}
+                warnings={targetWarnings}
+                resolution={targetResolution}
+                onChange={(draft) => {
+                  setTargetDraft(draft);
+                  if (draft.plan !== targetDraft.plan) {
+                    setTargetWarnings([]);
+                    setTargetResolution(null);
+                  }
+                }}
+              />
+              <MarketSection
+                meta={meta}
+                metaLoading={metaLoading}
+                profile={character.profile}
+                league={league}
+                onLeagueChange={setLeague}
+                budget={budget}
+                onBudgetChange={setBudget}
+                goal={goal}
+                onGoalChange={setGoal}
+                market={market}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <footer className="mt-10 flex flex-col gap-1 border-t border-border pt-4 text-center text-xs text-muted-foreground">
           <p>{GGG_AFFILIATION_NOTICE}</p>

@@ -161,7 +161,7 @@ export function CharacterSection({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <CardTitle className="text-xl">1. Mi personaje</CardTitle>
+            <CardTitle className="text-xl">Mi personaje</CardTitle>
             <Badge variant="outline" className={originBadge.className}>
               {originBadge.label}
             </Badge>

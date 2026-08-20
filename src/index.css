@@ -35,9 +35,9 @@
   }
 
   .dark {
-    --background: 240 10% 5%;
+    --background: 240 12% 4%;
     --foreground: 40 20% 95%;
-    --card: 240 8% 8%;
+    --card: 240 9% 9%;
     --card-foreground: 40 20% 95%;
     --popover: 240 8% 8%;
     --popover-foreground: 40 20% 95%;
@@ -69,8 +69,42 @@
   * {
     @apply border-border;
   }
+  /**
+   * Obsidiana con dos gradientes radiales muy discretos: uno cálido (oro) arriba
+   * a la izquierda y otro azul acero arriba a la derecha. Alfa muy baja para que
+   * NUNCA reduzcan el contraste del texto; el color sólido de `--background`
+   * sigue debajo.
+   */
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(70rem 45rem at 12% -12%, hsl(42 70% 32% / 0.10), transparent 62%),
+      radial-gradient(60rem 40rem at 92% -6%, hsl(205 60% 34% / 0.08), transparent 58%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  /** Superficie elevada: sombra interior discreta, sin transparencias que resten contraste. */
+  .superficie-panel {
+    @apply rounded-xl border border-border bg-card/95;
+    box-shadow:
+      inset 0 1px 0 hsl(40 30% 90% / 0.04),
+      0 1px 2px hsl(240 20% 2% / 0.6);
+  }
+
+  /** Panel de la acción principal: mayor jerarquía, borde y halo de oro cálido. */
+  .superficie-accion {
+    @apply rounded-xl border border-primary/40;
+    background-image: linear-gradient(
+      180deg,
+      hsl(42 70% 30% / 0.14),
+      hsl(240 9% 9% / 0.95) 55%
+    );
+    box-shadow:
+      inset 0 1px 0 hsl(42 92% 70% / 0.10),
+      0 2px 10px hsl(240 30% 2% / 0.55);
   }
 }
 /**
@@ -82,7 +116,9 @@
  */
 @media (prefers-reduced-motion: reduce) {
   [data-slot="dialog-overlay"],
-  [data-slot="dialog-content"] {
+  [data-slot="dialog-content"],
+  [data-slot="tabs-content"],
+  [data-slot="tabs-trigger"] {
     animation: none !important;
     transition: none !important;
   }

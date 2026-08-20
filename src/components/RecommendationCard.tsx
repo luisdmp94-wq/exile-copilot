@@ -21,6 +21,7 @@ import {
   MAGNITUDE_LABELS,
   RISK_BADGE_CLASSES,
   RISK_LABELS,
+  SOURCE_KIND_LABELS,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -186,7 +187,7 @@ export function RecommendationCard({
                   ) : (
                     source.label
                   )}{" "}
-                  <span className="text-xs">({source.kind})</span>
+                  <span className="text-xs">({SOURCE_KIND_LABELS[source.kind]})</span>
                 </li>
               ))}
             </ul>

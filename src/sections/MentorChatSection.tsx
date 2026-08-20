@@ -95,7 +95,7 @@ export function MentorChatSection({
     <Card id="seccion-mentor-chat">
       <CardHeader>
         <div className="flex flex-wrap items-center gap-3">
-          <CardTitle className="text-xl">5. Habla con tu mentor</CardTitle>
+          <CardTitle className="text-xl">Habla con tu mentor</CardTitle>
           <Badge variant="outline" className="text-muted-foreground">
             Basado en reglas
           </Badge>

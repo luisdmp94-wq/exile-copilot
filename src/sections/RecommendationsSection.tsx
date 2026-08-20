@@ -90,7 +90,7 @@ export function RecommendationsSection({
     <Card id="seccion-recomendaciones">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="text-xl">4. Próximas mejoras</CardTitle>
+          <CardTitle className="text-xl">Próximas mejoras</CardTitle>
           <Button
             type="button"
             onClick={() => {

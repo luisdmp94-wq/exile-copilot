@@ -32,7 +32,11 @@ export function ImportPanel({ busy, onImport }: ImportPanelProps) {
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border border-border bg-muted/40 p-4">
+    <div
+      id="panel-importacion"
+      tabIndex={-1}
+      className="flex flex-col gap-4 rounded-md border border-border bg-muted/40 p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
       <div className="flex flex-col gap-2">
         <Label htmlFor="build-file">Archivo .build</Label>
         <div className="flex flex-wrap items-center gap-2">

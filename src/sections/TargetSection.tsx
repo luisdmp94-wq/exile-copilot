@@ -45,7 +45,7 @@ export function TargetSection({
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center gap-3">
-          <CardTitle className="text-xl">2. Build objetivo (opcional)</CardTitle>
+          <CardTitle className="text-xl">Build objetivo (opcional)</CardTitle>
           <Badge
             variant="outline"
             className="border-amber-500/40 bg-amber-500/10 text-amber-300"

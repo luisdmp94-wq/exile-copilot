@@ -41,6 +41,7 @@ import {
   formatCost,
   formatDateTime,
   RISK_LABELS,
+  SOURCE_KIND_LABELS,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -141,7 +142,7 @@ export function JournalSection({
   };
 
   return (
-    <Card id="seccion-mentor" className="mb-6 border-primary/30">
+    <Card id="seccion-mentor" className="border-primary/30">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -313,7 +314,8 @@ function PrimaryEntry({
   return (
     <section
       aria-labelledby={`journal-primary-${entry.id}`}
-      className="rounded-xl border border-primary/50 bg-primary/5 p-5"
+      className="superficie-accion p-5 sm:p-6"
+      data-testid="accion-actual"
     >
       <div className="flex flex-wrap items-center gap-2">
         <Badge className="gap-1">
@@ -334,7 +336,10 @@ function PrimaryEntry({
         </Badge>
       </div>
 
-      <h2 id={`journal-primary-${entry.id}`} className="mt-4 text-xl font-semibold">
+      <h2
+        id={`journal-primary-${entry.id}`}
+        className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl"
+      >
         {entry.title}
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">{entry.summary}</p>
@@ -374,7 +379,13 @@ function PrimaryEntry({
       {recommendation && (
         <div className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
           <p>
-            Fuentes: {recommendation.sources.map((source) => source.kind).join(", ") || "No disponibles"}.
+            {/* Los tipos de fuente se muestran traducidos: el jugador nunca ve
+                los identificadores internos (`calculation`, `user`…). */}
+            Fuentes:{" "}
+            {recommendation.sources
+              .map((source) => SOURCE_KIND_LABELS[source.kind])
+              .join(", ") || "No disponibles"}
+            .
           </p>
           {recommendation.unverified.length > 0 && (
             <p>

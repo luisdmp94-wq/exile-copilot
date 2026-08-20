@@ -111,6 +111,22 @@ function stopServer(proc) {
 }
 
 let failures = 0;
+/**
+ * Navegación por áreas (Mentor / Personaje / Plan y mercado). Los tres paneles
+ * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
+ * de interactuar con sus controles.
+ */
+async function irA(page, area) {
+  await page.getByTestId(`tab-${area}`).click();
+  await page.waitForFunction(
+    (a) =>
+      document.querySelector(`[data-testid="tab-${a}"]`)?.getAttribute("data-state") ===
+      "active",
+    area,
+    { timeout: 10000 },
+  );
+}
+
 let total = 0;
 const check = (name, ok) => {
   total += 1;
@@ -199,6 +215,7 @@ async function runFlow(mode, port) {
     });
 
     await page.goto(BASE, { waitUntil: "networkidle" });
+    await irA(page, "personaje");
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
 
@@ -281,6 +298,8 @@ async function runFlow(mode, port) {
     const seededId = await seedProfile(BASE);
     await page.evaluate((id) => localStorage.setItem("exile-copilot:characterId", id), seededId);
     await page.reload({ waitUntil: "networkidle" });
+    // Con personaje se entra por «Mentor»: el paperdoll está en «Personaje».
+    await irA(page, "personaje");
     await page.locator('[data-testid="flask-group"]').waitFor({ timeout: 20000 });
     const frascos = await page.locator('[data-slot="flask"][data-slot-state="filled"]').count();
     check(`[${mode}] varios frascos agrupados desde datos reales (${frascos})`, frascos === 2);
@@ -292,7 +311,9 @@ async function runFlow(mode, port) {
     );
 
     // --- Vínculo estructurado recomendación → objeto ----------------------
+    await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
+    await irA(page, "mentor");
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
     await page.waitForSelector("text=/Confianza|confianza/", { timeout: 25000 });
     const botones = page.locator('[data-testid^="ver-objeto-"]');
@@ -322,6 +343,8 @@ async function runFlow(mode, port) {
     );
 
     // --- prefers-reduced-motion ------------------------------------------
+    // El paperdoll vive en «Personaje»: se vuelve allí tras usar el mentor.
+    await irA(page, "personaje");
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.locator('[data-slot-state="filled"]').first().click();
     await dialogo.waitFor({ timeout: 15000 });

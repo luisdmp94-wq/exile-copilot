@@ -63,6 +63,23 @@ async function stopServer(proc) {
 }
 
 let failures = 0;
+/**
+ * Navegación por áreas (Mentor / Personaje / Plan y mercado). Los tres paneles
+ * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
+ * de interactuar con sus controles.
+ */
+async function irA(page, area) {
+  const tab = page.getByTestId(`tab-${area}`);
+  await tab.click();
+  await page.waitForFunction(
+    (a) =>
+      document.querySelector(`[data-testid="tab-${a}"]`)?.getAttribute("data-state") ===
+      "active",
+    area,
+    { timeout: 10000 },
+  );
+}
+
 const check = (name, ok) => {
   console.log(`${ok ? "✅" : "❌"} ${name}`);
   if (!ok) failures++;
@@ -95,7 +112,8 @@ async function runFlow(mode, port) {
       .catch(() => false);
     check(`[${mode}] no se queda en "Restaurando…" (Strict Mode)`, !stuckRestoring);
 
-    // 2. Cargar ejemplo
+    // 2. Cargar ejemplo (área «Personaje»)
+    await irA(page, "personaje");
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
     check(`[${mode}] ejemplo precargado visible`, true);
@@ -115,8 +133,10 @@ async function runFlow(mode, port) {
       saveResponse.status() === 200 && savedBody?.profile?.life === 2150,
     );
 
-    // 4. Presupuesto y recomendaciones
+    // 4. Presupuesto (área «Plan y mercado») y recomendaciones (área «Mentor»)
+    await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
+    await irA(page, "mentor");
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
     await page.waitForSelector("text=/Confianza|confianza/", { timeout: 15000 });
     const cards = await page.locator("text=/Confianza|confianza/").count();
@@ -171,7 +191,9 @@ async function runFlow(mode, port) {
     });
 
     // 7. Persistencia: recargar y comprobar EXACTAMENTE vida=2150
+    // Con personaje se entra por «Mentor»: hay que volver a «Personaje».
     await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "personaje");
     await page.locator("#def-life").waitFor({ timeout: 10000 });
     const restoredLife = await page.locator("#def-life").inputValue();
     check(

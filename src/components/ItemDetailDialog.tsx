@@ -9,7 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MODIFIER_KIND_LABELS, RARITY_LABELS, SLOT_LABELS, formatDateTime } from "@/lib/format";
+import {
+  MODIFIER_KIND_LABELS,
+  RARITY_LABELS,
+  SLOT_LABELS,
+  SOURCE_KIND_LABELS,
+  formatDateTime,
+} from "@/lib/format";
 import {
   describeItemDataState,
   describeRequirements,
@@ -209,7 +215,8 @@ function ItemDetailContent({
               <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {item.sources.map((source, index) => (
                   <li key={`${source.kind}-${index}`}>
-                    {source.label} ({source.kind}) · {formatDateTime(source.retrievedAt)}
+                    {source.label} ({SOURCE_KIND_LABELS[source.kind]}) ·{" "}
+                    {formatDateTime(source.retrievedAt)}
                   </li>
                 ))}
               </ul>

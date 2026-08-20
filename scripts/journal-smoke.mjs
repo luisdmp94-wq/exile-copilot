@@ -75,6 +75,22 @@ function stopServer(process) {
 
 let total = 0;
 let failures = 0;
+/**
+ * Navegación por áreas (Mentor / Personaje / Plan y mercado). Los tres paneles
+ * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
+ * de interactuar con sus controles.
+ */
+async function irA(page, area) {
+  await page.getByTestId(`tab-${area}`).click();
+  await page.waitForFunction(
+    (a) =>
+      document.querySelector(`[data-testid="tab-${a}"]`)?.getAttribute("data-state") ===
+      "active",
+    area,
+    { timeout: 10_000 },
+  );
+}
+
 function check(label, condition) {
   total += 1;
   console.log(`${condition ? "✅" : "❌"} ${label}`);
@@ -150,14 +166,17 @@ async function runFlow(mode, port) {
     });
 
     await page.goto(base, { waitUntil: "networkidle" });
+    await irA(page, "mentor");
     check(`[${mode}] mentor visible`, await page.getByText("Mentor del personaje").isVisible());
     check(
       `[${mode}] vacío honesto antes de importar`,
       await page.getByText("El mentor necesita conocer a tu personaje").isVisible(),
     );
 
+    await irA(page, "personaje");
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
+    await irA(page, "mentor");
     const emptyJournal = page.getByText("No hay un siguiente paso activo");
     await emptyJournal.waitFor({ timeout: 20_000 });
     check(
@@ -176,7 +195,9 @@ async function runFlow(mode, port) {
     await page.reload({ waitUntil: "networkidle" });
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
 
+    await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
+    await irA(page, "mentor");
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
     const trackButtons = page.getByRole("button", { name: "Guardar como próximo paso" });
     await trackButtons.first().waitFor({ timeout: 25_000 });
@@ -269,7 +290,9 @@ async function runFlow(mode, port) {
       throw new Error(`no se pudo cerrar la entrada concurrente: HTTP ${resolveConcurrent.status}`);
     }
     await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
+    await irA(page, "mentor");
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
     await trackButtons.first().waitFor({ timeout: 25_000 });
 
@@ -300,6 +323,7 @@ async function runFlow(mode, port) {
     );
 
     await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "mentor");
     await nextAction.waitFor({ timeout: 20_000 });
     check(`[${mode}] próxima acción sobrevive a recarga`, await nextAction.isVisible());
 
