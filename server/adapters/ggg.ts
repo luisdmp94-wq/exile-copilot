@@ -3,10 +3,11 @@ import type { ServerConfig } from "../config.js";
 /**
  * Adaptador OAuth de GGG (API oficial de personajes).
  *
- * CONTEXTO: GGG no procesa actualmente nuevas aplicaciones OAuth para la API
- * de PoE2. El MVP no depende de este adaptador: está desactivado por flag
- * (`GGG_OAUTH_ENABLED=false` por defecto) y la implementación real queda
- * preparada detrás de la interfaz `GggCharacterSource` para el futuro.
+ * Estado (solo hechos comprobables): la integración está DESACTIVADA por flag
+ * (`GGG_OAUTH_ENABLED=false` por defecto) y el flujo OAuth real todavía no
+ * está implementado. Antes de activarla hay que verificar el estado actual
+ * del procedimiento de solicitud de aplicaciones OAuth de GGG; este código
+ * no afirma nada sobre si GGG acepta o no solicitudes.
  */
 
 export interface GggCharacterRef {
@@ -44,8 +45,9 @@ export class StubGggCharacterSource implements GggCharacterSource {
         ok: false,
         error: "ggg-oauth-disabled",
         detail:
-          "Desactivado por flag (GGG_OAUTH_ENABLED=false): GGG no procesa nuevas aplicaciones OAuth. " +
-          "Usa la importación por archivo .build, código PoB o texto de objeto.",
+          "Integración desactivada por flag (GGG_OAUTH_ENABLED=false) y flujo OAuth aún no implementado. " +
+          "Antes de activarla, verifica el estado actual del procedimiento de solicitud de aplicaciones OAuth de GGG. " +
+          "Mientras tanto, usa la importación por archivo .build, código PoB o texto de objeto.",
       });
     }
     // Rama futura: aquí iría el flujo OAuth real de GGG.

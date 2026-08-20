@@ -22,7 +22,7 @@ Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu
 ## Fuentes externas
 
 - **poe.ninja**: solo API económica pública documentada (`/poe2/api/economy/leagues`, `/poe2/api/economy/exchange/current/overview`, `/poe2/api/economy/stash/current/item/overview`). Llamadas solo desde el servidor, caché SQLite + ETag (tolerante a corrupción), TTL configurable, User-Agent descriptivo, fallback a caché antigua y luego fixtures (marcadas «No verificado»). Las tasas de conversión (`core.rates`) transportan origen y estado de verificación; tasas fixture/stale nunca justifican afirmar que una compra entra en el presupuesto. `verified: true` exige moneda primaria reconocida; una primaria no reconocida deja `primaryCurrency: null` (un desconocido nunca se convierte en afirmación concreta).
-- **GGG OAuth**: adaptador preparado, desactivado (`GGG_OAUTH_ENABLED=false`); GGG no procesa nuevas aplicaciones.
+- **GGG OAuth**: adaptador stub desactivado por flag (`GGG_OAUTH_ENABLED=false`); el flujo OAuth real no está implementado. El estado actual del procedimiento de solicitud de aplicaciones OAuth de GGG debe verificarse antes de activarlo.
 - **PoB**: adaptador básico base64url+zlib con límites de entrada y de descompresión (`maxOutputLength`); fixture real del repo PathOfBuilding-PoE2 (`server/fixtures/pob2/`, procedencia documentada).
 - **Mobalytics**: solo enlace guardado como referencia. Sin scraping.
 
