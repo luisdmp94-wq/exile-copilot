@@ -71,6 +71,12 @@ export default function App() {
   );
   const character = useCharacter(characterOptions);
   const journal = useJournal(character.profile?.id ?? null);
+  const characterJournal =
+    character.profile && journal.journal?.characterId === character.profile.id
+      ? journal.journal
+      : null;
+  const characterJournalLoading =
+    character.profile !== null && (journal.loading || characterJournal === null);
   const market = useMarket();
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
@@ -110,6 +116,7 @@ export default function App() {
           goal,
           league,
           patch,
+          characterJournal,
         ),
       )
     : null;
@@ -185,6 +192,8 @@ export default function App() {
               goal={goal}
               league={league}
               patch={patch}
+              journal={characterJournal}
+              journalLoading={characterJournalLoading}
               recommendations={recommendations}
               onLoadDemo={character.loadDemo}
               onFocusItem={(itemId, trigger) => {

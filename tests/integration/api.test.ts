@@ -4,7 +4,8 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GggBuildPlannerV1Schema } from "../../shared/gggBuildPlanner.js";
-import { CharacterProfileSchema } from "../../shared/domain.js";
+import { CharacterJournalSchema, CharacterProfileSchema } from "../../shared/domain.js";
+import { buildRecommendationMemory } from "../../shared/journalMemory.js";
 import { createApiApp } from "../../server/app.js";
 
 let server: Server;
@@ -406,7 +407,7 @@ describe("api (integración, app Express con db :memory:)", () => {
     });
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
-    expect(body.engineVersion).toBe("1.0.0");
+    expect(body.engineVersion).toBe("1.1.0");
     expect(body.inputFingerprint).toMatch(/^[0-9a-f]{64}$/);
     expect(body.recommendations.length).toBeGreaterThan(0);
     expect(body.recommendations.length).toBeLessThanOrEqual(3);
@@ -415,6 +416,96 @@ describe("api (integración, app Express con db :memory:)", () => {
       expect(rec.impact.isPartialMetric).toBe(true);
       expect(rec.sources.some((s: { kind: string }) => s.kind === "calculation")).toBe(true);
     }
+  });
+
+  it("POST /recommendations se detiene con acción activa y reconcilia un resultado previo", async () => {
+    const demoRes = await fetch(`${base}/character/demo`);
+    const { profile } = await jsonOf(demoRes);
+    profile.id = "memory-api-character";
+    const request = {
+      profile,
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: profile.league,
+      patch: profile.patch,
+    };
+
+    const initialRes = await postJson("/recommendations", request);
+    const initial = await jsonOf(initialRes);
+    const original = initial.recommendations.find(
+      (entry: { id: string }) => entry.id === "rec-resistencias-elementales",
+    );
+    expect(original).toBeDefined();
+
+    const createRes = await postJson(`/journal/${profile.id}/entries`, {
+      kind: "decision",
+      title: original.title,
+      summary: original.reason,
+      nextAction: original.action,
+      relatedItemIds: original.relatedItemIds,
+      sources: original.sources,
+      context: {
+        characterLevel: profile.level,
+        league: profile.league,
+        patch: profile.patch,
+        budget: request.budget,
+        goal: "survival",
+      },
+      recommendationSnapshot: original,
+      makePrimary: true,
+    });
+    expect(createRes.status).toBe(201);
+    const activeJournal = CharacterJournalSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const activeMemory = buildRecommendationMemory(activeJournal);
+
+    const blockedRes = await postJson("/recommendations", {
+      ...request,
+      journalRevision: activeMemory.revision,
+    });
+    expect(blockedRes.status).toBe(200);
+    const blocked = await jsonOf(blockedRes);
+    expect(blocked.recommendations).toEqual([]);
+    expect(blocked.memoryImpact.blockedByPrimaryEntryId).toBe(
+      activeJournal.primaryEntryId,
+    );
+
+    const completedRes = await patchJson(
+      `/journal/${profile.id}/entries/${activeJournal.primaryEntryId}`,
+      {
+        status: "completed",
+        result: "La prueba terminó; todavía debo actualizar el perfil.",
+      },
+    );
+    expect(completedRes.status).toBe(200);
+
+    const staleRes = await postJson("/recommendations", {
+      ...request,
+      journalRevision: activeMemory.revision,
+    });
+    expect(staleRes.status).toBe(409);
+    expect((await jsonOf(staleRes)).error).toBe("memoria-diario-obsoleta");
+
+    const completedJournal = CharacterJournalSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const completedMemory = buildRecommendationMemory(completedJournal);
+    const reconciledRes = await postJson("/recommendations", {
+      ...request,
+      journalRevision: completedMemory.revision,
+    });
+    expect(reconciledRes.status).toBe(200);
+    const reconciled = await jsonOf(reconciledRes);
+    expect(reconciled.memoryImpact.repeatedRecommendationIds).toContain(
+      "rec-resistencias-elementales",
+    );
+    expect(
+      reconciled.recommendations.some(
+        (entry: { id: string }) =>
+          entry.id === "rec-memoria-resistencias-elementales",
+      ),
+    ).toBe(true);
   });
 
   it("POST /export/build devuelve JSON {fileName .build, content, report} con mejoras legibles", async () => {

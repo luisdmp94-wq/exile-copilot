@@ -9,6 +9,9 @@ import type {
   Goal,
   PriceQuote,
   Recommendation,
+  RecommendationMemory,
+  RecommendationMemoryEntry,
+  RecommendationMemoryImpact,
   SourceEvidence,
 } from "../../shared/domain.js";
 import type { MarketRates } from "../../shared/api.js";
@@ -41,6 +44,7 @@ export interface EngineOptions {
   league: string;
   patch: string;
   target?: BuildTarget;
+  memory?: RecommendationMemory;
 }
 
 export interface EngineResult {
@@ -48,6 +52,7 @@ export interface EngineResult {
   generatedAt: string;
   engineVersion: string;
   inputFingerprint: string;
+  memoryImpact: RecommendationMemoryImpact;
 }
 
 const MAGNITUDE_VALUE: Record<Magnitude, number> = { low: 1, medium: 2, high: 3 };
@@ -81,8 +86,68 @@ export function computeInputFingerprint(input: {
   goal: Goal;
   league: string;
   patch: string;
+  memory?: RecommendationMemory;
 }): string {
   return createHash("sha256").update(stableStringify(input)).digest("hex");
+}
+
+const MEMORY_GOAL_WEIGHTS: RuleCandidate["goalWeights"] = {
+  damage: 1.3,
+  survival: 1.3,
+  mapping: 1.3,
+  bossing: 1.3,
+  balanced: 1.3,
+};
+
+/**
+ * Si una regla vuelve a activarse después de que el jugador ya informara del
+ * resultado, no repetimos la mejora a ciegas. Se reemplaza por UNA acción de
+ * reconciliación de datos. El resultado libre se conserva como evidencia,
+ * pero nunca se analiza para deducir números o mods.
+ */
+function reconcileCandidateWithMemory(
+  candidate: RuleCandidate,
+  memoryEntry: RecommendationMemoryEntry,
+): RuleCandidate {
+  const originalRecommendationId = `rec-${candidate.ruleId}`;
+  return {
+    ruleId: `memoria-${candidate.ruleId}`,
+    title: `Actualizar el perfil tras «${memoryEntry.title}»`,
+    action:
+      `Actualiza en «Mi personaje» los datos afectados por «${memoryEntry.title}» ` +
+      "usando el resultado que guardaste; después vuelve a generar recomendaciones.",
+    reason:
+      `El diario registra que ya completaste «${memoryEntry.title}», pero el perfil ` +
+      `actual todavía activa «${candidate.title}». El mentor no repetirá esa mejora ` +
+      "hasta reconciliar el resultado con los datos actuales.",
+    impactMetric: "calidad de los datos del personaje",
+    impactDescription:
+      "Evita repetir una acción basándose en un perfil que puede haber quedado desactualizado.",
+    magnitude: "high",
+    riskLevel: "low",
+    riskDescription: "Solo actualiza la memoria estructurada; no modifica objetos del juego.",
+    mayLoseValuableMods: false,
+    irreversible: false,
+    priceQueries: [],
+    goalWeights: MEMORY_GOAL_WEIGHTS,
+    confidenceBase: "high",
+    unverified: [
+      `No verificado — el resultado guardado no se convierte automáticamente en estadísticas. ` +
+        `La recomendación ${originalRecommendationId} sigue activándose con el perfil actual.`,
+    ],
+    extraSources: [
+      ...candidate.extraSources,
+      {
+        kind: "user",
+        label: `Resultado del diario informado por el jugador: ${memoryEntry.title}`,
+        retrievedAt: memoryEntry.updatedAt,
+        ...(memoryEntry.patch ? { patch: memoryEntry.patch } : {}),
+      },
+    ],
+    relatedItemIds: Array.from(
+      new Set([...(candidate.relatedItemIds ?? []), ...memoryEntry.relatedItemIds]),
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +248,33 @@ export async function generateRecommendations(
   deps: { priceService?: PriceLookup | null } = {},
 ): Promise<EngineResult> {
   const generatedAt = new Date().toISOString();
+  const memoryImpact: RecommendationMemoryImpact = {
+    revision: options.memory?.revision ?? null,
+    blockedByPrimaryEntryId: options.memory?.primaryEntry?.entryId ?? null,
+    usedEntryIds: [],
+    repeatedRecommendationIds: [],
+  };
+
+  // Regla de producto: mientras exista una única acción activa, el mentor se
+  // detiene. No consulta precios ni genera tareas paralelas.
+  if (options.memory?.primaryEntry) {
+    memoryImpact.usedEntryIds.push(options.memory.primaryEntry.entryId);
+    return {
+      recommendations: [],
+      generatedAt,
+      engineVersion: ENGINE_VERSION,
+      inputFingerprint: computeInputFingerprint({
+        profile,
+        budget: options.budget,
+        goal: options.goal,
+        league: options.league,
+        patch: options.patch,
+        memory: options.memory,
+        ...(options.target !== undefined ? { target: options.target } : {}),
+      }),
+      memoryImpact,
+    };
+  }
   const ctx = {
     profile,
     league: options.league,
@@ -190,7 +282,30 @@ export async function generateRecommendations(
     ...(options.target !== undefined ? { target: options.target } : {}),
   };
 
-  const candidates = RULES.flatMap((rule) => rule(ctx));
+  // `recentCompleted` llega de más reciente a más antiguo. Conservamos la
+  // primera entrada por recomendación para no sustituirla accidentalmente por
+  // un intento anterior al construir el Map.
+  const completedByRecommendationId = new Map<string, RecommendationMemoryEntry>();
+  for (const entry of options.memory?.recentCompleted ?? []) {
+    if (
+      entry.recommendationId !== null &&
+      !completedByRecommendationId.has(entry.recommendationId)
+    ) {
+      completedByRecommendationId.set(entry.recommendationId, entry);
+    }
+  }
+  const candidates = RULES.flatMap((rule) => rule(ctx)).map((candidate) => {
+    const recommendationId = `rec-${candidate.ruleId}`;
+    const memoryEntry = completedByRecommendationId.get(recommendationId);
+    if (!memoryEntry) return candidate;
+    memoryImpact.usedEntryIds.push(memoryEntry.entryId);
+    memoryImpact.repeatedRecommendationIds.push(recommendationId);
+    return reconcileCandidateWithMemory(candidate, memoryEntry);
+  });
+  memoryImpact.usedEntryIds = Array.from(new Set(memoryImpact.usedEntryIds));
+  memoryImpact.repeatedRecommendationIds = Array.from(
+    new Set(memoryImpact.repeatedRecommendationIds),
+  );
   const priceService = deps.priceService ?? null;
 
   const scored: ScoredCandidate[] = [];
@@ -282,6 +397,8 @@ export async function generateRecommendations(
       league: options.league,
       patch: options.patch,
       ...(options.target !== undefined ? { target: options.target } : {}),
+      ...(options.memory !== undefined ? { memory: options.memory } : {}),
     }),
+    memoryImpact,
   };
 }

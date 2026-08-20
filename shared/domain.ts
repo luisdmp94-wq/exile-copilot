@@ -387,3 +387,41 @@ export const CharacterJournalSchema = z.object({
   entries: z.array(JournalEntrySchema),
 });
 export type CharacterJournal = z.infer<typeof CharacterJournalSchema>;
+
+/**
+ * Vista mínima y acotada del diario que puede consumir el motor. El texto del
+ * resultado se conserva como evidencia del usuario, pero el motor nunca lo
+ * interpreta para deducir estadísticas, mods o cantidades.
+ */
+export const RecommendationMemoryEntrySchema = z.object({
+  entryId: z.string().min(1),
+  status: JournalEntryStatus,
+  title: z.string().min(1).max(160),
+  nextAction: z.string().min(1).max(2000).nullable(),
+  result: z.string().min(1).max(4000).nullable(),
+  recommendationId: z.string().min(1).nullable(),
+  relatedItemIds: z.array(z.string()),
+  updatedAt: z.string(),
+  patch: z.string().nullable(),
+});
+export type RecommendationMemoryEntry = z.infer<
+  typeof RecommendationMemoryEntrySchema
+>;
+
+export const RecommendationMemorySchema = z.object({
+  /** Revisión determinista para detectar que la interfaz usa memoria obsoleta. */
+  revision: z.string().min(1).max(4000),
+  primaryEntry: RecommendationMemoryEntrySchema.nullable(),
+  recentCompleted: z.array(RecommendationMemoryEntrySchema).max(10),
+});
+export type RecommendationMemory = z.infer<typeof RecommendationMemorySchema>;
+
+export const RecommendationMemoryImpactSchema = z.object({
+  revision: z.string().nullable(),
+  blockedByPrimaryEntryId: z.string().nullable(),
+  usedEntryIds: z.array(z.string()),
+  repeatedRecommendationIds: z.array(z.string()),
+});
+export type RecommendationMemoryImpact = z.infer<
+  typeof RecommendationMemoryImpactSchema
+>;

@@ -21,6 +21,7 @@ import {
   type JournalEntry,
   type PatchVersion,
 } from "../shared/domain.js";
+import { buildRecommendationMemory } from "../shared/journalMemory.js";
 import { loadConfig, type ServerConfig } from "./config.js";
 import { createDatabase } from "./db/database.js";
 import {
@@ -344,6 +345,18 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.post("/recommendations", async (req, res, next) => {
     try {
       const body = RecommendationsRequestSchema.parse(req.body);
+      const memory = buildRecommendationMemory(readJournal(db, body.profile.id));
+      if (
+        body.journalRevision !== undefined &&
+        body.journalRevision !== null &&
+        body.journalRevision !== memory.revision
+      ) {
+        throw new ApiHttpError(
+          409,
+          "memoria-diario-obsoleta",
+          "La memoria del personaje cambió. Recárgala antes de generar otra decisión.",
+        );
+      }
       const result = await generateRecommendations(
         body.profile,
         {
@@ -351,6 +364,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           goal: body.goal,
           league: body.league,
           patch: body.patch,
+          memory,
           ...(body.target !== undefined ? { target: body.target } : {}),
         },
         { priceService },

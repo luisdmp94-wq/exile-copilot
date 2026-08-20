@@ -1,9 +1,11 @@
 import type { RecommendationsRequest } from "@shared/api.js";
 import type {
   Budget,
+  CharacterJournal,
   CharacterProfile,
   GoalKind,
 } from "@shared/domain.js";
+import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { buildTargetFromDraft } from "@/lib/buildTarget";
 
@@ -18,6 +20,7 @@ export function buildRecommendationsRequest(
   goal: GoalKind,
   league: string,
   patch: string,
+  journal: CharacterJournal | null,
 ): RecommendationsRequest {
   return {
     profile,
@@ -26,5 +29,8 @@ export function buildRecommendationsRequest(
     goal: { kind: goal },
     league,
     patch,
+    ...(journal
+      ? { journalRevision: buildRecommendationMemory(journal).revision }
+      : {}),
   };
 }
