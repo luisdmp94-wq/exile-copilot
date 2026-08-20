@@ -11,6 +11,7 @@ import {
   JournalEntryKind,
   JournalEntrySchema,
   JournalEntryStatus,
+  MAX_JOURNAL_TITLE_LENGTH,
   PatchVersionSchema,
   PriceQuoteSchema,
   RecommendationSchema,
@@ -157,7 +158,7 @@ export type RecommendationsResponse = z.infer<typeof RecommendationsResponseSche
 // Character Journal — memoria persistente del mentor
 export const CreateJournalEntryRequestSchema = z.object({
   kind: JournalEntryKind,
-  title: z.string().trim().min(1).max(160),
+  title: z.string().trim().min(1).max(MAX_JOURNAL_TITLE_LENGTH),
   summary: z.string().trim().min(1).max(4000),
   nextAction: z.string().trim().min(1).max(2000).nullable().default(null),
   relatedItemIds: z.array(z.string().min(1).max(200)).max(100).default([]),
@@ -174,7 +175,7 @@ export type CreateJournalEntryRequest = z.infer<typeof CreateJournalEntryRequest
 export const UpdateJournalEntryRequestSchema = z
   .object({
     status: JournalEntryStatus.optional(),
-    title: z.string().trim().min(1).max(160).optional(),
+    title: z.string().trim().min(1).max(MAX_JOURNAL_TITLE_LENGTH).optional(),
     summary: z.string().trim().min(1).max(4000).optional(),
     nextAction: z.string().trim().min(1).max(2000).nullable().optional(),
     result: z.string().trim().min(1).max(4000).nullable().optional(),

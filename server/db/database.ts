@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS journal_entries (
   payload TEXT NOT NULL,
   status TEXT,
   recommendation_id TEXT,
+  recommendation_action_kind TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -67,15 +68,37 @@ export function applySchema(db: Database): void {
   if (!names.has("recommendation_id")) {
     db.exec("ALTER TABLE journal_entries ADD COLUMN recommendation_id TEXT");
   }
+  if (!names.has("recommendation_action_kind")) {
+    db.exec("ALTER TABLE journal_entries ADD COLUMN recommendation_action_kind TEXT");
+  }
 
   // Migración aditiva: conserva cada payload y deriva únicamente columnas de
   // índice para las entradas anteriores al Hito 5B.
   db.exec(`
     UPDATE journal_entries
-       SET status = json_extract(payload, '$.status'),
-           recommendation_id = json_extract(payload, '$.recommendationSnapshot.id')
-     WHERE status IS NULL AND json_valid(payload) = 1;
+       SET status = COALESCE(status, json_extract(payload, '$.status')),
+           recommendation_id = COALESCE(
+             recommendation_id,
+             json_extract(payload, '$.recommendationSnapshot.id')
+           ),
+           recommendation_action_kind = COALESCE(
+             recommendation_action_kind,
+             json_extract(payload, '$.recommendationSnapshot.actionKind'),
+             CASE
+               WHEN json_extract(payload, '$.recommendationSnapshot.id') IS NOT NULL
+               THEN 'game_change'
+               ELSE NULL
+             END
+           )
+     WHERE json_valid(payload) = 1;
     CREATE INDEX IF NOT EXISTS journal_entries_character_status_updated
       ON journal_entries(character_id, status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS journal_entries_character_memory_updated
+      ON journal_entries(
+        character_id,
+        status,
+        recommendation_action_kind,
+        updated_at DESC
+      );
   `);
 }

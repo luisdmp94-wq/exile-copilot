@@ -8,6 +8,7 @@ import type {
   GoalKind,
   Recommendation,
 } from "@shared/domain.js";
+import { compactJournalTitle } from "@shared/domain.js";
 
 /**
  * Conserva un motivo corto sin inventar nada. El explicador actual puede
@@ -28,7 +29,7 @@ export function journalEntryFromRecommendation(
 ): CreateJournalEntryRequest {
   return CreateJournalEntryRequestSchema.parse({
     kind: "decision",
-    title: recommendation.title,
+    title: compactJournalTitle(recommendation.title),
     summary: compactRecommendationReason(recommendation.reason),
     nextAction: recommendation.action,
     relatedItemIds: recommendation.relatedItemIds,

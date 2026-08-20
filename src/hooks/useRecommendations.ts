@@ -60,6 +60,13 @@ export function useRecommendations(): RecommendationsState {
         err.status === 409 &&
         err.message === "memoria-diario-obsoleta"
       ) {
+        // La respuesta anterior deja de ser accionable EN ESTE MISMO instante.
+        // No esperamos al GET del diario: otra pestaña ya demostró que el
+        // contexto con el que se generó quedó obsoleto.
+        setResult(null);
+        setResultInputsKey(null);
+        setExportResult(null);
+        setExportAppliedCount(0);
         setError(null);
         toast.info("La memoria del mentor cambió; la estamos recargando");
         return "journal-stale";

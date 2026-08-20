@@ -15,14 +15,17 @@ decisión mediante dos reglas explícitas:
 ## Flujo de datos
 
 - El servidor lee por índice la acción principal y hasta diez resultados
-  recientes vinculados a recomendaciones; no carga el historial completo para
-  decidir. `buildRecommendationMemory()` los proyecta a una vista acotada.
+  recientes de recomendaciones de juego (`game_change`); notas manuales y las
+  propias reconciliaciones `profile_sync` no pueden expulsar esa memoria. No
+  carga el historial completo para decidir. `buildRecommendationMemory()` los
+  proyecta a una vista acotada.
 - La interfaz envía únicamente la revisión que ha visto (`journalRevision`).
 - El servidor carga el diario autoritativo desde SQLite. Si la revisión de la
   interfaz está obsoleta responde `409 memoria-diario-obsoleta`.
 - Después de esperar precios/explicación, el servidor vuelve a leer la revisión:
   un cambio simultáneo desde otra pestaña invalida la respuesta antes de enviarla.
-  La UI reconoce el 409 y recarga el diario.
+  La UI reconoce el 409, invalida inmediatamente las tarjetas anteriores y
+  después recarga el diario.
 - La memoria forma parte de `inputFingerprint`; cualquier cambio invalida las
   recomendaciones anteriores.
 - `memoryImpact` explica las entradas utilizadas, el bloqueo por acción activa
@@ -45,6 +48,7 @@ Las acciones de reconciliación:
 - conservan una fuente `user` que enlaza conceptualmente con la entrada del
   diario;
 - muestran por qué el perfil y la memoria están en conflicto.
+- sus títulos se acotan de forma segura al contrato persistente del diario.
 
 ## Límites deliberados
 

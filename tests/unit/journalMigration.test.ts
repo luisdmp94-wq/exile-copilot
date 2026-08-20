@@ -1,7 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { applySchema } from "../../server/db/database.js";
-import { listCompletedRecommendationJournalEntries } from "../../server/db/repositories.js";
+import {
+  listCompletedRecommendationJournalEntries,
+  saveJournalEntry,
+} from "../../server/db/repositories.js";
 
 describe("migración aditiva del Character Journal", () => {
   it("conserva payloads 5A y rellena columnas indexables sin borrar entradas", () => {
@@ -39,7 +42,11 @@ describe("migración aditiva del Character Journal", () => {
         name: string;
       }>;
       expect(columns.map((column) => column.name)).toEqual(
-        expect.arrayContaining(["status", "recommendation_id"]),
+        expect.arrayContaining([
+          "status",
+          "recommendation_id",
+          "recommendation_action_kind",
+        ]),
       );
       const rows = listCompletedRecommendationJournalEntries(
         db,
@@ -49,8 +56,33 @@ describe("migración aditiva del Character Journal", () => {
       expect(rows).toHaveLength(1);
       expect(rows[0]?.payload).toBe(payload);
       expect(
+        db.prepare(
+          "SELECT recommendation_action_kind FROM journal_entries WHERE id = ?",
+        ).get("legacy-entry"),
+      ).toEqual({ recommendation_action_kind: "game_change" });
+
+      saveJournalEntry(db, {
+        id: "profile-sync-entry",
+        characterId: "legacy-character",
+        payload: JSON.stringify({
+          id: "profile-sync-entry",
+          recommendationSnapshot: {
+            id: "rec-memoria-resistencias-elementales",
+            actionKind: "profile_sync",
+          },
+        }),
+        status: "completed",
+        recommendationId: "rec-memoria-resistencias-elementales",
+        recommendationActionKind: "profile_sync",
+        createdAt: "2026-08-21T10:00:00.000Z",
+        updatedAt: "2026-08-21T10:01:00.000Z",
+      });
+      expect(
+        listCompletedRecommendationJournalEntries(db, "legacy-character", 10),
+      ).toHaveLength(1);
+      expect(
         db.prepare("SELECT COUNT(*) AS total FROM journal_entries").get(),
-      ).toEqual({ total: 1 });
+      ).toEqual({ total: 2 });
     } finally {
       db.close();
     }

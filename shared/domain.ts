@@ -346,6 +346,15 @@ export const JournalEntryStatus = z.enum([
 ]);
 export type JournalEntryStatus = z.infer<typeof JournalEntryStatus>;
 
+export const MAX_JOURNAL_TITLE_LENGTH = 160;
+
+/** Mantiene cualquier título generado dentro del contrato persistente. */
+export function compactJournalTitle(title: string): string {
+  const trimmed = title.trim();
+  if (trimmed.length <= MAX_JOURNAL_TITLE_LENGTH) return trimmed;
+  return `${trimmed.slice(0, MAX_JOURNAL_TITLE_LENGTH - 1).trimEnd()}…`;
+}
+
 /**
  * Contexto congelado en el momento de tomar la decisión. No sustituye al
  * snapshot actual: permite recordar con qué nivel, liga, parche y presupuesto
@@ -371,7 +380,7 @@ export const JournalEntrySchema = z.object({
   characterId: z.string().min(1),
   kind: JournalEntryKind,
   status: JournalEntryStatus,
-  title: z.string().trim().min(1).max(160),
+  title: z.string().trim().min(1).max(MAX_JOURNAL_TITLE_LENGTH),
   summary: z.string().trim().min(1).max(4000),
   nextAction: z.string().trim().min(1).max(2000).nullable().default(null),
   result: z.string().trim().min(1).max(4000).nullable().default(null),

@@ -18,6 +18,7 @@ import { attributeRequirementsRule } from "../../server/engine/rules.js";
 import { createDatabase } from "../../server/db/database.js";
 import { PoeNinjaClient, PriceService, type QuotesResult } from "../../server/services/poeninja.js";
 import { loadConfig } from "../../server/config.js";
+import { journalEntryFromRecommendation } from "../../src/lib/journal.js";
 
 function demoProfile(): CharacterProfile {
   const raw = readFileSync(
@@ -270,6 +271,46 @@ describe("engine — memoria del mentor", () => {
     expect(result.memoryImpact.repeatedRecommendationIds).toEqual([
       "rec-resistencias-elementales",
     ]);
+  });
+
+  it("la reconciliación de un título máximo sigue siendo guardable", async () => {
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1|long-title",
+      primaryEntry: null,
+      recentCompleted: [
+        {
+          entryId: "completed-long-title",
+          status: "completed",
+          title: "x".repeat(160),
+          nextAction: null,
+          result: "Resultado explícito.",
+          recommendationId: "rec-resistencias-elementales",
+          relatedItemIds: [],
+          updatedAt: "2026-08-20T10:00:00.000Z",
+          patch: "0.5.4f",
+        },
+      ],
+    });
+    const profile = demoProfile();
+    const result = await generateRecommendations(
+      profile,
+      { ...BASE_OPTIONS, goal: { kind: "survival" }, memory },
+      { priceService: offlinePriceService() },
+    );
+    const reconciliation = result.recommendations.find(
+      (entry) => entry.id === "rec-memoria-resistencias-elementales",
+    );
+    expect(reconciliation).toBeDefined();
+    expect(reconciliation?.title).toHaveLength(160);
+    expect(reconciliation?.title.endsWith("…")).toBe(true);
+    expect(() =>
+      journalEntryFromRecommendation(
+        reconciliation!,
+        profile,
+        BASE_OPTIONS.budget,
+        "survival",
+      ),
+    ).not.toThrow();
   });
 
   it("la revisión de memoria forma parte de la huella de entrada", async () => {

@@ -105,20 +105,23 @@ export function saveJournalEntry(
     payload: string;
     status: string;
     recommendationId: string | null;
+    recommendationActionKind: string | null;
     createdAt: string;
     updatedAt: string;
   },
 ): void {
   db.prepare(
     `INSERT INTO journal_entries (
-       id, character_id, payload, status, recommendation_id, created_at, updated_at
+       id, character_id, payload, status, recommendation_id,
+       recommendation_action_kind, created_at, updated_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        character_id = excluded.character_id,
        payload = excluded.payload,
        status = excluded.status,
        recommendation_id = excluded.recommendation_id,
+       recommendation_action_kind = excluded.recommendation_action_kind,
        updated_at = excluded.updated_at`,
   ).run(
     entry.id,
@@ -126,6 +129,7 @@ export function saveJournalEntry(
     entry.payload,
     entry.status,
     entry.recommendationId,
+    entry.recommendationActionKind,
     entry.createdAt,
     entry.updatedAt,
   );
@@ -167,6 +171,7 @@ export function listCompletedRecommendationJournalEntries(
        WHERE character_id = ?
          AND status = 'completed'
          AND recommendation_id IS NOT NULL
+         AND recommendation_action_kind = 'game_change'
        ORDER BY updated_at DESC, created_at DESC, id DESC
        LIMIT ?`,
     )
