@@ -13,8 +13,8 @@ import type { MentorState } from "@/hooks/useMentor";
 import type { MentorTurn } from "@/lib/mentorThread";
 import { savableNextAction } from "@/lib/mentorThread";
 import {
+  CONFIDENCE_BADGE_CLASSES,
   CONFIDENCE_LABELS,
-  LEVEL_BADGE_CLASSES,
   SOURCE_KIND_LABELS,
   formatDateTime,
 } from "@/lib/format";
@@ -340,7 +340,7 @@ function MentorAnswerDetail({
       {/* 2) Confianza (siempre en español) y estado del diario. */}
       <div className="flex flex-wrap items-center gap-2">
         {answer.confidence !== null && (
-          <Badge variant="outline" className={LEVEL_BADGE_CLASSES[answer.confidence]}>
+          <Badge variant="outline" className={CONFIDENCE_BADGE_CLASSES[answer.confidence]}>
             Confianza {CONFIDENCE_LABELS[answer.confidence]}
           </Badge>
         )}

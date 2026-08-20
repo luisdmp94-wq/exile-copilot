@@ -189,6 +189,24 @@ export const ResistancesSchema = z.object({
 });
 export type Resistances = z.infer<typeof ResistancesSchema>;
 
+export type ResistanceKind = keyof Resistances;
+
+/**
+ * Nombres en español de las resistencias, para el TEXTO que lee el jugador.
+ *
+ * Las claves estructuradas del dominio siguen siendo `fire`/`cold`/`lightning`/
+ * `chaos` y no cambian: este mapa existe para que el motor redacte en español
+ * EN EL ORIGEN, en vez de que la interfaz parchee cadenas ya escritas en
+ * inglés. En minúsculas porque siempre aparecen dentro de una frase
+ * («Sube frío 61%…»); quien necesite capitalizarlas lo hace en su vista.
+ */
+export const RESISTANCE_LABELS: Record<ResistanceKind, string> = {
+  fire: "fuego",
+  cold: "frío",
+  lightning: "rayo",
+  chaos: "caos",
+};
+
 export const AttributesSchema = z.object({
   /** null = desconocido. */
   str: z.number().int().nullable().default(null),

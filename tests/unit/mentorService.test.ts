@@ -118,6 +118,49 @@ describe("mentor — intención explain_priority", () => {
   });
 });
 
+describe("mentor — resistencias en español", () => {
+  /** Todo el texto que la interfaz llega a pintar de una respuesta. */
+  function textoVisible(answer: Awaited<ReturnType<typeof answerMentorQuery>>): string {
+    return [
+      answer.answer,
+      answer.nextAction?.text ?? "",
+      ...answer.unverified,
+      ...answer.sources.map((s) => s.label),
+      answer.unsupported?.reason ?? "",
+    ].join(" | ");
+  }
+
+  it("el personaje demo presenta «frío 61%, rayo 40%», no las claves del dominio", async () => {
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "¿Qué mejoro ahora?", memory: emptyMemory() },
+      { priceService: offlinePriceService() },
+    );
+
+    expect(answer.answer).toContain("frío 61%, rayo 40%");
+    expect(answer.nextAction?.text).toContain("frío 61%, rayo 40%");
+  });
+
+  it("ninguna intención filtra identificadores ingleses de resistencia", async () => {
+    for (const question of ["¿Qué mejoro ahora?", "¿Cuál es mi principal problema?"]) {
+      const answer = await answerMentorQuery(
+        { ...BASE, question, memory: emptyMemory() },
+        { priceService: offlinePriceService() },
+      );
+      expect(textoVisible(answer)).not.toMatch(/\b(fire|cold|lightning|chaos)\b/);
+    }
+  });
+
+  it("las claves ESTRUCTURADAS del dominio siguen intactas", () => {
+    // La traducción es solo de textos: el perfil conserva sus claves inglesas.
+    expect(Object.keys(demoProfile().resistances).sort()).toEqual([
+      "chaos",
+      "cold",
+      "fire",
+      "lightning",
+    ]);
+  });
+});
+
 describe("mentor — pregunta no soportada", () => {
   it("contesta honestamente, sin acción y con ejemplos válidos", async () => {
     const priceService = offlinePriceService();

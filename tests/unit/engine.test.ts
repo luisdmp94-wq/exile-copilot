@@ -136,6 +136,44 @@ describe("engine — exactitud y contratos", () => {
     }
   });
 
+  it("las resistencias desconocidas se enumeran en español, no con las claves del dominio", async () => {
+    const profile = demoProfile();
+    // fuego y frío desconocidos, rayo conocido y bajo: se ejercitan a la vez la
+    // lista de desconocidas, la de bajas y la nota «No verificado».
+    profile.resistances = { fire: null, cold: null, lightning: 40, chaos: -10 };
+
+    const result = await generateRecommendations(
+      profile,
+      { ...BASE_OPTIONS, goal: { kind: "survival" } },
+      { priceService: offlinePriceService() },
+    );
+
+    const bajas = result.recommendations.find((r) => r.id === "rec-resistencias-elementales");
+    expect(bajas?.action).toContain("rayo 40%");
+    expect(bajas?.reason).toContain("rayo 40%");
+    // La nota «No verificado» de la regla de resistencias tampoco filtra claves.
+    expect(bajas?.unverified.join(" ")).toContain(
+      "resistencias desconocidas no evaluadas: fuego, frío.",
+    );
+
+    // Con TODAS las elementales desconocidas aparece el hueco de datos, cuya
+    // lista de resistencias también tiene que salir en español.
+    const todoDesconocido = demoProfile();
+    todoDesconocido.resistances = { fire: null, cold: null, lightning: null, chaos: null };
+    const sinDatos = await generateRecommendations(
+      todoDesconocido,
+      { ...BASE_OPTIONS, goal: { kind: "survival" } },
+      { priceService: offlinePriceService() },
+    );
+    const gap = sinDatos.recommendations.find((r) => r.id === "rec-datos-resistencias");
+    expect(gap?.unverified.join(" ")).toContain("Resistencias desconocidas: fuego, frío, rayo.");
+
+    const visible = [...result.recommendations, ...sinDatos.recommendations]
+      .flatMap((r) => [r.title, r.action, r.reason, ...r.unverified])
+      .join(" | ");
+    expect(visible).not.toMatch(/\b(fire|cold|lightning|chaos)\b/);
+  });
+
   it("arma rare NUNCA se valora con precios de únicos aunque coincida el nombre/base", async () => {
     const profile = demoProfile();
     const weapon = profile.items.find((i) => i.slot === "weapon");

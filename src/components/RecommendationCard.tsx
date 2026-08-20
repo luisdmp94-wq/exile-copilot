@@ -14,11 +14,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
+  CONFIDENCE_BADGE_CLASSES,
   CONFIDENCE_LABELS,
   formatCost,
   formatDateTime,
-  LEVEL_BADGE_CLASSES,
   MAGNITUDE_LABELS,
+  RISK_BADGE_CLASSES,
   RISK_LABELS,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -71,14 +72,14 @@ export function RecommendationCard({
           </Badge>
           <Badge
             variant="outline"
-            className={LEVEL_BADGE_CLASSES[rec.risk.level]}
+            className={RISK_BADGE_CLASSES[rec.risk.level]}
             title={rec.risk.description}
           >
             Riesgo {RISK_LABELS[rec.risk.level]}
           </Badge>
           <Badge
             variant="outline"
-            className={LEVEL_BADGE_CLASSES[rec.confidence]}
+            className={CONFIDENCE_BADGE_CLASSES[rec.confidence]}
           >
             Confianza {CONFIDENCE_LABELS[rec.confidence]}
           </Badge>

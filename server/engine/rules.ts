@@ -1,4 +1,11 @@
-import type { BuildTarget, CharacterProfile, GoalKind, SourceEvidence } from "../../shared/domain.js";
+import {
+  RESISTANCE_LABELS,
+  type BuildTarget,
+  type CharacterProfile,
+  type GoalKind,
+  type ResistanceKind,
+  type SourceEvidence,
+} from "../../shared/domain.js";
 
 /**
  * Reglas deterministas del motor de recomendaciones.
@@ -137,9 +144,18 @@ function dataGapCandidate(args: {
 // ---------------------------------------------------------------------------
 // Regla 1: resistencias elementales por debajo del cap (75%) — null-safe
 // ---------------------------------------------------------------------------
+
+/**
+ * Enumera resistencias en español para el texto del jugador. Las claves del
+ * dominio (`fire`, `cold`, …) nunca salen a la superficie: solo su etiqueta.
+ */
+function listarResistencias(kinds: ResistanceKind[]): string {
+  return kinds.map((k) => RESISTANCE_LABELS[k]).join(", ");
+}
+
 export const elementalResistancesRule: Rule = ({ profile }) => {
   const res = profile.resistances;
-  const keys = ["fire", "cold", "lightning"] as const;
+  const keys: ResistanceKind[] = ["fire", "cold", "lightning"];
   const unknown = keys.filter((k) => res[k] === null);
   const known = keys.filter((k) => res[k] !== null);
 
@@ -149,7 +165,7 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
       dataGapCandidate({
         ruleId: "datos-resistencias",
         what: "resistencias",
-        detail: `Resistencias desconocidas: ${unknown.join(", ")}.`,
+        detail: `Resistencias desconocidas: ${listarResistencias(unknown)}.`,
         // Para survival es el dato crítico: sin resistencias no se puede evaluar nada.
         goalWeights: { ...BALANCED, survival: 2.5 },
       }),
@@ -160,7 +176,7 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
   if (lows.length === 0) return out;
 
   const worst = Math.min(...lows.map((k) => res[k] ?? 0));
-  const labels = lows.map((k) => `${k} ${res[k]}%`).join(", ");
+  const labels = lows.map((k) => `${RESISTANCE_LABELS[k]} ${res[k]}%`).join(", ");
   out.push({
     ruleId: "resistencias-elementales",
     title: "Cubrir resistencias elementales",
@@ -178,7 +194,7 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
     confidenceBase: "high",
     unverified:
       unknown.length > 0
-        ? [`No verificado — resistencias desconocidas no evaluadas: ${unknown.join(", ")}.`]
+        ? [`No verificado — resistencias desconocidas no evaluadas: ${listarResistencias(unknown)}.`]
         : [],
     extraSources: [],
   });

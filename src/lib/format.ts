@@ -91,11 +91,29 @@ export const MAGNITUDE_LABELS: Record<"low" | "medium" | "high", string> = {
   high: "Alto",
 };
 
-/** Clases de color (Tailwind) para badges de riesgo / confianza / magnitud. */
-export const LEVEL_BADGE_CLASSES: Record<"low" | "medium" | "high", string> = {
-  low: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
-  medium: "border-amber-500/40 bg-amber-500/15 text-amber-300",
-  high: "border-red-500/40 bg-red-500/15 text-red-300",
+/**
+ * Paleta de los badges de nivel. Riesgo y confianza comparten los mismos
+ * valores estructurados (`low`/`medium`/`high`) pero NO la misma semántica
+ * visual, así que tienen mapas distintos: en riesgo lo alto es malo (rojo) y en
+ * confianza lo alto es bueno (verde). Compartir un único mapa pintaba
+ * «Confianza Alta» de rojo, como si fuese una alarma.
+ */
+const NIVEL_POSITIVO = "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
+const NIVEL_INTERMEDIO = "border-amber-500/40 bg-amber-500/15 text-amber-300";
+const NIVEL_NEGATIVO = "border-red-500/40 bg-red-500/15 text-red-300";
+
+/** Riesgo: bajo verde, medio ámbar, alto rojo. */
+export const RISK_BADGE_CLASSES: Record<RiskLevel, string> = {
+  low: NIVEL_POSITIVO,
+  medium: NIVEL_INTERMEDIO,
+  high: NIVEL_NEGATIVO,
+};
+
+/** Confianza: alta verde, media ámbar, baja roja (escala invertida). */
+export const CONFIDENCE_BADGE_CLASSES: Record<ConfidenceLevel, string> = {
+  high: NIVEL_POSITIVO,
+  medium: NIVEL_INTERMEDIO,
+  low: NIVEL_NEGATIVO,
 };
 
 export function formatDateTime(iso: string): string {
