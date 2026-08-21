@@ -199,3 +199,156 @@ export function setJournalPrimaryEntryId(
        updated_at = excluded.updated_at`,
   ).run(characterId, entryId, new Date().toISOString());
 }
+
+export function getActiveSessionId(db: Database, characterId: string): string | null {
+  const row = db
+    .prepare("SELECT active_session_id FROM journal_state WHERE character_id = ?")
+    .get(characterId) as { active_session_id: string | null } | undefined;
+  return row?.active_session_id ?? null;
+}
+
+export function setActiveSessionId(
+  db: Database,
+  characterId: string,
+  sessionId: string | null,
+): void {
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO journal_state (character_id, primary_entry_id, active_session_id, updated_at)
+     VALUES (?, NULL, ?, ?)
+     ON CONFLICT(character_id) DO UPDATE SET
+       active_session_id = excluded.active_session_id,
+       updated_at = excluded.updated_at`,
+  ).run(characterId, sessionId, now);
+}
+
+export interface DecisionSessionRow {
+  id: string;
+  character_id: string;
+  payload: string;
+  status: string;
+  character_fingerprint: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function saveDecisionSession(
+  db: Database,
+  session: {
+    id: string;
+    characterId: string;
+    payload: string;
+    status: string;
+    characterFingerprint: string;
+    createdAt: string;
+    updatedAt: string;
+  },
+): void {
+  db.prepare(
+    `INSERT INTO decision_sessions (
+       id, character_id, payload, status, character_fingerprint, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       payload = excluded.payload,
+       status = excluded.status,
+       character_fingerprint = excluded.character_fingerprint,
+       updated_at = excluded.updated_at`,
+  ).run(
+    session.id,
+    session.characterId,
+    session.payload,
+    session.status,
+    session.characterFingerprint,
+    session.createdAt,
+    session.updatedAt,
+  );
+}
+
+export function getDecisionSession(db: Database, id: string): DecisionSessionRow | null {
+  const row = db
+    .prepare(
+      `SELECT id, character_id, payload, status, character_fingerprint, created_at, updated_at
+       FROM decision_sessions WHERE id = ?`,
+    )
+    .get(id);
+  return (row as DecisionSessionRow | undefined) ?? null;
+}
+
+export function listDecisionSessions(
+  db: Database,
+  characterId: string,
+  limit: number,
+): DecisionSessionRow[] {
+  const safeLimit = Math.max(1, Math.min(Math.trunc(limit), 20));
+  const rows = db
+    .prepare(
+      `SELECT id, character_id, payload, status, character_fingerprint, created_at, updated_at
+       FROM decision_sessions
+       WHERE character_id = ?
+       ORDER BY updated_at DESC, created_at DESC, id DESC
+       LIMIT ?`,
+    )
+    .all(characterId, safeLimit);
+  return rows as unknown as DecisionSessionRow[];
+}
+
+export function getEventByIdempotencyKey(
+  db: Database,
+  idempotencyKey: string,
+): { payload: string; character_id: string } | null {
+  const row = db
+    .prepare(
+      `SELECT payload, character_id FROM decision_session_events WHERE idempotency_key = ?`,
+    )
+    .get(idempotencyKey);
+  return (row as { payload: string; character_id: string } | undefined) ?? null;
+}
+
+export function countSessionEvents(db: Database, sessionId: string): number {
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM decision_session_events WHERE session_id = ?`)
+    .get(sessionId) as { n: number | bigint } | undefined;
+  return Number(row?.n ?? 0);
+}
+
+export function saveDecisionSessionEvent(
+  db: Database,
+  event: {
+    id: string;
+    sessionId: string;
+    characterId: string;
+    idempotencyKey: string;
+    payload: string;
+    createdAt: string;
+  },
+): void {
+  db.prepare(
+    `INSERT INTO decision_session_events (
+       id, session_id, character_id, idempotency_key, payload, created_at
+     ) VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    event.id,
+    event.sessionId,
+    event.characterId,
+    event.idempotencyKey,
+    event.payload,
+    event.createdAt,
+  );
+}
+
+export function listDecisionSessionEvents(
+  db: Database,
+  sessionId: string,
+  limit: number,
+): Array<{ payload: string }> {
+  const safeLimit = Math.max(1, Math.min(Math.trunc(limit), 40));
+  const rows = db
+    .prepare(
+      `SELECT payload FROM decision_session_events
+       WHERE session_id = ?
+       ORDER BY created_at ASC, id ASC
+       LIMIT ?`,
+    )
+    .all(sessionId, safeLimit);
+  return rows as unknown as Array<{ payload: string }>;
+}

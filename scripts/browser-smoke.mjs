@@ -10,7 +10,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { launchBrowser } from "./browserLaunch.mjs";
 
 const SHOT_DIR = fileURLToPath(new URL("../docs/screenshots/", import.meta.url));
 const args = process.argv.slice(2);
@@ -77,7 +77,7 @@ async function runFlow(mode, port) {
     await waitForServer(`${BASE}/api/health`);
     check(`[${mode}] servidor responde /api/health`, true);
 
-    browser = await chromium.launch({ channel: "msedge", headless: true });
+    browser = await launchBrowser();
     const context = await browser.newContext({ acceptDownloads: true });
     const page = await context.newPage();
     mkdirSync(SHOT_DIR, { recursive: true });

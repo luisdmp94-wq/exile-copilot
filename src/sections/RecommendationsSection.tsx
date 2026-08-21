@@ -43,6 +43,8 @@ interface RecommendationsSectionProps {
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
   onTrackRecommendation: (recommendation: Recommendation) => void;
   trackingRecommendation: boolean;
+  onStartSession?: (recommendation: Recommendation) => void;
+  startingSession?: boolean;
 }
 
 export function RecommendationsSection({
@@ -60,6 +62,8 @@ export function RecommendationsSection({
   onFocusItem,
   onTrackRecommendation,
   trackingRecommendation,
+  onStartSession,
+  startingSession = false,
 }: RecommendationsSectionProps) {
   const { result, exportResult, loading, exporting, error } = recommendations;
   const [appliedIds, setAppliedIds] = useState<Record<string, boolean>>({});
@@ -200,6 +204,8 @@ export function RecommendationsSection({
                 onFocusItem={onFocusItem}
                 onTrack={onTrackRecommendation}
                 tracking={trackingRecommendation}
+                onStartSession={onStartSession}
+                startingSession={startingSession}
               />
             ))}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">

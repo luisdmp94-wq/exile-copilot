@@ -5,6 +5,12 @@ import {
   type RecommendationMemory,
   type RecommendationMemoryEntry,
 } from "./domain.js";
+import {
+  emptySessionDigest,
+  sessionMemoryDigest,
+  type DecisionSession,
+  type SessionMemoryDigest,
+} from "./decisionSession.js";
 
 const MAX_COMPLETED_ENTRIES = 10;
 
@@ -38,7 +44,8 @@ function toMemoryEntry(entry: JournalEntry): RecommendationMemoryEntry {
  * incluyen resultados explícitos del jugador; el texto no se analiza.
  */
 export function buildRecommendationMemory(
-  journal: CharacterJournal,
+  journal: CharacterJournal & { session?: DecisionSession | null },
+  session?: DecisionSession | null,
 ): RecommendationMemory {
   const primaryEntry = journal.primaryEntry
     ? toMemoryEntry(journal.primaryEntry)
@@ -54,11 +61,21 @@ export function buildRecommendationMemory(
     .slice(0, MAX_COMPLETED_ENTRIES)
     .map(toMemoryEntry);
 
-  const revisionPayload = JSON.stringify({ primaryEntry, recentCompleted });
+  const resolvedSession = session !== undefined ? session : (journal.session ?? null);
+  const sessionDigest: SessionMemoryDigest = resolvedSession
+    ? sessionMemoryDigest(resolvedSession)
+    : emptySessionDigest();
+
+  const revisionPayload = JSON.stringify({
+    primaryEntry,
+    recentCompleted,
+    session: sessionDigest,
+  });
 
   return RecommendationMemorySchema.parse({
     revision: `journal-memory-v1:${revisionHash(revisionPayload)}`,
     primaryEntry,
     recentCompleted,
+    session: sessionDigest,
   });
 }

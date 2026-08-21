@@ -1,6 +1,43 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 11 (Hito 6A: conversación con el mentor), 2026-08-21.
+> Informe para el propietario. Última actualización: sesión 12 (Hito 6B: sesiones adaptativas de decisión), 2026-08-21.
+
+## Sesión 12 — Hito 6B: sesiones adaptativas de decisión
+
+Trabajo hecho en la rama `hito-6b-adaptive-decision-sessions` a partir de la
+etiqueta local `source-f6152c47` (commit `d6b003c`, importado del ZIP
+`f6152c47`). **Sin integrar en main.** Los SHA de esta rama no pertenecen al
+repositorio original.
+
+- **La sesión envuelve el diario**, no lo duplica: una sola próxima acción
+  (`journal_state.primary_entry_id` + `active_session_id`). Proponer una nueva
+  cierra la anterior en la misma transacción; una sesión abierta bloquea otro
+  paso principal.
+- **Freno determinista** (`evaluateSessionGate`): incógnita crítica +
+  irreversible pide evidencia; restricción core ocupa el hueco 1 y no se
+  sustituye por la siguiente puntuada; pieza a sustituir pronto o presupuesto
+  superado (misma moneda, coste conocido) pausa para conservar el recurso.
+- **Resultado inesperado valioso** se protege y cambia el plan. **Descarte
+  causal** deja una condición de reapertura; evidencia compatible → candidata,
+  nunca un hecho demostrado. **Lo subjetivo no se trata como medición.**
+- **Huella de personaje**: si cambian nivel, liga, parche o equipo, la sesión
+  no se reutiliza en silencio (409 + confirmación).
+- **SQLite aditivo**: `decision_sessions`, `decision_session_events` (máx. 40,
+  `idempotency_key` UNIQUE) y columna `active_session_id`. Los payloads 5A/5B
+  no se reescriben.
+- **Revisión e idempotencia**: `journalRevision` forma parte del digest de
+  sesión; un 409 `memoria-diario-obsoleta` retira la acción visible y recarga.
+  Reintentar la misma clave no duplica el evento.
+- **Interfaz «Comprobar una decisión»** en español, sin jerga interna. Desde
+  una recomendación, «Comprobar esto». `session_gate` no se guarda como compra
+  ni se exporta al `.build`.
+- **Sin LLM, sin crafts inventados, sin precios nuevos.**
+- Verificado en esta máquina: `tsc -b` 0 errores, ESLint 0 errores,
+  **230/230** tests, build OK, smokes de navegador: sesión **26/26**, diario
+  **58/58**, mentor **68/68**, equipo **70/70**, flujo principal **20/20**
+  (producción + Strict Mode). Capturas en
+  `docs/screenshots/sesion-*.png`.
+- Detalle en `docs/HITO_6B.md` y `docs/PLAN_6B.md`.
 
 ## Sesión 11 — Hito 6A: primera conversación real con el mentor
 

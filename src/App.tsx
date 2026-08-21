@@ -25,6 +25,8 @@ import { buildMentorRequest } from "@/lib/mentorRequest";
 import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
+import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
+import { buildRecommendationMemory } from "@shared/journalMemory.js";
 
 const EMPTY_TARGET: TargetDraft = {
   name: "",
@@ -85,6 +87,14 @@ export default function App() {
   const market = useMarket();
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
+  const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
+
+  useEffect(() => {
+    if (journal.stale) {
+      clear();
+      clearMentor();
+    }
+  }, [journal.stale, clear, clearMentor]);
 
   // Valores por defecto en cuanto llegan /api/meta y /api/health.
   useEffect(() => {
@@ -148,7 +158,6 @@ export default function App() {
         ),
       )
     : null;
-  const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
   useEffect(() => {
     if (mentorThreadKey && mentorThreadKey !== currentMentorInputsKey) {
       clearMentor();
@@ -176,6 +185,13 @@ export default function App() {
           budget={budget}
           goal={goal}
           journal={journal}
+        />
+
+        <DecisionSessionSection
+          profile={character.profile}
+          budget={budget}
+          journal={journal}
+          pendingRecommendation={recommendations.result?.recommendations[0] ?? null}
         />
 
         <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
@@ -232,16 +248,49 @@ export default function App() {
               }}
               onTrackRecommendation={(recommendation) => {
                 if (!character.profile) return;
-                void journal.createEntry(
-                  journalEntryFromRecommendation(
+                void journal.createEntry({
+                  ...journalEntryFromRecommendation(
                     recommendation,
                     character.profile,
                     budget,
                     goal,
                   ),
-                );
+                  ...(characterJournal
+                    ? {
+                        journalRevision: buildRecommendationMemory(characterJournal)
+                          .revision,
+                      }
+                    : {}),
+                });
               }}
               trackingRecommendation={journal.saving}
+              onStartSession={(recommendation) => {
+                if (!character.profile || !characterJournal) return;
+                void journal.startSession({
+                  journalRevision: buildRecommendationMemory(characterJournal).revision,
+                  idempotencyKey: crypto.randomUUID(),
+                  kind: "guided_decision",
+                  objective: recommendation.title,
+                  hypothesis: recommendation.reason.slice(0, 2000),
+                  expectedResult: recommendation.impact.description,
+                  observationMethod: "Anota lo que cambió en el juego, con tus palabras.",
+                  unknowns: [],
+                  constraints: [],
+                  soonReplacedItemIds: [],
+                  protectedResources: [],
+                  recommendation,
+                  profile: character.profile,
+                  budget,
+                  goal,
+                }).then((next) => {
+                  if (next) {
+                    document
+                      .getElementById("seccion-decision-adaptativa")
+                      ?.scrollIntoView({ block: "start" });
+                  }
+                });
+              }}
+              startingSession={journal.saving}
             />
 
             <MentorChatSection
@@ -270,14 +319,20 @@ export default function App() {
               onSaveNextAction={(answer) => {
                 const recommendation = answer.nextAction?.recommendation ?? null;
                 if (!character.profile || recommendation === null) return;
-                void journal.createEntry(
-                  journalEntryFromRecommendation(
+                void journal.createEntry({
+                  ...journalEntryFromRecommendation(
                     recommendation,
                     character.profile,
                     budget,
                     goal,
                   ),
-                );
+                  ...(characterJournal
+                    ? {
+                        journalRevision: buildRecommendationMemory(characterJournal)
+                          .revision,
+                      }
+                    : {}),
+                });
               }}
               onFocusItem={(itemId, trigger) => {
                 dialogTriggerRef.current = trigger;

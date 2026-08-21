@@ -10,12 +10,12 @@
  * base del usuario, no escribe capturas en el repo y detiene solo el proceso
  * que esta prueba ha creado.
  */
-import { execSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { launchBrowser, stopChild } from "./browserLaunch.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -62,15 +62,7 @@ function startServer(mode, port) {
 }
 
 function stopServer(process) {
-  try {
-    execSync(`taskkill /F /T /PID ${process.pid}`, { stdio: "ignore" });
-  } catch {
-    try {
-      process.kill();
-    } catch {
-      // El proceso ya terminó.
-    }
-  }
+  stopChild(process);
 }
 
 let total = 0;
@@ -101,7 +93,7 @@ async function runFlow(mode, port) {
   let browser;
   try {
     check(`[${mode}] servidor disponible`, await waitForServer(base));
-    browser = await chromium.launch({ channel: "msedge", headless: true });
+    browser = await launchBrowser();
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
     const externalRequests = [];

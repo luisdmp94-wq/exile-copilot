@@ -38,6 +38,8 @@ interface RecommendationCardProps {
   /** Guarda la decisión y la convierte en la única próxima acción del mentor. */
   onTrack: (recommendation: Recommendation) => void;
   tracking: boolean;
+  onStartSession?: (recommendation: Recommendation) => void;
+  startingSession?: boolean;
 }
 
 const PRIORITY_CLASSES: Record<number, string> = {
@@ -54,6 +56,8 @@ export function RecommendationCard({
   onFocusItem,
   onTrack,
   tracking,
+  onStartSession,
+  startingSession = false,
 }: RecommendationCardProps) {
   const overBudget =
     rec.cost.currency === budget.currency &&
@@ -215,11 +219,22 @@ export function RecommendationCard({
             type="button"
             size="sm"
             onClick={() => onTrack(rec)}
-            disabled={tracking}
+            disabled={tracking || rec.actionKind === "session_gate"}
           >
             <BookMarked className="size-3.5" aria-hidden="true" />
             Guardar como próximo paso
           </Button>
+          {onStartSession && rec.actionKind !== "session_gate" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => onStartSession(rec)}
+              disabled={startingSession}
+            >
+              Comprobar esto
+            </Button>
+          )}
           {rec.relatedItemIds.length > 0 && (
             <Button
               type="button"
@@ -238,7 +253,12 @@ export function RecommendationCard({
           )}
         </div>
 
-        {rec.actionKind === "profile_sync" ? (
+        {rec.actionKind === "session_gate" ? (
+          <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
+            <FileWarning className="size-4 text-sky-300" aria-hidden="true" />
+            El mentor frena este paso hasta resolver el conflicto o la evidencia.
+          </div>
+        ) : rec.actionKind === "profile_sync" ? (
           <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
             <FileWarning className="size-4 text-sky-300" aria-hidden="true" />
             Acción de datos: no modifica el juego ni se incluye en el archivo .build.

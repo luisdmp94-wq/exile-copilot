@@ -2,7 +2,7 @@
 
 Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu presupuesto y recibe las próximas mejoras ordenadas por impacto, coste y riesgo».
 
-> Actualizado para el Hito 5B (2026-08-20). El formato `.build` propietario inicial fue eliminado: se usa exclusivamente el esquema oficial GGG Build Planner v1.
+> Actualizado para el Hito 6B (2026-08-21). El formato `.build` propietario inicial fue eliminado: se usa exclusivamente el esquema oficial GGG Build Planner v1.
 
 ## Decisiones de arquitectura
 
@@ -19,6 +19,10 @@ Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu
   Una acción activa detiene nuevas recomendaciones; una recomendación completada
   que sigue activándose se convierte en una acción de reconciliación de datos.
   El texto del resultado nunca se interpreta como estadísticas.
+- **Sesión adaptativa de decisión**: envuelve la acción principal del diario.
+  Recuerda objetivo, hipótesis, restricciones e incógnitas. Un freno
+  determinista pide evidencia, muestra un conflicto o pausa para conservar el
+  recurso; nunca sustituye en silencio la mejor puntuación ni inventa mecánicas.
 
 ## Modelo de datos — separación clave
 
@@ -44,7 +48,8 @@ exile-copilot/
     app.ts           createApiApp (rutas sin prefijo, montadas en /api)
     config.ts        variables de entorno
     data/patches.json  parches versionados (content + hotfix, fuente y fecha)
-    db/              node:sqlite (price_cache, characters, journal_entries, journal_state)
+    db/              node:sqlite (price_cache, characters, journal_entries, journal_state, decision_sessions)
+    decision/        sesiones adaptativas (Hito 6B)
     importers/       buildImporter (dispatcher), gggBuildImporter (→ plan), itemTextParser
     services/        poeninja (caché+ETag+fixtures+rates), priceService
     engine/          reglas deterministas null-safe + fingerprint
@@ -57,6 +62,7 @@ exile-copilot/
   scripts/browser-smoke.mjs  prueba real de navegador (Edge, prod y dev)
   scripts/journal-smoke.mjs  flujo persistente del mentor con SQLite temporal
   scripts/mentor-smoke.mjs   conversación con el mentor (Hito 6A), SQLite temporal
+  scripts/session-smoke.mjs  sesiones adaptativas (Hito 6B), SQLite temporal
 ```
 
 ## Contrato API (v1, bajo /api)
@@ -68,6 +74,9 @@ exile-copilot/
 - `POST /character` / `GET /character/:id` / `GET /character/demo`.
 - `GET /journal/:characterId` / `POST /journal/:characterId/entries` /
   `PATCH /journal/:characterId/entries/:entryId`.
+- `POST /journal/:characterId/session` y subrutas (`constraints`, `evidence`,
+  `result`, `pause`, `reopen`, `reconcile`): siempre con `journalRevision` e
+  `idempotencyKey`. Un 409 invalida la acción visible.
 - `GET  /market/prices?league=&names=` → quotes + `primaryCurrency` + `rates {values, origin, verified, fetchedAt} | null`.
 - `POST /recommendations` → 3 recomendaciones + `inputFingerprint`.
 - `POST /mentor/query` → respuesta conversacional basada en reglas (intención, una
