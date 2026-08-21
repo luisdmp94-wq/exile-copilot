@@ -83,20 +83,25 @@ export function ExpedienteSection({
 
   return (
     <section
-      className="superficie-panel flex flex-col gap-4 p-4"
+      className="dossier-panel superficie-panel flex flex-col gap-5 p-5 sm:p-6"
       aria-labelledby="expediente-titulo"
     >
       <div className="flex flex-col gap-1.5">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Expediente
-          </p>
-          <h2
-            id="expediente-titulo"
-            className="font-serif text-2xl font-semibold leading-tight text-foreground"
-          >
-            {profile.name}
-          </h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/70">
+              Sujeto registrado
+            </p>
+            <h2
+              id="expediente-titulo"
+              className="dossier-title mt-1 text-3xl font-semibold leading-tight text-foreground"
+            >
+              {profile.name}
+            </h2>
+          </div>
+          <span className="border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+            Expediente activo
+          </span>
         </div>
         <p className="text-sm text-muted-foreground">
           {profile.characterClass}

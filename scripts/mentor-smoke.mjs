@@ -216,6 +216,26 @@ async function runFlow(mode, port) {
 
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
+
+    // El ejemplo vive primero solo en memoria del navegador. Antes de probar
+    // acciones que escriben en el diario hay que guardarlo en SQLite, igual que
+    // se exige ahora al jugador: sin personaje persistido la interfaz abre el
+    // editor y no finge que ha creado memoria.
+    await page.getByTestId("abrir-editor-expediente").click();
+    await page.getByRole("dialog").waitFor({ state: "visible", timeout: 15000 });
+    const [saveResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/character") &&
+          response.request().method() === "POST",
+        { timeout: 10000 },
+      ),
+      page.getByRole("button", { name: /Guardar correcciones/i }).click(),
+    ]);
+    check(`[${mode}] personaje persistido antes de usar la memoria`, saveResponse.status() === 200);
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 15000 });
+
     await abrirMentor(page);
     await seccion.waitFor({ state: "visible", timeout: 20000 });
 

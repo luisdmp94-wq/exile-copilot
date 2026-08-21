@@ -28,23 +28,30 @@ function patchTitle(health: HealthResponse): string {
  */
 export function AppHeader({ health, loading, profile }: AppHeaderProps) {
   return (
-    <header className="border-b border-border bg-card/70 backdrop-blur-[2px]">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Swords className="size-5 text-primary" aria-hidden="true" />
-          <h1 className="text-lg font-semibold tracking-tight text-primary">
-            Exile Copilot
-          </h1>
+    <header className="command-header border-b border-primary/15">
+      <div className="mx-auto flex max-w-[92rem] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-4">
+          <span className="brand-seal" aria-hidden="true">
+            <Swords className="size-5" />
+          </span>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-primary/70">
+              Archivo del exiliado
+            </p>
+            <h1 className="dossier-title text-2xl font-semibold leading-none text-foreground">
+              Exile Copilot
+            </h1>
+          </div>
         </div>
 
-        <span className="hidden text-sm text-muted-foreground sm:inline">
-          Tu mentor de PoE2: una sola próxima acción, con evidencia.
+        <span className="hidden border-l border-border/70 pl-4 text-xs uppercase tracking-[0.14em] text-muted-foreground lg:inline">
+          Diagnóstico · decisión · memoria
         </span>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {profile && (
             <span
-              className="text-xs text-muted-foreground"
+              className="border-r border-border/70 pr-3 text-xs text-muted-foreground"
               data-testid="cabecera-personaje"
             >
               <span className="font-medium text-foreground">{profile.name}</span> · nivel{" "}

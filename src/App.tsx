@@ -350,7 +350,7 @@ export default function App() {
     <div className="min-h-screen text-foreground">
       <AppHeader health={health} loading={metaLoading} profile={character.profile} />
 
-      <main className="mx-auto max-w-7xl px-4 pb-10 pt-4">
+      <main className="mx-auto max-w-[92rem] px-4 pb-12 pt-0 sm:px-6">
         {metaError && (
           <Alert variant="destructive" className="mb-6">
             <AlertTitle>No se pudo cargar la configuración del servidor</AlertTitle>
@@ -368,15 +368,15 @@ export default function App() {
         >
           {/* Navegación segmentada: se queda a la vista al desplazarse, pero
               ocupa poco. El propio Radix aporta teclado (flechas, Home/End). */}
-          <div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-border bg-background/90 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+          <div className="workspace-nav sticky top-0 z-30 -mx-4 mb-8 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:-mx-6 sm:px-6">
             <TabsList
               aria-label="Áreas de Exile Copilot"
-              className="h-auto w-full gap-1 bg-muted/50 p-1 sm:w-auto"
+              className="h-auto w-full justify-start gap-7 bg-transparent p-0 sm:w-auto"
             >
               <TabsTrigger
                 value="expediente"
                 data-testid="tab-expediente"
-                className="min-w-0 flex-1 gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15 data-[state=active]:text-primary sm:flex-none"
+                className="min-w-0 flex-1 gap-2 rounded-none border-b-2 border-transparent bg-transparent px-0 py-2 text-xs uppercase tracking-[0.13em] shadow-none sm:flex-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
               >
                 <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate sm:hidden">Expediente</span>
@@ -385,7 +385,7 @@ export default function App() {
               <TabsTrigger
                 value="plan"
                 data-testid="tab-plan"
-                className="min-w-0 flex-1 gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15 data-[state=active]:text-primary sm:flex-none"
+                className="min-w-0 flex-1 gap-2 rounded-none border-b-2 border-transparent bg-transparent px-0 py-2 text-xs uppercase tracking-[0.13em] shadow-none sm:flex-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
               >
                 <Compass className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate sm:hidden">Plan</span>
@@ -418,7 +418,7 @@ export default function App() {
                 onEditExpediente={() => openEditor()}
               />
             ) : (
-              <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,29rem)_minmax(0,1fr)] lg:items-start">
+              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(23rem,26rem)_minmax(0,1fr)] lg:items-start">
                 {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
                     contexto antes de inspeccionar la pieza (§8). */}
                 <div className="order-1 flex flex-col gap-6 lg:order-2 lg:col-start-2">

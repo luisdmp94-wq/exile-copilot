@@ -112,7 +112,7 @@ export function EquipmentPanel({
   return (
     <section
       aria-labelledby="equipo-titulo"
-      className="flex flex-col gap-2.5 rounded-md border border-border bg-muted/20 p-3"
+      className="gear-board flex flex-col gap-3 border border-border/80 p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
@@ -278,7 +278,7 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
         data-slot-state="empty"
         data-slot={slot ?? "other"}
         className={cn(
-          "flex h-full min-h-20 flex-col gap-1 rounded-md border border-dashed border-border/70 p-2",
+          "gear-slot flex h-full min-h-20 flex-col gap-1 border border-dashed border-border/70 p-2",
           SURFACE,
         )}
       >
@@ -306,7 +306,7 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
         highlighted ? ". Señalado por una recomendación" : ""
       }`}
       className={cn(
-        "flex h-full min-h-20 w-full flex-col gap-1 rounded-md border p-2 text-left",
+        "gear-slot flex h-full min-h-20 w-full flex-col gap-1 border p-2 text-left",
         SURFACE,
         "transition-colors motion-reduce:transition-none hover:bg-background",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

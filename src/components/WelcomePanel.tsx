@@ -1,4 +1,4 @@
-import { Compass, Loader2, MessageCircleQuestion, Sparkles, Upload } from "lucide-react";
+import { Compass, Loader2, MessageCircleQuestion, ShieldCheck, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface WelcomePanelProps {
@@ -33,19 +33,23 @@ const PASOS = [
 export function WelcomePanel({ onGoToImport, onLoadDemo, loadingDemo }: WelcomePanelProps) {
   return (
     <section
-      className="superficie-accion mb-6 px-5 py-6 sm:px-8 sm:py-8"
+      className="welcome-stage superficie-accion mb-6 px-6 py-10 sm:px-12 sm:py-14"
       data-testid="bienvenida"
       aria-labelledby="bienvenida-titulo"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        <div className="flex flex-col gap-2">
+      <div className="relative z-10 flex max-w-3xl flex-col gap-8">
+        <div className="flex flex-col gap-4">
+          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">
+            <ShieldCheck className="size-4" aria-hidden="true" />
+            Primera consulta
+          </p>
           <h2
             id="bienvenida-titulo"
-            className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
+            className="dossier-title max-w-2xl text-4xl font-semibold leading-[1.05] text-foreground sm:text-6xl"
           >
-            Importa tu personaje
+            Tu build tiene una historia. Empecemos por leerla.
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
             El mentor solo habla con datos tuyos. Sin personaje no puede decidir nada, y
             no va a improvisar.
           </p>
@@ -73,12 +77,12 @@ export function WelcomePanel({ onGoToImport, onLoadDemo, loadingDemo }: WelcomeP
           </Button>
         </div>
 
-        <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <ol className="grid max-w-3xl grid-cols-1 gap-5 border-t border-border/60 pt-7 sm:grid-cols-3">
           {PASOS.map(({ icon: Icon, titulo, texto }, index) => (
-            <li key={titulo} className="superficie-panel flex flex-col gap-1.5 p-3">
-              <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Icon className="size-4 text-sky-300" aria-hidden="true" />
-                {index + 1}. {titulo}
+            <li key={titulo} className="welcome-step flex flex-col gap-2">
+              <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-foreground">
+                <Icon className="size-4 text-primary" aria-hidden="true" />
+                0{index + 1} / {titulo}
               </span>
               <span className="text-xs text-muted-foreground">{texto}</span>
             </li>
