@@ -308,6 +308,7 @@ export default function App() {
             <DecisionSessionSection
               profile={character.profile}
               budget={budget}
+              goal={goal}
               journal={journal}
               pendingRecommendation={recommendations.result?.recommendations[0] ?? null}
             />

@@ -7,7 +7,7 @@ import {
   Shield,
   Sparkles,
 } from "lucide-react";
-import type { Budget, CharacterProfile, Recommendation } from "@shared/domain.js";
+import type { Budget, CharacterProfile, GoalKind, Recommendation } from "@shared/domain.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   CONCLUSION_LABELS,
@@ -30,6 +30,12 @@ import { SLOT_LABELS } from "@/lib/format";
 interface DecisionSessionSectionProps {
   profile: CharacterProfile | null;
   budget: Budget;
+  /**
+   * Objetivo REAL elegido por el jugador en «Plan y mercado». La sesión debe
+   * abrirse con él: antes se enviaba «balanced» fijo y además el servidor lo
+   * descartaba, así que la decisión perdía ese contexto.
+   */
+  goal: GoalKind;
   journal: JournalState;
   pendingRecommendation: Recommendation | null;
 }
@@ -41,6 +47,7 @@ function newKey(): string {
 export function DecisionSessionSection({
   profile,
   budget,
+  goal,
   journal,
   pendingRecommendation,
 }: DecisionSessionSectionProps) {
@@ -112,7 +119,7 @@ export function DecisionSessionSection({
       protectedResources: [],
       recommendation: pendingRecommendation,
       budget,
-      goal: "balanced",
+      goal,
     });
   };
 
@@ -138,7 +145,7 @@ export function DecisionSessionSection({
       protectedResources: [],
       recommendation: null,
       budget,
-      goal: "balanced",
+      goal,
     });
     setObjective("");
     setHypothesis("");

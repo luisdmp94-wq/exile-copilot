@@ -61,6 +61,7 @@ function startManual(
     recommendation: null,
     profile,
     budget: { amount: 50, currency: "exalted" },
+    goal: "balanced",
   });
 }
 

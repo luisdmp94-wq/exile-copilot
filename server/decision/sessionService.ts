@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   CharacterProfileSchema,
   compactJournalTitle,
+  type GoalKind,
   JournalEntrySchema,
   type CharacterJournal,
   type CharacterProfile,
@@ -557,7 +558,9 @@ function createJournalAction(
       league: profile.league,
       patch: profile.patch,
       budget: action.maxCost,
-      goal: null,
+      // El objetivo viene de la sesión que crea la acción. `null` solo cuando la
+      // sesión es anterior a este campo: desconocido, no «equilibrado».
+      goal: session.goal,
     },
     recommendationSnapshot: recommendation,
     createdAt: now,
@@ -584,6 +587,8 @@ export function startDecisionSession(
     recommendation: Recommendation | null;
     profile: CharacterProfile;
     budget: { amount: number; currency: "divine" | "exalted" | "chaos" | "gold" };
+    /** Objetivo del jugador; se conserva en la sesión y en sus entradas. */
+    goal: GoalKind;
   },
 ): JournalBundle {
   return runIdempotent(
@@ -634,6 +639,7 @@ export function startDecisionSession(
       activeAction: null,
       blockedRecommendation: null,
       budget: input.budget,
+      goal: input.goal,
       lastResult: null,
       conclusion: null,
       characterFingerprint: characterSessionFingerprint(profile),

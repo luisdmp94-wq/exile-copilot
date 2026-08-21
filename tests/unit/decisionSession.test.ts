@@ -177,6 +177,7 @@ describe("reapertura y huella", () => {
       activeAction: null,
     blockedRecommendation: null,
     budget: null,
+    goal: null,
       lastResult: null,
       conclusion: null,
       characterFingerprint: "abc",

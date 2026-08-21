@@ -1,5 +1,10 @@
 # Hito 6B — Sesiones adaptativas de decisión
 
+> **Documento histórico: la especificación con la que se construyó el
+> prototipo.** El hito está implementado, corregido e **integrado en `main`**
+> (`dd671178`). Lo que quedó finalmente en el producto —incluidas las nueve
+> correcciones de la auditoría— se describe en `docs/HITO_6B.md`.
+
 Especificación breve sobre el código inspeccionado (diario 5A/5B + mentor 6A).
 No es un segundo diario ni un chatbot con memoria de mensajes.
 

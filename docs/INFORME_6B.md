@@ -1,8 +1,15 @@
 # Informe final — Hito 6B
 
-Rama: `hito-6b-adaptive-decision-sessions`
-Baseline local: etiqueta `source-f6152c47` (commit `d6b003c`, ZIP `f6152c47`).
-**No integrado en `main`.** Los SHA de esta rama no pertenecen al repositorio original.
+> **Documento histórico: es el informe del PROTOTIPO tal y como llegó.**
+>
+> Estado actual: el Hito 6B, ya **corregido tras la auditoría independiente**,
+> está **integrado en `main`** (`dd671178`). Las correcciones y sus pruebas se
+> describen en `docs/HITO_6B.md`; la trazabilidad, en `HANDOFF.md`.
+>
+> **Procedencia ajena:** la rama `hito-6b-adaptive-decision-sessions`, la
+> etiqueta `source-f6152c47` y el commit `d6b003c` pertenecen al repositorio de
+> Grok del que se importó el ZIP. **No existen en este repositorio** y no
+> describen su estado.
 
 ## Qué se entregó
 

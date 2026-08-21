@@ -18,8 +18,11 @@
   `generateRecommendations` y traduce su resultado a una respuesta conversacional.
 - **Ruta** `POST /api/mentor/query` con las mismas protecciones de memoria que
   `/api/recommendations`.
-- **Interfaz** «5. Habla con tu mentor» (`src/sections/MentorChatSection.tsx`),
-  que convive con personaje, equipo, recomendaciones y diario.
+- **Interfaz** «Habla con tu mentor» (`src/sections/MentorChatSection.tsx`).
+  Convive con el diario, la sesión de decisión y las recomendaciones dentro del
+  área **Mentor** del espacio de trabajo. (Cuando se escribió este hito la
+  interfaz era una lista numerada y esta era la «sección 5»; hoy hay tres áreas:
+  Mentor, Personaje y Plan y mercado.)
 
 ## Preguntas soportadas hoy
 

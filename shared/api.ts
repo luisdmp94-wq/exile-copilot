@@ -5,6 +5,7 @@ import {
   CharacterJournalSchema,
   CharacterProfileSchema,
   CurrencyKind,
+  GoalKind,
   GoalSchema,
   ItemSchema,
   JournalContextSchema,
@@ -244,7 +245,9 @@ export const StartDecisionSessionRequestSchema = RevisionGuardSchema.extend({
   recommendation: RecommendationSchema.nullable().default(null),
   profile: CharacterProfileSchema,
   budget: BudgetSchema,
-  goal: z.string().min(1).max(40),
+  // Objetivo real del jugador, del enum del dominio. Antes era un string libre
+  // que además el servidor descartaba: el cliente enviaba un dato que se perdía.
+  goal: GoalKind,
 });
 export type StartDecisionSessionRequest = z.infer<typeof StartDecisionSessionRequestSchema>;
 

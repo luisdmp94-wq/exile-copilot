@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { CharacterProfile, Recommendation } from "./domain.js";
-import { BudgetSchema, RecommendationSchema, RiskLevel } from "./domain.js";
+import { BudgetSchema, GoalKind, RecommendationSchema, RiskLevel } from "./domain.js";
 
 /** Límites duros: el historial no crece sin cota. */
 export const MAX_SESSION_EVENTS = 40;
@@ -141,6 +141,14 @@ export const DecisionSessionSchema = z.object({
    * comparar el coste con el MISMO presupuesto, no con uno improvisado.
    */
   budget: BudgetSchema.nullable().default(null),
+  /**
+   * Objetivo del jugador al abrir la decisión (`GoalKind`, no un string libre).
+   *
+   * `null` significa DESCONOCIDO, no «equilibrado»: las sesiones guardadas antes
+   * de que existiera este campo se cargan así y no se les inventa un objetivo
+   * que nadie eligió.
+   */
+  goal: GoalKind.nullable().default(null),
   lastResult: z
     .object({
       text: z.string().trim().min(1).max(4000),

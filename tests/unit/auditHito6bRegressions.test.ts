@@ -46,6 +46,7 @@ function startManual(db: ReturnType<typeof createDatabase>, profile: CharacterPr
     recommendation: null,
     profile,
     budget: { amount: 50, currency: "exalted" },
+    goal: "balanced",
   });
 }
 
@@ -251,6 +252,7 @@ describe("auditoría independiente Hito 6B", () => {
       recommendation,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     expect(started.journal.session?.activeAction?.blockedReason).toMatch(/Tooltip exacto/);
 

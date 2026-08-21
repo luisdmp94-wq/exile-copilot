@@ -425,6 +425,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         recommendation: input.recommendation,
         profile: input.profile,
         budget: input.budget,
+        goal: input.goal,
       });
       res.status(201).json(journal.journal);
     } catch (err) {

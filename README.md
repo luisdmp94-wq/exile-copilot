@@ -118,7 +118,8 @@ id crudo: el nombre nunca se deduce del texto del id.
 
 ## Habla con tu mentor (Hito 6A)
 
-La sección «5. Habla con tu mentor» permite preguntar en español y recibir una
+«Habla con tu mentor», dentro del área **Mentor**, permite preguntar en español
+y recibir una
 respuesta **basada en reglas**: **sin IA generativa**. No hay LLM y no se genera
 texto libre — la decisión, la próxima acción, las fuentes, la confianza y lo no
 verificado salen del motor de recomendaciones y del Character Journal, y el

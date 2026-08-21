@@ -3,6 +3,10 @@
 > La sesión **envuelve** el diario: una sola próxima acción, historial acotado,
 > sin LLM y sin un segundo sistema de consejos. El motor sigue siendo
 > determinista; la sesión solo puede frenar, pausar o pedir evidencia.
+>
+> **Estado: integrado en `main` (`dd671178`)**, con las nueve correcciones de la
+> auditoría independiente aplicadas (ver más abajo). En la interfaz vive en el
+> área **Mentor**, entre la acción actual del diario y la conversación.
 
 ## Qué está implementado
 

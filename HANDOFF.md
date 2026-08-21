@@ -1,13 +1,41 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 12 (Hito 6B: sesiones adaptativas de decisión), 2026-08-21.
+> Informe para el propietario. Última actualización: sesión 14 (microcorrección
+> posterior al 6B), 2026-08-21.
+>
+> **Estado vigente:** `main` está en `dd671178` e incluye los hitos 5A/5B, 6A y
+> 6B corregido, además del espacio de trabajo por áreas **Mentor / Personaje /
+> Plan y mercado**. Las secciones de sesiones anteriores son HISTORIA: los SHA y
+> los «sin integrar» que aparecen en ellas describen el momento en que se
+> escribieron, no el estado actual.
+
+## Sesión 14 — microcorrección de consistencia posterior al 6B
+
+Rama `post-6b-consistency`, worktree aislado sobre `dd671178`. Sin funciones
+nuevas ni cambios visuales.
+
+- **El objetivo de la sesión deja de perderse.** `goal` era un `z.string()`
+  libre; la interfaz mandaba `"balanced"` fijo en sus dos caminos y el servidor
+  ni siquiera lo pasaba al servicio, así que la entrada del diario nacía con
+  `goal: null`. Ahora usa el enum del dominio (`GoalKind`), la sección lo recibe
+  desde `App.tsx`, la ruta lo entrega al servicio, la sesión lo conserva y sus
+  entradas lo heredan. Las sesiones guardadas antes de este campo se cargan con
+  `goal: null` = **desconocido**, sin inventarles «equilibrado».
+- **`equipment-smoke` y `browser-smoke` ya no pueden tocar la base real.** Usan
+  el mismo patrón que los otros tres smokes: carpeta temporal única por
+  ejecución y `DATABASE_PATH` explícito, con limpieza en `finally` y validación
+  de la ruta absoluta antes de borrar (helpers en `scripts/browserLaunch.mjs`).
+  Cada smoke comprueba en ejecución que su base es la temporal.
+- **Documentación al día**: lo que era «sin integrar», «sección 5» o SHA del
+  repositorio de Grok queda marcado como historia o corregido.
 
 ## Sesión 13 — Hito 6B corregido tras auditoría independiente
 
-Rama `hito-6b-corregido` (worktree aislado sobre el baseline
-`f6152c47`). **Sin integrar en main.** Parte del patch original de Grok
-(commit `e6288f2`, conservado sin tocar como prototipo) y aplica las nueve
-correcciones que exigía `AUDITORIA_HITO_6B_GROK.md`.
+Rama `hito-6b-corregido` (worktree aislado sobre el entonces baseline
+`f6152c47`). **Ya integrada en `main`** mediante `hito-6b-integracion`
+(fast-forward a `dd671178`). Parte del patch original de Grok (commit `e6288f2`,
+conservado sin tocar como prototipo) y aplica las nueve correcciones que exigía
+`AUDITORIA_HITO_6B_GROK.md`.
 
 - **SQLite es la fuente autoritativa del personaje.** Toda operación de sesión
   carga el perfil guardado DENTRO de la transacción (`loadAuthoritativeProfile`).
@@ -53,12 +81,14 @@ El patch de Grok aplica limpio y compila, pero **no debe integrarse tal cual**:
 las siete regresiones independientes de la auditoría fallan contra él (7/7) y
 pasan contra esta rama.
 
-## Sesión 12 — Hito 6B: sesiones adaptativas de decisión (prototipo de Grok, sin corregir)
+## HISTÓRICO — sesión 12: Hito 6B, prototipo de Grok sin corregir
 
-Trabajo hecho en la rama `hito-6b-adaptive-decision-sessions` a partir de la
-etiqueta local `source-f6152c47` (commit `d6b003c`, importado del ZIP
-`f6152c47`). **Sin integrar en main.** Los SHA de esta rama no pertenecen al
-repositorio original.
+> **Procedencia, no estado actual.** Lo que sigue describe el prototipo tal y
+> como llegó. Se conservó como commit `e6288f2` y HOY está corregido e integrado
+> en `main` (ver sesión 13). Los identificadores
+> `hito-6b-adaptive-decision-sessions`, la etiqueta `source-f6152c47` y el commit
+> `d6b003c` pertenecen al **repositorio ajeno de Grok**: no existen aquí y no
+> deben buscarse en este historial.
 
 - **La sesión envuelve el diario**, no lo duplica: una sola próxima acción
   (`journal_state.primary_entry_id` + `active_session_id`). Proponer una nueva
@@ -95,9 +125,11 @@ repositorio original.
 
 ## Sesión 11 — Hito 6A: primera conversación real con el mentor
 
-Trabajo hecho en la rama `hito-6a-conversational-mentor` (worktree aislado), **sin integrar en main**.
+Trabajo hecho en la rama `hito-6a-conversational-mentor` (worktree aislado).
+**Ya integrado en `main`** (fast-forward a `f6152c4`).
 
-- **Sección «5. Habla con tu mentor»**: campo de texto, sugerencias, turnos
+- **«Habla con tu mentor»** (hoy dentro del área **Mentor**; entonces era la
+  sección numerada 5): campo de texto, sugerencias, turnos
   diferenciados, estado de carga, respuesta estructurada con fuentes, confianza
   y «falta por verificar», y botón para guardar la próxima acción en el diario.
 - **Basado en reglas, sin IA generativa**: un clasificador de intención pequeño y
@@ -316,16 +348,18 @@ Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm
 
 ## Próximo paso recomendado
 
-El Hito 5B ya está integrado en `main` y el mentor conversacional (Hito 6A) ya
-está diseñado e implementado: ese paso anterior quedó obsoleto.
+Hitos 5A, 5B, 6A y 6B están **integrados en `main`** (`dd671178`), y la
+microcorrección posterior al 6B —contrato de `goal`, aislamiento de SQLite en los
+smokes y esta puesta al día documental— está **terminada**.
 
-Lo que toca ahora es **auditar la rama `hito-6a-conversational-mentor` y, si se
-aprueba, integrarla en `main`**. Después, sobre esa base, **Copilot
-conversacional v1**: historial persistente de la conversación (hoy el hilo vive
-solo en memoria de la interfaz), reconocimiento de intención más amplio y
-seguimiento de crafts paso a paso — manteniendo la regla de que la decisión, la
-próxima acción, las fuentes, la confianza y lo no verificado salgan siempre del
-motor y del diario, aunque algún día se añada un LLM para redactar.
+Lo siguiente es el **rediseño visual «Expediente del personaje»**: el área
+Mentor apila hoy diario, sesión, conversación y recomendaciones, y esa pila pide
+una jerarquía mejor. Después, **Copilot conversacional v1**: historial
+persistente de la conversación (hoy el hilo vive solo en memoria de la
+interfaz), reconocimiento de intención más amplio y seguimiento de crafts paso a
+paso — manteniendo la regla de que la decisión, la próxima acción, las fuentes,
+la confianza y lo no verificado salgan siempre del motor y del diario, aunque
+algún día se añada un LLM para redactar.
 
 La resolución de `BaseItemTypes` (nombres de skills y support skills) continúa
 pendiente, pero no bloquea nada de lo anterior.

@@ -92,6 +92,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: rec(),
       profile,
       budget: { amount: 200, currency: "exalted" },
+      goal: "balanced",
     });
     expect(bundle.journal.session?.activeAction?.blockedReason).toMatch(/tooltip exacto/);
     expect(bundle.journal.session?.activeAction?.irreversible).toBe(false);
@@ -118,6 +119,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: rec({ irreversible: false, cost: { min: null, max: null, currency: "exalted", known: false } }),
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     expect(bundle.journal.session?.activeAction?.blockedReason).toMatch(/Barrera voltaica/);
     expect(bundle.journal.session?.activeAction?.summary).toMatch(/conflicto/i);
@@ -142,6 +144,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     const next = recordSessionResult(db, profile.id, {
       journalRevision: started.memoryRevision,
@@ -179,6 +182,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     const discarded = recordSessionResult(db, profile.id, {
       journalRevision: started.memoryRevision,
@@ -222,6 +226,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: rec({ irreversible: false }),
       profile,
       budget: { amount: 10, currency: "exalted" },
+      goal: "balanced",
     });
     expect(paused.journal.session?.status).toBe("paused");
     expect(paused.journal.session?.conclusion?.kind).toBe("pause");
@@ -246,6 +251,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     const next = recordSessionResult(db, profile.id, {
       journalRevision: started.memoryRevision,
@@ -282,6 +288,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     // El personaje cambia DE VERDAD: se guarda mutado en SQLite. Reenviar el
     // snapshot antiguo desde la pestaña no puede eludir la reconciliación.
@@ -332,6 +339,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     // Reintento HONESTO: misma clave y mismo payload (la revisión no entra en la
     // huella, porque una pestaña que reintenta ya no la tiene fresca).
@@ -350,6 +358,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     expect(replay.journal.session?.id).toBe(first.journal.session?.id);
 
@@ -371,6 +380,7 @@ describe("sessionService — criterios 6B", () => {
         recommendation: null,
         profile,
         budget: { amount: 50, currency: "exalted" },
+        goal: "balanced",
       }),
     ).toThrowError(/clave-de-idempotencia-reutilizada/);
 
@@ -415,6 +425,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     expect(first.journal.primaryEntryId).toBe(
       first.journal.session?.activeAction?.journalEntryId,
@@ -435,6 +446,7 @@ describe("sessionService — criterios 6B", () => {
         recommendation: null,
         profile,
         budget: { amount: 50, currency: "exalted" },
+        goal: "balanced",
       }),
     ).toThrowError(/sesion-ya-activa/);
     const paused = pauseSession(db, profile.id, {
@@ -464,6 +476,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     const completed = recordSessionResult(db, profile.id, {
       journalRevision: started.memoryRevision,
@@ -512,6 +525,7 @@ describe("sessionService — criterios 6B", () => {
       recommendation: null,
       profile,
       budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
     });
     const before = buildRecommendationMemory(
       started.journal,

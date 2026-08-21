@@ -53,11 +53,31 @@
  *      de /favicon.ico en el servidor de desarrollo, ajeno a este hito)
  */
 import { spawn, execSync } from "node:child_process";
-import { mkdtempSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser } from "./browserLaunch.mjs";
+import {
+  createSmokeTempDir,
+  launchBrowser,
+  removeSmokeTempDir,
+} from "./browserLaunch.mjs";
+
+/**
+ * Base SQLite propia de ESTA ejecución. Sin esto el smoke podía arrancar el
+ * servidor contra la base real del usuario. Se borra en `finally`, aunque
+ * alguna comprobación falle.
+ */
+const TEMP_ROOT = createSmokeTempDir("equipo");
+
+/** Ruta de la base temporal de este modo. */
+function dbPathFor(mode) {
+  return join(TEMP_ROOT, `${mode}.db`);
+}
+
+/** Solo el nombre del archivo: no se vuelca la ruta completa en el log. */
+function basenameSeguro(ruta) {
+  return ruta.split(/[\\/]/).pop();
+}
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -66,7 +86,7 @@ const modes = args.includes("--all") ? ["prod", "dev"] : args.includes("--dev") 
 
 const SHOT_DIR = UPDATE_SCREENSHOTS
   ? join(REPO, "docs", "screenshots")
-  : mkdtempSync(join(tmpdir(), "exile-copilot-4b-"));
+  : join(TEMP_ROOT, "capturas");
 mkdirSync(SHOT_DIR, { recursive: true });
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -93,6 +113,8 @@ function startServer(mode, port) {
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
       POE_NINJA_OFFLINE: "true",
+      // Aislamiento explícito: nunca la base real.
+      DATABASE_PATH: dbPathFor(mode),
     },
     shell: true,
     stdio: ["ignore", "pipe", "pipe"],
@@ -190,6 +212,14 @@ async function runFlow(mode, port) {
   let browser;
   try {
     check(`[${mode}] servidor responde /api/health`, await waitForServer(BASE));
+
+    // Se comprueba de VERDAD que la base en uso es la temporal de esta
+    // ejecución, no se da por hecho que la variable se configuró.
+    const dbPath = dbPathFor(mode);
+    check(
+      `[${mode}] base SQLite temporal y aislada (${basenameSeguro(dbPath)})`,
+      existsSync(dbPath) && dbPath.startsWith(TEMP_ROOT) && !dbPath.startsWith(REPO),
+    );
 
     browser = await launchBrowser();
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -474,8 +504,12 @@ async function runFlow(mode, port) {
   }
 }
 
-for (const mode of modes) {
-  await runFlow(mode, mode === "prod" ? 7189 : 7188);
+try {
+  for (const mode of modes) {
+    await runFlow(mode, mode === "prod" ? 7189 : 7188);
+  }
+} finally {
+  removeSmokeTempDir(TEMP_ROOT);
 }
 
 console.log(

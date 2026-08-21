@@ -8,9 +8,21 @@
  *   node scripts/browser-smoke.mjs --all    → ambos
  */
 import { spawn } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser } from "./browserLaunch.mjs";
+import {
+  createSmokeTempDir,
+  launchBrowser,
+  removeSmokeTempDir,
+} from "./browserLaunch.mjs";
+
+/**
+ * Base SQLite propia de ESTA ejecución. Sin esto el smoke podía arrancar el
+ * servidor contra la base real del usuario. Se borra en `finally`, aunque
+ * alguna comprobación falle.
+ */
+const TEMP_ROOT = createSmokeTempDir("flujo");
 
 const SHOT_DIR = fileURLToPath(new URL("../docs/screenshots/", import.meta.url));
 const args = process.argv.slice(2);
@@ -35,6 +47,11 @@ async function waitForServer(url, attempts = 90) {
   throw new Error("El servidor no respondió a tiempo");
 }
 
+/** Ruta de la base temporal de este modo, dentro del temporal de la ejecución. */
+function dbPathFor(mode) {
+  return join(TEMP_ROOT, `${mode}.db`);
+}
+
 function startServer(mode, port) {
   const cmd =
     mode === "prod"
@@ -45,6 +62,8 @@ function startServer(mode, port) {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      // Aislamiento explícito: nunca la base real.
+      DATABASE_PATH: dbPathFor(mode),
     },
     shell: true,
     stdio: ["ignore", "pipe", "pipe"],
@@ -93,6 +112,16 @@ async function runFlow(mode, port) {
   try {
     await waitForServer(`${BASE}/api/health`);
     check(`[${mode}] servidor responde /api/health`, true);
+
+    // Se comprueba de VERDAD que la base en uso es la temporal de esta
+    // ejecución, no se da por hecho que la variable se configuró.
+    const dbPath = dbPathFor(mode);
+    check(
+      `[${mode}] base SQLite temporal y aislada (${basenameSeguro(dbPath)})`,
+      existsSync(dbPath) &&
+        dbPath.startsWith(TEMP_ROOT) &&
+        !dbPath.startsWith(fileURLToPath(new URL("../", import.meta.url))),
+    );
 
     browser = await launchBrowser();
     const context = await browser.newContext({ acceptDownloads: true });
@@ -227,8 +256,17 @@ async function runFlow(mode, port) {
   }
 }
 
-for (const mode of modes) {
-  await runFlow(mode, mode === "prod" ? 7199 : 7198);
+/** Solo el nombre del archivo: no se vuelca la ruta completa en el log. */
+function basenameSeguro(ruta) {
+  return ruta.split(/[\\/]/).pop();
+}
+
+try {
+  for (const mode of modes) {
+    await runFlow(mode, mode === "prod" ? 7199 : 7198);
+  }
+} finally {
+  removeSmokeTempDir(TEMP_ROOT);
 }
 
 console.log(
