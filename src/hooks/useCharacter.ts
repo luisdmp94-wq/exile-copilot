@@ -19,6 +19,8 @@ export interface CharacterState {
   restoring: boolean;
   /** true cuando hay correcciones locales sin guardar en el servidor */
   dirty: boolean;
+  /** true solo después de que este perfil exista realmente en el servidor. */
+  persisted: boolean;
   loadDemo: () => Promise<void>;
   importBuild: (content: string) => Promise<void>;
   importItemText: (text: string) => Promise<void>;
@@ -53,6 +55,9 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     () => localStorage.getItem(STORAGE_KEY) !== null,
   );
   const [dirty, setDirty] = useState(false);
+  const [persisted, setPersisted] = useState(
+    () => localStorage.getItem(STORAGE_KEY) !== null,
+  );
 
   // Restaura el último personaje guardado tras recargar la página.
   // Idempotente bajo StrictMode (doble montaje): la limpieza cancela la primera
@@ -68,12 +73,14 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         setProfile(res.profile);
         setOrigin("imported");
         setDirty(false);
+        setPersisted(true);
         toast.success(`Personaje restaurado: ${res.profile.name}`);
       })
       .catch(() => {
         // Fallback silencioso: el id guardado ya no existe (404) o el servidor no responde.
         if (cancelled) return;
         localStorage.removeItem(STORAGE_KEY);
+        setPersisted(false);
       })
       .finally(() => {
         if (!cancelled) setRestoring(false);
@@ -96,7 +103,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       setProfile(res.profile);
       setWarnings([]);
       setOrigin("demo");
-      setDirty(false);
+      // Está cargado en memoria, pero todavía no existe en SQLite. Debe poder
+      // guardarse aunque el jugador no cambie ningún campo manualmente.
+      setDirty(true);
+      setPersisted(false);
       toast.success(`Ejemplo cargado: ${res.profile.name}`);
     } catch (err) {
       toast.error("No se pudo cargar el ejemplo", { description: getErrorMessage(err) });
@@ -121,7 +131,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           setProfile(res.profile);
           setWarnings(res.warnings);
           setOrigin("imported");
-          setDirty(false);
+          // Importar construye un perfil local; solo «Guardar correcciones» lo
+          // convierte en el personaje persistente que usan diario y sesiones.
+          setDirty(true);
+          setPersisted(false);
           if (res.warnings.length > 0) {
             toast.warning(`Build importada con ${res.warnings.length} aviso(s)`, {
               description: res.warnings[0],
@@ -205,6 +218,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       setProfile(res.profile);
       persistId(res.profile.id);
       setDirty(false);
+      setPersisted(true);
       toast.success("Correcciones guardadas");
     } catch (err) {
       toast.error("No se pudieron guardar las correcciones", {
@@ -221,6 +235,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     setWarnings([]);
     setOrigin("empty");
     setDirty(false);
+    setPersisted(false);
     toast.info("Personaje descartado. Puedes empezar de nuevo.");
   }, []);
 
@@ -231,6 +246,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     busy,
     restoring,
     dirty,
+    persisted,
     loadDemo,
     importBuild,
     importItemText,

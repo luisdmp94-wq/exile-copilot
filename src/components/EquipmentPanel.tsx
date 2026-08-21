@@ -1,5 +1,6 @@
 import {
   Circle,
+  Crosshair,
   FlaskConical,
   Footprints,
   Gem,
@@ -80,6 +81,18 @@ const TONE_CLASSES: Record<"oficial" | "interna" | "sin-verificar", string> = {
 /** Superficie oscura diferenciada con sombra interior muy sutil (profundidad). */
 const SURFACE = "bg-background/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]";
 
+/**
+ * Selección por vínculo estructurado (`relatedItemIds`).
+ *
+ * Violeta a propósito: el ámbar ya significa «sin verificar» en la procedencia
+ * del objeto (y es el color de acción de la aplicación), el esmeralda «oficial»
+ * y el azul «interna». Reutilizar cualquiera de ellos haría que una celda
+ * señalada se leyera como un dato dudoso. Además del color hay icono y texto,
+ * así que la marca no depende de distinguir el tono.
+ */
+const SELECTED_RING = "ring-2 ring-violet-400 ring-offset-1 ring-offset-background";
+const SELECTED_TEXT = "text-violet-200";
+
 interface EquipmentPanelProps {
   items: Item[];
   /** Ids señalados por recomendaciones (vínculo estructurado; vacío si no lo hay). */
@@ -99,7 +112,7 @@ export function EquipmentPanel({
   return (
     <section
       aria-labelledby="equipo-titulo"
-      className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4"
+      className="flex flex-col gap-2.5 rounded-md border border-border bg-muted/20 p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
@@ -112,14 +125,11 @@ export function EquipmentPanel({
           {diagnostics.equipped} equipado(s) · {diagnostics.emptySlots} vacío(s)
         </Badge>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Solo tu equipo real. Las pistas de una build objetivo importada no se muestran
-        aquí: son un plan, no objetos equipados.
-      </p>
-
-      {/* La paperdoll manda: ocupa todo el ancho de la tarjeta. El diagnóstico
-          va debajo porque esta columna nunca supera ~560 px (max-w-7xl del layout)
-          y partirla en 60/40 dejaba los huecos ilegibles. */}
+      {/* La paperdoll manda: ocupa todo el ancho y empieza cuanto antes, para
+          que quepa entera en el primer viewport de escritorio. Las dos
+          aclaraciones de alcance (equipo real, sin puntuaciones) acompañan al
+          diagnóstico, debajo: siguen visibles, solo que no empujan la
+          cuadrícula fuera de la pantalla. */}
       <div className="flex flex-col gap-4">
         <div>
           <ul
@@ -191,6 +201,10 @@ export function EquipmentPanel({
             )}
           </dl>
           <p className="text-[11px] text-muted-foreground">
+            Solo tu equipo real. Las pistas de una build objetivo importada no se
+            muestran aquí: son un plan, no objetos equipados.
+          </p>
+          <p className="text-[11px] text-muted-foreground">
             Recuentos derivados de tus datos. Exile Copilot no calcula puntuaciones de
             build ni compara con el meta.
           </p>
@@ -232,7 +246,12 @@ function DiagnosticRow({
   return (
     <div className="flex items-baseline justify-between gap-2 text-xs">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className={cn("font-mono tabular-nums", emphasis ? "text-primary" : "text-foreground")}>
+      <dd
+        className={cn(
+          "font-mono tabular-nums",
+          emphasis ? SELECTED_TEXT : "text-foreground",
+        )}
+      >
         {value}
       </dd>
     </div>
@@ -292,7 +311,7 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
         "transition-colors motion-reduce:transition-none hover:bg-background",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         rarity.border,
-        highlighted && "ring-2 ring-primary/70",
+        highlighted && SELECTED_RING,
       )}
     >
       <span className="flex items-center justify-between gap-1">
@@ -314,7 +333,10 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
         </span>
       </span>
       {highlighted && (
-        <span className="text-[11px] text-primary">Señalado por una recomendación</span>
+        <span className={cn("flex items-center gap-1 text-[11px]", SELECTED_TEXT)}>
+          <Crosshair className="size-3 shrink-0" aria-hidden="true" />
+          Señalado por una recomendación
+        </span>
       )}
     </button>
   );

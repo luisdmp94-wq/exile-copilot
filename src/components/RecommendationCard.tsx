@@ -23,6 +23,7 @@ import {
   RISK_LABELS,
   SOURCE_KIND_LABELS,
 } from "@/lib/format";
+import { compactRecommendationReason } from "@/lib/journal";
 import { cn } from "@/lib/utils";
 
 interface RecommendationCardProps {
@@ -101,7 +102,9 @@ export function RecommendationCard({
         </div>
         <div>
           <p className="font-medium text-foreground">Motivo</p>
-          <p className="text-muted-foreground">{rec.reason}</p>
+          <p className="text-muted-foreground">
+            {compactRecommendationReason(rec.reason)}
+          </p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>

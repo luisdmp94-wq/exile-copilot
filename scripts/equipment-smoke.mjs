@@ -60,6 +60,7 @@ import {
   createSmokeTempDir,
   launchBrowser,
   removeSmokeTempDir,
+  toolCommand,
 } from "./browserLaunch.mjs";
 
 /**
@@ -105,8 +106,11 @@ async function waitForServer(base) {
 }
 
 function startServer(mode, port) {
-  const cmd = mode === "prod" ? ["tsx", "server/index.ts"] : ["vite", "--port", String(port), "--strictPort"];
-  const proc = spawn("npx", cmd, {
+  const { command, args: cmdArgs, shell } =
+    mode === "prod"
+      ? toolCommand("tsx", ["server/index.ts"])
+      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+  const proc = spawn(command, cmdArgs, {
     cwd: REPO,
     env: {
       ...process.env,
@@ -116,7 +120,7 @@ function startServer(mode, port) {
       // Aislamiento explícito: nunca la base real.
       DATABASE_PATH: dbPathFor(mode),
     },
-    shell: true,
+    shell,
     stdio: ["ignore", "pipe", "pipe"],
   });
   proc.stderr.on("data", () => {});
@@ -137,7 +141,7 @@ function stopServer(proc) {
 
 let failures = 0;
 /**
- * Navegación por áreas (Mentor / Personaje / Plan y mercado). Los tres paneles
+ * Navegación por áreas (Expediente y mentor / Plan y mercado). Ambos paneles
  * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
  * de interactuar con sus controles.
  */
@@ -248,7 +252,7 @@ async function runFlow(mode, port) {
     });
 
     await page.goto(BASE, { waitUntil: "networkidle" });
-    await irA(page, "personaje");
+    await irA(page, "expediente");
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
 
@@ -331,8 +335,8 @@ async function runFlow(mode, port) {
     const seededId = await seedProfile(BASE);
     await page.evaluate((id) => localStorage.setItem("exile-copilot:characterId", id), seededId);
     await page.reload({ waitUntil: "networkidle" });
-    // Con personaje se entra por «Mentor»: el paperdoll está en «Personaje».
-    await irA(page, "personaje");
+    // El paperdoll vive en el expediente, dentro del área «Expediente y mentor».
+    await irA(page, "expediente");
     await page.locator('[data-testid="flask-group"]').waitFor({ timeout: 20000 });
     const frascos = await page.locator('[data-slot="flask"][data-slot-state="filled"]').count();
     check(`[${mode}] varios frascos agrupados desde datos reales (${frascos})`, frascos === 2);
@@ -346,10 +350,24 @@ async function runFlow(mode, port) {
     // --- Vínculo estructurado recomendación → objeto ----------------------
     await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
-    await irA(page, "mentor");
+    await irA(page, "expediente");
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
-    await page.waitForSelector("text=/Confianza|confianza/", { timeout: 25000 });
-    const botones = page.locator('[data-testid^="ver-objeto-"]');
+    await page.waitForSelector('[data-testid="caso-abierto"][data-caso="recommendation"]', {
+      timeout: 25000,
+    });
+
+    // El paperdoll SOLO recibe los ids del contenido dominante. La
+    // recomendación que domina este perfil no señala ninguna pieza, así que de
+    // partida no puede haber ningún hueco marcado.
+    check(
+      `[${mode}] sin vínculo en el caso dominante no se resalta ningún hueco`,
+      (await page.locator('[data-highlighted="true"]').count()) === 0,
+    );
+
+    // Las recomendaciones que NO dominan viven plegadas en «Otras posibilidades».
+    await page.getByTestId("acordeon-otras").click();
+    const botones = page.locator('[data-testid^="ver-objeto-"]:visible');
+    await botones.first().waitFor({ timeout: 15000 });
     const nBotones = await botones.count();
     check(`[${mode}] «Ver el objeto evaluado» solo con vínculo estructurado (${nBotones})`, nBotones >= 1);
 
@@ -370,35 +388,21 @@ async function runFlow(mode, port) {
       `[${mode}] Escape devuelve el foco al botón de la recomendación`,
       focoTrasBoton === testIdBoton,
     );
-    check(
-      `[${mode}] hay huecos resaltados por vínculo estructurado`,
-      (await page.locator('[data-highlighted="true"]').count()) >= 1,
-    );
 
-    // --- Navegación inversa objeto → recomendaciones -----------------------
-    // Regresión completa: Personaje → abrir objeto relacionado → «Ver
-    // recomendaciones» → área «Mentor» activa → sección visible y ENFOCADA,
-    // con el foco fuera del panel «Personaje» oculto.
-    await irA(page, "personaje");
-    await page.locator('[data-highlighted="true"]').first().click();
+    // --- Navegación inversa objeto → caso abierto -------------------------
+    // Abrir el objeto evaluado → «Ver recomendaciones» → el Caso Abierto queda
+    // visible y ENFOCADO, sin que el foco caiga en un panel oculto.
+    await page.locator(`[data-testid="${testIdBoton}"]`).click();
     await dialogo.waitFor({ timeout: 15000 });
     const verRecs = dialogo.getByRole("button", { name: "Ver recomendaciones" });
     await verRecs.waitFor({ timeout: 15000 });
     await verRecs.click();
-    await page.waitForFunction(
-      () =>
-        document.querySelector('[data-testid="tab-mentor"]')?.getAttribute("data-state") ===
-        "active",
-      undefined,
-      { timeout: 10000 },
-    );
-    check(`[${mode}] «Ver recomendaciones» activa el área Mentor`, true);
     await dialogo.waitFor({ state: "hidden", timeout: 15000 });
-    // El desplazamiento es suave salvo con reduced-motion: se espera a que la
-    // sección haya llegado a la parte visible.
+    // El desplazamiento es suave salvo con reduced-motion: se espera a que el
+    // caso haya llegado a la parte visible.
     await page.waitForFunction(
       () => {
-        const sec = document.getElementById("seccion-recomendaciones");
+        const sec = document.getElementById("caso-abierto");
         if (sec === null) return false;
         const r = sec.getBoundingClientRect();
         return r.top > -8 && r.top < window.innerHeight * 0.6;
@@ -407,7 +411,7 @@ async function runFlow(mode, port) {
       { timeout: 15000 },
     );
     const navInversa = await page.evaluate(() => {
-      const sec = document.getElementById("seccion-recomendaciones");
+      const sec = document.getElementById("caso-abierto");
       const rect = sec.getBoundingClientRect();
       const activo = document.activeElement;
       return {
@@ -420,17 +424,57 @@ async function runFlow(mode, port) {
       };
     });
     check(
-      `[${mode}] la sección de recomendaciones queda visible y enfocada (foco: ${navInversa.foco})`,
+      `[${mode}] el Caso Abierto queda visible y enfocado (foco: ${navInversa.foco})`,
       navInversa.visible && navInversa.enfocada,
     );
     check(
-      `[${mode}] el foco no queda dentro del panel «Personaje» oculto`,
+      `[${mode}] el foco no queda dentro de un panel de área oculto`,
       !navInversa.focoEnPanelOculto,
     );
 
+    // --- Resalte del paperdoll: ids del caso dominante, nunca de un hueco ---
+    // Se guarda como próximo paso la recomendación que SÍ declara un objeto:
+    // pasa a dominar el caso y sus ids —los de un objeto real del perfil—
+    // llegan al paperdoll.
+    // `.last()`: la lista entera también es una tarjeta; la que interesa es la
+    // más interna, la de esta recomendación.
+    const tarjetaRec = page
+      .locator('[data-slot="card"]', { has: page.locator(`[data-testid="${testIdBoton}"]`) })
+      .last();
+    await tarjetaRec.getByRole("button", { name: "Guardar como próximo paso" }).click();
+    await page.waitForSelector('[data-testid="caso-abierto"][data-caso="journal"]', {
+      timeout: 20000,
+    });
+    const resaltados = await page.evaluate(() => {
+      const marcados = [...document.querySelectorAll('[data-highlighted="true"]')];
+      return {
+        total: marcados.length,
+        conObjeto: marcados.filter((el) => el.getAttribute("data-item-id")).length,
+        vacios: document.querySelectorAll('[data-slot-state="empty"][data-highlighted="true"]')
+          .length,
+        ids: marcados.map((el) => el.getAttribute("data-item-id")),
+      };
+    });
+    check(
+      `[${mode}] el caso dominante resalta su objeto (${resaltados.ids.join(", ") || "ninguno"})`,
+      resaltados.total >= 1 && resaltados.conObjeto === resaltados.total,
+    );
+    check(
+      `[${mode}] nunca se resalta una ranura vacía`,
+      resaltados.vacios === 0,
+    );
+
+    // Limpieza: al cerrar el caso, el paperdoll se queda sin ids.
+    await page.getByRole("button", { name: "Cancelar seguimiento" }).click();
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-highlighted="true"]').length === 0,
+      undefined,
+      { timeout: 20000 },
+    );
+    check(`[${mode}] al cambiar de caso el resalte se limpia`, true);
+
     // --- prefers-reduced-motion ------------------------------------------
-    // El paperdoll vive en «Personaje»: se vuelve allí tras usar el mentor.
-    await irA(page, "personaje");
+    await irA(page, "expediente");
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.locator('[data-slot-state="filled"]').first().click();
     await dialogo.waitFor({ timeout: 15000 });

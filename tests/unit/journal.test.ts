@@ -99,6 +99,20 @@ describe("Character Journal", () => {
     expect(compact.slice(0, -1)).toBe(reason.slice(0, 597));
   });
 
+  it("separa el motivo legible del bloque técnico del explicador", () => {
+    const reason =
+      "Tienes frío 61% y rayo 40%; están por debajo del cap. " +
+      "Impacto esperado (high): supervivencia. Coste: No verificado. " +
+      "Riesgo low. Confianza: high. Datos actualizados: 2026-08-21T20:07:42.906Z. " +
+      "Objetivo: balanced.";
+
+    const compact = compactRecommendationReason(reason);
+
+    expect(compact).toBe("Tienes frío 61% y rayo 40%; están por debajo del cap.");
+    expect(compact).not.toMatch(/\b(high|medium|low|balanced)\b/);
+    expect(compact).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
   it("recorta de forma segura un título generado antes de guardarlo", () => {
     const longRecommendation = RecommendationSchema.parse({
       ...recommendation,

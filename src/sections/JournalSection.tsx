@@ -46,11 +46,24 @@ import {
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/**
+ * Qué parte del diario se pinta. Es una decisión de PRESENTACIÓN: la memoria,
+ * los controles y sus textos son los mismos en los tres casos.
+ *
+ * - `accion`: solo el seguimiento actual. Es el contenido dominante del Caso
+ *   Abierto cuando el diario manda.
+ * - `historial`: crear seguimiento y entradas anteriores. Vive plegado en
+ *   «Historial de decisiones».
+ * - `completo`: ambas cosas dentro de su tarjeta, como antes de la Fase Visual 1.
+ */
+export type JournalView = "accion" | "historial" | "completo";
+
 interface JournalSectionProps {
   profile: CharacterProfile | null;
   budget: Budget;
   goal: GoalKind;
   journal: JournalState;
+  view?: JournalView;
 }
 
 const KIND_LABELS: Record<JournalEntryKind, string> = {
@@ -86,6 +99,7 @@ export function JournalSection({
   budget,
   goal,
   journal,
+  view = "completo",
 }: JournalSectionProps) {
   const [resultText, setResultText] = useState("");
   const [kind, setKind] = useState<JournalEntryKind>("decision");
@@ -147,29 +161,12 @@ export function JournalSection({
     if (updated) setResultText("");
   };
 
-  return (
-    <Card id="seccion-mentor" className="border-primary/30">
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <BookOpen className="size-5 text-primary" aria-hidden="true" />
-              Mentor del personaje
-            </CardTitle>
-            <Badge variant="outline" className="border-primary/40 text-primary">
-              Memoria persistente
-            </Badge>
-          </div>
-          {profile && (
-            <span className="text-sm text-muted-foreground">
-              {profile.name} · nivel {profile.level}
-            </span>
-          )}
-        </div>
-      </CardHeader>
+  const showAction = view !== "historial";
+  const showHistory = view !== "accion";
 
-      <CardContent className="flex flex-col gap-5">
-        {!profile ? (
+  const content = (
+    <>
+      {!profile ? (
           <Empty className="border border-dashed border-border py-8">
             <EmptyHeader>
               <EmptyTitle>El mentor necesita conocer a tu personaje</EmptyTitle>
@@ -191,7 +188,8 @@ export function JournalSection({
           </Alert>
         ) : (
           <>
-            {primary ? (
+            {showAction &&
+              (primary ? (
               <PrimaryEntry
                 entry={primary}
                 saving={journal.saving}
@@ -212,16 +210,21 @@ export function JournalSection({
                   })
                 }
               />
-            ) : (
-              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-5">
-                <p className="font-medium text-foreground">No hay un siguiente paso activo</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Guarda una recomendación como próxima acción o crea un seguimiento abajo.
-                  El mentor mantendrá una sola acción principal cada vez.
-                </p>
-              </div>
-            )}
+              ) : (
+                <div className="rounded-lg border border-dashed border-border bg-muted/20 p-5">
+                  <p className="font-medium text-foreground">
+                    No hay un siguiente paso activo
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Guarda una recomendación como próxima acción o crea un seguimiento
+                    en «Historial de decisiones». El mentor mantendrá una sola acción
+                    principal cada vez.
+                  </p>
+                </div>
+              ))}
 
+            {showHistory && (
+              <>
             <details className="group rounded-lg border border-border bg-card">
               <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <Plus className="size-4 text-primary" aria-hidden="true" />
@@ -296,9 +299,43 @@ export function JournalSection({
             </details>
 
             <JournalHistory entries={entries} primaryEntryId={primary?.id ?? null} />
+              </>
+            )}
           </>
         )}
-      </CardContent>
+    </>
+  );
+
+  if (view !== "completo") {
+    return (
+      <div className="flex flex-col gap-5" data-testid={`diario-${view}`}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Card id="seccion-mentor" className="border-primary/30">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <BookOpen className="size-5 text-primary" aria-hidden="true" />
+              Mentor del personaje
+            </CardTitle>
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              Memoria persistente
+            </Badge>
+          </div>
+          {profile && (
+            <span className="text-sm text-muted-foreground">
+              {profile.name} · nivel {profile.level}
+            </span>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-5">{content}</CardContent>
     </Card>
   );
 }

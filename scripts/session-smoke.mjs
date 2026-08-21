@@ -70,7 +70,7 @@ let total = 0;
 let failures = 0;
 
 /**
- * Navegación por áreas (Mentor / Personaje / Plan y mercado). Los tres paneles
+ * Navegación por áreas (Expediente y mentor / Plan y mercado). Ambos paneles
  * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
  * de interactuar con sus controles.
  */
@@ -162,21 +162,50 @@ async function runFlow(mode, port) {
 
     const section = page.locator("#seccion-decision-adaptativa");
 
+    /**
+     * Sin sesión abierta, «Comprobar una decisión» vive plegada bajo el caso
+     * abierto; en cuanto hay sesión pasa a ser el contenido dominante. El smoke
+     * la despliega si hace falta en vez de suponer dónde está.
+     */
+    const verSesion = async () => {
+      if (await section.isVisible().catch(() => false)) return;
+      const trigger = page.getByTestId("acordeon-decision");
+      if ((await trigger.count()) === 0) return;
+      if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+      await section.waitFor({ state: "visible", timeout: 15_000 });
+    };
+
+    const verGenerar = async () => {
+      const enCaso = page
+        .locator('[data-testid="caso-abierto"]')
+        .getByRole("button", { name: "Generar recomendaciones" });
+      if ((await enCaso.count()) > 0) return enCaso.first();
+      const trigger = page.getByTestId("acordeon-otras");
+      if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+      const boton = page.getByRole("button", { name: "Generar recomendaciones" }).first();
+      await boton.waitFor({ state: "visible", timeout: 15_000 });
+      return boton;
+    };
+
     // --- La sesión es accesible desde la estructura de áreas vigente -------
-    // Con personaje se entra por «Mentor», que es donde vive la decisión.
+    // Con personaje se entra por «Expediente y mentor», que es donde vive la
+    // decisión (plegada mientras no hay ninguna abierta).
     check(
-      `[${mode}] con personaje se entra por el área Mentor`,
-      (await page.getByTestId("tab-mentor").getAttribute("data-state")) === "active",
+      `[${mode}] con personaje se entra por el área Expediente y mentor`,
+      (await page.getByTestId("tab-expediente").getAttribute("data-state")) === "active",
     );
-    check(`[${mode}] la sesión de decisión vive en el área Mentor`, await section.isVisible());
-    await irA(page, "personaje");
-    const enPersonaje = await section.isVisible();
+    await verSesion();
+    check(
+      `[${mode}] la decisión vive en el área Expediente y mentor`,
+      await section.isVisible(),
+    );
     await irA(page, "plan");
     const enPlan = await section.isVisible();
-    await irA(page, "mentor");
+    await irA(page, "expediente");
+    await verSesion();
     check(
-      `[${mode}] la sesión NO se duplica en Personaje ni en Plan`,
-      !enPersonaje && !enPlan && (await section.isVisible()),
+      `[${mode}] la decisión NO se duplica en Plan y mercado`,
+      !enPlan && (await section.count()) === 1 && (await section.isVisible()),
     );
 
     // --- No reaparece la interfaz antigua de secciones numeradas -----------
@@ -194,10 +223,11 @@ async function runFlow(mode, port) {
       numeradas.join(" · "),
     );
     check(
-      `[${mode}] las tres áreas siguen presentes`,
-      (await page.getByTestId("tab-mentor").count()) === 1 &&
-        (await page.getByTestId("tab-personaje").count()) === 1 &&
-        (await page.getByTestId("tab-plan").count()) === 1,
+      `[${mode}] las dos áreas siguen presentes y no reaparece una tercera`,
+      (await page.getByTestId("tab-expediente").count()) === 1 &&
+        (await page.getByTestId("tab-plan").count()) === 1 &&
+        (await page.getByTestId("tab-personaje").count()) === 0 &&
+        (await page.getByTestId("tab-mentor").count()) === 0,
     );
 
     check(`[${mode}] sección de decisión visible`, await section.isVisible());
@@ -349,6 +379,19 @@ async function runFlow(mode, port) {
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
     await page.locator("#session-result").fill("Cerramos este paso con un resultado medido.");
     await page.getByRole("button", { name: "Registrar resultado" }).click();
+    // Cerrada deja de dominar el caso abierto: vuelve a «Comprobar una decisión».
+    // Esperamos esa transición antes de preguntar por visibilidad. Sin esta
+    // barrera, `verSesion()` podía verla todavía dominante, devolver pronto y
+    // React la movía al acordeón justo después, dejando el locator oculto.
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-testid="caso-abierto"]')
+          ?.getAttribute("data-caso") !== "session",
+      undefined,
+      { timeout: 20_000 },
+    );
+    await verSesion();
     await page.getByTestId("decision-cerrada").waitFor({ timeout: 20_000 });
     const cerrada = await section.innerText();
     check(
@@ -382,6 +425,7 @@ async function runFlow(mode, port) {
     // se cierra la decisión manual registrando su resultado.
     await page.locator("#session-result").fill("Cerramos también esta decisión manual.");
     await page.getByRole("button", { name: "Registrar resultado" }).click();
+    await verSesion();
     await page.getByTestId("decision-cerrada").waitFor({ timeout: 20_000 });
     await page.waitForFunction(
       () => {
@@ -393,14 +437,15 @@ async function runFlow(mode, port) {
       undefined,
       { timeout: 20_000 },
     );
+    await verSesion();
     await irA(page, "plan");
     await page.locator("#market-budget").fill("500");
-    await irA(page, "mentor");
-    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    await irA(page, "expediente");
+    (await verGenerar()).click();
     const comprobarEsto = page.getByRole("button", { name: "Comprobar esto" });
     await comprobarEsto.first().waitFor({ timeout: 25_000 });
     check(
-      `[${mode}] las recomendaciones ofrecen «Comprobar esto» en el área Mentor`,
+      `[${mode}] la recomendación del caso abierto ofrece «Comprobar esto»`,
       (await comprobarEsto.count()) >= 1,
     );
 

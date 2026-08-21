@@ -52,7 +52,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser } from "./browserLaunch.mjs";
+import { launchBrowser, toolCommand } from "./browserLaunch.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -79,8 +79,11 @@ async function waitForServer(base) {
 }
 
 function startServer(mode, port) {
-  const cmd = mode === "prod" ? ["tsx", "server/index.ts"] : ["vite", "--port", String(port), "--strictPort"];
-  const proc = spawn("npx", cmd, {
+  const { command, args: cmdArgs, shell } =
+    mode === "prod"
+      ? toolCommand("tsx", ["server/index.ts"])
+      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+  const proc = spawn(command, cmdArgs, {
     cwd: REPO,
     env: {
       ...process.env,
@@ -90,7 +93,7 @@ function startServer(mode, port) {
       // Base SQLite propia y temporal: jamás se usa la real.
       DATABASE_PATH: join(tempRoot, `${mode}.db`),
     },
-    shell: true,
+    shell,
     stdio: ["ignore", "pipe", "pipe"],
   });
   proc.stderr.on("data", () => {});
@@ -133,7 +136,19 @@ const check = (name, ok) => {
   if (!ok) failures += 1;
 };
 
+/**
+ * La conversación vive plegada en «Preguntar al mentor», bajo el caso abierto.
+ * Se despliega antes de escribir en lugar de suponer que está a la vista.
+ */
+async function abrirMentor(page) {
+  const trigger = page.getByTestId("acordeon-mentor");
+  if ((await trigger.getAttribute("aria-expanded")) === "true") return;
+  await trigger.click();
+  await page.locator("#seccion-mentor-chat").waitFor({ state: "visible", timeout: 15000 });
+}
+
 async function preguntar(page, texto) {
+  await abrirMentor(page);
   await page.locator("#mentor-pregunta").fill(texto);
   await page.getByTestId("mentor-preguntar").click();
   await page.getByTestId("mentor-cargando").waitFor({ state: "detached", timeout: 25000 });
@@ -189,20 +204,20 @@ async function runFlow(mode, port) {
     await page.goto(BASE, { waitUntil: "networkidle" });
 
     // --- Sin personaje: honestidad ----------------------------------------
-    await irA(page, "mentor");
+    await irA(page, "expediente");
     const seccion = page.locator("#seccion-mentor-chat");
-    await seccion.waitFor({ timeout: 20000 });
-    const sinPersonaje = await seccion.innerText();
+    // Sin personaje no hay caso abierto ni conversación: solo la bienvenida.
+    // El mentor no aparece para no poder improvisar nada.
     check(
-      `[${mode}] sin personaje el mentor lo dice y no improvisa`,
-      sinPersonaje.includes("Necesitas un personaje primero") &&
-        sinPersonaje.includes("no voy a improvisar"),
+      `[${mode}] sin personaje no hay conversación que improvisar`,
+      (await page.getByTestId("bienvenida").isVisible()) &&
+        (await seccion.count()) === 0,
     );
 
-    await irA(page, "personaje");
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
-    await irA(page, "mentor");
+    await abrirMentor(page);
+    await seccion.waitFor({ state: "visible", timeout: 20000 });
 
     check(
       `[${mode}] la sección ofrece sugerencias reconocidas`,
@@ -385,7 +400,10 @@ async function runFlow(mode, port) {
       `[${mode}] guardar la acción invalida la conversación (cambia el diario)`,
       (await page.getByTestId("mentor-turno-mentor").count()) === 0,
     );
-    const diario = await page.locator("#seccion-mentor").innerText().catch(() => "");
+    const diario = await page
+      .locator('[data-testid="diario-accion"]')
+      .innerText()
+      .catch(() => "");
     check(
       `[${mode}] la acción guardada aparece como acción activa del diario`,
       /acci[óo]n activa|en curso|esperando resultado/i.test(diario),
@@ -414,7 +432,7 @@ async function runFlow(mode, port) {
     await irA(page, "plan");
     await page.locator("#market-budget").fill("777");
     await page.locator("#market-budget").blur();
-    await irA(page, "mentor");
+    await irA(page, "expediente");
     await wait(1000);
     check(
       `[${mode}] cambiar el presupuesto reinicia la conversación`,

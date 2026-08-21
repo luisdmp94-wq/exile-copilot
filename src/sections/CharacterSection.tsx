@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import {
   Loader2,
   Plus,
@@ -8,13 +8,10 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useRef, useState as useReactState, type RefObject } from "react";
 import type { MetaResponse } from "@shared/api.js";
 import type {
   Attributes,
   CharacterProfile,
-  Item,
-  Recommendation,
   Resistances,
   SkillSetup,
 } from "@shared/domain.js";
@@ -42,30 +39,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ImportPanel } from "@/components/ImportPanel";
 import { ItemEditor } from "@/components/ItemEditor";
-import { EquipmentPanel } from "@/components/EquipmentPanel";
-import { ItemDetailDialog } from "@/components/ItemDetailDialog";
-import { collectHighlightedItemIds } from "@/lib/equipment";
 import type { CharacterState } from "@/hooks/useCharacter";
+import type { EditorDrafts } from "@/hooks/useEditorDrafts";
 
 interface CharacterSectionProps {
   character: CharacterState;
   meta: MetaResponse | null;
-  /** Recomendaciones vigentes: solo para resaltar objetos con vínculo estructurado. */
-  recommendations: Recommendation[];
-  /** Id de objeto que otra sección pide abrir (navegación recomendación → objeto). */
-  focusedItemId: string | null;
-  onFocusHandled: () => void;
   /**
-   * Elemento que abrió el diálogo. Lo escribe esta sección (hueco del
-   * paperdoll) o App (botón «Ver el objeto evaluado») para devolverle el foco.
+   * Borradores locales del editor. Los guarda `App` para que cerrar y volver a
+   * abrir el panel lateral no borre nada de lo escrito.
    */
-  dialogTriggerRef: RefObject<HTMLElement | null>;
-  /**
-   * Navegación objeto → recomendaciones. La sección NO sabe dónde vive la
-   * lista (hoy, en el área «Mentor», oculta desde aquí): pide al padre que la
-   * muestre y desplace. El foco lo pone el cierre del diálogo.
-   */
-  onShowRecommendations: () => void;
+  drafts: EditorDrafts;
   /**
    * Presentación: true cuando OTRA superficie (la bienvenida) ya ofrece la
    * importación y el ejemplo. Con ello esta sección no repite ni el vacío
@@ -130,45 +114,13 @@ const ORIGIN_BADGES = {
 export function CharacterSection({
   character,
   meta,
-  recommendations,
-  focusedItemId,
-  onFocusHandled,
-  dialogTriggerRef,
-  onShowRecommendations,
+  drafts,
   hideEmptyState,
 }: CharacterSectionProps) {
   const { profile, warnings, origin, busy, restoring, dirty } = character;
-  const [itemText, setItemText] = useState("");
-  const [selectedItemId, setSelectedItemId] = useReactState<string | null>(null);
+  const { itemText, setItemText } = drafts;
 
   const originBadge = ORIGIN_BADGES[origin];
-  const items = profile?.items ?? [];
-  // Vínculo estructurado del motor; si no lo hay, el conjunto queda vacío y
-  // ningún hueco se marca (nunca se deduce el slot por texto).
-  const highlightedItemIds = collectHighlightedItemIds(recommendations);
-
-  // El objeto abierto es el elegido localmente o, si no hay, el que pide otra
-  // sección (navegación recomendación → objeto). Se DERIVA: nada de setState
-  // durante el render, que además invalidaría el render del padre.
-  const openItemId = selectedItemId ?? focusedItemId;
-  const selectedItem: Item | null = items.find((i) => i.id === openItemId) ?? null;
-
-  const closeDetail = () => {
-    setSelectedItemId(null);
-    if (focusedItemId !== null) onFocusHandled();
-  };
-  const relatedRecommendations = recommendations.filter(
-    (rec) => selectedItem !== null && rec.relatedItemIds.includes(selectedItem.id),
-  );
-
-  // true mientras el diálogo se cierra por «Ver recomendaciones»: el cierre no
-  // debe devolver el foco al disparador (queda en este panel, ahora oculto).
-  const navigatingToRecommendations = useRef(false);
-  const goToRecommendations = () => {
-    navigatingToRecommendations.current = true;
-    closeDetail();
-    onShowRecommendations();
-  };
 
   return (
     <Card>
@@ -225,7 +177,12 @@ export function CharacterSection({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <ImportPanel busy={busy === "build"} onImport={character.importBuild} />
+        <ImportPanel
+          busy={busy === "build"}
+          onImport={character.importBuild}
+          pasted={drafts.pastedBuild}
+          onPastedChange={drafts.setPastedBuild}
+        />
 
         {warnings.length > 0 && (
           <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
@@ -274,22 +231,16 @@ export function CharacterSection({
             </Empty>
           )
         ) : (
-          <>
-            <EquipmentPanel
-              items={profile.items}
-              highlightedItemIds={highlightedItemIds}
-              onSelectItem={(item, trigger) => {
-                dialogTriggerRef.current = trigger;
-                setSelectedItemId(item.id);
-              }}
-            />
-            <ProfileEditor
-              profile={profile}
-              meta={meta}
-              onUpdate={character.updateProfile}
-              onMutate={character.mutateProfile}
-            />
-          </>
+          // El paperdoll ya NO vive aquí: es la vista de solo lectura del
+          // expediente. Esta sección es exclusivamente el editor completo.
+          <ProfileEditor
+            profile={profile}
+            meta={meta}
+            onUpdate={character.updateProfile}
+            onMutate={character.mutateProfile}
+            supportsDrafts={drafts.supports}
+            setSupportsDrafts={drafts.setSupports}
+          />
         )}
 
         {profile && !restoring && (
@@ -344,22 +295,6 @@ export function CharacterSection({
           </>
         )}
 
-        <ItemDetailDialog
-          item={selectedItem}
-          triggerRef={dialogTriggerRef}
-          relatedRecommendations={relatedRecommendations}
-          onOpenChange={(open) => {
-            if (!open) closeDetail();
-          }}
-          onGoToRecommendations={goToRecommendations}
-          getCloseFocusTarget={() => {
-            if (!navigatingToRecommendations.current) return null;
-            navigatingToRecommendations.current = false;
-            // El padre ya activó el área «Mentor»: el contenedor existe y es
-            // visible. Recibe el foco él, no el disparador oculto.
-            return document.getElementById("seccion-recomendaciones");
-          }}
-        />
       </CardContent>
     </Card>
   );
@@ -370,10 +305,19 @@ interface ProfileEditorProps {
   meta: MetaResponse | null;
   onUpdate: (patch: Partial<CharacterProfile>) => void;
   onMutate: (updater: (profile: CharacterProfile) => CharacterProfile) => void;
+  /** Borrador de supports en edición; lo guarda `App` (ver `useEditorDrafts`). */
+  supportsDrafts: Record<string, string>;
+  setSupportsDrafts: Dispatch<SetStateAction<Record<string, string>>>;
 }
 
-function ProfileEditor({ profile, meta, onUpdate, onMutate }: ProfileEditorProps) {
-  const [supportsDrafts, setSupportsDrafts] = useState<Record<string, string>>({});
+function ProfileEditor({
+  profile,
+  meta,
+  onUpdate,
+  onMutate,
+  supportsDrafts,
+  setSupportsDrafts,
+}: ProfileEditorProps) {
 
   const addSkill = () => {
     const skill: SkillSetup = {

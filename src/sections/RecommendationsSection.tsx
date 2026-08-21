@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Download, Lightbulb, Loader2, Sparkles } from "lucide-react";
 import type { ExportBuildResponse } from "@shared/api.js";
 import type {
@@ -45,6 +44,35 @@ interface RecommendationsSectionProps {
   trackingRecommendation: boolean;
   onStartSession?: (recommendation: Recommendation) => void;
   startingSession?: boolean;
+  /**
+   * Marcas «ya la apliqué». Viven en `App` porque la recomendación dominante se
+   * pinta en el Caso Abierto y el resto aquí: si el estado se quedara dentro de
+   * esta sección, la principal no podría marcarse para la exportación.
+   */
+  appliedIds: Record<string, boolean>;
+  onAppliedChange: (recommendationId: string, applied: boolean) => void;
+  /**
+   * Recomendación que ya domina el Caso Abierto: se excluye de la lista para no
+   * duplicar la acción principal (§11.5).
+   */
+  excludeRecommendationId?: string | null;
+  /**
+   * Presentación:
+   * - `generar`: solo la cabecera con «Generar recomendaciones» y los estados
+   *   previos al resultado. Es el contenido dominante del Caso Abierto cuando
+   *   no hay sesión, ni acción activa, ni recomendaciones.
+   * - `otras`: solo la lista (sin la dominante) y la exportación. Vive plegada
+   *   en «Otras posibilidades».
+   * - `completo`: ambas cosas, como antes de la Fase Visual 1.
+   */
+  view?: "generar" | "otras" | "completo";
+  /**
+   * Si se ofrece «Generar recomendaciones» (con su aviso de acción activa).
+   * Por defecto va con la vista, pero el Caso Abierto necesita decidirlo: el
+   * control debe existir UNA sola vez, ya sea como contenido dominante o dentro
+   * de «Otras posibilidades», nunca en los dos sitios a la vez.
+   */
+  showGenerate?: boolean;
 }
 
 export function RecommendationsSection({
@@ -64,18 +92,13 @@ export function RecommendationsSection({
   trackingRecommendation,
   onStartSession,
   startingSession = false,
+  appliedIds,
+  onAppliedChange,
+  excludeRecommendationId = null,
+  view = "completo",
+  showGenerate: showGenerateProp,
 }: RecommendationsSectionProps) {
   const { result, exportResult, loading, exporting, error } = recommendations;
-  const [appliedIds, setAppliedIds] = useState<Record<string, boolean>>({});
-
-  // Cada generación (o invalidación) parte de cero: una marca de una
-  // generación anterior nunca sobrevive como "mejora aplicada".
-  // (Ajuste de estado durante el render, patrón recomendado por React.)
-  const [lastResult, setLastResult] = useState(result);
-  if (result !== lastResult) {
-    setLastResult(result);
-    setAppliedIds({});
-  }
 
   const activeJournalEntry = journal?.primaryEntry ?? null;
   const canGenerate =
@@ -87,8 +110,11 @@ export function RecommendationsSection({
     activeJournalEntry === null;
   const selectedCount = Object.values(appliedIds).filter(Boolean).length;
 
-  const toggleApplied = (id: string, applied: boolean) =>
-    setAppliedIds((prev) => ({ ...prev, [id]: applied }));
+  const showGenerate = showGenerateProp ?? view !== "otras";
+  const showList = view !== "generar";
+  const listed = (result?.recommendations ?? []).filter(
+    (rec) => rec.id !== excludeRecommendationId,
+  );
 
   return (
     // tabIndex={-1}: destino programático de la navegación objeto →
@@ -97,6 +123,7 @@ export function RecommendationsSection({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-xl">Próximas mejoras</CardTitle>
+          {showGenerate && (
           <Button
             type="button"
             onClick={() => {
@@ -125,10 +152,11 @@ export function RecommendationsSection({
             )}
             Generar recomendaciones
           </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {activeJournalEntry && (
+        {showGenerate && activeJournalEntry && (
           <Alert className="border-primary/40 bg-primary/5">
             <AlertTitle>El mentor ya te ha dado un siguiente paso</AlertTitle>
             <AlertDescription>
@@ -139,25 +167,27 @@ export function RecommendationsSection({
           </Alert>
         )}
         {!profile ? (
-          <Empty className="border border-dashed border-border">
-            <EmptyHeader>
-              <EmptyTitle>Necesitas un personaje primero</EmptyTitle>
-              <EmptyDescription>
-                Carga el ejemplo o importa tu build en la sección «Mi personaje» para
-                poder generar recomendaciones.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => void onLoadDemo()}
-              >
-                <Sparkles className="size-4" aria-hidden="true" />
-                Cargar ejemplo
-              </Button>
-            </EmptyContent>
-          </Empty>
+          showGenerate ? (
+            <Empty className="border border-dashed border-border">
+              <EmptyHeader>
+                <EmptyTitle>Necesitas un personaje primero</EmptyTitle>
+                <EmptyDescription>
+                  Carga el ejemplo o importa tu build en «Editar expediente» para poder
+                  generar recomendaciones.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void onLoadDemo()}
+                >
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  Cargar ejemplo
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : null
         ) : loading ? (
           <div className="flex flex-col gap-3" aria-busy="true">
             <Skeleton className="h-40 w-full" />
@@ -170,16 +200,18 @@ export function RecommendationsSection({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : !result ? (
-          <Empty className="border border-dashed border-border">
-            <EmptyHeader>
-              <EmptyTitle>Sin recomendaciones todavía</EmptyTitle>
-              <EmptyDescription>
-                Pulsa «Generar recomendaciones» para recibir hasta 3 mejoras ordenadas
-                por impacto, coste y riesgo según tu presupuesto y objetivo.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
+          showGenerate ? (
+            <Empty className="border border-dashed border-border">
+              <EmptyHeader>
+                <EmptyTitle>Sin recomendaciones todavía</EmptyTitle>
+                <EmptyDescription>
+                  Pulsa «Generar recomendaciones» para recibir hasta 3 mejoras ordenadas
+                  por impacto, coste y riesgo según tu presupuesto y objetivo.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : null
+        ) : !showList ? null : (
           <>
             <p className="text-sm text-muted-foreground">
               Generadas el {formatDateTime(result.generatedAt)} · motor{" "}
@@ -196,20 +228,27 @@ export function RecommendationsSection({
                 </AlertDescription>
               </Alert>
             )}
-            {result.recommendations.map((rec) => (
-              <RecommendationCard
-                key={rec.id}
-                recommendation={rec}
-                applied={appliedIds[rec.id] ?? false}
-                onAppliedChange={(applied) => toggleApplied(rec.id, applied)}
-                budget={budget}
-                onFocusItem={onFocusItem}
-                onTrack={onTrackRecommendation}
-                tracking={trackingRecommendation}
-                onStartSession={onStartSession}
-                startingSession={startingSession}
-              />
-            ))}
+            {listed.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay más posibilidades: el motor solo devolvió la que ya estás viendo
+                en el caso abierto.
+              </p>
+            ) : (
+              listed.map((rec) => (
+                <RecommendationCard
+                  key={rec.id}
+                  recommendation={rec}
+                  applied={appliedIds[rec.id] ?? false}
+                  onAppliedChange={(applied) => onAppliedChange(rec.id, applied)}
+                  budget={budget}
+                  onFocusItem={onFocusItem}
+                  onTrack={onTrackRecommendation}
+                  tracking={trackingRecommendation}
+                  onStartSession={onStartSession}
+                  startingSession={startingSession}
+                />
+              ))
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <p className="text-sm text-muted-foreground">
                 {selectedCount > 0
@@ -244,7 +283,7 @@ export function RecommendationsSection({
           </>
         )}
 
-        {exportResult && (
+        {showList && exportResult && (
           <ExportReportView
             exportResult={exportResult}
             appliedCount={recommendations.exportAppliedCount}

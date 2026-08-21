@@ -45,6 +45,11 @@ function AccordionTrigger({
   )
 }
 
+/**
+ * `data-[state=closed]:hidden` es lo que permite usar `forceMount`: el
+ * contenido plegado sigue MONTADO (no se pierden borradores ni resultados ya
+ * calculados) pero sale del árbol accesible y del orden de tabulación.
+ */
 function AccordionContent({
   className,
   children,
@@ -53,7 +58,7 @@ function AccordionContent({
   return (
     <AccordionPrimitive.Content
       data-slot="accordion-content"
-      className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden text-sm"
+      className="data-[state=open]:animate-accordion-down overflow-hidden text-sm data-[state=closed]:hidden"
       {...props}
     >
       <div className={cn("pt-0 pb-4", className)}>{children}</div>

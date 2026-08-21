@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Compass, MessageCircleQuestion, UserRound } from "lucide-react";
-import type { Budget, GoalKind } from "@shared/domain.js";
+import { Compass, FolderOpen } from "lucide-react";
+import type { Budget, GoalKind, Recommendation } from "@shared/domain.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import {
   GGG_AFFILIATION_NOTICE,
@@ -9,19 +9,35 @@ import {
 } from "@shared/passiveRegistry.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { WelcomePanel } from "@/components/WelcomePanel";
+import { OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
+import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
+import { OpenCaseRecommendation } from "@/components/OpenCaseRecommendation";
 import { CharacterSection } from "@/sections/CharacterSection";
+import { ExpedienteSection } from "@/sections/ExpedienteSection";
 import { MarketSection } from "@/sections/MarketSection";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
 import { TargetSection, type TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
+import { useEditorDrafts } from "@/hooks/useEditorDrafts";
 import { useMarket } from "@/hooks/useMarket";
 import { useMeta } from "@/hooks/useMeta";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
-import { journalEntryFromRecommendation } from "@/lib/journal";
+import {
+  compactRecommendationReason,
+  journalEntryFromRecommendation,
+} from "@/lib/journal";
+import { openCaseLimitations, selectOpenCase } from "@/lib/openCase";
 import { MentorChatSection } from "@/sections/MentorChatSection";
 import { useMentor } from "@/hooks/useMentor";
 import { buildMentorRequest } from "@/lib/mentorRequest";
@@ -39,14 +55,19 @@ const EMPTY_TARGET: TargetDraft = {
   plan: null,
 };
 
-/** Las tres áreas del espacio de trabajo. */
-type WorkspaceTab = "mentor" | "personaje" | "plan";
+/**
+ * Las DOS áreas del espacio de trabajo (Fase Visual 1, §2).
+ *
+ * «Personaje» ya no es un área: su editor completo sigue existiendo una sola
+ * vez, dentro del panel lateral «Editar expediente».
+ */
+type WorkspaceTab = "expediente" | "plan";
+type EditorPrompt = "memory" | null;
 
 /**
- * Los tres paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
- * Cambiar de pestaña no puede perder campos sin guardar, resultados generados ni
- * la conversación: buena parte de ese estado es local de cada sección
- * (borradores de objetos, texto del chat, recomendaciones aplicadas…).
+ * Los paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
+ * Cambiar de área no puede perder campos sin guardar, resultados generados ni
+ * la conversación: buena parte de ese estado es local de cada sección.
  */
 const PANEL_CLASSES =
   "flex flex-col gap-6 focus-visible:outline-none data-[state=inactive]:hidden";
@@ -63,17 +84,20 @@ export default function App() {
   // Resolución de ids del plan contra el registro oficial: se guarda APARTE del
   // plan para no alterar nunca el `.build` crudo que se reexporta.
   const [targetResolution, setTargetResolution] = useState<PlanResolution | null>(null);
-  // Navegación recomendación → objeto (solo con vínculo estructurado del motor).
+  // Navegación caso → objeto (solo con vínculo estructurado del motor).
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   // Elemento que abrió el detalle: puede ser un hueco del paperdoll o el botón
-  // «Ver el objeto evaluado» de una recomendación. Al cerrar se le devuelve el foco.
+  // «Ver el objeto evaluado» del caso. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
-  // Área visible. `null` solo mientras se decide la de entrada (ver más abajo).
-  const [tab, setTab] = useState<WorkspaceTab | null>(null);
-  const entryTabDecided = useRef(false);
-  // Navegación objeto → recomendaciones pendiente de completar (scroll) cuando
-  // el área «Mentor» ya esté visible.
-  const [recsNavPending, setRecsNavPending] = useState(false);
+  const [tab, setTab] = useState<WorkspaceTab>("expediente");
+  // Panel lateral con el editor completo del personaje.
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorPrompt, setEditorPrompt] = useState<EditorPrompt>(null);
+  // La bienvenida pide «Importar mi personaje»: abre el editor Y lleva el foco
+  // al panel de importación en lugar de al primer control del panel.
+  const focusImportOnOpen = useRef(false);
+  // Borradores del editor: viven fuera del panel para sobrevivir a su cierre.
+  const editorDrafts = useEditorDrafts();
 
   // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
   const characterOptions = useMemo(
@@ -110,6 +134,25 @@ export default function App() {
   const { resultInputsKey, clear } = recommendations;
   const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
 
+  /**
+   * Marcas «ya la apliqué». Viven aquí porque la recomendación dominante se
+   * pinta en el Caso Abierto y las demás en «Otras posibilidades»: si el estado
+   * siguiera dentro de `RecommendationsSection`, la principal no podría
+   * marcarse para la exportación.
+   *
+   * Cada generación (o invalidación) parte de cero: una marca de una generación
+   * anterior nunca sobrevive como «mejora aplicada». (Ajuste de estado durante
+   * el render, patrón recomendado por React.)
+   */
+  const [appliedIds, setAppliedIds] = useState<Record<string, boolean>>({});
+  const [lastResult, setLastResult] = useState(recommendations.result);
+  if (recommendations.result !== lastResult) {
+    setLastResult(recommendations.result);
+    setAppliedIds({});
+  }
+  const toggleApplied = (id: string, applied: boolean) =>
+    setAppliedIds((prev) => ({ ...prev, [id]: applied }));
+
   // Recuperación del 409: si el diario quedó obsoleto (otra pestaña escribió),
   // las recomendaciones y la conversación que se veían ya no corresponden a la
   // memoria vigente y se retiran en lugar de quedar en pantalla.
@@ -121,21 +164,6 @@ export default function App() {
   }, [journal.stale, clear, clearMentor]);
 
   const hasProfile = character.profile !== null;
-  const activeTab: WorkspaceTab = tab ?? "personaje";
-
-  /**
-   * El área de entrada se decide UNA sola vez, cuando termina la restauración:
-   * con personaje se entra por «Mentor»; sin personaje, por «Personaje», que es
-   * donde viven la bienvenida y la importación.
-   *
-   * Después no se cambia sola nunca más: cargar el ejemplo o importar no debe
-   * arrancar al jugador de la pantalla en la que está trabajando.
-   */
-  useEffect(() => {
-    if (entryTabDecided.current || character.restoring) return;
-    entryTabDecided.current = true;
-    setTab(character.profile !== null ? "mentor" : "personaje");
-  }, [character.restoring, character.profile]);
 
   // Valores por defecto en cuanto llegan /api/meta y /api/health.
   useEffect(() => {
@@ -206,35 +234,117 @@ export default function App() {
     }
   }, [currentMentorInputsKey, mentorThreadKey, clearMentor]);
 
+  /**
+   * Jerarquía del Caso Abierto: sesión abierta → acción activa del diario →
+   * recomendación vigente → generar. La decide una función pura para poder
+   * probarla sin montar la interfaz.
+   */
+  const resultRecommendations = useMemo(
+    () => recommendations.result?.recommendations ?? [],
+    [recommendations.result],
+  );
+  const selection = useMemo(
+    () =>
+      selectOpenCase({
+        hasProfile,
+        journal: characterJournal,
+        recommendations: resultRecommendations,
+      }),
+    [hasProfile, characterJournal, resultRecommendations],
+  );
+  /**
+   * Ids del paperdoll: SOLO los del contenido dominante. Al cambiar de caso se
+   * sustituyen por los del nuevo o por un conjunto vacío; ninguna celda queda
+   * marcada por un caso que ya no manda.
+   */
+  const highlightedItemIds = useMemo(
+    () => new Set(selection.relatedItemIds),
+    [selection],
+  );
+  const limitations = openCaseLimitations(selection);
+  const dominantRecommendation = selection.recommendation;
+
   const focusItem = (itemId: string, trigger: HTMLElement) => {
     dialogTriggerRef.current = trigger;
     setFocusedItemId(itemId);
   };
 
   /**
-   * Navegación inversa objeto → recomendaciones. La sección vive en el área
-   * «Mentor», que puede estar oculta: primero se activa la pestaña y, cuando el
-   * panel ya es visible (efecto de abajo), se desplaza. El FOCO no se pone
-   * aquí: lo pone el cierre del diálogo de objeto (`onCloseAutoFocus`), que es
-   * el único momento en que Radix garantiza no pisarlo; así nunca queda dentro
-   * del panel «Personaje» oculto.
+   * Navegación inversa objeto → caso. Ahora el caso vive en la MISMA área que
+   * el paperdoll, así que basta con desplazarse. El foco lo pone el cierre del
+   * diálogo de objeto (`getCloseFocusTarget`), único momento en que Radix
+   * garantiza no pisarlo.
    */
-  const showRecommendationsArea = () => {
-    setTab("mentor");
-    setRecsNavPending(true);
-  };
-  useEffect(() => {
-    if (!recsNavPending || activeTab !== "mentor") return;
-    setRecsNavPending(false);
-    const target = document.getElementById("seccion-recomendaciones");
+  const showOpenCase = () => {
+    const target = document.getElementById("caso-abierto");
     if (target === null) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-  }, [recsNavPending, activeTab]);
+  };
+
+  const openEditor = (focusImport = false, prompt: EditorPrompt = null) => {
+    focusImportOnOpen.current = focusImport;
+    setEditorPrompt(prompt);
+    setEditorOpen(true);
+  };
+
+  const trackRecommendation = (recommendation: Recommendation) => {
+    if (!character.profile) return;
+    if (!character.persisted || !characterJournal) {
+      openEditor(false, "memory");
+      return;
+    }
+    void journal.createEntry({
+      ...journalEntryFromRecommendation(recommendation, character.profile, budget, goal),
+      journalRevision: buildRecommendationMemory(characterJournal).revision,
+    });
+  };
+
+  const startSession = (recommendation: Recommendation) => {
+    if (!character.profile) return;
+    if (!character.persisted || !characterJournal) {
+      openEditor(false, "memory");
+      return;
+    }
+    const profile = character.profile;
+    void journal
+      .startSession({
+        journalRevision: buildRecommendationMemory(characterJournal).revision,
+        idempotencyKey: crypto.randomUUID(),
+        kind: "guided_decision",
+        objective: recommendation.title,
+        hypothesis: compactRecommendationReason(recommendation.reason),
+        expectedResult: recommendation.impact.description,
+        observationMethod: "Anota lo que cambió en el juego, con tus palabras.",
+        unknowns: [],
+        constraints: [],
+        soonReplacedItemIds: [],
+        protectedResources: [],
+        recommendation,
+        profile,
+        budget,
+        goal,
+      })
+      .then((next) => {
+        // La sesión pasa a ser el contenido dominante del Caso Abierto: basta
+        // con desplazarse hasta él, sin cambiar de área ni animar.
+        if (next) {
+          document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
+        }
+      });
+  };
 
   // La bienvenida sustituye a los paneles vacíos, pero no debe aparecer mientras
   // se restaura un personaje guardado (si no, parpadearía antes de cargarlo).
   const showWelcome = !hasProfile && !character.restoring;
+
+  const evidenceSlot =
+    selection.kind === "recommendation" || selection.kind === "journal" ? (
+      <OpenCaseEvidence
+        recommendation={selection.recommendation}
+        entry={selection.journalEntry}
+      />
+    ) : null;
 
   return (
     <div className="min-h-screen text-foreground">
@@ -252,7 +362,7 @@ export default function App() {
         )}
 
         <Tabs
-          value={activeTab}
+          value={tab}
           onValueChange={(value) => setTab(value as WorkspaceTab)}
           className="gap-0"
         >
@@ -264,20 +374,13 @@ export default function App() {
               className="h-auto w-full gap-1 bg-muted/50 p-1 sm:w-auto"
             >
               <TabsTrigger
-                value="mentor"
-                data-testid="tab-mentor"
+                value="expediente"
+                data-testid="tab-expediente"
                 className="min-w-0 flex-1 gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15 data-[state=active]:text-primary sm:flex-none"
               >
-                <MessageCircleQuestion className="size-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">Mentor</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="personaje"
-                data-testid="tab-personaje"
-                className="min-w-0 flex-1 gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15 data-[state=active]:text-primary sm:flex-none"
-              >
-                <UserRound className="size-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">Personaje</span>
+                <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate sm:hidden">Expediente</span>
+                <span className="hidden truncate sm:inline">Expediente y mentor</span>
               </TabsTrigger>
               <TabsTrigger
                 value="plan"
@@ -291,170 +394,208 @@ export default function App() {
             </TabsList>
           </div>
 
-          {/* --- Área 1: Mentor -------------------------------------------- */}
-          {/* Orden: acción actual → conversación → recomendaciones → historial.
-              El historial reciente vive dentro de JournalSection, junto a la
-              acción activa que documenta. */}
-          <TabsContent value="mentor" forceMount className={PANEL_CLASSES}>
-            <JournalSection
-              profile={character.profile}
-              budget={budget}
-              goal={goal}
-              journal={journal}
-            />
-
-            {/* La decisión en curso envuelve al diario: explica qué estamos
-                comprobando y por qué ese es el paso vigente. */}
-            <DecisionSessionSection
-              profile={character.profile}
-              budget={budget}
-              goal={goal}
-              journal={journal}
-              pendingRecommendation={recommendations.result?.recommendations[0] ?? null}
-            />
-
-            <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-              <MentorChatSection
-                profile={character.profile}
-                mentor={mentor}
-                savingNextAction={journal.saving}
-                onAsk={(question) => {
-                  if (!character.profile) return;
-                  void mentor
-                    .ask(
-                      buildMentorRequest(
-                        question,
-                        character.profile,
-                        targetDraft,
-                        budget,
-                        goal,
-                        league,
-                        patch,
-                        characterJournal,
-                      ),
-                    )
-                    .then((outcome) => {
-                      if (outcome === "journal-stale") void journal.reload();
-                    });
-                }}
-                onSaveNextAction={(answer) => {
-                  const recommendation = answer.nextAction?.recommendation ?? null;
-                  if (!character.profile || recommendation === null) return;
-                  void journal.createEntry({
-                    ...journalEntryFromRecommendation(
-                      recommendation,
-                      character.profile,
-                      budget,
-                      goal,
-                    ),
-                    ...(characterJournal
-                      ? {
-                          journalRevision:
-                            buildRecommendationMemory(characterJournal).revision,
-                        }
-                      : {}),
-                  });
-                }}
-                onFocusItem={focusItem}
-              />
-
-              <RecommendationsSection
-                profile={character.profile}
-                targetDraft={targetDraft}
-                budget={budget}
-                goal={goal}
-                league={league}
-                patch={patch}
-                journal={characterJournal}
-                journalLoading={characterJournalLoading}
-                onJournalStale={journal.reload}
-                recommendations={recommendations}
-                onLoadDemo={character.loadDemo}
-                onFocusItem={focusItem}
-                onTrackRecommendation={(recommendation) => {
-                  if (!character.profile) return;
-                  void journal.createEntry({
-                    ...journalEntryFromRecommendation(
-                      recommendation,
-                      character.profile,
-                      budget,
-                      goal,
-                    ),
-                    ...(characterJournal
-                      ? {
-                          journalRevision:
-                            buildRecommendationMemory(characterJournal).revision,
-                        }
-                      : {}),
-                  });
-                }}
-                trackingRecommendation={journal.saving}
-                onStartSession={(recommendation) => {
-                  if (!character.profile || !characterJournal) return;
-                  void journal
-                    .startSession({
-                      journalRevision:
-                        buildRecommendationMemory(characterJournal).revision,
-                      idempotencyKey: crypto.randomUUID(),
-                      kind: "guided_decision",
-                      objective: recommendation.title,
-                      hypothesis: recommendation.reason.slice(0, 2000),
-                      expectedResult: recommendation.impact.description,
-                      observationMethod:
-                        "Anota lo que cambió en el juego, con tus palabras.",
-                      unknowns: [],
-                      constraints: [],
-                      soonReplacedItemIds: [],
-                      protectedResources: [],
-                      recommendation,
-                      profile: character.profile,
-                      budget,
-                      goal,
-                    })
-                    .then((next) => {
-                      if (next) {
-                        // La sesión vive en esta misma área: basta con
-                        // desplazarse, sin cambiar de pestaña ni animar.
-                        document
-                          .getElementById("seccion-decision-adaptativa")
-                          ?.scrollIntoView({ block: "start" });
-                      }
-                    });
-                }}
-                startingSession={journal.saving}
-              />
-            </div>
-          </TabsContent>
-
-          {/* --- Área 2: Personaje ----------------------------------------- */}
-          <TabsContent value="personaje" forceMount className={PANEL_CLASSES}>
-            {showWelcome && (
+          {/* --- Área 1: Expediente y mentor -------------------------------- */}
+          <TabsContent value="expediente" forceMount className={PANEL_CLASSES}>
+            {showWelcome ? (
+              // Sin personaje: solo la bienvenida. Ni expediente ni caso vacíos.
               <WelcomePanel
                 loadingDemo={character.busy === "demo"}
                 onLoadDemo={() => void character.loadDemo()}
-                onGoToImport={() => {
-                  const panel = document.getElementById("panel-importacion");
-                  panel?.scrollIntoView({ block: "center", behavior: "auto" });
-                  panel?.focus();
-                }}
+                onGoToImport={() => openEditor(true)}
               />
+            ) : !hasProfile ? (
+              // Restaurando el personaje guardado: ni bienvenida ni caso vacíos.
+              <ExpedienteSection
+                profile={null}
+                restoring={character.restoring}
+                highlightedItemIds={highlightedItemIds}
+                recommendations={resultRecommendations}
+                limitations={limitations}
+                focusedItemId={focusedItemId}
+                onFocusHandled={() => setFocusedItemId(null)}
+                dialogTriggerRef={dialogTriggerRef}
+                onShowOpenCase={showOpenCase}
+                onEditExpediente={() => openEditor()}
+              />
+            ) : (
+              <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,29rem)_minmax(0,1fr)] lg:items-start">
+                {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
+                    contexto antes de inspeccionar la pieza (§8). */}
+                <div className="order-1 flex flex-col gap-6 lg:order-2 lg:col-start-2">
+                  <OpenCase
+                    selection={selection}
+                    sessionSlot={
+                      <DecisionSessionSection
+                        profile={character.profile}
+                        budget={budget}
+                        goal={goal}
+                        journal={journal}
+                        pendingRecommendation={dominantRecommendation}
+                      />
+                    }
+                    journalSlot={
+                      <JournalSection
+                        profile={character.profile}
+                        budget={budget}
+                        goal={goal}
+                        journal={journal}
+                        view="accion"
+                      />
+                    }
+                    recommendationSlot={
+                      dominantRecommendation && (
+                        <OpenCaseRecommendation
+                          recommendation={dominantRecommendation}
+                          budget={budget}
+                          applied={appliedIds[dominantRecommendation.id] ?? false}
+                          onAppliedChange={(applied) =>
+                            toggleApplied(dominantRecommendation.id, applied)
+                          }
+                          onTrack={trackRecommendation}
+                          tracking={journal.saving}
+                          onStartSession={startSession}
+                          startingSession={journal.saving}
+                          onFocusItem={focusItem}
+                          onEditExpediente={() => openEditor()}
+                        />
+                      )
+                    }
+                    generateSlot={
+                      <RecommendationsSection
+                        profile={character.profile}
+                        targetDraft={targetDraft}
+                        budget={budget}
+                        goal={goal}
+                        league={league}
+                        patch={patch}
+                        journal={characterJournal}
+                        journalLoading={characterJournalLoading}
+                        onJournalStale={journal.reload}
+                        recommendations={recommendations}
+                        onLoadDemo={character.loadDemo}
+                        onFocusItem={focusItem}
+                        onTrackRecommendation={trackRecommendation}
+                        trackingRecommendation={journal.saving}
+                        onStartSession={startSession}
+                        startingSession={journal.saving}
+                        appliedIds={appliedIds}
+                        onAppliedChange={toggleApplied}
+                        view="generar"
+                      />
+                    }
+                    evidenceSlot={evidenceSlot}
+                    mentorSlot={
+                      <MentorChatSection
+                        profile={character.profile}
+                        mentor={mentor}
+                        savingNextAction={journal.saving}
+                        onAsk={(question) => {
+                          if (!character.profile) return;
+                          void mentor
+                            .ask(
+                              buildMentorRequest(
+                                question,
+                                character.profile,
+                                targetDraft,
+                                budget,
+                                goal,
+                                league,
+                                patch,
+                                characterJournal,
+                              ),
+                            )
+                            .then((outcome) => {
+                              if (outcome === "journal-stale") void journal.reload();
+                            });
+                        }}
+                        onSaveNextAction={(answer) => {
+                          const recommendation = answer.nextAction?.recommendation ?? null;
+                          if (recommendation === null) return;
+                          trackRecommendation(recommendation);
+                        }}
+                        onFocusItem={focusItem}
+                      />
+                    }
+                  />
+                </div>
+
+                {/* Expediente: identidad, paperdoll y acceso al editor. */}
+                <div className="order-2 lg:order-1 lg:col-start-1 lg:row-start-1">
+                  <ExpedienteSection
+                    profile={character.profile}
+                    restoring={character.restoring}
+                    highlightedItemIds={highlightedItemIds}
+                    recommendations={resultRecommendations}
+                    limitations={limitations}
+                    focusedItemId={focusedItemId}
+                    onFocusHandled={() => setFocusedItemId(null)}
+                    dialogTriggerRef={dialogTriggerRef}
+                    onShowOpenCase={showOpenCase}
+                    onEditExpediente={() => openEditor()}
+                  />
+                </div>
+
+                {/* Memoria y alternativas: tras el equipo en móvil (§8). */}
+                <div className="order-3 lg:col-start-2 lg:row-start-2">
+                  <OpenCaseSecondary
+                    selection={selection}
+                    sessionSlot={
+                      selection.kind === "session" ? null : (
+                        <DecisionSessionSection
+                          profile={character.profile}
+                          budget={budget}
+                          goal={goal}
+                          journal={journal}
+                          pendingRecommendation={dominantRecommendation}
+                        />
+                      )
+                    }
+                    historySlot={
+                      <JournalSection
+                        profile={character.profile}
+                        budget={budget}
+                        goal={goal}
+                        journal={journal}
+                        view="historial"
+                      />
+                    }
+                    othersSlot={
+                      <RecommendationsSection
+                        profile={character.profile}
+                        targetDraft={targetDraft}
+                        budget={budget}
+                        goal={goal}
+                        league={league}
+                        patch={patch}
+                        journal={characterJournal}
+                        journalLoading={characterJournalLoading}
+                        onJournalStale={journal.reload}
+                        recommendations={recommendations}
+                        onLoadDemo={character.loadDemo}
+                        onFocusItem={focusItem}
+                        onTrackRecommendation={trackRecommendation}
+                        trackingRecommendation={journal.saving}
+                        onStartSession={startSession}
+                        startingSession={journal.saving}
+                        appliedIds={appliedIds}
+                        onAppliedChange={toggleApplied}
+                        excludeRecommendationId={dominantRecommendation?.id ?? null}
+                        view="otras"
+                        // «Generar recomendaciones» existe UNA sola vez: como
+                        // contenido dominante cuando no hay nada que mostrar, y
+                        // si no, aquí, con su aviso de acción activa.
+                        showGenerate={selection.kind !== "generate"}
+                      />
+                    }
+                  />
+                </div>
+              </div>
             )}
-            <CharacterSection
-              character={character}
-              meta={meta}
-              recommendations={recommendations.result?.recommendations ?? []}
-              focusedItemId={focusedItemId}
-              onFocusHandled={() => setFocusedItemId(null)}
-              dialogTriggerRef={dialogTriggerRef}
-              onShowRecommendations={showRecommendationsArea}
-              // La bienvenida ya ofrece importar y cargar el ejemplo: la
-              // sección no repite ni su vacío ni su botón de ejemplo.
-              hideEmptyState={showWelcome}
-            />
           </TabsContent>
 
-          {/* --- Área 3: Plan y mercado ------------------------------------ */}
-          {/* Dos columnas en escritorio, una sola en móvil. */}
+          {/* --- Área 2: Plan y mercado ------------------------------------ */}
+          {/* Dos columnas en escritorio, una sola en móvil. NUNCA se mezcla con
+              el expediente: el plan objetivo es un plan, no el personaje real. */}
           <TabsContent value="plan" forceMount className={PANEL_CLASSES}>
             <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
               <TargetSection
@@ -484,6 +625,54 @@ export default function App() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/*
+          Editor completo del personaje: ÚNICA instancia de `CharacterSection`.
+
+          El panel se monta y desmonta con normalidad —forzar el montaje de un
+          modal de Radix deja `pointer-events: none` en el `body` y bloquea toda
+          la aplicación— y lo que se conserva es el ESTADO: los borradores viven
+          en `useEditorDrafts`, aquí arriba, así que cerrar y volver a abrir no
+          borra el `.build` pegado, el texto del objeto ni los supports en
+          edición. Radix aporta el confinamiento del foco y su devolución.
+        */}
+        <Sheet
+          open={editorOpen}
+          onOpenChange={(open) => {
+            setEditorOpen(open);
+            if (!open) setEditorPrompt(null);
+          }}
+        >
+          <SheetContent
+            side="right"
+            className="w-full gap-0 overflow-y-auto sm:max-w-2xl"
+            onOpenAutoFocus={(event) => {
+              if (!focusImportOnOpen.current) return;
+              focusImportOnOpen.current = false;
+              event.preventDefault();
+              document.getElementById("panel-importacion")?.focus();
+            }}
+          >
+            <SheetHeader>
+              <SheetTitle>Editar expediente</SheetTitle>
+              <SheetDescription>
+                {editorPrompt === "memory"
+                  ? "Guarda este personaje para que el mentor pueda recordar próximos pasos y sesiones."
+                  : "Importa, corrige o completa los datos de tu personaje. Los cambios se guardan con «Guardar correcciones»."}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="px-4 pb-8">
+              <CharacterSection
+                character={character}
+                meta={meta}
+                drafts={editorDrafts}
+                // La bienvenida ya ofrece importar y cargar el ejemplo: la
+                // sección no repite ni su vacío ni su botón de ejemplo.
+                hideEmptyState={showWelcome}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
 
         <footer className="mt-10 flex flex-col gap-1 border-t border-border pt-4 text-center text-xs text-muted-foreground">
           <p>{GGG_AFFILIATION_NOTICE}</p>

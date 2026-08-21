@@ -15,6 +15,7 @@ import {
   createSmokeTempDir,
   launchBrowser,
   removeSmokeTempDir,
+  toolCommand,
 } from "./browserLaunch.mjs";
 
 /**
@@ -53,11 +54,11 @@ function dbPathFor(mode) {
 }
 
 function startServer(mode, port) {
-  const cmd =
+  const { command, args: cmdArgs, shell } =
     mode === "prod"
-      ? ["tsx", "server/index.ts"]
-      : ["vite", "--port", String(port), "--strictPort"];
-  const proc = spawn("npx", cmd, {
+      ? toolCommand("tsx", ["server/index.ts"])
+      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+  const proc = spawn(command, cmdArgs, {
     env: {
       ...process.env,
       PORT: String(port),
@@ -65,7 +66,7 @@ function startServer(mode, port) {
       // Aislamiento explícito: nunca la base real.
       DATABASE_PATH: dbPathFor(mode),
     },
-    shell: true,
+    shell,
     stdio: ["ignore", "pipe", "pipe"],
   });
   proc.stderr.on("data", (d) => process.stderr.write(`[server:${mode}] ${d}`));
@@ -83,7 +84,7 @@ async function stopServer(proc) {
 
 let failures = 0;
 /**
- * Navegación por áreas (Mentor / Personaje / Plan y mercado). Los tres paneles
+ * Navegación por áreas (Expediente y mentor / Plan y mercado). Ambos paneles
  * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
  * de interactuar con sus controles.
  */
@@ -97,6 +98,20 @@ async function irA(page, area) {
     area,
     { timeout: 10000 },
   );
+}
+
+/**
+ * El editor completo del personaje vive en el panel lateral «Editar
+ * expediente»: los campos del perfil solo existen mientras está abierto.
+ */
+async function abrirEditor(page) {
+  await page.getByTestId("abrir-editor-expediente").click();
+  await page.getByRole("dialog").waitFor({ timeout: 15000 });
+}
+
+async function cerrarEditor(page) {
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 15000 });
 }
 
 const check = (name, ok) => {
@@ -141,8 +156,8 @@ async function runFlow(mode, port) {
       .catch(() => false);
     check(`[${mode}] no se queda en "Restaurando…" (Strict Mode)`, !stuckRestoring);
 
-    // 2. Bienvenida sin duplicados y carga del ejemplo (área «Personaje»)
-    await irA(page, "personaje");
+    // 2. Bienvenida sin duplicados y carga del ejemplo (área «Expediente y mentor»)
+    await irA(page, "expediente");
     await page.getByTestId("bienvenida").waitFor({ timeout: 15000 });
     // Solo botones VISIBLES: los paneles inactivos siguen montados (ocultos) y
     // el vacío de recomendaciones tiene su propio botón de ejemplo, legítimo.
@@ -154,18 +169,54 @@ async function runFlow(mode, port) {
       .getByTestId("bienvenida-importar")
       .locator("visible=true")
       .count();
+    // Sin personaje solo se ve la bienvenida: ni expediente ni caso vacíos, y el
+    // importador todavía no está en pantalla (vive en «Editar expediente»).
+    const importadorAntes = await page.locator("#panel-importacion").count();
     check(
       `[${mode}] bienvenida sin duplicados (${ejemploVisibles} botón de ejemplo, sin vacío repetido)`,
       ejemploVisibles === 1 &&
         importarVisibles === 1 &&
         (await page.getByText("Todavía no hay personaje").count()) === 0 &&
-        (await page.locator("#panel-importacion").locator("visible=true").count()) === 1,
+        (await page.getByTestId("caso-abierto").count()) === 0 &&
+        importadorAntes === 0,
     );
+    // «Importar mi personaje» abre el editor Y lleva el foco al importador.
+    await page.getByTestId("bienvenida-importar").click();
+    await page.getByRole("dialog").waitFor({ timeout: 15000 });
+    const focoImportador = await page.evaluate(
+      () => document.activeElement?.id ?? null,
+    );
+    check(
+      `[${mode}] «Importar mi personaje» abre el editor con el foco en el importador (${focoImportador})`,
+      (await page.locator("#panel-importacion").locator("visible=true").count()) === 1 &&
+        focoImportador === "panel-importacion",
+    );
+    await cerrarEditor(page);
     await page.getByRole("button", { name: "Cargar ejemplo" }).locator("visible=true").click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
     check(`[${mode}] ejemplo precargado visible`, true);
 
-    // 3. Editar vida y guardar: comprobar la RESPUESTA de guardado (200 + perfil)
+    // El ejemplo todavía no existe en SQLite. Las acciones con memoria no
+    // pueden fallar en silencio: deben llevar al editor y explicar el paso.
+    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    const comprobarSinGuardar = page
+      .getByTestId("caso-abierto")
+      .getByRole("button", { name: "Comprobar esto" });
+    await comprobarSinGuardar.waitFor({ state: "visible", timeout: 15000 });
+    await comprobarSinGuardar.click();
+    await page.getByRole("dialog").waitFor({ state: "visible", timeout: 10000 });
+    check(
+      `[${mode}] una sesión sin personaje guardado abre el editor y lo explica`,
+      (await page
+        .getByText(/Guarda este personaje para que el mentor pueda recordar/i)
+        .count()) === 1 &&
+        (await page.getByRole("button", { name: /Guardar correcciones/i }).isEnabled()),
+    );
+    await cerrarEditor(page);
+
+    // 3. Editar vida y guardar: comprobar la RESPUESTA de guardado (200 + perfil).
+    // El editor completo vive ahora en el panel lateral «Editar expediente».
+    await abrirEditor(page);
     await page.locator("#def-life").fill("2150");
     const [saveResponse] = await Promise.all([
       page.waitForResponse(
@@ -179,15 +230,25 @@ async function runFlow(mode, port) {
       `[${mode}] respuesta de guardado 200 con vida=2150`,
       saveResponse.status() === 200 && savedBody?.profile?.life === 2150,
     );
+    await cerrarEditor(page);
 
-    // 4. Presupuesto (área «Plan y mercado») y recomendaciones (área «Mentor»)
+    // 4. Presupuesto (área «Plan y mercado») y recomendaciones (área «Expediente»)
     await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
-    await irA(page, "mentor");
+    await irA(page, "expediente");
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
     await page.waitForSelector("text=/Confianza|confianza/", { timeout: 15000 });
+    // La principal domina el Caso Abierto; las demás viven en «Otras
+    // posibilidades», que hay que desplegar para verlas.
+    await page.getByTestId("acordeon-otras").click();
     const cards = await page.locator("text=/Confianza|confianza/").count();
     check(`[${mode}] se generan ${cards} tarjetas de recomendación`, cards >= 3);
+    const textoRecomendaciones = await page.locator("main").innerText();
+    check(
+      `[${mode}] las recomendaciones no filtran enums ni timestamps internos`,
+      !/\b(high|medium|low|balanced)\b/.test(textoRecomendaciones) &&
+        !/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(textoRecomendaciones),
+    );
 
     // 5. Marcar una recomendación como aplicada y exportar
     const checkbox = page
@@ -238,9 +299,10 @@ async function runFlow(mode, port) {
     });
 
     // 7. Persistencia: recargar y comprobar EXACTAMENTE vida=2150
-    // Con personaje se entra por «Mentor»: hay que volver a «Personaje».
+    // Los campos del personaje viven en el panel «Editar expediente».
     await page.reload({ waitUntil: "networkidle" });
-    await irA(page, "personaje");
+    await irA(page, "expediente");
+    await abrirEditor(page);
     await page.locator("#def-life").waitFor({ timeout: 10000 });
     const restoredLife = await page.locator("#def-life").inputValue();
     check(

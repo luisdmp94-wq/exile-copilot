@@ -6,6 +6,7 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 /** Prefijo obligatorio de todo temporal de smoke; también sirve de guardia al borrar. */
@@ -39,8 +40,41 @@ export function removeSmokeTempDir(dir) {
     console.warn(`[smoke] ruta no reconocida como temporal propio, NO se borra: ${abs}`);
     return false;
   }
-  rmSync(abs, { recursive: true, force: true });
+  // En Windows, SQLite/Edge pueden tardar unos milisegundos en liberar el
+  // último handle después de detener el proceso. `rmSync` solo reintenta si se
+  // le indica explícitamente; sin esto un smoke completamente correcto podía
+  // terminar con EPERM durante su propia limpieza.
+  rmSync(abs, {
+    recursive: true,
+    force: true,
+    maxRetries: 5,
+    retryDelay: 200,
+  });
   return true;
+}
+
+/**
+ * Cómo arrancar una herramienta local (`vite`, `tsx`) desde un smoke.
+ *
+ * Por defecto `npx`, exactamente como hasta ahora. `SMOKE_NODE` permite indicar
+ * un ejecutable de Node concreto cuando el entorno no tiene `npx` en el PATH:
+ * en ese caso la herramienta se invoca por su ruta DENTRO de `node_modules`,
+ * sin instalar ni descargar nada. No cambia el comportamiento del producto ni
+ * lo que comprueba el smoke: solo quién lanza el proceso.
+ */
+const LOCAL_TOOL_ENTRYPOINTS = {
+  vite: "node_modules/vite/bin/vite.js",
+  tsx: "node_modules/tsx/dist/cli.mjs",
+};
+
+export function toolCommand(tool, args) {
+  const node = process.env.SMOKE_NODE;
+  const entry = LOCAL_TOOL_ENTRYPOINTS[tool];
+  if (node && entry) {
+    const abs = fileURLToPath(new URL(`../${entry}`, import.meta.url));
+    return { command: node, args: [abs, ...args], shell: false };
+  }
+  return { command: "npx", args: [tool, ...args], shell: true };
 }
 
 const HEADLESS_SHELL =

@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SLOT_LABELS } from "@/lib/format";
+import { compactRecommendationReason } from "@/lib/journal";
 
 interface DecisionSessionSectionProps {
   profile: CharacterProfile | null;
@@ -106,7 +107,7 @@ export function DecisionSessionSection({
       idempotencyKey: newKey(),
       kind: "guided_decision",
       objective: pendingRecommendation.title,
-      hypothesis: pendingRecommendation.reason.slice(0, 2000),
+      hypothesis: compactRecommendationReason(pendingRecommendation.reason),
       expectedResult: pendingRecommendation.impact.description,
       observationMethod: "Anota lo que cambió en el juego, con tus palabras.",
       unknowns: unknown.trim()
@@ -290,8 +291,8 @@ export function DecisionSessionSection({
               <p>{session.objective}</p>
             </div>
             <div>
-              <h3 className="font-medium">Hipótesis</h3>
-              <p>{session.hypothesis}</p>
+              <h3 className="font-medium">Por qué creemos que ayudará</h3>
+              <p>{compactRecommendationReason(session.hypothesis)}</p>
             </div>
             {session.constraints.length > 0 && (
               <div>
@@ -615,7 +616,7 @@ export function DecisionSessionSection({
                 <h3 className="font-medium">Por qué hemos cambiado de plan</h3>
                 <ol className="list-decimal space-y-1 pl-5 text-sm">
                   {events.map((event) => (
-                    <li key={event.id}>{event.summary}</li>
+                    <li key={event.id}>{compactRecommendationReason(event.summary)}</li>
                   ))}
                 </ol>
               </div>

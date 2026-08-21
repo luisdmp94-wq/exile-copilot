@@ -72,6 +72,42 @@ let failures = 0;
  * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
  * de interactuar con sus controles.
  */
+/**
+ * «Generar recomendaciones» vive en el Caso Abierto mientras no hay nada que
+ * mostrar y, en cuanto lo hay, dentro de «Otras posibilidades». El smoke
+ * despliega ese bloque si hace falta en vez de suponer dónde está el control.
+ */
+async function desplegar(page, testId) {
+  const trigger = page.getByTestId(testId);
+  if ((await trigger.getAttribute("aria-expanded")) === "true") return;
+  await trigger.click();
+  await page.waitForFunction(
+    (id) =>
+      document.querySelector(`[data-testid="${id}"]`)?.getAttribute("aria-expanded") ===
+      "true",
+    testId,
+    { timeout: 10_000 },
+  );
+}
+
+async function abrirOtras(page) {
+  await desplegar(page, "acordeon-otras");
+}
+
+async function generar(page) {
+  // Sin caso que mostrar el control es el contenido dominante; con caso vive
+  // dentro de «Otras posibilidades».
+  const enCaso = page
+    .locator('[data-testid="caso-abierto"]')
+    .getByRole("button", { name: "Generar recomendaciones" });
+  if ((await enCaso.count()) > 0) {
+    await enCaso.first().click();
+    return;
+  }
+  await abrirOtras(page);
+  await page.getByRole("button", { name: "Generar recomendaciones" }).first().click();
+}
+
 async function irA(page, area) {
   await page.getByTestId(`tab-${area}`).click();
   await page.waitForFunction(
@@ -158,23 +194,26 @@ async function runFlow(mode, port) {
     });
 
     await page.goto(base, { waitUntil: "networkidle" });
-    await irA(page, "mentor");
-    check(`[${mode}] mentor visible`, await page.getByText("Mentor del personaje").isVisible());
+    await irA(page, "expediente");
+    // Sin personaje la portada es SOLO la bienvenida: ni expediente ni caso
+    // abierto vacíos que el mentor no pueda justificar todavía.
     check(
       `[${mode}] vacío honesto antes de importar`,
-      await page.getByText("El mentor necesita conocer a tu personaje").isVisible(),
+      (await page.getByTestId("bienvenida").isVisible()) &&
+        (await page.getByTestId("caso-abierto").count()) === 0,
     );
 
-    await irA(page, "personaje");
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
-    await irA(page, "mentor");
-    const emptyJournal = page.getByText("No hay un siguiente paso activo");
-    await emptyJournal.waitFor({ timeout: 20_000 });
-    check(
-      `[${mode}] memoria vacía tras cargar personaje`,
-      await emptyJournal.isVisible(),
-    );
+    // Con personaje y sin sesión, sin acción activa y sin recomendaciones, el
+    // caso abierto ofrece generarlas.
+    const casoGenerar = page.locator('[data-testid="caso-abierto"][data-caso="generate"]');
+    await casoGenerar.waitFor({ timeout: 20_000 });
+    check(`[${mode}] memoria vacía tras cargar personaje`, await casoGenerar.isVisible());
+    // El historial sigue existiendo, plegado y accesible.
+    await desplegar(page, "acordeon-historial");
+    await page.getByTestId("diario-historial").waitFor({ state: "visible", timeout: 10_000 });
+    check(`[${mode}] el historial sigue accesible desde el caso abierto`, true);
 
     // «Cargar ejemplo» es deliberadamente efímero. Persistimos el mismo
     // snapshot por las rutas públicas y verificamos la restauración real que
@@ -189,11 +228,14 @@ async function runFlow(mode, port) {
 
     await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
-    await irA(page, "mentor");
-    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    await irA(page, "expediente");
+    await generar(page);
     const trackButtons = page.getByRole("button", { name: "Guardar como próximo paso" });
     await trackButtons.first().waitFor({ timeout: 25_000 });
-    check(`[${mode}] cada recomendación puede seguirse`, (await trackButtons.count()) === 3);
+    // La principal domina el caso; el resto vive en «Otras posibilidades».
+    await abrirOtras(page);
+    const nTrack = await trackButtons.count();
+    check(`[${mode}] cada recomendación puede seguirse (${nTrack})`, nTrack === 3);
 
     // Otra pestaña crea una acción mientras esta UI conserva recomendaciones
     // antiguas. El 409 debe retirar esas tarjetas ANTES de esperar el GET de
@@ -244,7 +286,7 @@ async function runFlow(mode, port) {
       },
       { times: 1 },
     );
-    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    await generar(page);
     await journalReloadStarted;
     await page.waitForFunction(
       () =>
@@ -284,8 +326,8 @@ async function runFlow(mode, port) {
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "plan");
     await page.locator("#market-budget").fill("5");
-    await irA(page, "mentor");
-    await page.getByRole("button", { name: "Generar recomendaciones" }).click();
+    await irA(page, "expediente");
+    await generar(page);
     await trackButtons.first().waitFor({ timeout: 25_000 });
 
     await trackButtons.first().click();
@@ -295,9 +337,16 @@ async function runFlow(mode, port) {
     check(`[${mode}] conserva confianza`, await page.getByText(/Confianza /).first().isVisible());
     check(`[${mode}] conserva riesgo`, await page.getByText(/Riesgo /).first().isVisible());
     check(`[${mode}] conserva fuentes`, await page.getByText(/^Fuentes:/).isVisible());
+    // Con una acción activa el caso lo ocupa el diario: el control de generar
+    // sigue existiendo —desactivado y con su aviso— en «Otras posibilidades».
+    await abrirOtras(page);
     check(
       `[${mode}] una acción activa bloquea tareas paralelas`,
-      await page.getByRole("button", { name: "Generar recomendaciones" }).isDisabled(),
+      (await page
+        .getByRole("button", { name: "Generar recomendaciones" })
+        .first()
+        .isDisabled()) &&
+        (await page.getByText("El mentor ya te ha dado un siguiente paso").isVisible()),
     );
 
     const characterId = await page.evaluate(() =>
@@ -315,7 +364,7 @@ async function runFlow(mode, port) {
     );
 
     await page.reload({ waitUntil: "networkidle" });
-    await irA(page, "mentor");
+    await irA(page, "expediente");
     await nextAction.waitFor({ timeout: 20_000 });
     check(`[${mode}] próxima acción sobrevive a recarga`, await nextAction.isVisible());
 
@@ -333,17 +382,20 @@ async function runFlow(mode, port) {
       .getByLabel("¿Qué ocurrió después de hacer el paso?")
       .fill("El cambio dejó rayo en 75% sin perder vida.");
     await saveResult.click();
+    // Cerrado el paso, la entrada y su resultado quedan en el historial.
+    await desplegar(page, "acordeon-historial");
     await page.getByText("Resultado: El cambio dejó rayo en 75% sin perder vida.").waitFor({
+      state: "visible",
       timeout: 15_000,
     });
     check(
       `[${mode}] resultado cierra el paso y permanece en historial`,
-      await page.getByText("No hay un siguiente paso activo").isVisible(),
+      (await page.locator('[data-testid="caso-abierto"][data-caso="generate"]').count()) === 1,
     );
 
-    const generateAfterResult = page.getByRole("button", {
-      name: "Generar recomendaciones",
-    });
+    const generateAfterResult = page
+      .locator('[data-testid="caso-abierto"]')
+      .getByRole("button", { name: "Generar recomendaciones" });
     await generateAfterResult.waitFor({ state: "visible", timeout: 15_000 });
     await page.waitForFunction(
       () => {
@@ -356,7 +408,14 @@ async function runFlow(mode, port) {
       { timeout: 15_000 },
     );
     await generateAfterResult.click();
+    // El resumen de la generación (incluido el aviso de que el diario influyó)
+    // acompaña a la lista, dentro de «Otras posibilidades».
+    await page.waitForSelector('[data-testid="caso-abierto"][data-caso="recommendation"]', {
+      timeout: 20_000,
+    });
+    await abrirOtras(page);
     await page.getByText("El diario influyó en esta decisión").waitFor({
+      state: "visible",
       timeout: 20_000,
     });
     const latestRecommendationPayload = recommendationPayloads.at(-1);
@@ -385,6 +444,7 @@ async function runFlow(mode, port) {
         .isVisible(),
     );
 
+    await desplegar(page, "acordeon-historial");
     await page.getByText("Crear seguimiento manual").click();
     await page.getByLabel("Tipo", { exact: true }).selectOption("craft");
     await page.getByLabel("Título").fill("Craft de la ballesta");
@@ -403,7 +463,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] no ofrece borrado silencioso`,
       (await page
-        .locator("#seccion-mentor")
+        .locator('[data-testid="diario-historial"]')
         .getByRole("button", { name: /eliminar|borrar/i })
         .count()) === 0,
     );

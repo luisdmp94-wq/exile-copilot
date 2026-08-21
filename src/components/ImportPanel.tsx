@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { FileUp, Loader2, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 interface ImportPanelProps {
   busy: boolean;
   onImport: (content: string) => Promise<void>;
+  /**
+   * Texto pegado. Es un borrador que guarda quien nos monta: el panel vive
+   * dentro del editor modal, que se desmonta al cerrarse, y lo escrito no puede
+   * perderse por eso.
+   */
+  pasted: string;
+  onPastedChange: (value: string) => void;
 }
 
 /** Importador de archivos .build: por archivo o pegando el contenido. */
-export function ImportPanel({ busy, onImport }: ImportPanelProps) {
-  const [pasted, setPasted] = useState("");
+export function ImportPanel({ busy, onImport, pasted, onPastedChange }: ImportPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File | undefined) => {
@@ -61,7 +67,7 @@ export function ImportPanel({ busy, onImport }: ImportPanelProps) {
         <Textarea
           id="build-paste"
           value={pasted}
-          onChange={(e) => setPasted(e.target.value)}
+          onChange={(e) => onPastedChange(e.target.value)}
           placeholder='{"name": "…", "passives": […], …} (Build Planner v1) o código PoB en base64'
           rows={4}
           disabled={busy}
