@@ -372,6 +372,107 @@ describe("engine — memoria del mentor", () => {
   });
 });
 
+describe("engine — sesiones adaptativas (Hito 6B)", () => {
+  it("un conflicto de restricción ocupa el hueco 1 y no sustituye por la siguiente puntuada", async () => {
+    const profile = demoProfile();
+    const baseline = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "survival" },
+    });
+    expect(baseline.recommendations.length).toBeGreaterThan(1);
+    const first = baseline.recommendations[0]!;
+    const secondId = baseline.recommendations[1]?.id;
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1|session-constraint",
+      primaryEntry: null,
+      recentCompleted: [],
+      session: {
+        sessionId: "ses-1",
+        status: "active",
+        constraintLabels: [first.title],
+        constraintItemIds: [],
+        unresolvedBlockingUnknowns: [],
+        soonReplacedItemIds: [],
+        characterFingerprint: "abc",
+      },
+    });
+    const gated = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "survival" },
+      memory,
+    });
+    expect(gated.recommendations).toHaveLength(1);
+    expect(gated.recommendations[0]?.actionKind).toBe("session_gate");
+    expect(gated.recommendations[0]?.id).toBe("rec-sesion-restriccion-core");
+    expect(gated.recommendations.map((entry) => entry.id)).not.toContain(secondId);
+    expect(gated.recommendations[0]?.title).toMatch(/protegida/i);
+  });
+
+  it("una sesión completada no sigue frenando al motor", async () => {
+    const profile = demoProfile();
+    const baseline = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "survival" },
+    });
+    const first = baseline.recommendations[0]!;
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1|session-closed",
+      primaryEntry: null,
+      recentCompleted: [],
+      session: {
+        sessionId: "ses-closed",
+        status: "completed",
+        constraintLabels: [first.title],
+        constraintItemIds: [],
+        unresolvedBlockingUnknowns: [],
+        soonReplacedItemIds: [],
+        characterFingerprint: "abc",
+      },
+    });
+    const result = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "survival" },
+      memory,
+    });
+    expect(result.recommendations[0]?.actionKind).not.toBe("session_gate");
+    expect(result.recommendations[0]?.id).toBe(first.id);
+  });
+
+  it("pieza a sustituir pronto: el motor pide conservar el recurso", async () => {
+    const profile = demoProfile();
+    profile.resistances = { fire: 75, cold: 75, lightning: 75, chaos: 20 };
+    const baseline = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "damage" },
+    });
+    const first = baseline.recommendations[0];
+    expect(first).toBeDefined();
+    expect(first!.relatedItemIds.length).toBeGreaterThan(0);
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1|session-soon",
+      primaryEntry: null,
+      recentCompleted: [],
+      session: {
+        sessionId: "ses-soon",
+        status: "active",
+        constraintLabels: [],
+        constraintItemIds: [],
+        unresolvedBlockingUnknowns: [],
+        soonReplacedItemIds: first!.relatedItemIds,
+        characterFingerprint: "abc",
+      },
+    });
+    const gated = await generateRecommendations(profile, {
+      ...BASE_OPTIONS,
+      goal: { kind: "damage" },
+      memory,
+    });
+    expect(gated.recommendations).toHaveLength(1);
+    expect(gated.recommendations[0]?.id).toBe("rec-sesion-oportunidad");
+    expect(gated.recommendations[0]?.actionKind).toBe("session_gate");
+  });
+});
+
 describe("engine — vínculo estructurado recomendación → objeto", () => {
   it("la regla del arma declara exactamente el arma que evaluó", async () => {
     const profile = demoProfile();

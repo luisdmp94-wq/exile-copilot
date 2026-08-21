@@ -57,7 +57,7 @@ import { mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { launchBrowser } from "./browserLaunch.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -191,7 +191,7 @@ async function runFlow(mode, port) {
   try {
     check(`[${mode}] servidor responde /api/health`, await waitForServer(BASE));
 
-    browser = await chromium.launch({ channel: "msedge", headless: true });
+    browser = await launchBrowser();
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
 

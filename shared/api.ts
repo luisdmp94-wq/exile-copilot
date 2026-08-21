@@ -19,6 +19,15 @@ import {
   SourceEvidenceSchema,
 } from "./domain.js";
 import {
+  DecisionConclusionKind,
+  DecisionSessionEventSchema,
+  DecisionSessionKind,
+  DecisionSessionSchema,
+  MAX_IDEMPOTENCY_KEY_LENGTH,
+  MAX_SESSION_EVENTS,
+  SessionEvidenceKind,
+} from "./decisionSession.js";
+import {
   BuildTargetPlanSchema,
   ExportReportSchema,
 } from "./gggBuildPlanner.js";
@@ -166,6 +175,8 @@ export const CreateJournalEntryRequestSchema = z.object({
   context: JournalContextSchema,
   recommendationSnapshot: RecommendationSchema.nullable().default(null),
   makePrimary: z.boolean().default(false),
+  journalRevision: z.string().min(1).max(4000).nullable().optional(),
+  idempotencyKey: z.string().trim().min(1).max(MAX_IDEMPOTENCY_KEY_LENGTH).optional(),
 }).refine((value) => !value.makePrimary || value.nextAction !== null, {
   message: "Una entrada principal necesita una próxima acción.",
   path: ["nextAction"],
@@ -180,19 +191,117 @@ export const UpdateJournalEntryRequestSchema = z
     nextAction: z.string().trim().min(1).max(2000).nullable().optional(),
     result: z.string().trim().min(1).max(4000).nullable().optional(),
     makePrimary: z.boolean().optional(),
+    journalRevision: z.string().min(1).max(4000).nullable().optional(),
+    idempotencyKey: z.string().trim().min(1).max(MAX_IDEMPOTENCY_KEY_LENGTH).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "Incluye al menos un cambio.",
   });
 export type UpdateJournalEntryRequest = z.infer<typeof UpdateJournalEntryRequestSchema>;
 
-export const JournalResponseSchema = CharacterJournalSchema;
+export const JournalResponseSchema = CharacterJournalSchema.extend({
+  session: DecisionSessionSchema.nullable().default(null),
+  sessionEvents: z.array(DecisionSessionEventSchema).max(MAX_SESSION_EVENTS).default([]),
+});
 export const JournalEntryResponseSchema = z.object({
-  journal: CharacterJournalSchema,
+  journal: JournalResponseSchema,
   entry: JournalEntrySchema,
 });
 export type JournalResponse = z.infer<typeof JournalResponseSchema>;
 export type JournalEntryResponse = z.infer<typeof JournalEntryResponseSchema>;
+
+const RevisionGuardSchema = z.object({
+  journalRevision: z.string().min(1).max(4000),
+  idempotencyKey: z.string().trim().min(1).max(MAX_IDEMPOTENCY_KEY_LENGTH),
+});
+
+export const StartDecisionSessionRequestSchema = RevisionGuardSchema.extend({
+  kind: DecisionSessionKind,
+  objective: z.string().trim().min(1).max(500),
+  hypothesis: z.string().trim().min(1).max(2000),
+  expectedResult: z.string().trim().min(1).max(2000),
+  observationMethod: z.string().trim().min(1).max(1000),
+  unknowns: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(400),
+        blockingIrreversible: z.boolean().default(true),
+      }),
+    )
+    .max(15)
+    .default([]),
+  constraints: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(200),
+        relatedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
+      }),
+    )
+    .max(20)
+    .default([]),
+  soonReplacedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
+  protectedResources: z.array(z.string().trim().min(1).max(200)).max(10).default([]),
+  recommendation: RecommendationSchema.nullable().default(null),
+  profile: CharacterProfileSchema,
+  budget: BudgetSchema,
+  goal: z.string().min(1).max(40),
+});
+export type StartDecisionSessionRequest = z.infer<typeof StartDecisionSessionRequestSchema>;
+
+export const AddSessionConstraintRequestSchema = RevisionGuardSchema.extend({
+  label: z.string().trim().min(1).max(200),
+  relatedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
+  profile: CharacterProfileSchema,
+});
+export type AddSessionConstraintRequest = z.infer<typeof AddSessionConstraintRequestSchema>;
+
+/**
+ * Retirar CONSCIENTEMENTE una protección. El texto del conflicto invita a
+ * hacerlo, así que tiene que existir la acción correspondiente: sin ella el
+ * jugador queda en un callejón sin salida.
+ */
+export const ReleaseSessionConstraintRequestSchema = RevisionGuardSchema.extend({
+  constraintId: z.string().trim().min(1).max(80),
+  profile: CharacterProfileSchema,
+});
+export type ReleaseSessionConstraintRequest = z.infer<
+  typeof ReleaseSessionConstraintRequestSchema
+>;
+
+export const AddSessionEvidenceRequestSchema = RevisionGuardSchema.extend({
+  kind: SessionEvidenceKind,
+  text: z.string().trim().min(1).max(2000),
+  resolvesUnknownLabel: z.string().trim().min(1).max(400).nullable().default(null),
+  profile: CharacterProfileSchema,
+});
+export type AddSessionEvidenceRequest = z.infer<typeof AddSessionEvidenceRequestSchema>;
+
+export const RecordSessionResultRequestSchema = RevisionGuardSchema.extend({
+  result: z.string().trim().min(1).max(4000),
+  subjective: z.boolean().default(false),
+  unexpectedValuable: z.string().trim().min(1).max(400).nullable().default(null),
+  conclusion: DecisionConclusionKind.optional(),
+  reopenWhen: z.string().trim().min(1).max(1000).nullable().default(null),
+  profile: CharacterProfileSchema,
+});
+export type RecordSessionResultRequest = z.infer<typeof RecordSessionResultRequestSchema>;
+
+export const PauseSessionRequestSchema = RevisionGuardSchema.extend({
+  reason: z.string().trim().min(1).max(2000),
+  profile: CharacterProfileSchema,
+});
+export type PauseSessionRequest = z.infer<typeof PauseSessionRequestSchema>;
+
+export const ReopenSessionRequestSchema = RevisionGuardSchema.extend({
+  note: z.string().trim().min(1).max(2000),
+  profile: CharacterProfileSchema,
+});
+export type ReopenSessionRequest = z.infer<typeof ReopenSessionRequestSchema>;
+
+export const ReconcileSessionRequestSchema = RevisionGuardSchema.extend({
+  profile: CharacterProfileSchema,
+});
+export type ReconcileSessionRequest = z.infer<typeof ReconcileSessionRequestSchema>;
 
 // POST /api/export/build — archivo `.build` oficial (GGG Build Planner v1)
 export const ExportBuildRequestSchema = z.object({

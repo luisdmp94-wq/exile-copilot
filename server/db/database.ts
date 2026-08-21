@@ -118,4 +118,71 @@ export function applySchema(db: Database): void {
         updated_at DESC
       );
   `);
+  applyDecisionSessionSchema(db);
+}
+
+function applyDecisionSessionSchema(db: Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS decision_sessions (
+      id TEXT PRIMARY KEY,
+      character_id TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL,
+      character_fingerprint TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS decision_sessions_character_updated
+      ON decision_sessions(character_id, updated_at DESC);
+    CREATE TABLE IF NOT EXISTS decision_session_events (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      character_id TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL UNIQUE,
+      payload TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS decision_session_events_session_created
+      ON decision_session_events(session_id, created_at ASC, id ASC);
+  `);
+  const stateColumns = db.prepare("PRAGMA table_info(journal_state)").all() as unknown as Array<{
+    name: string;
+  }>;
+  const stateNames = new Set(stateColumns.map((column) => column.name));
+  if (!stateNames.has("active_session_id")) {
+    db.exec("ALTER TABLE journal_state ADD COLUMN active_session_id TEXT");
+  }
+
+  /*
+   * Migración ADITIVA: la idempotencia se liga a la operación concreta. Una
+   * clave reutilizada con otra ruta o con otro payload debe dar 409, no un
+   * éxito silencioso que devolvería el resultado de una operación distinta.
+   * Las filas antiguas quedan con NULL y se tratan como «sin huella conocida».
+   */
+  const eventColumns = db
+    .prepare("PRAGMA table_info(decision_session_events)")
+    .all() as unknown as Array<{ name: string }>;
+  const eventNames = new Set(eventColumns.map((column) => column.name));
+  if (!eventNames.has("operation")) {
+    db.exec("ALTER TABLE decision_session_events ADD COLUMN operation TEXT");
+  }
+  if (!eventNames.has("request_fingerprint")) {
+    db.exec("ALTER TABLE decision_session_events ADD COLUMN request_fingerprint TEXT");
+  }
+}
+
+export function withTransaction<T>(db: Database, fn: () => T): T {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = fn();
+    db.exec("COMMIT");
+    return result;
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // rollback failed because the transaction already aborted
+    }
+    throw error;
+  }
 }

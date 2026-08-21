@@ -454,6 +454,7 @@ describe("auditoría 4 — solo se exportan mejoras aplicadas del resultado vige
       "rec-resistencias-elementales": true,
       "rec-mejora-arma": false,
       "rec-memoria-resistencias-elementales": true,
+      "rec-sesion-restriccion-core": true,
     };
     const current = [
       { id: "rec-resistencias-elementales" },
@@ -462,6 +463,10 @@ describe("auditoría 4 — solo se exportan mejoras aplicadas del resultado vige
       {
         id: "rec-memoria-resistencias-elementales",
         actionKind: "profile_sync" as const,
+      },
+      {
+        id: "rec-sesion-restriccion-core",
+        actionKind: "session_gate" as const,
       },
     ];
     expect(selectAppliedRecommendationIds(applied, current)).toEqual([

@@ -35,6 +35,7 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm run test:browser` — prueba real de navegador del flujo principal con Edge (Playwright, `channel: msedge`, sin descargar navegadores). `--dev` la ejecuta contra el servidor de desarrollo (Strict Mode), `--all` contra ambos. Requiere `npm run build` previo para el modo producción. Guarda capturas en `docs/screenshots/`.
 - `npm run test:journal` — prueba del flujo persistente del mentor en una base temporal; acepta también `--dev` y `--all` y nunca modifica los datos del usuario.
 - `npm run test:mentor` — prueba de navegador de la conversación con el mentor (Hito 6A) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
+- `npm run test:session` — prueba de navegador de las sesiones adaptativas (Hito 6B) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
 
 ## Cómo probar el flujo principal (sin credenciales)
 
@@ -43,9 +44,9 @@ npm run dev            # frontend + API en http://localhost:7100
 3. Importa un **`.build` oficial** de GGG: se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building** sí rellena un personaje parcial.
 4. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; tasas de conversión con origen y verificación visibles).
 5. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza. Si cambias cualquier dato, las tarjetas se invalidan.
-6. Guarda una recomendación como **próximo paso**. Cuando la ejecutes, el mentor
-   espera el resultado real antes de cerrarla y conserva decisión, contexto,
-   fuentes y resultado en el historial del personaje.
+6. Guarda una recomendación como **próximo paso**, o pulsa **Comprobar esto**
+   para abrir una sesión de decisión: el mentor recuerda qué intentas, qué falta
+   por ver y una sola acción. Si el resultado no encaja, cambia el plan.
 7. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo
    **`.build` oficial** (GGG Build Planner v1) con las mejoras planificadas
    incrustadas, junto a un informe honesto de lo exportado y lo omitido.

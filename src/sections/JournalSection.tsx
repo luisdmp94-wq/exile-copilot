@@ -22,6 +22,7 @@ import type {
   JournalEntryStatus,
 } from "@shared/domain.js";
 import type { JournalState } from "@/hooks/useJournal";
+import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,9 @@ export function JournalSection({
 
   const primary = journal.journal?.primaryEntry ?? null;
   const entries = journal.journal?.entries ?? [];
+  const journalRevision = journal.journal
+    ? buildRecommendationMemory(journal.journal).revision
+    : undefined;
 
   const submitManualEntry = async (event: FormEvent) => {
     event.preventDefault();
@@ -122,6 +126,7 @@ export function JournalSection({
       },
       recommendationSnapshot: null,
       makePrimary: action !== null,
+      ...(journalRevision ? { journalRevision } : {}),
     });
     if (created) {
       setTitle("");
@@ -137,6 +142,7 @@ export function JournalSection({
       result: resultText.trim(),
       nextAction: null,
       makePrimary: false,
+      ...(journalRevision ? { journalRevision } : {}),
     });
     if (updated) setResultText("");
   };
@@ -192,13 +198,17 @@ export function JournalSection({
                 resultText={resultText}
                 onResultTextChange={setResultText}
                 onWaiting={() =>
-                  void journal.updateEntry(primary.id, { status: "waiting_result" })
+                  void journal.updateEntry(primary.id, {
+                    status: "waiting_result",
+                    ...(journalRevision ? { journalRevision } : {}),
+                  })
                 }
                 onSaveResult={() => void saveResult()}
                 onCancel={() =>
                   void journal.updateEntry(primary.id, {
                     status: "cancelled",
                     makePrimary: false,
+                    ...(journalRevision ? { journalRevision } : {}),
                   })
                 }
               />

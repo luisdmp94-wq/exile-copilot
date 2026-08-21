@@ -23,6 +23,11 @@ import {
   type RuleCandidate,
 } from "./rules.js";
 import type { PriceQuery, QuotesResult } from "../services/poeninja.js";
+import {
+  evaluateSessionGate,
+  sessionIsOpen,
+  type SessionGateKind,
+} from "../../shared/decisionSession.js";
 
 /**
  * Motor de recomendaciones 100 % determinista (sin IA).
@@ -396,8 +401,10 @@ export async function generateRecommendations(
     };
   });
 
+  const gated = applySessionGates(recommendations, options.memory, options.budget, generatedAt);
+
   return {
-    recommendations,
+    recommendations: gated,
     generatedAt,
     engineVersion: ENGINE_VERSION,
     inputFingerprint: computeInputFingerprint({
@@ -411,4 +418,119 @@ export async function generateRecommendations(
     }),
     memoryImpact,
   };
+}
+
+function sessionGateRecommendation(
+  id: string,
+  title: string,
+  action: string,
+  reason: string,
+  generatedAt: string,
+  patch: string,
+  relatedItemIds: string[],
+): Recommendation {
+  return {
+    id,
+    priority: 1,
+    title,
+    action,
+    reason,
+    actionKind: "session_gate",
+    cost: { min: null, max: null, currency: "exalted", known: false },
+    impact: {
+      metric: "decisión",
+      description: "El mentor frena o redirige el plan; no es una compra.",
+      magnitude: "medium",
+      isPartialMetric: true,
+    },
+    risk: { level: "low", description: "No se ejecuta un cambio irreversible." },
+    mayLoseValuableMods: false,
+    irreversible: false,
+    patch,
+    sources: [
+      {
+        kind: "user",
+        label: "Restricción o evidencia de la sesión de decisión",
+        retrievedAt: generatedAt,
+        patch,
+      },
+    ],
+    dataUpdatedAt: generatedAt,
+    confidence: "medium",
+    unverified: ["El mentor no autoriza este paso hasta que se resuelva el conflicto o la evidencia."],
+    relatedItemIds,
+  };
+}
+
+/**
+ * La sesión no reordena el motor por puntuación: si el primero choca, se muestra
+ * el conflicto. Nunca se sustituye en silencio por el segundo mejor.
+ */
+function applySessionGates(
+  recommendations: Recommendation[],
+  memory: RecommendationMemory | undefined,
+  budget: Budget,
+  generatedAt: string,
+): Recommendation[] {
+  const session = memory?.session;
+  if (!session?.sessionId || recommendations.length === 0) return recommendations;
+  if (session.status === null || !sessionIsOpen(session.status)) {
+    return recommendations;
+  }
+  const first = recommendations[0];
+  if (!first) return recommendations;
+
+  const gate = evaluateSessionGate(first, {
+    unresolvedBlockingUnknowns: session.unresolvedBlockingUnknowns,
+    constraintLabels: session.constraintLabels,
+    constraintItemIds: session.constraintItemIds,
+    soonReplacedItemIds: session.soonReplacedItemIds,
+    status: session.status,
+    budget,
+  });
+  if (gate === null) {
+    return recommendations.map((rec, index) => ({ ...rec, priority: index + 1 }));
+  }
+
+  const copy: Record<
+    SessionGateKind,
+    { id: string; title: string; action: string; reason: string }
+  > = {
+    irreversible_missing_evidence: {
+      id: "rec-sesion-evidencia-critica",
+      title: "Falta un dato crítico",
+      action: `Anota exactamente: ${gate.label}. No uses todavía el paso irreversible.`,
+      reason: `Sin «${gate.label}» el mentor no autoriza una acción que no se puede deshacer.`,
+    },
+    protected_constraint: {
+      id: "rec-sesion-restriccion-core",
+      title: "Conflicto con una pieza protegida",
+      action: `No toques «${gate.label}». Está marcada como intocable.`,
+      reason: `La mejor puntuación del motor chocaba con «${gate.label}». No se sustituye por otra compra en silencio.`,
+    },
+    opportunity_cost: {
+      id: "rec-sesion-oportunidad",
+      title: "Mejor conservar el recurso",
+      action: "No gastes en esa pieza: se sustituirá pronto.",
+      reason: "Una mejora estadística sigue siendo mala si el objeto no se va a quedar.",
+    },
+    over_budget: {
+      id: "rec-sesion-presupuesto",
+      title: "Pausa por presupuesto",
+      action: "No fuerces esta compra: el coste conocido supera lo que aceptaste.",
+      reason: "Superar el presupuesto no es un fracaso del plan; es una pausa.",
+    },
+  };
+  const text = copy[gate.kind];
+  return [
+    sessionGateRecommendation(
+      text.id,
+      text.title,
+      text.action,
+      text.reason,
+      generatedAt,
+      first.patch,
+      first.relatedItemIds,
+    ),
+  ];
 }

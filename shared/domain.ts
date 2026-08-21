@@ -310,7 +310,11 @@ export const ExpectedImpactSchema = z.object({
 });
 export type ExpectedImpact = z.infer<typeof ExpectedImpactSchema>;
 
-export const RecommendationActionKind = z.enum(["game_change", "profile_sync"]);
+export const RecommendationActionKind = z.enum([
+  "game_change",
+  "profile_sync",
+  "session_gate",
+]);
 export type RecommendationActionKind = z.infer<typeof RecommendationActionKind>;
 
 export const RecommendationSchema = z.object({
@@ -319,7 +323,7 @@ export const RecommendationSchema = z.object({
   title: z.string(),
   action: z.string(), // acción concreta
   reason: z.string(), // motivo
-  /** `profile_sync` corrige datos de la app y nunca se exporta al `.build`. */
+  /** `profile_sync` corrige datos de la app. `session_gate` es un freno de sesión (evidencia o restricción). Ninguna se exporta al `.build`. */
   actionKind: RecommendationActionKind.default("game_change"),
   cost: CostEstimateSchema,
   impact: ExpectedImpactSchema,
@@ -479,6 +483,21 @@ export const RecommendationMemorySchema = z.object({
   revision: z.string().min(1).max(4000),
   primaryEntry: RecommendationMemoryEntrySchema.nullable(),
   recentCompleted: z.array(RecommendationMemoryEntrySchema).max(10),
+  /**
+   * Digest de la sesión adaptativa (Hito 6B). Vacío si no hay sesión.
+   * Forma parte del fingerprint: un cambio de restricción invalida recomendaciones.
+   */
+  session: z
+    .object({
+      sessionId: z.string().min(1).nullable(),
+      status: z.string().min(1).max(40).nullable(),
+      constraintLabels: z.array(z.string()).max(20),
+      constraintItemIds: z.array(z.string()).max(100),
+      unresolvedBlockingUnknowns: z.array(z.string()).max(15),
+      soonReplacedItemIds: z.array(z.string()).max(20),
+      characterFingerprint: z.string().nullable(),
+    })
+    .optional(),
 });
 export type RecommendationMemory = z.infer<typeof RecommendationMemorySchema>;
 

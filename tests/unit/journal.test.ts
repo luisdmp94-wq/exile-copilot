@@ -308,4 +308,49 @@ describe("Character Journal", () => {
     expect(memoryWithProfileSyncNoise.recentCompleted).toHaveLength(1);
     expect(memoryWithProfileSyncNoise.recentCompleted[0]?.entryId).toBe(completed.id);
   });
+
+  it("incluye el digest de sesión en la revisión y cambia si hay una restricción", () => {
+    const journal = CharacterJournalSchema.parse({
+      characterId: profile.id,
+      primaryEntryId: null,
+      primaryEntry: null,
+      entries: [],
+    });
+    const withoutSession = buildRecommendationMemory(journal);
+    expect(withoutSession.session?.sessionId).toBeNull();
+    const withSession = buildRecommendationMemory({
+      ...journal,
+      session: {
+        id: "ses-1",
+        characterId: profile.id,
+        kind: "guided_decision",
+        status: "active",
+        objective: "Probar",
+        hypothesis: "Hipótesis",
+        unknowns: [],
+        constraints: [
+          {
+            id: "c1",
+            label: "Barrera voltaica",
+            relatedItemIds: [],
+            protected: true,
+          },
+        ],
+        evidence: [],
+        soonReplacedItemIds: [],
+        protectedResources: [],
+        activeAction: null,
+    blockedRecommendation: null,
+    budget: null,
+        lastResult: null,
+        conclusion: null,
+        characterFingerprint: "abc",
+        needsReconciliation: false,
+        createdAt: "2026-08-21T00:00:00.000Z",
+        updatedAt: "2026-08-21T00:00:00.000Z",
+      },
+    });
+    expect(withSession.revision).not.toBe(withoutSession.revision);
+    expect(withSession.session?.constraintLabels).toEqual(["Barrera voltaica"]);
+  });
 });

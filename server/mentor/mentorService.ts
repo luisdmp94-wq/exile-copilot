@@ -82,7 +82,7 @@ function nextActionFromRecommendation(recommendation: Recommendation): MentorNex
     text: recommendation.action,
     recommendationId: recommendation.id,
     relatedItemIds: [...recommendation.relatedItemIds],
-    canSaveToJournal: true,
+    canSaveToJournal: recommendation.actionKind !== "session_gate",
     recommendation,
     recalledFromEntryId: null,
   };
@@ -215,10 +215,12 @@ async function buildAnswer(
   //     `explain_priority` explica POR QUÉ es la primera; `next_improvement`
   //     va directo al paso. En ambos casos hay UNA sola próxima acción.
   const answer =
-    intent === "explain_priority"
-      ? `Tu principal problema ahora es «${top.title}». ${top.reason} ` +
-        `${top.impact.description} Riesgo ${RISK_LEVEL_ES[top.risk.level]}: ${top.risk.description}`
-      : `Lo siguiente que haría: ${top.title}. ${top.reason}`;
+    top.actionKind === "session_gate"
+      ? `${top.title}. ${top.reason} ${top.action}`
+      : intent === "explain_priority"
+        ? `Tu principal problema ahora es «${top.title}». ${top.reason} ` +
+          `${top.impact.description} Riesgo ${RISK_LEVEL_ES[top.risk.level]}: ${top.risk.description}`
+        : `Lo siguiente que haría: ${top.title}. ${top.reason}`;
 
   return MentorAnswerSchema.parse({
     ...base,

@@ -36,6 +36,14 @@ import {
   type RecommendationsRequest,
   type RecommendationsResponse,
   type UpdateJournalEntryRequest,
+  type StartDecisionSessionRequest,
+  type AddSessionConstraintRequest,
+  type ReleaseSessionConstraintRequest,
+  type AddSessionEvidenceRequest,
+  type RecordSessionResultRequest,
+  type PauseSessionRequest,
+  type ReopenSessionRequest,
+  type ReconcileSessionRequest,
 } from "@shared/api.js";
 
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
@@ -163,6 +171,86 @@ export const api = {
       `/api/journal/${encodeURIComponent(characterId)}/entries/${encodeURIComponent(entryId)}`,
       JournalEntryResponseSchema,
       jsonInit(payload, "PATCH"),
+    ),
+
+  startDecisionSession: (
+    characterId: string,
+    payload: StartDecisionSessionRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  addSessionConstraint: (
+    characterId: string,
+    payload: AddSessionConstraintRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/constraints`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  releaseSessionConstraint: (
+    characterId: string,
+    payload: ReleaseSessionConstraintRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/constraints/release`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  addSessionEvidence: (
+    characterId: string,
+    payload: AddSessionEvidenceRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/evidence`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  recordSessionResult: (
+    characterId: string,
+    payload: RecordSessionResultRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/result`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  pauseSession: (
+    characterId: string,
+    payload: PauseSessionRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/pause`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  reopenSession: (
+    characterId: string,
+    payload: ReopenSessionRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/reopen`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  reconcileSession: (
+    characterId: string,
+    payload: ReconcileSessionRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/reconcile`,
+      JournalResponseSchema,
+      jsonInit(payload),
     ),
 
   marketPrices: (league: string, names: string[]): Promise<MarketPricesResponse> => {

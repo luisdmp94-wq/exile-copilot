@@ -196,6 +196,8 @@ describe("api (integración, app Express con db :memory:)", () => {
       primaryEntryId: null,
       primaryEntry: null,
       entries: [],
+      session: null,
+      sessionEvents: [],
     });
 
     const createRes = await postJson(`/journal/${characterId}/entries`, {

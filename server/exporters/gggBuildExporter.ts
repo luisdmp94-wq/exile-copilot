@@ -77,6 +77,12 @@ export function exportGggBuild(
 ): GggExportResult {
   const skippedUnverified: string[] = [];
   const exportableAppliedRecommendations = appliedRecommendations.filter((id) => {
+    if (id.startsWith("rec-sesion-") || id.startsWith("rec-memoria-")) {
+      skippedUnverified.push(
+        `Recomendación aplicada "${id}" omitida: no es una mejora de juego exportable.`,
+      );
+      return false;
+    }
     if (RECOMMENDATION_LABELS[id] !== undefined) return true;
     skippedUnverified.push(
       `Recomendación aplicada "${id}" omitida: no es una mejora de juego exportable con etiqueta verificada.`,

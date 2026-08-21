@@ -9,13 +9,13 @@ export function selectAppliedRecommendationIds(
   applied: Record<string, boolean>,
   currentRecommendations: ReadonlyArray<{
     id: string;
-    actionKind?: "game_change" | "profile_sync";
+    actionKind?: "game_change" | "profile_sync" | "session_gate";
   }>,
 ): string[] {
   return currentRecommendations
     .filter(
       (rec) =>
-        applied[rec.id] === true && rec.actionKind !== "profile_sync",
+        applied[rec.id] === true && rec.actionKind !== "profile_sync" && rec.actionKind !== "session_gate",
     )
     .map((rec) => rec.id);
 }

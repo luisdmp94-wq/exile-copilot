@@ -28,6 +28,8 @@ import { buildMentorRequest } from "@/lib/mentorRequest";
 import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
+import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
+import { buildRecommendationMemory } from "@shared/journalMemory.js";
 
 const EMPTY_TARGET: TargetDraft = {
   name: "",
@@ -106,6 +108,17 @@ export default function App() {
   const market = useMarket();
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
+  const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
+
+  // Recuperación del 409: si el diario quedó obsoleto (otra pestaña escribió),
+  // las recomendaciones y la conversación que se veían ya no corresponden a la
+  // memoria vigente y se retiran en lugar de quedar en pantalla.
+  useEffect(() => {
+    if (journal.stale) {
+      clear();
+      clearMentor();
+    }
+  }, [journal.stale, clear, clearMentor]);
 
   const hasProfile = character.profile !== null;
   const activeTab: WorkspaceTab = tab ?? "personaje";
@@ -186,7 +199,6 @@ export default function App() {
         ),
       )
     : null;
-  const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
   useEffect(() => {
     if (mentorThreadKey && mentorThreadKey !== currentMentorInputsKey) {
       clearMentor();
@@ -291,6 +303,15 @@ export default function App() {
               journal={journal}
             />
 
+            {/* La decisión en curso envuelve al diario: explica qué estamos
+                comprobando y por qué ese es el paso vigente. */}
+            <DecisionSessionSection
+              profile={character.profile}
+              budget={budget}
+              journal={journal}
+              pendingRecommendation={recommendations.result?.recommendations[0] ?? null}
+            />
+
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
               <MentorChatSection
                 profile={character.profile}
@@ -318,14 +339,20 @@ export default function App() {
                 onSaveNextAction={(answer) => {
                   const recommendation = answer.nextAction?.recommendation ?? null;
                   if (!character.profile || recommendation === null) return;
-                  void journal.createEntry(
-                    journalEntryFromRecommendation(
+                  void journal.createEntry({
+                    ...journalEntryFromRecommendation(
                       recommendation,
                       character.profile,
                       budget,
                       goal,
                     ),
-                  );
+                    ...(characterJournal
+                      ? {
+                          journalRevision:
+                            buildRecommendationMemory(characterJournal).revision,
+                        }
+                      : {}),
+                  });
                 }}
                 onFocusItem={focusItem}
               />
@@ -345,16 +372,55 @@ export default function App() {
                 onFocusItem={focusItem}
                 onTrackRecommendation={(recommendation) => {
                   if (!character.profile) return;
-                  void journal.createEntry(
-                    journalEntryFromRecommendation(
+                  void journal.createEntry({
+                    ...journalEntryFromRecommendation(
                       recommendation,
                       character.profile,
                       budget,
                       goal,
                     ),
-                  );
+                    ...(characterJournal
+                      ? {
+                          journalRevision:
+                            buildRecommendationMemory(characterJournal).revision,
+                        }
+                      : {}),
+                  });
                 }}
                 trackingRecommendation={journal.saving}
+                onStartSession={(recommendation) => {
+                  if (!character.profile || !characterJournal) return;
+                  void journal
+                    .startSession({
+                      journalRevision:
+                        buildRecommendationMemory(characterJournal).revision,
+                      idempotencyKey: crypto.randomUUID(),
+                      kind: "guided_decision",
+                      objective: recommendation.title,
+                      hypothesis: recommendation.reason.slice(0, 2000),
+                      expectedResult: recommendation.impact.description,
+                      observationMethod:
+                        "Anota lo que cambió en el juego, con tus palabras.",
+                      unknowns: [],
+                      constraints: [],
+                      soonReplacedItemIds: [],
+                      protectedResources: [],
+                      recommendation,
+                      profile: character.profile,
+                      budget,
+                      goal,
+                    })
+                    .then((next) => {
+                      if (next) {
+                        // La sesión vive en esta misma área: basta con
+                        // desplazarse, sin cambiar de pestaña ni animar.
+                        document
+                          .getElementById("seccion-decision-adaptativa")
+                          ?.scrollIntoView({ block: "start" });
+                      }
+                    });
+                }}
+                startingSession={journal.saving}
               />
             </div>
           </TabsContent>

@@ -11,29 +11,48 @@ import {
   RecommendationsRequestSchema,
   SaveCharacterRequestSchema,
   UpdateJournalEntryRequestSchema,
+  StartDecisionSessionRequestSchema,
+  AddSessionConstraintRequestSchema,
+  ReleaseSessionConstraintRequestSchema,
+  AddSessionEvidenceRequestSchema,
+  RecordSessionResultRequestSchema,
+  PauseSessionRequestSchema,
+  ReopenSessionRequestSchema,
+  ReconcileSessionRequestSchema,
   type ApiError,
 } from "../shared/api.js";
 import {
   CharacterProfileSchema,
   JournalEntrySchema,
   PatchVersionSchema,
-  type CharacterJournal,
   type JournalEntry,
   type PatchVersion,
 } from "../shared/domain.js";
 import { buildRecommendationMemory } from "../shared/journalMemory.js";
 import { loadConfig, type ServerConfig } from "./config.js";
-import { createDatabase } from "./db/database.js";
+import { createDatabase, withTransaction } from "./db/database.js";
 import {
   getCharacter,
   getJournalEntry,
   getJournalPrimaryEntryId,
   listCompletedRecommendationJournalEntries,
-  listJournalEntries,
   saveCharacter,
   saveJournalEntry,
   setJournalPrimaryEntryId,
 } from "./db/repositories.js";
+import {
+  addSessionConstraint,
+  releaseSessionConstraint,
+  addSessionEvidence,
+  assertRevision,
+  pauseSession,
+  readJournalBundle,
+  recordSessionResult,
+  reconcileSession,
+  reopenSession,
+  startDecisionSession,
+} from "./decision/sessionService.js";
+import { sessionIsOpen } from "../shared/decisionSession.js";
 import { importBuild } from "./importers/buildImporter.js";
 import { parseItemText } from "./importers/itemTextParser.js";
 import { PoeNinjaClient, PriceService } from "./services/poeninja.js";
@@ -76,22 +95,15 @@ function loadPatches(): PatchVersion[] {
   return parsed.map((p) => PatchVersionSchema.parse(p));
 }
 
-function readJournal(db: ReturnType<typeof createDatabase>, characterId: string): CharacterJournal {
-  const entries = listJournalEntries(db, characterId).map((row) =>
-    JournalEntrySchema.parse(JSON.parse(row.payload)),
-  );
-  const storedPrimaryId = getJournalPrimaryEntryId(db, characterId);
-  const primaryEntry =
-    entries.find(
-      (entry) =>
-        entry.id === storedPrimaryId &&
-        (entry.status === "active" || entry.status === "waiting_result"),
-    ) ?? null;
-
-  // Un id obsoleto nunca se presenta como acción activa. La lectura no repara
-  // ni muta el estado: las transiciones de escritura mantienen la referencia.
-  const primaryEntryId = primaryEntry?.id ?? null;
-  return { characterId, primaryEntryId, primaryEntry, entries };
+function readJournal(
+  db: ReturnType<typeof createDatabase>,
+  characterId: string,
+) {
+  const row = getCharacter(db, characterId);
+  const profile = row
+    ? CharacterProfileSchema.parse(JSON.parse(row.payload))
+    : null;
+  return readJournalBundle(db, characterId, profile).journal;
 }
 
 /** Contexto acotado del motor: una primaria por id + diez completadas indexadas. */
@@ -114,12 +126,16 @@ function readRecommendationMemory(
     characterId,
     10,
   ).map((row) => JournalEntrySchema.parse(JSON.parse(row.payload)));
-  return buildRecommendationMemory({
-    characterId,
-    primaryEntryId: primaryEntry?.id ?? null,
-    primaryEntry,
-    entries: completedEntries,
-  });
+  const session = readJournalBundle(db, characterId).journal.session;
+  return buildRecommendationMemory(
+    {
+      characterId,
+      primaryEntryId: primaryEntry?.id ?? null,
+      primaryEntry,
+      entries: completedEntries,
+    },
+    session,
+  );
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): Express {
@@ -271,19 +287,35 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         updatedAt: now,
         resolvedAt: null,
       });
-      saveJournalEntry(db, {
-        id: entry.id,
-        characterId,
-        payload: JSON.stringify(entry),
-        status: entry.status,
-        recommendationId: entry.recommendationSnapshot?.id ?? null,
-        recommendationActionKind:
-          entry.recommendationSnapshot?.actionKind ?? null,
-        createdAt: now,
-        updatedAt: now,
+      const journal = withTransaction(db, () => {
+        if (input.journalRevision) {
+          assertRevision(db, characterId, input.journalRevision);
+        }
+        if (input.makePrimary) {
+          const openSession = readJournalBundle(db, characterId).journal.session;
+          if (openSession && sessionIsOpen(openSession.status)) {
+            throw new ApiHttpError(
+              400,
+              "sesion-ya-activa",
+              "Ya hay una decisión en curso. Registra el resultado o páusala antes de guardar otro paso.",
+            );
+          }
+        }
+        saveJournalEntry(db, {
+          id: entry.id,
+          characterId,
+          payload: JSON.stringify(entry),
+          status: entry.status,
+          recommendationId: entry.recommendationSnapshot?.id ?? null,
+          recommendationActionKind:
+            entry.recommendationSnapshot?.actionKind ?? null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        if (input.makePrimary) setJournalPrimaryEntryId(db, characterId, entry.id);
+        return readJournal(db, characterId);
       });
-      if (input.makePrimary) setJournalPrimaryEntryId(db, characterId, entry.id);
-      res.status(201).json({ journal: readJournal(db, characterId), entry });
+      res.status(201).json({ journal, entry });
     } catch (err) {
       next(err);
     }
@@ -339,27 +371,163 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           "La próxima acción principal debe estar activa y contener una acción concreta.",
         );
       }
-      saveJournalEntry(db, {
-        id: entry.id,
-        characterId,
-        payload: JSON.stringify(entry),
-        status: entry.status,
-        recommendationId: entry.recommendationSnapshot?.id ?? null,
-        recommendationActionKind:
-          entry.recommendationSnapshot?.actionKind ?? null,
-        createdAt: entry.createdAt,
-        updatedAt: now,
-      });
+      const journal = withTransaction(db, () => {
+        if (input.journalRevision) {
+          assertRevision(db, characterId, input.journalRevision);
+        }
+        saveJournalEntry(db, {
+          id: entry.id,
+          characterId,
+          payload: JSON.stringify(entry),
+          status: entry.status,
+          recommendationId: entry.recommendationSnapshot?.id ?? null,
+          recommendationActionKind:
+            entry.recommendationSnapshot?.actionKind ?? null,
+          createdAt: entry.createdAt,
+          updatedAt: now,
+        });
 
-      const currentPrimary = getJournalPrimaryEntryId(db, characterId);
-      if (resolved && currentPrimary === entry.id) {
-        setJournalPrimaryEntryId(db, characterId, null);
-      } else if (input.makePrimary === true) {
-        setJournalPrimaryEntryId(db, characterId, entry.id);
-      } else if (input.makePrimary === false && currentPrimary === entry.id) {
-        setJournalPrimaryEntryId(db, characterId, null);
+        const currentPrimary = getJournalPrimaryEntryId(db, characterId);
+        if (resolved && currentPrimary === entry.id) {
+          setJournalPrimaryEntryId(db, characterId, null);
+        } else if (input.makePrimary === true) {
+          setJournalPrimaryEntryId(db, characterId, entry.id);
+        } else if (input.makePrimary === false && currentPrimary === entry.id) {
+          setJournalPrimaryEntryId(db, characterId, null);
+        }
+        return readJournal(db, characterId);
+      });
+      res.json({ journal, entry });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = StartDecisionSessionRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
       }
-      res.json({ journal: readJournal(db, characterId), entry });
+      const journal = startDecisionSession(db, characterId, {
+        journalRevision: input.journalRevision,
+        idempotencyKey: input.idempotencyKey,
+        kind: input.kind,
+        objective: input.objective,
+        hypothesis: input.hypothesis,
+        expectedResult: input.expectedResult,
+        observationMethod: input.observationMethod,
+        unknowns: input.unknowns,
+        constraints: input.constraints,
+        soonReplacedItemIds: input.soonReplacedItemIds,
+        protectedResources: input.protectedResources,
+        recommendation: input.recommendation,
+        profile: input.profile,
+        budget: input.budget,
+      });
+      res.status(201).json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/constraints", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = AddSessionConstraintRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = addSessionConstraint(db, characterId, input);
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/constraints/release", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = ReleaseSessionConstraintRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = releaseSessionConstraint(db, characterId, input);
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/evidence", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = AddSessionEvidenceRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = addSessionEvidence(db, characterId, input);
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/result", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = RecordSessionResultRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = recordSessionResult(db, characterId, {
+        ...input,
+        conclusion: input.conclusion,
+      });
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/pause", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = PauseSessionRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = pauseSession(db, characterId, input);
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/reopen", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = ReopenSessionRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = reopenSession(db, characterId, input);
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/reconcile", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = ReconcileSessionRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = reconcileSession(db, characterId, input);
+      res.json(journal.journal);
     } catch (err) {
       next(err);
     }
