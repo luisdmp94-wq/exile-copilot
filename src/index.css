@@ -225,6 +225,92 @@
     background: hsl(42 92% 55%);
     transform: rotate(45deg);
   }
+
+  .operations-intro {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid hsl(42 45% 35% / 0.38);
+    background:
+      linear-gradient(90deg, hsl(42 72% 30% / 0.12), transparent 48%),
+      hsl(235 13% 6% / 0.76);
+  }
+
+  .operations-intro::after {
+    content: "";
+    position: absolute;
+    inset: auto -3rem -4.5rem auto;
+    width: 15rem;
+    height: 9rem;
+    border: 1px solid hsl(195 60% 48% / 0.14);
+    transform: rotate(-12deg);
+    pointer-events: none;
+  }
+
+  .briefing-card,
+  .intel-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 3px;
+    background: hsl(235 10% 8% / 0.97);
+    box-shadow: 0 20px 55px hsl(240 30% 2% / 0.32);
+  }
+
+  .briefing-card {
+    border-color: hsl(42 55% 35% / 0.6);
+  }
+
+  .intel-card {
+    border-color: hsl(195 45% 33% / 0.62);
+  }
+
+  .briefing-card::before,
+  .intel-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+  }
+
+  .briefing-card::before {
+    background: linear-gradient(hsl(42 92% 55%), hsl(42 70% 28% / 0.08));
+  }
+
+  .intel-card::before {
+    background: linear-gradient(hsl(192 72% 52%), hsl(192 70% 28% / 0.08));
+  }
+
+  .briefing-field {
+    @apply flex flex-col gap-2 border-l border-border/80 pl-4;
+  }
+
+  .briefing-field:focus-within {
+    border-left-color: hsl(42 92% 55% / 0.78);
+  }
+
+  .intel-field {
+    @apply flex flex-col gap-2 border-l border-border/80 pl-4;
+  }
+
+  .intel-field:focus-within {
+    border-left-color: hsl(192 72% 52% / 0.78);
+  }
+
+  .market-console {
+    border: 1px solid hsl(195 40% 28% / 0.7);
+    background:
+      linear-gradient(135deg, hsl(195 55% 25% / 0.10), transparent 42%),
+      hsl(235 13% 6% / 0.88);
+    box-shadow: inset 0 1px 0 hsl(195 60% 70% / 0.05);
+  }
+
+  .market-status-grid {
+    @apply grid gap-0 border border-amber-500/25;
+    background: hsl(42 50% 18% / 0.10);
+  }
+
+  .market-status-line {
+    @apply grid gap-1 border-b border-amber-500/15 px-4 py-3 last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4;
+  }
 }
 /**
  * Movimiento reducido: cuando el usuario lo pide, el diálogo de detalle de

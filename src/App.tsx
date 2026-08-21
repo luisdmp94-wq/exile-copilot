@@ -597,7 +597,19 @@ export default function App() {
           {/* Dos columnas en escritorio, una sola en móvil. NUNCA se mezcla con
               el expediente: el plan objetivo es un plan, no el personaje real. */}
           <TabsContent value="plan" forceMount className={PANEL_CLASSES}>
-            <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+            <section className="operations-intro mb-7 px-6 py-7" aria-labelledby="operaciones-titulo">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/75">
+                Mesa de operaciones
+              </p>
+              <h2 id="operaciones-titulo" className="dossier-title mt-2 text-4xl font-semibold text-foreground">
+                Decide el rumbo antes de gastar
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                Tu objetivo marca la dirección. El mercado solo acota lo que es posible
+                comprobar hoy; no sustituye el diagnóstico del mentor.
+              </p>
+            </section>
+            <div className="grid grid-cols-1 items-start gap-7 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
               <TargetSection
                 draft={targetDraft}
                 warnings={targetWarnings}

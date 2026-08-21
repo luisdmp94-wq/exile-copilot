@@ -1,4 +1,4 @@
-import { BookOpen, FileCheck2, X } from "lucide-react";
+import { BookOpen, Crosshair, FileCheck2, Route, X } from "lucide-react";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import {
   GGG_AFFILIATION_NOTICE,
@@ -42,10 +42,14 @@ export function TargetSection({
   onChange,
 }: TargetSectionProps) {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="briefing-card">
+      <CardHeader className="border-b border-border/70 px-6 py-6">
+        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/75">
+          <Route className="size-4" aria-hidden="true" />
+          Briefing de destino
+        </p>
         <div className="flex flex-wrap items-center gap-3">
-          <CardTitle className="text-xl">Build objetivo (opcional)</CardTitle>
+          <CardTitle className="dossier-title text-3xl">La build que quieres alcanzar</CardTitle>
           <Badge
             variant="outline"
             className="border-amber-500/40 bg-amber-500/10 text-amber-300"
@@ -62,14 +66,14 @@ export function TargetSection({
             </Badge>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
           Estos datos SÍ se envían al motor y pueden cambiar tus recomendaciones: el
           nombre, el resumen y los mods deseados orientan las mejoras hacia tu build
           objetivo. El enlace solo se guarda como referencia: no se descarga ni se
           verifica su contenido.
         </p>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-6 px-6 py-6">
         {draft.plan && (
           <Alert className="border-primary/50 bg-primary/10 [&>svg]:text-primary">
             <FileCheck2 className="size-4" aria-hidden="true" />
@@ -113,8 +117,8 @@ export function TargetSection({
 
         {draft.plan && resolution && <PlanResolutionView resolution={resolution} />}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="briefing-field">
             <Label htmlFor="target-name">Nombre de la build objetivo</Label>
             <Input
               id="target-name"
@@ -123,7 +127,7 @@ export function TargetSection({
               placeholder="p. ej. Gemling Grenade Mercenary"
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="briefing-field">
             <Label htmlFor="target-url" className="inline-flex items-center gap-1.5">
               <BookOpen className="size-3.5 text-muted-foreground" aria-hidden="true" />
               Enlace de referencia
@@ -137,8 +141,11 @@ export function TargetSection({
             />
           </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="target-summary">Resumen</Label>
+        <div className="briefing-field">
+          <Label htmlFor="target-summary" className="flex items-center gap-2">
+            <Crosshair className="size-3.5 text-primary" aria-hidden="true" />
+            Resultado buscado
+          </Label>
           <Textarea
             id="target-summary"
             value={draft.summary}
@@ -147,7 +154,7 @@ export function TargetSection({
             placeholder="¿Qué quieres conseguir con esta build?"
           />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="briefing-field">
           <Label htmlFor="target-mods">Mods deseados (uno por línea)</Label>
           <Textarea
             id="target-mods"

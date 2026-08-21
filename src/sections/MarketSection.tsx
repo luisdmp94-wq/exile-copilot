@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Coins, Loader2, PackageSearch } from "lucide-react";
+import { Coins, Database, Loader2, PackageSearch, Radar, WalletCards } from "lucide-react";
 import type { MetaResponse } from "@shared/api.js";
 import type {
   Budget,
@@ -87,13 +87,21 @@ export function MarketSection({
     league && !leagues.includes(league) ? [league, ...leagues] : leagues;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl">Mercado actual</CardTitle>
+    <Card className="intel-card">
+      <CardHeader className="border-b border-border/70 px-6 py-6">
+        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-300/75">
+          <Radar className="size-4" aria-hidden="true" />
+          Inteligencia de mercado
+        </p>
+        <CardTitle className="dossier-title text-3xl">Qué puedes permitirte ahora</CardTitle>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Define el contexto económico de la decisión y consulta referencias de precio.
+          Un dato sin verificar nunca se presenta como una compra segura.
+        </p>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+      <CardContent className="flex flex-col gap-6 px-6 py-6">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="intel-field">
             <Label htmlFor="market-league">Liga</Label>
             {metaLoading ? (
               <Skeleton className="h-9 w-full" />
@@ -112,7 +120,7 @@ export function MarketSection({
               </Select>
             )}
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="intel-field">
             <Label htmlFor="market-goal">Objetivo</Label>
             <Select value={goal} onValueChange={(v) => onGoalChange(v as GoalKind)}>
               <SelectTrigger id="market-goal">
@@ -127,8 +135,11 @@ export function MarketSection({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="market-budget">Presupuesto</Label>
+          <div className="intel-field">
+            <Label htmlFor="market-budget" className="flex items-center gap-2">
+              <WalletCards className="size-3.5 text-cyan-300" aria-hidden="true" />
+              Presupuesto
+            </Label>
             <Input
               id="market-budget"
               type="number"
@@ -143,7 +154,7 @@ export function MarketSection({
               }}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="intel-field">
             <Label htmlFor="market-currency">Moneda</Label>
             <Select
               value={budget.currency}
@@ -165,7 +176,11 @@ export function MarketSection({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
+        <div className="market-console flex flex-col gap-3 p-5">
+          <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
+            <Database className="size-4" aria-hidden="true" />
+            Terminal de consulta
+          </p>
           <Label htmlFor="market-names">
             Objetos a consultar (nombres separados por comas)
           </Label>
@@ -278,33 +293,36 @@ export function MarketSection({
                 </Badge>
               )}
             </div>
-            {prices.degraded && (
-              <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
-                <AlertTitle>Modo degradado</AlertTitle>
-                <AlertDescription>
-                  El servicio de precios falló; se muestran datos en caché o de ejemplo.
-                  Verifica los precios antes de comprar.
-                </AlertDescription>
-              </Alert>
-            )}
-            {prices.rates !== null && (
-              <p
-                className="text-xs text-muted-foreground"
-                title={`Tasas recibidas: ${formatDateTime(prices.rates.fetchedAt)}`}
-              >
-                Tasas de conversión: {RATES_ORIGIN_LABELS[prices.rates.origin]}
-                {prices.rates.verified ? "" : " (sin verificar)"}
-              </p>
-            )}
-            {(prices.rates === null || !prices.rates.verified) && (
-              <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
-                <AlertTitle>Sin tasas de conversión verificables</AlertTitle>
-                <AlertDescription>
-                  No hay tasas de cambio verificables entre monedas: no se puede
-                  confirmar si un coste entra en el presupuesto. Compara cada precio en
-                  su propia moneda.
-                </AlertDescription>
-              </Alert>
+            {(prices.degraded || prices.rates === null || !prices.rates.verified) && (
+              <div className="market-status-grid" aria-label="Estado de verificación del mercado">
+                {prices.degraded && (
+                  <div className="market-status-line">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-300">
+                      Precios degradados
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Se muestran datos en caché o de ejemplo. Verifica cada precio antes de comprar.
+                    </p>
+                  </div>
+                )}
+                <div className="market-status-line">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-300">
+                    Conversión de divisas
+                  </p>
+                  <p
+                    className="text-sm text-muted-foreground"
+                    title={
+                      prices.rates
+                        ? `Tasas recibidas: ${formatDateTime(prices.rates.fetchedAt)}`
+                        : undefined
+                    }
+                  >
+                    {prices.rates
+                      ? `${RATES_ORIGIN_LABELS[prices.rates.origin]} sin verificar.`
+                      : "No hay tasas verificables."} No se puede confirmar si un coste entra en el presupuesto; compara cada precio en su propia moneda.
+                  </p>
+                </div>
+              </div>
             )}
             <Table>
               <TableHeader>
