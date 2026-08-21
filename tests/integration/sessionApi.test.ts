@@ -214,6 +214,66 @@ describe("API de sesiones adaptativas", () => {
     expect(candidate.sessionEvents.at(-1)?.summary).toMatch(/no está demostrada/i);
   });
 
+  it("el regreso rápido mantiene el caso parcial y solo cierra el resuelto", async () => {
+    const profile = { ...demoProfile, id: "sesion-api-return-loop" };
+    await postJson("/character", { profile });
+    const empty = JournalResponseSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const started = JournalResponseSchema.parse(
+      await jsonOf(
+        await postJson(`/journal/${profile.id}/session`, {
+          journalRevision: buildRecommendationMemory(empty).revision,
+          idempotencyKey: "idem-return-start",
+          kind: "guided_decision",
+          objective: "Cubrir resistencias",
+          hypothesis: "Reducir muertes evitables",
+          expectedResult: "Más supervivencia",
+          observationMethod: "Jugar un encuentro representativo",
+          profile,
+          budget: { amount: 50, currency: "exalted" },
+          goal: "survival",
+        }),
+      ),
+    );
+
+    const improved = JournalResponseSchema.parse(
+      await jsonOf(
+        await postJson(`/journal/${profile.id}/session/result`, {
+          journalRevision: buildRecommendationMemory(started).revision,
+          idempotencyKey: "idem-return-improved",
+          result: "Mejoró, pero los bosses siguen alcanzándome.",
+          subjective: true,
+          outcome: "improved",
+          profile,
+        }),
+      ),
+    );
+    expect(improved.session?.status).toBe("waiting_result");
+    expect(improved.session?.lastResult?.outcome).toBe("improved");
+    expect(improved.session?.conclusion?.kind).toBe("continue");
+    expect(improved.session?.activeAction?.journalEntryId).toBe(
+      improved.primaryEntryId,
+    );
+
+    const resolved = JournalResponseSchema.parse(
+      await jsonOf(
+        await postJson(`/journal/${profile.id}/session/result`, {
+          journalRevision: buildRecommendationMemory(improved).revision,
+          idempotencyKey: "idem-return-resolved",
+          result: "El problema quedó resuelto.",
+          subjective: true,
+          outcome: "resolved",
+          profile,
+        }),
+      ),
+    );
+    expect(resolved.session?.status).toBe("completed");
+    expect(resolved.session?.lastResult?.outcome).toBe("resolved");
+    expect(resolved.session?.conclusion?.kind).toBe("complete");
+    expect(resolved.primaryEntryId).toBeNull();
+  });
+
   it("no inventa un segundo diario: guardar otro paso con sesión abierta falla", async () => {
     const profile = { ...demoProfile, id: "sesion-api-primary" };
     await postJson("/character", { profile });

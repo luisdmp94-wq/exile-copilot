@@ -1,5 +1,5 @@
 /**
- * Prueba de navegador del Hito 6B — sesiones adaptativas de decisión.
+ * Prueba de navegador del Hito 6C — ciclo visible «probar y volver».
  *
  * Uso:
  *   node scripts/session-smoke.mjs          → producción (requiere `npm run build`)
@@ -26,7 +26,7 @@ const modes = args.includes("--all")
     ? ["dev"]
     : ["prod"];
 
-const tempRoot = mkdtempSync(join(tmpdir(), "exile-copilot-6b-"));
+const tempRoot = mkdtempSync(join(tmpdir(), "exile-copilot-6c-"));
 const SHOT_DIR = UPDATE_SCREENSHOTS ? join(REPO, "docs", "screenshots") : tempRoot;
 mkdirSync(SHOT_DIR, { recursive: true });
 
@@ -105,7 +105,7 @@ async function persistDemo(base) {
 
 async function runFlow(mode, port) {
   const base = `http://localhost:${port}`;
-  console.log(`\n=== HITO 6B — ${mode.toUpperCase()} (${base}) ===`);
+  console.log(`\n=== HITO 6C — ${mode.toUpperCase()} (${base}) ===`);
   const server = startServer(mode, port);
   let browser;
   try {
@@ -173,6 +173,15 @@ async function runFlow(mode, port) {
       if ((await trigger.count()) === 0) return;
       if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
       await section.waitFor({ state: "visible", timeout: 15_000 });
+    };
+
+    const abrirAvanzado = async (targetPage = page) => {
+      const details = targetPage
+        .locator("details")
+        .filter({ hasText: "Protecciones y evidencia avanzada" });
+      if ((await details.getAttribute("open")) === null) {
+        await details.locator("summary").click();
+      }
     };
 
     const verGenerar = async () => {
@@ -244,10 +253,13 @@ async function runFlow(mode, port) {
     await page.locator("#decision-incognita").fill("tooltip exacto de la herramienta");
     await page.locator("#decision-core").fill("Barrera voltaica");
     await page.getByRole("button", { name: "Empezar a comprobar" }).click();
-    await page.getByText("Qué hacer ahora").waitFor({ timeout: 20_000 });
+    await page.getByTestId("prueba-activa").waitFor({ timeout: 20_000 });
 
     const afterStart = await section.innerText();
-    check(`[${mode}] hay una sola acción visible`, afterStart.includes("Qué hacer ahora"));
+    check(
+      `[${mode}] hay una sola acción y dice qué observar`,
+      /próxima acción/i.test(afterStart) && /después, observa/i.test(afterStart),
+    );
     check(
       `[${mode}] pide el dato crítico antes de un paso irreversible`,
       /tooltip exacto/i.test(afterStart),
@@ -260,6 +272,7 @@ async function runFlow(mode, port) {
         afterStart.includes("En curso"),
     );
 
+    await abrirAvanzado();
     await page.locator("#add-core").fill("anillo actual");
     await page.getByRole("button", { name: "Proteger" }).click();
     // La protección aparece ahora en dos sitios: el listado con su acción de
@@ -267,19 +280,25 @@ async function runFlow(mode, port) {
     await page.getByText("anillo actual", { exact: true }).first().waitFor({ timeout: 10_000 });
     check(`[${mode}] la pieza protegida aparece como intocable`, true);
 
+    await page.getByTestId("decision-volvi").click();
+    await page.getByText("Mejoró, pero continúa", { exact: true }).click();
     await page.locator("#session-result").fill("Se siente más fluido, no lo he medido.");
-    await page.getByLabel("Es una sensación (no una medición)").check();
-    await page.getByRole("button", { name: "Registrar resultado" }).click();
-    await page.getByText("sensación, no medición", { exact: false }).waitFor({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Guardar resultado" }).click();
+    await page
+      .getByText("experiencia del jugador, no medición", { exact: false })
+      .waitFor({ timeout: 15_000 });
     const afterSubjective = await section.innerText();
     check(
       `[${mode}] lo subjetivo no se presenta como medición`,
       /sensación/i.test(afterSubjective) && !/medición objetiva/i.test(afterSubjective),
     );
 
+    await page.getByTestId("decision-volvi").click();
+    await page.getByText("Ocurrió algo diferente", { exact: true }).click();
     await page.locator("#session-result").fill("El daño no subió, pero apareció una interacción rara del tótem.");
+    await page.getByText("Resultado inesperado o condición de reapertura").click();
     await page.getByPlaceholder("Si salió otra cosa valiosa").fill("interacción rara del tótem");
-    await page.getByRole("button", { name: "Registrar resultado" }).click();
+    await page.getByRole("button", { name: "Guardar resultado" }).click();
     await page.getByText("interacción rara del tótem").first().waitFor({ timeout: 15_000 });
     const afterValuable = await section.innerText();
     check(
@@ -296,6 +315,7 @@ async function runFlow(mode, port) {
     // se perdía y no había forma de indicar qué dato resolvía la evidencia.
     await page.reload({ waitUntil: "networkidle" });
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
+    await abrirAvanzado();
     const selectorTrasRecarga = page.getByTestId("decision-selector-incognita");
     const haySelector = await selectorTrasRecarga.count();
     check(`[${mode}] tras recargar hay selector visible de incógnita`, haySelector === 1);
@@ -330,6 +350,7 @@ async function runFlow(mode, port) {
     await otra.goto(base, { waitUntil: "networkidle" });
     await otra.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
     // La otra pestaña protege una pieza: eso SÍ cambia la revisión de memoria.
+    await abrirAvanzado(otra);
     await otra.locator("#add-core").fill("Proteccion desde la otra pestana");
     await otra.getByRole("button", { name: "Proteger" }).click();
     await otra.waitForFunction(
@@ -377,8 +398,13 @@ async function runFlow(mode, port) {
     // --- Estado cerrado: sin botones inválidos y con vía a otra decisión ----
     await page.reload({ waitUntil: "networkidle" });
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
+    await page.getByTestId("decision-volvi").click();
+    await page.getByText("Problema resuelto", { exact: true }).click();
     await page.locator("#session-result").fill("Cerramos este paso con un resultado medido.");
-    await page.getByRole("button", { name: "Registrar resultado" }).click();
+    await page
+      .getByLabel("Es mi experiencia al jugar, no una medición. Desmárcalo solo si has actualizado el expediente con datos comprobados.")
+      .uncheck();
+    await page.getByRole("button", { name: "Guardar resultado" }).click();
     // Cerrada deja de dominar el caso abierto: vuelve a «Comprobar una decisión».
     // Esperamos esa transición antes de preguntar por visibilidad. Sin esta
     // barrera, `verSesion()` podía verla todavía dominante, devolver pronto y
@@ -418,13 +444,23 @@ async function runFlow(mode, port) {
     );
     check(`[${mode}] cerrada → nueva decisión manual funciona`, true);
 
-    // --- FLUJO COMBINADO: recomendación → «Comprobar esto» → sesión --------
-    // Es el punto donde se cruzan el Hito 6B y el espacio de trabajo por áreas:
+    // --- FLUJO COMBINADO: recomendación → «Probar y volver» → sesión --------
+    // Es el punto donde se cruzan las sesiones adaptativas y el espacio de trabajo por áreas:
     // el presupuesto vive en «Plan y mercado» y las recomendaciones en «Mentor».
     // Una sesión abierta bloquea generar tareas paralelas (regla 6B): primero
     // se cierra la decisión manual registrando su resultado.
+    await page.getByTestId("decision-volvi").click();
+    await page.getByText("Problema resuelto", { exact: true }).click();
     await page.locator("#session-result").fill("Cerramos también esta decisión manual.");
-    await page.getByRole("button", { name: "Registrar resultado" }).click();
+    await page.getByRole("button", { name: "Guardar resultado" }).click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-testid="caso-abierto"]')
+          ?.getAttribute("data-caso") !== "session",
+      undefined,
+      { timeout: 20_000 },
+    );
     await verSesion();
     await page.getByTestId("decision-cerrada").waitFor({ timeout: 20_000 });
     await page.waitForFunction(
@@ -442,12 +478,25 @@ async function runFlow(mode, port) {
     await page.locator("#market-budget").fill("500");
     await irA(page, "expediente");
     (await verGenerar()).click();
-    const comprobarEsto = page.getByRole("button", { name: "Comprobar esto" });
-    await comprobarEsto.first().waitFor({ timeout: 25_000 });
+    const probarYVolver = page.getByRole("button", { name: "Probar y volver" });
+    await probarYVolver.first().waitFor({ timeout: 25_000 });
     check(
-      `[${mode}] la recomendación del caso abierto ofrece «Comprobar esto»`,
-      (await comprobarEsto.count()) >= 1,
+      `[${mode}] la recomendación ofrece qué observar y «Probar y volver»`,
+      (await probarYVolver.count()) >= 1 &&
+        (await page.getByTestId("caso-que-observar").count()) === 1,
     );
+    await probarYVolver.first().click();
+    await page.getByTestId("prueba-activa").waitFor({ timeout: 20_000 });
+    check(
+      `[${mode}] al probar, el caso espera el regreso del jugador`,
+      (await page.getByTestId("decision-volvi").count()) === 1,
+    );
+
+    // Las capturas documentan el estado estable, no avisos transitorios de los
+    // pasos anteriores del smoke que podrían tapar la próxima acción.
+    await page.locator("[data-sonner-toast]").evaluateAll((toasts) => {
+      toasts.forEach((toast) => toast.remove());
+    });
 
     await page.screenshot({
       path: join(SHOT_DIR, mode === "prod" ? "sesion-escritorio-prod.png" : "sesion-escritorio-dev.png"),
@@ -493,5 +542,5 @@ try {
   }
 }
 
-console.log(`\nHito 6B: ${total - failures}/${total} comprobaciones`);
+console.log(`\nHito 6C: ${total - failures}/${total} comprobaciones`);
 if (failures > 0) process.exit(1);

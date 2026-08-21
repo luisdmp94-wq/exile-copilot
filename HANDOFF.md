@@ -1,13 +1,34 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 14 (microcorrección
-> posterior al 6B), 2026-08-21.
+> Informe para el propietario. Última actualización: sesión 15 (Hito 6C),
+> 2026-08-22.
 >
-> **Estado vigente:** `main` está en `dd671178` e incluye los hitos 5A/5B, 6A y
-> 6B corregido, además del espacio de trabajo por áreas **Mentor / Personaje /
-> Plan y mercado**. Las secciones de sesiones anteriores son HISTORIA: los SHA y
+> **Estado de esta rama:** parte del rediseño visual integrado en `5f726a2` e
+> incorpora el Hito 6C «Probar y volver». `main` no se mueve durante este
+> trabajo. Las secciones de sesiones anteriores son HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 15 — Hito 6C: ciclo «Probar y volver»
+
+Rama aislada `hito-6c-return-loop` sobre `5f726a2`. El objetivo es convertir
+una recomendación en un ciclo reconocible y útil fuera de la web:
+
+1. **Probar y volver.** La recomendación nombra una acción y explica de forma
+   visible qué observar después del cambio.
+2. **Volví de jugar.** El retorno no exige redactar un informe: ofrece cinco
+   resultados rápidos (resuelto, mejoró, igual, empeoró o algo diferente) y un
+   comentario opcional.
+3. **Continuidad honesta.** «Resuelto» cierra el caso; los resultados parciales
+   lo mantienen abierto; un hallazgo valioso inesperado cambia la estrategia.
+   Una sensación se conserva como experiencia del jugador, nunca como medición.
+4. **Menos ruido.** Evidencias y protecciones avanzadas permanecen disponibles
+   dentro de un bloque secundario. El informe de exportación queda plegado por
+   defecto.
+
+La compatibilidad con sesiones anteriores se conserva: `outcome` es nullable y
+los registros antiguos se leen como resultado no estructurado. El motor sigue
+siendo determinista; no se añadieron precios, crafts ni conocimiento inventado.
 
 ## Sesión 14 — microcorrección de consistencia posterior al 6B
 

@@ -63,6 +63,22 @@ export const DecisionConclusionKind = z.enum([
 ]);
 export type DecisionConclusionKind = z.infer<typeof DecisionConclusionKind>;
 
+/**
+ * Valoración corta del jugador al volver de probar una acción.
+ *
+ * No pretende ser una medición de PoE2 ni interpreta el comentario libre. Es
+ * una señal estructurada que permite cerrar o mantener abierto el caso sin que
+ * el servidor tenga que adivinar el significado de una frase.
+ */
+export const DecisionOutcome = z.enum([
+  "resolved",
+  "improved",
+  "unchanged",
+  "worse",
+  "different",
+]);
+export type DecisionOutcome = z.infer<typeof DecisionOutcome>;
+
 export const SessionEvidenceKind = z.enum([
   "confirmed",
   "inferred",
@@ -153,6 +169,8 @@ export const DecisionSessionSchema = z.object({
     .object({
       text: z.string().trim().min(1).max(4000),
       subjective: z.boolean(),
+      /** `null` en sesiones anteriores al Hito 6C: no se inventa un resultado. */
+      outcome: DecisionOutcome.nullable().default(null),
       unexpectedValuable: z.string().trim().min(1).max(400).nullable().default(null),
       recordedAt: z.string(),
     })
@@ -546,6 +564,42 @@ export const CONCLUSION_LABELS: Record<DecisionConclusionKind, string> = {
   complete: "Damos este paso por cerrado",
   reopen: "Vuelve a ser candidata",
 };
+
+export const DECISION_OUTCOME_LABELS: Record<DecisionOutcome, string> = {
+  resolved: "Problema resuelto",
+  improved: "Mejoró, pero continúa",
+  unchanged: "Sigue igual",
+  worse: "Empeoró",
+  different: "Ocurrió algo diferente",
+};
+
+/**
+ * Semántica determinista del regreso del jugador.
+ *
+ * Solo «resuelto» cierra el caso automáticamente. Una mejora parcial, la
+ * ausencia de cambio o un empeoramiento conservan la misma decisión abierta:
+ * sin datos nuevos el sistema no puede inventar otra estrategia. Un hallazgo
+ * valioso sí cambia el plan porque el jugador lo nombra y el servicio lo
+ * protege expresamente.
+ */
+export function conclusionForDecisionOutcome(
+  outcome: DecisionOutcome,
+  hasUnexpectedValuable = false,
+): DecisionConclusionKind {
+  if (hasUnexpectedValuable) return "change_strategy";
+  return outcome === "resolved" ? "complete" : "continue";
+}
+
+/**
+ * Guía observable derivada del impacto que YA declaró el motor. Se comparte
+ * entre la recomendación y la sesión para que el servidor no la sustituya por
+ * un «mira qué pasa» genérico al empezar la prueba.
+ */
+export function observationMethodForExpectedImpact(
+  expectedImpact: string,
+): string {
+  return `Confirma el cambio esperado: ${expectedImpact} Revisa qué dato del personaje cambió y si otra estadística o sensación empeoró.`;
+}
 
 export const EVIDENCE_KIND_LABELS: Record<SessionEvidenceKind, string> = {
   confirmed: "Dato que has confirmado",

@@ -201,7 +201,7 @@ async function runFlow(mode, port) {
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
     const comprobarSinGuardar = page
       .getByTestId("caso-abierto")
-      .getByRole("button", { name: "Comprobar esto" });
+      .getByRole("button", { name: "Probar y volver" });
     await comprobarSinGuardar.waitFor({ state: "visible", timeout: 15000 });
     await comprobarSinGuardar.click();
     await page.getByRole("dialog").waitFor({ state: "visible", timeout: 10000 });
@@ -261,6 +261,12 @@ async function runFlow(mode, port) {
     ]);
     const fileName = download.suggestedFilename();
     check(`[${mode}] descarga termina en .build (${fileName})`, fileName.endsWith(".build"));
+    const exportReport = page.getByTestId("informe-exportacion");
+    await exportReport.waitFor({ state: "visible", timeout: 10_000 });
+    check(
+      `[${mode}] el informe de exportación queda plegado por defecto`,
+      !(await exportReport.evaluate((details) => details.open)),
+    );
 
     // 6. Esquema completo del archivo descargado
     const path = await download.path();

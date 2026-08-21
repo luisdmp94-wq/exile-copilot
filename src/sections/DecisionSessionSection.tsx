@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import {
+  ArrowLeft,
+  ClipboardCheck,
   CirclePause,
   FlaskConical,
   Loader2,
@@ -11,11 +13,13 @@ import type { Budget, CharacterProfile, GoalKind, Recommendation } from "@shared
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   CONCLUSION_LABELS,
+  DECISION_OUTCOME_LABELS,
   EVIDENCE_KIND_LABELS,
   SESSION_KIND_LABELS,
   SESSION_STATUS_LABELS,
   characterSessionFingerprint,
   sessionIsOpen,
+  type DecisionOutcome,
 } from "@shared/decisionSession.js";
 import type { JournalState } from "@/hooks/useJournal";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -27,6 +31,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SLOT_LABELS } from "@/lib/format";
 import { compactRecommendationReason } from "@/lib/journal";
+import {
+  DECISION_OUTCOME_OPTIONS,
+  observationMethodForRecommendation,
+  outcomeResultText,
+} from "@/lib/sessionOutcome";
 
 interface DecisionSessionSectionProps {
   profile: CharacterProfile | null;
@@ -39,6 +48,7 @@ interface DecisionSessionSectionProps {
   goal: GoalKind;
   journal: JournalState;
   pendingRecommendation: Recommendation | null;
+  onEditExpediente?: () => void;
 }
 
 function newKey(): string {
@@ -51,6 +61,7 @@ export function DecisionSessionSection({
   goal,
   journal,
   pendingRecommendation,
+  onEditExpediente,
 }: DecisionSessionSectionProps) {
   const session = journal.journal?.session ?? null;
   const events = journal.journal?.sessionEvents ?? [];
@@ -69,8 +80,10 @@ export function DecisionSessionSection({
   const [constraint, setConstraint] = useState("");
   const [soonReplaced, setSoonReplaced] = useState("");
   const [resultText, setResultText] = useState("");
+  const [outcome, setOutcome] = useState<DecisionOutcome | null>(null);
+  const [showReturnForm, setShowReturnForm] = useState(false);
   const [valuable, setValuable] = useState("");
-  const [subjective, setSubjective] = useState(false);
+  const [subjective, setSubjective] = useState(true);
   const [reopenWhen, setReopenWhen] = useState("");
   const [evidenceText, setEvidenceText] = useState("");
   /** Incógnita que resuelve la evidencia: elegida en la lista, no en un estado oculto. */
@@ -109,7 +122,7 @@ export function DecisionSessionSection({
       objective: pendingRecommendation.title,
       hypothesis: compactRecommendationReason(pendingRecommendation.reason),
       expectedResult: pendingRecommendation.impact.description,
-      observationMethod: "Anota lo que cambió en el juego, con tus palabras.",
+      observationMethod: observationMethodForRecommendation(pendingRecommendation),
       unknowns: unknown.trim()
         ? [{ label: unknown.trim(), blockingIrreversible: true }]
         : [],
@@ -157,11 +170,12 @@ export function DecisionSessionSection({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <FlaskConical className="size-5 text-primary" aria-hidden="true" />
-          Comprobar una decisión
+          {isOpen ? "Prueba en curso" : "Comprobar una decisión"}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          El mentor recuerda qué estamos intentando, qué falta por ver y una sola
-          acción. Si el resultado no encaja, cambia el plan; no sigue en automático.
+          {isOpen
+            ? "Haz una sola prueba, vuelve con lo que ocurrió y el mentor decidirá si cerramos o mantenemos el caso."
+            : "El mentor recuerda qué estamos intentando, qué falta por ver y una sola acción."}
         </p>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 break-words">
@@ -317,20 +331,44 @@ export function DecisionSessionSection({
               </div>
             )}
             {session.activeAction && (
-              <Alert>
-                <AlertTitle>Qué hacer ahora</AlertTitle>
-                <AlertDescription>
-                  <p>{session.activeAction.summary}</p>
-                  <p className="mt-2 text-sm">
-                    Qué observar: {session.activeAction.observationMethod}
+              <section
+                className="rounded-md border border-primary/40 bg-primary/[0.06] p-4 sm:p-5"
+                aria-labelledby="prueba-activa-titulo"
+                data-testid="prueba-activa"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary/75">
+                  Próxima acción
+                </p>
+                <h3 id="prueba-activa-titulo" className="mt-2 text-lg font-semibold">
+                  {session.activeAction.summary}
+                </h3>
+                <div className="mt-4 rounded-md border border-sky-500/30 bg-sky-500/[0.06] p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200">
+                    Después, observa
                   </p>
-                  {session.activeAction.blockedReason && (
-                    <p className="mt-2 text-sm">
-                      Por qué está frenado: {session.activeAction.blockedReason}
-                    </p>
-                  )}
-                </AlertDescription>
-              </Alert>
+                  <p className="mt-1 text-sm leading-relaxed">
+                    {session.activeAction.observationMethod}
+                  </p>
+                </div>
+                {session.activeAction.blockedReason && (
+                  <p className="mt-3 text-sm text-amber-200">
+                    <strong>Antes de continuar:</strong>{" "}
+                    {session.activeAction.blockedReason}
+                  </p>
+                )}
+                {!showReturnForm && (
+                  <Button
+                    type="button"
+                    className="mt-4"
+                    data-testid="decision-volvi"
+                    onClick={() => setShowReturnForm(true)}
+                    disabled={journal.saving || journal.stale || needsReconcile}
+                  >
+                    <ClipboardCheck className="size-4" aria-hidden="true" />
+                    Volví de jugar
+                  </Button>
+                )}
+              </section>
             )}
             {session.conclusion && (
               <p className="text-sm">
@@ -341,11 +379,20 @@ export function DecisionSessionSection({
               </p>
             )}
             {session.lastResult && (
-              <p className="text-sm text-muted-foreground">
-                Último resultado
-                {session.lastResult.subjective ? " (sensación, no medición)" : ""}:{" "}
-                {session.lastResult.text}
-              </p>
+              <div className="rounded-md border border-border bg-muted/20 p-3 text-sm">
+                <p className="font-medium text-foreground">
+                  Último resultado
+                  {session.lastResult.outcome
+                    ? ` · ${DECISION_OUTCOME_LABELS[session.lastResult.outcome]}`
+                    : ""}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  {session.lastResult.text}
+                  {session.lastResult.subjective
+                    ? " (experiencia del jugador, no medición)"
+                    : ""}
+                </p>
+              </div>
             )}
 
             {/* Protecciones vigentes: cada una se puede retirar A CONCIENCIA, que
@@ -406,6 +453,153 @@ export function DecisionSessionSection({
 
             {isOpen && (
             <>
+            {showReturnForm && (
+              <form
+                className="space-y-4 rounded-md border border-primary/40 bg-background/60 p-4 sm:p-5"
+                data-testid="decision-form-regreso"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!revision || outcome === null) return;
+                  void journal
+                    .recordResult({
+                      ...guard,
+                      journalRevision: revision,
+                      idempotencyKey: newKey(),
+                      result: outcomeResultText(outcome, resultText),
+                      subjective,
+                      outcome,
+                      unexpectedValuable: valuable.trim() || null,
+                      reopenWhen: reopenWhen.trim() || null,
+                      conclusion: valuable.trim()
+                        ? "change_strategy"
+                        : reopenWhen.trim()
+                          ? "discard"
+                          : undefined,
+                    })
+                    .then((next) => {
+                      if (!next) return;
+                      setResultText("");
+                      setOutcome(null);
+                      setValuable("");
+                      setReopenWhen("");
+                      setShowReturnForm(false);
+                    });
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary/75">
+                      Regreso de la prueba
+                    </p>
+                    <h3 className="mt-1 text-lg font-semibold">¿Qué ocurrió?</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Elige una respuesta. Puedes terminar en unos segundos y añadir
+                      detalles solo si hacen falta.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowReturnForm(false)}
+                  >
+                    <ArrowLeft className="size-4" aria-hidden="true" />
+                    Seguir jugando
+                  </Button>
+                </div>
+
+                <fieldset className="grid gap-2 sm:grid-cols-2">
+                  <legend className="sr-only">Resultado de la prueba</legend>
+                  {DECISION_OUTCOME_OPTIONS.map((option) => (
+                    <label
+                      key={option.value}
+                      className={`cursor-pointer rounded-md border p-3 transition-colors ${
+                        outcome === option.value
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-muted/10 hover:border-primary/50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="decision-outcome"
+                        value={option.value}
+                        checked={outcome === option.value}
+                        onChange={() => setOutcome(option.value)}
+                        className="sr-only"
+                      />
+                      <span className="block text-sm font-semibold">{option.label}</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+
+                <div className="space-y-1">
+                  <Label htmlFor="session-result">Cuéntame lo importante (opcional)</Label>
+                  <Textarea
+                    id="session-result"
+                    value={resultText}
+                    onChange={(event) => setResultText(event.target.value)}
+                    maxLength={4000}
+                    rows={3}
+                    placeholder="Por ejemplo: aguanto mejor, pero los bosses siguen acercándose demasiado."
+                  />
+                </div>
+
+                <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={subjective}
+                    onChange={(event) => setSubjective(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  Es mi experiencia al jugar, no una medición. Desmárcalo solo si
+                  has actualizado el expediente con datos comprobados.
+                </label>
+                {onEditExpediente && (
+                  <Button type="button" variant="outline" size="sm" onClick={onEditExpediente}>
+                    Actualizar expediente antes de cerrar
+                  </Button>
+                )}
+
+                <details className="rounded-md border border-border px-3 py-2">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Resultado inesperado o condición de reapertura
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    <Input
+                      value={valuable}
+                      onChange={(event) => setValuable(event.target.value)}
+                      maxLength={400}
+                      placeholder="Si salió otra cosa valiosa, nómbrala para protegerla"
+                    />
+                    <Input
+                      value={reopenWhen}
+                      onChange={(event) => setReopenWhen(event.target.value)}
+                      maxLength={1000}
+                      placeholder="Reevaluar si esa condición pasa a ser consistente"
+                    />
+                  </div>
+                </details>
+
+                <Button
+                  type="submit"
+                  disabled={journal.saving || journal.stale || !revision || outcome === null}
+                >
+                  {journal.saving && (
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  )}
+                  Guardar resultado
+                </Button>
+              </form>
+            )}
+
+            <details className="rounded-md border border-border px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium">
+                Protecciones y evidencia avanzada
+              </summary>
+              <div className="mt-3 space-y-4">
             <form
               className="space-y-2"
               onSubmit={(event) => {
@@ -434,65 +628,6 @@ export function DecisionSessionSection({
                   Proteger
                 </Button>
               </div>
-            </form>
-
-            <form
-              className="space-y-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!revision || resultText.trim() === "") return;
-                void journal.recordResult({
-                  ...guard,
-                  journalRevision: revision,
-                  idempotencyKey: newKey(),
-                  result: resultText.trim(),
-                  subjective,
-                  unexpectedValuable: valuable.trim() || null,
-                  reopenWhen: reopenWhen.trim() || null,
-                  conclusion: valuable.trim()
-                    ? "change_strategy"
-                    : reopenWhen.trim()
-                      ? "discard"
-                      : subjective
-                        ? "continue"
-                        : "complete",
-                });
-                setResultText("");
-                setValuable("");
-                setReopenWhen("");
-              }}
-            >
-              <Label htmlFor="session-result">Qué ha pasado</Label>
-              <Textarea
-                id="session-result"
-                value={resultText}
-                onChange={(event) => setResultText(event.target.value)}
-                maxLength={4000}
-                rows={3}
-              />
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={subjective}
-                  onChange={(event) => setSubjective(event.target.checked)}
-                />
-                Es una sensación (no una medición)
-              </label>
-              <Input
-                value={valuable}
-                onChange={(event) => setValuable(event.target.value)}
-                maxLength={400}
-                placeholder="Si salió otra cosa valiosa, nómbrala para protegerla"
-              />
-              <Input
-                value={reopenWhen}
-                onChange={(event) => setReopenWhen(event.target.value)}
-                maxLength={1000}
-                placeholder="Reevaluar si esa condición pasa a ser consistente"
-              />
-              <Button type="submit" disabled={journal.saving || journal.stale || !revision}>
-                Registrar resultado
-              </Button>
             </form>
 
             <form
@@ -550,6 +685,8 @@ export function DecisionSessionSection({
                 Guardar evidencia
               </Button>
             </form>
+              </div>
+            </details>
             </>
             )}
 

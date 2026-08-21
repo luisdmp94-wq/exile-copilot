@@ -12,6 +12,7 @@ import {
 import {
   canTransition,
   characterSessionFingerprint,
+  conclusionForDecisionOutcome,
   DecisionSessionEventSchema,
   DecisionSessionSchema,
   evaluateSessionGate,
@@ -24,11 +25,13 @@ import {
   MAX_SESSION_EVENTS_HARD_CAP,
   MAX_SESSION_UNKNOWNS,
   MAX_SESSIONS_PER_CHARACTER,
+  observationMethodForExpectedImpact,
   recommendationConflictsConstraint,
   sessionFingerprintHash,
   sessionGateViewFromSession,
   sessionIsOpen,
   type DecisionConclusionKind,
+  type DecisionOutcome,
   type DecisionSession,
   type DecisionSessionEvent,
   type DecisionSessionKind,
@@ -520,7 +523,9 @@ function buildActionFromRecommendation(
         : budget,
       blockedReason: null,
       expectedResult: recommendation.impact.description,
-      observationMethod: "Mira el resultado en el juego y anótalo aquí con tus palabras.",
+      observationMethod: observationMethodForExpectedImpact(
+        recommendation.impact.description,
+      ),
     },
     gateReason: null,
   };
@@ -1100,6 +1105,7 @@ export function recordSessionResult(
     idempotencyKey: string;
     result: string;
     subjective: boolean;
+    outcome?: DecisionOutcome | null;
     unexpectedValuable: string | null;
     conclusion?: DecisionConclusionKind;
     reopenWhen: string | null;
@@ -1121,9 +1127,24 @@ export function recordSessionResult(
     assertCompatible(current, profile);
     const from = current.status;
     const now = new Date().toISOString();
+    const outcome = input.outcome ?? null;
     let conclusionKind: DecisionConclusionKind =
-      input.conclusion ?? (input.unexpectedValuable ? "change_strategy" : "complete");
-    if (input.subjective && !input.unexpectedValuable && !input.conclusion) {
+      input.conclusion ??
+      (outcome !== null
+        ? conclusionForDecisionOutcome(outcome, input.unexpectedValuable !== null)
+        : input.unexpectedValuable
+          ? "change_strategy"
+          : "complete");
+    // Compatibilidad con clientes antiguos: antes de existir `outcome`, una
+    // sensación sin conclusión mantenía el caso abierto. Con resultado 6C la
+    // elección estructurada manda; «resuelto» puede cerrar aunque sea la
+    // experiencia del jugador, quedando etiquetada honestamente como tal.
+    if (
+      outcome === null &&
+      input.subjective &&
+      !input.unexpectedValuable &&
+      !input.conclusion
+    ) {
       conclusionKind = "continue";
     }
     const toStatus: DecisionSessionStatus =
@@ -1144,6 +1165,7 @@ export function recordSessionResult(
       lastResult: {
         text: input.result,
         subjective: input.subjective,
+        outcome,
         unexpectedValuable: input.unexpectedValuable,
         recordedAt: now,
       },
@@ -1161,12 +1183,24 @@ export function recordSessionResult(
             ],
       conclusion: {
         kind: conclusionKind,
-        reason: input.subjective
-          ? "La hipótesis no queda medida: es la experiencia del jugador."
-          : input.unexpectedValuable
+        reason: input.unexpectedValuable
             ? `El objetivo inicial no se cumplió, pero «${input.unexpectedValuable}» merece protección.`
             : input.reopenWhen
               ? `Descartada porque la condición necesaria era inconsistente.`
+              : outcome === "resolved"
+                ? input.subjective
+                  ? "Según lo que observaste, el problema quedó resuelto; se conserva como experiencia del jugador, no como medición."
+                  : "Los datos aportados indican que el problema quedó resuelto."
+                : outcome === "improved"
+                  ? "Hubo una mejora, pero el problema continúa: mantenemos el caso abierto."
+                  : outcome === "unchanged"
+                    ? "No observaste una mejora: mantenemos el caso abierto sin inventar otra causa."
+                    : outcome === "worse"
+                      ? "El resultado empeoró: mantenemos el caso abierto y no damos el cambio por bueno."
+                      : outcome === "different"
+                        ? "Ocurrió algo distinto de lo esperado: lo conservamos y seguimos comprobando."
+                        : input.subjective
+                          ? "La hipótesis no queda medida: es la experiencia del jugador."
               : "El jugador informó del resultado y cerramos este paso.",
         reopenWhen:
           input.reopenWhen ??

@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   BookMarked,
   FileWarning,
+  FlaskConical,
   OctagonAlert,
   PackageSearch,
   Pencil,
@@ -22,6 +23,7 @@ import {
   SOURCE_KIND_LABELS,
 } from "@/lib/format";
 import { compactRecommendationReason } from "@/lib/journal";
+import { observationMethodForRecommendation } from "@/lib/sessionOutcome";
 import { cn } from "@/lib/utils";
 
 interface OpenCaseRecommendationProps {
@@ -107,6 +109,19 @@ export function OpenCaseRecommendation({
         <p className="mt-1 text-base leading-relaxed text-foreground">{rec.action}</p>
       </div>
 
+      <div
+        className="rounded-md border border-sky-500/30 bg-sky-500/[0.06] p-4"
+        data-testid="caso-que-observar"
+      >
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200">
+          <FlaskConical className="size-4" aria-hidden="true" />
+          Después del cambio, observa
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-foreground">
+          {observationMethodForRecommendation(rec)}
+        </p>
+      </div>
+
       {/* ---- Alertas críticas: antes del CTA, nunca plegadas ---------------- */}
       {(overBudget || rec.mayLoseValuableMods || rec.irreversible) && (
         <div className="flex flex-col gap-2" data-testid="caso-alertas">
@@ -153,7 +168,7 @@ export function OpenCaseRecommendation({
               onClick={() => onStartSession(rec)}
               disabled={startingSession}
             >
-              Comprobar esto
+              Probar y volver
             </Button>
           )}
           {rec.actionKind === "profile_sync" && (

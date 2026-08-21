@@ -314,13 +314,17 @@ function ExportReportView({
   ].filter((item) => item.length > 0);
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-primary/40 bg-primary/5 p-4">
-      <p className="text-sm font-medium text-foreground">
-        Informe de exportación de <span className="font-mono">{fileName}</span>
-      </p>
-      <p className="text-xs text-muted-foreground">
-        Archivo válido contra el esquema GGG Build Planner v1.
-      </p>
+    <details
+      className="rounded-md border border-primary/40 bg-primary/5"
+      data-testid="informe-exportacion"
+    >
+      <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+        Ver informe de exportación de <span className="font-mono">{fileName}</span>
+      </summary>
+      <div className="flex flex-col gap-3 border-t border-primary/30 p-4">
+        <p className="text-xs text-muted-foreground">
+          Archivo válido contra el esquema GGG Build Planner v1.
+        </p>
 
       <div>
         <p className="text-sm font-medium text-foreground">Qué contiene el archivo</p>
@@ -367,6 +371,7 @@ function ExportReportView({
           </AlertDescription>
         </Alert>
       )}
-    </div>
+      </div>
+    </details>
   );
 }

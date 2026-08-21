@@ -38,6 +38,7 @@ import {
   journalEntryFromRecommendation,
 } from "@/lib/journal";
 import { openCaseLimitations, selectOpenCase } from "@/lib/openCase";
+import { observationMethodForRecommendation } from "@/lib/sessionOutcome";
 import { MentorChatSection } from "@/sections/MentorChatSection";
 import { useMentor } from "@/hooks/useMentor";
 import { buildMentorRequest } from "@/lib/mentorRequest";
@@ -315,7 +316,7 @@ export default function App() {
         objective: recommendation.title,
         hypothesis: compactRecommendationReason(recommendation.reason),
         expectedResult: recommendation.impact.description,
-        observationMethod: "Anota lo que cambió en el juego, con tus palabras.",
+        observationMethod: observationMethodForRecommendation(recommendation),
         unknowns: [],
         constraints: [],
         soonReplacedItemIds: [],
@@ -431,6 +432,7 @@ export default function App() {
                         goal={goal}
                         journal={journal}
                         pendingRecommendation={dominantRecommendation}
+                        onEditExpediente={() => openEditor()}
                       />
                     }
                     journalSlot={
@@ -547,6 +549,7 @@ export default function App() {
                           goal={goal}
                           journal={journal}
                           pendingRecommendation={dominantRecommendation}
+                          onEditExpediente={() => openEditor()}
                         />
                       )
                     }

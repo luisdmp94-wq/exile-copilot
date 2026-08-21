@@ -21,6 +21,7 @@ import {
 } from "./domain.js";
 import {
   DecisionConclusionKind,
+  DecisionOutcome,
   DecisionSessionEventSchema,
   DecisionSessionKind,
   DecisionSessionSchema,
@@ -282,6 +283,7 @@ export type AddSessionEvidenceRequest = z.infer<typeof AddSessionEvidenceRequest
 export const RecordSessionResultRequestSchema = RevisionGuardSchema.extend({
   result: z.string().trim().min(1).max(4000),
   subjective: z.boolean().default(false),
+  outcome: DecisionOutcome.nullable().default(null),
   unexpectedValuable: z.string().trim().min(1).max(400).nullable().default(null),
   conclusion: DecisionConclusionKind.optional(),
   reopenWhen: z.string().trim().min(1).max(1000).nullable().default(null),

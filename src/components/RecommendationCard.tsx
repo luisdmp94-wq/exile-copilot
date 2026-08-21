@@ -236,7 +236,7 @@ export function RecommendationCard({
               onClick={() => onStartSession(rec)}
               disabled={startingSession}
             >
-              Comprobar esto
+              Probar y volver
             </Button>
           )}
           {rec.relatedItemIds.length > 0 && (
