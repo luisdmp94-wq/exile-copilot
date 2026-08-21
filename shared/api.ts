@@ -255,6 +255,19 @@ export const AddSessionConstraintRequestSchema = RevisionGuardSchema.extend({
 });
 export type AddSessionConstraintRequest = z.infer<typeof AddSessionConstraintRequestSchema>;
 
+/**
+ * Retirar CONSCIENTEMENTE una protección. El texto del conflicto invita a
+ * hacerlo, así que tiene que existir la acción correspondiente: sin ella el
+ * jugador queda en un callejón sin salida.
+ */
+export const ReleaseSessionConstraintRequestSchema = RevisionGuardSchema.extend({
+  constraintId: z.string().trim().min(1).max(80),
+  profile: CharacterProfileSchema,
+});
+export type ReleaseSessionConstraintRequest = z.infer<
+  typeof ReleaseSessionConstraintRequestSchema
+>;
+
 export const AddSessionEvidenceRequestSchema = RevisionGuardSchema.extend({
   kind: SessionEvidenceKind,
   text: z.string().trim().min(1).max(2000),

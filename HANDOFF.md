@@ -2,7 +2,58 @@
 
 > Informe para el propietario. Última actualización: sesión 12 (Hito 6B: sesiones adaptativas de decisión), 2026-08-21.
 
-## Sesión 12 — Hito 6B: sesiones adaptativas de decisión
+## Sesión 13 — Hito 6B corregido tras auditoría independiente
+
+Rama `hito-6b-corregido` (worktree aislado sobre el baseline
+`f6152c47`). **Sin integrar en main.** Parte del patch original de Grok
+(commit `e6288f2`, conservado sin tocar como prototipo) y aplica las nueve
+correcciones que exigía `AUDITORIA_HITO_6B_GROK.md`.
+
+- **SQLite es la fuente autoritativa del personaje.** Toda operación de sesión
+  carga el perfil guardado DENTRO de la transacción (`loadAuthoritativeProfile`).
+  El `profile` que envía una pestaña ya no decide nada: una pestaña antigua que
+  reenvía su snapshot recibe `sesion-incompatible-con-perfil` (409). Trabajar con
+  una sesión exige un personaje guardado (`personaje-no-guardado`).
+- **Huella completa y estable**: nivel, liga, parche, vida y defensas, atributos,
+  resistencias, habilidades, pasivas y el CONTENIDO del equipo (slot, id, base,
+  rareza, calidad, requisitos y mods). Todas las colecciones se ordenan por clave
+  estable y se excluye lo volátil (fechas, `sources`, `rawText`): reordenar no
+  cambia la huella, editar sí.
+- **Invariante de próxima acción**: tras `continue` o `change_strategy` la sesión
+  abierta siempre tiene una entrada principal viva con
+  `activeAction.journalEntryId === primaryEntryId`. En transiciones terminales el
+  id se pone a `null`: nunca apunta a una entrada completada.
+- **Desbloqueo real por evidencia**: la recomendación frenada se conserva
+  validada (`blockedRecommendation`) junto al presupuesto aceptado. Al resolver
+  la incógnita crítica se REEVALÚA el freno y, si ya es seguro, se restaura la
+  acción original con sus fuentes, coste, riesgo e ids.
+- **Historial cerrable**: `MAX_SESSION_EVENTS` (40) acota el material; las
+  transiciones terminales disponen de `RESERVED_TERMINAL_EVENTS` (2) plazas
+  extra. Una sesión con el historial lleno SIEMPRE puede pausarse, cerrarse o
+  descartarse, y el mensaje de error nombra esas acciones.
+- **Retención honesta de ocho sesiones**: `enforceSessionRetention` se aplica en
+  la misma transacción al abrir y al cerrar. Solo borra sesiones YA CERRADAS y
+  nunca la activa: no se pierde historia viva en silencio.
+- **Restricciones no aplanadas**: el digest publica `constraints` (label + sus
+  itemIds) y el freno atribuye el conflicto a la protección que POSEE el id, no
+  a la primera de la lista.
+- **Interfaz coherente por estado**: una sesión cerrada no ofrece resultado,
+  evidencia ni pausa, y expone «Empezar otra decisión»; hay un selector visible
+  de qué incógnita resuelve la evidencia (antes dependía de un estado local que
+  se perdía al recargar); y cada protección se puede retirar a conciencia
+  (`POST /session/constraints/release`), que es lo que el texto del conflicto
+  proponía sin ofrecerlo.
+- **Idempotencia ligada a la operación**: cada evento guarda `operation` y una
+  huella estable del request. La misma clave con otra ruta u otro payload
+  devuelve 409 `clave-de-idempotencia-reutilizada` en vez de un éxito silencioso.
+
+### Estado del prototipo original
+
+El patch de Grok aplica limpio y compila, pero **no debe integrarse tal cual**:
+las siete regresiones independientes de la auditoría fallan contra él (7/7) y
+pasan contra esta rama.
+
+## Sesión 12 — Hito 6B: sesiones adaptativas de decisión (prototipo de Grok, sin corregir)
 
 Trabajo hecho en la rama `hito-6b-adaptive-decision-sessions` a partir de la
 etiqueta local `source-f6152c47` (commit `d6b003c`, importado del ZIP
@@ -21,10 +72,13 @@ repositorio original.
   causal** deja una condición de reapertura; evidencia compatible → candidata,
   nunca un hecho demostrado. **Lo subjetivo no se trata como medición.**
 - **Huella de personaje**: si cambian nivel, liga, parche o equipo, la sesión
-  no se reutiliza en silencio (409 + confirmación).
+  no se reutiliza en silencio (409 + confirmación). *(Corregido en la sesión 13:
+  la huella original solo miraba los IDS de los objetos, así que editar una pieza
+  sin cambiar su id no se detectaba.)*
 - **SQLite aditivo**: `decision_sessions`, `decision_session_events` (máx. 40,
   `idempotency_key` UNIQUE) y columna `active_session_id`. Los payloads 5A/5B
-  no se reescriben.
+  no se reescriben. *(Corregido en la sesión 13: el tope de 40 impedía también
+  cerrar la sesión, y `MAX_SESSIONS_PER_CHARACTER` no se aplicaba.)*
 - **Revisión e idempotencia**: `journalRevision` forma parte del digest de
   sesión; un 409 `memoria-diario-obsoleta` retira la acción visible y recarga.
   Reintentar la misma clave no duplica el evento.

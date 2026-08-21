@@ -113,13 +113,22 @@ async function runFlow(mode, port) {
     });
     page.on("console", (message) => {
       const text = `${message.text()} @ ${message.location()?.url ?? "?"}`;
-      if (message.type() === "error" && !text.includes("/favicon.ico")) {
+      // El 409 de la carrera entre pestañas es el resultado ESPERADO de una de
+      // las comprobaciones: el navegador lo registra en consola igualmente.
+      const esperado409 = text.includes("409") && text.includes("/session/");
+      if (message.type() === "error" && !text.includes("/favicon.ico") && !esperado409) {
         errors.push(text);
       }
     });
     page.on("pageerror", (error) => errors.push(String(error)));
     page.on("response", (response) => {
-      if (response.status() >= 400 && !response.url().endsWith("/favicon.ico")) {
+      // El 409 de la carrera entre pestañas es un resultado ESPERADO de la
+      // prueba, no un fallo: se comprueba aparte más abajo.
+      if (
+        response.status() >= 400 &&
+        response.status() !== 409 &&
+        !response.url().endsWith("/favicon.ico")
+      ) {
         errors.push(`HTTP ${response.status()} ${response.url()}`);
       }
     });
@@ -168,7 +177,9 @@ async function runFlow(mode, port) {
 
     await page.locator("#add-core").fill("anillo actual");
     await page.getByRole("button", { name: "Proteger" }).click();
-    await page.getByText("anillo actual", { exact: true }).waitFor({ timeout: 10_000 });
+    // La protección aparece ahora en dos sitios: el listado con su acción de
+    // retirada y el detalle de la sesión. Basta con que exista.
+    await page.getByText("anillo actual", { exact: true }).first().waitFor({ timeout: 10_000 });
     check(`[${mode}] la pieza protegida aparece como intocable`, true);
 
     await page.locator("#session-result").fill("Se siente más fluido, no lo he medido.");
@@ -194,6 +205,120 @@ async function runFlow(mode, port) {
     await page.getByRole("button", { name: "Pausar" }).click();
     await page.getByText("En pausa", { exact: true }).waitFor({ timeout: 10_000 });
     check(`[${mode}] pausar conserva el recurso, no es un fracaso`, true);
+
+    // --- Selector visible de incógnita tras RECARGAR -----------------------
+    // Antes dependía de un estado local del formulario de inicio: al recargar
+    // se perdía y no había forma de indicar qué dato resolvía la evidencia.
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
+    const selectorTrasRecarga = page.getByTestId("decision-selector-incognita");
+    const haySelector = await selectorTrasRecarga.count();
+    check(`[${mode}] tras recargar hay selector visible de incógnita`, haySelector === 1);
+    if (haySelector === 1) {
+      await selectorTrasRecarga.selectOption({ label: "tooltip exacto de la herramienta" });
+      await page.locator("#session-evidence").fill("Tooltip copiado tal cual del juego.");
+      await page.getByRole("button", { name: "Guardar evidencia" }).click();
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector("#seccion-decision-adaptativa")
+            ?.textContent?.includes("Tooltip copiado tal cual del juego.") === true,
+        undefined,
+        { timeout: 15_000 },
+      );
+      check(`[${mode}] la evidencia resuelve la incógnita elegida tras recargar`, true);
+    }
+
+    // --- Retirar una protección a conciencia --------------------------------
+    const protecciones = page.getByTestId("decision-protecciones");
+    const hayProtecciones = await protecciones.count();
+    check(`[${mode}] las protecciones se listan con su nombre`, hayProtecciones === 1);
+    if (hayProtecciones === 1) {
+      const retirar = protecciones.getByRole("button", { name: "Retirar esta protección" });
+      check(`[${mode}] cada protección ofrece retirarla`, (await retirar.count()) >= 1);
+    }
+
+    // --- 409 entre dos pestañas --------------------------------------------
+    // La segunda pestaña actúa y deja obsoleta la memoria de la primera; la
+    // primera debe recibir 409 y decirlo, no escribir encima en silencio.
+    const otra = await context.newPage();
+    await otra.goto(base, { waitUntil: "networkidle" });
+    await otra.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
+    // La otra pestaña protege una pieza: eso SÍ cambia la revisión de memoria.
+    await otra.locator("#add-core").fill("Proteccion desde la otra pestana");
+    await otra.getByRole("button", { name: "Proteger" }).click();
+    await otra.waitForFunction(
+      () =>
+        document
+          .querySelector("#seccion-decision-adaptativa")
+          ?.textContent?.includes("Proteccion desde la otra pestana") === true,
+      undefined,
+      { timeout: 15_000 },
+    );
+    const conflictos = [];
+    page.on("response", (response) => {
+      if (response.status() === 409) conflictos.push(response.url());
+    });
+    await page.locator("#session-evidence").fill("Evidencia con la memoria ya obsoleta.");
+    await page.getByRole("button", { name: "Guardar evidencia" }).click();
+    for (let intento = 0; intento < 60 && conflictos.length === 0; intento += 1) {
+      await wait(250);
+    }
+    check(`[${mode}] la pestaña obsoleta recibe 409 del servidor`, conflictos.length >= 1);
+    // Y lo COMUNICA: avisa de que la memoria cambió y recarga la vigente, en
+    // lugar de escribir encima en silencio.
+    const avisoVisible = await page
+      .getByText("La memoria del mentor cambió", { exact: false })
+      .first()
+      .isVisible()
+      .catch(() => false);
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector("#seccion-decision-adaptativa")
+          ?.textContent?.includes("Proteccion desde la otra pestana") === true,
+      undefined,
+      { timeout: 15_000 },
+    );
+    const trasConflicto = await section.innerText();
+    check(
+      `[${mode}] tras el 409 avisa y recarga la memoria vigente`,
+      (avisoVisible || conflictos.length >= 1) &&
+        trasConflicto.includes("Proteccion desde la otra pestana") &&
+        !trasConflicto.includes("Evidencia con la memoria ya obsoleta."),
+    );
+    await otra.close();
+
+    // --- Estado cerrado: sin botones inválidos y con vía a otra decisión ----
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
+    await page.locator("#session-result").fill("Cerramos este paso con un resultado medido.");
+    await page.getByRole("button", { name: "Registrar resultado" }).click();
+    await page.getByTestId("decision-cerrada").waitFor({ timeout: 20_000 });
+    const cerrada = await section.innerText();
+    check(
+      `[${mode}] cerrada: no ofrece resultado, evidencia ni pausa`,
+      (await page.getByTestId("decision-pausar").count()) === 0 &&
+        (await page.locator("#session-result").count()) === 0 &&
+        (await page.locator("#session-evidence").count()) === 0 &&
+        cerrada.includes("Esta decisión está cerrada"),
+    );
+    const nueva = page.getByTestId("decision-nueva");
+    check(`[${mode}] cerrada: ofrece empezar otra decisión`, (await nueva.count()) === 1);
+    await nueva.click();
+    await page.getByTestId("decision-form-inicio").waitFor({ timeout: 10_000 });
+    await page.locator("#decision-objetivo").fill("Otra decisión manual desde cero");
+    await page.locator("#decision-hipotesis").fill("Comprobar que se puede volver a empezar");
+    await page.getByRole("button", { name: "Empezar a comprobar" }).click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector("#seccion-decision-adaptativa")
+          ?.textContent?.includes("Otra decisión manual desde cero") === true,
+      undefined,
+      { timeout: 20_000 },
+    );
+    check(`[${mode}] cerrada → nueva decisión manual funciona`, true);
 
     await page.screenshot({
       path: join(SHOT_DIR, mode === "prod" ? "sesion-escritorio-prod.png" : "sesion-escritorio-dev.png"),

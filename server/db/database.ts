@@ -152,6 +152,23 @@ function applyDecisionSessionSchema(db: Database): void {
   if (!stateNames.has("active_session_id")) {
     db.exec("ALTER TABLE journal_state ADD COLUMN active_session_id TEXT");
   }
+
+  /*
+   * Migración ADITIVA: la idempotencia se liga a la operación concreta. Una
+   * clave reutilizada con otra ruta o con otro payload debe dar 409, no un
+   * éxito silencioso que devolvería el resultado de una operación distinta.
+   * Las filas antiguas quedan con NULL y se tratan como «sin huella conocida».
+   */
+  const eventColumns = db
+    .prepare("PRAGMA table_info(decision_session_events)")
+    .all() as unknown as Array<{ name: string }>;
+  const eventNames = new Set(eventColumns.map((column) => column.name));
+  if (!eventNames.has("operation")) {
+    db.exec("ALTER TABLE decision_session_events ADD COLUMN operation TEXT");
+  }
+  if (!eventNames.has("request_fingerprint")) {
+    db.exec("ALTER TABLE decision_session_events ADD COLUMN request_fingerprint TEXT");
+  }
 }
 
 export function withTransaction<T>(db: Database, fn: () => T): T {

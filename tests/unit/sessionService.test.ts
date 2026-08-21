@@ -59,17 +59,23 @@ function rec(overrides: Record<string, unknown> = {}): Recommendation {
   });
 }
 
-function emptyRevision(characterId: string, db = createDatabase(":memory:")) {
+/**
+ * SQLite es la fuente autoritativa del personaje: las operaciones de sesión
+ * leen el perfil guardado, no el que envía la pestaña. Por eso el escenario
+ * empieza guardándolo, igual que hace la aplicación real con POST /character.
+ */
+function emptyRevision(profile: CharacterProfile, db = createDatabase(":memory:")) {
+  saveCharacter(db, profile.id, JSON.stringify(profile));
   return {
     db,
-    revision: readJournalBundle(db, characterId).memoryRevision,
+    revision: readJournalBundle(db, profile.id).memoryRevision,
   };
 }
 
 describe("sessionService — criterios 6B", () => {
   it("1. incógnita crítica + irreversible: no autoriza, pide la evidencia", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     saveCharacter(db, profile.id, JSON.stringify(profile));
     const bundle = startDecisionSession(db, profile.id, {
       journalRevision: revision,
@@ -96,7 +102,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("2. restricción core: conflicto explícito, no sustituye por la siguiente", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const bundle = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-core",
@@ -120,7 +126,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("3. resultado inesperado valioso: se protege y cambia el plan", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const started = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-valioso-start",
@@ -157,7 +163,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("4. descarte causal + evidencia compatible → candidata, no demostrada", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const started = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-discard-start",
@@ -200,7 +206,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("5. pieza a sustituir o presupuesto → pausa, no fracaso", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const paused = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-budget",
@@ -224,7 +230,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("6. feedback subjetivo no se trata como medición", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const started = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-subj-start",
@@ -260,7 +266,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("7. huella distinta: no reutiliza la sesión en silencio", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const started = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-fp-start",
@@ -277,14 +283,17 @@ describe("sessionService — criterios 6B", () => {
       profile,
       budget: { amount: 50, currency: "exalted" },
     });
+    // El personaje cambia DE VERDAD: se guarda mutado en SQLite. Reenviar el
+    // snapshot antiguo desde la pestaña no puede eludir la reconciliación.
     const mutated = { ...profile, items: [] };
+    saveCharacter(db, profile.id, JSON.stringify(mutated));
     expect(() =>
       addSessionConstraint(db, profile.id, {
         journalRevision: started.memoryRevision,
         idempotencyKey: "k-fp-fail",
         label: "pieza core",
         relatedItemIds: [],
-        profile: mutated,
+        profile,
       }),
     ).toThrow(ApiHttpError);
     const reconciled = reconcileSession(db, profile.id, {
@@ -307,7 +316,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("9 y 10. 409 por revisión obsoleta e idempotencia de la misma clave", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const first = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-idem",
@@ -324,14 +333,16 @@ describe("sessionService — criterios 6B", () => {
       profile,
       budget: { amount: 50, currency: "exalted" },
     });
+    // Reintento HONESTO: misma clave y mismo payload (la revisión no entra en la
+    // huella, porque una pestaña que reintenta ya no la tiene fresca).
     const replay = startDecisionSession(db, profile.id, {
       journalRevision: "journal-memory-v1:deadbeefdeadbeef",
       idempotencyKey: "k-idem",
       kind: "guided_decision",
-      objective: "Otra",
-      hypothesis: "Otra",
-      expectedResult: "Otro",
-      observationMethod: "Otro",
+      objective: "Probar",
+      hypothesis: "Hipótesis",
+      expectedResult: "Resultado",
+      observationMethod: "Observa",
       unknowns: [],
       constraints: [],
       soonReplacedItemIds: [],
@@ -341,6 +352,38 @@ describe("sessionService — criterios 6B", () => {
       budget: { amount: 50, currency: "exalted" },
     });
     expect(replay.journal.session?.id).toBe(first.journal.session?.id);
+
+    // La MISMA clave con otro payload ya no devuelve éxito silencioso: sería
+    // contestar con el resultado de una operación que nadie pidió.
+    expect(() =>
+      startDecisionSession(db, profile.id, {
+        journalRevision: revision,
+        idempotencyKey: "k-idem",
+        kind: "guided_decision",
+        objective: "Otra cosa distinta",
+        hypothesis: "Otra hipótesis",
+        expectedResult: "Otro resultado",
+        observationMethod: "Otro método",
+        unknowns: [],
+        constraints: [],
+        soonReplacedItemIds: [],
+        protectedResources: [],
+        recommendation: null,
+        profile,
+        budget: { amount: 50, currency: "exalted" },
+      }),
+    ).toThrowError(/clave-de-idempotencia-reutilizada/);
+
+    // Y con OTRA operación tampoco.
+    expect(() =>
+      addSessionConstraint(db, profile.id, {
+        journalRevision: first.memoryRevision,
+        idempotencyKey: "k-idem",
+        label: "core",
+        relatedItemIds: [],
+        profile,
+      }),
+    ).toThrowError(/clave-de-idempotencia-reutilizada/);
     expect(() =>
       addSessionConstraint(db, profile.id, {
         journalRevision: revision,
@@ -405,7 +448,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("12. transiciones ilegales se rechazan con 400", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const started = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-illegal-start",
@@ -453,7 +496,7 @@ describe("sessionService — criterios 6B", () => {
 
   it("la revisión de memoria cambia al añadir una restricción", () => {
     const profile = demoProfile();
-    const { db, revision } = emptyRevision(profile.id);
+    const { db, revision } = emptyRevision(profile);
     const started = startDecisionSession(db, profile.id, {
       journalRevision: revision,
       idempotencyKey: "k-rev-start",

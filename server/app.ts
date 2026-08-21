@@ -13,6 +13,7 @@ import {
   UpdateJournalEntryRequestSchema,
   StartDecisionSessionRequestSchema,
   AddSessionConstraintRequestSchema,
+  ReleaseSessionConstraintRequestSchema,
   AddSessionEvidenceRequestSchema,
   RecordSessionResultRequestSchema,
   PauseSessionRequestSchema,
@@ -41,6 +42,7 @@ import {
 } from "./db/repositories.js";
 import {
   addSessionConstraint,
+  releaseSessionConstraint,
   addSessionEvidence,
   assertRevision,
   pauseSession,
@@ -438,6 +440,20 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
       }
       const journal = addSessionConstraint(db, characterId, input);
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/constraints/release", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = ReleaseSessionConstraintRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = releaseSessionConstraint(db, characterId, input);
       res.json(journal.journal);
     } catch (err) {
       next(err);

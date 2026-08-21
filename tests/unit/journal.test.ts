@@ -340,6 +340,8 @@ describe("Character Journal", () => {
         soonReplacedItemIds: [],
         protectedResources: [],
         activeAction: null,
+    blockedRecommendation: null,
+    budget: null,
         lastResult: null,
         conclusion: null,
         characterFingerprint: "abc",

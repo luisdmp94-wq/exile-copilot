@@ -38,6 +38,7 @@ import {
   type UpdateJournalEntryRequest,
   type StartDecisionSessionRequest,
   type AddSessionConstraintRequest,
+  type ReleaseSessionConstraintRequest,
   type AddSessionEvidenceRequest,
   type RecordSessionResultRequest,
   type PauseSessionRequest,
@@ -188,6 +189,16 @@ export const api = {
   ): Promise<JournalResponse> =>
     request(
       `/api/journal/${encodeURIComponent(characterId)}/session/constraints`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  releaseSessionConstraint: (
+    characterId: string,
+    payload: ReleaseSessionConstraintRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/constraints/release`,
       JournalResponseSchema,
       jsonInit(payload),
     ),

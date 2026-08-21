@@ -15,6 +15,7 @@ import {
   SESSION_KIND_LABELS,
   SESSION_STATUS_LABELS,
   characterSessionFingerprint,
+  sessionIsOpen,
 } from "@shared/decisionSession.js";
 import type { JournalState } from "@/hooks/useJournal";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -64,8 +65,26 @@ export function DecisionSessionSection({
   const [subjective, setSubjective] = useState(false);
   const [reopenWhen, setReopenWhen] = useState("");
   const [evidenceText, setEvidenceText] = useState("");
+  /** Incógnita que resuelve la evidencia: elegida en la lista, no en un estado oculto. */
+  const [resolvesUnknownId, setResolvesUnknownId] = useState("");
+  /** El jugador pidió explícitamente empezar otra decisión tras cerrar la anterior. */
+  const [startingNew, setStartingNew] = useState(false);
 
   if (!profile) return null;
+
+  /**
+   * Una sesión cerrada (completada, descartada) no admite resultado, evidencia
+   * ni pausa: el servidor los rechaza. La interfaz deja de ofrecerlos y expone
+   * en su lugar una vía clara para empezar otra decisión.
+   */
+  const isOpen = session !== null && sessionIsOpen(session.status);
+  const showStartForm = session === null || (!isOpen && startingNew);
+  const unresolvedUnknowns = (session?.unknowns ?? []).filter(
+    (item) => !item.resolved,
+  );
+  const activeConstraints = (session?.constraints ?? []).filter(
+    (item) => item.protected,
+  );
 
   const guard = {
     journalRevision: revision ?? "missing",
@@ -148,8 +167,8 @@ export function DecisionSessionSection({
           </Alert>
         )}
 
-        {session === null ? (
-          <form className="space-y-3" onSubmit={startManual}>
+        {showStartForm && (
+          <form className="space-y-3" onSubmit={startManual} data-testid="decision-form-inicio">
             <div className="space-y-1">
               <Label htmlFor="decision-objetivo">Qué quieres conseguir</Label>
               <Input
@@ -224,7 +243,8 @@ export function DecisionSessionSection({
               )}
             </div>
           </form>
-        ) : (
+        )}
+        {session !== null && (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">{SESSION_KIND_LABELS[session.kind]}</Badge>
@@ -320,6 +340,64 @@ export function DecisionSessionSection({
               </p>
             )}
 
+            {/* Protecciones vigentes: cada una se puede retirar A CONCIENCIA, que
+                es justo lo que propone el texto del conflicto. */}
+            {activeConstraints.length > 0 && (
+              <div className="space-y-1" data-testid="decision-protecciones">
+                <h3 className="font-medium">Piezas protegidas</h3>
+                <ul className="space-y-1 text-sm">
+                  {activeConstraints.map((item) => (
+                    <li key={item.id} className="flex flex-wrap items-center gap-2">
+                      <span className="break-words">{item.label}</span>
+                      {isOpen && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`decision-retirar-${item.id}`}
+                          disabled={journal.saving || journal.stale || !revision}
+                          onClick={() =>
+                            void journal.releaseConstraint({
+                              ...guard,
+                              journalRevision: revision!,
+                              idempotencyKey: newKey(),
+                              constraintId: item.id,
+                            })
+                          }
+                        >
+                          Retirar esta protección
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {!isOpen && (
+              <Alert data-testid="decision-cerrada">
+                <AlertTitle>Esta decisión está cerrada</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>
+                    Ya no admite resultado, evidencia ni pausa. Puedes reabrirla como
+                    candidata o empezar otra decisión desde cero.
+                  </p>
+                  {!startingNew && (
+                    <Button
+                      type="button"
+                      data-testid="decision-nueva"
+                      onClick={() => setStartingNew(true)}
+                    >
+                      <Sparkles className="size-4" aria-hidden="true" />
+                      Empezar otra decisión
+                    </Button>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {isOpen && (
+            <>
             <form
               className="space-y-2"
               onSubmit={(event) => {
@@ -414,15 +492,19 @@ export function DecisionSessionSection({
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!revision || evidenceText.trim() === "") return;
+                const chosen = unresolvedUnknowns.find(
+                  (item) => item.id === resolvesUnknownId,
+                );
                 void journal.addEvidence({
                   ...guard,
                   journalRevision: revision,
                   idempotencyKey: newKey(),
                   kind: "confirmed",
                   text: evidenceText.trim(),
-                  resolvesUnknownLabel: unknown.trim() || null,
+                  resolvesUnknownLabel: chosen?.label ?? null,
                 });
                 setEvidenceText("");
+                setResolvesUnknownId("");
               }}
             >
               <Label htmlFor="session-evidence">Añadir evidencia (sin cerrar el paso)</Label>
@@ -432,15 +514,43 @@ export function DecisionSessionSection({
                 onChange={(event) => setEvidenceText(event.target.value)}
                 maxLength={2000}
               />
+              {/* La incógnita que resuelve la evidencia se ELIGE aquí: antes
+                  dependía del campo del formulario de inicio, que tras recargar
+                  la página estaba vacío y no se podía volver a indicar. */}
+              {unresolvedUnknowns.length > 0 && (
+                <div className="space-y-1">
+                  <Label htmlFor="session-evidence-unknown">
+                    ¿Qué dato pendiente resuelve?
+                  </Label>
+                  <select
+                    id="session-evidence-unknown"
+                    data-testid="decision-selector-incognita"
+                    className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                    value={resolvesUnknownId}
+                    onChange={(event) => setResolvesUnknownId(event.target.value)}
+                  >
+                    <option value="">Ninguno en concreto</option>
+                    {unresolvedUnknowns.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <Button type="submit" variant="outline" disabled={journal.saving || journal.stale}>
                 Guardar evidencia
               </Button>
             </form>
+            </>
+            )}
 
             <div className="flex flex-wrap gap-2">
+              {isOpen && (
               <Button
                 type="button"
                 variant="outline"
+                data-testid="decision-pausar"
                 disabled={journal.saving || journal.stale || !revision}
                 onClick={() =>
                   void journal.pauseSession({
@@ -454,6 +564,7 @@ export function DecisionSessionSection({
                 <CirclePause className="size-4" aria-hidden="true" />
                 Pausar
               </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

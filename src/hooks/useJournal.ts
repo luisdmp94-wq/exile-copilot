@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type {
   AddSessionConstraintRequest,
+  ReleaseSessionConstraintRequest,
   AddSessionEvidenceRequest,
   CreateJournalEntryRequest,
   PauseSessionRequest,
@@ -28,6 +29,9 @@ export interface JournalState {
   ) => Promise<JournalEntry | null>;
   startSession: (input: StartDecisionSessionRequest) => Promise<JournalResponse | null>;
   addConstraint: (input: AddSessionConstraintRequest) => Promise<JournalResponse | null>;
+  releaseConstraint: (
+    input: ReleaseSessionConstraintRequest,
+  ) => Promise<JournalResponse | null>;
   addEvidence: (input: AddSessionEvidenceRequest) => Promise<JournalResponse | null>;
   recordResult: (input: RecordSessionResultRequest) => Promise<JournalResponse | null>;
   pauseSession: (input: PauseSessionRequest) => Promise<JournalResponse | null>;
@@ -205,6 +209,11 @@ export function useJournal(characterId: string | null): JournalState {
       runSession(
         () => api.addSessionConstraint(characterId!, input),
         "Pieza protegida añadida",
+      ),
+    releaseConstraint: (input) =>
+      runSession(
+        () => api.releaseSessionConstraint(characterId!, input),
+        "Protección retirada",
       ),
     addEvidence: (input) =>
       runSession(

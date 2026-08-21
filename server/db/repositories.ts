@@ -295,13 +295,52 @@ export function listDecisionSessions(
 export function getEventByIdempotencyKey(
   db: Database,
   idempotencyKey: string,
-): { payload: string; character_id: string } | null {
+): {
+  payload: string;
+  character_id: string;
+  operation: string | null;
+  request_fingerprint: string | null;
+} | null {
   const row = db
     .prepare(
-      `SELECT payload, character_id FROM decision_session_events WHERE idempotency_key = ?`,
+      `SELECT payload, character_id, operation, request_fingerprint
+       FROM decision_session_events WHERE idempotency_key = ?`,
     )
     .get(idempotencyKey);
-  return (row as { payload: string; character_id: string } | undefined) ?? null;
+  return (
+    (row as
+      | {
+          payload: string;
+          character_id: string;
+          operation: string | null;
+          request_fingerprint: string | null;
+        }
+      | undefined) ?? null
+  );
+}
+
+/** Sesiones más antiguas que sobran al aplicar la retención máxima. */
+export function listDecisionSessionIdsBeyond(
+  db: Database,
+  characterId: string,
+  keep: number,
+): string[] {
+  const safeKeep = Math.max(0, Math.trunc(keep));
+  const rows = db
+    .prepare(
+      `SELECT id FROM decision_sessions
+       WHERE character_id = ?
+       ORDER BY updated_at DESC, created_at DESC, id DESC
+       LIMIT -1 OFFSET ?`,
+    )
+    .all(characterId, safeKeep);
+  return (rows as unknown as Array<{ id: string }>).map((row) => row.id);
+}
+
+/** Borra una sesión y su historial. Solo lo usa la retención documentada. */
+export function deleteDecisionSession(db: Database, sessionId: string): void {
+  db.prepare(`DELETE FROM decision_session_events WHERE session_id = ?`).run(sessionId);
+  db.prepare(`DELETE FROM decision_sessions WHERE id = ?`).run(sessionId);
 }
 
 export function countSessionEvents(db: Database, sessionId: string): number {
@@ -320,12 +359,15 @@ export function saveDecisionSessionEvent(
     idempotencyKey: string;
     payload: string;
     createdAt: string;
+    operation: string;
+    requestFingerprint: string;
   },
 ): void {
   db.prepare(
     `INSERT INTO decision_session_events (
-       id, session_id, character_id, idempotency_key, payload, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?)`,
+       id, session_id, character_id, idempotency_key, payload, created_at,
+       operation, request_fingerprint
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     event.id,
     event.sessionId,
@@ -333,6 +375,8 @@ export function saveDecisionSessionEvent(
     event.idempotencyKey,
     event.payload,
     event.createdAt,
+    event.operation,
+    event.requestFingerprint,
   );
 }
 
@@ -341,7 +385,8 @@ export function listDecisionSessionEvents(
   sessionId: string,
   limit: number,
 ): Array<{ payload: string }> {
-  const safeLimit = Math.max(1, Math.min(Math.trunc(limit), 40));
+  // 42 = tope de material (40) más la reserva de cierre (2).
+  const safeLimit = Math.max(1, Math.min(Math.trunc(limit), 42));
   const rows = db
     .prepare(
       `SELECT payload FROM decision_session_events

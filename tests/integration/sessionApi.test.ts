@@ -254,4 +254,92 @@ describe("API de sesiones adaptativas", () => {
     expect(blocked.status).toBe(400);
     expect((await jsonOf(blocked)).error).toBe("sesion-ya-activa");
   });
+
+  it("SQLite manda: una pestaña con el snapshot antiguo recibe 409 aunque lo reenvíe", async () => {
+    const profile = { ...demoProfile, id: "sesion-api-autoridad" };
+    await postJson("/character", { profile });
+    const bundle = await jsonOf(await fetch(`${base}/journal/${profile.id}`));
+    const started = await postJson(`/journal/${profile.id}/session`, {
+      journalRevision: buildRecommendationMemory(bundle, bundle.session).revision,
+      idempotencyKey: "api-autoridad-start",
+      kind: "guided_decision",
+      objective: "Comprobar autoridad de SQLite",
+      hypothesis: "El servidor decide con lo guardado",
+      expectedResult: "Un resultado observable",
+      observationMethod: "Juega un encuentro",
+      unknowns: [],
+      constraints: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      recommendation: null,
+      profile,
+      budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
+    });
+    expect(started.status).toBe(201);
+    const startedBody = await jsonOf(started);
+
+    // El personaje cambia DE VERDAD (segundo snapshot, distinto del primero).
+    const evolved = { ...profile, level: profile.level + 7, life: (profile.life ?? 0) + 400 };
+    const saved = await postJson("/character", { profile: evolved });
+    expect(saved.status).toBe(200);
+
+    // La pestaña antigua reenvía SU snapshot: no puede eludir la reconciliación.
+    // Se usa la revisión VIGENTE para que el único motivo de 409 sea el perfil.
+    const fresh = await jsonOf(await fetch(`${base}/journal/${profile.id}`));
+    void startedBody;
+    const stale = await postJson(`/journal/${profile.id}/session/constraints`, {
+      journalRevision: buildRecommendationMemory(fresh, fresh.session).revision,
+      idempotencyKey: "api-autoridad-stale",
+      label: "Pieza core",
+      relatedItemIds: [],
+      profile,
+    });
+    expect(stale.status).toBe(409);
+    expect((await jsonOf(stale)).error).toBe("sesion-incompatible-con-perfil");
+  });
+
+  it("una clave idempotente reutilizada con otra operación o payload da 409", async () => {
+    const profile = { ...demoProfile, id: "sesion-api-idempotencia" };
+    await postJson("/character", { profile });
+    const bundle = await jsonOf(await fetch(`${base}/journal/${profile.id}`));
+    const revision = buildRecommendationMemory(bundle, bundle.session).revision;
+    const payload = {
+      journalRevision: revision,
+      idempotencyKey: "api-idem-compartida",
+      kind: "guided_decision" as const,
+      objective: "Primera intención",
+      hypothesis: "Primera hipótesis",
+      expectedResult: "Un resultado observable",
+      observationMethod: "Juega un encuentro",
+      unknowns: [],
+      constraints: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      recommendation: null,
+      profile,
+      budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
+    };
+    expect((await postJson(`/journal/${profile.id}/session`, payload)).status).toBe(201);
+    // Mismo payload: reintento honesto.
+    expect((await postJson(`/journal/${profile.id}/session`, payload)).status).toBe(201);
+    // Payload distinto con la misma clave: conflicto explícito.
+    const conflict = await postJson(`/journal/${profile.id}/session`, {
+      ...payload,
+      objective: "Otra intención completamente distinta",
+    });
+    expect(conflict.status).toBe(409);
+    expect((await jsonOf(conflict)).error).toBe("clave-de-idempotencia-reutilizada");
+    // Otra ruta con la misma clave: también conflicto.
+    const otherRoute = await postJson(`/journal/${profile.id}/session/constraints`, {
+      journalRevision: revision,
+      idempotencyKey: "api-idem-compartida",
+      label: "Pieza core",
+      relatedItemIds: [],
+      profile,
+    });
+    expect(otherRoute.status).toBe(409);
+    expect((await jsonOf(otherRoute)).error).toBe("clave-de-idempotencia-reutilizada");
+  });
 });

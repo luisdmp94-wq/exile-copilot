@@ -1,9 +1,35 @@
 import { z } from "zod";
 import type { CharacterProfile, Recommendation } from "./domain.js";
-import { BudgetSchema, RiskLevel } from "./domain.js";
+import { BudgetSchema, RecommendationSchema, RiskLevel } from "./domain.js";
 
 /** Límites duros: el historial no crece sin cota. */
 export const MAX_SESSION_EVENTS = 40;
+/**
+ * Plazas EXTRA reservadas para transiciones terminales (pausar, registrar el
+ * resultado, descartar).
+ *
+ * `MAX_SESSION_EVENTS` sigue acotando el material que se puede acumular
+ * (restricciones y evidencia). Las transiciones que cierran o aparcan la sesión
+ * disponen además de esta reserva, de modo que una sesión con el historial
+ * lleno SIEMPRE puede cerrarse. Antes, al llegar a 40 el servidor rechazaba
+ * también el cierre: el mensaje pedía «ciérrala o páusala» y ésas eran justo
+ * las dos acciones que ya no permitía.
+ */
+export const RESERVED_TERMINAL_EVENTS = 2;
+export const MAX_NON_TERMINAL_SESSION_EVENTS = MAX_SESSION_EVENTS;
+export const MAX_SESSION_EVENTS_HARD_CAP =
+  MAX_SESSION_EVENTS + RESERVED_TERMINAL_EVENTS;
+
+/** Triggers que cierran o aparcan la sesión: pueden usar la reserva. */
+const TERMINAL_TRIGGERS: ReadonlySet<string> = new Set([
+  "paused",
+  "result_recorded",
+  "discarded",
+]);
+
+export function isTerminalSessionTrigger(trigger: string): boolean {
+  return TERMINAL_TRIGGERS.has(trigger);
+}
 export const MAX_SESSION_CONSTRAINTS = 20;
 export const MAX_SESSION_EVIDENCE = 30;
 export const MAX_SESSION_UNKNOWNS = 15;
@@ -102,6 +128,19 @@ export const DecisionSessionSchema = z.object({
   soonReplacedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
   protectedResources: z.array(z.string().trim().min(1).max(200)).max(10).default([]),
   activeAction: SessionActiveActionSchema.nullable().default(null),
+  /**
+   * Recomendación (o plan manual) que un freno dejó sin ejecutar, conservada
+   * VALIDADA y completa: fuentes, coste, riesgo e ids. Al resolver la incógnita
+   * crítica se reevalúa el freno y, si ya es seguro, se restaura esta acción en
+   * lugar de perderla. `null` cuando no hay nada frenado.
+   */
+  blockedRecommendation: RecommendationSchema.nullable().default(null),
+  /**
+   * Presupuesto aceptado al abrir la decisión. Se guarda porque al reevaluar un
+   * freno (por ejemplo tras resolver la incógnita crítica) hay que volver a
+   * comparar el coste con el MISMO presupuesto, no con uno improvisado.
+   */
+  budget: BudgetSchema.nullable().default(null),
   lastResult: z
     .object({
       text: z.string().trim().min(1).max(4000),
@@ -133,9 +172,22 @@ export const DecisionSessionEventSchema = z.object({
 export type DecisionSessionEvent = z.infer<typeof DecisionSessionEventSchema>;
 
 /** Vista acotada que entra en la memoria del motor (fingerprint). */
+/** Protección con sus ids: NUNCA se aplana, o el conflicto citaría otra. */
+export const SessionConstraintDigestSchema = z.object({
+  label: z.string(),
+  itemIds: z.array(z.string()).max(20),
+});
+export type SessionConstraintDigest = z.infer<typeof SessionConstraintDigestSchema>;
+
 export const SessionMemoryDigestSchema = z.object({
   sessionId: z.string().min(1).nullable(),
   status: DecisionSessionStatus.nullable(),
+  /**
+   * Fuente de verdad del conflicto: cada label con SUS ids. Los dos arrays
+   * planos de abajo se derivan de aquí y se conservan solo porque el motor y la
+   * memoria ya los publicaban; no deben usarse para decidir qué label mostrar.
+   */
+  constraints: z.array(SessionConstraintDigestSchema).max(MAX_SESSION_CONSTRAINTS),
   constraintLabels: z.array(z.string()).max(MAX_SESSION_CONSTRAINTS),
   constraintItemIds: z.array(z.string()).max(100),
   unresolvedBlockingUnknowns: z.array(z.string()).max(MAX_SESSION_UNKNOWNS),
@@ -148,6 +200,7 @@ export function emptySessionDigest(): SessionMemoryDigest {
   return {
     sessionId: null,
     status: null,
+    constraints: [],
     constraintLabels: [],
     constraintItemIds: [],
     unresolvedBlockingUnknowns: [],
@@ -160,15 +213,16 @@ export function sessionMemoryDigest(
   session: DecisionSession | null,
 ): SessionMemoryDigest {
   if (session === null) return emptySessionDigest();
+  const active = session.constraints.filter((constraint) => constraint.protected);
   return SessionMemoryDigestSchema.parse({
     sessionId: session.id,
     status: session.status,
-    constraintLabels: session.constraints
-      .filter((constraint) => constraint.protected)
-      .map((constraint) => constraint.label),
-    constraintItemIds: session.constraints
-      .filter((constraint) => constraint.protected)
-      .flatMap((constraint) => constraint.relatedItemIds),
+    constraints: active.map((constraint) => ({
+      label: constraint.label,
+      itemIds: constraint.relatedItemIds,
+    })),
+    constraintLabels: active.map((constraint) => constraint.label),
+    constraintItemIds: active.flatMap((constraint) => constraint.relatedItemIds),
     unresolvedBlockingUnknowns: session.unknowns
       .filter((unknown) => unknown.blockingIrreversible && !unknown.resolved)
       .map((unknown) => unknown.label),
@@ -187,17 +241,93 @@ export function sessionFingerprintHash(value: string): string {
   return hash.toString(16).padStart(16, "0");
 }
 
+/**
+ * Huella del personaje para una sesión.
+ *
+ * Debe cambiar ante CUALQUIER cambio que pueda invalidar una decisión en curso:
+ * nivel, liga, parche, vida y defensas, atributos, resistencias, habilidades,
+ * pasivas y el CONTENIDO del equipo (slot, id, base, rareza, calidad,
+ * requisitos y mods) — no solo el id del objeto, que sobrevive a una edición.
+ *
+ * No entra nada volátil: ni fechas (`retrievedAt`, `dataUpdatedAt`), ni
+ * `sources`, ni `rawText`. Todas las colecciones se ORDENAN por una clave
+ * estable, de modo que reordenar un array sin cambiar su contenido no altera
+ * la huella (y al revés: cambiar el contenido siempre la altera).
+ */
 export function characterSessionFingerprint(
   profile: CharacterProfile,
 ): string {
-  const itemIds = profile.items.map((item) => item.id).sort();
+  const byKey = <T>(values: readonly T[], key: (value: T) => string): T[] =>
+    [...values].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
+
+  const items = byKey(profile.items, (item) => `${item.slot}|${item.id}`).map((item) => ({
+    id: item.id,
+    slot: item.slot,
+    name: item.name,
+    baseType: item.baseType,
+    rarity: item.rarity,
+    itemLevel: item.itemLevel ?? null,
+    quality: item.quality ?? null,
+    requirements: {
+      level: item.requirements?.level ?? null,
+      str: item.requirements?.str ?? null,
+      dex: item.requirements?.dex ?? null,
+      int: item.requirements?.int ?? null,
+    },
+    // El texto del mod es lo que el jugador ve; el id puede regenerarse.
+    modifiers: byKey(
+      item.modifiers.map((modifier) => ({
+        kind: modifier.kind,
+        text: modifier.text,
+        values: modifier.values,
+      })),
+      (modifier) => `${modifier.kind}|${modifier.text}`,
+    ),
+  }));
+
+  const skills = byKey(profile.skills, (skill) => `${skill.id}|${skill.mainSkill}`).map(
+    (skill) => ({
+      id: skill.id,
+      label: skill.label,
+      mainSkill: skill.mainSkill,
+      mainSkillGemId: skill.mainSkillGemId,
+      supports: byKey(
+        skill.supports.map((support) => ({ name: support.name, gemId: support.gemId })),
+        (support) => `${support.name}|${support.gemId ?? ""}`,
+      ),
+    }),
+  );
+
+  const passives = byKey(
+    profile.passives.allocated.map((node) => ({
+      ref: node.ref,
+      isOfficialId: node.isOfficialId,
+      additionalText: node.additionalText ?? null,
+    })),
+    (node) => node.ref,
+  );
+
   return sessionFingerprintHash(
     JSON.stringify({
       id: profile.id,
+      name: profile.name,
+      characterClass: profile.characterClass,
+      ascendancy: profile.ascendancy,
+      ascendancyId: profile.ascendancyId,
       level: profile.level,
       league: profile.league,
       patch: profile.patch,
-      itemIds,
+      defences: {
+        life: profile.life ?? null,
+        energyShield: profile.energyShield ?? null,
+        evasion: profile.evasion ?? null,
+        armour: profile.armour ?? null,
+      },
+      attributes: profile.attributes,
+      resistances: profile.resistances,
+      items,
+      skills,
+      passives,
     }),
   );
 }
@@ -284,11 +414,30 @@ export type SessionGateKind =
 /** Vista mínima para el freno de sesión: motor y servicio deben coincidir. */
 export interface SessionGateView {
   unresolvedBlockingUnknowns: readonly string[];
+  /**
+   * Protecciones con SUS ids. `constraintLabels`/`constraintItemIds` siguen
+   * aceptándose para los llamadores antiguos, pero solo como respaldo: el
+   * conflicto se resuelve siempre contra estos pares.
+   */
+  constraints?: ReadonlyArray<{ label: string; itemIds: readonly string[] }>;
   constraintLabels: readonly string[];
   constraintItemIds: readonly string[];
   soonReplacedItemIds: readonly string[];
   status: string | null;
   budget: { amount: number; currency: string } | null;
+}
+
+/** Pares label→ids desde la vista, tolerando llamadores que solo dan los planos. */
+function gateConstraints(
+  view: SessionGateView,
+): ReadonlyArray<{ label: string; itemIds: readonly string[] }> {
+  if (view.constraints !== undefined) return view.constraints;
+  // Respaldo: sin la relación original solo se puede emparejar por posición.
+  return view.constraintLabels.map((label, index) => ({
+    label,
+    itemIds:
+      view.constraintItemIds[index] === undefined ? [] : [view.constraintItemIds[index]!],
+  }));
 }
 
 export function sessionGateViewFromSession(
@@ -298,6 +447,7 @@ export function sessionGateViewFromSession(
   const digest = sessionMemoryDigest(session);
   return {
     unresolvedBlockingUnknowns: digest.unresolvedBlockingUnknowns,
+    constraints: digest.constraints,
     constraintLabels: digest.constraintLabels,
     constraintItemIds: digest.constraintItemIds,
     soonReplacedItemIds: digest.soonReplacedItemIds,
@@ -327,22 +477,22 @@ export function evaluateSessionGate(
     };
   }
 
-  if (
-    view.constraintItemIds.some((id) => recommendation.relatedItemIds.includes(id))
-  ) {
-    return {
-      kind: "protected_constraint",
-      label: view.constraintLabels[0] ?? "una pieza protegida",
-    };
+  // El conflicto por id se atribuye a la protección que POSEE ese id, no a la
+  // primera de la lista: si no, el jugador leería el nombre de otra protección.
+  const byItemId = gateConstraints(view).find((constraint) =>
+    constraint.itemIds.some((id) => recommendation.relatedItemIds.includes(id)),
+  );
+  if (byItemId !== undefined) {
+    return { kind: "protected_constraint", label: byItemId.label };
   }
-  const conflictLabel = view.constraintLabels.find((label) => {
-    const phrase = label.trim().toLowerCase();
-    if (phrase.length < 3) return false;
-    const haystack = `${recommendation.title}\n${recommendation.action}\n${recommendation.reason}`.toLowerCase();
-    return haystack.includes(phrase);
+  const haystack =
+    `${recommendation.title}\n${recommendation.action}\n${recommendation.reason}`.toLowerCase();
+  const byPhrase = gateConstraints(view).find((constraint) => {
+    const phrase = constraint.label.trim().toLowerCase();
+    return phrase.length >= 3 && haystack.includes(phrase);
   });
-  if (conflictLabel !== undefined) {
-    return { kind: "protected_constraint", label: conflictLabel };
+  if (byPhrase !== undefined) {
+    return { kind: "protected_constraint", label: byPhrase.label };
   }
 
   if (recommendationHitsSoonReplaced(recommendation, view.soonReplacedItemIds)) {
