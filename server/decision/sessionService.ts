@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   CharacterProfileSchema,
+  BuildMemoryEntrySchema,
   compactJournalTitle,
   type GoalKind,
   JournalEntrySchema,
@@ -55,6 +56,7 @@ import {
   listDecisionSessionIdsBeyond,
   listDecisionSessions,
   listJournalEntries,
+  listBuildMemoryEntries,
   saveDecisionSession,
   saveDecisionSessionEvent,
   saveJournalEntry,
@@ -105,6 +107,9 @@ export function readJournalBundle(
   const entries = listJournalEntries(db, characterId).map((row) =>
     JournalEntrySchema.parse(JSON.parse(row.payload)),
   );
+  const buildMemory = listBuildMemoryEntries(db, characterId).map((row) =>
+    BuildMemoryEntrySchema.parse(JSON.parse(row.payload)),
+  );
   const storedPrimaryId = getJournalPrimaryEntryId(db, characterId);
   const primaryEntry =
     entries.find(
@@ -117,6 +122,7 @@ export function readJournalBundle(
     primaryEntryId: primaryEntry?.id ?? null,
     primaryEntry,
     entries,
+    buildMemory,
   };
   const activeId = getActiveSessionId(db, characterId);
   const sessionRow = activeId ? getDecisionSession(db, activeId) : null;

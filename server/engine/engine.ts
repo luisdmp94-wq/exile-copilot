@@ -25,6 +25,7 @@ import {
 import type { PriceQuery, QuotesResult } from "../services/poeninja.js";
 import {
   evaluateSessionGate,
+  recommendationConflictsConstraint,
   sessionIsOpen,
   type SessionGateKind,
 } from "../../shared/decisionSession.js";
@@ -428,6 +429,7 @@ function sessionGateRecommendation(
   generatedAt: string,
   patch: string,
   relatedItemIds: string[],
+  sourceLabel = "Restricción o evidencia de la sesión de decisión",
 ): Recommendation {
   return {
     id,
@@ -450,7 +452,7 @@ function sessionGateRecommendation(
     sources: [
       {
         kind: "user",
-        label: "Restricción o evidencia de la sesión de decisión",
+        label: sourceLabel,
         retrievedAt: generatedAt,
         patch,
       },
@@ -472,13 +474,43 @@ function applySessionGates(
   budget: Budget,
   generatedAt: string,
 ): Recommendation[] {
+  if (recommendations.length === 0) return recommendations;
+  const first = recommendations[0];
+  if (!first) return recommendations;
+
+  // La identidad core pertenece a la build, no a una sesión temporal. Solo se
+  // frena cuando el vínculo es demostrable por ids o por la coincidencia
+  // explícita ya soportada; el texto no se interpreta como mecánica de PoE2.
+  const coreConflict = memory?.build.entries
+    .filter((entry) => entry.active && entry.kind === "core")
+    .find((entry) =>
+      recommendationConflictsConstraint(first, {
+        id: entry.id,
+        label: entry.label,
+        relatedItemIds: entry.relatedItemIds,
+        protected: true,
+      }),
+    );
+  if (coreConflict) {
+    return [
+      sessionGateRecommendation(
+        "rec-memoria-build-core",
+        "Conflicto con la identidad de la build",
+        `No toques «${coreConflict.label}». Está marcado como Core en la memoria de esta build.`,
+        `La prioridad calculada choca con «${coreConflict.label}». El mentor se detiene en vez de romper una pieza esencial.`,
+        generatedAt,
+        first.patch,
+        first.relatedItemIds,
+        "Identidad Core declarada por el jugador en la memoria de la build",
+      ),
+    ];
+  }
+
   const session = memory?.session;
-  if (!session?.sessionId || recommendations.length === 0) return recommendations;
+  if (!session?.sessionId) return recommendations;
   if (session.status === null || !sessionIsOpen(session.status)) {
     return recommendations;
   }
-  const first = recommendations[0];
-  if (!first) return recommendations;
 
   const gate = evaluateSessionGate(first, {
     unresolvedBlockingUnknowns: session.unresolvedBlockingUnknowns,

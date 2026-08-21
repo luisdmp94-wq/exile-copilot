@@ -119,6 +119,23 @@ export function applySchema(db: Database): void {
       );
   `);
   applyDecisionSessionSchema(db);
+  applyBuildMemorySchema(db);
+}
+
+function applyBuildMemorySchema(db: Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS build_memory_entries (
+      id TEXT PRIMARY KEY,
+      character_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      active INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS build_memory_character_active_updated
+      ON build_memory_entries(character_id, active, updated_at DESC, id DESC);
+  `);
 }
 
 function applyDecisionSessionSchema(db: Database): void {

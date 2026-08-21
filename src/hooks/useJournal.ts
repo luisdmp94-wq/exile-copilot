@@ -11,8 +11,10 @@ import type {
   ReopenSessionRequest,
   StartDecisionSessionRequest,
   UpdateJournalEntryRequest,
+  CreateBuildMemoryEntryRequest,
+  UpdateBuildMemoryEntryRequest,
 } from "@shared/api.js";
-import type { JournalEntry } from "@shared/domain.js";
+import type { BuildMemoryEntry, JournalEntry } from "@shared/domain.js";
 import type { JournalResponse } from "@shared/api.js";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 
@@ -27,6 +29,13 @@ export interface JournalState {
     entryId: string,
     input: UpdateJournalEntryRequest,
   ) => Promise<JournalEntry | null>;
+  createBuildMemoryEntry: (
+    input: CreateBuildMemoryEntryRequest,
+  ) => Promise<BuildMemoryEntry | null>;
+  updateBuildMemoryEntry: (
+    entryId: string,
+    input: UpdateBuildMemoryEntryRequest,
+  ) => Promise<BuildMemoryEntry | null>;
   startSession: (input: StartDecisionSessionRequest) => Promise<JournalResponse | null>;
   addConstraint: (input: AddSessionConstraintRequest) => Promise<JournalResponse | null>;
   releaseConstraint: (
@@ -169,6 +178,51 @@ export function useJournal(characterId: string | null): JournalState {
     [characterId, handleStale],
   );
 
+  const createBuildMemoryEntry = useCallback(
+    async (
+      input: CreateBuildMemoryEntryRequest,
+    ): Promise<BuildMemoryEntry | null> => {
+      if (characterId === null) return null;
+      setSaving(true);
+      setError(null);
+      try {
+        const response = await api.createBuildMemoryEntry(characterId, input);
+        setJournal(response.journal);
+        toast.success("Regla de build guardada");
+        return response.entry;
+      } catch (err) {
+        await handleStale(err, "No se pudo guardar la regla de build");
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [characterId, handleStale],
+  );
+
+  const updateBuildMemoryEntry = useCallback(
+    async (
+      entryId: string,
+      input: UpdateBuildMemoryEntryRequest,
+    ): Promise<BuildMemoryEntry | null> => {
+      if (characterId === null) return null;
+      setSaving(true);
+      setError(null);
+      try {
+        const response = await api.updateBuildMemoryEntry(characterId, entryId, input);
+        setJournal(response.journal);
+        toast.success(input.active === false ? "Regla archivada" : "Regla actualizada");
+        return response.entry;
+      } catch (err) {
+        await handleStale(err, "No se pudo actualizar la regla de build");
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [characterId, handleStale],
+  );
+
   const runSession = useCallback(
     async (
       action: () => Promise<JournalResponse>,
@@ -200,6 +254,8 @@ export function useJournal(characterId: string | null): JournalState {
     stale,
     createEntry,
     updateEntry,
+    createBuildMemoryEntry,
+    updateBuildMemoryEntry,
     startSession: (input) =>
       runSession(
         () => api.startDecisionSession(characterId!, input),

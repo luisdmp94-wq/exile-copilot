@@ -11,6 +11,8 @@ import {
   JournalContextSchema,
   JournalEntryKind,
   JournalEntrySchema,
+  BuildMemoryEntrySchema,
+  BuildMemoryKind,
   JournalEntryStatus,
   MAX_JOURNAL_TITLE_LENGTH,
   PatchVersionSchema,
@@ -211,6 +213,50 @@ export const JournalEntryResponseSchema = z.object({
 });
 export type JournalResponse = z.infer<typeof JournalResponseSchema>;
 export type JournalEntryResponse = z.infer<typeof JournalEntryResponseSchema>;
+
+export const CreateBuildMemoryEntryRequestSchema = z.object({
+  kind: BuildMemoryKind,
+  label: z.string().trim().min(1).max(200),
+  reason: z.string().trim().min(1).max(1000),
+  relatedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
+  reconsiderWhen: z.string().trim().min(1).max(1000).nullable().default(null),
+  journalRevision: z.string().min(1).max(4000),
+});
+export type CreateBuildMemoryEntryRequest = z.infer<
+  typeof CreateBuildMemoryEntryRequestSchema
+>;
+
+export const UpdateBuildMemoryEntryRequestSchema = z
+  .object({
+    kind: BuildMemoryKind.optional(),
+    label: z.string().trim().min(1).max(200).optional(),
+    reason: z.string().trim().min(1).max(1000).optional(),
+    relatedItemIds: z.array(z.string().min(1).max(200)).max(20).optional(),
+    reconsiderWhen: z
+      .string()
+      .trim()
+      .min(1)
+      .max(1000)
+      .nullable()
+      .optional(),
+    active: z.boolean().optional(),
+    journalRevision: z.string().min(1).max(4000),
+  })
+  .refine(
+    (value) => Object.keys(value).some((key) => key !== "journalRevision"),
+    { message: "Incluye al menos un cambio." },
+  );
+export type UpdateBuildMemoryEntryRequest = z.infer<
+  typeof UpdateBuildMemoryEntryRequestSchema
+>;
+
+export const BuildMemoryEntryResponseSchema = z.object({
+  journal: JournalResponseSchema,
+  entry: BuildMemoryEntrySchema,
+});
+export type BuildMemoryEntryResponse = z.infer<
+  typeof BuildMemoryEntryResponseSchema
+>;
 
 const RevisionGuardSchema = z.object({
   journalRevision: z.string().min(1).max(4000),

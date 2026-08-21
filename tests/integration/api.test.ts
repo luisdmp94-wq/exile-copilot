@@ -61,6 +61,48 @@ const demoItemText = readFileSync(
 );
 
 describe("api (integración, app Express con db :memory:)", () => {
+  it("persiste la identidad de build y la incluye en la revisión del mentor", async () => {
+    const profile = CharacterProfileSchema.parse({
+      ...JSON.parse(
+        readFileSync(
+          fileURLToPath(new URL("../../server/fixtures/demoSnapshot.json", import.meta.url)),
+          "utf8",
+        ),
+      ),
+      id: "build-memory-api",
+    });
+    await postJson("/character", { profile });
+    const empty = CharacterJournalSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const initialRevision = buildRecommendationMemory(empty).revision;
+    const weapon = profile.items.find((item) => item.slot === "weapon")!;
+
+    const createdResponse = await postJson(`/journal/${profile.id}/build-memory`, {
+      kind: "core",
+      label: "Mi arma actual",
+      reason: "Sostiene la identidad de esta variante.",
+      relatedItemIds: [weapon.id],
+      reconsiderWhen: null,
+      journalRevision: initialRevision,
+    });
+    expect(createdResponse.status).toBe(201);
+    const created = await jsonOf(createdResponse);
+    expect(created.journal.buildMemory).toHaveLength(1);
+    expect(created.entry.kind).toBe("core");
+    const nextRevision = buildRecommendationMemory(created.journal).revision;
+    expect(nextRevision).not.toBe(initialRevision);
+
+    const archivedResponse = await patchJson(
+      `/journal/${profile.id}/build-memory/${created.entry.id}`,
+      { active: false, journalRevision: nextRevision },
+    );
+    expect(archivedResponse.status).toBe(200);
+    const archived = await jsonOf(archivedResponse);
+    expect(archived.entry.active).toBe(false);
+    expect(archived.journal.buildMemory).toEqual([]);
+  });
+
   it("GET /health responde ok con patch objeto {content, hotfix, asOf, source}", async () => {
     const res = await fetch(`${base}/health`);
     expect(res.status).toBe(200);
@@ -196,6 +238,7 @@ describe("api (integración, app Express con db :memory:)", () => {
       primaryEntryId: null,
       primaryEntry: null,
       entries: [],
+      buildMemory: [],
       session: null,
       sessionEvents: [],
     });

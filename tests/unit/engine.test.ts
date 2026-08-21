@@ -81,6 +81,58 @@ function profileWithUniqueWeapon(): CharacterProfile {
 }
 
 describe("engine — exactitud y contratos", () => {
+  it("una pieza Core persistente frena la prioridad que intenta modificarla", async () => {
+    const profile = demoProfile();
+    profile.resistances = { fire: 75, cold: 75, lightning: 75, chaos: 0 };
+    profile.life = 10_000;
+    profile.attributes = { str: 300, dex: 300, int: 300 };
+    const mainSkill = profile.skills[0];
+    if (mainSkill) {
+      mainSkill.supports = [
+        { name: "Support A", gemId: null },
+        { name: "Support B", gemId: null },
+        { name: "Support C", gemId: null },
+      ];
+    }
+    const weapon = profile.items.find((item) => item.slot === "weapon");
+    expect(weapon).toBeDefined();
+    const now = "2026-08-22T00:00:00.000Z";
+    const coreEntry = {
+      id: "core-weapon",
+      characterId: profile.id,
+      kind: "core" as const,
+      label: "Arma que sostiene la identidad actual",
+      reason: "El jugador ha pedido conservarla durante esta prueba.",
+      relatedItemIds: [weapon!.id],
+      reconsiderWhen: null,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1:core-weapon",
+      primaryEntry: null,
+      recentCompleted: [],
+      build: {
+        entries: [coreEntry],
+        coreLabels: [coreEntry.label],
+        coreItemIds: [weapon!.id],
+      },
+    });
+
+    const result = await generateRecommendations(
+      profile,
+      { ...BASE_OPTIONS, goal: { kind: "damage" }, memory },
+      { priceService: null },
+    );
+
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.recommendations[0]?.id).toBe("rec-memoria-build-core");
+    expect(result.recommendations[0]?.actionKind).toBe("session_gate");
+    expect(result.recommendations[0]?.action).toContain(coreEntry.label);
+    expect(result.recommendations[0]?.relatedItemIds).toContain(weapon!.id);
+  });
+
   it("demo snapshot → 3 recomendaciones con todos los campos obligatorios", async () => {
     const result = await generateRecommendations(
       demoProfile(),

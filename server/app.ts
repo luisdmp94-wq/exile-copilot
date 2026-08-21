@@ -19,13 +19,18 @@ import {
   PauseSessionRequestSchema,
   ReopenSessionRequestSchema,
   ReconcileSessionRequestSchema,
+  CreateBuildMemoryEntryRequestSchema,
+  UpdateBuildMemoryEntryRequestSchema,
   type ApiError,
 } from "../shared/api.js";
 import {
   CharacterProfileSchema,
+  BuildMemoryEntrySchema,
   JournalEntrySchema,
   PatchVersionSchema,
   type JournalEntry,
+  type BuildMemoryEntry,
+  type CharacterProfile,
   type PatchVersion,
 } from "../shared/domain.js";
 import { buildRecommendationMemory } from "../shared/journalMemory.js";
@@ -34,10 +39,13 @@ import { createDatabase, withTransaction } from "./db/database.js";
 import {
   getCharacter,
   getJournalEntry,
+  getBuildMemoryEntry,
   getJournalPrimaryEntryId,
   listCompletedRecommendationJournalEntries,
+  listBuildMemoryEntries,
   saveCharacter,
   saveJournalEntry,
+  saveBuildMemoryEntry,
   setJournalPrimaryEntryId,
 } from "./db/repositories.js";
 import {
@@ -127,15 +135,34 @@ function readRecommendationMemory(
     10,
   ).map((row) => JournalEntrySchema.parse(JSON.parse(row.payload)));
   const session = readJournalBundle(db, characterId).journal.session;
+  const buildMemory = listBuildMemoryEntries(db, characterId).map((row) =>
+    BuildMemoryEntrySchema.parse(JSON.parse(row.payload)),
+  );
   return buildRecommendationMemory(
     {
       characterId,
       primaryEntryId: primaryEntry?.id ?? null,
       primaryEntry,
       entries: completedEntries,
+      buildMemory,
     },
     session,
   );
+}
+
+function assertKnownBuildMemoryItems(
+  profile: CharacterProfile,
+  relatedItemIds: string[],
+): void {
+  const knownItemIds = new Set(profile.items.map((item) => item.id));
+  const unknownItemId = relatedItemIds.find((id) => !knownItemIds.has(id));
+  if (unknownItemId) {
+    throw new ApiHttpError(
+      400,
+      "objeto-de-memoria-desconocido",
+      `El objeto «${unknownItemId}» no pertenece al personaje guardado.`,
+    );
+  }
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): Express {
@@ -258,6 +285,119 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.get("/journal/:characterId", (req, res, next) => {
     try {
       res.json(readJournal(db, req.params.characterId));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Memoria estable de la identidad de la build. No implica que el juego haya
+  // ejecutado nada: son reglas declaradas por el jugador y conservadas aparte
+  // de una sesión concreta.
+  app.post("/journal/:characterId/build-memory", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = CreateBuildMemoryEntryRequestSchema.parse(req.body);
+      const profileRow = getCharacter(db, characterId);
+      if (!profileRow) {
+        throw new ApiHttpError(
+          409,
+          "personaje-no-guardado",
+          "Guarda el personaje antes de definir la identidad de su build.",
+        );
+      }
+      const profile = CharacterProfileSchema.parse(JSON.parse(profileRow.payload));
+      assertKnownBuildMemoryItems(profile, input.relatedItemIds);
+      const now = new Date().toISOString();
+      const entry: BuildMemoryEntry = BuildMemoryEntrySchema.parse({
+        id: randomUUID(),
+        characterId,
+        kind: input.kind,
+        label: input.label,
+        reason: input.reason,
+        relatedItemIds: input.relatedItemIds,
+        reconsiderWhen: input.kind === "discarded" ? input.reconsiderWhen : null,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const journal = withTransaction(db, () => {
+        assertRevision(db, characterId, input.journalRevision);
+        saveBuildMemoryEntry(db, {
+          id: entry.id,
+          characterId,
+          kind: entry.kind,
+          payload: JSON.stringify(entry),
+          active: entry.active,
+          createdAt: entry.createdAt,
+          updatedAt: entry.updatedAt,
+        });
+        return readJournal(db, characterId);
+      });
+      res.status(201).json({ journal, entry });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.patch("/journal/:characterId/build-memory/:entryId", (req, res, next) => {
+    try {
+      const { characterId, entryId } = req.params;
+      const input = UpdateBuildMemoryEntryRequestSchema.parse(req.body);
+      const row = getBuildMemoryEntry(db, entryId);
+      if (!row || row.character_id !== characterId) {
+        throw new ApiHttpError(
+          404,
+          "memoria-build-no-encontrada",
+          "No existe esa regla de build para este personaje.",
+        );
+      }
+      const previous = BuildMemoryEntrySchema.parse(JSON.parse(row.payload));
+      if (input.relatedItemIds !== undefined) {
+        const profileRow = getCharacter(db, characterId);
+        if (!profileRow) {
+          throw new ApiHttpError(
+            409,
+            "personaje-no-guardado",
+            "Guarda el personaje antes de cambiar los objetos de una regla.",
+          );
+        }
+        assertKnownBuildMemoryItems(
+          CharacterProfileSchema.parse(JSON.parse(profileRow.payload)),
+          input.relatedItemIds,
+        );
+      }
+      const nextKind = input.kind ?? previous.kind;
+      const entry: BuildMemoryEntry = BuildMemoryEntrySchema.parse({
+        ...previous,
+        ...(input.kind !== undefined ? { kind: input.kind } : {}),
+        ...(input.label !== undefined ? { label: input.label } : {}),
+        ...(input.reason !== undefined ? { reason: input.reason } : {}),
+        ...(input.relatedItemIds !== undefined
+          ? { relatedItemIds: input.relatedItemIds }
+          : {}),
+        ...(input.active !== undefined ? { active: input.active } : {}),
+        reconsiderWhen:
+          nextKind === "discarded"
+            ? input.reconsiderWhen !== undefined
+              ? input.reconsiderWhen
+              : previous.reconsiderWhen
+            : null,
+        updatedAt: new Date().toISOString(),
+      });
+      const journal = withTransaction(db, () => {
+        assertRevision(db, characterId, input.journalRevision);
+        saveBuildMemoryEntry(db, {
+          id: entry.id,
+          characterId,
+          kind: entry.kind,
+          payload: JSON.stringify(entry),
+          active: entry.active,
+          createdAt: entry.createdAt,
+          updatedAt: entry.updatedAt,
+        });
+        return readJournal(db, characterId);
+      });
+      res.json({ journal, entry });
     } catch (err) {
       next(err);
     }

@@ -417,6 +417,10 @@ export default function App() {
                 dialogTriggerRef={dialogTriggerRef}
                 onShowOpenCase={showOpenCase}
                 onEditExpediente={() => openEditor()}
+                journal={journal}
+                profilePersisted={character.persisted}
+                savingProfile={character.busy === "save"}
+                onSaveProfile={() => void character.saveCorrections()}
               />
             ) : (
               <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(23rem,26rem)_minmax(0,1fr)] lg:items-start">
@@ -534,6 +538,10 @@ export default function App() {
                     dialogTriggerRef={dialogTriggerRef}
                     onShowOpenCase={showOpenCase}
                     onEditExpediente={() => openEditor()}
+                    journal={journal}
+                    profilePersisted={character.persisted}
+                    savingProfile={character.busy === "save"}
+                    onSaveProfile={() => void character.saveCorrections()}
                   />
                 </div>
 

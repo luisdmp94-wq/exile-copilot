@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EquipmentPanel } from "@/components/EquipmentPanel";
 import { ItemDetailDialog } from "@/components/ItemDetailDialog";
+import { BuildMemorySection } from "@/components/BuildMemorySection";
+import type { JournalState } from "@/hooks/useJournal";
 
 interface ExpedienteSectionProps {
   profile: CharacterProfile | null;
@@ -21,6 +23,10 @@ interface ExpedienteSectionProps {
   /** Lleva la atención al Caso Abierto (navegación objeto → caso). */
   onShowOpenCase: () => void;
   onEditExpediente: () => void;
+  journal: JournalState;
+  profilePersisted: boolean;
+  savingProfile: boolean;
+  onSaveProfile: () => void;
 }
 
 /**
@@ -41,6 +47,10 @@ export function ExpedienteSection({
   dialogTriggerRef,
   onShowOpenCase,
   onEditExpediente,
+  journal,
+  profilePersisted,
+  savingProfile,
+  onSaveProfile,
 }: ExpedienteSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
@@ -124,6 +134,14 @@ export function ExpedienteSection({
           </p>
         )}
       </div>
+
+      <BuildMemorySection
+        profile={profile}
+        journal={journal}
+        profilePersisted={profilePersisted}
+        savingProfile={savingProfile}
+        onSaveProfile={onSaveProfile}
+      />
 
       <EquipmentPanel
         items={profile.items}

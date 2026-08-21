@@ -89,6 +89,76 @@ export function getCharacter(db: Database, id: string): CharacterRow | null {
   return (row as CharacterRow | undefined) ?? null;
 }
 
+export interface BuildMemoryEntryRow {
+  id: string;
+  character_id: string;
+  kind: string;
+  payload: string;
+  active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function saveBuildMemoryEntry(
+  db: Database,
+  entry: {
+    id: string;
+    characterId: string;
+    kind: string;
+    payload: string;
+    active: boolean;
+    createdAt: string;
+    updatedAt: string;
+  },
+): void {
+  db.prepare(
+    `INSERT INTO build_memory_entries (
+       id, character_id, kind, payload, active, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       kind = excluded.kind,
+       payload = excluded.payload,
+       active = excluded.active,
+       updated_at = excluded.updated_at`,
+  ).run(
+    entry.id,
+    entry.characterId,
+    entry.kind,
+    entry.payload,
+    entry.active ? 1 : 0,
+    entry.createdAt,
+    entry.updatedAt,
+  );
+}
+
+export function getBuildMemoryEntry(
+  db: Database,
+  id: string,
+): BuildMemoryEntryRow | null {
+  const row = db
+    .prepare(
+      `SELECT id, character_id, kind, payload, active, created_at, updated_at
+       FROM build_memory_entries WHERE id = ?`,
+    )
+    .get(id);
+  return (row as BuildMemoryEntryRow | undefined) ?? null;
+}
+
+export function listBuildMemoryEntries(
+  db: Database,
+  characterId: string,
+): BuildMemoryEntryRow[] {
+  return db
+    .prepare(
+      `SELECT id, character_id, kind, payload, active, created_at, updated_at
+       FROM build_memory_entries
+       WHERE character_id = ? AND active = 1
+       ORDER BY updated_at DESC, created_at DESC, id DESC
+       LIMIT 100`,
+    )
+    .all(characterId) as unknown as BuildMemoryEntryRow[];
+}
+
 export interface JournalEntryRow {
   id: string;
   character_id: string;

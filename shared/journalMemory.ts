@@ -65,10 +65,23 @@ export function buildRecommendationMemory(
   const sessionDigest: SessionMemoryDigest = resolvedSession
     ? sessionMemoryDigest(resolvedSession)
     : emptySessionDigest();
+  const buildEntries = (journal.buildMemory ?? [])
+    .filter((entry) => entry.active)
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .slice(0, 100);
+  const coreEntries = buildEntries.filter((entry) => entry.kind === "core");
+  const build = {
+    entries: buildEntries,
+    coreLabels: coreEntries.map((entry) => entry.label).slice(0, 30),
+    coreItemIds: Array.from(
+      new Set(coreEntries.flatMap((entry) => entry.relatedItemIds)),
+    ).slice(0, 100),
+  };
 
   const revisionPayload = JSON.stringify({
     primaryEntry,
     recentCompleted,
+    build,
     session: sessionDigest,
   });
 
@@ -76,6 +89,7 @@ export function buildRecommendationMemory(
     revision: `journal-memory-v1:${revisionHash(revisionPayload)}`,
     primaryEntry,
     recentCompleted,
+    build,
     session: sessionDigest,
   });
 }

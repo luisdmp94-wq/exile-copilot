@@ -450,11 +450,43 @@ export const JournalEntrySchema = z.object({
 });
 export type JournalEntry = z.infer<typeof JournalEntrySchema>;
 
+// ---------------------------------------------------------------------------
+// Memoria estructural de la build — identidad que sobrevive a una sesión
+// ---------------------------------------------------------------------------
+
+export const BuildMemoryKind = z.enum([
+  "core",
+  "flexible",
+  "experimental",
+  "discarded",
+]);
+export type BuildMemoryKind = z.infer<typeof BuildMemoryKind>;
+
+/**
+ * Una regla declarada por el jugador. El texto es memoria, no una estadística:
+ * el motor solo puede protegerla automáticamente por ids estructurados de
+ * objetos o por una coincidencia textual explícita ya soportada por el freno.
+ */
+export const BuildMemoryEntrySchema = z.object({
+  id: z.string().min(1).max(100),
+  characterId: z.string().min(1),
+  kind: BuildMemoryKind,
+  label: z.string().trim().min(1).max(200),
+  reason: z.string().trim().min(1).max(1000),
+  relatedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
+  reconsiderWhen: z.string().trim().min(1).max(1000).nullable().default(null),
+  active: z.boolean().default(true),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type BuildMemoryEntry = z.infer<typeof BuildMemoryEntrySchema>;
+
 export const CharacterJournalSchema = z.object({
   characterId: z.string().min(1),
   primaryEntryId: z.string().nullable(),
   primaryEntry: JournalEntrySchema.nullable(),
   entries: z.array(JournalEntrySchema),
+  buildMemory: z.array(BuildMemoryEntrySchema).max(100).default([]),
 });
 export type CharacterJournal = z.infer<typeof CharacterJournalSchema>;
 
@@ -483,6 +515,14 @@ export const RecommendationMemorySchema = z.object({
   revision: z.string().min(1).max(4000),
   primaryEntry: RecommendationMemoryEntrySchema.nullable(),
   recentCompleted: z.array(RecommendationMemoryEntrySchema).max(10),
+  /** Identidad persistente de la build. Solo las entradas core frenan cambios. */
+  build: z
+    .object({
+      entries: z.array(BuildMemoryEntrySchema).max(100),
+      coreLabels: z.array(z.string().min(1).max(200)).max(30),
+      coreItemIds: z.array(z.string().min(1).max(200)).max(100),
+    })
+    .default({ entries: [], coreLabels: [], coreItemIds: [] }),
   /**
    * Digest de la sesión adaptativa (Hito 6B). Vacío si no hay sesión.
    * Forma parte del fingerprint: un cambio de restricción invalida recomendaciones.

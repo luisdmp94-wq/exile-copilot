@@ -14,6 +14,7 @@ import {
   ImportBuildResponseSchema,
   ImportItemTextResponseSchema,
   JournalEntryResponseSchema,
+  BuildMemoryEntryResponseSchema,
   JournalResponseSchema,
   MarketPricesResponseSchema,
   MetaResponseSchema,
@@ -30,6 +31,9 @@ import {
   type ImportItemTextResponse,
   type CreateJournalEntryRequest,
   type JournalEntryResponse,
+  type BuildMemoryEntryResponse,
+  type CreateBuildMemoryEntryRequest,
+  type UpdateBuildMemoryEntryRequest,
   type JournalResponse,
   type MarketPricesResponse,
   type MetaResponse,
@@ -170,6 +174,27 @@ export const api = {
     request(
       `/api/journal/${encodeURIComponent(characterId)}/entries/${encodeURIComponent(entryId)}`,
       JournalEntryResponseSchema,
+      jsonInit(payload, "PATCH"),
+    ),
+
+  createBuildMemoryEntry: (
+    characterId: string,
+    payload: CreateBuildMemoryEntryRequest,
+  ): Promise<BuildMemoryEntryResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/build-memory`,
+      BuildMemoryEntryResponseSchema,
+      jsonInit(payload),
+    ),
+
+  updateBuildMemoryEntry: (
+    characterId: string,
+    entryId: string,
+    payload: UpdateBuildMemoryEntryRequest,
+  ): Promise<BuildMemoryEntryResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/build-memory/${encodeURIComponent(entryId)}`,
+      BuildMemoryEntryResponseSchema,
       jsonInit(payload, "PATCH"),
     ),
 
