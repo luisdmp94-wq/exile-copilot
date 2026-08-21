@@ -87,7 +87,9 @@ export function RecommendationsSection({
     setAppliedIds((prev) => ({ ...prev, [id]: applied }));
 
   return (
-    <Card id="seccion-recomendaciones">
+    // tabIndex={-1}: destino programático de la navegación objeto →
+    // recomendaciones (patrón «skip link»); no entra en el orden de tabulación.
+    <Card id="seccion-recomendaciones" tabIndex={-1} className="scroll-mt-16 outline-none">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-xl">Próximas mejoras</CardTitle>

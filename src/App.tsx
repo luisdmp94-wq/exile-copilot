@@ -69,6 +69,9 @@ export default function App() {
   // Área visible. `null` solo mientras se decide la de entrada (ver más abajo).
   const [tab, setTab] = useState<WorkspaceTab | null>(null);
   const entryTabDecided = useRef(false);
+  // Navegación objeto → recomendaciones pendiente de completar (scroll) cuando
+  // el área «Mentor» ya esté visible.
+  const [recsNavPending, setRecsNavPending] = useState(false);
 
   // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
   const characterOptions = useMemo(
@@ -195,6 +198,27 @@ export default function App() {
     dialogTriggerRef.current = trigger;
     setFocusedItemId(itemId);
   };
+
+  /**
+   * Navegación inversa objeto → recomendaciones. La sección vive en el área
+   * «Mentor», que puede estar oculta: primero se activa la pestaña y, cuando el
+   * panel ya es visible (efecto de abajo), se desplaza. El FOCO no se pone
+   * aquí: lo pone el cierre del diálogo de objeto (`onCloseAutoFocus`), que es
+   * el único momento en que Radix garantiza no pisarlo; así nunca queda dentro
+   * del panel «Personaje» oculto.
+   */
+  const showRecommendationsArea = () => {
+    setTab("mentor");
+    setRecsNavPending(true);
+  };
+  useEffect(() => {
+    if (!recsNavPending || activeTab !== "mentor") return;
+    setRecsNavPending(false);
+    const target = document.getElementById("seccion-recomendaciones");
+    if (target === null) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  }, [recsNavPending, activeTab]);
 
   // La bienvenida sustituye a los paneles vacíos, pero no debe aparecer mientras
   // se restaura un personaje guardado (si no, parpadearía antes de cargarlo).
@@ -355,6 +379,10 @@ export default function App() {
               focusedItemId={focusedItemId}
               onFocusHandled={() => setFocusedItemId(null)}
               dialogTriggerRef={dialogTriggerRef}
+              onShowRecommendations={showRecommendationsArea}
+              // La bienvenida ya ofrece importar y cargar el ejemplo: la
+              // sección no repite ni su vacío ni su botón de ejemplo.
+              hideEmptyState={showWelcome}
             />
           </TabsContent>
 

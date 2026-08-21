@@ -53,6 +53,14 @@ interface ItemDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Navegación objeto → recomendación. */
   onGoToRecommendations: () => void;
+  /**
+   * Destino de foco ALTERNATIVO al cerrar, consultado antes que el disparador.
+   * Devuelve null en un cierre normal (el foco vuelve al disparador); devuelve
+   * un elemento cuando el cierre forma parte de una navegación que ocultó el
+   * panel del disparador (objeto → recomendaciones) y el foco no debe quedar
+   * dentro de un panel oculto.
+   */
+  getCloseFocusTarget?: () => HTMLElement | null;
 }
 
 export function ItemDetailDialog({
@@ -61,6 +69,7 @@ export function ItemDetailDialog({
   relatedRecommendations,
   onOpenChange,
   onGoToRecommendations,
+  getCloseFocusTarget,
 }: ItemDetailDialogProps) {
   // Accesibilidad del cierre: Radix devuelve el foco al elemento que abrió el
   // diálogo, pero necesita que el contenido siga montado mientras se cierra.
@@ -79,6 +88,7 @@ export function ItemDetailDialog({
           triggerRef={triggerRef}
           relatedRecommendations={relatedRecommendations}
           onGoToRecommendations={onGoToRecommendations}
+          getCloseFocusTarget={getCloseFocusTarget}
         />
       )}
     </Dialog>
@@ -90,11 +100,13 @@ function ItemDetailContent({
   triggerRef,
   relatedRecommendations,
   onGoToRecommendations,
+  getCloseFocusTarget,
 }: {
   item: Item;
   triggerRef: RefObject<HTMLElement | null>;
   relatedRecommendations: Recommendation[];
   onGoToRecommendations: () => void;
+  getCloseFocusTarget?: (() => HTMLElement | null) | undefined;
 }) {
   const rarity = rarityStyle(item.rarity);
   const dataState = describeItemDataState(item);
@@ -108,12 +120,23 @@ function ItemDetailContent({
       // (o al del objeto mostrado si se llegó desde una recomendación), en
       // lugar de quedar suelto en <body>.
       // Cascada documentada para devolver el foco al cerrar:
+      //  0) si el cierre forma parte de una navegación (objeto →
+      //     recomendaciones), el foco va al destino que declare
+      //     `getCloseFocusTarget`, nunca al disparador de un panel oculto;
       //  1) el elemento que ABRIÓ el diálogo (hueco del paperdoll o botón
       //     «Ver el objeto evaluado»), si sigue en el documento;
       //  2) si ya no existe, el hueco de ese objeto en el paperdoll;
       //  3) si tampoco existe, no se fuerza nada y Radix aplica su
       //     comportamiento por defecto.
       onCloseAutoFocus={(event) => {
+        const navTarget = getCloseFocusTarget?.() ?? null;
+        if (navTarget !== null) {
+          event.preventDefault();
+          // preventScroll: el desplazamiento (suave o inmediato según
+          // prefers-reduced-motion) ya lo hizo quien activó el área.
+          navTarget.focus({ preventScroll: true });
+          return;
+        }
         const trigger = triggerRef.current;
         if (trigger !== null && trigger.isConnected) {
           event.preventDefault();

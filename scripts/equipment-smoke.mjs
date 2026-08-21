@@ -40,13 +40,16 @@
  *  23. la navegación recomendación → objeto abre el detalle
  *  24. Escape devuelve el foco al BOTÓN de la recomendación
  *  25. hay huecos resaltados por vínculo estructurado
- *  26. con prefers-reduced-motion el diálogo no anima
- *  27. sin desbordamiento horizontal a 320/360/375/390 px (4 comprobaciones)
- *  31. las celdas siguen siendo utilizables a 360 px
- *  32. el detalle funciona en móvil
- *  33. sin peticiones a hosts externos
- *  34. sin <img> remotas
- *  35. sin errores de consola relevantes (se excluye solo el 404 preexistente
+ *  26. objeto → «Ver recomendaciones» activa el área Mentor
+ *  27. la sección de recomendaciones queda visible y ENFOCADA
+ *  28. el foco no queda dentro del panel «Personaje» oculto
+ *  29. con prefers-reduced-motion el diálogo no anima
+ *  30. sin desbordamiento horizontal a 320/360/375/390 px (4 comprobaciones)
+ *  34. las celdas siguen siendo utilizables a 360 px
+ *  35. el detalle funciona en móvil
+ *  36. sin peticiones a hosts externos
+ *  37. sin <img> remotas
+ *  38. sin errores de consola relevantes (se excluye solo el 404 preexistente
  *      de /favicon.ico en el servidor de desarrollo, ajeno a este hito)
  */
 import { spawn, execSync } from "node:child_process";
@@ -340,6 +343,59 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] hay huecos resaltados por vínculo estructurado`,
       (await page.locator('[data-highlighted="true"]').count()) >= 1,
+    );
+
+    // --- Navegación inversa objeto → recomendaciones -----------------------
+    // Regresión completa: Personaje → abrir objeto relacionado → «Ver
+    // recomendaciones» → área «Mentor» activa → sección visible y ENFOCADA,
+    // con el foco fuera del panel «Personaje» oculto.
+    await irA(page, "personaje");
+    await page.locator('[data-highlighted="true"]').first().click();
+    await dialogo.waitFor({ timeout: 15000 });
+    const verRecs = dialogo.getByRole("button", { name: "Ver recomendaciones" });
+    await verRecs.waitFor({ timeout: 15000 });
+    await verRecs.click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-testid="tab-mentor"]')?.getAttribute("data-state") ===
+        "active",
+      undefined,
+      { timeout: 10000 },
+    );
+    check(`[${mode}] «Ver recomendaciones» activa el área Mentor`, true);
+    await dialogo.waitFor({ state: "hidden", timeout: 15000 });
+    // El desplazamiento es suave salvo con reduced-motion: se espera a que la
+    // sección haya llegado a la parte visible.
+    await page.waitForFunction(
+      () => {
+        const sec = document.getElementById("seccion-recomendaciones");
+        if (sec === null) return false;
+        const r = sec.getBoundingClientRect();
+        return r.top > -8 && r.top < window.innerHeight * 0.6;
+      },
+      undefined,
+      { timeout: 15000 },
+    );
+    const navInversa = await page.evaluate(() => {
+      const sec = document.getElementById("seccion-recomendaciones");
+      const rect = sec.getBoundingClientRect();
+      const activo = document.activeElement;
+      return {
+        visible: rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight,
+        enfocada: activo === sec,
+        focoEnPanelOculto:
+          activo !== null &&
+          activo.closest('[data-slot="tabs-content"][data-state="inactive"]') !== null,
+        foco: activo === null ? "(ninguno)" : (activo.id || activo.tagName),
+      };
+    });
+    check(
+      `[${mode}] la sección de recomendaciones queda visible y enfocada (foco: ${navInversa.foco})`,
+      navInversa.visible && navInversa.enfocada,
+    );
+    check(
+      `[${mode}] el foco no queda dentro del panel «Personaje» oculto`,
+      !navInversa.focoEnPanelOculto,
     );
 
     // --- prefers-reduced-motion ------------------------------------------

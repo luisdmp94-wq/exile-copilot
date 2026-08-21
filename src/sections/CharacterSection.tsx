@@ -8,7 +8,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useState as useReactState, type RefObject } from "react";
+import { useRef, useState as useReactState, type RefObject } from "react";
 import type { MetaResponse } from "@shared/api.js";
 import type {
   Attributes,
@@ -60,6 +60,19 @@ interface CharacterSectionProps {
    * paperdoll) o App (botón «Ver el objeto evaluado») para devolverle el foco.
    */
   dialogTriggerRef: RefObject<HTMLElement | null>;
+  /**
+   * Navegación objeto → recomendaciones. La sección NO sabe dónde vive la
+   * lista (hoy, en el área «Mentor», oculta desde aquí): pide al padre que la
+   * muestre y desplace. El foco lo pone el cierre del diálogo.
+   */
+  onShowRecommendations: () => void;
+  /**
+   * Presentación: true cuando OTRA superficie (la bienvenida) ya ofrece la
+   * importación y el ejemplo. Con ello esta sección no repite ni el vacío
+   * «Todavía no hay personaje» ni su botón «Cargar ejemplo». No cambia ninguna
+   * lógica de personaje: solo qué se pinta sin personaje.
+   */
+  hideEmptyState: boolean;
 }
 
 const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
@@ -121,6 +134,8 @@ export function CharacterSection({
   focusedItemId,
   onFocusHandled,
   dialogTriggerRef,
+  onShowRecommendations,
+  hideEmptyState,
 }: CharacterSectionProps) {
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const [itemText, setItemText] = useState("");
@@ -146,14 +161,13 @@ export function CharacterSection({
     (rec) => selectedItem !== null && rec.relatedItemIds.includes(selectedItem.id),
   );
 
+  // true mientras el diálogo se cierra por «Ver recomendaciones»: el cierre no
+  // debe devolver el foco al disparador (queda en este panel, ahora oculto).
+  const navigatingToRecommendations = useRef(false);
   const goToRecommendations = () => {
+    navigatingToRecommendations.current = true;
     closeDetail();
-    const target = document.getElementById("seccion-recomendaciones");
-    if (!target) return;
-    const reduced =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    onShowRecommendations();
   };
 
   return (
@@ -193,18 +207,20 @@ export function CharacterSection({
                 Empezar de nuevo
               </Button>
             )}
-            <Button
-              type="button"
-              onClick={() => void character.loadDemo()}
-              disabled={busy !== null || restoring}
-            >
-              {busy === "demo" ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Sparkles className="size-4" aria-hidden="true" />
-              )}
-              Cargar ejemplo
-            </Button>
+            {!hideEmptyState && (
+              <Button
+                type="button"
+                onClick={() => void character.loadDemo()}
+                disabled={busy !== null || restoring}
+              >
+                {busy === "demo" ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="size-4" aria-hidden="true" />
+                )}
+                Cargar ejemplo
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -236,25 +252,27 @@ export function CharacterSection({
             )}
           </div>
         ) : !profile ? (
-          <Empty className="border border-dashed border-border">
-            <EmptyHeader>
-              <EmptyTitle>Todavía no hay personaje</EmptyTitle>
-              <EmptyDescription>
-                Importa un archivo .build arriba o carga el ejemplo de Mercenario con
-                ballesta para explorar la aplicación.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button
-                type="button"
-                onClick={() => void character.loadDemo()}
-                disabled={busy !== null}
-              >
-                <Sparkles className="size-4" aria-hidden="true" />
-                Cargar ejemplo
-              </Button>
-            </EmptyContent>
-          </Empty>
+          hideEmptyState ? null : (
+            <Empty className="border border-dashed border-border">
+              <EmptyHeader>
+                <EmptyTitle>Todavía no hay personaje</EmptyTitle>
+                <EmptyDescription>
+                  Importa un archivo .build arriba o carga el ejemplo de Mercenario con
+                  ballesta para explorar la aplicación.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  type="button"
+                  onClick={() => void character.loadDemo()}
+                  disabled={busy !== null}
+                >
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  Cargar ejemplo
+                </Button>
+              </EmptyContent>
+            </Empty>
+          )
         ) : (
           <>
             <EquipmentPanel
@@ -334,6 +352,13 @@ export function CharacterSection({
             if (!open) closeDetail();
           }}
           onGoToRecommendations={goToRecommendations}
+          getCloseFocusTarget={() => {
+            if (!navigatingToRecommendations.current) return null;
+            navigatingToRecommendations.current = false;
+            // El padre ya activó el área «Mentor»: el contenedor existe y es
+            // visible. Recibe el foco él, no el disparador oculto.
+            return document.getElementById("seccion-recomendaciones");
+          }}
         />
       </CardContent>
     </Card>

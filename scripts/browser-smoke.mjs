@@ -112,9 +112,27 @@ async function runFlow(mode, port) {
       .catch(() => false);
     check(`[${mode}] no se queda en "Restaurando…" (Strict Mode)`, !stuckRestoring);
 
-    // 2. Cargar ejemplo (área «Personaje»)
+    // 2. Bienvenida sin duplicados y carga del ejemplo (área «Personaje»)
     await irA(page, "personaje");
-    await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
+    await page.getByTestId("bienvenida").waitFor({ timeout: 15000 });
+    // Solo botones VISIBLES: los paneles inactivos siguen montados (ocultos) y
+    // el vacío de recomendaciones tiene su propio botón de ejemplo, legítimo.
+    const ejemploVisibles = await page
+      .getByRole("button", { name: "Cargar ejemplo" })
+      .locator("visible=true")
+      .count();
+    const importarVisibles = await page
+      .getByTestId("bienvenida-importar")
+      .locator("visible=true")
+      .count();
+    check(
+      `[${mode}] bienvenida sin duplicados (${ejemploVisibles} botón de ejemplo, sin vacío repetido)`,
+      ejemploVisibles === 1 &&
+        importarVisibles === 1 &&
+        (await page.getByText("Todavía no hay personaje").count()) === 0 &&
+        (await page.locator("#panel-importacion").locator("visible=true").count()) === 1,
+    );
+    await page.getByRole("button", { name: "Cargar ejemplo" }).locator("visible=true").click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
     check(`[${mode}] ejemplo precargado visible`, true);
 

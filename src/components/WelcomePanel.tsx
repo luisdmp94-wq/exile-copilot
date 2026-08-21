@@ -69,7 +69,7 @@ export function WelcomePanel({ onGoToImport, onLoadDemo, loadingDemo }: WelcomeP
             ) : (
               <Sparkles className="size-4" aria-hidden="true" />
             )}
-            Cargar el ejemplo
+            Cargar ejemplo
           </Button>
         </div>
 
