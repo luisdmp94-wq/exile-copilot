@@ -69,6 +69,10 @@ import { getExplainer, type ExplainerProvider } from "./explainers/index.js";
 import { exportGggBuild } from "./exporters/gggBuildExporter.js";
 import { MentorQueryRequestSchema } from "../shared/mentorQuery.js";
 import { answerMentorQuery } from "./mentor/mentorService.js";
+import {
+  createMentorDecisionSelector,
+  type MentorDecisionSelector,
+} from "./mentor/mentorAi.js";
 import { ApiHttpError } from "./errors.js";
 import { resolvePlan } from "./registry/passiveRegistry.js";
 
@@ -89,6 +93,8 @@ export interface CreateApiAppOptions {
   fetchImpl?: ConstructorParameters<typeof PoeNinjaClient>[0]["fetchImpl"];
   /** Explainer inyectable para comprobar carreras sin usar servicios externos. */
   explainer?: ExplainerProvider;
+  /** Selector IA inyectable; `null` fuerza reglas incluso si la flag está activa. */
+  mentorSelector?: MentorDecisionSelector | null;
 }
 
 function fixtureUrl(rel: string): URL {
@@ -171,6 +177,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const ninjaClient = new PoeNinjaClient({ db, config, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) });
   const priceService = new PriceService(ninjaClient);
   const explainer = options.explainer ?? getExplainer(config);
+  const mentorSelector =
+    options.mentorSelector !== undefined
+      ? options.mentorSelector
+      : createMentorDecisionSelector(config);
   const patches = loadPatches();
 
   const importDefaults = { league: config.defaultLeague, patch: config.defaultPatch };
@@ -746,7 +756,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // POST /mentor/query — conversación determinista con el mentor (Hito 6A).
+  // POST /mentor/query — conversación supervisada (reglas + selector IA opcional).
   // Mismas protecciones que /recommendations: el servidor carga la memoria
   // autoritativa del diario, rechaza una revisión obsoleta con 409 y vuelve a
   // comprobarla tras cualquier espera asíncrona (carrera entre pestañas).
@@ -777,7 +787,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           memory,
           ...(body.target !== undefined ? { target: body.target } : {}),
         },
-        { priceService },
+        { priceService, selector: mentorSelector },
       );
 
       // Segunda lectura tras la espera asíncrona: si otra pestaña creó o cerró

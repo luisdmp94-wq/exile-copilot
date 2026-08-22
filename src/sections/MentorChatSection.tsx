@@ -66,6 +66,13 @@ export function MentorChatSection({
   const [question, setQuestion] = useState("");
   const { turns, loading, error } = mentor;
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const latestAnswer = [...turns].reverse().find((turn) => turn.answer !== null)?.answer ?? null;
+  const modeLabel =
+    latestAnswer?.responseMode === "ai"
+      ? "IA supervisada"
+      : latestAnswer?.responseMode === "rules_fallback"
+        ? "Respaldo por reglas"
+        : "Reglas verificables";
 
   const canAsk = profile !== null && question.trim().length > 0 && !loading;
 
@@ -96,15 +103,25 @@ export function MentorChatSection({
       <CardHeader>
         <div className="flex flex-wrap items-center gap-3">
           <CardTitle className="text-xl">Habla con tu mentor</CardTitle>
-          <Badge variant="outline" className="text-muted-foreground">
-            Basado en reglas
+          <Badge
+            variant="outline"
+            className={cn(
+              latestAnswer?.responseMode === "ai"
+                ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-200"
+                : latestAnswer?.responseMode === "rules_fallback"
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                  : "text-muted-foreground",
+            )}
+            data-testid="mentor-modo"
+          >
+            {modeLabel}
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           El mentor responde solo con tu personaje, tu build objetivo, tu presupuesto y tu
-          diario. La decisión sale del motor de recomendaciones, no de texto generado: no
-          inventa estadísticas, mods ni conocimiento del juego, y da una única próxima
-          acción cada vez.
+          diario. Cuando la IA está activa interpreta tu pregunta y elige entre hechos del
+          motor; no puede crear acciones, estadísticas, mods ni precios. Si falla, las reglas
+          responden automáticamente. Siempre da una única próxima acción.
         </p>
       </CardHeader>
 
@@ -436,8 +453,18 @@ function MentorEvidence({ answer }: { answer: MentorAnswer }) {
         <p className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
           <span>Tipo de consulta: {INTENT_LABELS[answer.intent]}</span>
           <span>· Motor {answer.engineVersion}</span>
+          <span>
+            · Respuesta: {answer.responseMode === "ai" ? "IA supervisada" : answer.responseMode === "rules_fallback" ? "reglas de respaldo" : "reglas"}
+          </span>
+          {answer.model != null && <span>· Modelo {answer.model}</span>}
           <span>· Respondido el {formatDateTime(answer.generatedAt)}</span>
         </p>
+
+        {answer.fallbackReason != null && (
+          <p className="text-[11px] text-amber-200" data-testid="mentor-fallback">
+            {answer.fallbackReason}
+          </p>
+        )}
       </div>
     </details>
   );

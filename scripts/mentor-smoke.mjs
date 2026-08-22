@@ -46,6 +46,7 @@
  *  32. el campo de pregunta es accesible por teclado y envía con Enter
  *  33. sin peticiones a hosts externos
  *  34. sin errores de consola relevantes
+ *  35. el modo visible coincide con reglas o fallback IA esperado
  */
 import { spawn, execSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
@@ -57,6 +58,7 @@ import { launchBrowser, toolCommand } from "./browserLaunch.mjs";
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
 const UPDATE_SCREENSHOTS = args.includes("--update-screenshots");
+const EXPECT_AI_FALLBACK = process.env.MENTOR_AI_SMOKE_EXPECT_FALLBACK === "true";
 const modes = args.includes("--all") ? ["prod", "dev"] : args.includes("--dev") ? ["dev"] : ["prod"];
 
 const tempRoot = mkdtempSync(join(tmpdir(), "exile-copilot-6a-"));
@@ -251,6 +253,13 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] «¿Qué mejoro ahora?» responde con UNA sola próxima acción`,
       (await proximaAccion.count()) === 1,
+    );
+    const modoMentor = await page.getByTestId("mentor-modo").innerText();
+    check(
+      `[${mode}] el modo visible declara ${EXPECT_AI_FALLBACK ? "respaldo IA" : "reglas"}`,
+      EXPECT_AI_FALLBACK
+        ? modoMentor.includes("Respaldo por reglas")
+        : modoMentor.includes("Reglas verificables"),
     );
     const textoMentor = await seccion.innerText();
     check(`[${mode}] la respuesta muestra confianza`, /confianza/i.test(textoMentor));

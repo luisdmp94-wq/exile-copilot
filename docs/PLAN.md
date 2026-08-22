@@ -10,7 +10,10 @@ Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu
 - **Base de datos**: `node:sqlite` (`DatabaseSync`, integrado en Node 24, cero dependencias nativas). Capa fina en `server/db/`. Migrable a PostgreSQL.
 - **Validación**: zod en `shared/` (esquemas compartidos entre front y back).
 - **Motor de recomendaciones**: 100 % determinista, reglas en `server/engine/rules.ts`. Sin IA en el núcleo. Null-safe: un dato desconocido (`null`) nunca se convierte en 0 ni genera afirmaciones de confianza alta.
-- **Capa de explicación IA**: abstracción `ExplainerProvider`; `DeterministicExplainer` por defecto; `LlmExplainer` stub tras flag `EXPLAINER_LLM_ENABLED=false`.
+- **Mentor IA supervisado**: selector opcional tras `MENTOR_AI_ENABLED=false`.
+  Usa Responses API con salida estructurada y `store:false`; solo elige ids ya
+  emitidos por el motor. La acción y el texto final siguen siendo canónicos. Un
+  fallo o id inválido cae a reglas sin bloquear al jugador.
 - **Memoria del mentor**: diario SQLite por personaje con decisiones,
   experimentos, crafts, hitos y notas. Una referencia separada mantiene una sola
   próxima acción principal; ejecutar una acción la deja esperando resultado y
@@ -53,7 +56,8 @@ exile-copilot/
     importers/       buildImporter (dispatcher), gggBuildImporter (→ plan), itemTextParser
     services/        poeninja (caché+ETag+fixtures+rates), priceService
     engine/          reglas deterministas null-safe + fingerprint
-    explainers/      DeterministicExplainer, LlmExplainer (stub, flag)
+    mentor/          servicio canónico + selector IA supervisado (Hito 6E)
+    explainers/      explicador determinista de recomendaciones
     adapters/        ggg.ts (off), mobalytics.ts (referencia), pob.ts (límites)
     exporters/       gggBuildExporter (informe honesto + mejoras planificadas)
     fixtures/        demoSnapshot.json, demoMercenary.build, ggg/titanWarrior.build.json (oficial verbatim), pob2/ (código real), poeNinja/
@@ -79,12 +83,14 @@ exile-copilot/
   `idempotencyKey`. Un 409 invalida la acción visible.
 - `GET  /market/prices?league=&names=` → quotes + `primaryCurrency` + `rates {values, origin, verified, fetchedAt} | null`.
 - `POST /recommendations` → 3 recomendaciones + `inputFingerprint`.
-- `POST /mentor/query` → respuesta conversacional basada en reglas (intención, una
+- `POST /mentor/query` → respuesta conversacional supervisada (intención, una
   próxima acción o `null`, ids usados, fuentes, confianza, no verificado,
   impacto del diario y huella). Mismas protecciones 409 de revisión que
   `/recommendations`; el cliente solo envía `journalRevision`.
   Acepta `journalRevision` y devuelve `memoryImpact`; una revisión obsoleta
-  produce `409` y una acción principal activa produce cero tareas nuevas.
+  produce `409` y una acción principal activa produce cero tareas nuevas. La
+  respuesta declara `responseMode: rules | ai | rules_fallback`, modelo y motivo
+  seguro de fallback cuando proceda.
 - `POST /export/build` → `{ fileName (.build), content, report }`.
 
 ## Pruebas

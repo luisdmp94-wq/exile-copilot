@@ -13,11 +13,10 @@ import {
 /**
  * Contrato de la conversación con el mentor (Hito 6A).
  *
- * Es un vertical slice BASADO EN REGLAS, sin IA generativa: no hay LLM, no hay
- * generación de texto libre y no se inventa conocimiento de PoE2. Toda respuesta
- * procede del perfil, la build objetivo, el presupuesto/objetivo, el Character
- * Journal y el motor de recomendaciones que ya existen. La DECISIÓN sale del
- * motor; el mentor solo la traduce a conversación.
+ * La autoridad sigue siendo el motor: no se inventa conocimiento de PoE2. El
+ * selector IA opcional de Hito 6E solo puede escoger ids canónicos; toda
+ * respuesta procede del perfil, la build objetivo, el presupuesto/objetivo, el
+ * Character Journal y las recomendaciones ya calculadas.
  */
 
 /**
@@ -71,6 +70,13 @@ export const MentorUnsupportedSchema = z.strictObject({
 });
 export type MentorUnsupported = z.infer<typeof MentorUnsupportedSchema>;
 
+/**
+ * Quién decidió cómo responder. Incluso en modo IA, la acción y los hechos
+ * finales los reconstruye el servidor a partir del motor determinista.
+ */
+export const MentorResponseModeSchema = z.enum(["rules", "ai", "rules_fallback"]);
+export type MentorResponseMode = z.infer<typeof MentorResponseModeSchema>;
+
 export const MentorAnswerSchema = z.strictObject({
   intent: MentorIntent,
   /** Pregunta normalizada con la que se clasificó (auditable). */
@@ -97,6 +103,12 @@ export const MentorAnswerSchema = z.strictObject({
   unsupported: MentorUnsupportedSchema.nullable(),
   generatedAt: z.string(),
   engineVersion: z.string(),
+  /** `ai` significa selección supervisada; nunca texto libre autoritativo. */
+  responseMode: MentorResponseModeSchema.optional(),
+  /** Modelo que tomó la decisión estructurada; null en modo reglas. */
+  model: z.string().min(1).max(200).nullable().optional(),
+  /** Motivo seguro y sin secretos cuando la IA falló y se usaron reglas. */
+  fallbackReason: z.string().min(1).max(500).nullable().optional(),
 });
 export type MentorAnswer = z.infer<typeof MentorAnswerSchema>;
 

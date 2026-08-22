@@ -118,22 +118,25 @@ id crudo: el nombre nunca se deduce del texto del id.
 
 > This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
 
-## Habla con tu mentor (Hito 6A)
+## Habla con tu mentor (Hitos 6A y 6E)
 
-«Habla con tu mentor», dentro del área **Mentor**, permite preguntar en español
-y recibir una
-respuesta **basada en reglas**: **sin IA generativa**. No hay LLM y no se genera
-texto libre — la decisión, la próxima acción, las fuentes, la confianza y lo no
-verificado salen del motor de recomendaciones y del Character Journal, y el
-texto son plantillas fijas rellenadas con esos campos.
+«Habla con tu mentor», dentro del área **Mentor**, permite preguntar en español.
+Por defecto responde solo con reglas, sin llamadas externas ni coste. El Hito
+6E añade un selector IA opcional: interpreta preguntas más naturales, pero solo
+puede elegir una recomendación o un dato faltante que el motor ya haya
+producido. La acción, las fuentes, la confianza y el texto final se reconstruyen
+en el servidor a partir de esos datos canónicos.
 
 Preguntas que entiende hoy:
 
 - «¿Qué mejoro ahora?», «¿Qué debería hacer primero?» → siguiente paso.
 - «¿Por qué me recomiendas esto?», «¿Cuál es mi principal problema?» → explicación.
 
-Cualquier otra pregunta se declara **no soportada**, sin proponer nada y con
-ejemplos válidos: el mentor prefiere decir «esto todavía no lo sé» a improvisar.
+Con IA desactivada, cualquier otra pregunta se declara **no soportada**. Con IA
+activada puede relacionarla con hasta tres candidatos reales, pedir un dato
+faltante real, explicar el caso o declarar que no existe una acción segura. Un
+id inventado, una respuesta inválida, un rechazo, timeout o error de red activa
+automáticamente el respaldo por reglas y queda visible en la evidencia.
 
 La conversación reutiliza el motor y el Character Journal: si ya tienes una
 acción activa, el mentor **recuerda ese paso** en lugar de crear otro y no
@@ -150,12 +153,14 @@ limitaciones».
 
 **Limitación:** el hilo vive solo en memoria de la interfaz. No se persiste, se
 pierde al recargar y se descarta cuando cambian los datos relevantes para no
-mostrar respuestas obsoletas. Detalles en `docs/HITO_6A.md`.
+mostrar respuestas obsoletas. La API de OpenAI se factura por separado de
+ChatGPT y no se ha probado con una clave real en el repositorio. Detalles en
+`docs/HITO_6A.md` y `docs/HITO_6E.md`.
 
 ## Estructura
 
 - `shared/` — esquemas zod: dominio interno, contrato API y esquema oficial GGG Build Planner v1.
-- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente del mentor, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista de recomendaciones, explicadores (determinista por defecto; LLM stub por flag), exportador `.build` oficial con informe.
+- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente, selector IA supervisado opcional con respaldo determinista, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista y exportador `.build` oficial con informe.
 - `src/` — frontend React + Tailwind + shadcn/ui (español, tema oscuro).
 - `tests/` — vitest: unit, integration, e2e. `scripts/browser-smoke.mjs` — prueba de navegador real.
 - `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — memoria persistente.
@@ -169,6 +174,10 @@ Todas documentadas en `.env.example`. Destacadas:
 - `POE_NINJA_OFFLINE=true` — nunca hace red; sirve fixtures (ideal para demos/tests).
 - `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
 - `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — flags desactivadas por defecto.
+- `MENTOR_AI_ENABLED=true` + `OPENAI_API_KEY` — activa el selector IA. El valor
+  por defecto es `false`, así que sin activarlo hay cero llamadas y cero coste.
+- `MENTOR_AI_MODEL`, `MENTOR_AI_REASONING_EFFORT`, `MENTOR_AI_TIMEOUT_MS` y
+  `MENTOR_AI_MAX_OUTPUT_TOKENS` — límites explícitos documentados en `.env.example`.
 
 ## Reglas de datos
 

@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 16 (Hito 6D),
+> Informe para el propietario. Última actualización: sesión 17 (Hito 6E),
 > 2026-08-22.
 >
 > **Estado de esta rama:** parte del rediseño visual integrado en `5f726a2` e
@@ -9,6 +9,31 @@
 > trabajo. Las secciones de sesiones anteriores son HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 17 — Hito 6E: mentor IA supervisado
+
+Rama aislada `hito-6e-mentor-ia` sobre `f55aef2`. La IA es un selector opcional,
+no un segundo motor: recibe un contexto compacto, trata todo texto del usuario
+como dato no confiable y devuelve únicamente una decisión estructurada.
+
+- Puede elegir uno de los ids de recomendación del motor, pedir uno de los ids
+  de dato faltante, explicar el caso actual o declarar que no hay acción segura.
+- El servidor valida todos los ids y reconstruye acción, fuentes, confianza y
+  texto final. El modelo no puede persistir memoria ni crear cambios de juego.
+- Una acción activa evita por completo la llamada IA. Los frenos Core y de
+  sesión siguen gobernados por el motor.
+- `store:false`, identificador de seguridad pseudónimo, timeout y salida máxima
+  configurables. Flag y clave solo en servidor; desactivado por defecto.
+- Si falta clave, hay timeout, error HTTP, negativa, salida incompleta, JSON
+  inválido o un id inexistente, responde el motor y muestra el motivo seguro.
+- La suscripción de ChatGPT no incluye el consumo de API. No se realizó ninguna
+  llamada facturable durante el desarrollo ni se guardó ninguna clave.
+
+Verificado localmente: TypeScript y ESLint sin errores, **297/297** pruebas,
+build de producción correcto, smoke normal **72/72** (producción + desarrollo)
+y smoke con IA activa sin clave **36/36**, sin peticiones externas. La llamada
+real queda pendiente de una clave y presupuesto de API proporcionados por el
+propietario.
 
 ## Sesión 16 — Hito 6D: identidad persistente de la build
 
