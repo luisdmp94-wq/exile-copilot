@@ -9,9 +9,13 @@ próxima acción:
 No es un chatbot genérico: construye un perfil estructurado del personaje,
 consulta datos verificables (API económica pública documentada de poe.ninja),
 devuelve acciones concretas y conserva el resultado de cada decisión en el
-diario del personaje. Mientras haya un paso activo no genera tareas paralelas;
-si una mejora ya se intentó, exige reconciliar el resultado con el perfil antes
-de repetirla.
+diario del personaje. Además, un **mentor contextual persistente** acompaña la
+navegación: reacciona al objeto inspeccionado, al área abierta, al objetivo, al
+presupuesto, al mercado y a las recomendaciones. La reacción inmediata es local
+y determinista; solo consulta al proveedor de IA cuando el jugador pulsa
+«Analizar este contexto». Mientras haya un paso activo no genera tareas
+paralelas; si una mejora ya se intentó, exige reconciliar el resultado con el
+perfil antes de repetirla.
 
 ## Requisitos
 

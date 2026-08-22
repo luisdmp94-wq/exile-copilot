@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
+import { ContextualMentor } from "@/components/ContextualMentor";
 import { WelcomePanel } from "@/components/WelcomePanel";
 import { OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
 import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
@@ -47,6 +48,11 @@ import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
+import {
+  contextualMentorCue,
+  type ContextualMentorEvent,
+} from "@/lib/contextualMentor";
+import { lastMentorAnswer } from "@/lib/mentorThread";
 
 const EMPTY_TARGET: TargetDraft = {
   name: "",
@@ -94,6 +100,9 @@ export default function App() {
   // Panel lateral con el editor completo del personaje.
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPrompt, setEditorPrompt] = useState<EditorPrompt>(null);
+  const [contextualCue, setContextualCue] = useState(() =>
+    contextualMentorCue({ type: "workspace", workspace: "expediente" }),
+  );
   // La bienvenida pide «Importar mi personaje»: abre el editor Y lleva el foco
   // al panel de importación en lugar de al primer control del panel.
   const focusImportOnOpen = useRef(false);
@@ -134,6 +143,10 @@ export default function App() {
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
   const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
+
+  const announceMentor = (event: ContextualMentorEvent) => {
+    setContextualCue(contextualMentorCue(event));
+  };
 
   /**
    * Marcas «ya la apliqué». Viven aquí porque la recomendación dominante se
@@ -268,6 +281,8 @@ export default function App() {
   const focusItem = (itemId: string, trigger: HTMLElement) => {
     dialogTriggerRef.current = trigger;
     setFocusedItemId(itemId);
+    const item = character.profile?.items.find((candidate) => candidate.id === itemId);
+    if (item) announceMentor({ type: "item", item });
   };
 
   /**
@@ -287,6 +302,7 @@ export default function App() {
     focusImportOnOpen.current = focusImport;
     setEditorPrompt(prompt);
     setEditorOpen(true);
+    announceMentor({ type: "editor" });
   };
 
   const trackRecommendation = (recommendation: Recommendation) => {
@@ -295,10 +311,14 @@ export default function App() {
       openEditor(false, "memory");
       return;
     }
-    void journal.createEntry({
-      ...journalEntryFromRecommendation(recommendation, character.profile, budget, goal),
-      journalRevision: buildRecommendationMemory(characterJournal).revision,
-    });
+    void journal
+      .createEntry({
+        ...journalEntryFromRecommendation(recommendation, character.profile, budget, goal),
+        journalRevision: buildRecommendationMemory(characterJournal).revision,
+      })
+      .then((entry) => {
+        if (entry) announceMentor({ type: "tracked", title: recommendation.title });
+      });
   };
 
   const startSession = (recommendation: Recommendation) => {
@@ -330,10 +350,85 @@ export default function App() {
         // La sesión pasa a ser el contenido dominante del Caso Abierto: basta
         // con desplazarse hasta él, sin cambiar de área ni animar.
         if (next) {
+          announceMentor({ type: "session", title: recommendation.title });
           document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
         }
       });
   };
+
+  const askMentor = (question: string) => {
+    if (!character.profile) return;
+    void mentor
+      .ask(
+        buildMentorRequest(
+          question,
+          character.profile,
+          targetDraft,
+          budget,
+          goal,
+          league,
+          patch,
+          characterJournal,
+        ),
+      )
+      .then((outcome) => {
+        if (outcome === "journal-stale") void journal.reload();
+      });
+  };
+
+  const openMentorConversation = () => {
+    setTab("expediente");
+    window.requestAnimationFrame(() => {
+      const trigger = document.querySelector<HTMLElement>("[data-testid='acordeon-mentor']");
+      if (trigger?.getAttribute("aria-expanded") !== "true") trigger?.click();
+      window.setTimeout(() => {
+        trigger?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+    });
+  };
+
+  const contextualProfileId = character.profile?.id ?? null;
+  const contextualProfileName = character.profile?.name ?? null;
+  useEffect(() => {
+    if (contextualProfileId && contextualProfileName) {
+      setContextualCue(
+        contextualMentorCue({ type: "ready", profileName: contextualProfileName }),
+      );
+    }
+  }, [contextualProfileId, contextualProfileName]);
+
+  useEffect(() => {
+    if (recommendations.result) {
+      setContextualCue(
+        contextualMentorCue({
+          type: "recommendations",
+          recommendations: recommendations.result.recommendations,
+        }),
+      );
+    }
+  }, [recommendations.result]);
+
+  useEffect(() => {
+    if (market.prices) {
+      setContextualCue(
+        contextualMentorCue({
+          type: "market",
+          quoteCount: market.prices.quotes.length,
+          verifiedCount: market.prices.quotes.filter((quote) => quote.verified).length,
+          degraded: market.prices.degraded,
+        }),
+      );
+    }
+  }, [market.prices]);
+
+  const latestMentorAnswer = lastMentorAnswer(mentor.turns);
+  useEffect(() => {
+    if (latestMentorAnswer) {
+      setContextualCue(
+        contextualMentorCue({ type: "ai", answer: latestMentorAnswer.answer }),
+      );
+    }
+  }, [latestMentorAnswer]);
 
   // La bienvenida sustituye a los paneles vacíos, pero no debe aparecer mientras
   // se restaura un personaje guardado (si no, parpadearía antes de cargarlo).
@@ -364,7 +459,11 @@ export default function App() {
 
         <Tabs
           value={tab}
-          onValueChange={(value) => setTab(value as WorkspaceTab)}
+          onValueChange={(value) => {
+            const workspace = value as WorkspaceTab;
+            setTab(workspace);
+            announceMentor({ type: "workspace", workspace });
+          }}
           className="gap-0"
         >
           {/* Navegación segmentada: se queda a la vista al desplazarse, pero
@@ -416,6 +515,7 @@ export default function App() {
                 onFocusHandled={() => setFocusedItemId(null)}
                 dialogTriggerRef={dialogTriggerRef}
                 onShowOpenCase={showOpenCase}
+                onInspectItem={(item) => announceMentor({ type: "item", item })}
                 onEditExpediente={() => openEditor()}
                 journal={journal}
                 profilePersisted={character.persisted}
@@ -495,25 +595,7 @@ export default function App() {
                         profile={character.profile}
                         mentor={mentor}
                         savingNextAction={journal.saving}
-                        onAsk={(question) => {
-                          if (!character.profile) return;
-                          void mentor
-                            .ask(
-                              buildMentorRequest(
-                                question,
-                                character.profile,
-                                targetDraft,
-                                budget,
-                                goal,
-                                league,
-                                patch,
-                                characterJournal,
-                              ),
-                            )
-                            .then((outcome) => {
-                              if (outcome === "journal-stale") void journal.reload();
-                            });
-                        }}
+                        onAsk={askMentor}
                         onSaveNextAction={(answer) => {
                           const recommendation = answer.nextAction?.recommendation ?? null;
                           if (recommendation === null) return;
@@ -537,6 +619,7 @@ export default function App() {
                     onFocusHandled={() => setFocusedItemId(null)}
                     dialogTriggerRef={dialogTriggerRef}
                     onShowOpenCase={showOpenCase}
+                    onInspectItem={(item) => announceMentor({ type: "item", item })}
                     onEditExpediente={() => openEditor()}
                     journal={journal}
                     profilePersisted={character.persisted}
@@ -638,11 +721,24 @@ export default function App() {
                 metaLoading={metaLoading}
                 profile={character.profile}
                 league={league}
-                onLeagueChange={setLeague}
+                onLeagueChange={(nextLeague) => {
+                  setLeague(nextLeague);
+                  announceMentor({ type: "league", league: nextLeague });
+                }}
                 budget={budget}
-                onBudgetChange={setBudget}
+                onBudgetChange={(nextBudget) => {
+                  setBudget(nextBudget);
+                  announceMentor({
+                    type: "budget",
+                    amount: nextBudget.amount,
+                    currency: nextBudget.currency,
+                  });
+                }}
                 goal={goal}
-                onGoalChange={setGoal}
+                onGoalChange={(nextGoal) => {
+                  setGoal(nextGoal);
+                  announceMentor({ type: "goal", goal: nextGoal });
+                }}
                 market={market}
               />
             </div>
@@ -706,7 +802,15 @@ export default function App() {
         </footer>
       </main>
 
-      <Toaster theme="dark" richColors closeButton position="bottom-right" />
+      <ContextualMentor
+        key={contextualCue.id}
+        cue={contextualCue}
+        loading={mentor.loading}
+        canAsk={character.profile !== null}
+        onAsk={askMentor}
+        onOpenMentor={openMentorConversation}
+      />
+      <Toaster theme="dark" richColors closeButton position="top-right" />
     </div>
   );
 }

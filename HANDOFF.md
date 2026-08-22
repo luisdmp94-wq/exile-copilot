@@ -438,6 +438,28 @@ Realizada sobre un `git clone` del commit final (no sobre el working tree): `npm
 
 ## Próximo paso recomendado
 
+## Sesión 20 — mentor contextual persistente
+
+El mentor deja de vivir únicamente dentro del acordeón de conversación. Un
+panel flotante acompaña ahora las dos áreas del producto y cambia de contexto
+cuando el jugador:
+
+- abre una pieza del equipo;
+- cambia entre expediente y plan/mercado;
+- modifica objetivo, presupuesto, moneda o liga;
+- genera recomendaciones, consulta mercado o guarda un próximo paso;
+- inicia una sesión de decisión.
+
+Cada reacción inmediata se deriva de datos estructurados ya presentes en la
+aplicación y no consume IA. «Analizar este contexto» envía una pregunta acotada
+al proveedor supervisado existente; la respuesta vuelve al propio panel y queda
+también en la conversación completa. No se escucha cada clic del DOM y no se
+añaden hechos, precios, mods ni acciones fuera del motor.
+
+Validación: `tsc -b`, ESLint, build y **305/305** pruebas; recorrido real en
+navegador sobre el perfil Demo Gemling comprobado para cambio de área,
+inspección de `Doom Song`, respuesta real de Groq y salto al historial.
+
 Hitos 5A, 5B, 6A y 6B están **integrados en `main`** (`dd671178`), y la
 microcorrección posterior al 6B —contrato de `goal`, aislamiento de SQLite en los
 smokes y esta puesta al día documental— está **terminada**.

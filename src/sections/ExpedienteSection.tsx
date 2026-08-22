@@ -22,6 +22,8 @@ interface ExpedienteSectionProps {
   dialogTriggerRef: RefObject<HTMLElement | null>;
   /** Lleva la atención al Caso Abierto (navegación objeto → caso). */
   onShowOpenCase: () => void;
+  /** Notifica al mentor contextual qué pieza está inspeccionando el jugador. */
+  onInspectItem?: (item: Item) => void;
   onEditExpediente: () => void;
   journal: JournalState;
   profilePersisted: boolean;
@@ -46,6 +48,7 @@ export function ExpedienteSection({
   onFocusHandled,
   dialogTriggerRef,
   onShowOpenCase,
+  onInspectItem,
   onEditExpediente,
   journal,
   profilePersisted,
@@ -149,6 +152,7 @@ export function ExpedienteSection({
         onSelectItem={(item, trigger) => {
           dialogTriggerRef.current = trigger;
           setSelectedItemId(item.id);
+          onInspectItem?.(item);
         }}
       />
 

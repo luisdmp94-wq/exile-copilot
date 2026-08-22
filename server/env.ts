@@ -13,4 +13,8 @@ export function loadLocalEnvironment(envPath = resolve(process.cwd(), ".env")): 
   return true;
 }
 
-loadLocalEnvironment();
+// Vitest debe ser hermético: una clave real del desarrollador nunca puede
+// convertir una prueba determinista en una llamada de red.
+if (process.env.NODE_ENV !== "test" && process.env.VITEST !== "true") {
+  loadLocalEnvironment();
+}
