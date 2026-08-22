@@ -3,6 +3,8 @@
  * Los valores por defecto replican `.env.example` (documentado allí).
  */
 
+import "./env.js";
+
 export interface ServerConfig {
   port: number;
   nodeEnv: string;

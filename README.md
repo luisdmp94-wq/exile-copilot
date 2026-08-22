@@ -171,7 +171,9 @@ clave real se guarda en el repositorio. Detalles en `docs/HITO_6A.md` y
 
 ## Variables de entorno
 
-Todas documentadas en `.env.example`. Destacadas:
+Todas documentadas en `.env.example`. Para desarrollo local, copia ese archivo
+como `.env`; el backend lo carga automáticamente y Git lo ignora. Nunca uses el
+prefijo `VITE_` para una clave privada. Destacadas:
 
 - `POE_NINJA_OFFLINE=true` — nunca hace red; sirve fixtures (ideal para demos/tests).
 - `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
