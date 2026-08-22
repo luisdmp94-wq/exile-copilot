@@ -11,7 +11,8 @@ siguen siendo autoritativos.
 1. El servidor carga la memoria real y calcula hasta tres recomendaciones.
 2. Construye un contexto compacto: resumen del personaje, presupuesto,
    objetivo, acción activa, memoria de build, candidatos y datos faltantes.
-3. Si la flag está activa, Responses API devuelve uno de cuatro resultados:
+3. Si la flag está activa, la Responses API del proveedor configurado devuelve
+   uno de cuatro resultados:
    `choose_recommendation`, `ask_missing_fact`, `explain_current_case` o
    `no_safe_action`.
 4. El servidor comprueba que cada id existe en el contexto y reconstruye la
@@ -21,9 +22,12 @@ siguen siendo autoritativos.
 ## Límites de seguridad y coste
 
 - `MENTOR_AI_ENABLED=false` por defecto: cero llamadas y cero coste.
-- La clave solo se lee desde `OPENAI_API_KEY` en el backend.
-- `store:false`; no se reutiliza el estado remoto de la conversación.
-- El id del personaje se envía únicamente como hash en `safety_identifier`.
+- La clave solo se lee desde `GROQ_API_KEY` u `OPENAI_API_KEY` en el backend,
+  según el proveedor; nunca se envía al navegador.
+- Groq no recibe los campos de OpenAI que no soporta (`store` y
+  `safety_identifier`). Tampoco se reutiliza estado remoto de conversación.
+- Con OpenAI, `store:false` evita almacenar la respuesta y el id del personaje
+  se envía únicamente como hash en `safety_identifier`.
 - Contexto acotado a 3 candidatos, 14 objetos, 12 memorias y 12 datos faltantes.
 - Tiempo máximo 1–30 s y salida 128–1024 tokens; valores iniciales 12 s/256.
 - La pregunta, nombres de objetos y memoria se marcan explícitamente como datos
@@ -33,20 +37,24 @@ siguen siendo autoritativos.
 
 ```env
 MENTOR_AI_ENABLED=true
-OPENAI_API_KEY=...
-MENTOR_AI_MODEL=gpt-5.4-mini
+MENTOR_AI_PROVIDER=groq
+GROQ_API_KEY=...
+MENTOR_AI_MODEL=openai/gpt-oss-120b
 MENTOR_AI_REASONING_EFFORT=low
 MENTOR_AI_TIMEOUT_MS=12000
 MENTOR_AI_MAX_OUTPUT_TOKENS=256
 ```
 
-La API se factura por separado de ChatGPT. La implementación se validó con
-dobles de prueba; activar una llamada real requiere clave y presupuesto del
-propietario.
+Groq dispone de nivel gratuito sujeto a límites y puede cambiarlo. OpenAI se
+mantiene como alternativa mediante `MENTOR_AI_PROVIDER=openai`; su API se
+factura por separado de ChatGPT. La implementación nunca incorpora claves al
+repositorio.
 
 ## Pruebas
 
-- Petición Responses con `store:false`, esquema estricto y sin filtrar la clave.
+- Petición Groq Responses con esquema estricto, sin filtrar la clave y sin los
+  campos incompatibles `store`/`safety_identifier`.
+- La alternativa OpenAI conserva `store:false` y `safety_identifier`.
 - Negativa, falta de clave e ids inventados producen fallback seguro.
 - Pregunta libre selecciona una acción exacta del motor.
 - Petición de dato faltante usa una carencia canónica.

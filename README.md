@@ -153,9 +153,11 @@ limitaciones».
 
 **Limitación:** el hilo vive solo en memoria de la interfaz. No se persiste, se
 pierde al recargar y se descarta cuando cambian los datos relevantes para no
-mostrar respuestas obsoletas. La API de OpenAI se factura por separado de
-ChatGPT y no se ha probado con una clave real en el repositorio. Detalles en
-`docs/HITO_6A.md` y `docs/HITO_6E.md`.
+mostrar respuestas obsoletas. Groq es el proveedor predeterminado para la
+prueba gratuita; su cuota no está garantizada para producción. OpenAI sigue
+disponible como alternativa, con facturación API separada de ChatGPT. Ninguna
+clave real se guarda en el repositorio. Detalles en `docs/HITO_6A.md` y
+`docs/HITO_6E.md`.
 
 ## Estructura
 
@@ -174,8 +176,10 @@ Todas documentadas en `.env.example`. Destacadas:
 - `POE_NINJA_OFFLINE=true` — nunca hace red; sirve fixtures (ideal para demos/tests).
 - `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
 - `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — flags desactivadas por defecto.
-- `MENTOR_AI_ENABLED=true` + `OPENAI_API_KEY` — activa el selector IA. El valor
-  por defecto es `false`, así que sin activarlo hay cero llamadas y cero coste.
+- `MENTOR_AI_ENABLED=true` + `MENTOR_AI_PROVIDER=groq` + `GROQ_API_KEY` — activa
+  el selector IA gratuito sujeto a la cuota de Groq. El valor por defecto de la
+  flag es `false`, así que sin activarlo hay cero llamadas.
+- `MENTOR_AI_PROVIDER=openai` + `OPENAI_API_KEY` — alternativa opcional de pago.
 - `MENTOR_AI_MODEL`, `MENTOR_AI_REASONING_EFFORT`, `MENTOR_AI_TIMEOUT_MS` y
   `MENTOR_AI_MAX_OUTPUT_TOKENS` — límites explícitos documentados en `.env.example`.
 

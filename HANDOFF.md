@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 17 (Hito 6E),
+> Informe para el propietario. Última actualización: sesión 18 (Groq),
 > 2026-08-22.
 >
 > **Estado de esta rama:** parte del rediseño visual integrado en `5f726a2` e
@@ -9,6 +9,20 @@
 > trabajo. Las secciones de sesiones anteriores son HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 18 — Groq como proveedor del mentor IA
+
+El selector de Hito 6E ahora acepta proveedores compatibles y usa Groq por
+defecto. `MENTOR_AI_PROVIDER=groq`, `GROQ_API_KEY` y
+`openai/gpt-oss-120b` permiten probar el mentor con la cuota gratuita de Groq.
+La clave permanece exclusivamente en el servidor.
+
+- Groq usa `https://api.groq.com/openai/v1/responses` con JSON Schema estricto.
+- No se le envían `store` ni `safety_identifier`, campos que su Responses API no
+  admite. OpenAI sigue disponible y conserva ambos controles.
+- La salida vuelve a validarse con Zod y todos los ids se comprueban contra el
+  contexto canónico. Ante cualquier error, el motor responde por reglas.
+- Desactivado por defecto: sin flag o sin clave no hay petición externa.
 
 ## Sesión 17 — Hito 6E: mentor IA supervisado
 
@@ -22,12 +36,13 @@ como dato no confiable y devuelve únicamente una decisión estructurada.
   texto final. El modelo no puede persistir memoria ni crear cambios de juego.
 - Una acción activa evita por completo la llamada IA. Los frenos Core y de
   sesión siguen gobernados por el motor.
-- `store:false`, identificador de seguridad pseudónimo, timeout y salida máxima
-  configurables. Flag y clave solo en servidor; desactivado por defecto.
+- En OpenAI se usan `store:false` e identificador de seguridad pseudónimo. En
+  Groq se omiten esos campos incompatibles. Timeout y salida máxima siguen
+  configurables; flag y clave solo en servidor, desactivado por defecto.
 - Si falta clave, hay timeout, error HTTP, negativa, salida incompleta, JSON
   inválido o un id inexistente, responde el motor y muestra el motivo seguro.
-- La suscripción de ChatGPT no incluye el consumo de API. No se realizó ninguna
-  llamada facturable durante el desarrollo ni se guardó ninguna clave.
+- Groq puede usarse con su cuota gratuita; OpenAI conserva facturación separada
+  de ChatGPT. No se guarda ninguna clave en el repositorio.
 
 Verificado localmente: TypeScript y ESLint sin errores, **297/297** pruebas,
 build de producción correcto, smoke normal **72/72** (producción + desarrollo)

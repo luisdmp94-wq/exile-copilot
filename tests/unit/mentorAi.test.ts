@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../../server/config.js";
 import {
   MentorAiError,
-  OpenAiMentorSelector,
+  ResponsesMentorSelector,
   type MentorAiContext,
 } from "../../server/mentor/mentorAi.js";
 
@@ -43,20 +43,27 @@ function context(): MentorAiContext {
   };
 }
 
-function config(apiKey: string | null = "test-key") {
+function config(
+  apiKey: string | null = "test-key",
+  provider: "groq" | "openai" = "groq",
+) {
   return {
     ...loadConfig({}),
     mentorAiEnabled: true,
+    mentorAiProvider: provider,
     mentorAiApiKey: apiKey,
-    mentorAiModel: "gpt-5.4-mini",
+    mentorAiModel:
+      provider === "groq" ? "openai/gpt-oss-120b" : "gpt-5.4-mini",
   };
 }
 
-describe("OpenAiMentorSelector", () => {
-  it("usa Responses, store:false y salida estructurada sin exponer la clave", async () => {
+describe("ResponsesMentorSelector", () => {
+  it("usa Groq Responses con salida estructurada y sin campos incompatibles", async () => {
     let requestBody: Record<string, unknown> | null = null;
     let authorization = "";
-    const fetchImpl = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+    let endpoint = "";
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      endpoint = String(input);
       requestBody = JSON.parse(String(init?.body));
       authorization = new Headers(init?.headers).get("Authorization") ?? "";
       return new Response(
@@ -82,16 +89,15 @@ describe("OpenAiMentorSelector", () => {
       );
     });
 
-    const selector = new OpenAiMentorSelector(config(), fetchImpl);
+    const selector = new ResponsesMentorSelector(config(), fetchImpl);
     const decision = await selector.select(context(), "ec_test");
 
     expect(decision.recommendationId).toBe("rec-resistencias-elementales");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(endpoint).toBe("https://api.groq.com/openai/v1/responses");
     expect(authorization).toBe("Bearer test-key");
     expect(requestBody).toMatchObject({
-      model: "gpt-5.4-mini",
-      store: false,
-      safety_identifier: "ec_test",
+      model: "openai/gpt-oss-120b",
       reasoning: { effort: "low" },
       text: {
         format: {
@@ -101,20 +107,61 @@ describe("OpenAiMentorSelector", () => {
         },
       },
     });
+    expect(requestBody).not.toHaveProperty("store");
+    expect(requestBody).not.toHaveProperty("safety_identifier");
     expect(JSON.stringify(requestBody)).not.toContain("test-key");
+  });
+
+  it("conserva los campos de seguridad al usar OpenAI", async () => {
+    let endpoint = "";
+    let requestBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      endpoint = String(input);
+      requestBody = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          status: "completed",
+          output: [
+            {
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify({
+                    kind: "choose_recommendation",
+                    recommendationId: "rec-resistencias-elementales",
+                    missingFactId: null,
+                  }),
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+
+    const selector = new ResponsesMentorSelector(config("openai-key", "openai"), fetchImpl);
+    await selector.select(context(), "ec_test");
+
+    expect(endpoint).toBe("https://api.openai.com/v1/responses");
+    expect(requestBody).toMatchObject({
+      store: false,
+      safety_identifier: "ec_test",
+    });
   });
 
   it("frena sin clave y no intenta ninguna llamada", async () => {
     const fetchImpl = vi.fn();
-    const selector = new OpenAiMentorSelector(config(null), fetchImpl);
+    const selector = new ResponsesMentorSelector(config(null), fetchImpl);
     await expect(selector.select(context(), "ec_test")).rejects.toMatchObject({
-      safeReason: expect.stringContaining("OPENAI_API_KEY"),
+      safeReason: expect.stringContaining("GROQ_API_KEY"),
     });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("trata una negativa como fallo recuperable", async () => {
-    const selector = new OpenAiMentorSelector(
+    const selector = new ResponsesMentorSelector(
       config(),
       async () =>
         new Response(

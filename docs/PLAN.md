@@ -11,9 +11,10 @@ Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu
 - **Validación**: zod en `shared/` (esquemas compartidos entre front y back).
 - **Motor de recomendaciones**: 100 % determinista, reglas en `server/engine/rules.ts`. Sin IA en el núcleo. Null-safe: un dato desconocido (`null`) nunca se convierte en 0 ni genera afirmaciones de confianza alta.
 - **Mentor IA supervisado**: selector opcional tras `MENTOR_AI_ENABLED=false`.
-  Usa Responses API con salida estructurada y `store:false`; solo elige ids ya
-  emitidos por el motor. La acción y el texto final siguen siendo canónicos. Un
-  fallo o id inválido cae a reglas sin bloquear al jugador.
+  Usa una Responses API compatible con salida estructurada; Groq es el
+  proveedor predeterminado gratuito y OpenAI queda como alternativa. Solo elige
+  ids ya emitidos por el motor. La acción y el texto final siguen siendo
+  canónicos. Un fallo o id inválido cae a reglas sin bloquear al jugador.
 - **Memoria del mentor**: diario SQLite por personaje con decisiones,
   experimentos, crafts, hitos y notas. Una referencia separada mantiene una sola
   próxima acción principal; ejecutar una acción la deja esperando resultado y
