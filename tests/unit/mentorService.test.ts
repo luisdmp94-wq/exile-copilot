@@ -86,6 +86,22 @@ describe("mentor — intención next_improvement", () => {
     expect(answer.confidence).not.toBeNull();
     expect(answer.inputFingerprint).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it("acepta la intención conocida de un control contextual aunque la prosa sea nueva", async () => {
+    const answer = await answerMentorQuery(
+      {
+        ...BASE,
+        question: "Contexto estructurado de una pantalla",
+        intentHint: "next_improvement",
+        memory: emptyMemory(),
+      },
+      { priceService: offlinePriceService() },
+    );
+
+    expect(answer.intent).toBe("next_improvement");
+    expect(answer.unsupported).toBeNull();
+    expect(answer.nextAction).not.toBeNull();
+  });
 });
 
 describe("mentor — intención explain_priority", () => {

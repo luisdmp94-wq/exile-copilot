@@ -24,6 +24,8 @@ interface ExpedienteSectionProps {
   onShowOpenCase: () => void;
   /** Notifica al mentor contextual qué pieza está inspeccionando el jugador. */
   onInspectItem?: (item: Item) => void;
+  /** Restaura el contexto de área cuando termina la inspección. */
+  onInspectionEnd?: () => void;
   onEditExpediente: () => void;
   journal: JournalState;
   profilePersisted: boolean;
@@ -49,6 +51,7 @@ export function ExpedienteSection({
   dialogTriggerRef,
   onShowOpenCase,
   onInspectItem,
+  onInspectionEnd,
   onEditExpediente,
   journal,
   profilePersisted,
@@ -64,8 +67,10 @@ export function ExpedienteSection({
   const selectedItem: Item | null = items.find((item) => item.id === openItemId) ?? null;
 
   const closeDetail = () => {
+    const wasOpen = selectedItemId !== null || focusedItemId !== null;
     setSelectedItemId(null);
     if (focusedItemId !== null) onFocusHandled();
+    if (wasOpen) onInspectionEnd?.();
   };
 
   const relatedRecommendations = recommendations.filter(

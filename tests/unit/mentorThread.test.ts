@@ -329,4 +329,26 @@ describe("hilo del mentor — recuperación del 409 de memoria obsoleta", () => 
     expect(lastMentorAnswer(state.turns)).not.toBeNull();
     expect(savableNextAction(state.turns)).toBeNull();
   });
+
+  it("ignora una respuesta tardía después de invalidar la petición activa", async () => {
+    const answer = await respuestaRealGuardable();
+    let state = mentorThreadReducer(initialMentorThreadState, {
+      type: "ask",
+      turnId: "player-race",
+      question: "¿Qué mejoro ahora?",
+      requestId: "request-race",
+    });
+
+    state = mentorThreadReducer(state, { type: "clear" });
+    const afterLateAnswer = mentorThreadReducer(state, {
+      type: "answered",
+      turnId: "mentor-race",
+      answer,
+      inputsKey: "obsoleta",
+      requestId: "request-race",
+    });
+
+    expect(afterLateAnswer).toEqual(initialMentorThreadState);
+    expect(afterLateAnswer.turns).toHaveLength(0);
+  });
 });

@@ -26,7 +26,7 @@ export interface CharacterState {
   importItemText: (text: string) => Promise<void>;
   updateProfile: (patch: Partial<CharacterProfile>) => void;
   mutateProfile: (updater: (profile: CharacterProfile) => CharacterProfile) => void;
-  saveCorrections: () => Promise<void>;
+  saveCorrections: () => Promise<boolean>;
   /** Limpia el perfil actual y el id guardado en localStorage */
   reset: () => void;
 }
@@ -211,7 +211,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
   );
 
   const saveCorrections = useCallback(async () => {
-    if (!profile) return;
+    if (!profile) return false;
     setBusy("save");
     try {
       const res = await api.saveCharacter(profile);
@@ -220,10 +220,12 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       setDirty(false);
       setPersisted(true);
       toast.success("Correcciones guardadas");
+      return true;
     } catch (err) {
       toast.error("No se pudieron guardar las correcciones", {
         description: getErrorMessage(err),
       });
+      return false;
     } finally {
       setBusy(null);
     }

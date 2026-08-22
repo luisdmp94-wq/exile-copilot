@@ -47,6 +47,8 @@
  *  33. sin peticiones a hosts externos
  *  34. sin errores de consola relevantes
  *  35. el modo visible coincide con reglas o fallback IA esperado
+ *  36-43. mentor contextual: bienvenida, plegado, carrera, atribución,
+ *         intención soportada, debounce y tamaño móvil
  */
 import { spawn, execSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
@@ -92,6 +94,9 @@ function startServer(mode, port) {
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
       POE_NINJA_OFFLINE: "true",
+      // El smoke ordinario prueba la procedencia por reglas. La variante
+      // explícita de fallback activa IA con su propio proveedor simulado.
+      MENTOR_AI_ENABLED: EXPECT_AI_FALLBACK ? "true" : "false",
       // Base SQLite propia y temporal: jamás se usa la real.
       DATABASE_PATH: join(tempRoot, `${mode}.db`),
     },
@@ -215,6 +220,12 @@ async function runFlow(mode, port) {
       (await page.getByTestId("bienvenida").isVisible()) &&
         (await seccion.count()) === 0,
     );
+    check(
+      `[${mode}] sin personaje el mentor contextual no presupone un expediente`,
+      (await page.getByTestId("mentor-contextual-titulo").innerText()).includes(
+        "Necesito conocer a tu personaje",
+      ) && (await page.getByTestId("mentor-contextual-preguntar").count()) === 0,
+    );
 
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
@@ -237,6 +248,120 @@ async function runFlow(mode, port) {
     check(`[${mode}] personaje persistido antes de usar la memoria`, saveResponse.status() === 200);
     await page.keyboard.press("Escape");
     await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 15000 });
+
+    check(
+      `[${mode}] el mentor contextual reconoce el personaje cargado`,
+      /Demo Gemling|Los cambios ya forman parte del diagnóstico/.test(
+        await page.getByTestId("mentor-contextual-titulo").innerText(),
+      ),
+    );
+
+    // El plegado pertenece al panel, no al cue. Cambiar de área no puede
+    // reconstruir el componente ni desplegarlo a espaldas del jugador.
+    const contextualToggle = page.getByTestId("mentor-contextual-plegar");
+    if ((await contextualToggle.getAttribute("aria-expanded")) === "true") {
+      await contextualToggle.click();
+    }
+    await irA(page, "plan");
+    check(
+      `[${mode}] el mentor contextual conserva el plegado al cambiar de área`,
+      (await contextualToggle.getAttribute("aria-expanded")) === "false",
+    );
+    await contextualToggle.click();
+
+    // Una respuesta que llega después de cambiar de contexto puede guardarse
+    // en el hilo, pero no sustituir el nuevo panel.
+    await page.route(
+      "**/api/mentor/query",
+      async (route) => {
+        await wait(700);
+        await route.continue();
+      },
+      { times: 1 },
+    );
+    const delayedResponse = page.waitForResponse(
+      (response) => response.url().includes("/api/mentor/query"),
+      { timeout: 20000 },
+    );
+    const contextualAsk = page.getByTestId("mentor-contextual-preguntar");
+    await contextualAsk.focus();
+    await page.keyboard.press("Enter");
+    await irA(page, "expediente");
+    await delayedResponse;
+    await wait(150);
+    check(
+      `[${mode}] una respuesta tardía no pisa el contexto nuevo`,
+      (await page.getByTestId("mentor-contextual-titulo").innerText()).includes(
+        "Has vuelto al expediente",
+      ) && (await page.getByTestId("mentor-contextual-respuesta").count()) === 0,
+    );
+
+    // En una consulta vigente, el botón permanece montado y la procedencia
+    // visible corresponde al modo real de respuesta.
+    await irA(page, "plan");
+    await contextualAsk.focus();
+    await page.keyboard.press("Enter");
+    await page.getByTestId("mentor-contextual-respuesta").waitFor({ timeout: 25000 });
+    const contextualText = await page.getByTestId("mentor-contextual-respuesta").innerText();
+    const contextualMode = await page.getByTestId("mentor-contextual-modo").innerText();
+    check(
+      `[${mode}] la consulta contextual es soportada y declara respuesta del motor`,
+      /respuesta del motor/i.test(contextualMode) &&
+        !contextualText.includes("No he entendido esa pregunta"),
+    );
+    await page
+      .waitForFunction(
+        () =>
+          document.activeElement?.getAttribute("data-testid") ===
+          "mentor-contextual-preguntar",
+        { timeout: 1500 },
+      )
+      .catch(() => undefined);
+    const contextualFocus = await page.evaluate(() => ({
+      testId: document.activeElement?.getAttribute("data-testid") ?? null,
+      tag: document.activeElement?.tagName ?? null,
+    }));
+    check(
+      `[${mode}] responder no desmonta el botón que tenía el foco`,
+      contextualFocus.testId === "mentor-contextual-preguntar",
+    );
+
+    // El hilo contextual anterior no debe contaminar las cuentas históricas
+    // del smoke existente. El perfil sí vuelve porque ya está persistido.
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
+
+    // Escribir un número no produce cues intermedios 1/15/150: solo el valor
+    // final tras una pausa breve.
+    await irA(page, "plan");
+    await page.evaluate(() => {
+      window.__contextualTitles = [];
+      const title = document.querySelector('[data-testid="mentor-contextual-titulo"]');
+      window.__contextualObserver = new MutationObserver(() => {
+        window.__contextualTitles.push(title?.textContent ?? "");
+      });
+      if (title) {
+        window.__contextualObserver.observe(title, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
+      }
+    });
+    const budgetInput = page.locator("#market-budget");
+    await budgetInput.fill("");
+    await budgetInput.pressSequentially("1500", { delay: 100 });
+    await wait(750);
+    const budgetTitles = await page.evaluate(() => {
+      window.__contextualObserver?.disconnect();
+      return window.__contextualTitles;
+    });
+    check(
+      `[${mode}] el presupuesto solo anuncia el valor final`,
+      budgetTitles.some((title) => title.includes("1500")) &&
+        !budgetTitles.some((title) => /^(1|15|150)\s/.test(title)),
+    );
+    await irA(page, "expediente");
 
     await abrirMentor(page);
     await seccion.waitFor({ state: "visible", timeout: 20000 });
@@ -481,6 +606,11 @@ async function runFlow(mode, port) {
         medida.scroll <= medida.client + 1,
       );
     }
+    const contextualMobile = await page.getByTestId("mentor-contextual").boundingBox();
+    check(
+      `[${mode}] en móvil el mentor plegado ocupa menos del 12 % del alto`,
+      contextualMobile !== null && contextualMobile.height < 800 * 0.12,
+    );
 
     // --- Teclado ------------------------------------------------------------
     await page.setViewportSize({ width: 390, height: 900 });

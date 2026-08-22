@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Compass, FolderOpen } from "lucide-react";
 import type { Budget, GoalKind, Recommendation } from "@shared/domain.js";
+import type { MentorAnswer } from "@shared/mentorQuery.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import {
   GGG_AFFILIATION_NOTICE,
@@ -50,9 +51,9 @@ import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   contextualMentorCue,
+  type ContextualMentorAsk,
   type ContextualMentorEvent,
 } from "@/lib/contextualMentor";
-import { lastMentorAnswer } from "@/lib/mentorThread";
 
 const EMPTY_TARGET: TargetDraft = {
   name: "",
@@ -101,8 +102,18 @@ export default function App() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPrompt, setEditorPrompt] = useState<EditorPrompt>(null);
   const [contextualCue, setContextualCue] = useState(() =>
-    contextualMentorCue({ type: "workspace", workspace: "expediente" }),
+    contextualMentorCue({ type: "welcome" }),
   );
+  const [contextualAnswer, setContextualAnswer] = useState<MentorAnswer | null>(null);
+  const [contextualError, setContextualError] = useState<string | null>(null);
+  const [contextualLoadingSeq, setContextualLoadingSeq] = useState<number | null>(null);
+  // El mentor reacciona siempre en su cabecera, pero empieza plegado: así no
+  // tapa acciones del expediente ni obliga al jugador a cerrar un overlay nada
+  // más entrar. Desplegarlo es una decisión explícita que luego se conserva.
+  const [contextualCollapsed, setContextualCollapsed] = useState(true);
+  const contextualSeqRef = useRef(0);
+  const budgetCueTimerRef = useRef<number | null>(null);
+  const announcedPlanRef = useRef<BuildTargetPlan | null>(null);
   // La bienvenida pide «Importar mi personaje»: abre el editor Y lleva el foco
   // al panel de importación en lugar de al primer control del panel.
   const focusImportOnOpen = useRef(false);
@@ -144,9 +155,13 @@ export default function App() {
   const { resultInputsKey, clear } = recommendations;
   const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
 
-  const announceMentor = (event: ContextualMentorEvent) => {
+  const announceMentor = useCallback((event: ContextualMentorEvent) => {
+    contextualSeqRef.current += 1;
     setContextualCue(contextualMentorCue(event));
-  };
+    setContextualAnswer(null);
+    setContextualError(null);
+    setContextualLoadingSeq(null);
+  }, []);
 
   /**
    * Marcas «ya la apliqué». Viven aquí porque la recomendación dominante se
@@ -164,9 +179,6 @@ export default function App() {
     setLastResult(recommendations.result);
     setAppliedIds({});
   }
-  const toggleApplied = (id: string, applied: boolean) =>
-    setAppliedIds((prev) => ({ ...prev, [id]: applied }));
-
   // Recuperación del 409: si el diario quedó obsoleto (otra pestaña escribió),
   // las recomendaciones y la conversación que se veían ya no corresponden a la
   // memoria vigente y se retiran en lugar de quedar en pantalla.
@@ -174,8 +186,13 @@ export default function App() {
     if (journal.stale) {
       clear();
       clearMentor();
+      announceMentor({
+        type: "error",
+        area: "diario",
+        message: "El diario cambió en otra pestaña. He retirado el diagnóstico anterior.",
+      });
     }
-  }, [journal.stale, clear, clearMentor]);
+  }, [journal.stale, clear, clearMentor, announceMentor]);
 
   const hasProfile = character.profile !== null;
 
@@ -220,10 +237,15 @@ export default function App() {
     : null;
   useEffect(() => {
     if (resultInputsKey && resultInputsKey !== currentInputsKey) {
+      if (budgetCueTimerRef.current !== null) {
+        window.clearTimeout(budgetCueTimerRef.current);
+        budgetCueTimerRef.current = null;
+      }
       clear();
       toast.info("Los datos han cambiado — vuelve a generar las recomendaciones");
+      announceMentor({ type: "invalidated" });
     }
-  }, [currentInputsKey, resultInputsKey, clear]);
+  }, [currentInputsKey, resultInputsKey, clear, announceMentor]);
 
   // La conversación NO se persiste y se descarta en cuanto cambian los inputs
   // relevantes: así el hilo nunca muestra respuestas obsoletas.
@@ -248,6 +270,14 @@ export default function App() {
     }
   }, [currentMentorInputsKey, mentorThreadKey, clearMentor]);
 
+  useEffect(() => {
+    const plan = targetDraft.plan;
+    if (plan !== null && plan !== announcedPlanRef.current) {
+      announcedPlanRef.current = plan;
+      announceMentor({ type: "planImported", name: plan.build.name });
+    }
+  }, [targetDraft.plan, announceMentor]);
+
   /**
    * Jerarquía del Caso Abierto: sesión abierta → acción activa del diario →
    * recomendación vigente → generar. La decide una función pura para poder
@@ -257,6 +287,13 @@ export default function App() {
     () => recommendations.result?.recommendations ?? [],
     [recommendations.result],
   );
+  const toggleApplied = (id: string, applied: boolean) => {
+    setAppliedIds((prev) => ({ ...prev, [id]: applied }));
+    if (applied) {
+      const recommendation = resultRecommendations.find((candidate) => candidate.id === id);
+      if (recommendation) announceMentor({ type: "applied", title: recommendation.title });
+    }
+  };
   const selection = useMemo(
     () =>
       selectOpenCase({
@@ -277,6 +314,56 @@ export default function App() {
   );
   const limitations = openCaseLimitations(selection);
   const dominantRecommendation = selection.recommendation;
+
+  const restoreMentorBaseContext = () => {
+    if (!character.profile) {
+      announceMentor({ type: "welcome" });
+    } else if (tab === "plan") {
+      announceMentor({ type: "workspace", workspace: "plan" });
+    } else {
+      announceMentor({ type: "ready", profileName: character.profile.name });
+    }
+  };
+
+  const handleSessionMentorEvent = (event: {
+    type: "started" | "result" | "paused" | "reopened" | "reconciled";
+    title: string;
+  }) => {
+    if (event.type === "result") {
+      announceMentor({ type: "sessionResult", title: event.title });
+    } else if (event.type === "paused") {
+      announceMentor({ type: "sessionPaused", title: event.title });
+    } else {
+      announceMentor({ type: "session", title: event.title });
+    }
+  };
+
+  const saveProfileWithMentor = async () => {
+    const saved = await character.saveCorrections();
+    if (saved) announceMentor({ type: "profileSaved" });
+  };
+
+  const updateBudgetWithMentor = (nextBudget: Budget) => {
+    const currencyChanged = nextBudget.currency !== budget.currency;
+    setBudget(nextBudget);
+    if (budgetCueTimerRef.current !== null) window.clearTimeout(budgetCueTimerRef.current);
+    if (currencyChanged) {
+      announceMentor({
+        type: "budget",
+        amount: nextBudget.amount,
+        currency: nextBudget.currency,
+      });
+      return;
+    }
+    budgetCueTimerRef.current = window.setTimeout(() => {
+      announceMentor({
+        type: "budget",
+        amount: nextBudget.amount,
+        currency: nextBudget.currency,
+      });
+      budgetCueTimerRef.current = null;
+    }, 600);
+  };
 
   const focusItem = (itemId: string, trigger: HTMLElement) => {
     dialogTriggerRef.current = trigger;
@@ -356,24 +443,40 @@ export default function App() {
       });
   };
 
-  const askMentor = (question: string) => {
-    if (!character.profile) return;
-    void mentor
-      .ask(
-        buildMentorRequest(
-          question,
-          character.profile,
-          targetDraft,
-          budget,
-          goal,
-          league,
-          patch,
-          characterJournal,
-        ),
-      )
-      .then((outcome) => {
-        if (outcome === "journal-stale") void journal.reload();
-      });
+  const askMentor = async (question: string, intentHint?: ContextualMentorAsk["intent"]) => {
+    if (!character.profile) return null;
+    const outcome = await mentor.ask(
+      buildMentorRequest(
+        question,
+        character.profile,
+        targetDraft,
+        budget,
+        goal,
+        league,
+        patch,
+        characterJournal,
+        intentHint,
+      ),
+    );
+    if (outcome.status === "journal-stale") void journal.reload();
+    return outcome;
+  };
+
+  const askContextualMentor = async (ask: ContextualMentorAsk) => {
+    const requestedSeq = contextualSeqRef.current;
+    setContextualAnswer(null);
+    setContextualError(null);
+    setContextualLoadingSeq(requestedSeq);
+    const outcome = await askMentor(ask.question, ask.intent);
+    // La respuesta conserva su turno en la conversación, pero nunca pisa un
+    // objeto, área o decisión que el jugador abrió mientras esperaba.
+    if (requestedSeq !== contextualSeqRef.current) return;
+    setContextualLoadingSeq(null);
+    if (outcome?.status === "ok") {
+      setContextualAnswer(outcome.answer);
+    } else if (outcome?.status === "error") {
+      setContextualError(outcome.message);
+    }
   };
 
   const openMentorConversation = () => {
@@ -391,44 +494,65 @@ export default function App() {
   const contextualProfileName = character.profile?.name ?? null;
   useEffect(() => {
     if (contextualProfileId && contextualProfileName) {
-      setContextualCue(
-        contextualMentorCue({ type: "ready", profileName: contextualProfileName }),
-      );
+      announceMentor({ type: "ready", profileName: contextualProfileName });
+    } else if (!character.restoring) {
+      announceMentor({ type: "welcome" });
     }
-  }, [contextualProfileId, contextualProfileName]);
+    // Solo anuncia una carga real de perfil; renombrarlo no equivale a cargarlo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextualProfileId, character.restoring, announceMentor]);
 
   useEffect(() => {
     if (recommendations.result) {
-      setContextualCue(
-        contextualMentorCue({
-          type: "recommendations",
-          recommendations: recommendations.result.recommendations,
-        }),
-      );
+      announceMentor({
+        type: "recommendations",
+        recommendations: recommendations.result.recommendations,
+      });
     }
-  }, [recommendations.result]);
+  }, [recommendations.result, announceMentor]);
 
   useEffect(() => {
     if (market.prices) {
-      setContextualCue(
-        contextualMentorCue({
-          type: "market",
-          quoteCount: market.prices.quotes.length,
-          verifiedCount: market.prices.quotes.filter((quote) => quote.verified).length,
-          degraded: market.prices.degraded,
-        }),
-      );
+      announceMentor({
+        type: "market",
+        quoteCount: market.prices.quotes.length,
+        verifiedCount: market.prices.quotes.filter((quote) => quote.verified).length,
+        degraded: market.prices.degraded,
+      });
     }
-  }, [market.prices]);
+  }, [market.prices, announceMentor]);
 
-  const latestMentorAnswer = lastMentorAnswer(mentor.turns);
   useEffect(() => {
-    if (latestMentorAnswer) {
-      setContextualCue(
-        contextualMentorCue({ type: "ai", answer: latestMentorAnswer.answer }),
-      );
+    if (market.error) {
+      announceMentor({ type: "error", area: "mercado", message: market.error });
     }
-  }, [latestMentorAnswer]);
+  }, [market.error, announceMentor]);
+
+  useEffect(() => {
+    if (recommendations.error) {
+      announceMentor({
+        type: "error",
+        area: "recomendaciones",
+        message: recommendations.error,
+      });
+    }
+  }, [recommendations.error, announceMentor]);
+
+  useEffect(
+    () => () => {
+      if (budgetCueTimerRef.current !== null) window.clearTimeout(budgetCueTimerRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const collapseOnMobile = (event: MediaQueryListEvent) => {
+      if (event.matches) setContextualCollapsed(true);
+    };
+    media.addEventListener("change", collapseOnMobile);
+    return () => media.removeEventListener("change", collapseOnMobile);
+  }, []);
 
   // La bienvenida sustituye a los paneles vacíos, pero no debe aparecer mientras
   // se restaura un personaje guardado (si no, parpadearía antes de cargarlo).
@@ -446,7 +570,7 @@ export default function App() {
     <div className="min-h-screen text-foreground">
       <AppHeader health={health} loading={metaLoading} profile={character.profile} />
 
-      <main className="mx-auto max-w-[92rem] px-4 pb-12 pt-0 sm:px-6">
+      <main className="mx-auto max-w-[92rem] px-4 pb-28 pt-0 sm:px-6 sm:pb-12">
         {metaError && (
           <Alert variant="destructive" className="mb-6">
             <AlertTitle>No se pudo cargar la configuración del servidor</AlertTitle>
@@ -516,11 +640,12 @@ export default function App() {
                 dialogTriggerRef={dialogTriggerRef}
                 onShowOpenCase={showOpenCase}
                 onInspectItem={(item) => announceMentor({ type: "item", item })}
+                onInspectionEnd={restoreMentorBaseContext}
                 onEditExpediente={() => openEditor()}
                 journal={journal}
                 profilePersisted={character.persisted}
                 savingProfile={character.busy === "save"}
-                onSaveProfile={() => void character.saveCorrections()}
+                onSaveProfile={() => void saveProfileWithMentor()}
               />
             ) : (
               <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(23rem,26rem)_minmax(0,1fr)] lg:items-start">
@@ -537,6 +662,7 @@ export default function App() {
                         journal={journal}
                         pendingRecommendation={dominantRecommendation}
                         onEditExpediente={() => openEditor()}
+                        onMentorEvent={handleSessionMentorEvent}
                       />
                     }
                     journalSlot={
@@ -620,11 +746,12 @@ export default function App() {
                     dialogTriggerRef={dialogTriggerRef}
                     onShowOpenCase={showOpenCase}
                     onInspectItem={(item) => announceMentor({ type: "item", item })}
+                    onInspectionEnd={restoreMentorBaseContext}
                     onEditExpediente={() => openEditor()}
                     journal={journal}
                     profilePersisted={character.persisted}
                     savingProfile={character.busy === "save"}
-                    onSaveProfile={() => void character.saveCorrections()}
+                    onSaveProfile={() => void saveProfileWithMentor()}
                   />
                 </div>
 
@@ -641,6 +768,7 @@ export default function App() {
                           journal={journal}
                           pendingRecommendation={dominantRecommendation}
                           onEditExpediente={() => openEditor()}
+                          onMentorEvent={handleSessionMentorEvent}
                         />
                       )
                     }
@@ -726,14 +854,7 @@ export default function App() {
                   announceMentor({ type: "league", league: nextLeague });
                 }}
                 budget={budget}
-                onBudgetChange={(nextBudget) => {
-                  setBudget(nextBudget);
-                  announceMentor({
-                    type: "budget",
-                    amount: nextBudget.amount,
-                    currency: nextBudget.currency,
-                  });
-                }}
+                onBudgetChange={updateBudgetWithMentor}
                 goal={goal}
                 onGoalChange={(nextGoal) => {
                   setGoal(nextGoal);
@@ -759,7 +880,10 @@ export default function App() {
           open={editorOpen}
           onOpenChange={(open) => {
             setEditorOpen(open);
-            if (!open) setEditorPrompt(null);
+            if (!open) {
+              setEditorPrompt(null);
+              if (contextualCue.id !== "profile:saved") restoreMentorBaseContext();
+            }
           }}
         >
           <SheetContent
@@ -788,6 +912,7 @@ export default function App() {
                 // La bienvenida ya ofrece importar y cargar el ejemplo: la
                 // sección no repite ni su vacío ni su botón de ejemplo.
                 hideEmptyState={showWelcome}
+                onProfileSaved={() => announceMentor({ type: "profileSaved" })}
               />
             </div>
           </SheetContent>
@@ -803,11 +928,14 @@ export default function App() {
       </main>
 
       <ContextualMentor
-        key={contextualCue.id}
         cue={contextualCue}
-        loading={mentor.loading}
+        answer={contextualAnswer}
+        error={contextualError}
+        loading={contextualLoadingSeq === contextualSeqRef.current}
         canAsk={character.profile !== null}
-        onAsk={askMentor}
+        collapsed={contextualCollapsed}
+        onCollapsedChange={setContextualCollapsed}
+        onAsk={askContextualMentor}
         onOpenMentor={openMentorConversation}
       />
       <Toaster theme="dark" richColors closeButton position="top-right" />

@@ -41,6 +41,8 @@ import {
 
 export interface MentorQueryOptions {
   question: string;
+  /** Intención explícita de un control semántico de la interfaz. */
+  intentHint?: Exclude<MentorIntent, "unsupported">;
   profile: CharacterProfile;
   target?: BuildTarget;
   budget: Budget;
@@ -400,7 +402,9 @@ async function buildAnswer(
   options: MentorQueryOptions,
   deps: MentorQueryDependencies,
 ): Promise<MentorAnswer> {
-  const { intent, normalizedQuestion } = classifyMentorQuestion(options.question);
+  const classified = classifyMentorQuestion(options.question);
+  const intent = options.intentHint ?? classified.intent;
+  const { normalizedQuestion } = classified;
   const selector = deps.selector ?? null;
 
   // Sin IA se conserva la salida honesta original y no se ejecuta el motor.

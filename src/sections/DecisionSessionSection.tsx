@@ -49,6 +49,10 @@ interface DecisionSessionSectionProps {
   journal: JournalState;
   pendingRecommendation: Recommendation | null;
   onEditExpediente?: () => void;
+  onMentorEvent?: (event: {
+    type: "started" | "result" | "paused" | "reopened" | "reconciled";
+    title: string;
+  }) => void;
 }
 
 function newKey(): string {
@@ -62,6 +66,7 @@ export function DecisionSessionSection({
   journal,
   pendingRecommendation,
   onEditExpediente,
+  onMentorEvent,
 }: DecisionSessionSectionProps) {
   const session = journal.journal?.session ?? null;
   const events = journal.journal?.sessionEvents ?? [];
@@ -114,7 +119,7 @@ export function DecisionSessionSection({
 
   const startFromRecommendation = async () => {
     if (!pendingRecommendation || !revision) return;
-    await journal.startSession({
+    const next = await journal.startSession({
       ...guard,
       journalRevision: revision,
       idempotencyKey: newKey(),
@@ -135,12 +140,13 @@ export function DecisionSessionSection({
       budget,
       goal,
     });
+    if (next) onMentorEvent?.({ type: "started", title: pendingRecommendation.title });
   };
 
   const startManual = async (event: FormEvent) => {
     event.preventDefault();
     if (!revision || objective.trim() === "" || hypothesis.trim() === "") return;
-    await journal.startSession({
+    const next = await journal.startSession({
       ...guard,
       journalRevision: revision,
       idempotencyKey: newKey(),
@@ -161,6 +167,7 @@ export function DecisionSessionSection({
       budget,
       goal,
     });
+    if (next) onMentorEvent?.({ type: "started", title: objective.trim() });
     setObjective("");
     setHypothesis("");
   };
@@ -287,13 +294,15 @@ export function DecisionSessionSection({
                     type="button"
                     size="sm"
                     disabled={journal.saving || !revision}
-                    onClick={() =>
+                    onClick={() => {
                       void journal.reconcileSession({
                         ...guard,
                         journalRevision: revision!,
                         idempotencyKey: newKey(),
-                      })
-                    }
+                      }).then((next) => {
+                        if (next) onMentorEvent?.({ type: "reconciled", title: session.objective });
+                      });
+                    }}
                   >
                     Sigue aplicando a este personaje
                   </Button>
@@ -478,6 +487,7 @@ export function DecisionSessionSection({
                     })
                     .then((next) => {
                       if (!next) return;
+                      onMentorEvent?.({ type: "result", title: session.objective });
                       setResultText("");
                       setOutcome(null);
                       setValuable("");
@@ -697,14 +707,16 @@ export function DecisionSessionSection({
                 variant="outline"
                 data-testid="decision-pausar"
                 disabled={journal.saving || journal.stale || !revision}
-                onClick={() =>
+                onClick={() => {
                   void journal.pauseSession({
                     ...guard,
                     journalRevision: revision!,
                     idempotencyKey: newKey(),
                     reason: "Pausa para conservar el recurso o esperar un mejor momento.",
-                  })
-                }
+                  }).then((next) => {
+                    if (next) onMentorEvent?.({ type: "paused", title: session.objective });
+                  });
+                }}
               >
                 <CirclePause className="size-4" aria-hidden="true" />
                 Pausar
@@ -721,14 +733,16 @@ export function DecisionSessionSection({
                     session.status !== "completed" &&
                     session.status !== "discarded")
                 }
-                onClick={() =>
+                onClick={() => {
                   void journal.reopenSession({
                     ...guard,
                     journalRevision: revision!,
                     idempotencyKey: newKey(),
                     note: "Reabrimos como candidata.",
-                  })
-                }
+                  }).then((next) => {
+                    if (next) onMentorEvent?.({ type: "reopened", title: session.objective });
+                  });
+                }}
               >
                 <RotateCcw className="size-4" aria-hidden="true" />
                 Reabrir como candidata

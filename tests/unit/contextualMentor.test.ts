@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Item, Recommendation } from "../../shared/domain.js";
-import { contextualMentorCue } from "../../src/lib/contextualMentor.js";
+import { classifyMentorQuestion } from "../../shared/mentorIntent.js";
+import {
+  contextualMentorCue,
+  type ContextualMentorEvent,
+} from "../../src/lib/contextualMentor.js";
 
 const item: Item = {
   id: "item-arma",
@@ -24,8 +28,8 @@ describe("mentor contextual", () => {
 
     expect(cue.title).toBe("Doom Song");
     expect(cue.message).toContain("No juzgues la pieza aislada");
-    expect(cue.question).toContain("Doom Song");
-    expect(cue.question).toContain("Arma");
+    expect(cue.ask?.question).toContain("Doom Song");
+    expect(cue.ask?.question).toContain("Arma");
   });
 
   it("explica que cambiar objetivo invalida prioridades anteriores", () => {
@@ -55,17 +59,44 @@ describe("mentor contextual", () => {
 
     expect(cue.source).toBe("engine");
     expect(cue.title).toBe("Prioridad: Cubrir resistencias");
-    expect(cue.question).toContain("Cubrir resistencias");
+    expect(cue.ask?.question).toContain("Cubrir resistencias");
   });
 
-  it("muestra la respuesta de IA sin fabricar un nuevo botón de consulta", () => {
-    const cue = contextualMentorCue({
-      type: "ai",
-      answer: "Comprueba primero la resistencia al frío.",
-    });
+  it("usa una bienvenida honesta cuando todavía no existe personaje", () => {
+    const cue = contextualMentorCue({ type: "welcome" });
 
-    expect(cue.source).toBe("ai");
-    expect(cue.message).toBe("Comprueba primero la resistencia al frío.");
-    expect(cue.question).toBeNull();
+    expect(cue.title).toBe("Necesito conocer a tu personaje");
+    expect(cue.message).not.toContain("tu equipo");
+    expect(cue.ask).toBeNull();
+  });
+
+  it("todas las consultas generadas declaran y cumplen una intención soportada", () => {
+    const events: ContextualMentorEvent[] = [
+      { type: "ready", profileName: "Demo" },
+      { type: "workspace", workspace: "expediente" },
+      { type: "workspace", workspace: "plan" },
+      { type: "item", item },
+      { type: "editor" },
+      { type: "goal", goal: "survival" },
+      { type: "budget", amount: 50, currency: "exalted" },
+      { type: "league", league: "Runes of Aldur" },
+      { type: "recommendations", recommendations: [recommendation] },
+      { type: "recommendations", recommendations: [] },
+      { type: "market", quoteCount: 2, verifiedCount: 1, degraded: false },
+      { type: "tracked", title: "Cubrir resistencias" },
+      { type: "session", title: "Probar botas" },
+      { type: "profileSaved" },
+      { type: "planImported", name: "Titan Warrior" },
+      { type: "applied", title: "Cubrir resistencias" },
+      { type: "invalidated" },
+      { type: "sessionResult", title: "Probar botas" },
+      { type: "sessionPaused", title: "Probar botas" },
+    ];
+
+    for (const event of events) {
+      const ask = contextualMentorCue(event).ask;
+      expect(ask, event.type).not.toBeNull();
+      expect(classifyMentorQuestion(ask!.question).intent, ask!.question).toBe(ask!.intent);
+    }
   });
 });

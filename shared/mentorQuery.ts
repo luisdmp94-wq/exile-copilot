@@ -115,6 +115,11 @@ export type MentorAnswer = z.infer<typeof MentorAnswerSchema>;
 // POST /api/mentor/query
 export const MentorQueryRequestSchema = z.object({
   question: z.string().trim().min(1).max(MAX_MENTOR_QUESTION_LENGTH),
+  /**
+   * Intención conocida por una acción semántica de la propia interfaz. Las
+   * preguntas libres no la envían y continúan pasando por el clasificador.
+   */
+  intentHint: MentorIntent.exclude(["unsupported"]).optional(),
   profile: CharacterProfileSchema,
   target: BuildTargetSchema.optional(),
   budget: BudgetSchema,

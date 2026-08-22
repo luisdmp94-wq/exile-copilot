@@ -1,6 +1,10 @@
 import { useCallback, useReducer } from "react";
 import { toast } from "sonner";
-import { mentorInputsKey, type MentorQueryRequest } from "@shared/mentorQuery.js";
+import {
+  mentorInputsKey,
+  type MentorAnswer,
+  type MentorQueryRequest,
+} from "@shared/mentorQuery.js";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 import {
   initialMentorThreadState,
@@ -23,7 +27,10 @@ export type { MentorTurn, MentorTurnRole } from "@/lib/mentorThread";
  * obsoletas.
  */
 
-export type MentorAskOutcome = "ok" | "journal-stale" | "error";
+export type MentorAskOutcome =
+  | { status: "ok"; answer: MentorAnswer }
+  | { status: "journal-stale" }
+  | { status: "error"; message: string };
 
 export interface MentorState extends MentorThreadState {
   ask: (request: MentorQueryRequest) => Promise<MentorAskOutcome>;
@@ -44,7 +51,13 @@ export function useMentor(): MentorState {
   }, []);
 
   const ask = useCallback(async (request: MentorQueryRequest): Promise<MentorAskOutcome> => {
-    dispatch({ type: "ask", turnId: nextTurnId("player"), question: request.question });
+    const requestId = nextTurnId("request");
+    dispatch({
+      type: "ask",
+      turnId: nextTurnId("player"),
+      question: request.question,
+      requestId,
+    });
 
     try {
       const { answer } = await api.mentorQuery(request);
@@ -53,22 +66,23 @@ export function useMentor(): MentorState {
         turnId: nextTurnId("mentor"),
         answer,
         inputsKey: mentorInputsKey(request),
+        requestId,
       });
-      return "ok";
+      return { status: "ok", answer };
     } catch (err) {
       const message = getErrorMessage(err);
       if (err instanceof ApiRequestError && err.status === 409) {
         // La memoria autoritativa cambió: el hilo entero (incluida la pregunta
         // recién fallada) se descarta ANTES de que el jugador pueda reintentar.
-        dispatch({ type: "journal-stale", message });
+        dispatch({ type: "journal-stale", message, requestId });
         toast.warning("Tu diario cambió en otra pestaña", {
           description: "Hemos recargado el diario y reiniciado la conversación. Vuelve a preguntar.",
         });
-        return "journal-stale";
+        return { status: "journal-stale" };
       }
-      dispatch({ type: "failed", message });
+      dispatch({ type: "failed", message, requestId });
       toast.error("No se pudo consultar al mentor", { description: message });
-      return "error";
+      return { status: "error", message };
     }
   }, []);
 

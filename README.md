@@ -12,8 +12,9 @@ devuelve acciones concretas y conserva el resultado de cada decisión en el
 diario del personaje. Además, un **mentor contextual persistente** acompaña la
 navegación: reacciona al objeto inspeccionado, al área abierta, al objetivo, al
 presupuesto, al mercado y a las recomendaciones. La reacción inmediata es local
-y determinista; solo consulta al proveedor de IA cuando el jugador pulsa
-«Analizar este contexto». Mientras haya un paso activo no genera tareas
+y determinista. Su cabecera permanece visible y empieza plegada para no tapar
+acciones; solo consulta al proveedor de IA cuando el jugador despliega el panel
+y pulsa «Analizar este contexto». Mientras haya un paso activo no genera tareas
 paralelas; si una mejora ya se intentó, exige reconciliar el resultado con el
 perfil antes de repetirla.
 
@@ -135,6 +136,13 @@ Preguntas que entiende hoy:
 
 - «¿Qué mejoro ahora?», «¿Qué debería hacer primero?» → siguiente paso.
 - «¿Por qué me recomiendas esto?», «¿Cuál es mi principal problema?» → explicación.
+
+Los botones que genera el propio mentor incluyen una intención estructurada y
+se prueban contra este contrato. Una respuesta tardía puede conservarse en el
+hilo, pero nunca sustituye el objeto, área o decisión que el jugador haya abierto
+mientras esperaba. La etiqueta declara su origen real: «IA supervisada» con
+modelo, «Respaldo del motor de reglas» o «Respuesta del motor»; nunca se atribuye
+una respuesta a Groq solo por configuración.
 
 Con IA desactivada, cualquier otra pregunta se declara **no soportada**. Con IA
 activada puede relacionarla con hasta tres candidatos reales, pedir un dato

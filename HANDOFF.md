@@ -10,6 +10,30 @@
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
 
+## Sesión 21 — endurecimiento del mentor contextual
+
+Se cerraron los defectos descubiertos en la auditoría del panel contextual:
+
+- Todas las preguntas creadas por la interfaz llevan una intención permitida y
+  una prueba de contrato las enfrenta al clasificador determinista.
+- La procedencia visible sale de `responseMode`: IA supervisada con su modelo,
+  respaldo por reglas o motor. Ya no se presenta cualquier respuesta como Groq.
+- Cada petición lleva identidad propia. Cambiar de área, objeto o decisión
+  invalida el panel anterior; una respuesta tardía no puede pisar el contexto
+  nuevo ni un turno viejo puede cerrar el estado de uno reciente.
+- El panel ya no se reconstruye al responder: conserva plegado y foco. Empieza
+  plegado en escritorio y móvil para no interceptar acciones del expediente,
+  pero su cabecera sigue reaccionando a los eventos semánticos.
+- Presupuesto se anuncia con debounce; guardar perfil, importar plan, aplicar o
+  invalidar una recomendación, resultados/pausas de sesión y errores producen
+  cues específicos. Sin personaje se muestra un estado honesto y sin consulta.
+- La región viva accesible es estable; el contenido móvil tiene alto acotado y
+  el botón de teclado conserva el foco tras respuestas síncronas o remotas.
+
+Verificación final: TypeScript y ESLint sin errores; **309/309** pruebas;
+build correcto; mentor **88/88**, equipo **82/82**, sesiones **58/58**, diario
+**58/58** y flujo principal completo en producción y desarrollo/Strict Mode.
+
 ## Sesión 18 — Groq como proveedor del mentor IA
 
 El selector de Hito 6E ahora acepta proveedores compatibles y usa Groq por

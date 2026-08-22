@@ -57,6 +57,8 @@ interface CharacterSectionProps {
    * lógica de personaje: solo qué se pinta sin personaje.
    */
   hideEmptyState: boolean;
+  /** Notifica una persistencia real para actualizar el mentor contextual. */
+  onProfileSaved?: () => void;
 }
 
 const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
@@ -116,6 +118,7 @@ export function CharacterSection({
   meta,
   drafts,
   hideEmptyState,
+  onProfileSaved,
 }: CharacterSectionProps) {
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const { itemText, setItemText } = drafts;
@@ -281,7 +284,11 @@ export function CharacterSection({
               <Button
                 type="button"
                 data-testid="guardar-correcciones"
-                onClick={() => void character.saveCorrections()}
+                onClick={() => {
+                  void character.saveCorrections().then((saved) => {
+                    if (saved) onProfileSaved?.();
+                  });
+                }}
                 disabled={busy !== null || !dirty}
               >
                 {busy === "save" ? (

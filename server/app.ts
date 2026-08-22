@@ -779,6 +779,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       const answer = await answerMentorQuery(
         {
           question: body.question,
+          ...(body.intentHint !== undefined ? { intentHint: body.intentHint } : {}),
           profile: body.profile,
           budget: body.budget,
           goal: body.goal,

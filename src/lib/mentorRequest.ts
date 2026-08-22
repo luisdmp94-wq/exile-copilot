@@ -1,4 +1,5 @@
 import type { MentorQueryRequest } from "@shared/mentorQuery.js";
+import type { MentorIntent } from "@shared/mentorQuery.js";
 import type {
   Budget,
   CharacterJournal,
@@ -26,9 +27,11 @@ export function buildMentorRequest(
   league: string,
   patch: string,
   journal: CharacterJournal | null,
+  intentHint?: Exclude<MentorIntent, "unsupported">,
 ): MentorQueryRequest {
   return {
     question,
+    ...(intentHint ? { intentHint } : {}),
     profile,
     target: buildTargetFromDraft(targetDraft),
     budget,

@@ -81,6 +81,18 @@ describe("POST /mentor/query", () => {
     expect(answer.unsupported).toBeNull();
   });
 
+  it("respeta la intención explícita de una acción contextual validada", async () => {
+    const request = await demoRequest("Contexto de la interfaz");
+    const res = await postJson("/mentor/query", {
+      ...request,
+      intentHint: "next_improvement",
+    });
+    expect(res.status).toBe(200);
+    const answer = MentorAnswerSchema.parse((await jsonOf(res)).answer);
+    expect(answer.intent).toBe("next_improvement");
+    expect(answer.unsupported).toBeNull();
+  });
+
   it("declara honestamente una pregunta no soportada", async () => {
     const res = await postJson(
       "/mentor/query",

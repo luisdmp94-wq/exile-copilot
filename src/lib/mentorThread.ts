@@ -28,6 +28,8 @@ export interface MentorThreadState {
   error: string | null;
   /** Inputs con los que se abrió el hilo; si cambian, se invalida. */
   threadInputsKey: string | null;
+  /** Petición que todavía puede modificar el hilo; null invalida respuestas tardías. */
+  activeRequestId: string | null;
 }
 
 export const initialMentorThreadState: MentorThreadState = {
@@ -35,17 +37,18 @@ export const initialMentorThreadState: MentorThreadState = {
   loading: false,
   error: null,
   threadInputsKey: null,
+  activeRequestId: null,
 };
 
 export type MentorThreadEvent =
   /** El jugador envía una pregunta: se pinta su turno y arranca la espera. */
-  | { type: "ask"; turnId: string; question: string }
+  | { type: "ask"; turnId: string; question: string; requestId?: string }
   /** Respuesta correcta del servidor. */
-  | { type: "answered"; turnId: string; answer: MentorAnswer; inputsKey: string }
+  | { type: "answered"; turnId: string; answer: MentorAnswer; inputsKey: string; requestId?: string }
   /** 409 `memoria-diario-obsoleta`: el diario cambió bajo nuestros pies. */
-  | { type: "journal-stale"; message: string }
+  | { type: "journal-stale"; message: string; requestId?: string }
   /** Cualquier otro fallo: la pregunta que acaba de fallar no se conserva. */
-  | { type: "failed"; message: string }
+  | { type: "failed"; message: string; requestId?: string }
   /** Invalidación por cambio de inputs relevantes. */
   | { type: "clear" };
 
@@ -66,6 +69,7 @@ export function mentorThreadReducer(
         ...state,
         loading: true,
         error: null,
+        activeRequestId: event.requestId ?? event.turnId,
         turns: [
           ...state.turns,
           { id: event.turnId, role: "player", text: event.question, answer: null },
@@ -73,11 +77,16 @@ export function mentorThreadReducer(
       };
 
     case "answered":
+      if (
+        event.requestId !== undefined &&
+        event.requestId !== state.activeRequestId
+      ) return state;
       return {
         ...state,
         loading: false,
         error: null,
         threadInputsKey: event.inputsKey,
+        activeRequestId: null,
         turns: [
           ...state.turns,
           { id: event.turnId, role: "mentor", text: event.answer.answer, answer: event.answer },
@@ -85,25 +94,40 @@ export function mentorThreadReducer(
       };
 
     case "journal-stale":
+      if (
+        event.requestId !== undefined &&
+        event.requestId !== state.activeRequestId
+      ) return state;
       // El diario autoritativo cambió: TODO el hilo quedó obsoleto, incluida la
       // pregunta que acaba de fallar. Se reinicia limpiamente y solo queda el
       // aviso, de modo que al recargar el diario el jugador pueda reintentar
       // sin pregunta duplicada, sin respuesta antigua y sin una acción
       // guardable que ya no corresponde a la memoria del servidor.
-      return { turns: [], loading: false, error: event.message, threadInputsKey: null };
+      return {
+        turns: [],
+        loading: false,
+        error: event.message,
+        threadInputsKey: null,
+        activeRequestId: null,
+      };
 
     case "failed":
+      if (
+        event.requestId !== undefined &&
+        event.requestId !== state.activeRequestId
+      ) return state;
       // La pregunta no llegó a responderse: se retira el turno del jugador que
       // acaba de fallar para no dejarlo huérfano y duplicado al reintentar.
       return {
         ...state,
         loading: false,
         error: event.message,
+        activeRequestId: null,
         turns: dropTrailingPlayerTurn(state.turns),
       };
 
     case "clear":
-      return { ...initialMentorThreadState, loading: state.loading };
+      return { ...initialMentorThreadState };
   }
 }
 
