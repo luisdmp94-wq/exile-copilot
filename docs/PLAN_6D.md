@@ -53,11 +53,16 @@ primer corte no los usa para inventar recomendaciones ni conclusiones.
 6. Frenar una recomendación que choque con un objeto Core.
 7. No afectar a `main` hasta revisión independiente.
 
-## Pendiente antes de integrar
+## Cierre antes de integrar
 
-- Regresión de navegador dedicada al formulario y a la persistencia tras
-  recargar.
-- Capturas de escritorio y móvil.
-- Auditoría de carreras entre pestañas en las dos rutas nuevas.
-- Decidir cómo una entrada Experimental o Descartada participa en una futura
-  conversación sin interpretar texto libre como hechos.
+- Regresión de navegador dedicada al formulario, persistencia tras recargar,
+  reclasificación y archivado, tanto en producción como en desarrollo.
+- Capturas de escritorio y móvil a 390 px, sin desbordamiento horizontal.
+- Las dos rutas nuevas usan la revisión completa del diario. Si dos pestañas
+  parten de la misma revisión, la primera escritura gana y la segunda recibe
+  `409 memoria-diario-obsoleta`; la UI recarga la memoria y no duplica filas.
+- Los ids de objetos se comprueban contra el snapshot guardado del personaje.
+
+Experimental y Descartado siguen siendo memoria declarada y visible. No
+participan en inferencias automáticas: incorporarlas a una conversación sin
+convertir texto libre en hechos queda explícitamente fuera de este hito.

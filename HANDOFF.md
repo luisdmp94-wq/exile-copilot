@@ -1,13 +1,42 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 15 (Hito 6C),
+> Informe para el propietario. Última actualización: sesión 16 (Hito 6D),
 > 2026-08-22.
 >
 > **Estado de esta rama:** parte del rediseño visual integrado en `5f726a2` e
-> incorpora el Hito 6C «Probar y volver». `main` no se mueve durante este
+> incorpora los Hitos 6C «Probar y volver» y 6D «Identidad persistente de la
+> build». `main` no se mueve durante este
 > trabajo. Las secciones de sesiones anteriores son HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 16 — Hito 6D: identidad persistente de la build
+
+Rama aislada `hito-6d-build-memory` sobre `2576577`. El expediente conserva
+reglas declaradas por el jugador como **Core, Flexible, Experimental o
+Descartado**, con motivo, objeto relacionado opcional y condición para volver a
+considerar algo descartado.
+
+- Las reglas viven en SQLite y sobreviven a recargar. Archivar las retira de la
+  memoria activa sin borrar su historial físico.
+- La memoria forma parte de la revisión determinista del personaje. Dos
+  pestañas que escriben desde la misma revisión no pueden pisarse: la primera
+  gana y la segunda recibe `409 memoria-diario-obsoleta`, recarga y no duplica
+  la regla.
+- Un objeto relacionado debe existir en el snapshot guardado. Un id ajeno se
+  rechaza con `400 objeto-de-memoria-desconocido`.
+- Solo una regla Core puede frenar automáticamente, y únicamente con una
+  relación estructurada por id de objeto o la coincidencia textual conservadora
+  ya existente. Flexible, Experimental y Descartado no se convierten en hechos
+  ni mecánicas inventadas.
+- El personaje de ejemplo explica que primero debe guardarse y ofrece
+  «Guardar personaje y activar memoria»; después permite añadir, reclasificar y
+  archivar reglas desde el expediente.
+
+Verificado en esta rama: TypeScript y ESLint sin errores, **284/284** tests,
+build de producción correcto, smoke 6D **20/20** (producción + desarrollo,
+escritorio + móvil a 390 px) y regresión 6C **58/58**. Las cuatro capturas están
+en `docs/screenshots/memoria-build-*.png`.
 
 ## Sesión 15 — Hito 6C: ciclo «Probar y volver»
 

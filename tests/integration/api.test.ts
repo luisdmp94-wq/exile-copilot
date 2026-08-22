@@ -103,6 +103,76 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(archived.journal.buildMemory).toEqual([]);
   });
 
+  it("rechaza carreras entre pestañas y evita duplicar una regla con revisión obsoleta", async () => {
+    const profile = CharacterProfileSchema.parse({
+      ...JSON.parse(
+        readFileSync(
+          fileURLToPath(new URL("../../server/fixtures/demoSnapshot.json", import.meta.url)),
+          "utf8",
+        ),
+      ),
+      id: "build-memory-race",
+    });
+    await postJson("/character", { profile });
+    const initial = CharacterJournalSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const sharedRevision = buildRecommendationMemory(initial).revision;
+    const first = await postJson(`/journal/${profile.id}/build-memory`, {
+      kind: "core",
+      label: "Regla creada en la pestaña A",
+      reason: "Debe ganar la primera escritura válida.",
+      relatedItemIds: [],
+      reconsiderWhen: null,
+      journalRevision: sharedRevision,
+    });
+    expect(first.status).toBe(201);
+
+    const stale = await postJson(`/journal/${profile.id}/build-memory`, {
+      kind: "experimental",
+      label: "Regla creada en la pestaña B",
+      reason: "Parte de una revisión que ya quedó obsoleta.",
+      relatedItemIds: [],
+      reconsiderWhen: null,
+      journalRevision: sharedRevision,
+    });
+    expect(stale.status).toBe(409);
+    expect((await jsonOf(stale)).error).toBe("memoria-diario-obsoleta");
+
+    const afterRace = CharacterJournalSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    expect(afterRace.buildMemory.map((entry) => entry.label)).toEqual([
+      "Regla creada en la pestaña A",
+    ]);
+  });
+
+  it("rechaza vincular memoria a un objeto que no pertenece al personaje", async () => {
+    const profile = CharacterProfileSchema.parse({
+      ...JSON.parse(
+        readFileSync(
+          fileURLToPath(new URL("../../server/fixtures/demoSnapshot.json", import.meta.url)),
+          "utf8",
+        ),
+      ),
+      id: "build-memory-unknown-item",
+    });
+    await postJson("/character", { profile });
+    const journal = CharacterJournalSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const response = await postJson(`/journal/${profile.id}/build-memory`, {
+      kind: "core",
+      label: "Objeto ajeno",
+      reason: "No debe aceptarse sin pertenecer al snapshot guardado.",
+      relatedItemIds: ["item-que-no-existe"],
+      reconsiderWhen: null,
+      journalRevision: buildRecommendationMemory(journal).revision,
+    });
+    expect(response.status).toBe(400);
+    expect((await jsonOf(response)).error).toBe("objeto-de-memoria-desconocido");
+  });
+
   it("GET /health responde ok con patch objeto {content, hotfix, asOf, source}", async () => {
     const res = await fetch(`${base}/health`);
     expect(res.status).toBe(200);
