@@ -13,6 +13,7 @@ import {
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
+import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -38,6 +39,7 @@ interface AlloyPlannerProps {
   goalCategory: CraftingGoalCategory;
   desiredOutcome: string;
   protectedModifierIds: string[];
+  successCriteria: CraftingSuccessCriterion[];
   onEditIntention: () => void;
 }
 
@@ -48,6 +50,7 @@ export function AlloyPlanner({
   goalCategory,
   desiredOutcome,
   protectedModifierIds,
+  successCriteria,
   onEditIntention,
 }: AlloyPlannerProps) {
   const [alloyName, setAlloyName] = useState("");
@@ -81,9 +84,15 @@ export function AlloyPlanner({
     removalSelection,
   });
   const status = STATUS[evaluation.status];
+  const successCriteriaReady =
+    successCriteria.length > 0 &&
+    successCriteria.every(
+      (criterion) => criterion.kind !== "exact-modifier-text" || criterion.text.trim().length >= 3,
+    );
   const ready =
     evaluation.status === "compatible" &&
     desiredOutcome.trim().length >= 3 &&
+    successCriteriaReady &&
     snapshotConfirmed &&
     tooltipConfirmed &&
     replacementConfirmed &&
@@ -178,6 +187,7 @@ export function AlloyPlanner({
           {protectedModifierIds.length > 0
             ? ` · ${protectedModifierIds.length} intocable${protectedModifierIds.length === 1 ? "" : "s"}`
             : " · nada marcado como intocable"}
+          {` · ${successCriteria.length} condición${successCriteria.length === 1 ? "" : "es"} de parada`}
         </span>
         <Button type="button" variant="ghost" size="sm" onClick={onEditIntention}>
           Editar intención
@@ -239,6 +249,7 @@ export function AlloyPlanner({
               desiredOutcome: desiredOutcome.trim(),
               goalCategory,
               protectedModifierIds,
+              successCriteria,
             })
               .then((started) => {
                 if (started) onStarted?.();

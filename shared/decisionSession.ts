@@ -9,6 +9,7 @@ import {
   RiskLevel,
 } from "./domain.js";
 import { CraftingGoalCategorySchema } from "./craftingGoal.js";
+import { CraftingSuccessCriteriaSchema } from "./craftingSuccessCriteria.js";
 
 /** Límites duros: el historial no crece sin cota. */
 export const MAX_SESSION_EVENTS = 40;
@@ -160,6 +161,8 @@ export const CraftingExperimentSchema = z.object({
   desiredOutcome: z.string().trim().min(1).max(500),
   /** Ids del snapshot original que el jugador declaró imprescindibles. */
   protectedModifierIds: z.array(z.string().trim().min(1).max(200)).max(12).default([]),
+  /** Ausente en sesiones antiguas: condiciones observables elegidas por el jugador. */
+  successCriteria: CraftingSuccessCriteriaSchema,
   originalItem: ItemSchema,
 });
 export type CraftingExperiment = z.infer<typeof CraftingExperimentSchema>;

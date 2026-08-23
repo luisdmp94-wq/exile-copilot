@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Item, Modifier } from "./domain.js";
 import { CraftingGoalCategorySchema } from "./craftingGoal.js";
+import { CraftingSuccessCriteriaSchema } from "./craftingSuccessCriteria.js";
 
 /** Contrato explícito del jugador: qué busca y qué no acepta perder. */
 export const CraftingObjectiveSchema = z.object({
@@ -10,6 +11,8 @@ export const CraftingObjectiveSchema = z.object({
     .array(z.string().trim().min(1).max(200))
     .max(12)
     .refine((ids) => new Set(ids).size === ids.length, "No se puede proteger dos veces el mismo modificador."),
+  /** Pruebas observables elegidas por el jugador; el texto libre nunca las sustituye. */
+  successCriteria: CraftingSuccessCriteriaSchema,
 });
 export type CraftingObjective = z.infer<typeof CraftingObjectiveSchema>;
 

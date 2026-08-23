@@ -19,6 +19,10 @@ import {
 import { evaluateCraftingCharacterContext } from "@shared/craftingCharacterContext.js";
 import { evaluateCraftingGoalSignal } from "@shared/craftingGoal.js";
 import { decideCraftingNextStep } from "@shared/craftingNextDecision.js";
+import {
+  craftingSuccessCriterionLabel,
+  evaluateCraftingSuccessCriteria,
+} from "@shared/craftingSuccessCriteria.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   CONCLUSION_LABELS,
@@ -149,6 +153,15 @@ export function DecisionSessionSection({
           goalSignal: craftingGoalSignal,
         })
       : null;
+  const craftingSuccessAssessment =
+    session?.craftingExperiment &&
+    craftingComparison?.status === "confirmed" &&
+    craftingResultItem
+      ? evaluateCraftingSuccessCriteria({
+          criteria: session.craftingExperiment.successCriteria,
+          resultItem: craftingResultItem,
+        })
+      : null;
   const craftingNextDecision =
     session?.craftingExperiment &&
     craftingComparison?.status === "confirmed" &&
@@ -161,6 +174,7 @@ export function DecisionSessionSection({
           characterContext: craftingCharacterContext,
           addedGoalSignal: craftingGoalSignal,
           goalCategory: session.craftingExperiment.goalCategory,
+          successAssessment: craftingSuccessAssessment,
         })
       : null;
   const showStartForm = session === null || (!isOpen && startingNew);
@@ -623,6 +637,21 @@ export function DecisionSessionSection({
                       </dd>
                     </div>
                   )}
+                  {session.craftingExperiment.successCriteria.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-[11px] text-muted-foreground">Pararé cuando</dt>
+                      <dd className="mt-1 flex flex-wrap gap-1.5">
+                        {session.craftingExperiment.successCriteria.map((criterion) => (
+                          <span
+                            key={criterion.kind}
+                            className="rounded border border-emerald-500/30 bg-emerald-500/[0.06] px-2 py-1 text-xs text-emerald-100"
+                          >
+                            {craftingSuccessCriterionLabel(criterion)}
+                          </span>
+                        ))}
+                      </dd>
+                    </div>
+                  )}
                 </dl>}
                 {craftingComparison?.status !== "confirmed" && <div className="space-y-1">
                   <Label htmlFor={`${instanceId}-crafting-result-${session.id}`}>
@@ -718,6 +747,51 @@ export function DecisionSessionSection({
                     )}
                     {craftingComparison.status === "confirmed" && (
                       <div className="mt-4 space-y-2">
+                        {craftingSuccessAssessment &&
+                          craftingSuccessAssessment.status !== "not-defined" && (
+                          <section
+                            className={`rounded-md border p-3 ${
+                              craftingSuccessAssessment.status === "fulfilled"
+                                ? "border-emerald-500/45 bg-emerald-500/[0.08]"
+                                : craftingSuccessAssessment.status === "unknown"
+                                  ? "border-amber-500/40 bg-amber-500/[0.07]"
+                                  : "border-border bg-background/30"
+                            }`}
+                            data-testid="crafting-success-assessment"
+                            data-success-status={craftingSuccessAssessment.status}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
+                                  Tu punto de parada
+                                </p>
+                                <h4 className="mt-1 font-semibold">{craftingSuccessAssessment.title}</h4>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {craftingSuccessAssessment.entries.filter((entry) => entry.status === "fulfilled").length}/
+                                {craftingSuccessAssessment.entries.length}
+                              </span>
+                            </div>
+                            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                              {craftingSuccessAssessment.entries.map((entry) => (
+                                <li
+                                  key={entry.criterion.kind}
+                                  className="rounded border border-current/15 bg-black/10 px-3 py-2 text-xs"
+                                  data-criterion-status={entry.status}
+                                >
+                                  <span className="font-medium">
+                                    {entry.status === "fulfilled"
+                                      ? "Cumplida"
+                                      : entry.status === "not-seen"
+                                        ? "No aparece"
+                                        : "No comprobable"}
+                                  </span>
+                                  <span className="mt-0.5 block text-muted-foreground">{entry.label}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </section>
+                        )}
                         {craftingNextDecision && (
                           <div
                             className={`rounded-md border p-4 ${

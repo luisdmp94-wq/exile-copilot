@@ -7,6 +7,7 @@ import {
   type CraftingGoalSignal,
 } from "./craftingGoal.js";
 import type { Item } from "./domain.js";
+import type { CraftingSuccessAssessment } from "./craftingSuccessCriteria.js";
 
 export type CraftingNextDecisionKind = "continue" | "stop" | "restart";
 export type CraftingNextDecisionTone = "positive" | "caution" | "danger";
@@ -32,6 +33,7 @@ export function decideCraftingNextStep(input: {
   characterContext: CraftingCharacterContext;
   addedGoalSignal: CraftingGoalSignal;
   goalCategory: CraftingGoalCategory | undefined;
+  successAssessment?: CraftingSuccessAssessment | null;
 }): CraftingNextDecision {
   const {
     resultItem,
@@ -39,6 +41,7 @@ export function decideCraftingNextStep(input: {
     characterContext,
     addedGoalSignal,
     goalCategory,
+    successAssessment,
   } = input;
   const diagnosis = diagnoseCraftingItem(resultItem);
   const explicitModifiers = resultItem.modifiers.filter(
@@ -78,6 +81,19 @@ export function decideCraftingNextStep(input: {
       title: "Detente: la nueva pieza no se puede leer completa",
       summary: diagnosis.summary,
       nextAction: diagnosis.nextAction,
+      observedOpenSlots,
+      resultGoalSignal,
+    };
+  }
+
+  if (successAssessment?.status === "fulfilled") {
+    return {
+      kind: "stop",
+      tone: "positive",
+      title: "Objetivo cumplido: para y conserva",
+      summary:
+        "El resultado cumple todas las condiciones observables que elegiste antes de gastar.",
+      nextAction: "Guarda la pieza y pruébala en el personaje antes de arriesgar lo conseguido.",
       observedOpenSlots,
       resultGoalSignal,
     };

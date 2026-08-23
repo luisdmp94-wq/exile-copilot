@@ -23,12 +23,14 @@ import type { Item } from "@shared/domain.js";
 import { AlloyPlanner } from "@/components/AlloyPlanner";
 import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
 import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
+import { CraftingSuccessCriteriaPicker } from "@/components/CraftingSuccessCriteriaPicker";
 import {
   CRAFTING_GOAL_LABELS,
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
 import { assessCraftingAffixes } from "@shared/craftingAffixAssessment.js";
+import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCraftingKnowledge } from "@/hooks/useCraftingKnowledge";
@@ -146,6 +148,7 @@ export function CraftingActionPlanner({
   const [desiredOutcome, setDesiredOutcome] = useState("");
   const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
   const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
+  const [successCriteria, setSuccessCriteria] = useState<CraftingSuccessCriterion[]>([]);
   const [preflightConfirmed, setPreflightConfirmed] = useState(false);
   const [startingDecision, setStartingDecision] = useState(false);
   const [activeTool, setActiveTool] = useState<CraftingTool>("currency");
@@ -183,7 +186,24 @@ export function CraftingActionPlanner({
   };
   const confirmationReady =
     desiredOutcome.trim().length >= 3 &&
+    successCriteria.length > 0 &&
+    successCriteria.every(
+      (criterion) => criterion.kind !== "exact-modifier-text" || criterion.text.trim().length >= 3,
+    ) &&
     preflightConfirmed;
+  const changeGoalCategory = (next: CraftingGoalCategory) => {
+    setGoalCategory(next);
+    setSuccessCriteria((current) => {
+      if (next === "other") {
+        return current.filter((criterion) => criterion.kind !== "goal-affix-count");
+      }
+      return current.map((criterion) =>
+        criterion.kind === "goal-affix-count"
+          ? { ...criterion, category: next }
+          : criterion,
+      );
+    });
+  };
   const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
   const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds);
   const replacementNeedsConsent =
@@ -262,7 +282,7 @@ export function CraftingActionPlanner({
           </div>
           <CraftingGoalPicker
             category={goalCategory}
-            onCategoryChange={setGoalCategory}
+            onCategoryChange={changeGoalCategory}
             outcome={desiredOutcome}
             onOutcomeChange={setDesiredOutcome}
             idPrefix={`crafting-goal-${item.id}`}
@@ -274,6 +294,12 @@ export function CraftingActionPlanner({
             value={protectedModifierIds}
             onChange={setProtectedModifierIds}
             idPrefix={`crafting-protected-${item.id}`}
+          />
+          <CraftingSuccessCriteriaPicker
+            item={item}
+            goalCategory={goalCategory}
+            value={successCriteria}
+            onChange={setSuccessCriteria}
           />
         </section>
         <details
@@ -693,6 +719,7 @@ export function CraftingActionPlanner({
                               desiredOutcome: desiredOutcome.trim(),
                               goalCategory,
                               protectedModifierIds,
+                              successCriteria,
                             },
                           )
                             .then((started) => {
@@ -806,6 +833,7 @@ export function CraftingActionPlanner({
           goalCategory={goalCategory}
           desiredOutcome={desiredOutcome}
           protectedModifierIds={protectedModifierIds}
+          successCriteria={successCriteria}
           onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}
         />
       </div>
@@ -823,6 +851,7 @@ export function CraftingActionPlanner({
           goalCategory={goalCategory}
           desiredOutcome={desiredOutcome}
           protectedModifierIds={protectedModifierIds}
+          successCriteria={successCriteria}
           onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}
         />
       </div>
@@ -837,6 +866,7 @@ interface EssencePlannerProps {
   goalCategory: CraftingGoalCategory;
   desiredOutcome: string;
   protectedModifierIds: string[];
+  successCriteria: CraftingSuccessCriterion[];
   onEditIntention: () => void;
 }
 
@@ -847,6 +877,7 @@ function EssencePlanner({
   goalCategory,
   desiredOutcome,
   protectedModifierIds,
+  successCriteria,
   onEditIntention,
 }: EssencePlannerProps) {
   const [tier, setTier] = useState<EssenceTier>(item.rarity === "magic" ? "normal" : "perfect");
@@ -866,9 +897,15 @@ function EssencePlanner({
     removalSelection: evaluation.randomRemoval ? "random" : "none",
   });
   const status = ACTION_STATUS[evaluation.status];
+  const successCriteriaReady =
+    successCriteria.length > 0 &&
+    successCriteria.every(
+      (criterion) => criterion.kind !== "exact-modifier-text" || criterion.text.trim().length >= 3,
+    );
   const ready =
     evaluation.status === "compatible" &&
     desiredOutcome.trim().length >= 3 &&
+    successCriteriaReady &&
     snapshotConfirmed &&
     tooltipConfirmed &&
     notSpentConfirmed &&
@@ -953,6 +990,7 @@ function EssencePlanner({
           {protectedModifierIds.length > 0
             ? ` · ${protectedModifierIds.length} intocable${protectedModifierIds.length === 1 ? "" : "s"}`
             : " · nada marcado como intocable"}
+          {` · ${successCriteria.length} condición${successCriteria.length === 1 ? "" : "es"} de parada`}
         </span>
         <Button type="button" variant="ghost" size="sm" onClick={onEditIntention}>
           Editar intención
@@ -1026,6 +1064,7 @@ function EssencePlanner({
               desiredOutcome: desiredOutcome.trim(),
               goalCategory,
               protectedModifierIds,
+              successCriteria,
             })
               .then((started) => {
                 if (started) onStarted?.();

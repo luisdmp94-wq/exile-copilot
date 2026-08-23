@@ -79,6 +79,17 @@ sobrevivir. Ese mismo plan acompaña a Monedas, Essences, Alloys y a la
 comparación final; no hay tres formularios distintos ni se intenta interpretar
 la palabra «sin» como si fuera evidencia estructurada.
 
+Antes de preparar una moneda, el jugador declara también **cuándo debe parar**
+mediante una a tres condiciones observables: aumentar el número de afijos con
+etiquetas de la categoría elegida, hacer aparecer una línea exacta escrita por
+él o alcanzar un número de afijos explícitos. Los umbrales siempre parten por
+encima del snapshot actual, así que una condición no puede presentarse como
+mejora si ya estaba cumplida. Después del craft se muestra cada condición como
+«cumplida», «no aparece» o «no comprobable». Si todas se cumplen, la acción
+principal es parar y conservar, aunque todavía exista un hueco. La descripción
+libre nunca se analiza como evidencia y las sesiones anteriores cargan sin
+inventar condiciones.
+
 La auditoría adversarial y sus límites están documentados en
 [`docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md`](docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md).
 
