@@ -138,6 +138,7 @@ export function CraftingActionPlanner({
   const [startingDecision, setStartingDecision] = useState(false);
   const [activeTool, setActiveTool] = useState<CraftingTool>("currency");
   const [showUnavailableActions, setShowUnavailableActions] = useState(false);
+  const [showReplacementRisk, setShowReplacementRisk] = useState(false);
   const compatibleActionCount = craftingActions.filter(
     (entry) => entry.status === "compatible",
   ).length;
@@ -172,6 +173,8 @@ export function CraftingActionPlanner({
     desiredOutcome.trim().length >= 3 &&
     preflightConfirmed;
   const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
+  const replacementNeedsConsent =
+    route.state === "replacement-tools" && mentorReading.protectCandidates.length > 0;
   const verdictTone =
     mentorReading.verdict === "controlled-test"
       ? "text-emerald-200"
@@ -283,12 +286,24 @@ export function CraftingActionPlanner({
                 {action.label}
               </Button>
             ))}
-            {route.toolSuggestions.includes("essence") && (
+            {replacementNeedsConsent && !showReplacementRisk && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setShowReplacementRisk(true)}
+              >
+                Revisar opciones con riesgo
+              </Button>
+            )}
+            {route.toolSuggestions.includes("essence") &&
+              (!replacementNeedsConsent || showReplacementRisk) && (
               <Button type="button" size="sm" variant="outline" onClick={() => openTool("essence")}>
                 Revisar una Essence
               </Button>
             )}
-            {route.toolSuggestions.includes("alloy") && (
+            {route.toolSuggestions.includes("alloy") &&
+              (!replacementNeedsConsent || showReplacementRisk) && (
               <Button type="button" size="sm" variant="outline" onClick={() => openTool("alloy")}>
                 Revisar un Alloy
               </Button>
@@ -409,14 +424,17 @@ export function CraftingActionPlanner({
         >
           {CRAFTING_TOOLS.map((tool) => {
             const selected = activeTool === tool.id;
+            const locked =
+              tool.id !== "currency" && replacementNeedsConsent && !showReplacementRisk;
             return (
               <button
                 key={tool.id}
                 type="button"
                 role="tab"
                 aria-selected={selected}
+                disabled={locked}
                 data-testid={`crafting-tool-${tool.id}`}
-                className={`group min-h-16 rounded-md border px-3 py-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                className={`group min-h-16 rounded-md border px-3 py-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40 ${
                   selected
                     ? "border-primary/70 bg-primary/[0.11] shadow-[0_0_24px_-16px_hsl(var(--primary))]"
                     : "border-border/70 bg-muted/10 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-muted/25"
@@ -434,8 +452,12 @@ export function CraftingActionPlanner({
       </section>
 
       <div
-        hidden={activeTool !== "currency"}
-        style={activeTool !== "currency" ? { display: "none" } : undefined}
+        hidden={activeTool !== "currency" || route.state === "replacement-tools"}
+        style={
+          activeTool !== "currency" || route.state === "replacement-tools"
+            ? { display: "none" }
+            : undefined
+        }
         className="flex flex-col gap-4"
         data-testid="crafting-tool-panel-currency"
       >

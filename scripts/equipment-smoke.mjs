@@ -986,6 +986,7 @@ async function runFlow(mode, port) {
     );
     const signalObjetivo = comprobadorResultado.getByTestId("crafting-goal-signal");
     const contextoPersonaje = comprobadorResultado.getByTestId("crafting-character-context");
+    const siguienteDecision = comprobadorResultado.getByTestId("crafting-next-decision");
     check(
       `[${mode}] relaciona resultado, objetivo y expediente sin inventar una puntuación`,
       (await signalObjetivo.getAttribute("data-signal-status")) === "direct" &&
@@ -993,6 +994,16 @@ async function runFlow(mode, port) {
         (await contextoPersonaje.innerText()).includes("Candidato coherente con lo que buscabas") &&
         !(await contextoPersonaje.innerText()).match(/\d+\/10|% de mejora/),
     );
+    check(
+      `[${mode}] el asesor dice parar y conservar cuando el resultado útil llena la pieza`,
+      (await siguienteDecision.getAttribute("data-next-decision")) === "stop" &&
+        (await siguienteDecision.innerText()).includes("Para y conserva este resultado") &&
+        !(await siguienteDecision.innerText()).match(/probabilidad de éxito|DPS|precio estimado/i),
+    );
+    await page.screenshot({
+      path: join(SHOT_DIR, `crafting-decision-${mode}.png`),
+      fullPage: true,
+    });
     check(
       `[${mode}] la app pregunta al jugador si el resultado le sirve`,
       textoComparacion.includes("¿El cambio resultante sirve para") &&
@@ -1080,9 +1091,15 @@ async function runFlow(mode, port) {
     }
 
     const rutaTrasResultado = craftingWorkspace.getByTestId("crafting-route");
+    const revisarRiesgo = rutaTrasResultado.getByRole("button", {
+      name: "Revisar opciones con riesgo",
+    });
+    const reemplazoProtegido = await revisarRiesgo.isVisible();
+    if (reemplazoProtegido) await revisarRiesgo.click();
     check(
-      `[${mode}] una pieza llena conduce a reemplazo en vez de dejar al jugador sin salida`,
+      `[${mode}] una pieza llena exige reconocer el riesgo antes de mostrar reemplazos`,
       (await rutaTrasResultado.getAttribute("data-route-state")) === "replacement-tools" &&
+        reemplazoProtegido &&
         (await rutaTrasResultado.getByRole("button", { name: "Revisar una Essence" }).isVisible()) &&
         (await rutaTrasResultado.getByRole("button", { name: "Revisar un Alloy" }).isVisible()),
     );

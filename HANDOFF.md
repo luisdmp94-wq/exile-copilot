@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 29,
+> Informe para el propietario. Última actualización: sesión 30,
 > 2026-08-23.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,25 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 30 — asesor conservador después de cada craft
+
+- Una pieza llena con afijos de grado 1–2 ya no recibe la recomendación
+  engañosa «Prueba controlada»: el banco indica «No arriesgues aún» y muestra
+  cuántos afijos relevantes quedarían expuestos.
+- Las rutas de reemplazo con Essence o Alloy permanecen ocultas y desactivadas
+  hasta que el jugador revisa explícitamente ese riesgo.
+- Tras pegar el resultado, aparece una sola decisión dominante: continuar,
+  parar y conservar o replantear la ruta. La decisión distingue un resultado
+  útil con hueco libre, uno útil que llena la pieza y uno lleno sin señal del
+  objetivo.
+- Los bloqueos por requisitos o por pérdida de un modificador protegido siempre
+  prevalecen. No se destruye ningún objeto ni se inventan DPS, precios,
+  probabilidades o valor de afijos.
+
+Verificación: TypeScript y ESLint sin errores; **452/452** pruebas; build de
+producción correcto; equipo y Crafting **186/186** en producción y
+desarrollo/Strict Mode.
 
 ## Sesión 29 — banco de crafting jugable y navegación reparada
 

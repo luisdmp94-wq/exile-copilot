@@ -6,7 +6,7 @@ import {
 } from "@shared/craftingGoal.js";
 
 export interface CraftingMentorReading {
-  verdict: "wait" | "define" | "controlled-test" | "review";
+  verdict: "wait" | "define" | "protect" | "controlled-test" | "review";
   verdictLabel: string;
   verdictDetail: string;
   matchingModifiers: Modifier[];
@@ -52,6 +52,19 @@ export function buildCraftingMentorReading(
       verdict: "define",
       verdictLabel: "Define el objetivo",
       verdictDetail: "Sin objetivo no puedo separar progreso de ruido.",
+      matchingModifiers,
+      unmatchedModifiers,
+      protectCandidates,
+    };
+  }
+  if (diagnosis.observedOpenSlots === 0) {
+    return {
+      verdict: "protect",
+      verdictLabel: protectCandidates.length > 0 ? "No arriesgues aún" : "Pieza llena",
+      verdictDetail:
+        protectCandidates.length > 0
+          ? `${protectCandidates.length} afijo${protectCandidates.length === 1 ? "" : "s"} de grado 1–2 puede${protectCandidates.length === 1 ? "" : "n"} quedar en riesgo.`
+          : "Para continuar habría que reemplazar, no añadir.",
       matchingModifiers,
       unmatchedModifiers,
       protectCandidates,

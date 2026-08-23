@@ -139,6 +139,13 @@ completo ni hay que repetir la acción. Durante la sesión, el planificador qued
 oculto y la interfaz muestra únicamente tres etapas: antes de gastar, pegar el
 resultado y decidir.
 
+Antes de ofrecer una herramienta de reemplazo sobre una pieza llena, el banco
+obliga a reconocer el riesgo para los afijos de grado alto que ya existen. Tras
+pegar el resultado, el asesor formula una única decisión conservadora:
+**continuar**, **parar y conservar** o **replantear la ruta**. Esa decisión usa
+solo diferencias estructurales, requisitos y etiquetas explícitas verificadas;
+no inventa DPS, precios, probabilidades ni calidad real de los afijos.
+
 La evidencia factual («qué cambió») y la valoración del jugador («me sirve»)
 se guardan por separado. Si falla el guardado del objeto, la sesión permanece
 abierta y permite reintentar; dos clics concurrentes no pueden cerrar o duplicar

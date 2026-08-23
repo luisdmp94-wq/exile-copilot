@@ -18,6 +18,7 @@ import {
 } from "@shared/craftingComparison.js";
 import { evaluateCraftingCharacterContext } from "@shared/craftingCharacterContext.js";
 import { evaluateCraftingGoalSignal } from "@shared/craftingGoal.js";
+import { decideCraftingNextStep } from "@shared/craftingNextDecision.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   CONCLUSION_LABELS,
@@ -146,6 +147,20 @@ export function DecisionSessionSection({
           comparison: craftingComparison,
           goalCategory: session.craftingExperiment.goalCategory,
           goalSignal: craftingGoalSignal,
+        })
+      : null;
+  const craftingNextDecision =
+    session?.craftingExperiment &&
+    craftingComparison?.status === "confirmed" &&
+    craftingResultItem &&
+    craftingGoalSignal &&
+    craftingCharacterContext
+      ? decideCraftingNextStep({
+          resultItem: craftingResultItem,
+          comparison: craftingComparison,
+          characterContext: craftingCharacterContext,
+          addedGoalSignal: craftingGoalSignal,
+          goalCategory: session.craftingExperiment.goalCategory,
         })
       : null;
   const showStartForm = session === null || (!isOpen && startingNew);
@@ -703,6 +718,49 @@ export function DecisionSessionSection({
                     )}
                     {craftingComparison.status === "confirmed" && (
                       <div className="mt-4 space-y-2">
+                        {craftingNextDecision && (
+                          <div
+                            className={`rounded-md border p-4 ${
+                              craftingNextDecision.tone === "positive"
+                                ? "border-emerald-500/45 bg-emerald-500/[0.09] text-emerald-50"
+                                : craftingNextDecision.tone === "danger"
+                                  ? "border-rose-500/50 bg-rose-500/[0.1] text-rose-50"
+                                  : "border-amber-500/45 bg-amber-500/[0.08] text-amber-50"
+                            }`}
+                            data-testid="crafting-next-decision"
+                            data-next-decision={craftingNextDecision.kind}
+                            aria-live="polite"
+                          >
+                            <div className="flex items-start gap-3">
+                              <span
+                                className="mt-0.5 rounded border border-current/25 p-2"
+                                aria-hidden="true"
+                              >
+                                {craftingNextDecision.kind === "continue" ? (
+                                  <Sparkles className="size-4" />
+                                ) : craftingNextDecision.kind === "restart" ? (
+                                  <RotateCcw className="size-4" />
+                                ) : (
+                                  <CirclePause className="size-4" />
+                                )}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-75">
+                                  Decisión recomendada
+                                </p>
+                                <h4 className="mt-1 text-lg font-semibold">
+                                  {craftingNextDecision.title}
+                                </h4>
+                                <p className="mt-1 text-sm leading-relaxed opacity-90">
+                                  {craftingNextDecision.summary}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="mt-3 rounded border border-current/20 bg-black/10 px-3 py-2 text-sm font-medium">
+                              {craftingNextDecision.nextAction}
+                            </p>
+                          </div>
+                        )}
                         {craftingCharacterContext && (
                           <div
                             className={`rounded border p-3 text-sm ${
