@@ -9,12 +9,13 @@ import {
   Trash2,
 } from "lucide-react";
 import type { MetaResponse } from "@shared/api.js";
-import type {
-  Attributes,
-  CharacterProfile,
-  Item,
-  Resistances,
-  SkillSetup,
+import {
+  PLACEHOLDER_CHARACTER_LEVEL,
+  type Attributes,
+  type CharacterProfile,
+  type Item,
+  type Resistances,
+  type SkillSetup,
 } from "@shared/domain.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -431,8 +432,17 @@ function ProfileEditor({
             max={100}
             value={profile.level}
             onChange={(e) => {
-              const parsed = inputToNullable(e.target.value) ?? 1;
-              onUpdate({ level: Math.min(100, Math.max(1, parsed)) });
+              const parsed = inputToNullable(e.target.value);
+              if (parsed === null) {
+                // Vaciar el campo no es evidencia de nivel: vuelve al mínimo
+                // técnico y Crafting sigue tratándolo como desconocido.
+                onUpdate({ level: PLACEHOLDER_CHARACTER_LEVEL, levelSource: "placeholder" });
+                return;
+              }
+              onUpdate({
+                level: Math.min(100, Math.max(1, parsed)),
+                levelSource: "observed",
+              });
             }}
           />
         </div>

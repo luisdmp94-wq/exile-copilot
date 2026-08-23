@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { CharacterProfile } from "../../shared/domain.js";
+import {
+  PLACEHOLDER_CHARACTER_LEVEL,
+  type CharacterProfile,
+} from "../../shared/domain.js";
 import type { BuildTargetPlan } from "../../shared/gggBuildPlanner.js";
 import { ApiHttpError } from "../errors.js";
 import { decodePobCode, looksLikePobCode } from "../adapters/pob.js";
@@ -51,7 +54,10 @@ function importFromPob(content: string, defaults: ImportDefaults): ImportBuildRe
     // ascendClassName de PoB es un nombre visible, no un id oficial verificado.
     ascendancy: partial.ascendancy ?? null,
     ascendancyId: null,
-    level: partial.level ?? 1,
+    // PoB puede no traer nivel: entonces el número es un mínimo técnico y así
+    // queda declarado, en vez de pasar por un nivel 1 observado.
+    level: partial.level ?? PLACEHOLDER_CHARACTER_LEVEL,
+    levelSource: partial.level !== undefined ? "observed" : "placeholder",
     archetype: null, // nunca hardcodeado: el usuario lo declara si quiere
     league: defaults.league,
     patch: defaults.patch,

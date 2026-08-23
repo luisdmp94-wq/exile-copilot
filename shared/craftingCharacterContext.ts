@@ -2,6 +2,7 @@ import type { CraftingComparison } from "./craftingComparison.js";
 import type { CraftingGoalCategory, CraftingGoalSignal } from "./craftingGoal.js";
 import {
   RESISTANCE_LABELS,
+  readCharacterLevel,
   type CharacterProfile,
   type GoalKind,
   type Item,
@@ -70,9 +71,19 @@ function requirementCheck(
   const unknown: string[] = [];
   const attributeChanged = comparisonTouchesTags(comparison, ATTRIBUTE_TAGS);
 
+  // El nivel solo se compara si su procedencia demuestra que es real. Un
+  // mínimo técnico (perfil creado desde un objeto suelto) no autoriza afirmar
+  // ni que cumple ni que no cumple el requisito.
+  let levelUnknown = false;
   if (requirements.level !== undefined) {
-    if (profile.level < requirements.level) {
-      missing.push(`nivel ${profile.level}/${requirements.level}`);
+    const reading = readCharacterLevel(profile);
+    if (!reading.known) {
+      levelUnknown = true;
+      limitations.push(
+        "No se puede comprobar el requisito de nivel porque no conocemos el nivel de tu personaje.",
+      );
+    } else if (reading.level < requirements.level) {
+      missing.push(`nivel ${reading.level}/${requirements.level}`);
     }
   }
 
@@ -111,6 +122,15 @@ function requirementCheck(
     return {
       requirementStatus: "unknown",
       requirementLabel: "Requisitos por confirmar",
+      facts,
+      limitations,
+    };
+  }
+
+  if (levelUnknown) {
+    return {
+      requirementStatus: "unknown",
+      requirementLabel: "Nivel del personaje desconocido",
       facts,
       limitations,
     };

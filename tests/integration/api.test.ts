@@ -4,7 +4,12 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GggBuildPlannerV1Schema } from "../../shared/gggBuildPlanner.js";
-import { CharacterJournalSchema, CharacterProfileSchema } from "../../shared/domain.js";
+import {
+  CharacterJournalSchema,
+  CharacterProfileSchema,
+  PLACEHOLDER_CHARACTER_LEVEL,
+  readCharacterLevel,
+} from "../../shared/domain.js";
 import { buildRecommendationMemory } from "../../shared/journalMemory.js";
 import { CraftingKnowledgeResponseSchema } from "../../shared/api.js";
 import { createApiApp } from "../../server/app.js";
@@ -62,6 +67,45 @@ const demoItemText = readFileSync(
 );
 
 describe("api (integración, app Express con db :memory:)", () => {
+  it("conserva la procedencia del nivel al guardar y restaurar un perfil mínimo", async () => {
+    const minimal = CharacterProfileSchema.parse({
+      id: "nivel-placeholder-api",
+      name: "Nuevo personaje",
+      characterClass: "Desconocida",
+      level: PLACEHOLDER_CHARACTER_LEVEL,
+      levelSource: "placeholder",
+      league: "Liga",
+      patch: "0.5.4f",
+      importedAt: "2026-08-23T00:00:00.000Z",
+    });
+    expect((await postJson("/character", { profile: minimal })).status).toBe(200);
+
+    const restored = CharacterProfileSchema.parse(
+      (await jsonOf(await fetch(`${base}/character/${minimal.id}`))).profile,
+    );
+    expect(restored.levelSource).toBe("placeholder");
+    expect(readCharacterLevel(restored).known).toBe(false);
+
+    // Un perfil legacy guardado sin `levelSource` sigue cargando y no asciende
+    // su mínimo técnico a nivel observado.
+    const legacy = {
+      ...JSON.parse(JSON.stringify(minimal)),
+      id: "nivel-legacy-api",
+    } as Record<string, unknown>;
+    delete legacy.levelSource;
+    expect((await postJson("/character", { profile: legacy })).status).toBe(200);
+
+    const legacyRestored = CharacterProfileSchema.parse(
+      (await jsonOf(await fetch(`${base}/character/nivel-legacy-api`))).profile,
+    );
+    expect(legacyRestored.levelSource).toBeUndefined();
+    expect(readCharacterLevel(legacyRestored)).toEqual({
+      known: false,
+      level: null,
+      provenance: "legacy-placeholder",
+    });
+  });
+
   it("persiste la identidad de build y la incluye en la revisión del mentor", async () => {
     const profile = CharacterProfileSchema.parse({
       ...JSON.parse(

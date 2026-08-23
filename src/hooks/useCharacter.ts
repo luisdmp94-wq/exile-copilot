@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { CharacterProfile, Item } from "@shared/domain.js";
+import { PLACEHOLDER_CHARACTER_LEVEL, type CharacterProfile, type Item } from "@shared/domain.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import type { PlanResolution } from "@shared/passiveRegistry.js";
 import { api, getErrorMessage } from "@/lib/api";
@@ -126,7 +126,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       characterClass: "Desconocida",
       ascendancy: null,
       ascendancyId: null,
-      level: 1,
+      // Mínimo técnico, NO un personaje de nivel 1: el jugador todavía no ha
+      // declarado su nivel. La procedencia impide que Crafting lo compare.
+      level: PLACEHOLDER_CHARACTER_LEVEL,
+      levelSource: "placeholder",
       archetype: null,
       league: defaults.league || "Desconocida",
       patch: defaults.patch || "Desconocido",

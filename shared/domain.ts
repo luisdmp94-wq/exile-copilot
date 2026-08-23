@@ -247,6 +247,37 @@ export const AttributesSchema = z.object({
 });
 export type Attributes = z.infer<typeof AttributesSchema>;
 
+/**
+ * Nivel mínimo técnico. Es el único número que la app ha escrito nunca en
+ * `level` SIN evidencia (perfil manual recién creado, importación PoB sin
+ * nivel). No representa un personaje de nivel 1.
+ */
+export const PLACEHOLDER_CHARACTER_LEVEL = 1;
+
+/**
+ * Procedencia declarada de `CharacterProfile.level`.
+ *  - `observed`: nivel real importado o escrito por el jugador.
+ *  - `placeholder`: `PLACEHOLDER_CHARACTER_LEVEL` puesto por compatibilidad.
+ * Ausente = perfil legacy anterior a este contrato (ver `readCharacterLevel`).
+ */
+export const CharacterLevelSourceSchema = z.enum(["observed", "placeholder"]);
+export type CharacterLevelSource = z.infer<typeof CharacterLevelSourceSchema>;
+
+/**
+ * Procedencia RESUELTA, ya incluidos los perfiles legacy. `legacy-declared` y
+ * `legacy-placeholder` nunca se convierten en `observed`: solo declaran si el
+ * número heredado es distinguible del mínimo técnico.
+ */
+export type CharacterLevelProvenance =
+  | "observed"
+  | "placeholder"
+  | "legacy-declared"
+  | "legacy-placeholder";
+
+export type CharacterLevelReading =
+  | { known: true; level: number; provenance: "observed" | "legacy-declared" }
+  | { known: false; level: null; provenance: "placeholder" | "legacy-placeholder" };
+
 export const CharacterProfileSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -254,7 +285,16 @@ export const CharacterProfileSchema = z.object({
   ascendancy: z.string().nullable().default(null), // nombre visible, p. ej. "Gemling Legionnaire"
   /** Id oficial de ascendencia del esquema GGG (p. ej. "Warrior1"). null = no verificado. */
   ascendancyId: z.string().nullable().default(null),
+  /**
+   * Número técnico SIEMPRE presente por compatibilidad. No leerlo a secas para
+   * decidir nada: pasa por `readCharacterLevel`, que dice si es real.
+   */
   level: z.number().int().min(1).max(100).default(1),
+  /**
+   * Procedencia de `level`. Opcional a propósito: los perfiles guardados antes
+   * de este contrato no la traen y deben seguir cargando tal cual.
+   */
+  levelSource: CharacterLevelSourceSchema.optional(),
   /** Arquetipo opcional declarado por el usuario; NUNCA hardcodeado por defecto. */
   archetype: z.string().nullable().default(null),
   league: z.string(),
@@ -278,6 +318,29 @@ export const CharacterProfileSchema = z.object({
   importedAt: z.string(), // ISO 8601
 });
 export type CharacterProfile = z.infer<typeof CharacterProfileSchema>;
+
+/**
+ * Única lectura autorizada del nivel del personaje.
+ *
+ * Regla de migración para perfiles sin `levelSource`: el único valor que la app
+ * escribía sin evidencia es `PLACEHOLDER_CHARACTER_LEVEL`, así que SOLO ese es
+ * ambiguo y se devuelve como desconocido. Cualquier otro número heredado se
+ * declara `legacy-declared` (comparable, pero jamás etiquetado `observed`).
+ * No se infiere nivel a partir del objeto, la clase ni la build objetivo.
+ */
+export function readCharacterLevel(
+  profile: Pick<CharacterProfile, "level" | "levelSource">,
+): CharacterLevelReading {
+  if (profile.levelSource === "observed") {
+    return { known: true, level: profile.level, provenance: "observed" };
+  }
+  if (profile.levelSource === "placeholder") {
+    return { known: false, level: null, provenance: "placeholder" };
+  }
+  return profile.level === PLACEHOLDER_CHARACTER_LEVEL
+    ? { known: false, level: null, provenance: "legacy-placeholder" }
+    : { known: true, level: profile.level, provenance: "legacy-declared" };
+}
 
 // ---------------------------------------------------------------------------
 // Build objetivo (referencia, nunca verdad absoluta)
