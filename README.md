@@ -80,6 +80,11 @@ sobrevivir. Ese mismo plan acompaña a Monedas, Essences, Alloys y a la
 comparación final; no hay tres formularios distintos ni se intenta interpretar
 la palabra «sin» como si fuera evidencia estructurada.
 
+En una ruta que solo añade, la lista de líneas intocables empieza plegada para
+que la próxima acción siga visible. Se abre automáticamente cuando continuar
+exige reemplazar un modificador, y también puede desplegarse manualmente en
+cualquier momento.
+
 Antes de preparar una moneda, el jugador declara también **cuándo debe parar**
 mediante una a tres condiciones observables: aumentar el número de afijos con
 etiquetas de la categoría elegida, hacer aparecer una línea exacta escrita por

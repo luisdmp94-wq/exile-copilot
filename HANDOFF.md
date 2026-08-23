@@ -10,6 +10,20 @@
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
 
+## Sesión 36 — menos lectura antes de una moneda aditiva
+
+- La lista completa de modificadores intocables queda plegada cuando la ruta
+  actual solo añade. El resumen conserva el contador y permite abrirla en un
+  clic si el jugador quiere preparar después una Essence o un Alloy.
+- Cuando la pieza está llena y la ruta exige reemplazar, la protección se abre
+  y permanece visible: la reducción visual nunca oculta el riesgo material.
+- La vista inicial baja de 297 a **222 palabras** y de 2102 a **1637 px** en un
+  viewport móvil de 375×844, sin desbordamiento horizontal.
+
+Verificación: TypeScript y ESLint sin errores, build de producción correcto,
+**479/479** pruebas y equipo/Crafting **204/204** en producción y
+desarrollo/Strict Mode.
+
 ## Sesión 35 — objetivo y parada guiados por la interfaz
 
 - Elegir una categoría como «Daño» ya define un objetivo suficiente; el matiz
