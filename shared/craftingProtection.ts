@@ -1,8 +1,10 @@
 import { z } from "zod";
 import type { Item, Modifier } from "./domain.js";
+import { CraftingGoalCategorySchema } from "./craftingGoal.js";
 
 /** Contrato explícito del jugador: qué busca y qué no acepta perder. */
 export const CraftingObjectiveSchema = z.object({
+  goalCategory: CraftingGoalCategorySchema.optional(),
   desiredOutcome: z.string().trim().min(3).max(500),
   protectedModifierIds: z
     .array(z.string().trim().min(1).max(200))

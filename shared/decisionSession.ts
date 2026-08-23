@@ -8,6 +8,7 @@ import {
   RecommendationSchema,
   RiskLevel,
 } from "./domain.js";
+import { CraftingGoalCategorySchema } from "./craftingGoal.js";
 
 /** Límites duros: el historial no crece sin cota. */
 export const MAX_SESSION_EVENTS = 40;
@@ -154,6 +155,8 @@ export const CraftingExperimentSchema = z.object({
   maximumCraftedModifierCount: z.number().int().positive().optional(),
   guaranteedModifierText: z.string().trim().min(1).max(500).optional(),
   resultUnknownLabel: z.string().trim().min(1).max(500).optional(),
+  /** Ausente en sesiones anteriores; nunca se deduce del texto libre. */
+  goalCategory: CraftingGoalCategorySchema.optional(),
   desiredOutcome: z.string().trim().min(1).max(500),
   /** Ids del snapshot original que el jugador declaró imprescindibles. */
   protectedModifierIds: z.array(z.string().trim().min(1).max(200)).max(12).default([]),

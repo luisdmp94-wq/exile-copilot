@@ -71,8 +71,11 @@ El sistema comprueba cambios estructurales, pero no puede concluir que
 «+10 Fuerza» sea bueno para una build solo porque el jugador escribió «más
 daño». La pregunta final «¿te sirve?» es deliberada y correcta.
 
-No se corrigió con heurísticas lingüísticas: hacerlo fingiría conocimiento de
-build, pesos y utilidad que el dataset actual no demuestra.
+Corrección conservadora posterior: el jugador puede clasificar su objetivo y
+la comparación busca una señal directa solo en las etiquetas literales del
+texto avanzado. No se analiza el nombre ni la prosa del modificador. La ausencia
+de coincidencia no se convierte en fracaso y la decisión final sigue siendo del
+jugador.
 
 ## Bloque elegido e implementado
 
@@ -92,11 +95,10 @@ Contratos nuevos:
 
 1. No existe todavía un pool de afijos completo, versionado y con licencia
    redistribuible; las probabilidades permanecen desactivadas.
-2. El asesor no mide si el afijo añadido cumple el objetivo de la build. Hace
-   falta una taxonomía verificable de modificadores y contexto real del
-   personaje antes de automatizar esa valoración.
+2. La señal por etiquetas no mide magnitud, sinergias indirectas ni utilidad
+   global para la build. Haría falta contexto verificable del personaje y una
+   taxonomía más rica antes de automatizar esa valoración.
 3. Las reglas observadas pueden cambiar tras un parche; el corte de datos debe
    seguir visible y revisarse cuando cambie la versión del juego.
 4. Essence y Alloy dependen del tooltip que el jugador tiene delante. Esto es
    una limitación consciente, no un fallback silencioso.
-

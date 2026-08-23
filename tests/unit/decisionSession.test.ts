@@ -274,6 +274,7 @@ describe("reapertura y huella", () => {
       variantLabel: "Superior",
       minimumModifierLevel: 35,
       desiredOutcome: "Añadir un modificador útil",
+      goalCategory: "damage",
       originalItem: {
         id: "weapon",
         name: "Núcleo de fénix",
@@ -286,6 +287,7 @@ describe("reapertura y huella", () => {
       variantId: "greater",
       variantLabel: "Superior",
       minimumModifierLevel: 35,
+      goalCategory: "damage",
     });
 
     const legacy = CraftingExperimentSchema.parse({
@@ -301,6 +303,7 @@ describe("reapertura y huella", () => {
     });
     expect(legacy.variantId).toBeUndefined();
     expect(legacy.minimumModifierLevel).toBeUndefined();
+    expect(legacy.goalCategory).toBeUndefined();
   });
 
   it("persiste una Essence de reemplazo sin convertirla en una moneda básica", () => {

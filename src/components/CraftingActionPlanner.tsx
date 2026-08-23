@@ -21,7 +21,9 @@ import {
 } from "@shared/craftingEssences.js";
 import type { Item } from "@shared/domain.js";
 import { AlloyPlanner } from "@/components/AlloyPlanner";
+import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
 import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
+import type { CraftingGoalCategory } from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -130,6 +132,7 @@ export function CraftingActionPlanner({
   const [selectedVariantId, setSelectedVariantId] =
     useState<CraftingCurrencyVariant["id"]>("base");
   const [desiredOutcome, setDesiredOutcome] = useState("");
+  const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
   const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
   const [snapshotConfirmed, setSnapshotConfirmed] = useState(false);
   const [randomConfirmed, setRandomConfirmed] = useState(false);
@@ -144,6 +147,7 @@ export function CraftingActionPlanner({
   const route = buildCraftingRoute(item, crafting, craftingActions);
   const resetCurrencyPreflight = () => {
     setDesiredOutcome("");
+    setGoalCategory("other");
     setProtectedModifierIds([]);
     setSnapshotConfirmed(false);
     setRandomConfirmed(false);
@@ -490,6 +494,7 @@ export function CraftingActionPlanner({
                             selectedVariant,
                             {
                               desiredOutcome: desiredOutcome.trim(),
+                              goalCategory,
                               protectedModifierIds,
                             },
                           )
@@ -539,22 +544,15 @@ export function CraftingActionPlanner({
                             Este mínimo reproduce el tooltip observado; no garantiza un afijo concreto ni su probabilidad.
                           </p>
                         </fieldset>
-                        <div className="space-y-1">
-                          <label
-                            htmlFor={`crafting-goal-${item.id}-${entry.action.id}`}
-                            className="font-medium text-foreground"
-                          >
-                            ¿Qué resultado esperas conseguir?
-                          </label>
-                          <input
-                            id={`crafting-goal-${item.id}-${entry.action.id}`}
-                            value={desiredOutcome}
-                            onChange={(event) => setDesiredOutcome(event.target.value)}
-                            maxLength={300}
-                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                            placeholder="Ej.: obtener un sufijo útil sin perder los afijos actuales"
-                          />
-                        </div>
+                        <CraftingGoalPicker
+                          category={goalCategory}
+                          onCategoryChange={setGoalCategory}
+                          outcome={desiredOutcome}
+                          onOutcomeChange={setDesiredOutcome}
+                          idPrefix={`crafting-goal-${item.id}-${entry.action.id}`}
+                          label="¿Qué resultado esperas conseguir?"
+                          placeholder="Ej.: obtener un sufijo útil sin perder los afijos actuales"
+                        />
                         <label className="flex items-start gap-2">
                           <input
                             type="checkbox"
@@ -663,6 +661,7 @@ function EssencePlanner({ item, onStart, onStarted }: EssencePlannerProps) {
   const [essenceName, setEssenceName] = useState("");
   const [guaranteedModifierText, setGuaranteedModifierText] = useState("");
   const [desiredOutcome, setDesiredOutcome] = useState("");
+  const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
   const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
   const [snapshotConfirmed, setSnapshotConfirmed] = useState(false);
   const [tooltipConfirmed, setTooltipConfirmed] = useState(false);
@@ -802,19 +801,15 @@ function EssencePlanner({ item, onStart, onStarted }: EssencePlannerProps) {
         )}
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor={`essence-goal-${item.id}`} className="text-xs font-medium text-foreground">
-          ¿Qué quieres conseguir con este paso?
-        </label>
-        <input
-          id={`essence-goal-${item.id}`}
-          value={desiredOutcome}
-          onChange={(event) => setDesiredOutcome(event.target.value)}
-          maxLength={300}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-          placeholder="Ej.: añadir el mod garantizado sin perder mi prefijo principal"
-        />
-      </div>
+      <CraftingGoalPicker
+        category={goalCategory}
+        onCategoryChange={setGoalCategory}
+        outcome={desiredOutcome}
+        onOutcomeChange={setDesiredOutcome}
+        idPrefix={`essence-goal-${item.id}`}
+        label="¿Qué quieres conseguir con este paso?"
+        placeholder="Ej.: añadir el mod garantizado sin perder mi prefijo principal"
+      />
 
       <div className="space-y-2 text-xs text-muted-foreground">
         <label className="flex items-start gap-2">
@@ -847,6 +842,7 @@ function EssencePlanner({ item, onStart, onStarted }: EssencePlannerProps) {
             setStarting(true);
             void onStart(item, plan, evaluation, {
               desiredOutcome: desiredOutcome.trim(),
+              goalCategory,
               protectedModifierIds: evaluation.randomRemoval ? protectedModifierIds : [],
             })
               .then((started) => {

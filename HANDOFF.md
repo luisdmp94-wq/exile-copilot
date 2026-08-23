@@ -688,6 +688,27 @@ mismo botón reintenta con éxito. Además, se recorrió una instancia temporal 
 la ballesta real: sesión visible y enfocada, y planificador oculto. Los puertos
 y las bases SQLite temporales quedaron cerrados y eliminados al terminar.
 
+## Sesión 31 — el resultado responde al objetivo del jugador
+
+El preflight de Monedas, Essences y Alloys conserva ahora dos capas del
+objetivo: una categoría explícita —daño, defensa, atributos, velocidad,
+habilidades u otro— y la descripción libre del jugador. La categoría es
+opcional en el contrato persistido para que las sesiones anteriores sigan
+siendo válidas.
+
+Después del craft, `shared/craftingGoal.ts` compara exclusivamente las
+etiquetas literales de los modificadores añadidos con la categoría elegida.
+Devuelve tres estados honestos: señal directa, sin señal directa o datos
+insuficientes. No analiza nombres ni texto del afijo, no calcula utilidad y
+explica que una ausencia de señal puede esconder una interacción indirecta.
+La pregunta «¿me sirve?» y la decisión final permanecen en manos del jugador.
+
+Validación: TypeScript y ESLint sin errores, build de producción correcto,
+**440/440** pruebas y **190/190** comprobaciones reales del flujo de equipo y
+Crafting en producción y desarrollo/Strict Mode. La regresión de navegador
+selecciona «Daño», importa un resultado etiquetado por el juego como «Daño,
+Ataque» y exige que aparezca la señal directa antes de la valoración humana.
+
 ## Archivos importantes
 
 - `README.md`, `docs/PLAN.md`, `docs/HITO_5A.md`, `docs/HITO_5B.md`, `HANDOFF.md`.

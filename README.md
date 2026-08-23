@@ -135,7 +135,15 @@ se guardan por separado. Si falla el guardado del objeto, la sesión permanece
 abierta y permite reintentar; dos clics concurrentes no pueden cerrar o duplicar
 el mismo resultado.
 
-Esto confirma cambios estructurales, no la calidad del afijo. No estima pesos,
+El objetivo incluye una categoría elegida por el jugador —daño, defensa,
+atributos, velocidad, habilidades u otro— además de su descripción libre. Al
+pegar el resultado, la app contrasta esa categoría únicamente con las etiquetas
+literales que muestra el texto avanzado del juego. Puede señalar coincidencia
+directa, ausencia de señal directa o datos insuficientes; nunca convierte esa
+señal en «este objeto es bueno» ni sustituye la decisión final del jugador.
+
+Esto confirma cambios estructurales y señales taxonómicas directas, no la calidad
+del afijo. No estima pesos,
 probabilidades, valor de mercado ni el resultado de monedas todavía no
 documentadas.
 

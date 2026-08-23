@@ -196,7 +196,7 @@ async function seedProfile(base) {
   if (!imported.ok) throw new Error(`no se pudo importar el objeto de crafting: HTTP ${imported.status}`);
   const craftingItem = (await imported.json()).item;
   craftingItem.id = "smoke-crafting-crossbow";
-  const craftingResultText = `${craftingText.trim()}\n{ Mod. de sufijo "sintético del smoke" (Grado: 1) — Prueba }\nModificador sintético añadido por la prueba de navegador`;
+  const craftingResultText = `${craftingText.trim()}\n{ Mod. de sufijo "sintético del smoke" (Grado: 1) — Daño, Ataque }\nModificador sintético de daño añadido por la prueba de navegador`;
   profile.items.push(
     {
       id: "smoke-flask-1",
@@ -954,6 +954,7 @@ async function runFlow(mode, port) {
     await preflight
       .getByLabel("¿Qué resultado esperas conseguir?")
       .fill("Añadir un modificador útil sin alterar los actuales");
+    await preflight.getByLabel("Tipo de mejora que buscas").selectOption("damage");
     await preflight.getByLabel(/Confirmo que el objeto sigue igual/).check();
     await preflight.getByLabel(/Entiendo que el modificador es aleatorio/).check();
     await preflight.getByLabel(/Confirmo que todavía no he gastado la moneda/).check();
@@ -1008,7 +1009,13 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] detecta exactamente el modificador añadido`,
       textoComparacion.includes("Cambio estructural confirmado") &&
-        textoComparacion.includes("Modificador sintético añadido por la prueba de navegador"),
+        textoComparacion.includes("Modificador sintético de daño añadido por la prueba de navegador"),
+    );
+    const signalObjetivo = comprobadorResultado.getByTestId("crafting-goal-signal");
+    check(
+      `[${mode}] relaciona el resultado con el objetivo usando etiquetas del juego`,
+      (await signalObjetivo.getAttribute("data-signal-status")) === "direct" &&
+        (await signalObjetivo.innerText()).includes("Etiquetas coincidentes del juego: daño, ataque"),
     );
     check(
       `[${mode}] la app pregunta al jugador si el resultado le sirve`,

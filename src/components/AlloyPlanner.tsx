@@ -8,7 +8,9 @@ import {
   type StartAlloyDecision,
 } from "@shared/craftingAlloys.js";
 import type { Item } from "@shared/domain.js";
+import type { CraftingGoalCategory } from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
+import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
 import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +65,7 @@ export function AlloyPlanner({ item, onStart, onStarted }: AlloyPlannerProps) {
   const [playerConfirmedClassApplies, setPlayerConfirmedClassApplies] = useState(false);
   const [removalSelection, setRemovalSelection] = useState<AlloyRemovalSelection>("unspecified");
   const [desiredOutcome, setDesiredOutcome] = useState("");
+  const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
   const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
   const [snapshotConfirmed, setSnapshotConfirmed] = useState(false);
   const [tooltipConfirmed, setTooltipConfirmed] = useState(false);
@@ -180,15 +183,15 @@ export function AlloyPlanner({ item, onStart, onStarted }: AlloyPlannerProps) {
         <p className="mt-1 leading-relaxed">{evaluation.reason}</p>
       </div>
 
-      <label className="space-y-1 text-xs font-medium text-foreground">
-        ¿Qué resultado buscas comprobar?
-        <input
-          value={desiredOutcome}
-          onChange={(event) => setDesiredOutcome(event.target.value)}
-          placeholder="Describe el objetivo sin asumir que ocurrirá"
-          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </label>
+      <CraftingGoalPicker
+        category={goalCategory}
+        onCategoryChange={setGoalCategory}
+        outcome={desiredOutcome}
+        onOutcomeChange={setDesiredOutcome}
+        idPrefix={`alloy-goal-${item.id}`}
+        label="¿Qué resultado buscas comprobar?"
+        placeholder="Describe el objetivo sin asumir que ocurrirá"
+      />
 
       <CraftingProtectionPicker
         item={item}
@@ -250,6 +253,7 @@ export function AlloyPlanner({ item, onStart, onStarted }: AlloyPlannerProps) {
             setStarting(true);
             void onStart(item, plan, evaluation, {
               desiredOutcome: desiredOutcome.trim(),
+              goalCategory,
               protectedModifierIds,
             })
               .then((started) => {

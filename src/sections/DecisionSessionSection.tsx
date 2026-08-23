@@ -16,6 +16,7 @@ import {
   craftingComparisonEvidence,
   type CraftingComparison,
 } from "@shared/craftingComparison.js";
+import { evaluateCraftingGoalSignal } from "@shared/craftingGoal.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   CONCLUSION_LABELS,
@@ -124,6 +125,14 @@ export function DecisionSessionSection({
    */
   const isOpen = session !== null && sessionIsOpen(session.status);
   const isCraftingSession = session?.craftingExperiment != null;
+  const craftingGoalSignal =
+    session?.craftingExperiment?.goalCategory !== undefined &&
+    craftingComparison?.status === "confirmed"
+      ? evaluateCraftingGoalSignal(
+          session.craftingExperiment.goalCategory,
+          craftingComparison.addedModifiers,
+        )
+      : null;
   const showStartForm = session === null || (!isOpen && startingNew);
   const unresolvedUnknowns = (session?.unknowns ?? []).filter(
     (item) => !item.resolved,
@@ -679,6 +688,27 @@ export function DecisionSessionSection({
                     )}
                     {craftingComparison.status === "confirmed" && (
                       <div className="mt-4 space-y-2">
+                        {craftingGoalSignal && (
+                          <div
+                            className={`rounded border p-3 text-sm ${
+                              craftingGoalSignal.status === "direct"
+                                ? "border-emerald-500/35 bg-emerald-500/[0.06] text-emerald-100"
+                                : craftingGoalSignal.status === "no-direct-signal"
+                                  ? "border-amber-500/35 bg-amber-500/[0.06] text-amber-100"
+                                  : "border-border bg-muted/20 text-muted-foreground"
+                            }`}
+                            data-testid="crafting-goal-signal"
+                            data-signal-status={craftingGoalSignal.status}
+                          >
+                            <p className="font-semibold">{craftingGoalSignal.title}</p>
+                            <p className="mt-1 leading-relaxed">{craftingGoalSignal.summary}</p>
+                            {craftingGoalSignal.matchedTags.length > 0 && (
+                              <p className="mt-2 text-xs">
+                                Etiquetas coincidentes del juego: {craftingGoalSignal.matchedTags.join(", ")}.
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <p className="text-sm font-medium">
                           ¿El cambio resultante sirve para «{session.craftingExperiment.desiredOutcome}»?
                         </p>
