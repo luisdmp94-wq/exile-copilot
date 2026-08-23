@@ -23,6 +23,12 @@ export const CraftingSuccessCriterionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("exact-modifier-text"),
     text: z.string().trim().min(3).max(500),
+    /**
+     * En PoE2 un número de grado menor representa un afijo mejor. Por eso el
+     * límite guardado es el peor grado aceptable: 3 significa «grado 3 o mejor».
+     * `undefined` conserva las sesiones antiguas y exige solo la línea exacta.
+     */
+    maximumTier: z.number().int().min(1).max(20).optional(),
   }),
   z.object({
     kind: z.literal("explicit-count"),
@@ -36,11 +42,22 @@ export const CraftingSuccessCriteriaSchema = z
   .max(3)
   .default([])
   .superRefine((criteria, context) => {
-    const kinds = criteria.map((criterion) => criterion.kind);
-    if (new Set(kinds).size !== kinds.length) {
+    const singletonKinds = criteria
+      .filter((criterion) => criterion.kind !== "exact-modifier-text")
+      .map((criterion) => criterion.kind);
+    if (new Set(singletonKinds).size !== singletonKinds.length) {
       context.addIssue({
         code: "custom",
-        message: "Cada condición de éxito solo puede aparecer una vez.",
+        message: "Las condiciones de cantidad solo pueden aparecer una vez.",
+      });
+    }
+    const exactTexts = criteria
+      .filter((criterion) => criterion.kind === "exact-modifier-text")
+      .map((criterion) => normalized(criterion.text));
+    if (new Set(exactTexts).size !== exactTexts.length) {
+      context.addIssue({
+        code: "custom",
+        message: "No se puede repetir la misma línea objetivo.",
       });
     }
   });
@@ -97,7 +114,9 @@ export function craftingSuccessCriterionLabel(criterion: CraftingSuccessCriterio
     } de ${CRAFTING_GOAL_LABELS[criterion.category].toLocaleLowerCase("es")}`;
   }
   if (criterion.kind === "exact-modifier-text") {
-    return `Que aparezca: ${criterion.text}`;
+    return `Que aparezca: ${criterion.text}${
+      criterion.maximumTier === undefined ? "" : ` (grado ${criterion.maximumTier} o mejor)`
+    }`;
   }
   return `Llegar a ${criterion.minimumCount} afijo${
     criterion.minimumCount === 1 ? "" : "s"
@@ -156,16 +175,39 @@ function assessExactText(
 ): CraftingSuccessCriterionAssessment {
   const label = craftingSuccessCriterionLabel(criterion);
   const diagnosis = diagnoseCraftingItem(resultItem);
-  const found = explicitModifiers(resultItem).some(
+  const found = explicitModifiers(resultItem).find(
     (modifier) => normalized(modifier.text) === normalized(criterion.text),
   );
-  if (found) {
+  if (found && criterion.maximumTier === undefined) {
     return {
       criterion,
       status: "fulfilled",
       label,
       detail: "La línea exacta indicada por el jugador aparece en el resultado.",
     };
+  }
+  if (found && found.tier === undefined) {
+    return {
+      criterion,
+      status: "unknown",
+      label,
+      detail: "La línea aparece, pero el texto pegado no permite comprobar su grado.",
+    };
+  }
+  if (found && found.tier !== undefined && criterion.maximumTier !== undefined) {
+    return found.tier <= criterion.maximumTier
+      ? {
+          criterion,
+          status: "fulfilled",
+          label,
+          detail: `La línea aparece en grado ${found.tier}; cumple el mínimo de grado ${criterion.maximumTier} o mejor.`,
+        }
+      : {
+          criterion,
+          status: "not-seen",
+          label,
+          detail: `La línea aparece en grado ${found.tier}; el plan exige grado ${criterion.maximumTier} o mejor.`,
+        };
   }
   if (diagnosis.state === "complete") {
     return {

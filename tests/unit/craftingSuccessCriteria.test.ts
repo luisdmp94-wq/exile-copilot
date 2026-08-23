@@ -102,6 +102,36 @@ describe("condiciones observables de final de crafting", () => {
     expect(result.entries[0]?.detail).toContain("no aparece");
   });
 
+  it("acepta varios mods objetivo y comprueba grado X o mejor sin invertir la escala", () => {
+    const result = evaluateCraftingSuccessCriteria({
+      criteria: [
+        { kind: "exact-modifier-text", text: "Línea p-physical", maximumTier: 3 },
+        { kind: "exact-modifier-text", text: "Línea s-speed", maximumTier: 2 },
+      ],
+      resultItem: item([
+        { ...modifier("p-physical", ["Daño"]), tier: 2 },
+        { ...modifier("s-speed", ["Velocidad"]), tier: 3 },
+      ]),
+    });
+
+    expect(result.status).toBe("not-fulfilled");
+    expect(result.entries.map((entry) => entry.status)).toEqual(["fulfilled", "not-seen"]);
+    expect(result.entries[0]?.detail).toContain("grado 2");
+    expect(result.entries[1]?.detail).toContain("exige grado 2 o mejor");
+  });
+
+  it("no finge cumplir el grado si el tooltip no lo aporta", () => {
+    const result = evaluateCraftingSuccessCriteria({
+      criteria: [
+        { kind: "exact-modifier-text", text: "Línea p-physical", maximumTier: 1 },
+      ],
+      resultItem: item([modifier("p-physical", ["Daño"])]),
+    });
+    // El helper de esta suite no fija grado salvo cuando el caso lo declara.
+    expect(result.status).toBe("unknown");
+    expect(result.entries[0]?.detail).toContain("no permite comprobar su grado");
+  });
+
   it("las sesiones anteriores cargan con una lista vacía sin inventar un final", () => {
     const legacy = CraftingExperimentSchema.parse({
       actionId: "exalted",

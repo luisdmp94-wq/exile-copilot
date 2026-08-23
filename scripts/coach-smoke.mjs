@@ -291,12 +291,15 @@ async function runFlow(mode, port) {
     await irA(page, "crafting");
     await page.getByTestId("crafting-mode-chooser").waitFor({ timeout: 15000 });
     check(
-      `[${mode}] Crafting abre con los dos caminos y el guía por defecto`,
+      `[${mode}] Crafting abre con tres recorridos y el guía por defecto`,
       (await page.getByTestId("crafting-mode-academy").innerText()).includes(
         "Quiero aprender crafting",
       ) &&
         (await page.getByTestId("crafting-mode-coach").innerText()).includes(
           "Ayúdame con mi objeto",
+        ) &&
+        (await page.getByTestId("crafting-mode-laboratory").innerText()).includes(
+          "Diseñar un craft avanzado",
         ) &&
         (await page.getByTestId("crafting-mode-coach").getAttribute("data-active")) === "true",
     );
@@ -323,6 +326,38 @@ async function runFlow(mode, port) {
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "crafting");
     await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
+
+    // El tercer recorrido expone el motor experto sin pasar por el guía básico.
+    await page.getByTestId("crafting-mode-laboratory").click();
+    await page.getByTestId("crafting-laboratory-status").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] el laboratorio avanzado muestra las cinco decisiones y compara rutas`,
+      (await page.getByTestId("crafting-workspace").innerText()).includes("Laboratorio avanzado") &&
+        (await page.getByTestId("crafting-laboratory-status").locator("li").count()) === 5 &&
+        (await page.getByTestId("crafting-route-comparison").isVisible()),
+    );
+    await page.getByRole("radio", { name: "Daño", exact: true }).click();
+    await page.getByTestId("crafting-success-exact-toggle").click();
+    const exactTargets = page.getByTestId("crafting-exact-targets");
+    await exactTargets.locator("input").first().fill("Daño físico aumentado un 81(65-84)%");
+    await exactTargets.locator("select").first().selectOption("6");
+    check(
+      `[${mode}] un jugador experto puede fijar una línea exacta y grado 6 o mejor`,
+      (await exactTargets.locator("input").first().inputValue()).includes("Daño físico") &&
+        (await exactTargets.locator("select").first().inputValue()) === "6",
+    );
+    await page
+      .getByTestId("crafting-base-verdict")
+      .getByText("Tu objetivo ya está cumplido", { exact: true })
+      .waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] si la pieza ya cumple la parada, el laboratorio frena otra inversión`,
+      (await page.getByTestId("crafting-base-verdict").innerText()).includes("objetivo ya está cumplido") &&
+        (await page.getByTestId("crafting-route-comparison").getByRole("button").first().isEnabled()) === false,
+    );
+    await page.screenshot({ path: join(SHOT_DIR, `taller-laboratorio-${mode}.png`), fullPage: false });
+    await page.getByTestId("crafting-mode-coach").click();
+    await page.getByTestId("crafting-coach").waitFor({ timeout: 15000 });
 
     check(
       `[${mode}] con piezas importadas el guía muestra la primera sin abrir el banco`,

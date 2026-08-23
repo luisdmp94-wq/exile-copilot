@@ -1,4 +1,4 @@
-import { Check, Flag } from "lucide-react";
+import { Check, Flag, Plus, X } from "lucide-react";
 import type { Item } from "@shared/domain.js";
 import {
   CRAFTING_GOAL_LABELS,
@@ -43,7 +43,7 @@ export function CraftingSuccessCriteriaPicker({
         ).length;
   const recommendedGoalCriterion = recommendCraftingSuccessCriterion(item, goalCategory);
   const goalCriterion = value.find((criterion) => criterion.kind === "goal-affix-count");
-  const exactCriterion = value.find((criterion) => criterion.kind === "exact-modifier-text");
+  const exactCriteria = value.filter((criterion) => criterion.kind === "exact-modifier-text");
   const countCriterion = value.find((criterion) => criterion.kind === "explicit-count");
   const countOptions = Array.from(
     { length: Math.max(0, 6 - Math.min(explicitCount, 6)) },
@@ -56,6 +56,9 @@ export function CraftingSuccessCriteriaPicker({
 
   const replace = (criterion: CraftingSuccessCriterion) => {
     onChange([...value.filter((entry) => entry.kind !== criterion.kind), criterion]);
+  };
+  const replaceAt = (index: number, criterion: CraftingSuccessCriterion) => {
+    onChange(value.map((entry, entryIndex) => (entryIndex === index ? criterion : entry)));
   };
   const toggle = (criterion: CraftingSuccessCriterion) => {
     onChange(
@@ -131,16 +134,22 @@ export function CraftingSuccessCriteriaPicker({
           </div>
         )}
 
-        <div className={`${criterionButton(Boolean(exactCriterion))} min-w-44 sm:min-w-0`}>
+        <div className={`${criterionButton(exactCriteria.length > 0)} min-w-44 sm:min-w-0`}>
           <button
             type="button"
             className="flex min-w-0 flex-1 items-start gap-2 text-left"
-            aria-pressed={Boolean(exactCriterion)}
+            aria-pressed={exactCriteria.length > 0}
             data-testid="crafting-success-exact-toggle"
-            onClick={() => toggle({ kind: "exact-modifier-text", text: "" })}
+            disabled={value.length >= 3}
+            onClick={() => onChange([...value, { kind: "exact-modifier-text", text: "" }])}
           >
-            <Check className={`mt-0.5 size-3.5 shrink-0 ${exactCriterion ? "opacity-100" : "opacity-25"}`} aria-hidden="true" />
-            <span><strong className="block text-foreground">Una línea concreta</strong></span>
+            <Plus className={`mt-0.5 size-3.5 shrink-0 ${exactCriteria.length ? "opacity-100" : "opacity-50"}`} aria-hidden="true" />
+            <span>
+              <strong className="block text-foreground">Añadir mod objetivo</strong>
+              <span className="mt-0.5 block text-[11px] leading-snug">
+                Línea exacta y grado mínimo.
+              </span>
+            </span>
           </button>
         </div>
 
@@ -174,17 +183,58 @@ export function CraftingSuccessCriteriaPicker({
         )}
       </div>
 
-      {exactCriterion?.kind === "exact-modifier-text" && (
-        <label className="mt-2 block text-xs font-medium text-foreground">
-          Línea que debe aparecer exactamente
-          <input
-            value={exactCriterion.text}
-            maxLength={500}
-            onChange={(event) => replace({ ...exactCriterion, text: event.target.value })}
-            placeholder="Pega el texto exacto del modificador"
-            className="mt-1 h-8 w-full rounded border border-emerald-500/35 bg-background px-2 text-xs"
-          />
-        </label>
+      {exactCriteria.length > 0 && (
+        <div className="mt-2 grid gap-2" data-testid="crafting-exact-targets">
+          {value.map((criterion, index) => {
+            if (criterion.kind !== "exact-modifier-text") return null;
+            return (
+              <div
+                key={`exact-${index}`}
+                className="grid gap-2 rounded border border-emerald-500/30 bg-background/35 p-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end"
+              >
+                <label className="block text-xs font-medium text-foreground">
+                  Mod objetivo {exactCriteria.indexOf(criterion) + 1}
+                  <input
+                    value={criterion.text}
+                    maxLength={500}
+                    onChange={(event) => replaceAt(index, { ...criterion, text: event.target.value })}
+                    placeholder="Pega la línea exacta del modificador"
+                    className="mt-1 h-9 w-full rounded border border-emerald-500/35 bg-background px-2 text-xs"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-foreground">
+                  Grado mínimo
+                  <select
+                    value={criterion.maximumTier ?? ""}
+                    onChange={(event) =>
+                      replaceAt(index, {
+                        ...criterion,
+                        maximumTier: event.target.value === "" ? undefined : Number(event.target.value),
+                      })
+                    }
+                    className="mt-1 h-9 w-full rounded border border-emerald-500/35 bg-background px-2 text-xs"
+                  >
+                    <option value="">Cualquier grado</option>
+                    {Array.from({ length: 10 }, (_, tier) => tier + 1).map((tier) => (
+                      <option key={tier} value={tier}>G{tier} o mejor</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  aria-label={`Eliminar mod objetivo ${exactCriteria.indexOf(criterion) + 1}`}
+                  className="grid size-9 place-items-center rounded border border-border text-muted-foreground hover:border-rose-500/40 hover:text-rose-200"
+                  onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+            );
+          })}
+          <p className="text-[11px] text-muted-foreground">
+            G1 es mejor que G2. La app solo confirma el grado si aparece en el texto avanzado pegado.
+          </p>
+        </div>
       )}
     </section>
   );

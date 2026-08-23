@@ -34,6 +34,7 @@ import { assessCraftingAffixes } from "@shared/craftingAffixAssessment.js";
 import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
 import {
   craftingSuccessCriterionLabel,
+  evaluateCraftingSuccessCriteria,
   recommendCraftingSuccessCriterion,
 } from "@shared/craftingSuccessCriteria.js";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +133,8 @@ export interface CraftingActionPlannerProps {
   /** Se ejecuta únicamente cuando la sesión quedó creada. */
   onStarted?: () => void;
   onMentorContext?: (event: ContextualMentorEvent) => void;
+  /** Presenta el mismo motor como un recorrido experto explícito. */
+  experience?: "bank" | "laboratory";
 }
 
 /** Diagnóstico y preflight compartidos por el detalle y la pestaña Crafting. */
@@ -146,6 +149,7 @@ export function CraftingActionPlanner({
   showStatusLabel = true,
   onStarted,
   onMentorContext,
+  experience = "bank",
 }: CraftingActionPlannerProps) {
   const crafting = diagnoseCraftingItem(item);
   const knowledge = useCraftingKnowledge(item, patch);
@@ -213,9 +217,15 @@ export function CraftingActionPlanner({
     successCriteria.every(
       (criterion) => criterion.kind !== "exact-modifier-text" || criterion.text.trim().length >= 3,
     );
+  const currentSuccessAssessment = evaluateCraftingSuccessCriteria({
+    criteria: successCriteria,
+    resultItem: item,
+  });
+  const stopAlreadyReached = currentSuccessAssessment.status === "fulfilled";
   const confirmationReady =
     resolvedDesiredOutcome.length >= 3 &&
     successCriteriaReady &&
+    !stopAlreadyReached &&
     preflightConfirmed;
   const changeGoalCategory = (next: CraftingGoalCategory) => {
     setGoalCategory(next);
@@ -278,6 +288,14 @@ export function CraftingActionPlanner({
         eyebrow: "Decisión sobre la base",
         title: "Primero dime qué quieres conseguir",
         detail: "Sin un objetivo observable no puedo separar una mejora de un mod que solo ocupa espacio.",
+      };
+    }
+    if (stopAlreadyReached) {
+      return {
+        tone: "positive" as const,
+        eyebrow: "Condición de parada",
+        title: "Tu objetivo ya está cumplido",
+        detail: "La pieza actual ya cumple todas las condiciones observables que acabas de fijar. No gastes otra moneda para perseguir el mismo final.",
       };
     }
     if (mentorReading.verdict === "protect") {
@@ -345,9 +363,76 @@ export function CraftingActionPlanner({
     crafting.limitations.length +
     (knowledge.data?.modPool.reasons.length ?? 0) +
     (knowledge.data?.modPool.limitations.length ?? 0);
+  const laboratorySteps = [
+    { label: "Pieza", ready: crafting.state === "complete", value: crafting.label },
+    {
+      label: "Objetivo",
+      ready: resolvedDesiredOutcome.length >= 3,
+      value: resolvedDesiredOutcome.length >= 3 ? CRAFTING_GOAL_LABELS[goalCategory] : "Pendiente",
+    },
+    {
+      label: "Intocables",
+      ready: true,
+      value: protectedModifierIds.length === 0 ? "Ninguno" : `${protectedModifierIds.length} marcados`,
+    },
+    {
+      label: "Parada",
+      ready: successCriteriaReady,
+      value: stopAlreadyReached
+        ? "Ya cumplida"
+        : successCriteriaReady
+          ? `${successCriteria.length} condición${successCriteria.length === 1 ? "" : "es"}`
+          : "Pendiente",
+    },
+    {
+      label: "Ruta",
+      ready: route.currencyActions.length > 0 || route.toolSuggestions.length > 0,
+      value:
+        route.currencyActions.length > 0
+          ? `${route.currencyActions.length} legal${route.currencyActions.length === 1 ? "" : "es"}`
+          : route.toolSuggestions.length > 0
+            ? "Reemplazo"
+            : "Bloqueada",
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-4">
+      {experience === "laboratory" && (
+        <section
+          className="overflow-hidden rounded-md border border-cyan-500/30 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.09),transparent_42%)]"
+          data-testid="crafting-laboratory-status"
+          aria-labelledby={`crafting-laboratory-title-${item.id}`}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan-500/20 px-4 py-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">
+                Laboratorio avanzado
+              </p>
+              <h3 id={`crafting-laboratory-title-${item.id}`} className="mt-1 text-lg font-semibold">
+                Diseña el craft antes de gastar
+              </h3>
+            </div>
+            <Badge variant="outline" className="border-cyan-500/35 bg-cyan-500/[0.08] text-cyan-200">
+              Sin simulaciones inventadas
+            </Badge>
+          </div>
+          <ol className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-5" aria-label="Estado del plan avanzado">
+            {laboratorySteps.map((step, index) => (
+              <li
+                key={step.label}
+                className="min-w-0 bg-background/80 px-3 py-2.5"
+                data-ready={step.ready ? "true" : "false"}
+              >
+                <span className={`text-[10px] font-semibold uppercase tracking-wide ${step.ready ? "text-cyan-300" : "text-amber-300"}`}>
+                  {index + 1}. {step.label}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{step.value}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       <section
         className="flex flex-col gap-3 rounded-md border border-border bg-muted/15 p-4"
         data-testid="crafting-diagnosis"
@@ -603,6 +688,10 @@ export function CraftingActionPlanner({
                     revealRouteTarget(`crafting-success-${item.id}`);
                     return;
                   }
+                  if (stopAlreadyReached) {
+                    revealRouteTarget(`crafting-success-${item.id}`);
+                    return;
+                  }
                   prepareCurrencyAction(action);
                 }}
               >
@@ -610,6 +699,8 @@ export function CraftingActionPlanner({
                   ? "Define tu objetivo"
                   : !successCriteriaReady
                     ? "Elige cuándo parar"
+                    : stopAlreadyReached
+                      ? "Objetivo ya cumplido"
                     : `${route.currencyActions.length === 1 ? "Preparar " : "Elegir "}${action.label}`}
               </Button>
             ))}
@@ -642,6 +733,73 @@ export function CraftingActionPlanner({
             )}
           </div>
         </div>
+        {experience === "laboratory" && (
+          <section
+            className="rounded-md border border-border/80 bg-background/30 p-3"
+            data-testid="crafting-route-comparison"
+            aria-labelledby={`crafting-route-comparison-title-${item.id}`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300/75">
+                  Comparador de rutas
+                </p>
+                <h4 id={`crafting-route-comparison-title-${item.id}`} className="mt-1 text-sm font-semibold">
+                  Lo que puedes intentar desde este estado
+                </h4>
+              </div>
+              <span className="text-[11px] text-muted-foreground">No ordena una ruta como “mejor”</span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {route.currencyActions.map((routeAction) => {
+                const evaluation = craftingActions.find((entry) => entry.action.id === routeAction.id);
+                if (!evaluation) return null;
+                return (
+                  <article key={routeAction.id} className="rounded border border-emerald-500/30 bg-emerald-500/[0.045] p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <strong className="text-sm text-foreground">{routeAction.label}</strong>
+                      <span className="text-[10px] font-semibold uppercase text-emerald-300">Legal</span>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">{evaluation.action.effect}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                      <span className="rounded-full border border-border px-2 py-0.5">Dirección: aleatoria</span>
+                      <span className="rounded-full border border-border px-2 py-0.5">Coste: 1 uso</span>
+                      <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-amber-200">Precio: sin verificar</span>
+                    </div>
+                    <Button className="mt-3" type="button" size="sm" variant="outline" disabled={stopAlreadyReached} onClick={() => prepareCurrencyAction(routeAction)}>
+                      {stopAlreadyReached ? "Parada ya cumplida" : "Preparar esta ruta"}
+                    </Button>
+                  </article>
+                );
+              })}
+              {route.toolSuggestions.map((tool) => (
+                <article key={tool} className="rounded border border-amber-500/30 bg-amber-500/[0.04] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <strong className="text-sm text-foreground">{tool === "essence" ? "Essence" : "Alloy"}</strong>
+                    <span className="text-[10px] font-semibold uppercase text-amber-300">Requiere tooltip</span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Puede reemplazar una línea. La compatibilidad y el riesgo se calculan después de copiar el efecto real.
+                  </p>
+                  <Button className="mt-3" type="button" size="sm" variant="outline" disabled={stopAlreadyReached} onClick={() => {
+                    if (replacementNeedsConsent) setShowReplacementRisk(true);
+                    openTool(tool);
+                  }}>
+                    {stopAlreadyReached ? "Parada ya cumplida" : "Evaluar esta ruta"}
+                  </Button>
+                </article>
+              ))}
+              {route.currencyActions.length === 0 && route.toolSuggestions.length === 0 && (
+                <p className="rounded border border-rose-500/30 bg-rose-500/[0.04] p-3 text-xs text-rose-100 sm:col-span-2">
+                  No hay una ruta confirmada con el snapshot actual. Completa la pieza antes de gastar.
+                </p>
+              )}
+            </div>
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              Sin pool exhaustivo no se muestran probabilidades, intentos esperados ni coste total.
+            </p>
+          </section>
+        )}
         <div
           className="flex flex-wrap gap-2 text-[11px]"
           data-testid="crafting-knowledge-status"

@@ -5,6 +5,7 @@ import {
   ChevronDown,
   GraduationCap,
   Hammer,
+  FlaskConical,
   RotateCcw,
   Wrench,
 } from "lucide-react";
@@ -45,7 +46,7 @@ interface CraftingSectionProps {
   onMentorContext?: (event: ContextualMentorEvent) => void;
 }
 
-type CraftingMode = "coach" | "academy";
+type CraftingMode = "coach" | "academy" | "laboratory";
 
 /**
  * Elección de entrada al área de Crafting. Vive FUERA de `crafting-workspace`
@@ -74,10 +75,17 @@ function CraftingModeChooser({
       title: "Ayúdame con mi objeto",
       detail: "Te digo qué hacer con una pieza tuya, paso a paso.",
     },
+    {
+      id: "laboratory" as const,
+      testId: "crafting-mode-laboratory",
+      icon: FlaskConical,
+      title: "Diseñar un craft avanzado",
+      detail: "Objetivos exactos, líneas intocables, parada y rutas.",
+    },
   ];
   return (
     <div
-      className="grid min-w-0 gap-2 sm:grid-cols-2"
+      className="grid min-w-0 gap-2 md:grid-cols-3"
       role="group"
       aria-label="Cómo quieres usar Crafting"
       data-testid="crafting-mode-chooser"
@@ -201,8 +209,15 @@ export function CraftingSection({
     ? activeSession.craftingExperiment
     : null;
   const preferredId = activeCrafting?.originalItem.id ?? selectedItemId ?? requestedItemId;
+  const laboratoryFallback =
+    mode === "laboratory"
+      ? craftableItems.find((item) => diagnoseCraftingItem(item).state === "complete")
+      : null;
   const selectedItem =
-    craftableItems.find((item) => item.id === preferredId) ?? craftableItems[0] ?? null;
+    craftableItems.find((item) => item.id === preferredId) ??
+    laboratoryFallback ??
+    craftableItems[0] ??
+    null;
   const focusStartedCraft = () => {
     // La primera trama deja que React monte la sesión; la segunda realiza la
     // navegación únicamente como consecuencia del clic que la creó. Así una
@@ -246,6 +261,16 @@ export function CraftingSection({
         {chooser}
         {mode === "academy" ? (
           <CraftingAcademy onPracticeWithMyItem={() => setMode("coach")} />
+        ) : mode === "laboratory" ? (
+          <section className="superficie-panel p-6" data-testid="crafting-laboratory-needs-profile">
+            <h2 className="dossier-title text-2xl font-semibold">Primero necesito una pieza real</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Pega el texto avanzado del objeto para poder leer sus afijos, grados y huecos sin suponer nada.
+            </p>
+            <Button className="mt-4" type="button" onClick={onEditExpediente}>
+              Pegar un objeto del juego
+            </Button>
+          </section>
         ) : (
           coach
         )}
@@ -269,7 +294,7 @@ export function CraftingSection({
       </div>
       <div
         id="crafting-workspace"
-        hidden={mode !== "coach" || !advancedVisible}
+        hidden={mode === "academy" || (mode === "coach" && !advancedVisible)}
         className="flex min-w-0 flex-col gap-7"
         data-testid="crafting-workspace"
       >
@@ -283,10 +308,12 @@ export function CraftingSection({
           </span>
           <div>
             <h2 id="crafting-workspace-title" className="dossier-title text-2xl font-semibold">
-              Banco de crafting
+              {mode === "laboratory" ? "Laboratorio avanzado" : "Banco de crafting"}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Elige · decide · aplica · compara.
+              {mode === "laboratory"
+                ? "Define · protege · compara rutas · registra el resultado."
+                : "Elige · decide · aplica · compara."}
             </p>
           </div>
         </div>
@@ -490,6 +517,7 @@ export function CraftingSection({
                 onStartAlloyDecision={hasOpenSession ? undefined : onStartAlloyDecision}
                 onStarted={focusStartedCraft}
                 onMentorContext={onMentorContext}
+                experience={mode === "laboratory" ? "laboratory" : "bank"}
               />
             </section>
           )}
