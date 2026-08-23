@@ -27,7 +27,34 @@ camino no borra nada.
 5. **¿Cuándo parar?** Cuando ninguna moneda observada es compatible, o cuando
    falta un dato: el guía lo dice y no ofrece gastar.
 6. **¿Qué salió?** El jugador pega el resultado y `readCraftResult()` traduce la
-   comparación: qué cambió, qué se conservó, continuar o parar.
+   comparación: qué cambió, qué se conservó, continuar o parar. Si el modificador
+   nuevo comparte etiqueta con la dirección elegida se dice «está relacionado
+   con daño» —nunca «es una mejora»— seguido de «Esto no demuestra todavía que
+   la pieza completa sea mejor para tu personaje. Pruébala o compárala en el
+   personaje.»
+
+## Tres ejes que no se mezclan
+
+Confundirlos es lo que hace parecer a una interfaz más lista de lo que es.
+
+| Eje | Qué responde | Quién lo decide |
+| --- | --- | --- |
+| `legality` | ¿Se puede aplicar sobre esta pieza? | La estructura: rareza, huecos, estados. |
+| `steering` | ¿Puede dirigirse el resultado? | El efecto observado de la moneda. |
+| `goalFit` | ¿Encaja con lo que buscas? | Solo el resultado real, después de craftear. |
+
+Con las cuatro monedas observadas `steering` nunca es `directed`: Aumento y
+Exaltado declaran «modificador aleatorio», y Transmutación y Regio no dicen cuál
+aparece —«no mostrado» no significa «dirigible»—. Por eso **elegir daño o
+defensa no cambia qué acción es legal**, y el guía lo dice a la cara:
+
+> Siguiente acción legal: **Orbe exaltado**
+> El modificador que añade es aleatorio. Esta moneda puede añadir un
+> modificador, pero no puedo dirigirlo hacia daño.
+
+Ese aviso vive fuera de los detalles plegables. Las acciones son «Aceptar el
+riesgo y usar [moneda]», «No gastar todavía» y «Explorar herramientas
+avanzadas», que solo abre el banco y no promete ninguna receta dirigida.
 
 ## Decisiones que podrían parecer inventadas y no lo son
 
@@ -46,11 +73,16 @@ moneda es compatible —eso lo decide la estructura—. Sirve para leer el resul
 después, comparando etiquetas con `evaluateCraftingGoalSignal`. El guía lo dice
 en vez de fingir una recomendación personalizada.
 
-**«No sé qué necesita»** solo se activa cuando las etiquetas de la propia pieza
-inclinan la balanza. Sin modificadores, con empate o con etiquetas ajenas a daño
-y defensa, el botón queda desactivado con su explicación. No existe evidencia
-local sobre qué admite cada base, así que **nunca** se descarta una dirección por
-el tipo de objeto.
+**«No sé qué necesita»** NO mira la pieza. Que un objeto lleve modificadores de
+daño no demuestra que necesite más daño: eso confunde lo que hay con lo que
+falta. Solo responde cuando el expediente declara una carencia comprobable —hoy,
+una resistencia elemental por debajo del umbral que ya usa el propio
+expediente— y entonces cita el dato exacto («Tu expediente declara fuego 40%,
+por debajo de 75%»). Si no la hay, contesta «No puedo decidirlo mirando solo
+esta pieza» y ofrece elegir daño, elegir defensa o no gastar todavía.
+
+No existe evidencia local sobre qué admite cada base, así que **nunca** se
+descarta una dirección por el tipo de objeto.
 
 ## Qué se reutilizó de `bb06b1f`
 
@@ -97,3 +129,9 @@ interacción**, con el mentor plegado y desplegado, no en una captura.
   son alcanzables desplazándose.
 - El progreso del guía es de sesión: sobrevive al cambio de modo, no a recargar.
   La pieza sí, porque vive en el expediente.
+- La única carencia del personaje que el repositorio sabe leer hoy es una
+  resistencia elemental baja. No hay lectura equivalente para daño, así que
+  «No sé qué necesita» nunca propondrá daño por su cuenta.
+- La decisión visible cabe en 80 palabras; el panel completo ronda las 120
+  porque las frases de honestidad exigidas (aleatoriedad, límite de dirección,
+  consecuencia estructural) ocupan sitio. Es texto que no debe recortarse.

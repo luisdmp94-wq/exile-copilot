@@ -70,7 +70,11 @@ export function CoachItemCard({
       </p>
 
       {!compact && explicit.length > 0 && (
-        <ul className="flex flex-col gap-1.5 border-t border-border/70 p-3 sm:p-4" data-testid="coach-modificadores">
+        <details className="border-t border-border/70 p-3 sm:p-4">
+          <summary className="cursor-pointer text-xs font-medium">
+            Lo que ya tiene y se conserva ({explicit.length})
+          </summary>
+          <ul className="mt-2 flex flex-col gap-1.5" data-testid="coach-modificadores">
           {explicit.map((modifier) => (
             <li
               key={modifier.id}
@@ -91,7 +95,8 @@ export function CoachItemCard({
                 <span className="min-w-0 flex-1">Sitio libre</span>
               </li>
             ))}
-        </ul>
+          </ul>
+        </details>
       )}
 
       {!compact && !reading.readable && (

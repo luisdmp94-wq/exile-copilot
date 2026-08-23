@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   chooseNextStep,
-  guessDirectionFromItem,
   readCraftResult,
+  suggestDirectionFromCharacter,
   readItemInPlainWords,
 } from "../../shared/craftingCoach.js";
 import { compareCraftingResult } from "../../shared/craftingComparison.js";
@@ -185,48 +185,117 @@ describe("guía de crafting — leer la pieza en palabras", () => {
   });
 });
 
+describe("guía de crafting — legalidad, orientación y ajuste son ejes distintos", () => {
+  const casos = [
+    ["normal", pieza({ rarity: "normal", modifiers: [] })],
+    [
+      "mágico con hueco",
+      pieza({ rarity: "magic", modifiers: [mod("a", "+31 vida", "prefix", ["Vida"])] }),
+    ],
+    ["raro con hueco", pieza({ modifiers: [mod("a", "+55 vida", "prefix", ["Vida"])] })],
+  ] as const;
+
+  it("elegir daño o defensa no cambia la acción legal", () => {
+    for (const [etiqueta, item] of casos) {
+      const sinDireccion = chooseNextStep(item, null);
+      const conDano = chooseNextStep(item, "damage");
+      const conDefensa = chooseNextStep(item, "defence");
+      expect(sinDireccion.kind, etiqueta).toBe("use-currency");
+      if (
+        sinDireccion.kind !== "use-currency" ||
+        conDano.kind !== "use-currency" ||
+        conDefensa.kind !== "use-currency"
+      ) {
+        continue;
+      }
+      expect(conDano.actionId, etiqueta).toBe(sinDireccion.actionId);
+      expect(conDefensa.actionId, etiqueta).toBe(sinDireccion.actionId);
+      expect(conDano.why, etiqueta).toBe(sinDireccion.why);
+    }
+  });
+
+  it("ninguna moneda observada se etiqueta como dirigida", () => {
+    for (const [etiqueta, item] of casos) {
+      const step = chooseNextStep(item, "damage");
+      if (step.kind !== "use-currency") continue;
+      expect(step.legality, etiqueta).toBe("legal");
+      expect(step.steering, etiqueta).not.toBe("directed");
+      expect(["random-declared", "undeclared"], etiqueta).toContain(step.steering);
+    }
+  });
+
+  it("ser legal nunca se confunde con encajar en el objetivo", () => {
+    const step = chooseNextStep(casos[2][1], "damage");
+    expect(step.kind).toBe("use-currency");
+    if (step.kind !== "use-currency") return;
+    expect(step.legality).toBe("legal");
+    // Antes de craftear un resultado aleatorio, el ajuste no puede confirmarse.
+    expect(step.goalFit).toBe("not-confirmed");
+    const sinDireccion = chooseNextStep(casos[2][1], null);
+    expect(sinDireccion.kind).toBe("use-currency");
+    if (sinDireccion.kind !== "use-currency") return;
+    expect(sinDireccion.goalFit).toBe("not-evaluable");
+  });
+
+  it("declara el límite de dirección con la palabra que el jugador eligió", () => {
+    const dano = chooseNextStep(casos[2][1], "damage");
+    const defensa = chooseNextStep(casos[2][1], "defence");
+    if (dano.kind !== "use-currency" || defensa.kind !== "use-currency") return;
+    expect(dano.directionNotice).toBe(
+      "Esta moneda puede añadir un modificador, pero no puedo dirigirlo hacia daño.",
+    );
+    expect(defensa.directionNotice).toBe(
+      "Esta moneda puede añadir un modificador, pero no puedo dirigirlo hacia defensa.",
+    );
+
+  });
+
+  it("la aleatoriedad se afirma fuera del detalle plegado", () => {
+    for (const [etiqueta, item] of casos) {
+      const step = chooseNextStep(item, "damage");
+      if (step.kind !== "use-currency") continue;
+      // `randomnessNotice` es un campo de primer nivel: la interfaz lo pinta
+      // siempre. `whatCanHappen` es el detalle que sí puede ir plegado.
+      expect(step.randomnessNotice, etiqueta).toMatch(/aleatorio|no se puede saber/i);
+      expect(step.randomnessNotice, etiqueta).not.toBe("");
+    }
+  });
+});
+
 describe("guía de crafting — «No sé qué necesita»", () => {
-  it("deduce la dirección solo desde las etiquetas que la pieza ya muestra", () => {
-    const guess = guessDirectionFromItem(
-      pieza({
-        modifiers: [
-          mod("a", "+55 a la vida máxima", "prefix", ["Vida"]),
-          mod("b", "+31% a la resistencia al fuego", "suffix", ["Resistencias"]),
-          mod("c", "+25% de daño físico", "suffix", ["Daño"]),
-        ],
-      }),
-    );
+  const conResistenciasBajas = {
+    resistances: { fire: 40, cold: 76, lightning: 75, chaos: null },
+  };
+
+  it("no deduce nada de los modificadores de la propia pieza", () => {
+    // Una pieza cargada de daño NO demuestra que el personaje necesite daño.
+    const guess = suggestDirectionFromCharacter(null);
+    expect(guess.direction).toBeNull();
+    expect(guess.reason).toBe("No puedo decidirlo mirando solo esta pieza.");
+  });
+
+  it("sin expediente o sin carencia comprobable no inventa una necesidad", () => {
+    expect(suggestDirectionFromCharacter(null).direction).toBeNull();
+    expect(
+      suggestDirectionFromCharacter({
+        resistances: { fire: 75, cold: 80, lightning: 90, chaos: -20 },
+      }).direction,
+    ).toBeNull();
+    expect(
+      suggestDirectionFromCharacter({
+        resistances: { fire: null, cold: null, lightning: null, chaos: null },
+      }).reason,
+    ).toBe("No puedo decidirlo mirando solo esta pieza.");
+  });
+
+  it("con una carencia declarada en el expediente cita el dato exacto", () => {
+    const guess = suggestDirectionFromCharacter(conResistenciasBajas);
     expect(guess.direction).toBe("defence");
-    expect(guess.reason).toContain("2");
-  });
-
-  it("no elige cuando no hay modificadores", () => {
-    const guess = guessDirectionFromItem(pieza({ rarity: "normal", modifiers: [] }));
-    expect(guess.direction).toBeNull();
-    expect(guess.reason).toContain("no puedo deducir");
-  });
-
-  it("no elige cuando las etiquetas empatan", () => {
-    const guess = guessDirectionFromItem(
-      pieza({
-        modifiers: [
-          mod("a", "+55 a la vida máxima", "prefix", ["Vida"]),
-          mod("b", "+25% de daño físico", "suffix", ["Daño"]),
-        ],
-      }),
-    );
-    expect(guess.direction).toBeNull();
-    expect(guess.reason).toContain("empatado");
-  });
-
-  it("no elige cuando las etiquetas no son de daño ni de defensa", () => {
-    const guess = guessDirectionFromItem(
-      pieza({
-        rarity: "magic",
-        modifiers: [mod("a", "+18% a la velocidad de movimiento", "suffix", ["Velocidad"])],
-      }),
-    );
-    expect(guess.direction).toBeNull();
+    expect(guess.reason).toContain("fuego 40%");
+    expect(guess.reason).toContain("75%");
+    // Solo se citan las que están por debajo del umbral.
+    expect(guess.reason).not.toContain("frío");
+    expect(guess.reason).not.toContain("rayo");
   });
 });
 
@@ -255,7 +324,9 @@ describe("guía de crafting — antes y después", () => {
     // Con 2 de 2 modificadores, Aumento deja de valer y aparece Regio.
     expect(reading.verdict).toBe("continue");
     expect(reading.nextStep?.kind).toBe("use-currency");
-    expect(reading.directionNote).toContain("la defensa");
+    expect(reading.goalFit).toBe("confirmed");
+    expect(reading.directionNote).toBe("El nuevo modificador está relacionado con defensa.");
+    expect(reading.improvementCaveat).toContain("no demuestra todavía");
   });
 
   it("relaciona el resultado con la dirección elegida sin declararlo útil", () => {
@@ -263,8 +334,9 @@ describe("guía de crafting — antes y después", () => {
       protectedModifierIds: [],
     });
     const reading = readCraftResult({ comparison, resultItem: despues, direction: "damage" });
-    expect(reading.directionNote).toContain("no lo hace inútil");
-    expect(reading.directionNote).not.toMatch(/garantiz/i);
+    expect(reading.goalFit).toBe("not-confirmed");
+    expect(reading.directionNote).toBe("El nuevo modificador no está relacionado con daño.");
+    expect(reading.directionNote).not.toMatch(/mejora|garantiz/i);
   });
 
   it("si la comparación no cuadra manda parar y volver a copiar", () => {

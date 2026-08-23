@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ClipboardPaste,
+  Dices,
   Loader2,
   ShieldAlert,
   Sparkles,
@@ -12,21 +13,23 @@ import {
 import {
   COACH_DIRECTION_LABELS,
   chooseNextStep,
-  guessDirectionFromItem,
   readCraftResult,
+  suggestDirectionFromCharacter,
   type CoachDirection,
   type CoachNextStep,
 } from "@shared/craftingCoach.js";
 import { compareCraftingResult, type CraftingComparison } from "@shared/craftingComparison.js";
-import type { Item } from "@shared/domain.js";
+import type { CharacterProfile, Item } from "@shared/domain.js";
 import { CoachItemCard } from "@/components/CoachItemCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, getErrorMessage } from "@/lib/api";
 
-export type CoachPhase = "choose" | "recommend" | "await-result" | "result";
+export type CoachPhase = "choose" | "recommend" | "hold" | "await-result" | "result";
 
 interface CraftingCoachProps {
+  /** Único origen de evidencia sobre el personaje. `null` = todavía no hay. */
+  profile: CharacterProfile | null;
   items: readonly Item[];
   selectedItem: Item | null;
   onSelectItem: (itemId: string) => void;
@@ -75,12 +78,14 @@ function DirectionButton({
 function Recommendation({
   step,
   onDone,
+  onHold,
   onOther,
   onOpenAdvanced,
   headingRef,
 }: {
   step: CoachNextStep;
   onDone: () => void;
+  onHold: () => void;
   onOther: () => void;
   onOpenAdvanced: () => void;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
@@ -164,7 +169,7 @@ function Recommendation({
       data-action={step.actionId}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
-        Haz esto
+        Siguiente acción legal
       </p>
       <h3
         ref={headingRef}
@@ -178,6 +183,20 @@ function Recommendation({
         {step.instruction}
       </p>
       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.why}</p>
+
+      {/* Aleatoriedad y límite de dirección: SIEMPRE a la vista, nunca plegados. */}
+      <p
+        className="mt-3 flex items-start gap-2 rounded border border-border/70 bg-background/50 px-2.5 py-2 text-xs leading-relaxed"
+        data-testid="coach-aleatoriedad"
+        data-steering={step.steering}
+        data-goal-fit={step.goalFit}
+      >
+        <Dices className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span>
+          {step.randomnessNotice}
+          {step.directionNotice !== null && ` ${step.directionNotice}`}
+        </span>
+      </p>
 
       {step.warning !== null && (
         <p
@@ -216,11 +235,20 @@ function Recommendation({
         data-testid="coach-acciones"
       >
         <Button type="button" onClick={onDone} data-testid="coach-lo-hare">
-          Lo haré en el juego
+          Aceptar el riesgo y usar {step.label.toLocaleLowerCase("es")}
           <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
-        <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
-          Elegir otro camino
+        <Button type="button" variant="outline" onClick={onHold} data-testid="coach-no-gastar">
+          No gastar todavía
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="text-xs text-muted-foreground"
+          onClick={onOpenAdvanced}
+          data-testid="coach-explorar-avanzado"
+        >
+          Explorar herramientas avanzadas
         </Button>
       </div>
     </div>
@@ -234,6 +262,7 @@ function Recommendation({
  * y el pegado del resultado. Nunca ejecuta nada dentro del juego.
  */
 export function CraftingCoach({
+  profile,
   items,
   selectedItem,
   onSelectItem,
@@ -243,6 +272,8 @@ export function CraftingCoach({
   const [direction, setDirection] = useState<CoachDirection | null>(null);
   const [directionChosen, setDirectionChosen] = useState(false);
   const [directionNote, setDirectionNote] = useState<string | null>(null);
+  /** El jugador pidió que decidiera yo y no hay evidencia con la que hacerlo. */
+  const [noEvidence, setNoEvidence] = useState(false);
   const [phase, setPhase] = useState<CoachPhase>("choose");
   const [resultText, setResultText] = useState("");
   const [comparing, setComparing] = useState(false);
@@ -259,6 +290,7 @@ export function CraftingCoach({
   const recommendationRef = useRef<HTMLHeadingElement>(null);
   const resultTextRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const holdRef = useRef<HTMLDivElement>(null);
 
   /**
    * Sincronización de foco con el DOM (no de estado): cada fase lleva el foco a
@@ -274,7 +306,9 @@ export function CraftingCoach({
           ? resultTextRef.current
           : phase === "result"
             ? resultRef.current
-            : null;
+            : phase === "hold"
+              ? holdRef.current
+              : null;
     if (!target) return;
     target.focus({ preventScroll: true });
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -285,6 +319,7 @@ export function CraftingCoach({
     setDirection(null);
     setDirectionChosen(false);
     setDirectionNote(null);
+    setNoEvidence(false);
     setPhase("choose");
     setResultText("");
     setComparison(null);
@@ -339,16 +374,18 @@ export function CraftingCoach({
   // Si el jugador cambia de pieza en el expediente, el guía vuelve a ella.
   const activeItem =
     workingItem !== null && workingItem.id === selectedItem.id ? workingItem : selectedItem;
-  const step = chooseNextStep(activeItem);
+  const step = chooseNextStep(activeItem, direction);
 
   const chooseDirection = (next: CoachDirection | null, note: string | null) => {
     setDirection(next);
     setDirectionNote(note);
+    setNoEvidence(false);
     setDirectionChosen(true);
     setPhase("recommend");
   };
 
-  const guess = guessDirectionFromItem(activeItem);
+  // La dirección solo se deduce del expediente, jamás de la propia pieza.
+  const guess = suggestDirectionFromCharacter(profile);
 
   const compareResult = async () => {
     if (step.kind !== "use-currency" || resultText.trim() === "") return;
@@ -420,18 +457,18 @@ export function CraftingCoach({
                   </li>
                 ))}
               </ul>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-1 self-start text-xs text-muted-foreground"
+                onClick={onPasteItem}
+                data-testid="coach-pegar-otro"
+              >
+                Pegar otro objeto
+              </Button>
             </details>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="self-start text-xs text-muted-foreground"
-            onClick={onPasteItem}
-            data-testid="coach-pegar-otro"
-          >
-            Pegar otro objeto
-          </Button>
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
@@ -461,18 +498,57 @@ export function CraftingCoach({
                   label="No sé qué necesita"
                   hint={
                     guess.direction === null
-                      ? "Ahora mismo no puedo deducirlo por ti"
-                      : "Lo deduzco de lo que ya lleva"
+                      ? "Te diré con qué cuento"
+                      : "Lo miro en tu expediente"
                   }
                   icon={Sparkles}
-                  disabled={guess.direction === null}
-                  onChoose={() => chooseDirection(guess.direction, guess.reason)}
+                  onChoose={() => {
+                    if (guess.direction === null) {
+                      setNoEvidence(true);
+                      return;
+                    }
+                    chooseDirection(guess.direction, guess.reason);
+                  }}
                 />
               </div>
-              {guess.direction === null && (
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground" data-testid="coach-sin-deduccion">
-                  {guess.reason}
-                </p>
+              {noEvidence && guess.direction === null && (
+                <div
+                  className="mt-3 rounded-md border border-border bg-muted/[0.06] p-3"
+                  data-testid="coach-sin-evidencia"
+                  role="status"
+                >
+                  <p className="text-sm font-medium">{guess.reason}</p>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => chooseDirection("damage", null)}
+                      data-testid="coach-elegir-damage"
+                    >
+                      Elegir daño
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => chooseDirection("defence", null)}
+                      data-testid="coach-elegir-defence"
+                    >
+                      Elegir defensa
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setNoEvidence(false);
+                        setPhase("hold");
+                      }}
+                      data-testid="coach-no-gastar-sin-evidencia"
+                    >
+                      No gastar todavía
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -498,9 +574,43 @@ export function CraftingCoach({
               step={step}
               headingRef={recommendationRef}
               onDone={() => setPhase("await-result")}
+              onHold={() => setPhase("hold")}
               onOther={resetFlow}
               onOpenAdvanced={onOpenAdvanced}
             />
+          )}
+
+          {/* Parada voluntaria: ni fracaso ni callejón sin salida. */}
+          {phase === "hold" && (
+            <div
+              ref={holdRef}
+              tabIndex={-1}
+              role="status"
+              className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)] rounded-md border border-border bg-muted/[0.06] p-4 outline-none"
+              data-testid="coach-espera"
+            >
+              <h3 className="dossier-title text-xl font-semibold">Guardado para más tarde</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                La pieza sigue como está. Puedes volver cuando quieras.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setPhase("recommend")}
+                  data-testid="coach-volver-accion"
+                >
+                  Ver otra vez la acción
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetFlow}
+                  data-testid="coach-otro-camino"
+                >
+                  Elegir otro camino
+                </Button>
+              </div>
+            </div>
           )}
 
           {/* Paso 3: qué salió en el juego. */}
@@ -575,8 +685,20 @@ export function CraftingCoach({
               )}
               <p className="mt-2 text-sm text-muted-foreground">{resultReading.kept}</p>
               {resultReading.directionNote !== null && (
-                <p className="mt-2 text-sm" data-testid="coach-relacion-objetivo">
+                <p
+                  className="mt-2 text-sm"
+                  data-testid="coach-relacion-objetivo"
+                  data-goal-fit={resultReading.goalFit}
+                >
                   {resultReading.directionNote}
+                </p>
+              )}
+              {resultReading.improvementCaveat !== null && (
+                <p
+                  className="mt-1.5 text-sm text-muted-foreground"
+                  data-testid="coach-salvedad-mejora"
+                >
+                  {resultReading.improvementCaveat}
                 </p>
               )}
               <p className="mt-3 text-sm font-medium" data-testid="coach-veredicto">

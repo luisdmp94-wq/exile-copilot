@@ -385,25 +385,81 @@ async function runFlow(mode, port) {
     );
 
     // --- 7. «No sé qué necesita» -----------------------------------------
+    // El perfil demo declara resistencias por debajo del umbral, así que SÍ
+    // existe una carencia citable; el guía debe apoyarse en ese dato y no en
+    // las etiquetas de la pieza.
     await elegirPieza(page, "taller-lleno");
     await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
-    check(
-      `[${mode}] «No sé qué necesita» está disponible cuando el objeto lo justifica`,
-      (await page.getByTestId("coach-direccion-unknown").isEnabled()) === true,
-    );
     await page.getByTestId("coach-direccion-unknown").click();
-    check(
-      `[${mode}] al deducir la dirección explica en qué se basa`,
-      (await page.getByTestId("coach-direccion-elegida").innerText()).includes("etiquetas de"),
-    );
+    const sinEvidencia = page.getByTestId("coach-sin-evidencia");
+    const decidio = (await page.getByTestId("coach-direccion-elegida").count()) > 0;
+    if (decidio) {
+      const razon = await page.getByTestId("coach-direccion-elegida").innerText();
+      check(
+        `[${mode}] «No sé qué necesita» cita un dato del expediente, no las etiquetas de la pieza`,
+        /expediente declara/.test(razon) &&
+          /%/.test(razon) &&
+          !/etiquetas de/.test(razon) &&
+          !/ya lleva/.test(razon),
+      );
+    } else {
+      check(
+        `[${mode}] sin evidencia dice que no puede decidirlo y ofrece salida`,
+        (await sinEvidencia.innerText()).includes("No puedo decidirlo mirando solo esta pieza.") &&
+          (await page.getByTestId("coach-elegir-damage").isVisible()) &&
+          (await page.getByTestId("coach-elegir-defence").isVisible()) &&
+          (await page.getByTestId("coach-no-gastar-sin-evidencia").isVisible()),
+      );
+    }
+    await page.screenshot({ path: join(SHOT_DIR, `taller-no-se-${mode}.png`), fullPage: false });
 
-    await elegirPieza(page, "taller-normal");
-    await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
+    // Y ahora el caso SIN evidencia: mismo perfil con las resistencias por
+    // encima del umbral, de modo que no exista ninguna carencia citable.
+    const sinCarencia = {
+      ...profile,
+      resistances: { fire: 78, cold: 80, lightning: 76, chaos: -10 },
+    };
+    await fetch(`${BASE}/api/character`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: sinCarencia }),
+    });
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
+    await page.getByTestId("coach-direccion-unknown").click();
+    await page.getByTestId("coach-sin-evidencia").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] sobre una pieza sin modificadores no inventa la dirección`,
-      (await page.getByTestId("coach-direccion-unknown").isDisabled()) === true &&
-        (await page.getByTestId("coach-sin-deduccion").innerText()).includes("no puedo deducir"),
+      `[${mode}] sin carencia comprobable dice que no puede decidirlo y ofrece salida`,
+      (await page.getByTestId("coach-sin-evidencia").innerText()).includes(
+        "No puedo decidirlo mirando solo esta pieza.",
+      ) &&
+        (await page.getByTestId("coach-elegir-damage").isVisible()) &&
+        (await page.getByTestId("coach-elegir-defence").isVisible()) &&
+        (await page.getByTestId("coach-no-gastar-sin-evidencia").isVisible()) &&
+        (await page.getByTestId("coach-direccion-elegida").count()) === 0,
     );
+    await page.screenshot({
+      path: join(SHOT_DIR, `taller-sin-evidencia-${mode}.png`),
+      fullPage: false,
+    });
+    // «No gastar todavía» también desde aquí, y sin perder la pieza.
+    await page.getByTestId("coach-no-gastar-sin-evidencia").click();
+    await page.getByTestId("coach-espera").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] desde la falta de evidencia también se puede aparcar sin perder la pieza`,
+      (await page.getByTestId("coach-objeto").innerText()).length > 0,
+    );
+    await page.getByTestId("coach-otro-camino").click();
+    // Se restaura el expediente original para el resto del recorrido.
+    await fetch(`${BASE}/api/character`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile }),
+    });
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
 
     // --- 8. Recorrido completo con la ballesta real ----------------------
     await abrirPieza(page, "taller-ballesta", "damage");
@@ -411,7 +467,64 @@ async function runFlow(mode, port) {
       `[${mode}] la ballesta real recibe una única acción compatible`,
       (await recomendacion.getAttribute("data-action")) === "exalted",
     );
+    check(
+      `[${mode}] el encabezado dice «Siguiente acción legal», no que sea la mejor`,
+      // `innerText` aplica `text-transform`, así que se compara sin distinguir
+      // mayúsculas: lo que importa es la fórmula, no su presentación.
+      /siguiente acci[óo]n legal/i.test(await recomendacion.innerText()) &&
+        !/mejor forma|la mejor manera|garantiz/i.test(await recomendacion.innerText()),
+    );
+    const aviso = page.getByTestId("coach-aleatoriedad");
+    check(
+      `[${mode}] la aleatoriedad y el límite de dirección se ven sin desplegar nada`,
+      (await aviso.isVisible()) &&
+        (await aviso.getAttribute("data-steering")) !== "directed" &&
+        (await aviso.getAttribute("data-goal-fit")) === "not-confirmed" &&
+        (await aviso.innerText()).includes("no puedo dirigirlo hacia daño"),
+    );
+    check(
+      `[${mode}] las acciones son aceptar el riesgo, no gastar y explorar avanzadas`,
+      (await page.getByTestId("coach-lo-hare").innerText()).includes("Aceptar el riesgo") &&
+        (await page.getByTestId("coach-no-gastar").isVisible()) &&
+        (await page.getByTestId("coach-explorar-avanzado").isVisible()),
+    );
+    const contar = async (testId) =>
+      (await page.getByTestId(testId).innerText()).trim().split(/\s+/).filter(Boolean).length;
+    const palabrasDecision = await contar("coach-recomendacion");
+    const palabrasPanel = await contar("crafting-coach");
+    check(
+      `[${mode}] la decisión visible cabe en 80 palabras (${palabrasDecision})`,
+      palabrasDecision <= 80,
+    );
+    check(
+      `[${mode}] el panel entero no se convierte en documentación (${palabrasPanel})`,
+      palabrasPanel <= 130,
+    );
     await page.screenshot({ path: join(SHOT_DIR, `taller-recomendacion-${mode}.png`), fullPage: false });
+
+    // «No gastar todavía» cierra el paso sin perder la pieza.
+    await page.getByTestId("coach-no-gastar").click();
+    await page.getByTestId("coach-espera").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] «No gastar todavía» cierra en corto y conserva la pieza`,
+      (await page.getByTestId("coach-espera").innerText()).includes("sigue como está") &&
+        (await page.getByTestId("coach-objeto").innerText()).includes("Núcleo de fénix") &&
+        !/fracas|has fallado|error/i.test(await page.getByTestId("coach-espera").innerText()),
+    );
+    await page.screenshot({ path: join(SHOT_DIR, `taller-no-gastar-${mode}.png`), fullPage: false });
+    await page.getByTestId("coach-volver-accion").click();
+    await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
+
+    // «Explorar herramientas avanzadas» solo abre el banco.
+    await page.getByTestId("coach-explorar-avanzado").click();
+    await page.getByTestId("crafting-workspace").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] explorar avanzadas abre el banco sin prometer una receta dirigida`,
+      !/dirig|garantiz|conseguir[áa] daño|asegura/i.test(
+        await page.getByTestId("crafting-workspace").innerText(),
+      ),
+    );
+    await page.getByTestId("crafting-avanzado-toggle").click();
 
     await page.getByTestId("coach-lo-hare").click();
     await page.getByTestId("coach-registro").waitFor({ timeout: 10000 });
@@ -440,6 +553,16 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] no promete que el resultado estuviera garantizado`,
       !/garantiz/i.test(comparacion),
+    );
+    check(
+      `[${mode}] el nuevo modificador se describe como relacionado, no como mejora`,
+      (await page.getByTestId("coach-relacion-objetivo").innerText()).includes(
+        "está relacionado con daño",
+      ) &&
+        (await page.getByTestId("coach-salvedad-mejora").innerText()).includes(
+          "no demuestra todavía que la pieza completa sea mejor",
+        ) &&
+        !/es una mejora|ha mejorado/i.test(comparacion),
     );
     await page.screenshot({ path: join(SHOT_DIR, `taller-comparacion-${mode}.png`), fullPage: false });
 

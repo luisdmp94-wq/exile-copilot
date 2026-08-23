@@ -37,6 +37,13 @@ const ATTRIBUTE_TAGS = new Set([
 
 const RESISTANCE_TAGS = new Set(["resistance", "resistances", "resistencia", "resistencias"]);
 
+/**
+ * Umbral por debajo del cual el expediente señala una resistencia elemental
+ * como carencia observable. Se exporta para que el guía cite el MISMO dato en
+ * vez de duplicar el número.
+ */
+export const LOW_ELEMENTAL_RESISTANCE = 75;
+
 function normalizedTag(value: string): string {
   return value.normalize("NFKC").trim().toLocaleLowerCase("es").replace(/\s+/g, " ");
 }
@@ -199,11 +206,13 @@ export function evaluateCraftingCharacterContext(input: {
     const lowElemental = (["fire", "cold", "lightning"] as const)
       .filter((kind) => {
         const value = profile.resistances[kind];
-        return value !== null && value < 75;
+        return value !== null && value < LOW_ELEMENTAL_RESISTANCE;
       })
       .map((kind) => `${RESISTANCE_LABELS[kind]} ${profile.resistances[kind]}%`);
     if (lowElemental.length > 0) {
-      facts.push(`El expediente tiene resistencias elementales bajo 75%: ${lowElemental.join(", ")}.`);
+      facts.push(
+        `El expediente tiene resistencias elementales bajo ${LOW_ELEMENTAL_RESISTANCE}%: ${lowElemental.join(", ")}.`,
+      );
     }
   }
 

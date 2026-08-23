@@ -3,6 +3,7 @@ import {
   evaluateObservedCraftingActions,
   type CraftingActionId,
 } from "./craftingActions.js";
+import { LOW_ELEMENTAL_RESISTANCE } from "./craftingCharacterContext.js";
 import { EXPECTED_RESULT_RARITY, type CraftingComparison } from "./craftingComparison.js";
 import { diagnoseCraftingItem, type CraftingItemDiagnosis } from "./craftingDiagnosis.js";
 import {
@@ -10,7 +11,12 @@ import {
   type CraftingGoalCategory,
   type CraftingGoalSignal,
 } from "./craftingGoal.js";
-import type { Item, ItemRarity } from "./domain.js";
+import {
+  RESISTANCE_LABELS,
+  type CharacterProfile,
+  type Item,
+  type ItemRarity,
+} from "./domain.js";
 
 /**
  * GUÍA DE CRAFTING CON UNA PIEZA REAL.
@@ -122,47 +128,45 @@ export const COACH_DIRECTION_NOUNS: Record<CoachDirection, string> = {
 };
 
 /**
- * Deduce la dirección SOLO a partir de las etiquetas que el propio objeto ya
- * muestra. Si no hay datos o apuntan a las dos direcciones, no elige: decirlo
- * es más útil que inventar una preferencia.
+ * «No sé qué necesita».
+ *
+ * NO se deduce de la pieza. Que un objeto lleve modificadores de daño no
+ * demuestra que necesite más daño: eso sería confundir lo que hay con lo que
+ * falta. Solo se responde cuando el EXPEDIENTE declara una carencia concreta y
+ * comprobable, y entonces se cita el dato exacto.
+ *
+ * Hoy la única carencia que el repositorio sabe leer así es una resistencia
+ * elemental por debajo del umbral que ya usa el expediente.
  */
-export function guessDirectionFromItem(item: Item): CoachDirectionGuess {
-  const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
-  if (explicit.length === 0) {
+export function suggestDirectionFromCharacter(
+  profile: Pick<CharacterProfile, "resistances"> | null,
+): CoachDirectionGuess {
+  if (profile === null) {
     return {
       direction: null,
-      reason: "Esta pieza todavía no tiene modificadores, así que no puedo deducir hacia dónde va.",
+      reason: "No puedo decidirlo mirando solo esta pieza.",
     };
   }
 
-  const counts: Record<CoachDirection, number> = { damage: 0, defence: 0 };
-  for (const modifier of explicit) {
-    for (const direction of ["damage", "defence"] as const) {
-      const signal = evaluateCraftingGoalSignal(DIRECTION_CATEGORY[direction], [modifier]);
-      if (signal.status === "direct") counts[direction] += 1;
-    }
-  }
+  const bajas = (["fire", "cold", "lightning"] as const)
+    .map((kind) => ({ kind, value: profile.resistances[kind] }))
+    .filter((entry): entry is { kind: "fire" | "cold" | "lightning"; value: number } =>
+      entry.value !== null && entry.value < LOW_ELEMENTAL_RESISTANCE,
+    );
 
-  if (counts.damage === 0 && counts.defence === 0) {
+  if (bajas.length === 0) {
     return {
       direction: null,
-      reason: "Sus modificadores no llevan etiquetas de daño ni de defensa que yo pueda leer.",
-    };
-  }
-  if (counts.damage === counts.defence) {
-    return {
-      direction: null,
-      reason: `Lleva ${counts.damage} de daño y ${counts.defence} de defensa: está empatado y elegir por ti sería inventar.`,
+      reason: "No puedo decidirlo mirando solo esta pieza.",
     };
   }
 
-  const direction: CoachDirection = counts.damage > counts.defence ? "damage" : "defence";
-  const winner = counts[direction];
+  const detalle = bajas
+    .map((entry) => `${RESISTANCE_LABELS[entry.kind]} ${entry.value}%`)
+    .join(", ");
   return {
-    direction,
-    reason:
-      `Esta pieza ya lleva ${winner} ${plural(winner, "modificador", "modificadores")} ` +
-      `con etiquetas de ${COACH_DIRECTION_NOUNS[direction]}.`,
+    direction: "defence",
+    reason: `Tu expediente declara ${detalle}, por debajo de ${LOW_ELEMENTAL_RESISTANCE}%.`,
   };
 }
 
@@ -177,20 +181,51 @@ export interface CoachAlternative {
   difference: string;
 }
 
+/**
+ * TRES EJES INDEPENDIENTES. Mezclarlos es lo que hace parecer a una interfaz
+ * más lista de lo que es.
+ *
+ *  - `legality`   ¿la moneda puede aplicarse sobre esta pieza? Lo decide la
+ *                 estructura (rareza, huecos, estados), nada más.
+ *  - `steering`   ¿puede dirigirse el resultado hacia algo concreto? Con las
+ *                 cuatro monedas observadas, NO.
+ *  - `goalFit`    ¿encaja con lo que el jugador busca? Antes de craftear no es
+ *                 confirmable; después se lee del resultado real.
+ */
+export type CoachLegality = "legal" | "blocked" | "needs-data";
+
+export type CoachSteering =
+  /** Reservado: hoy ninguna moneda básica observada dirige el resultado. */
+  | "directed"
+  /** El efecto observado declara literalmente que el modificador es aleatorio. */
+  | "random-declared"
+  /** El tooltip observado no dice cuál aparece: no puede anticiparse. */
+  | "undeclared";
+
+export type CoachGoalFit = "confirmed" | "not-confirmed" | "not-evaluable";
+
 export type CoachNextStep =
   | {
       kind: "needs-data";
+      legality: "needs-data";
       headline: string;
       instruction: string;
       why: string;
     }
   | {
       kind: "use-currency";
+      legality: "legal";
+      steering: CoachSteering;
+      goalFit: CoachGoalFit;
       actionId: CraftingActionId;
       label: string;
       /** Qué usar y sobre qué objeto. */
       instruction: string;
       why: string;
+      /** Aleatoriedad. SIEMPRE visible: nunca se pliega dentro del detalle. */
+      randomnessNotice: string;
+      /** Qué NO puede hacer esta moneda por la dirección elegida. Visible. */
+      directionNotice: string | null;
       /** Solo cuando hay una consecuencia estructural real. */
       warning: string | null;
       /** Qué puede ocurrir, sin prometer nada. Va plegado. */
@@ -200,6 +235,7 @@ export type CoachNextStep =
     }
   | {
       kind: "stop";
+      legality: "blocked";
       headline: string;
       instruction: string;
       why: string;
@@ -228,6 +264,24 @@ function preferredAction(item: Item, compatible: readonly CraftingActionId[]): C
   );
   return keepsRarity[0] ?? compatible[0]!;
 }
+
+/**
+ * Orientación de una moneda, leída de su efecto OBSERVADO.
+ *
+ * Aumento y Exaltado declaran «modificador aleatorio». Transmutación y Regio no
+ * dicen cuál aparece, y «no mostrado» nunca significa «dirigible». Ninguna de
+ * las cuatro permite apuntar a una categoría, así que ninguna se etiqueta como
+ * dirigida.
+ */
+function steeringOf(actionId: CraftingActionId): CoachSteering {
+  const effect = ACTION_BY_ID.get(actionId)?.effect ?? "";
+  return /aleatorio/i.test(effect) ? "random-declared" : "undeclared";
+}
+
+const RANDOMNESS_NOTICE: Record<Exclude<CoachSteering, "directed">, string> = {
+  "random-declared": "El modificador que añade es aleatorio.",
+  "undeclared": "No se puede saber qué modificador añadirá.",
+};
 
 function whatCanHappen(item: Item, actionId: CraftingActionId): string[] {
   const lines = [
@@ -273,7 +327,11 @@ function structuralWarning(
  * dato que falta, o parar. La dirección elegida por el jugador NO cambia qué es
  * legal —eso lo decide la estructura— y el guía lo dice sin disfrazarlo.
  */
-export function chooseNextStep(item: Item): CoachNextStep {
+export function chooseNextStep(
+  item: Item,
+  /** Lo que el jugador busca. NO cambia qué es legal; solo qué se le advierte. */
+  direction: CoachDirection | null = null,
+): CoachNextStep {
   const diagnosis = diagnoseCraftingItem(item);
   const evaluations = evaluateObservedCraftingActions(item);
   const compatible = evaluations
@@ -283,6 +341,7 @@ export function chooseNextStep(item: Item): CoachNextStep {
   if (diagnosis.state !== "complete") {
     return {
       kind: "needs-data",
+      legality: "needs-data",
       headline: "Me falta ver bien la pieza",
       instruction: diagnosis.nextAction,
       why:
@@ -295,6 +354,7 @@ export function chooseNextStep(item: Item): CoachNextStep {
     const full = item.rarity === "rare" && diagnosis.observedOpenSlots === 0;
     return {
       kind: "stop",
+      legality: "blocked",
       headline: full ? "Para: esta pieza ya está llena" : "Para: no hay ninguna acción compatible",
       instruction: full
         ? "Consérvala y pruébala en el personaje. Estas cuatro monedas ya no pueden añadir nada."
@@ -324,15 +384,26 @@ export function chooseNextStep(item: Item): CoachNextStep {
       };
     });
 
+  const steering = steeringOf(actionId);
   return {
     kind: "use-currency",
+    // Legal significa «se puede aplicar», no «conviene» ni «sirve para tu
+    // objetivo». Esos son los otros dos ejes.
+    legality: "legal",
+    steering,
+    goalFit: direction === null ? "not-evaluable" : "not-confirmed",
     actionId,
     label: action.label,
     instruction: `Usa un ${action.label.toLocaleLowerCase("es")} sobre «${item.name}».`,
     why:
       alternatives.length > 0
         ? `Es la única que puedes usar mientras el objeto siga siendo ${RARITY_WORD[item.rarity] ?? item.rarity}. La otra vía seguirá disponible después.`
-        : "Es la única acción compatible con la pieza tal y como está ahora.",
+        : "Es la única compatible con la pieza ahora mismo.",
+    randomnessNotice: RANDOMNESS_NOTICE[steering === "directed" ? "undeclared" : steering],
+    directionNotice:
+      direction === null
+        ? null
+        : `Esta moneda puede añadir un modificador, pero no puedo dirigirlo hacia ${COACH_DIRECTION_NOUNS[direction]}.`,
     warning: structuralWarning(item, actionId, diagnosis),
     whatCanHappen: whatCanHappen(item, actionId),
     alternatives,
@@ -360,7 +431,15 @@ export interface CoachResultReading {
   verdictText: string;
   /** Siguiente acción SOLO si vuelve a poder demostrarse. */
   nextStep: CoachNextStep | null;
+  /**
+   * Relación del resultado con lo que el jugador buscaba. `confirmed` significa
+   * «comparte etiqueta», NUNCA «es una mejora»: eso exigiría comparar la pieza
+   * completa en el personaje, y eso no se puede demostrar aquí.
+   */
+  goalFit: CoachGoalFit;
   directionNote: string | null;
+  /** Aclaración que acompaña siempre a `directionNote`. */
+  improvementCaveat: string | null;
 }
 
 /**
@@ -386,26 +465,38 @@ export function readCraftResult(input: {
       verdictText:
         "No gastes otra moneda. Vuelve a copiar el objeto del juego y pégalo otra vez.",
       nextStep: null,
+      goalFit: "not-evaluable",
       directionNote: null,
+      improvementCaveat: null,
     };
   }
 
   const changed = comparison.addedModifiers.map((modifier) => modifier.text);
   const removed = comparison.removedModifiers.length;
-  const nextStep = chooseNextStep(resultItem);
+  const nextStep = chooseNextStep(resultItem, direction);
 
   let directionNote: string | null = null;
+  let goalFit: CoachGoalFit = "not-evaluable";
+  let improvementCaveat: string | null = null;
   if (direction !== null && comparison.addedModifiers.length > 0) {
     const signal: CraftingGoalSignal = evaluateCraftingGoalSignal(
       DIRECTION_CATEGORY[direction],
       comparison.addedModifiers,
     );
-    directionNote =
-      signal.status === "direct"
-        ? `Lo que ha salido lleva etiquetas de ${COACH_DIRECTION_NOUNS[direction]}, que es lo que buscabas. Tú decides si la cantidad te sirve.`
-        : signal.status === "no-direct-signal"
-          ? `Lo que ha salido no lleva etiquetas de ${COACH_DIRECTION_NOUNS[direction]}. Eso no lo hace inútil, pero no es lo que pediste.`
-          : `El texto no trae etiquetas de ${COACH_DIRECTION_NOUNS[direction]} que yo pueda comparar.`;
+    const noun = COACH_DIRECTION_NOUNS[direction];
+    if (signal.status === "direct") {
+      goalFit = "confirmed";
+      directionNote = `El nuevo modificador está relacionado con ${noun}.`;
+    } else if (signal.status === "no-direct-signal") {
+      goalFit = "not-confirmed";
+      directionNote = `El nuevo modificador no está relacionado con ${noun}.`;
+    } else {
+      goalFit = "not-evaluable";
+      directionNote = `El texto no trae etiquetas de ${noun} que yo pueda comparar.`;
+    }
+    // Compartir etiqueta no es una mejora demostrada, en ningún caso.
+    improvementCaveat =
+      "Esto no demuestra todavía que la pieza completa sea mejor para tu personaje. Pruébala o compárala en el personaje.";
   }
 
   const verdict: CoachResultReading["verdict"] =
@@ -431,6 +522,8 @@ export function readCraftResult(input: {
             : "Para y consigue el dato que falta."
           : "Consigue el dato que falta antes de gastar otra vez.",
     nextStep,
+    goalFit,
     directionNote,
+    improvementCaveat,
   };
 }
