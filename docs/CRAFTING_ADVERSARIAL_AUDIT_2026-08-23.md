@@ -96,8 +96,9 @@ Contratos nuevos:
 1. No existe todavía un pool de afijos completo, versionado y con licencia
    redistribuible; las probabilidades permanecen desactivadas.
 2. La señal por etiquetas no mide magnitud, sinergias indirectas ni utilidad
-   global para la build. Haría falta contexto verificable del personaje y una
-   taxonomía más rica antes de automatizar esa valoración.
+   global para la build. La lectura contextual ya puede comprobar requisitos,
+   protecciones y huecos de resistencias conocidos, pero haría falta una
+   taxonomía más rica antes de automatizar la valoración completa.
 3. Las reglas observadas pueden cambiar tras un parche; el corte de datos debe
    seguir visible y revisarse cuando cambie la versión del juego.
 4. Essence y Alloy dependen del tooltip que el jugador tiene delante. Esto es

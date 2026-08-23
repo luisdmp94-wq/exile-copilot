@@ -16,6 +16,7 @@ import {
   craftingComparisonEvidence,
   type CraftingComparison,
 } from "@shared/craftingComparison.js";
+import { evaluateCraftingCharacterContext } from "@shared/craftingCharacterContext.js";
 import { evaluateCraftingGoalSignal } from "@shared/craftingGoal.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
@@ -132,6 +133,20 @@ export function DecisionSessionSection({
           session.craftingExperiment.goalCategory,
           craftingComparison.addedModifiers,
         )
+      : null;
+  const craftingCharacterContext =
+    session?.craftingExperiment &&
+    craftingComparison?.status === "confirmed" &&
+    craftingResultItem
+      ? evaluateCraftingCharacterContext({
+          profile,
+          profileGoal: goal,
+          originalItem: session.craftingExperiment.originalItem,
+          resultItem: craftingResultItem,
+          comparison: craftingComparison,
+          goalCategory: session.craftingExperiment.goalCategory,
+          goalSignal: craftingGoalSignal,
+        })
       : null;
   const showStartForm = session === null || (!isOpen && startingNew);
   const unresolvedUnknowns = (session?.unknowns ?? []).filter(
@@ -688,24 +703,53 @@ export function DecisionSessionSection({
                     )}
                     {craftingComparison.status === "confirmed" && (
                       <div className="mt-4 space-y-2">
-                        {craftingGoalSignal && (
+                        {craftingCharacterContext && (
                           <div
                             className={`rounded border p-3 text-sm ${
-                              craftingGoalSignal.status === "direct"
+                              craftingCharacterContext.verdict === "candidate"
                                 ? "border-emerald-500/35 bg-emerald-500/[0.06] text-emerald-100"
-                                : craftingGoalSignal.status === "no-direct-signal"
-                                  ? "border-amber-500/35 bg-amber-500/[0.06] text-amber-100"
-                                  : "border-border bg-muted/20 text-muted-foreground"
+                                : craftingCharacterContext.verdict === "stop"
+                                  ? "border-rose-500/45 bg-rose-500/[0.08] text-rose-100"
+                                  : "border-amber-500/35 bg-amber-500/[0.06] text-amber-100"
                             }`}
-                            data-testid="crafting-goal-signal"
-                            data-signal-status={craftingGoalSignal.status}
+                            data-testid="crafting-character-context"
+                            data-context-verdict={craftingCharacterContext.verdict}
                           >
-                            <p className="font-semibold">{craftingGoalSignal.title}</p>
-                            <p className="mt-1 leading-relaxed">{craftingGoalSignal.summary}</p>
-                            {craftingGoalSignal.matchedTags.length > 0 && (
-                              <p className="mt-2 text-xs">
-                                Etiquetas coincidentes del juego: {craftingGoalSignal.matchedTags.join(", ")}.
-                              </p>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">
+                              Lectura del personaje
+                            </p>
+                            <p className="mt-1 font-semibold">{craftingCharacterContext.title}</p>
+                            <p className="mt-1 leading-relaxed">{craftingCharacterContext.summary}</p>
+                            <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                              <span className="rounded border border-current/25 px-2 py-1">
+                                {craftingCharacterContext.requirementLabel}
+                              </span>
+                              <span className="rounded border border-current/25 px-2 py-1">
+                                {craftingCharacterContext.protectionLabel}
+                              </span>
+                              {craftingGoalSignal && (
+                                <span
+                                  className="rounded border border-current/25 px-2 py-1"
+                                  data-testid="crafting-goal-signal"
+                                  data-signal-status={craftingGoalSignal.status}
+                                >
+                                  {craftingGoalSignal.title}
+                                </span>
+                              )}
+                            </div>
+                            {(craftingCharacterContext.facts.length > 0 ||
+                              craftingCharacterContext.limitations.length > 0) && (
+                              <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
+                                <summary className="cursor-pointer font-medium">Por qué dice esto</summary>
+                                <ul className="mt-2 list-disc space-y-1 pl-4">
+                                  {craftingCharacterContext.facts.map((fact) => (
+                                    <li key={fact}>{fact}</li>
+                                  ))}
+                                  {craftingCharacterContext.limitations.map((limitation) => (
+                                    <li key={limitation}>{limitation}</li>
+                                  ))}
+                                </ul>
+                              </details>
                             )}
                           </div>
                         )}

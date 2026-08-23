@@ -1012,10 +1012,13 @@ async function runFlow(mode, port) {
         textoComparacion.includes("Modificador sintético de daño añadido por la prueba de navegador"),
     );
     const signalObjetivo = comprobadorResultado.getByTestId("crafting-goal-signal");
+    const contextoPersonaje = comprobadorResultado.getByTestId("crafting-character-context");
     check(
-      `[${mode}] relaciona el resultado con el objetivo usando etiquetas del juego`,
+      `[${mode}] relaciona resultado, objetivo y expediente sin inventar una puntuación`,
       (await signalObjetivo.getAttribute("data-signal-status")) === "direct" &&
-        (await signalObjetivo.innerText()).includes("Etiquetas coincidentes del juego: daño, ataque"),
+        (await contextoPersonaje.getAttribute("data-context-verdict")) === "candidate" &&
+        (await contextoPersonaje.innerText()).includes("Candidato coherente con lo que buscabas") &&
+        !(await contextoPersonaje.innerText()).match(/\d+\/10|% de mejora/),
     );
     check(
       `[${mode}] la app pregunta al jugador si el resultado le sirve`,

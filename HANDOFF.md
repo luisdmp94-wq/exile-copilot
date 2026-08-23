@@ -709,6 +709,28 @@ Crafting en producción y desarrollo/Strict Mode. La regresión de navegador
 selecciona «Daño», importa un resultado etiquetado por el juego como «Daño,
 Ataque» y exige que aparezca la señal directa antes de la valoración humana.
 
+## Sesión 32 — lectura contextual del resultado
+
+`shared/craftingCharacterContext.ts` convierte la comparación ya observada en
+una decisión contextual conservadora: **candidato**, **revisar** o **detenerse**.
+Comprueba el nivel y los atributos frente a los requisitos del resultado,
+prioriza cualquier pérdida de modificadores protegidos y puede relacionar una
+etiqueta literal de resistencias con resistencias elementales conocidas bajo
+75%. También indica si la pieza está realmente vinculada al equipo y si la
+categoría del craft coincide de forma inequívoca con el objetivo general
+`damage` o `survival`.
+
+No calcula DPS, defensas derivadas, precio ni una nota numérica. Si el craft
+añadió o retiró un modificador etiquetado como atributo, invalida el total
+anterior para comprobar requisitos en vez de presentar un dato obsoleto como
+hecho. La interfaz resume la salida en tres chips y mantiene hechos y límites
+plegados bajo «Por qué dice esto» para no volver a llenar la pantalla de texto.
+
+Validación: TypeScript y ESLint sin errores, build de producción correcto,
+**445/445** pruebas y **190/190** comprobaciones reales del recorrido de equipo
+y Crafting en producción y desarrollo/Strict Mode. Los puertos temporales 7188
+y 7189 quedaron libres.
+
 ## Archivos importantes
 
 - `README.md`, `docs/PLAN.md`, `docs/HITO_5A.md`, `docs/HITO_5B.md`, `HANDOFF.md`.

@@ -142,8 +142,16 @@ literales que muestra el texto avanzado del juego. Puede señalar coincidencia
 directa, ausencia de señal directa o datos insuficientes; nunca convierte esa
 señal en «este objeto es bueno» ni sustituye la decisión final del jugador.
 
-Esto confirma cambios estructurales y señales taxonómicas directas, no la calidad
-del afijo. No estima pesos,
+La comparación añade una **lectura del personaje** antes de preguntar si el
+resultado sirve. Comprueba los requisitos declarados contra el nivel y los
+atributos conocidos, detiene la recomendación si desapareció un modificador
+protegido y relaciona señales de resistencias con huecos defensivos ya visibles
+en el expediente. Si el craft cambió atributos, no reutiliza el total anterior
+como si siguiera vigente: exige revisión. La salida es «candidato», «revisar» o
+«detenerse», nunca una puntuación ficticia.
+
+Esto confirma cambios estructurales, requisitos y señales taxonómicas directas,
+no la calidad del afijo. No estima pesos,
 probabilidades, valor de mercado ni el resultado de monedas todavía no
 documentadas.
 
