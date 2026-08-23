@@ -162,6 +162,7 @@ export function CraftingActionPlanner({
   const [activeTool, setActiveTool] = useState<CraftingTool>("currency");
   const [showUnavailableActions, setShowUnavailableActions] = useState(false);
   const [showReplacementRisk, setShowReplacementRisk] = useState(false);
+  const [protectionOpen, setProtectionOpen] = useState(false);
   const compatibleActionCount = craftingActions.filter(
     (entry) => entry.status === "compatible",
   ).length;
@@ -344,12 +345,40 @@ export function CraftingActionPlanner({
                 : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`
             }
           />
-          <CraftingProtectionPicker
-            item={item}
-            value={protectedModifierIds}
-            onChange={setProtectedModifierIds}
-            idPrefix={`crafting-protected-${item.id}`}
-          />
+          <details
+            className="group rounded-md border border-border/70 bg-background/20"
+            data-testid="crafting-protection-details"
+            open={route.state === "replacement-tools" || protectionOpen}
+            onToggle={(event) => {
+              if (route.state === "replacement-tools" && !event.currentTarget.open) {
+                event.currentTarget.open = true;
+                return;
+              }
+              setProtectionOpen(event.currentTarget.open);
+            }}
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-foreground">
+              <span>
+                {route.state === "replacement-tools"
+                  ? "Antes de reemplazar: protege lo importante"
+                  : "Líneas intocables (opcional)"}
+              </span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {protectedModifierIds.length === 0
+                  ? "Nada marcado"
+                  : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`}
+              </span>
+            </summary>
+            <div className="border-t border-border/60 p-2">
+              <CraftingProtectionPicker
+                item={item}
+                value={protectedModifierIds}
+                onChange={setProtectedModifierIds}
+                idPrefix={`crafting-protected-${item.id}`}
+                compact
+              />
+            </div>
+          </details>
           <CraftingSuccessCriteriaPicker
             item={item}
             goalCategory={goalCategory}

@@ -841,6 +841,13 @@ async function runFlow(mode, port) {
     await intencionCrafting
       .getByLabel("Añade un matiz (opcional)")
       .fill("Más daño sin perder velocidad ni +niveles");
+    const proteccionesPlegables = intencionCrafting.getByTestId("crafting-protection-details");
+    check(
+      `[${mode}] una ruta aditiva no obliga a leer todas las protecciones`,
+      !(await proteccionesPlegables.getAttribute("open")) &&
+        (await proteccionesPlegables.locator("summary").innerText()).includes("opcional"),
+    );
+    await proteccionesPlegables.locator("summary").click();
     await intencionCrafting
       .getByTestId("crafting-protection-picker")
       .getByRole("checkbox")

@@ -5,6 +5,7 @@ interface CraftingProtectionPickerProps {
   value: string[];
   onChange: (modifierIds: string[]) => void;
   idPrefix: string;
+  compact?: boolean;
 }
 /** Selección literal: el jugador decide qué líneas del snapshot son intocables. */
 export function CraftingProtectionPicker({
@@ -12,6 +13,7 @@ export function CraftingProtectionPicker({
   value,
   onChange,
   idPrefix,
+  compact = false,
 }: CraftingProtectionPickerProps) {
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   if (explicit.length === 0) return null;
@@ -29,13 +31,15 @@ export function CraftingProtectionPicker({
       data-testid="crafting-protection-picker"
     >
       <legend className="sr-only">¿Qué no quieres perder?</legend>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-foreground">¿Qué no quieres perder?</p>
-          <p className="text-[11px] text-muted-foreground">
-            Toca las líneas que deben sobrevivir al craft.
-          </p>
-        </div>
+      <div className={`flex flex-wrap items-center gap-2 ${compact ? "justify-end" : "justify-between"}`}>
+        {!compact && (
+          <div>
+            <p className="text-sm font-semibold text-foreground">¿Qué no quieres perder?</p>
+            <p className="text-[11px] text-muted-foreground">
+              Toca las líneas que deben sobrevivir al craft.
+            </p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-1.5">
           <span
             className={`rounded-full border px-2 py-1 text-[11px] font-medium ${
