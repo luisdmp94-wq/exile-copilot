@@ -4,6 +4,7 @@ import {
   CRAFTING_GOAL_LABELS,
   CraftingGoalCategorySchema,
   evaluateCraftingGoalSignal,
+  type CraftingGoalCategory,
 } from "./craftingGoal.js";
 import type { Item } from "./domain.js";
 
@@ -63,6 +64,30 @@ export interface CraftingSuccessAssessment {
   title: string;
   summary: string;
   entries: CraftingSuccessCriterionAssessment[];
+}
+
+/**
+ * Propone el siguiente umbral observable sin decidir si el afijo sería bueno.
+ * Solo cuenta etiquetas literales ya presentes y pide una coincidencia adicional.
+ */
+export function recommendCraftingSuccessCriterion(
+  item: Item,
+  category: CraftingGoalCategory,
+): Extract<CraftingSuccessCriterion, { kind: "goal-affix-count" }> | null {
+  if (category === "other") return null;
+
+  const currentCount = item.modifiers.filter(
+    (modifier) =>
+      modifier.kind === "explicit" &&
+      evaluateCraftingGoalSignal(category, [modifier]).status === "direct",
+  ).length;
+  if (currentCount >= 6) return null;
+
+  return {
+    kind: "goal-affix-count",
+    category,
+    minimumCount: currentCount + 1,
+  };
 }
 
 export function craftingSuccessCriterionLabel(criterion: CraftingSuccessCriterion): string {

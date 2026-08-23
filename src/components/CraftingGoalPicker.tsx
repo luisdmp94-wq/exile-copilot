@@ -11,6 +11,7 @@ interface CraftingGoalPickerProps {
   idPrefix: string;
   label: string;
   placeholder: string;
+  helperText?: string;
 }
 
 const GOAL_OPTIONS = Object.entries(CRAFTING_GOAL_LABELS) as Array<
@@ -29,6 +30,7 @@ export function CraftingGoalPicker({
   idPrefix,
   label,
   placeholder,
+  helperText = "Ejemplo: “más daño sin perder velocidad ni +niveles”.",
 }: CraftingGoalPickerProps) {
   return (
     <div className="space-y-3">
@@ -73,7 +75,7 @@ export function CraftingGoalPicker({
           placeholder={placeholder}
         />
         <p className="text-[11px] text-muted-foreground">
-          Ejemplo: “más daño sin perder velocidad ni +niveles”.
+          {helperText}
         </p>
       </div>
     </div>

@@ -270,17 +270,17 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
 
     const workspace = page.getByTestId("crafting-workspace");
     await workspace.waitFor({ timeout: 20000 });
+    const outcome = workspace.getByLabel("Añade un matiz (opcional)");
+    const expectedOutcome = "Añadir un modificador útil sin perder el objeto pegado";
+    await click(workspace.getByRole("radio", { name: "Daño", exact: true }));
+    await outcome.fill(expectedOutcome);
+    await click(workspace.getByTestId("crafting-success-goal-toggle"));
     await click(
       workspace
         .getByTestId("crafting-route")
         .getByRole("button", { name: "Preparar Orbe exaltado" }),
     );
     const preflight = workspace.getByTestId("crafting-preflight-exalted");
-    const outcome = workspace.getByLabel("Cuéntame el matiz");
-    const expectedOutcome = "Añadir un modificador útil sin perder el objeto pegado";
-    await click(workspace.getByRole("radio", { name: "Daño", exact: true }));
-    await outcome.fill(expectedOutcome);
-    await click(workspace.getByTestId("crafting-success-goal-toggle"));
     await checkBox(preflight.getByLabel(/El objeto sigue igual/));
 
     let failFirstSave = true;
@@ -749,7 +749,7 @@ async function runFlow(mode, port) {
       `[${mode}] el diagnóstico convierte la compatibilidad en una próxima acción`,
       (await rutaCrafting.getAttribute("data-route-state")) === "single-currency" &&
         (await rutaCrafting.innerText()).includes("Orbe exaltado") &&
-        (await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).isVisible()),
+        (await rutaCrafting.getByRole("button", { name: "Define tu objetivo" }).isVisible()),
     );
     const textoCraftingInicial = await craftingWorkspace.innerText();
     const palabrasCraftingInicial = textoCraftingInicial.trim().split(/\s+/).filter(Boolean).length;
@@ -810,9 +810,29 @@ async function runFlow(mode, port) {
 
     // Una sola intención acompaña a todas las herramientas del banco.
     const intencionCrafting = craftingWorkspace.getByTestId("crafting-intention");
+    await rutaCrafting.getByRole("button", { name: "Define tu objetivo" }).click();
+    check(
+      `[${mode}] la ruta devuelve el foco al objetivo que falta`,
+      await intencionCrafting.evaluate((element) => document.activeElement === element),
+    );
     await intencionCrafting.getByRole("radio", { name: "Daño", exact: true }).click();
+    const criterioParada = intencionCrafting.getByTestId("crafting-success-criteria");
+    check(
+      `[${mode}] elegir una categoría basta como objetivo y ofrece una parada concreta`,
+      (await intencionCrafting.getByLabel("Añade un matiz (opcional)").isVisible()) &&
+        (await criterioParada.innerText()).includes("Un afijo de daño más") &&
+        (await criterioParada.innerText()).includes("Ahora hay 3; para al llegar a 4") &&
+        (await criterioParada.innerText()).includes("Recomendado") &&
+        (await rutaCrafting.getByRole("button", { name: "Elige cuándo parar" }).isVisible()),
+    );
+    await rutaCrafting.getByRole("button", { name: "Elige cuándo parar" }).click();
+    check(
+      `[${mode}] preparar sin criterio lleva al punto de parada en vez de abrir un formulario bloqueado`,
+      await criterioParada.evaluate((element) => document.activeElement === element) &&
+        (await craftingWorkspace.getByTestId("crafting-preflight-exalted").count()) === 0,
+    );
     await intencionCrafting
-      .getByLabel("Cuéntame el matiz")
+      .getByLabel("Añade un matiz (opcional)")
       .fill("Más daño sin perder velocidad ni +niveles");
     await intencionCrafting
       .getByTestId("crafting-protection-picker")
@@ -823,7 +843,8 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la intención combina objetivo y restricciones elegidas por clic`,
       (await intencionCrafting.innerText()).includes("Daño · 1 intocable") &&
-        (await intencionCrafting.innerText()).includes("1/3 condiciones"),
+        (await intencionCrafting.innerText()).includes("1/3 condiciones") &&
+        (await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).isVisible()),
     );
 
     // --- Essences P1: contrato real, riesgo y preflight -------------------

@@ -5,7 +5,10 @@ import {
   evaluateCraftingGoalSignal,
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
-import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
+import {
+  recommendCraftingSuccessCriterion,
+  type CraftingSuccessCriterion,
+} from "@shared/craftingSuccessCriteria.js";
 
 interface CraftingSuccessCriteriaPickerProps {
   item: Item;
@@ -38,6 +41,7 @@ export function CraftingSuccessCriteriaPicker({
             modifier.kind === "explicit" &&
             evaluateCraftingGoalSignal(goalCategory, [modifier]).status === "direct",
         ).length;
+  const recommendedGoalCriterion = recommendCraftingSuccessCriterion(item, goalCategory);
   const goalCriterion = value.find((criterion) => criterion.kind === "goal-affix-count");
   const exactCriterion = value.find((criterion) => criterion.kind === "exact-modifier-text");
   const countCriterion = value.find((criterion) => criterion.kind === "explicit-count");
@@ -63,6 +67,8 @@ export function CraftingSuccessCriteriaPicker({
 
   return (
     <section
+      id={`crafting-success-${item.id}`}
+      tabIndex={-1}
       className="rounded-md border border-emerald-500/25 bg-emerald-500/[0.035] px-3 py-2"
       data-testid="crafting-success-criteria"
       aria-labelledby={`crafting-success-title-${item.id}`}
@@ -81,25 +87,24 @@ export function CraftingSuccessCriteriaPicker({
       </div>
       <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
         {goalCategory !== "other" && goalCountOptions.length > 0 && (
-          <div className={`${criterionButton(Boolean(goalCriterion))} min-w-44 sm:min-w-0`}>
+          <div className={`${criterionButton(Boolean(goalCriterion))} min-w-52 sm:min-w-0`}>
             <button
               type="button"
               className="flex min-w-0 flex-1 items-start gap-2 text-left"
               aria-pressed={Boolean(goalCriterion)}
               data-testid="crafting-success-goal-toggle"
               onClick={() =>
-                toggle({
-                  kind: "goal-affix-count",
-                  category: goalCategory,
-                  minimumCount: goalCountOptions[0] ?? 6,
-                })
+                recommendedGoalCriterion && toggle(recommendedGoalCriterion)
               }
             >
               <Check className={`mt-0.5 size-3.5 shrink-0 ${goalCriterion ? "opacity-100" : "opacity-25"}`} aria-hidden="true" />
               <span>
                 <strong className="block text-foreground">
-                  Señal de {CRAFTING_GOAL_LABELS[goalCategory].toLocaleLowerCase("es")}
+                  Un afijo de {CRAFTING_GOAL_LABELS[goalCategory].toLocaleLowerCase("es")} más
                 </strong>
+                <span className="mt-0.5 block text-[11px] leading-snug">
+                  Ahora hay {currentGoalCount}; para al llegar a {recommendedGoalCriterion?.minimumCount ?? 6}.
+                </span>
               </span>
             </button>
             {goalCriterion?.kind === "goal-affix-count" && (
@@ -118,6 +123,11 @@ export function CraftingSuccessCriteriaPicker({
                 {goalCountOptions.map((count) => <option key={count} value={count}>{count}</option>)}
               </select>
             )}
+            {!goalCriterion && (
+              <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
+                Recomendado
+              </span>
+            )}
           </div>
         )}
 
@@ -130,7 +140,7 @@ export function CraftingSuccessCriteriaPicker({
             onClick={() => toggle({ kind: "exact-modifier-text", text: "" })}
           >
             <Check className={`mt-0.5 size-3.5 shrink-0 ${exactCriterion ? "opacity-100" : "opacity-25"}`} aria-hidden="true" />
-            <span><strong className="block text-foreground">Línea exacta</strong></span>
+            <span><strong className="block text-foreground">Una línea concreta</strong></span>
           </button>
         </div>
 
@@ -145,7 +155,7 @@ export function CraftingSuccessCriteriaPicker({
             >
               <Check className={`mt-0.5 size-3.5 shrink-0 ${countCriterion ? "opacity-100" : "opacity-25"}`} aria-hidden="true" />
               <span>
-                <strong className="block text-foreground">Número de afijos</strong>
+                <strong className="block text-foreground">Completar más afijos</strong>
               </span>
             </button>
             {countCriterion?.kind === "explicit-count" && (

@@ -184,12 +184,17 @@ export function CraftingActionPlanner({
     setActiveTool(tool);
     revealRouteTarget(`crafting-tool-content-${item.id}-${tool}`);
   };
-  const confirmationReady =
-    desiredOutcome.trim().length >= 3 &&
+  const resolvedDesiredOutcome =
+    desiredOutcome.trim() ||
+    (goalCategory === "other" ? "" : CRAFTING_GOAL_LABELS[goalCategory]);
+  const successCriteriaReady =
     successCriteria.length > 0 &&
     successCriteria.every(
       (criterion) => criterion.kind !== "exact-modifier-text" || criterion.text.trim().length >= 3,
-    ) &&
+    );
+  const confirmationReady =
+    resolvedDesiredOutcome.length >= 3 &&
+    successCriteriaReady &&
     preflightConfirmed;
   const changeGoalCategory = (next: CraftingGoalCategory) => {
     setGoalCategory(next);
@@ -286,8 +291,13 @@ export function CraftingActionPlanner({
             outcome={desiredOutcome}
             onOutcomeChange={setDesiredOutcome}
             idPrefix={`crafting-goal-${item.id}`}
-            label="Cuéntame el matiz"
+            label={goalCategory === "other" ? "Describe el objetivo" : "Añade un matiz (opcional)"}
             placeholder="Ej.: más daño sin perder velocidad ni +niveles"
+            helperText={
+              goalCategory === "other"
+                ? "Describe qué resultado buscas."
+                : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`
+            }
           />
           <CraftingProtectionPicker
             item={item}
@@ -439,10 +449,23 @@ export function CraftingActionPlanner({
                 type="button"
                 size="sm"
                 variant={route.currencyActions.length === 1 ? "default" : "outline"}
-                onClick={() => prepareCurrencyAction(action)}
+                onClick={() => {
+                  if (resolvedDesiredOutcome.length < 3) {
+                    revealRouteTarget(`crafting-intention-${item.id}`);
+                    return;
+                  }
+                  if (!successCriteriaReady) {
+                    revealRouteTarget(`crafting-success-${item.id}`);
+                    return;
+                  }
+                  prepareCurrencyAction(action);
+                }}
               >
-                {route.currencyActions.length === 1 ? "Preparar " : "Elegir "}
-                {action.label}
+                {resolvedDesiredOutcome.length < 3
+                  ? "Define tu objetivo"
+                  : !successCriteriaReady
+                    ? "Elige cuándo parar"
+                    : `${route.currencyActions.length === 1 ? "Preparar " : "Elegir "}${action.label}`}
               </Button>
             ))}
             {replacementNeedsConsent && !showReplacementRisk && (
@@ -716,7 +739,7 @@ export function CraftingActionPlanner({
                             entry.action,
                             selectedVariant,
                             {
-                              desiredOutcome: desiredOutcome.trim(),
+                              desiredOutcome: resolvedDesiredOutcome,
                               goalCategory,
                               protectedModifierIds,
                               successCriteria,
@@ -831,7 +854,7 @@ export function CraftingActionPlanner({
           onStart={onStartEssenceDecision}
           onStarted={onStarted}
           goalCategory={goalCategory}
-          desiredOutcome={desiredOutcome}
+          desiredOutcome={resolvedDesiredOutcome}
           protectedModifierIds={protectedModifierIds}
           successCriteria={successCriteria}
           onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}
@@ -849,7 +872,7 @@ export function CraftingActionPlanner({
           onStart={onStartAlloyDecision}
           onStarted={onStarted}
           goalCategory={goalCategory}
-          desiredOutcome={desiredOutcome}
+          desiredOutcome={resolvedDesiredOutcome}
           protectedModifierIds={protectedModifierIds}
           successCriteria={successCriteria}
           onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}

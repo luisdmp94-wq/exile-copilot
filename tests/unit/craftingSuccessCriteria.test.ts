@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CraftingExperimentSchema } from "../../shared/decisionSession.js";
 import {
   evaluateCraftingSuccessCriteria,
+  recommendCraftingSuccessCriterion,
 } from "../../shared/craftingSuccessCriteria.js";
 import { ItemSchema, type Item, type Modifier } from "../../shared/domain.js";
 
@@ -38,6 +39,21 @@ function item(modifiers: Modifier[]): Item {
 }
 
 describe("condiciones observables de final de crafting", () => {
+  it("propone una sola señal adicional del objetivo sin interpretar su valor", () => {
+    const observed = item([
+      modifier("p-physical", ["Daño", "Físico"]),
+      modifier("p-cold", ["Daño", "Hielo"]),
+      modifier("s-speed", ["Velocidad"]),
+    ]);
+
+    expect(recommendCraftingSuccessCriterion(observed, "damage")).toEqual({
+      kind: "goal-affix-count",
+      category: "damage",
+      minimumCount: 3,
+    });
+    expect(recommendCraftingSuccessCriterion(observed, "other")).toBeNull();
+  });
+
   it("declara el final solo cuando se cumplen todas las condiciones elegidas", () => {
     const result = evaluateCraftingSuccessCriteria({
       criteria: [
