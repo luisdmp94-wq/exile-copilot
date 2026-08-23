@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Hammer, PackageSearch, RotateCcw } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  GraduationCap,
+  Hammer,
+  PackageSearch,
+  RotateCcw,
+} from "lucide-react";
 import type { StartCraftingDecision } from "@shared/craftingActions.js";
 import type { StartAlloyDecision } from "@shared/craftingAlloys.js";
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
@@ -7,6 +14,7 @@ import type { StartEssenceDecision } from "@shared/craftingEssences.js";
 import { sessionOccupiesActiveSlot } from "@shared/decisionSession.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import type { Budget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
+import { CraftingAcademy } from "@/components/CraftingAcademy";
 import { CraftingActionPlanner } from "@/components/CraftingActionPlanner";
 import { ItemArtwork } from "@/components/ItemArtwork";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -35,6 +43,79 @@ interface CraftingSectionProps {
   onMentorContext?: (event: ContextualMentorEvent) => void;
 }
 
+type CraftingMode = "bench" | "academy";
+
+/**
+ * Elección de entrada al área de Crafting. Vive FUERA de `crafting-workspace`
+ * para no añadir texto ni altura a la vista inicial del banco, que tiene sus
+ * propios presupuestos medidos.
+ */
+function CraftingModeChooser({
+  mode,
+  onSelect,
+}: {
+  mode: CraftingMode;
+  onSelect: (next: CraftingMode) => void;
+}) {
+  const options = [
+    {
+      id: "academy" as const,
+      testId: "crafting-mode-academy",
+      icon: GraduationCap,
+      title: "Aprender crafting",
+      detail: "Nivel básico guiado: mira, decide y te corrijo.",
+    },
+    {
+      id: "bench" as const,
+      testId: "crafting-mode-bench",
+      icon: Hammer,
+      title: "Trabajar con mi objeto",
+      detail: "El banco de siempre, con tus piezas reales.",
+    },
+  ];
+  return (
+    <div
+      className="grid min-w-0 gap-2 sm:grid-cols-2"
+      role="group"
+      aria-label="Cómo quieres usar Crafting"
+      data-testid="crafting-mode-chooser"
+      data-mode={mode}
+    >
+      {options.map((option) => {
+        const active = mode === option.id;
+        const Icon = option.icon;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            data-testid={option.testId}
+            data-active={active ? "true" : "false"}
+            aria-pressed={active}
+            onClick={() => onSelect(option.id)}
+            className={`flex min-h-16 min-w-0 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
+              active
+                ? "border-primary/70 bg-primary/[0.11] shadow-[inset_3px_0_0_hsl(var(--primary))]"
+                : "border-border bg-muted/10 hover:-translate-y-px hover:border-primary/40"
+            }`}
+          >
+            <span
+              className={`grid size-9 shrink-0 place-items-center rounded-sm border ${
+                active ? "border-primary/50 bg-primary/10 text-primary" : "border-border/70 text-muted-foreground"
+              }`}
+            >
+              <Icon className="size-4.5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{option.title}</span>
+              <span className="block text-xs text-muted-foreground">{option.detail}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Tercera área principal: selección, diagnóstico, decisión y resultado. */
 export function CraftingSection({
   profile,
@@ -51,6 +132,12 @@ export function CraftingSection({
   onMentorContext,
 }: CraftingSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  /**
+   * Dos recorridos dentro de la MISMA área. El banco es el modo por defecto y
+   * nunca se desmonta: al volver de la Academia siguen intactos la pieza
+   * elegida, la sesión abierta, las protecciones y los crafts pausados.
+   */
+  const [mode, setMode] = useState<CraftingMode>("bench");
   const craftableItems = (profile?.items ?? []).filter((item) =>
     ["normal", "magic", "rare"].includes(item.rarity),
   );
@@ -81,8 +168,17 @@ export function CraftingSection({
     });
   };
 
+  const chooser = (
+    <CraftingModeChooser mode={mode} onSelect={setMode} />
+  );
+
   if (!profile) {
     return (
+      <div className="flex min-w-0 flex-col gap-5">
+        {chooser}
+        {mode === "academy" ? (
+          <CraftingAcademy onPracticeWithMyItem={() => setMode("bench")} />
+        ) : (
       <section className="superficie-panel p-6 text-center" data-testid="crafting-empty">
         <PackageSearch className="mx-auto size-9 text-primary" aria-hidden="true" />
         <h2 className="dossier-title mt-3 text-2xl font-semibold">Primero necesito un objeto real</h2>
@@ -93,11 +189,22 @@ export function CraftingSection({
           Importar personaje u objeto
         </Button>
       </section>
+        )}
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-7" data-testid="crafting-workspace">
+    <div className="flex min-w-0 flex-col gap-5">
+      {chooser}
+      {mode === "academy" && (
+        <CraftingAcademy onPracticeWithMyItem={() => setMode("bench")} />
+      )}
+      <div
+        hidden={mode !== "bench"}
+        className="flex min-w-0 flex-col gap-7"
+        data-testid="crafting-workspace"
+      >
       <section
         className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-4"
         aria-labelledby="crafting-workspace-title"
@@ -320,6 +427,7 @@ export function CraftingSection({
           )}
         </div>
       )}
+      </div>
       </div>
     </div>
   );

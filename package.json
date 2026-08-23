@@ -17,7 +17,8 @@
     "test:journal": "node scripts/journal-smoke.mjs",
     "test:mentor": "node scripts/mentor-smoke.mjs",
     "test:session": "node scripts/session-smoke.mjs",
-    "test:build-memory": "node scripts/build-memory-smoke.mjs"
+    "test:build-memory": "node scripts/build-memory-smoke.mjs",
+    "test:academy": "node scripts/academy-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
