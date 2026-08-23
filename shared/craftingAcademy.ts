@@ -291,7 +291,7 @@ const PECHO_RARO_LLENO = exerciseItem({
 
 const AMULETO_NORMAL = exerciseItem({
   id: "academia-amuleto-normal",
-  name: "Amuleto de examen",
+  name: "Amuleto del desafío",
   baseType: "Amuleto de ámbar",
   slot: "amulet",
   rarity: "normal",
@@ -300,7 +300,7 @@ const AMULETO_NORMAL = exerciseItem({
 
 const ARMA_MAGICA_1 = exerciseItem({
   id: "academia-arma-magica",
-  name: "Maza de examen",
+  name: "Maza del desafío",
   baseType: "Maza de hierro",
   slot: "weapon",
   rarity: "magic",
@@ -310,7 +310,7 @@ const ARMA_MAGICA_1 = exerciseItem({
 
 const ANILLO_EXAMEN_LLENO = exerciseItem({
   id: "academia-anillo-examen",
-  name: "Sello de examen",
+  name: "Sello del desafío",
   baseType: "Anillo de oro",
   slot: "ring2",
   rarity: "magic",
@@ -323,7 +323,7 @@ const ANILLO_EXAMEN_LLENO = exerciseItem({
 
 const ESCUDO_RARO_EXAMEN = exerciseItem({
   id: "academia-escudo-examen",
-  name: "Escudo de examen",
+  name: "Escudo del desafío",
   baseType: "Escudo torreón",
   slot: "offhand",
   rarity: "rare",
@@ -338,7 +338,7 @@ const ESCUDO_RARO_EXAMEN = exerciseItem({
 
 const CASCO_EXAMEN_LLENO = exerciseItem({
   id: "academia-casco-examen",
-  name: "Yelmo de examen completo",
+  name: "Yelmo del desafío, completo",
   baseType: "Yelmo de guerra",
   slot: "helmet",
   rarity: "rare",
@@ -703,7 +703,7 @@ export const CRAFTING_ACADEMY_LESSONS: readonly AcademyLesson[] = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// Prueba final
+// Desafío final
 // ---------------------------------------------------------------------------
 
 export const CRAFTING_ACADEMY_EXAM: readonly AcademyScenario[] = [

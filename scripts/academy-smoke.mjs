@@ -184,10 +184,10 @@ async function runFlow(mode, port) {
     const chooser = page.getByTestId("crafting-mode-chooser");
     await chooser.waitFor({ timeout: 15000 });
     check(
-      `[${mode}] la entrada a Crafting ofrece aprender o trabajar con mi objeto`,
+      `[${mode}] la entrada a Crafting ofrece aprender o pedir ayuda con mi objeto`,
       (await page.getByTestId("crafting-mode-academy").isVisible()) &&
-        (await page.getByTestId("crafting-mode-bench").isVisible()) &&
-        (await page.getByTestId("crafting-mode-bench").getAttribute("data-active")) === "true",
+        (await page.getByTestId("crafting-mode-coach").isVisible()) &&
+        (await page.getByTestId("crafting-mode-coach").getAttribute("data-active")) === "true",
     );
     await page.screenshot({ path: join(SHOT_DIR, `academia-entrada-${mode}.png`), fullPage: false });
 
@@ -484,9 +484,15 @@ async function runFlow(mode, port) {
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "crafting");
     const banco = page.getByTestId("crafting-workspace");
+    check(
+      `[${mode}] el banco no compite con la recomendación: arranca plegado`,
+      (await banco.isVisible()) === false &&
+        (await page.getByTestId("crafting-avanzado-toggle").getAttribute("data-open")) === "false",
+    );
+    await page.getByTestId("crafting-avanzado-toggle").click();
     await banco.waitFor({ timeout: 20000 });
     check(
-      `[${mode}] el banco anterior sigue funcionando igual`,
+      `[${mode}] el banco anterior sigue funcionando igual al desplegarlo`,
       (await banco.innerText()).includes("Banco de crafting") &&
         (await page.getByTestId("crafting-route").count()) === 1,
     );
@@ -508,15 +514,15 @@ async function runFlow(mode, port) {
       (await page.getByTestId("crafting-workspace").count()) === 1,
     );
     await page.getByTestId("academia-practicar").click();
-    await banco.waitFor({ timeout: 15000 });
+    await page.getByTestId("crafting-coach").waitFor({ timeout: 15000 });
     const perfilTrasVolver = await page.evaluate(() =>
       localStorage.getItem("exile-copilot:characterId"),
     );
     check(
       `[${mode}] «Practicar con mi objeto» conserva personaje, pieza elegida y banco`,
       (await page.getByTestId(idSegunda).getAttribute("data-active")) === "true" &&
-        perfilTrasVolver === profile.id &&
-        (await banco.innerText()).includes("Banco de crafting"),
+        (await banco.innerText()).includes("Banco de crafting") &&
+        perfilTrasVolver === profile.id,
     );
     const journal = await (await fetch(`${BASE}/api/journal/${profile.id}`)).json();
     check(

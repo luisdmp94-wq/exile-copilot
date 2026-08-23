@@ -2,10 +2,11 @@ import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   GraduationCap,
   Hammer,
-  PackageSearch,
   RotateCcw,
+  Wrench,
 } from "lucide-react";
 import type { StartCraftingDecision } from "@shared/craftingActions.js";
 import type { StartAlloyDecision } from "@shared/craftingAlloys.js";
@@ -15,6 +16,7 @@ import { sessionOccupiesActiveSlot } from "@shared/decisionSession.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import type { Budget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { CraftingAcademy } from "@/components/CraftingAcademy";
+import { CraftingCoach } from "@/components/CraftingCoach";
 import { CraftingActionPlanner } from "@/components/CraftingActionPlanner";
 import { ItemArtwork } from "@/components/ItemArtwork";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -43,7 +45,7 @@ interface CraftingSectionProps {
   onMentorContext?: (event: ContextualMentorEvent) => void;
 }
 
-type CraftingMode = "bench" | "academy";
+type CraftingMode = "coach" | "academy";
 
 /**
  * Elección de entrada al área de Crafting. Vive FUERA de `crafting-workspace`
@@ -62,15 +64,15 @@ function CraftingModeChooser({
       id: "academy" as const,
       testId: "crafting-mode-academy",
       icon: GraduationCap,
-      title: "Aprender crafting",
-      detail: "Nivel básico guiado: mira, decide y te corrijo.",
+      title: "Quiero aprender crafting",
+      detail: "Empieza de cero: mira, decide y te corrijo.",
     },
     {
-      id: "bench" as const,
-      testId: "crafting-mode-bench",
+      id: "coach" as const,
+      testId: "crafting-mode-coach",
       icon: Hammer,
-      title: "Trabajar con mi objeto",
-      detail: "El banco de siempre, con tus piezas reales.",
+      title: "Ayúdame con mi objeto",
+      detail: "Te digo qué hacer con una pieza tuya, paso a paso.",
     },
   ];
   return (
@@ -116,6 +118,52 @@ function CraftingModeChooser({
   );
 }
 
+/**
+ * El banco técnico completo, plegado.
+ *
+ * No se elimina ni pierde estado: su contenido sigue montado detrás del
+ * atributo `hidden`, así que sesiones, protecciones, presupuesto y resultados
+ * siguen exactamente donde estaban. `hidden` además garantiza que el foco de
+ * teclado no entre en contenido invisible.
+ */
+function AdvancedToolsToggle({
+  open,
+  locked,
+  onToggle,
+}: {
+  open: boolean;
+  /** Hay un craft en marcha: el banco no puede plegarse o se perdería de vista. */
+  locked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={locked}
+      aria-expanded={open}
+      aria-controls="crafting-workspace"
+      data-testid="crafting-avanzado-toggle"
+      data-open={open ? "true" : "false"}
+      className="flex min-h-12 w-full items-center gap-3 rounded-md border border-border/70 bg-muted/[0.04] px-3 py-2.5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+    >
+      <Wrench className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">Herramientas avanzadas</span>
+        <span className="block text-xs text-muted-foreground">
+          {locked
+            ? "Tienes un craft en marcha aquí abajo."
+            : "Control manual de objetivos, protecciones y monedas."}
+        </span>
+      </span>
+      <ChevronDown
+        className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
 /** Tercera área principal: selección, diagnóstico, decisión y resultado. */
 export function CraftingSection({
   profile,
@@ -137,7 +185,9 @@ export function CraftingSection({
    * nunca se desmonta: al volver de la Academia siguen intactos la pieza
    * elegida, la sesión abierta, las protecciones y los crafts pausados.
    */
-  const [mode, setMode] = useState<CraftingMode>("bench");
+  const [mode, setMode] = useState<CraftingMode>("coach");
+  /** El banco técnico existe, pero no compite con la recomendación principal. */
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const craftableItems = (profile?.items ?? []).filter((item) =>
     ["normal", "magic", "rare"].includes(item.rarity),
   );
@@ -172,23 +222,31 @@ export function CraftingSection({
     <CraftingModeChooser mode={mode} onSelect={setMode} />
   );
 
+  /**
+   * Una sesión de craft ya en marcha vive dentro del banco. Si el banco
+   * estuviera plegado quedaría inalcanzable, así que se despliega solo en ese
+   * caso concreto: no al pegar una pieza.
+   */
+  const advancedVisible = advancedOpen || activeCrafting !== null;
+
+  const coach = (
+    <CraftingCoach
+      items={craftableItems}
+      selectedItem={selectedItem}
+      onSelectItem={setSelectedItemId}
+      onPasteItem={onEditExpediente}
+      onOpenAdvanced={() => setAdvancedOpen(true)}
+    />
+  );
+
   if (!profile) {
     return (
       <div className="flex min-w-0 flex-col gap-5">
         {chooser}
         {mode === "academy" ? (
-          <CraftingAcademy onPracticeWithMyItem={() => setMode("bench")} />
+          <CraftingAcademy onPracticeWithMyItem={() => setMode("coach")} />
         ) : (
-      <section className="superficie-panel p-6 text-center" data-testid="crafting-empty">
-        <PackageSearch className="mx-auto size-9 text-primary" aria-hidden="true" />
-        <h2 className="dossier-title mt-3 text-2xl font-semibold">Primero necesito un objeto real</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-          Importa o carga un personaje y pega el texto avanzado de la pieza que quieres trabajar.
-        </p>
-        <Button className="mt-4" type="button" onClick={onEditExpediente}>
-          Importar personaje u objeto
-        </Button>
-      </section>
+          coach
         )}
       </div>
     );
@@ -198,10 +256,19 @@ export function CraftingSection({
     <div className="flex min-w-0 flex-col gap-5">
       {chooser}
       {mode === "academy" && (
-        <CraftingAcademy onPracticeWithMyItem={() => setMode("bench")} />
+        <CraftingAcademy onPracticeWithMyItem={() => setMode("coach")} />
       )}
+      <div hidden={mode !== "coach"} className="flex min-w-0 flex-col gap-5">
+        {coach}
+        <AdvancedToolsToggle
+          open={advancedVisible}
+          locked={activeCrafting !== null}
+          onToggle={() => setAdvancedOpen((current) => !current)}
+        />
+      </div>
       <div
-        hidden={mode !== "bench"}
+        id="crafting-workspace"
+        hidden={mode !== "coach" || !advancedVisible}
         className="flex min-w-0 flex-col gap-7"
         data-testid="crafting-workspace"
       >

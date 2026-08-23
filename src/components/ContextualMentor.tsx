@@ -48,6 +48,7 @@ export function ContextualMentor({
   onOpenMentor,
 }: ContextualMentorProps) {
   const requestLockedRef = useRef(false);
+  const shellRef = useRef<HTMLElement>(null);
   const askButtonRef = useRef<HTMLButtonElement | null>(null);
   const [restoreAskFocus, setRestoreAskFocus] = useState(false);
   useEffect(() => {
@@ -89,13 +90,38 @@ export function ContextualMentor({
     void onAsk(cue.ask);
   };
 
+  /**
+   * El mentor flota sobre el contenido. Para que NUNCA tape una pregunta, un
+   * botón o los datos del objeto, publica su altura real en `--mentor-inset` y
+   * el contenido principal reserva ese espacio. Es sincronización con el DOM,
+   * no estado de React: no provoca renders ni depende de un breakpoint.
+   */
+  useEffect(() => {
+    const shell = shellRef.current;
+    const root = document.documentElement;
+    if (!shell) return;
+    const publish = () => {
+      const alto = Math.ceil(shell.getBoundingClientRect().height);
+      // Se suma el hueco inferior del propio `aside` (bottom-3 / sm:bottom-5).
+      root.style.setProperty("--mentor-inset", `${alto + 24}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(shell);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--mentor-inset");
+    };
+  }, []);
+
   return (
     <aside
+      ref={shellRef}
       className="fixed bottom-3 right-3 z-40 w-[min(28rem,calc(100vw-1.5rem))] shadow-2xl shadow-black/45 sm:bottom-5 sm:right-5"
       aria-label="Mentor contextual"
       data-testid="mentor-contextual"
     >
-      <div className="max-h-[55vh] overflow-y-auto border border-primary/35 bg-background/95 backdrop-blur-xl sm:max-h-[70vh]">
+      <div className="max-h-[42vh] overflow-y-auto border border-primary/35 bg-background/95 backdrop-blur-xl sm:max-h-[70vh]">
         <div className="flex items-center gap-3 border-b border-border/70 px-4 py-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-full border border-primary/40 bg-primary/10 text-primary">
             {answer?.responseMode === "ai" ? (

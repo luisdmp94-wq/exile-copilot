@@ -89,6 +89,20 @@
   }
 }
 
+@layer utilities {
+  /**
+   * `hidden` debe ocultar de verdad.
+   *
+   * Las utilidades de display de Tailwind (`flex`, `grid`, `block`…) son reglas
+   * de autor y ganan al `[hidden] { display: none }` del navegador, así que un
+   * contenedor con `hidden` Y `flex` seguía viéndose —y siendo enfocable—.
+   * Esta regla restituye la semántica esperada en toda la aplicación.
+   */
+  [hidden] {
+    display: none !important;
+  }
+}
+
 @layer components {
   .header-nav-button {
     @apply grid size-9 shrink-0 place-items-center rounded-sm border border-border/70 bg-card/60 text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary;

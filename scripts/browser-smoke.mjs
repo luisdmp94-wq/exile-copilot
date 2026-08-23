@@ -222,15 +222,17 @@ async function runFlow(mode, port) {
     );
     await page.locator("#item-text").fill(STANDALONE_ITEM);
     await page.getByRole("button", { name: "Analizar objeto" }).click();
-    await page.getByTestId("crafting-workspace").waitFor({ timeout: 20000 });
+    await page.getByTestId("crafting-coach").waitFor({ timeout: 20000 });
     check(
-      `[${mode}] objeto suelto continúa automáticamente en Crafting`,
+      `[${mode}] objeto suelto continúa automáticamente en el guía de Crafting`,
       (await page.getByTestId("tab-crafting").getAttribute("data-state")) === "active" &&
         (await page
-          .getByTestId("crafting-workspace")
+          .getByTestId("coach-objeto")
           .getByText("Núcleo de prueba")
           .first()
-          .isVisible()),
+          .isVisible()) &&
+        // El banco técnico NO se abre solo al pegar una pieza.
+        (await page.getByTestId("crafting-workspace").isVisible()) === false,
     );
     await page.reload({ waitUntil: "networkidle" });
     await page.getByTestId("bienvenida").waitFor({ timeout: 15000 });

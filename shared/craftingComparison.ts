@@ -34,7 +34,11 @@ export interface CraftingComparison {
 export const CRAFTING_RESULT_UNKNOWN_LABEL =
   "El modificador resultante es aleatorio y no puede conocerse de antemano.";
 
-const EXPECTED_RESULT_RARITY: Record<CraftingComparisonActionId, Item["rarity"]> = {
+/**
+ * Rareza que el objeto tiene DESPUÉS de cada acción observada. Se exporta para
+ * que el guía pueda avisar de un cambio de etapa sin duplicar la tabla.
+ */
+export const EXPECTED_RESULT_RARITY: Record<CraftingComparisonActionId, Item["rarity"]> = {
   transmutation: "magic",
   augmentation: "magic",
   regal: "rare",

@@ -908,7 +908,12 @@ export default function App() {
         canGoBack={workspaceHistory.length > 0}
       />
 
-      <main className="mx-auto max-w-[92rem] px-4 pb-28 pt-0 sm:px-6 sm:pb-12">
+      <main
+        className="mx-auto max-w-[92rem] px-4 pt-0 sm:px-6"
+        /* El mentor flota fijo abajo: se reserva su altura real para que
+           jamás tape una pregunta, un botón ni los datos del objeto. */
+        style={{ paddingBottom: "calc(var(--mentor-inset, 6rem) + 1rem)" }}
+      >
         {metaError && (
           <Alert variant="destructive" className="mb-6">
             <AlertTitle>No se pudo cargar la configuración del servidor</AlertTitle>

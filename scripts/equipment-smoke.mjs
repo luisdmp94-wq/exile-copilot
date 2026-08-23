@@ -167,6 +167,18 @@ async function irA(page, area) {
   );
 }
 
+/**
+ * El banco técnico ya no es la vista de entrada de Crafting: vive plegado tras
+ * «Herramientas avanzadas». Este smoke sigue comprobándolo entero, así que lo
+ * despliega explícitamente antes de usarlo.
+ */
+async function abrirBancoAvanzado(page) {
+  const toggle = page.getByTestId("crafting-avanzado-toggle");
+  await toggle.waitFor({ timeout: 20000 });
+  if ((await toggle.getAttribute("data-open")) !== "true") await toggle.click();
+  await page.getByTestId("crafting-workspace").waitFor({ timeout: 20000 });
+}
+
 let total = 0;
 const check = (name, ok) => {
   total += 1;
@@ -268,8 +280,8 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
     await click(editor.getByRole("button", { name: "Analizar objeto" }));
     await editor.waitFor({ state: "hidden", timeout: 20000 });
 
+    await abrirBancoAvanzado(page);
     const workspace = page.getByTestId("crafting-workspace");
-    await workspace.waitFor({ timeout: 20000 });
     const outcome = workspace.getByLabel("Añade un matiz (opcional)");
     const expectedOutcome = "Añadir un modificador útil sin perder el objeto pegado";
     await click(workspace.getByRole("radio", { name: "Daño", exact: true }));
@@ -732,8 +744,8 @@ async function runFlow(mode, port) {
     // decisión persistente vinculada al objeto real importado.
     await page.setViewportSize({ width: 1440, height: 1000 });
     await irA(page, "crafting");
+    await abrirBancoAvanzado(page);
     const craftingWorkspace = page.getByTestId("crafting-workspace");
-    await craftingWorkspace.waitFor({ timeout: 15000 });
     check(
       `[${mode}] Crafting existe como tercera área principal`,
       (await page.getByTestId("tab-crafting").getAttribute("data-state")) === "active" &&

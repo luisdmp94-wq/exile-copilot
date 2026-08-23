@@ -283,7 +283,7 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
               Academia de crafting · Nivel básico
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Cinco lecciones cortas y una prueba. Miras un objeto, decides y te corrijo.
+              Cinco lecciones cortas y un desafío. Miras un objeto, decides y te corrijo.
             </p>
           </div>
         </div>
@@ -307,7 +307,7 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button type="button" onClick={academy.start} data-testid="academia-empezar">
-            {academy.hasProgress ? "Continuar donde lo dejé" : "Empezar el nivel básico"}
+            {academy.hasProgress ? "Seguir donde lo dejé" : "Empezar"}
             <ArrowRight className="size-4" aria-hidden="true" />
           </Button>
           {practiceButton}
@@ -336,16 +336,16 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
         aria-labelledby="academia-resultado-titulo"
       >
         <h2 id="academia-resultado-titulo" className="dossier-title text-2xl font-semibold">
-          {pending.length === 0 ? "Nivel básico completado" : "Casi: quedan conceptos por afianzar"}
+          {pending.length === 0 ? "Nivel básico completado" : "Casi: te quedan un par de cosas"}
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground" data-testid="academia-resultado-resumen">
-          Acertaste {correct} de {total} situaciones de la prueba. Esto mide lo que has entendido de
-          estas lecciones; no es una probabilidad de crafting ni una valoración de ningún objeto.
+          Acertaste {correct} de {total}. Es solo lo que has entendido de estas lecciones: no es
+          una probabilidad de crafting ni una valoración de ningún objeto.
         </p>
 
         {pending.length > 0 ? (
           <div className="mt-4" data-testid="academia-pendientes">
-            <h3 className="text-sm font-semibold">Conceptos pendientes</h3>
+            <h3 className="text-sm font-semibold">Lo que conviene repasar</h3>
             <ul className="mt-2 grid gap-2">
               {pending.map((concept) => (
                 <li
@@ -413,7 +413,7 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
           {isExam
             ? academy.isRetry
               ? "Repaso de lo pendiente"
-              : "Prueba final"
+              : "Desafío final"
             : `Lección ${step.lesson?.order} · ${step.lesson?.title}`}
         </p>
         <p className="text-xs text-muted-foreground" data-testid="academia-progreso">
@@ -426,7 +426,7 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
         aria-valuemin={0}
         aria-valuemax={step.total}
         aria-valuenow={step.position}
-        aria-label={isExam ? "Progreso de la prueba" : "Progreso de las lecciones"}
+        aria-label={isExam ? "Progreso del desafío" : "Progreso de las lecciones"}
       >
         <span
           className="block h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
@@ -456,7 +456,7 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
           lastOfRun
             ? isExam
               ? "Ver mi resultado"
-              : "Empezar la prueba final"
+              : "Ir al desafío final"
             : "Siguiente situación"
         }
       />

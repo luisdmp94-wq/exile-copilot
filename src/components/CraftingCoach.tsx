@@ -1,0 +1,612 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  ClipboardPaste,
+  Loader2,
+  ShieldAlert,
+  Sparkles,
+  Swords,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  COACH_DIRECTION_LABELS,
+  chooseNextStep,
+  guessDirectionFromItem,
+  readCraftResult,
+  type CoachDirection,
+  type CoachNextStep,
+} from "@shared/craftingCoach.js";
+import { compareCraftingResult, type CraftingComparison } from "@shared/craftingComparison.js";
+import type { Item } from "@shared/domain.js";
+import { CoachItemCard } from "@/components/CoachItemCard";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { api, getErrorMessage } from "@/lib/api";
+
+export type CoachPhase = "choose" | "recommend" | "await-result" | "result";
+
+interface CraftingCoachProps {
+  items: readonly Item[];
+  selectedItem: Item | null;
+  onSelectItem: (itemId: string) => void;
+  /** Abre el pegado de objeto ya existente; el guía no duplica el formulario. */
+  onPasteItem: () => void;
+  /** Lleva al banco avanzado cuando la única vía exige reemplazar. */
+  onOpenAdvanced: () => void;
+}
+
+/** Cómo copiar el objeto, en una sola frase. */
+const COPY_HINT =
+  "En el juego, pasa el ratón por el objeto y pulsa Ctrl+C; luego pégalo aquí.";
+
+function DirectionButton({
+  id,
+  label,
+  hint,
+  icon: Icon,
+  disabled,
+  onChoose,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  icon: typeof Swords;
+  disabled?: boolean;
+  onChoose: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onChoose}
+      data-testid={`coach-direccion-${id}`}
+      className="flex min-h-14 w-full items-center gap-3 rounded-md border border-border bg-muted/10 px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 hover:-translate-y-px hover:border-primary/50 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:border-border disabled:hover:bg-muted/10 motion-reduce:transition-none"
+    >
+      <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </button>
+  );
+}
+
+function Recommendation({
+  step,
+  onDone,
+  onOther,
+  onOpenAdvanced,
+  headingRef,
+}: {
+  step: CoachNextStep;
+  onDone: () => void;
+  onOther: () => void;
+  onOpenAdvanced: () => void;
+  headingRef: React.RefObject<HTMLHeadingElement | null>;
+}) {
+  if (step.kind === "needs-data") {
+    return (
+      <div
+        className="superficie-accion min-w-0 scroll-mb-[var(--mentor-inset,6rem)] p-4"
+        data-testid="coach-recomendacion"
+        data-kind="needs-data"
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+          Antes de gastar
+        </p>
+        <h3 ref={headingRef} tabIndex={-1} className="dossier-title mt-1 text-xl font-semibold outline-none">
+          {step.headline}
+        </h3>
+        <p className="mt-2 text-sm leading-relaxed">{step.instruction}</p>
+        <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
+          <summary className="cursor-pointer font-medium">Por qué</summary>
+          <p className="mt-2 text-muted-foreground">{step.why}</p>
+        </details>
+        <Button className="mt-3 w-full sm:w-auto" type="button" onClick={onOther} data-testid="coach-otro-camino">
+          Elegir otra pieza
+        </Button>
+      </div>
+    );
+  }
+
+  if (step.kind === "stop") {
+    return (
+      <div
+        className="superficie-accion min-w-0 scroll-mb-[var(--mentor-inset,6rem)] p-4"
+        data-testid="coach-recomendacion"
+        data-kind="stop"
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+          Mi consejo
+        </p>
+        <h3 ref={headingRef} tabIndex={-1} className="dossier-title mt-1 text-xl font-semibold outline-none">
+          {step.headline}
+        </h3>
+        <p className="mt-2 text-sm leading-relaxed">{step.instruction}</p>
+        <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
+          <summary className="cursor-pointer font-medium">Por qué</summary>
+          <p className="mt-2 text-muted-foreground">{step.why}</p>
+        </details>
+        <details className="mt-2 rounded border border-current/20 px-2.5 py-2 text-xs">
+          <summary className="cursor-pointer font-medium">Evidencia técnica</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+            {step.evidence.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </details>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
+            Elegir otra pieza
+          </Button>
+          {step.needsAdvancedTools && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-xs text-muted-foreground"
+              onClick={onOpenAdvanced}
+              data-testid="coach-ir-avanzado"
+            >
+              Ver herramientas de reemplazo
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="superficie-accion min-w-0 scroll-mb-[var(--mentor-inset,6rem)] p-4"
+      data-testid="coach-recomendacion"
+      data-kind="use-currency"
+      data-action={step.actionId}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+        Haz esto
+      </p>
+      <h3
+        ref={headingRef}
+        tabIndex={-1}
+        className="dossier-title mt-1 flex items-center gap-2 text-xl font-semibold outline-none sm:text-2xl"
+      >
+        <Sparkles className="size-5 shrink-0 text-primary" aria-hidden="true" />
+        {step.label}
+      </h3>
+      <p className="mt-2 text-sm leading-relaxed" data-testid="coach-instruccion">
+        {step.instruction}
+      </p>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.why}</p>
+
+      {step.warning !== null && (
+        <p
+          className="mt-3 flex items-start gap-2 rounded border border-amber-500/45 bg-amber-500/[0.09] px-2.5 py-2 text-xs leading-relaxed text-amber-100"
+          data-testid="coach-aviso"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden="true" />
+          <span>{step.warning}</span>
+        </p>
+      )}
+
+      <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
+        <summary className="cursor-pointer font-medium">Qué puede ocurrir</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+          {step.whatCanHappen.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </details>
+      <details className="mt-2 rounded border border-current/20 px-2.5 py-2 text-xs">
+        <summary className="cursor-pointer font-medium">Evidencia técnica</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+          {step.evidence.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+          {step.alternatives.map((alternative) => (
+            <li key={alternative.actionId}>
+              Otra vía legal: {alternative.label}. {alternative.difference}
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <div
+        className="mt-4 flex flex-wrap gap-2 scroll-mb-[var(--mentor-inset,6rem)]"
+        data-testid="coach-acciones"
+      >
+        <Button type="button" onClick={onDone} data-testid="coach-lo-hare">
+          Lo haré en el juego
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </Button>
+        <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
+          Elegir otro camino
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * «Ayúdame con mi objeto»: una pieza real, una decisión cada vez.
+ *
+ * Toda la lógica vive en `shared/craftingCoach.ts`; aquí solo hay presentación
+ * y el pegado del resultado. Nunca ejecuta nada dentro del juego.
+ */
+export function CraftingCoach({
+  items,
+  selectedItem,
+  onSelectItem,
+  onPasteItem,
+  onOpenAdvanced,
+}: CraftingCoachProps) {
+  const [direction, setDirection] = useState<CoachDirection | null>(null);
+  const [directionChosen, setDirectionChosen] = useState(false);
+  const [directionNote, setDirectionNote] = useState<string | null>(null);
+  const [phase, setPhase] = useState<CoachPhase>("choose");
+  const [resultText, setResultText] = useState("");
+  const [comparing, setComparing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<CraftingComparison | null>(null);
+  const [resultItem, setResultItem] = useState<Item | null>(null);
+  /**
+   * Pieza sobre la que razona el guía. Empieza siendo la del expediente y, tras
+   * confirmar un resultado, pasa a ser el objeto que el jugador acaba de pegar.
+   * No escribe en el expediente: eso sigue siendo decisión del banco.
+   */
+  const [workingItem, setWorkingItem] = useState<Item | null>(null);
+
+  const recommendationRef = useRef<HTMLHeadingElement>(null);
+  const resultTextRef = useRef<HTMLTextAreaElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Sincronización de foco con el DOM (no de estado): cada fase lleva el foco a
+   * lo que el jugador tiene que leer o rellenar ahora, y lo desplaza a la vista
+   * respetando `scroll-margin-bottom`, que reserva la altura real del mentor.
+   * Así lo que acaba de aparecer nunca queda debajo del panel flotante.
+   */
+  useEffect(() => {
+    const target =
+      phase === "recommend"
+        ? recommendationRef.current
+        : phase === "await-result"
+          ? resultTextRef.current
+          : phase === "result"
+            ? resultRef.current
+            : null;
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+  }, [phase]);
+
+  const resetFlow = () => {
+    setDirection(null);
+    setDirectionChosen(false);
+    setDirectionNote(null);
+    setPhase("choose");
+    setResultText("");
+    setComparison(null);
+    setResultItem(null);
+    setWorkingItem(null);
+    setError(null);
+  };
+
+  // --- Sin pieza --------------------------------------------------------
+  if (!selectedItem) {
+    return (
+      <section
+        className="superficie-panel min-w-0 p-4 sm:p-6"
+        data-testid="crafting-coach"
+        data-phase="empty"
+        aria-labelledby="coach-vacio-titulo"
+      >
+        <h2 id="coach-vacio-titulo" className="dossier-title text-2xl font-semibold">
+          Enséñame la pieza
+        </h2>
+        <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
+          {COPY_HINT}
+        </p>
+        <Button className="mt-4" type="button" onClick={onPasteItem} data-testid="coach-pegar-objeto">
+          <ClipboardPaste className="size-4" aria-hidden="true" />
+          Pegar un objeto del juego
+        </Button>
+
+        {items.length > 0 && (
+          <div className="mt-6" data-testid="coach-piezas-importadas">
+            <h3 className="text-sm font-semibold">O elige una que ya tienes</h3>
+            <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+              {items.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    data-testid={`coach-elegir-${item.id}`}
+                    onClick={() => onSelectItem(item.id)}
+                    className="flex min-h-12 w-full items-center gap-2 rounded-md border border-border bg-muted/10 px-3 py-2 text-left text-sm transition-colors hover:border-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+                  >
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  // Si el jugador cambia de pieza en el expediente, el guía vuelve a ella.
+  const activeItem =
+    workingItem !== null && workingItem.id === selectedItem.id ? workingItem : selectedItem;
+  const step = chooseNextStep(activeItem);
+
+  const chooseDirection = (next: CoachDirection | null, note: string | null) => {
+    setDirection(next);
+    setDirectionNote(note);
+    setDirectionChosen(true);
+    setPhase("recommend");
+  };
+
+  const guess = guessDirectionFromItem(activeItem);
+
+  const compareResult = async () => {
+    if (step.kind !== "use-currency" || resultText.trim() === "") return;
+    setComparing(true);
+    setError(null);
+    try {
+      const imported = await api.importItemText({ text: resultText });
+      // El importador genera un id nuevo en cada pegado; se conserva el de la
+      // pieza seguida para que el guía siga hablando del mismo objeto.
+      const pasted: Item = { ...imported.item, id: activeItem.id, slot: activeItem.slot };
+      const antesDeCraftear = activeItem;
+      setComparison(
+        compareCraftingResult(antesDeCraftear, pasted, step.actionId, {
+          protectedModifierIds: [],
+        }),
+      );
+      setResultItem(pasted);
+      // A partir de aquí la pieza que se enseña es la que el jugador acaba de
+      // pegar: dejar la anterior a la vista contradiría el propio resultado.
+      setWorkingItem(pasted);
+      setPhase("result");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const resultReading =
+    comparison && resultItem
+      ? readCraftResult({ comparison, resultItem, direction })
+      : null;
+
+  return (
+    <section
+      className="superficie-panel min-w-0 p-4 sm:p-6"
+      style={{ scrollMarginBottom: "var(--mentor-inset, 6rem)" }}
+      data-testid="crafting-coach"
+      data-phase={phase}
+      aria-labelledby="coach-titulo"
+    >
+      <h2 id="coach-titulo" className="sr-only">
+        Guía con tu objeto
+      </h2>
+
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-24">
+          {/* En la elección solo hace falta saber qué es; el detalle llega con
+              la recomendación, cuando toca decidir qué se conserva. */}
+          <CoachItemCard item={activeItem} compact={!directionChosen} />
+          {items.length > 1 && (
+            <details className="rounded-md border border-border/70 px-2.5 py-2 text-xs">
+              <summary className="cursor-pointer font-medium">Trabajar con otra pieza</summary>
+              <ul className="mt-2 flex flex-col gap-1.5" data-testid="coach-piezas-importadas">
+                {items.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      data-testid={`coach-elegir-${item.id}`}
+                      data-active={item.id === selectedItem.id ? "true" : "false"}
+                      onClick={() => {
+                        resetFlow();
+                        onSelectItem(item.id);
+                      }}
+                      className="flex min-h-10 w-full items-center rounded-sm border border-border/70 px-2.5 py-1.5 text-left transition-colors hover:border-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary data-[active=true]:border-primary/60 data-[active=true]:bg-primary/[0.08] motion-reduce:transition-none"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="self-start text-xs text-muted-foreground"
+            onClick={onPasteItem}
+            data-testid="coach-pegar-otro"
+          >
+            Pegar otro objeto
+          </Button>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          {/* Paso 1: hacia dónde quiere ir el jugador. */}
+          {!directionChosen ? (
+            <div className="min-w-0" data-testid="coach-eleccion">
+              <h3 className="dossier-title text-xl font-semibold sm:text-2xl">
+                ¿Qué quieres mejorar?
+              </h3>
+              <div className="mt-3 grid min-w-0 gap-2">
+                <DirectionButton
+                  id="damage"
+                  label="Quiero mejorar el daño"
+                  hint="Buscas pegar más fuerte"
+                  icon={Swords}
+                  onChoose={() => chooseDirection("damage", null)}
+                />
+                <DirectionButton
+                  id="defence"
+                  label="Quiero mejorar la defensa"
+                  hint="Buscas aguantar más"
+                  icon={ShieldAlert}
+                  onChoose={() => chooseDirection("defence", null)}
+                />
+                <DirectionButton
+                  id="unknown"
+                  label="No sé qué necesita"
+                  hint={
+                    guess.direction === null
+                      ? "Ahora mismo no puedo deducirlo por ti"
+                      : "Lo deduzco de lo que ya lleva"
+                  }
+                  icon={Sparkles}
+                  disabled={guess.direction === null}
+                  onChoose={() => chooseDirection(guess.direction, guess.reason)}
+                />
+              </div>
+              {guess.direction === null && (
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground" data-testid="coach-sin-deduccion">
+                  {guess.reason}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground" data-testid="coach-direccion-elegida">
+              {direction === null
+                ? "Sin dirección elegida."
+                : `Buscas mejorar ${COACH_DIRECTION_LABELS[direction]}.`}{" "}
+              {directionNote}
+              <button
+                type="button"
+                className="ml-1 underline underline-offset-2 hover:text-foreground"
+                onClick={resetFlow}
+                data-testid="coach-cambiar-direccion"
+              >
+                Cambiar
+              </button>
+            </p>
+          )}
+
+          {/* Paso 2: una sola recomendación. */}
+          {directionChosen && phase === "recommend" && (
+            <Recommendation
+              step={step}
+              headingRef={recommendationRef}
+              onDone={() => setPhase("await-result")}
+              onOther={resetFlow}
+              onOpenAdvanced={onOpenAdvanced}
+            />
+          )}
+
+          {/* Paso 3: qué salió en el juego. */}
+          {phase === "await-result" && step.kind === "use-currency" && (
+            <div className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)]" data-testid="coach-registro">
+              <h3 className="dossier-title text-xl font-semibold">¿Qué te ha salido?</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{COPY_HINT}</p>
+              <Textarea
+                ref={resultTextRef}
+                className="mt-2 min-h-32 font-mono text-xs"
+                value={resultText}
+                onChange={(event) => setResultText(event.target.value)}
+                aria-label="Texto del objeto después del craft"
+                data-testid="coach-resultado-texto"
+                placeholder="Pega aquí el objeto tal y como está ahora…"
+              />
+              {error !== null && (
+                <p className="mt-2 text-sm text-rose-200" role="alert" data-testid="coach-error">
+                  {error}
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  disabled={comparing || resultText.trim() === ""}
+                  onClick={() => void compareResult()}
+                  data-testid="coach-comparar"
+                >
+                  {comparing ? (
+                    <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                  ) : (
+                    <CheckCircle2 className="size-4" aria-hidden="true" />
+                  )}
+                  Ver qué ha cambiado
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPhase("recommend")}
+                  data-testid="coach-volver-recomendacion"
+                >
+                  Todavía no lo he hecho
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Paso 4: antes y después. */}
+          {phase === "result" && resultReading && (
+            <div
+              ref={resultRef}
+              tabIndex={-1}
+              role="status"
+              aria-live="polite"
+              className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)] rounded-md border border-border bg-muted/[0.06] p-4 outline-none"
+              data-testid="coach-comparacion"
+              data-verdict={resultReading.verdict}
+            >
+              <h3 className="dossier-title text-xl font-semibold">{resultReading.headline}</h3>
+              {resultReading.changed.length > 0 && (
+                <ul className="mt-2 flex flex-col gap-1.5" data-testid="coach-cambios">
+                  {resultReading.changed.map((text) => (
+                    <li
+                      key={text}
+                      className="flex min-w-0 items-start gap-2 rounded-sm border border-emerald-400/45 bg-emerald-500/[0.08] px-2.5 py-1.5 text-xs text-emerald-100"
+                    >
+                      <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-300" />
+                      <span className="min-w-0 flex-1 break-words">{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-2 text-sm text-muted-foreground">{resultReading.kept}</p>
+              {resultReading.directionNote !== null && (
+                <p className="mt-2 text-sm" data-testid="coach-relacion-objetivo">
+                  {resultReading.directionNote}
+                </p>
+              )}
+              <p className="mt-3 text-sm font-medium" data-testid="coach-veredicto">
+                {resultReading.verdictText}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {resultReading.verdict === "continue" && resultItem && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setPhase("recommend");
+                      setComparison(null);
+                      setResultItem(null);
+                      setResultText("");
+                    }}
+                    data-testid="coach-seguir"
+                  >
+                    Ver la siguiente acción
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Button>
+                )}
+                <Button type="button" variant="outline" onClick={resetFlow} data-testid="coach-empezar-otra">
+                  Empezar otra vez
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+    </section>
+  );
+}
