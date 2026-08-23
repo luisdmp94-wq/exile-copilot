@@ -56,6 +56,30 @@ async function request(base: string, question: string) {
 }
 
 describe("POST /mentor/query — Hito 6E", () => {
+  it("envía null a la IA cuando el nivel del perfil es solo un placeholder", async () => {
+    let receivedLevel: number | null | undefined;
+    const selector: MentorDecisionSelector = {
+      name: "modelo-contexto",
+      select: async (context) => {
+        receivedLevel = context.character.level;
+        return {
+          kind: "no_safe_action",
+          recommendationId: null,
+          missingFactId: null,
+        };
+      },
+    };
+
+    await withServer(selector, async (base) => {
+      const body = await request(base, "¿Qué mejoro ahora?");
+      body.profile.level = 1;
+      body.profile.levelSource = "placeholder";
+      const response = await post(base, "/mentor/query", body);
+      expect(response.status).toBe(200);
+      expect(receivedLevel).toBeNull();
+    });
+  });
+
   it("acepta una pregunta libre y devuelve una acción canónica elegida por IA", async () => {
     const selector: MentorDecisionSelector = {
       name: "modelo-integracion",

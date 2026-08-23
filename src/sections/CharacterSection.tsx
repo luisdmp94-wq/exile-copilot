@@ -11,6 +11,7 @@ import {
 import type { MetaResponse } from "@shared/api.js";
 import {
   PLACEHOLDER_CHARACTER_LEVEL,
+  readCharacterLevel,
   type Attributes,
   type CharacterProfile,
   type Item,
@@ -354,6 +355,7 @@ function ProfileEditor({
   supportsDrafts,
   setSupportsDrafts,
 }: ProfileEditorProps) {
+  const levelReading = readCharacterLevel(profile);
 
   const addSkill = () => {
     const skill: SkillSetup = {
@@ -430,7 +432,8 @@ function ProfileEditor({
             type="number"
             min={1}
             max={100}
-            value={profile.level}
+            value={levelReading.known ? levelReading.level : ""}
+            placeholder="Desconocido"
             onChange={(e) => {
               const parsed = inputToNullable(e.target.value);
               if (parsed === null) {

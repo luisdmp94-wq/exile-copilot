@@ -14,7 +14,7 @@ import {
   generateRecommendations,
   type PriceLookup,
 } from "../../server/engine/engine.js";
-import { attributeRequirementsRule } from "../../server/engine/rules.js";
+import { attributeRequirementsRule, lifeRule } from "../../server/engine/rules.js";
 import { createDatabase } from "../../server/db/database.js";
 import { PoeNinjaClient, PriceService, type QuotesResult } from "../../server/services/poeninja.js";
 import { loadConfig } from "../../server/config.js";
@@ -591,6 +591,54 @@ describe("engine — vínculo estructurado recomendación → objeto", () => {
         patch: BASE_OPTIONS.patch,
       }),
     ).toEqual([]);
+  });
+
+  it("un nivel placeholder no se convierte en un requisito incumplido", () => {
+    const profile = demoProfile();
+    profile.level = 1;
+    profile.levelSource = "placeholder";
+    profile.attributes = { str: 999, dex: 999, int: 999 };
+
+    const [candidate] = attributeRequirementsRule({
+      profile,
+      league: BASE_OPTIONS.league,
+      patch: BASE_OPTIONS.patch,
+    });
+
+    expect(candidate?.ruleId).toBe("datos-nivel-personaje");
+    expect(JSON.stringify(candidate)).not.toMatch(/eres 1|nivel 1\//i);
+  });
+
+  it("no calcula vida esperada con un nivel desconocido", () => {
+    const profile = demoProfile();
+    profile.level = 1;
+    profile.levelSource = "placeholder";
+    profile.life = 10;
+
+    const [candidate] = lifeRule({
+      profile,
+      league: BASE_OPTIONS.league,
+      patch: BASE_OPTIONS.patch,
+    });
+
+    expect(candidate?.ruleId).toBe("datos-nivel-personaje");
+    expect(JSON.stringify(candidate)).not.toContain("vida a nivel 1");
+  });
+
+  it("mantiene nivel 1 cuando el jugador sí lo declaró", () => {
+    const profile = demoProfile();
+    profile.level = 1;
+    profile.levelSource = "observed";
+    profile.life = 10;
+
+    const [candidate] = lifeRule({
+      profile,
+      league: BASE_OPTIONS.league,
+      patch: BASE_OPTIONS.patch,
+    });
+
+    expect(candidate?.ruleId).toBe("vida-baja");
+    expect(candidate?.action).toContain("vida a nivel 1");
   });
 });
 describe("engine — conversión de presupuesto entre monedas", () => {

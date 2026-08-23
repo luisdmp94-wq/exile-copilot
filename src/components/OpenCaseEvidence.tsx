@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import type { JournalEntry, Recommendation, SourceEvidence } from "@shared/domain.js";
+import { readJournalCharacterLevel } from "@shared/domain.js";
 import {
   CONFIDENCE_LABELS,
   GOAL_LABELS,
@@ -30,6 +31,7 @@ interface OpenCaseEvidenceProps {
 
 export function OpenCaseEvidence({ recommendation, entry }: OpenCaseEvidenceProps) {
   const snapshot = recommendation ?? entry?.recommendationSnapshot ?? null;
+  const storedLevel = entry === null ? null : readJournalCharacterLevel(entry.context);
 
   return (
     <div className="flex flex-col gap-4 text-sm">
@@ -85,7 +87,7 @@ export function OpenCaseEvidence({ recommendation, entry }: OpenCaseEvidenceProp
         <div className="flex flex-col gap-3 border-t border-border pt-3">
           <p className="font-medium text-foreground">Contexto guardado con la decisión</p>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-            <Row label="Nivel">{entry.context.characterLevel ?? "Desconocido"}</Row>
+            <Row label="Nivel">{storedLevel ?? "Desconocido"}</Row>
             <Row label="Liga">{entry.context.league ?? "Desconocida"}</Row>
             <Row label="Parche">{entry.context.patch ?? "Desconocido"}</Row>
             <Row label="Objetivo">

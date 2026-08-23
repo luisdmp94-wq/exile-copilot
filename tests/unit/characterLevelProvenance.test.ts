@@ -13,6 +13,7 @@ import {
   type Item,
   type Modifier,
 } from "../../shared/domain.js";
+import { formatCharacterLevel } from "../../src/lib/format.js";
 
 function mod(id: string, tags: string[]): Modifier {
   return {
@@ -226,6 +227,20 @@ describe("procedencia del nivel del personaje", () => {
       level: 90,
       provenance: "observed",
     });
+  });
+
+  it("la interfaz distingue el nivel desconocido del nivel 1 observado", () => {
+    const original = looseItem();
+    expect(
+      formatCharacterLevel(
+        profile(original, { level: 1, levelSource: "placeholder" }),
+      ),
+    ).toBe("desconocido");
+    expect(
+      formatCharacterLevel(
+        profile(original, { level: 1, levelSource: "observed" }),
+      ),
+    ).toBe("1");
   });
 });
 

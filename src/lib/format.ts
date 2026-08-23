@@ -1,4 +1,5 @@
 import type {
+  CharacterProfile,
   ConfidenceLevel,
   CurrencyKind,
   EvidenceSourceKind,
@@ -8,8 +9,14 @@ import type {
   ModifierKind,
   RiskLevel,
 } from "@shared/domain.js";
+import { readCharacterLevel } from "@shared/domain.js";
 
 /** Etiquetas en español y formato de fechas para la interfaz. */
+
+export function formatCharacterLevel(profile: CharacterProfile): string {
+  const reading = readCharacterLevel(profile);
+  return reading.known ? String(reading.level) : "desconocido";
+}
 
 export const CURRENCY_LABELS: Record<CurrencyKind, string> = {
   chaos: "Caos",

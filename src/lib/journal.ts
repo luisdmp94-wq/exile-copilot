@@ -8,7 +8,7 @@ import type {
   GoalKind,
   Recommendation,
 } from "@shared/domain.js";
-import { compactJournalTitle } from "@shared/domain.js";
+import { compactJournalTitle, readCharacterLevel } from "@shared/domain.js";
 
 /**
  * Conserva un motivo corto sin inventar nada. El explicador actual puede
@@ -27,6 +27,7 @@ export function journalEntryFromRecommendation(
   budget: Budget,
   goal: GoalKind,
 ): CreateJournalEntryRequest {
+  const levelReading = readCharacterLevel(profile);
   return CreateJournalEntryRequestSchema.parse({
     kind: "decision",
     title: compactJournalTitle(recommendation.title),
@@ -35,7 +36,8 @@ export function journalEntryFromRecommendation(
     relatedItemIds: recommendation.relatedItemIds,
     sources: recommendation.sources,
     context: {
-      characterLevel: profile.level,
+      characterLevel: levelReading.known ? levelReading.level : null,
+      characterLevelProvenance: levelReading.provenance,
       league: profile.league,
       patch: profile.patch,
       budget,

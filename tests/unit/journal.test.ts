@@ -5,8 +5,10 @@ import {
   CharacterProfileSchema,
   JournalEntrySchema,
   MAX_JOURNAL_TITLE_LENGTH,
+  PLACEHOLDER_CHARACTER_LEVEL,
   RecommendationSchema,
   compactJournalTitle,
+  readJournalCharacterLevel,
 } from "../../shared/domain.js";
 import { buildRecommendationMemory } from "../../shared/journalMemory.js";
 import {
@@ -84,11 +86,51 @@ describe("Character Journal", () => {
     expect(input.recommendationSnapshot).toEqual(recommendation);
     expect(input.context).toEqual({
       characterLevel: 67,
+      characterLevelProvenance: "legacy-declared",
       league: "Runes of Aldur",
       patch: "0.5.4f",
       budget: { amount: 25, currency: "exalted" },
       goal: "survival",
     });
+  });
+
+  it("guarda nivel desconocido como null y conserva su procedencia", () => {
+    const unknownProfile = CharacterProfileSchema.parse({
+      ...profile,
+      level: PLACEHOLDER_CHARACTER_LEVEL,
+      levelSource: "placeholder",
+    });
+    const input = journalEntryFromRecommendation(
+      recommendation,
+      unknownProfile,
+      { amount: 25, currency: "exalted" },
+      "survival",
+    );
+
+    expect(input.context.characterLevel).toBeNull();
+    expect(input.context.characterLevelProvenance).toBe("placeholder");
+    expect(readJournalCharacterLevel(input.context)).toBeNull();
+  });
+
+  it("no presenta el nivel 1 legacy del diario como un hecho", () => {
+    expect(
+      readJournalCharacterLevel({
+        characterLevel: 1,
+        characterLevelProvenance: undefined,
+      }),
+    ).toBeNull();
+    expect(
+      readJournalCharacterLevel({
+        characterLevel: 1,
+        characterLevelProvenance: "observed",
+      }),
+    ).toBe(1);
+    expect(
+      readJournalCharacterLevel({
+        characterLevel: 67,
+        characterLevelProvenance: undefined,
+      }),
+    ).toBe(67);
   });
 
   it("recorta un motivo largo sin inventar contenido", () => {

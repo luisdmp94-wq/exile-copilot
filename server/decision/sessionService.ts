@@ -3,6 +3,7 @@ import {
   CharacterProfileSchema,
   BuildMemoryEntrySchema,
   compactJournalTitle,
+  readCharacterLevel,
   type GoalKind,
   JournalEntrySchema,
   type CharacterJournal,
@@ -546,6 +547,7 @@ function createJournalAction(
   kind: JournalEntry["kind"],
 ): JournalEntry {
   const now = new Date().toISOString();
+  const levelReading = readCharacterLevel(profile);
   return JournalEntrySchema.parse({
     id: randomUUID(),
     characterId,
@@ -565,7 +567,8 @@ function createJournalAction(
       },
     ],
     context: {
-      characterLevel: profile.level,
+      characterLevel: levelReading.known ? levelReading.level : null,
+      characterLevelProvenance: levelReading.provenance,
       league: profile.league,
       patch: profile.patch,
       budget: action.maxCost,

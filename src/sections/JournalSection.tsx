@@ -21,6 +21,7 @@ import type {
   JournalEntryKind,
   JournalEntryStatus,
 } from "@shared/domain.js";
+import { readCharacterLevel, readJournalCharacterLevel } from "@shared/domain.js";
 import type { JournalState } from "@/hooks/useJournal";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -39,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CONFIDENCE_LABELS,
+  formatCharacterLevel,
   formatCost,
   formatDateTime,
   RISK_LABELS,
@@ -117,6 +119,7 @@ export function JournalSection({
     event.preventDefault();
     if (!profile || title.trim() === "" || summary.trim() === "") return;
     const action = nextAction.trim() || null;
+    const levelReading = readCharacterLevel(profile);
     const created = await journal.createEntry({
       kind,
       title: title.trim(),
@@ -132,7 +135,8 @@ export function JournalSection({
         },
       ],
       context: {
-        characterLevel: profile.level,
+        characterLevel: levelReading.known ? levelReading.level : null,
+        characterLevelProvenance: levelReading.provenance,
         league: profile.league,
         patch: profile.patch,
         budget,
@@ -329,7 +333,7 @@ export function JournalSection({
           </div>
           {profile && (
             <span className="text-sm text-muted-foreground">
-              {profile.name} · nivel {profile.level}
+              {profile.name} · nivel {formatCharacterLevel(profile)}
             </span>
           )}
         </div>
@@ -358,6 +362,7 @@ function PrimaryEntry({
   onCancel: () => void;
 }) {
   const recommendation = entry.recommendationSnapshot;
+  const storedLevel = readJournalCharacterLevel(entry.context);
   return (
     <section
       aria-labelledby={`journal-primary-${entry.id}`}
@@ -401,8 +406,8 @@ function PrimaryEntry({
       )}
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-        {entry.context.characterLevel !== null && (
-          <span>Nivel {entry.context.characterLevel}</span>
+        {storedLevel !== null && (
+          <span>Nivel {storedLevel}</span>
         )}
         {entry.context.league && <span>· {entry.context.league}</span>}
         {entry.context.patch && <span>· Parche {entry.context.patch}</span>}

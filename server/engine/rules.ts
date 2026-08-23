@@ -1,4 +1,5 @@
 import {
+  readCharacterLevel,
   RESISTANCE_LABELS,
   type BuildTarget,
   type CharacterProfile,
@@ -31,6 +32,7 @@ export const RECOMMENDATION_LABELS: Record<string, string> = {
   "rec-datos-resistencias": "Completar datos del personaje: resistencias",
   "rec-datos-atributos": "Completar datos del personaje: atributos",
   "rec-datos-vida": "Completar datos del personaje: vida máxima",
+  "rec-datos-nivel-personaje": "Completar datos del personaje: nivel",
   "rec-mods-objetivo": "Acercarse a la build de referencia",
 };
 
@@ -235,6 +237,7 @@ export const chaosResistanceRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 export const attributeRequirementsRule: Rule = ({ profile }) => {
   const attrs = profile.attributes;
+  const levelReading = readCharacterLevel(profile);
   const itemsWithReqs = profile.items.filter((i) => i.requirements !== undefined);
   if (itemsWithReqs.length === 0) return [];
 
@@ -250,6 +253,7 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
 
   const problems: string[] = [];
   const problemItemIds: string[] = [];
+  let hasUnknownLevelRequirement = false;
   for (const item of itemsWithReqs) {
     const req = item.requirements;
     if (!req) continue;
@@ -257,13 +261,29 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
     if (req.str !== undefined && req.str > (attrs.str ?? 0)) unmet.push(`Str ${req.str} (tienes ${attrs.str})`);
     if (req.dex !== undefined && req.dex > (attrs.dex ?? 0)) unmet.push(`Dex ${req.dex} (tienes ${attrs.dex})`);
     if (req.int !== undefined && req.int > (attrs.int ?? 0)) unmet.push(`Int ${req.int} (tienes ${attrs.int})`);
-    if (req.level !== undefined && req.level > profile.level) unmet.push(`nivel ${req.level} (eres ${profile.level})`);
+    if (req.level !== undefined) {
+      if (!levelReading.known) {
+        hasUnknownLevelRequirement = true;
+      } else if (req.level > levelReading.level) {
+        unmet.push(`nivel ${req.level} (eres ${levelReading.level})`);
+      }
+    }
     if (unmet.length > 0) {
       problems.push(`${item.name} (${item.slot}): ${unmet.join(", ")}`);
       problemItemIds.push(item.id);
     }
   }
-  if (problems.length === 0) return [];
+  if (problems.length === 0) {
+    return hasUnknownLevelRequirement
+      ? [
+          dataGapCandidate({
+            ruleId: "datos-nivel-personaje",
+            what: "nivel del personaje",
+            detail: "Hay equipo con requisito de nivel, pero el nivel real del personaje no está declarado.",
+          }),
+        ]
+      : [];
+  }
 
   return [
     {
@@ -283,6 +303,9 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
       confidenceBase: "medium",
       unverified: [
         "No verificado — los atributos del perfil dependen de lo importado; revísalos antes de comprar nada.",
+        ...(hasUnknownLevelRequirement
+          ? ["No verificado — falta el nivel real del personaje; no se evaluaron requisitos de nivel."]
+          : []),
       ],
       extraSources: [],
       // Vínculo demostrable: son exactamente los objetos cuyos requisitos no se cumplen.
@@ -383,7 +406,6 @@ export const skillLinksRule: Rule = ({ profile }) => {
 // Regla 6: vida ausente o baja para el nivel
 // ---------------------------------------------------------------------------
 export const lifeRule: Rule = ({ profile }) => {
-  const expected = profile.level * LIFE_PER_LEVEL;
   if (profile.life === undefined) {
     return [
       dataGapCandidate({
@@ -394,13 +416,25 @@ export const lifeRule: Rule = ({ profile }) => {
       }),
     ];
   }
+  const levelReading = readCharacterLevel(profile);
+  if (!levelReading.known) {
+    return [
+      dataGapCandidate({
+        ruleId: "datos-nivel-personaje",
+        what: "nivel del personaje",
+        detail: `Sin el nivel real no se puede evaluar la heurística de ${LIFE_PER_LEVEL} de vida por nivel.`,
+        goalWeights: { ...BALANCED, survival: 0.8 },
+      }),
+    ];
+  }
+  const expected = levelReading.level * LIFE_PER_LEVEL;
   if (profile.life >= expected) return [];
 
   return [
     {
       ruleId: "vida-baja",
       title: "Subir la vida máxima",
-      action: `Tienes ${profile.life} de vida a nivel ${profile.level} (heurística orientativa: ${expected}). Prioriza mods de "+vida máxima" en casco, pecho y cinturón.`,
+      action: `Tienes ${profile.life} de vida a nivel ${levelReading.level} (heurística orientativa: ${expected}). Prioriza mods de "+vida máxima" en casco, pecho y cinturón.`,
       reason: `La heurística de ${LIFE_PER_LEVEL} de vida por nivel sugiere que estás por debajo de lo sostenible para tu nivel.`,
       impactMetric: "vida",
       impactDescription: "Impacto estimado en supervivencia (métrica parcial, basada en heurística no verificada).",

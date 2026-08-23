@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 32,
+> Informe para el propietario. Última actualización: sesión 34,
 > 2026-08-23.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,26 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 34 — nivel desconocido coherente en toda la aplicación
+
+- `readCharacterLevel()` es ahora la única lectura usada para decidir o
+  presentar el nivel: motor, mentor supervisado, diario y cabeceras dejan de
+  convertir el placeholder técnico `1` en un hecho del personaje.
+- Los requisitos de equipo y la heurística de vida piden el nivel real cuando
+  falta; no bloquean, no calculan una expectativa y no dicen «eres nivel 1».
+- El contexto enviado al selector de IA usa `null` para nivel desconocido. El
+  diario guarda además la procedencia y trata conservadoramente como desconocido
+  cualquier `1` legacy sin procedencia.
+- El editor muestra el campo vacío con placeholder «Desconocido». Un nivel 1
+  escrito por el jugador conserva `observed` y sigue siendo un nivel real.
+- La huella de sesiones no cambia: sigue usando el número técnico para no
+  invalidar memorias existentes solo por añadir procedencia.
+
+Verificación: TypeScript y ESLint sin errores, build de producción correcto,
+**477/477** pruebas; flujo principal completo, diario **58/58**, mentor
+**88/88**, sesiones **58/58** y equipo/Crafting **192/192**, siempre en
+producción y desarrollo/Strict Mode.
 
 ## Sesión 33 — Crafting sabe cuándo parar
 

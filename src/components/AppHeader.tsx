@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HealthResponse } from "@shared/api.js";
 import type { CharacterProfile } from "@shared/domain.js";
-import { formatDateTime } from "@/lib/format";
+import { formatCharacterLevel, formatDateTime } from "@/lib/format";
 
 interface AppHeaderProps {
   health: HealthResponse | null;
@@ -77,7 +77,7 @@ export function AppHeader({ health, loading, profile, onHome, onBack, canGoBack 
               data-testid="cabecera-personaje"
             >
               <span className="font-medium text-foreground">{profile.name}</span> · nivel{" "}
-              {profile.level} · {profile.league}
+              {formatCharacterLevel(profile)} · {profile.league}
             </span>
           )}
           {loading ? (

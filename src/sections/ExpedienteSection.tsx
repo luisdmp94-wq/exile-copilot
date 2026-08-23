@@ -7,6 +7,7 @@ import { EquipmentPanel } from "@/components/EquipmentPanel";
 import { ItemDetailDialog } from "@/components/ItemDetailDialog";
 import { BuildMemorySection } from "@/components/BuildMemorySection";
 import type { JournalState } from "@/hooks/useJournal";
+import { formatCharacterLevel } from "@/lib/format";
 
 interface ExpedienteSectionProps {
   profile: CharacterProfile | null;
@@ -133,7 +134,7 @@ export function ExpedienteSection({
           {profile.ascendancy !== null && profile.ascendancy !== "" && (
             <> · {profile.ascendancy}</>
           )}{" "}
-          · nivel {profile.level} · liga {profile.league || "desconocida"} · parche{" "}
+          · nivel {formatCharacterLevel(profile)} · liga {profile.league || "desconocida"} · parche{" "}
           {profile.patch || "desconocido"}
         </p>
         {limitations.length > 0 && (

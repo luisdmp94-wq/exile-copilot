@@ -21,7 +21,7 @@ const MentorAiContextSchema = z.strictObject({
   question: z.string().min(1).max(500),
   heuristicIntent: z.enum(["next_improvement", "explain_priority", "unsupported"]),
   character: z.strictObject({
-    level: z.number().int().min(1).max(100),
+    level: z.number().int().min(1).max(100).nullable(),
     characterClass: z.string().max(100),
     ascendancy: z.string().max(100).nullable(),
     archetype: z.string().max(200).nullable(),

@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
-import type {
-  Budget,
-  BuildTarget,
-  CharacterProfile,
-  Goal,
-  Recommendation,
-  RecommendationMemory,
-  RecommendationMemoryImpact,
+import {
+  readCharacterLevel,
+  type Budget,
+  type BuildTarget,
+  type CharacterProfile,
+  type Goal,
+  type Recommendation,
+  type RecommendationMemory,
+  type RecommendationMemoryImpact,
 } from "../../shared/domain.js";
 import {
   MentorAnswerSchema,
@@ -271,11 +272,12 @@ function buildAiContext(
   const missingFacts = [...missingByText.values()].slice(0, 12);
   const missingById = new Map(missingFacts.map((fact) => [fact.id, fact]));
 
+  const levelReading = readCharacterLevel(options.profile);
   const context: MentorAiContext = {
     question: options.question,
     heuristicIntent,
     character: {
-      level: options.profile.level,
+      level: levelReading.known ? levelReading.level : null,
       characterClass: compact(options.profile.characterClass, 100) ?? "Desconocida",
       ascendancy: compact(options.profile.ascendancy, 100),
       archetype: compact(options.profile.archetype, 200),

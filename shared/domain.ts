@@ -268,11 +268,13 @@ export type CharacterLevelSource = z.infer<typeof CharacterLevelSourceSchema>;
  * `legacy-placeholder` nunca se convierten en `observed`: solo declaran si el
  * número heredado es distinguible del mínimo técnico.
  */
-export type CharacterLevelProvenance =
-  | "observed"
-  | "placeholder"
-  | "legacy-declared"
-  | "legacy-placeholder";
+export const CharacterLevelProvenanceSchema = z.enum([
+  "observed",
+  "placeholder",
+  "legacy-declared",
+  "legacy-placeholder",
+]);
+export type CharacterLevelProvenance = z.infer<typeof CharacterLevelProvenanceSchema>;
 
 export type CharacterLevelReading =
   | { known: true; level: number; provenance: "observed" | "legacy-declared" }
@@ -513,12 +515,40 @@ export function compactJournalTitle(title: string): string {
  */
 export const JournalContextSchema = z.object({
   characterLevel: z.number().int().min(1).max(100).nullable().default(null),
+  /** Procedencia congelada; ausente en entradas anteriores a este contrato. */
+  characterLevelProvenance: CharacterLevelProvenanceSchema.optional(),
   league: z.string().nullable().default(null),
   patch: z.string().nullable().default(null),
   budget: BudgetSchema.nullable().default(null),
   goal: GoalKind.nullable().default(null),
 });
 export type JournalContext = z.infer<typeof JournalContextSchema>;
+
+/**
+ * Lee el nivel congelado del diario sin convertir el antiguo placeholder `1`
+ * en un hecho. Las entradas nuevas conservan la procedencia; para las legacy
+ * se aplica la misma decisión conservadora que al perfil.
+ */
+export function readJournalCharacterLevel(
+  context: Pick<JournalContext, "characterLevel" | "characterLevelProvenance">,
+): number | null {
+  if (context.characterLevel === null) return null;
+  if (
+    context.characterLevelProvenance === "placeholder" ||
+    context.characterLevelProvenance === "legacy-placeholder"
+  ) {
+    return null;
+  }
+  if (
+    context.characterLevelProvenance === "observed" ||
+    context.characterLevelProvenance === "legacy-declared"
+  ) {
+    return context.characterLevel;
+  }
+  return context.characterLevel === PLACEHOLDER_CHARACTER_LEVEL
+    ? null
+    : context.characterLevel;
+}
 
 /**
  * Una entrada es memoria, no una orden ejecutada. `nextAction` expresa el

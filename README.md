@@ -192,6 +192,12 @@ en el expediente. Si el craft cambió atributos, no reutiliza el total anterior
 como si siguiera vigente: exige revisión. La salida es «candidato», «revisar» o
 «detenerse», nunca una puntuación ficticia.
 
+El nivel conserva su procedencia en todo el producto. Si todavía no fue
+importado o escrito por el jugador, motor, mentor, diario y cabeceras muestran
+«desconocido»: el mínimo técnico `1` nunca se usa para bloquear, calcular vida
+esperada ni describir al personaje. Un nivel 1 declarado sí se conserva como
+dato real.
+
 Esto confirma cambios estructurales, requisitos y señales taxonómicas directas,
 no la calidad del afijo. No estima pesos,
 probabilidades, valor de mercado ni el resultado de monedas todavía no
