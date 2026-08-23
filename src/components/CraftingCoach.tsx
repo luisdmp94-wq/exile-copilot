@@ -24,6 +24,7 @@ import { CoachItemCard } from "@/components/CoachItemCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, getErrorMessage } from "@/lib/api";
+import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 
 export type CoachPhase = "choose" | "recommend" | "hold" | "await-result" | "result";
 
@@ -37,6 +38,7 @@ interface CraftingCoachProps {
   onPasteItem: () => void;
   /** Lleva al banco avanzado cuando la única vía exige reemplazar. */
   onOpenAdvanced: () => void;
+  onMentorContext?: (event: ContextualMentorEvent) => void;
 }
 
 /** Cómo copiar el objeto, en una sola frase. */
@@ -268,6 +270,7 @@ export function CraftingCoach({
   onSelectItem,
   onPasteItem,
   onOpenAdvanced,
+  onMentorContext,
 }: CraftingCoachProps) {
   const [direction, setDirection] = useState<CoachDirection | null>(null);
   const [directionChosen, setDirectionChosen] = useState(false);
@@ -377,11 +380,18 @@ export function CraftingCoach({
   const step = chooseNextStep(activeItem, direction);
 
   const chooseDirection = (next: CoachDirection | null, note: string | null) => {
+    const nextStep = chooseNextStep(activeItem, next);
     setDirection(next);
     setDirectionNote(note);
     setNoEvidence(false);
     setDirectionChosen(true);
     setPhase("recommend");
+    onMentorContext?.({
+      type: "craftingCoachDirection",
+      itemName: activeItem.name || activeItem.baseType,
+      directionLabel: next === null ? "objetivo sin determinar" : COACH_DIRECTION_LABELS[next],
+      nextStepTitle: nextStep.kind === "use-currency" ? nextStep.label : nextStep.headline,
+    });
   };
 
   // La dirección solo se deduce del expediente, jamás de la propia pieza.

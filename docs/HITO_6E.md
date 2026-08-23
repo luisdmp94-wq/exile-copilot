@@ -19,6 +19,26 @@ siguen siendo autoritativos.
    respuesta a partir de las estructuras canónicas.
 5. Cualquier fallo produce `rules_fallback`; la consulta sigue funcionando.
 
+## Mentor v2: contexto de la interfaz
+
+El cliente puede adjuntar `ContextEnvelope` v1 con el área activa y la selección
+visible. Es una pista de navegación, no una nueva fuente de verdad:
+
+- personaje, build objetivo, presupuesto, moneda y liga se reconstruyen desde
+  los inputs canónicos que ya usa el motor;
+- `selectedItem.id` y `activeRecommendationId` solo sobreviven si existen en el
+  perfil o en las recomendaciones recién calculadas;
+- el objetivo libre de crafting y la última acción del cliente se descartan
+  mientras no exista una fuente autoritativa del servidor;
+- `activeArea` y `sessionActive` son valores acotados por esquema;
+- la respuesta visible se vuelve a construir desde la recomendación o carencia
+  canónica seleccionada. La salida del modelo no admite texto para el jugador.
+
+La interfaz mantiene sincronizada la pieza seleccionada al cambiarla dentro del
+guía de Crafting. Al elegir una dirección, el mentor contextual muestra esa
+pieza y el siguiente paso legal calculado, sin hacer una llamada automática a
+Groq. Solo «Analizar este contexto» consulta al selector opcional.
+
 ## Límites de seguridad y coste
 
 - `MENTOR_AI_ENABLED=false` por defecto: cero llamadas y cero coste.
@@ -60,3 +80,7 @@ repositorio.
 - Petición de dato faltante usa una carencia canónica.
 - Una acción activa no llama a la IA.
 - Una escritura concurrente durante la espera conserva el `409` de revisión.
+- Un envelope manipulado no puede sustituir personaje, build, mercado, pieza o
+  recomendación, ni pasar instrucciones libres al selector.
+- IDs inventados y errores del selector conservan la misma próxima acción del
+  respaldo determinista.

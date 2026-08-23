@@ -30,6 +30,7 @@ import {
   type MentorAiDecision,
   type MentorDecisionSelector,
 } from "./mentorAi.js";
+import type { ContextEnvelope } from "../../shared/mentorContext.js";
 
 /**
  * Mentor conversacional.
@@ -52,6 +53,7 @@ export interface MentorQueryOptions {
   patch: string;
   /** Memoria AUTORITATIVA leída por el servidor; el cliente nunca la construye. */
   memory: RecommendationMemory;
+  contextEnvelope?: ContextEnvelope;
 }
 
 export interface MentorQueryDependencies {
@@ -245,6 +247,54 @@ function factId(text: string): string {
   return `fact-${createHash("sha256").update(text).digest("hex").slice(0, 16)}`;
 }
 
+function sanitizeEnvelope(
+  envelope: ContextEnvelope | undefined,
+  options: MentorQueryOptions,
+  recommendations: Recommendation[],
+): ContextEnvelope | null {
+  if (!envelope) return null;
+  const levelReading = readCharacterLevel(options.profile);
+
+  let selectedItem = null;
+  if (envelope.selectedItem) {
+    const canonicalItem = options.profile.items.find((i) => i.id === envelope.selectedItem!.id);
+    if (canonicalItem) {
+      selectedItem = {
+        id: canonicalItem.id.slice(0, 200),
+        name: (canonicalItem.name || canonicalItem.baseType).slice(0, 200),
+      };
+    }
+  }
+
+  let activeRecommendationId = null;
+  if (envelope.activeRecommendationId) {
+    const canonicalRec = recommendations.find((r) => r.id === envelope.activeRecommendationId);
+    if (canonicalRec) {
+      activeRecommendationId = canonicalRec.id.slice(0, 200);
+    }
+  }
+
+  return {
+    version: "1.0",
+    activeArea: envelope.activeArea,
+    character: {
+      level: levelReading.known ? levelReading.level : null,
+      characterClass: (options.profile.characterClass ?? "").slice(0, 100) || null,
+    },
+    targetBuild: options.target ? options.target.name.slice(0, 200) : null,
+    selectedItem,
+    craftingState: null, // No authoritative state available
+    activeRecommendationId,
+    market: {
+      budgetAmount: options.budget.amount,
+      budgetCurrency: options.budget.currency.slice(0, 50),
+      league: options.league.slice(0, 100),
+    },
+    sessionActive: envelope.sessionActive,
+    lastAction: null, // No authoritative state available
+  };
+}
+
 function buildAiContext(
   options: MentorQueryOptions,
   heuristicIntent: MentorIntent,
@@ -329,6 +379,7 @@ function buildAiContext(
         .map((fact) => fact.id),
     })),
     missingFacts,
+    envelope: sanitizeEnvelope(options.contextEnvelope, options, recommendations),
   };
   return { context, missingById };
 }
@@ -488,6 +539,7 @@ async function buildAnswer(
       const relatedRecommendations = result.recommendations.filter((candidate) =>
         fact.recommendationIds.includes(candidate.id),
       );
+
       return MentorAnswerSchema.parse({
         intent: intent === "unsupported" ? "next_improvement" : intent,
         normalizedQuestion,

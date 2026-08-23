@@ -294,9 +294,9 @@ id crudo: el nombre nunca se deduce del texto del id.
 
 > This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
 
-## Habla con tu mentor (Hitos 6A y 6E)
+## Habla con tu mentor (Hitos 6A, 6E y Mentor v2)
 
-«Habla con tu mentor», dentro del área **Mentor**, permite preguntar en español.
+«Habla con tu mentor», dentro de **Expediente y mentor**, permite preguntar en español.
 Por defecto responde solo con reglas, sin llamadas externas ni coste. El Hito
 6E añade un selector IA opcional: interpreta preguntas más naturales, pero solo
 puede elegir una recomendación o un dato faltante que el motor ya haya
@@ -314,6 +314,14 @@ hilo, pero nunca sustituye el objeto, área o decisión que el jugador haya abie
 mientras esperaba. La etiqueta declara su origen real: «IA supervisada» con
 modelo, «Respaldo del motor de reglas» o «Respuesta del motor»; nunca se atribuye
 una respuesta a Groq solo por configuración.
+
+Mentor v2 añade un contexto compacto y versionado a cada consulta contextual:
+área activa, pieza seleccionada, sesión abierta, personaje, build y mercado. El
+servidor no confía en esa copia del navegador: vuelve a obtener personaje,
+build, presupuesto y liga desde sus inputs canónicos; solo acepta una pieza o
+recomendación si su id existe realmente. En Crafting, seleccionar otra pieza o
+elegir daño/defensa actualiza el mentor inmediatamente con la pieza y el único
+paso calculado por el guía. El modelo sigue sin redactar la acción visible.
 
 Con IA desactivada, cualquier otra pregunta se declara **no soportada**. Con IA
 activada puede relacionarla con hasta tres candidatos reales, pedir un dato

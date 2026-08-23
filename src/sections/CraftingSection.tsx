@@ -44,6 +44,7 @@ interface CraftingSectionProps {
     title: string;
   }) => void;
   onMentorContext?: (event: ContextualMentorEvent) => void;
+  onSelectedItemChange?: (itemId: string) => void;
 }
 
 type CraftingMode = "coach" | "academy" | "laboratory";
@@ -186,6 +187,7 @@ export function CraftingSection({
   onApplyCraftingResult,
   onMentorEvent,
   onMentorContext,
+  onSelectedItemChange,
 }: CraftingSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   /**
@@ -218,6 +220,12 @@ export function CraftingSection({
     laboratoryFallback ??
     craftableItems[0] ??
     null;
+  const selectItem = (itemId: string) => {
+    setSelectedItemId(itemId);
+    onSelectedItemChange?.(itemId);
+    const item = craftableItems.find((candidate) => candidate.id === itemId);
+    if (item) onMentorContext?.({ type: "craftingItem", item });
+  };
   const focusStartedCraft = () => {
     // La primera trama deja que React monte la sesión; la segunda realiza la
     // navegación únicamente como consecuencia del clic que la creó. Así una
@@ -249,9 +257,10 @@ export function CraftingSection({
       profile={profile}
       items={craftableItems}
       selectedItem={selectedItem}
-      onSelectItem={setSelectedItemId}
+      onSelectItem={selectItem}
       onPasteItem={onEditExpediente}
       onOpenAdvanced={() => setAdvancedOpen(true)}
+      onMentorContext={onMentorContext}
     />
   );
 
@@ -450,8 +459,7 @@ export function CraftingSection({
                           : "border-border bg-muted/10 hover:-translate-y-px hover:border-primary/35 lg:hover:translate-x-0.5 lg:hover:translate-y-0"
                       }`}
                       onClick={() => {
-                        setSelectedItemId(item.id);
-                        onMentorContext?.({ type: "craftingItem", item });
+                        selectItem(item.id);
                       }}
                     >
                       <ItemArtwork item={item} className="size-10 rounded-sm" />

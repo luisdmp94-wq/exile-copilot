@@ -874,6 +874,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           patch: body.patch,
           memory,
           ...(body.target !== undefined ? { target: body.target } : {}),
+          ...(body.contextEnvelope !== undefined ? { contextEnvelope: body.contextEnvelope } : {}),
         },
         { priceService, selector: mentorSelector },
       );

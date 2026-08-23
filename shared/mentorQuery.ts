@@ -9,6 +9,7 @@ import {
   RecommendationSchema,
   SourceEvidenceSchema,
 } from "./domain.js";
+import { ContextEnvelopeSchema } from "./mentorContext.js";
 
 /**
  * Contrato de la conversación con el mentor (Hito 6A).
@@ -131,6 +132,7 @@ export const MentorQueryRequestSchema = z.object({
    * memoria autoritativa; el cliente no puede inyectar memoria.
    */
   journalRevision: z.string().min(1).max(4000).nullable().optional(),
+  contextEnvelope: ContextEnvelopeSchema.optional(),
 });
 export type MentorQueryRequest = z.infer<typeof MentorQueryRequestSchema>;
 

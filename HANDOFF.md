@@ -1,7 +1,7 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 37,
-> 2026-08-23.
+> Informe para el propietario. Última actualización: sesión 38,
+> 2026-08-24.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
 > «Probar y volver» y 6D «Identidad persistente de la build», y el banco de
@@ -9,6 +9,31 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 38 — Mentor v2 contextual y supervisado
+
+- Cada consulta puede llevar un `ContextEnvelope` v1 con el área, pieza y estado
+  visible. El servidor lo trata como no confiable y reconstruye personaje,
+  build, presupuesto, moneda y liga desde los inputs canónicos.
+- Una pieza o recomendación enviada por la interfaz solo llega al selector si
+  su id existe realmente. Objetivo libre de crafting y última acción quedan a
+  `null` mientras no puedan validarse contra estado autoritativo.
+- Groq sigue siendo un selector: devuelve únicamente un tipo de decisión y los
+  ids permitidos. El servidor redacta la respuesta desde la recomendación o el
+  dato faltante real; IDs inventados, errores o respuestas inválidas vuelven a
+  las reglas.
+- El guía de Crafting sincroniza la pieza seleccionada con el contexto global.
+  Al elegir daño o defensa, el mentor deja el aviso genérico y muestra la pieza
+  y el siguiente paso legal calculado por el guía. No consume cuota hasta que
+  el jugador pulsa «Analizar este contexto».
+- Se añadieron regresiones contra manipulación del envelope, prompt injection,
+  ids inexistentes y fallo del proveedor. La revisión manual en `localhost:7201`
+  confirmó el cambio de contexto al inspeccionar la ballesta y elegir daño.
+
+Verificación: TypeScript sin errores; **533/533** pruebas; build de producción
+correcto; mentor **88/88** y taller de Crafting **84/84**, ambos en producción y
+desarrollo/Strict Mode. ESLint pasa en todos los archivos modificados; el lint
+global conserva los **13 diagnósticos preexistentes del baseline**.
 
 ## Sesión 37 — una sesión de craft ya no bloquea el banco
 

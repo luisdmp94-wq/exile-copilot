@@ -66,6 +66,20 @@ describe("mentor contextual", () => {
     expect(action.message).toContain("no predice");
   });
 
+  it("reacciona a la dirección elegida en el guía con la pieza y el paso concretos", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachDirection",
+      itemName: "Núcleo de fénix",
+      directionLabel: "el daño",
+      nextStepTitle: "Orbe exaltado",
+    });
+
+    expect(cue.title).toContain("Núcleo de fénix");
+    expect(cue.message).toContain("Orbe exaltado");
+    expect(cue.ask?.question).toContain("Núcleo de fénix");
+    expect(cue.ask?.question).toContain("Orbe exaltado");
+  });
+
   it("mantiene la honestidad cuando el mercado está degradado", () => {
     const cue = contextualMentorCue({
       type: "market",
@@ -105,6 +119,12 @@ describe("mentor contextual", () => {
       { type: "workspace", workspace: "crafting" },
       { type: "item", item },
       { type: "craftingItem", item },
+      {
+        type: "craftingCoachDirection",
+        itemName: "Doom Song",
+        directionLabel: "el daño",
+        nextStepTitle: "Orbe exaltado",
+      },
       {
         type: "craftingGoal",
         itemName: "Doom Song",

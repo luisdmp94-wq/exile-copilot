@@ -776,6 +776,32 @@ export default function App() {
 
   const askMentor = async (question: string, intentHint?: ContextualMentorAsk["intent"]) => {
     if (!character.profile) return null;
+
+    const activeItemId = tab === "crafting" ? craftingRequestedItemId : focusedItemId;
+    const activeItem = character.profile.items.find((i) => i.id === activeItemId);
+    const envelope: import("@shared/mentorContext.js").ContextEnvelope = {
+      version: "1.0",
+      activeArea: tab,
+      character: {
+        level: character.profile.level,
+        characterClass: character.profile.characterClass,
+      },
+      targetBuild: targetDraft.name || null,
+      selectedItem: activeItem ? { id: activeItem.id, name: activeItem.name || activeItem.baseType } : null,
+      craftingState: activeCraftingExperiment ? {
+        goal: activeCraftingExperiment.goalCategory ?? null,
+        stopCondition: activeCraftingExperiment.successCriteria.length > 0 ? "defined" : null,
+      } : null,
+      activeRecommendationId: dominantRecommendation?.id ?? null,
+      market: {
+        budgetAmount: budget.amount,
+        budgetCurrency: budget.currency,
+        league: league || "Desconocida",
+      },
+      sessionActive: characterJournal?.session !== null && characterJournal?.session !== undefined,
+      lastAction: characterJournal?.primaryEntry?.nextAction ?? null,
+    };
+
     const outcome = await mentor.ask(
       buildMentorRequest(
         question,
@@ -787,6 +813,7 @@ export default function App() {
         patch,
         characterJournal,
         intentHint,
+        envelope,
       ),
     );
     if (outcome.status === "journal-stale") void journal.reload();
@@ -1246,6 +1273,7 @@ export default function App() {
               goal={goal}
               journal={journal}
               requestedItemId={craftingRequestedItemId}
+              onSelectedItemChange={setCraftingRequestedItemId}
               onEditExpediente={() => openEditor(false, "item")}
               onStartCraftingDecision={startCraftingDecision}
               onStartEssenceDecision={startEssenceDecision}

@@ -31,6 +31,12 @@ export type ContextualMentorEvent =
   | { type: "item"; item: Item }
   | { type: "craftingItem"; item: Item }
   | {
+      type: "craftingCoachDirection";
+      itemName: string;
+      directionLabel: string;
+      nextStepTitle: string;
+    }
+  | {
       type: "craftingGoal";
       itemName: string;
       goal: CraftingGoalCategory;
@@ -147,6 +153,21 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
           "Primero elige qué quieres mejorar. Después fija qué no quieres perder y una condición observable para detenerte.",
         ask: {
           question: `Estoy preparando ${name} para crafting. ¿Por qué está relacionada con mi prioridad y qué debo comprobar antes de gastar?`,
+          intent: "explain_priority",
+        },
+      };
+    }
+    case "craftingCoachDirection": {
+      const directionTitle = event.directionLabel.charAt(0).toLocaleUpperCase("es") +
+        event.directionLabel.slice(1);
+      return {
+        id: `crafting-coach:${event.itemName}:${event.directionLabel}:${event.nextStepTitle}`,
+        source: "engine",
+        eyebrow: "Ruta elegida",
+        title: `${directionTitle} · ${event.itemName}`,
+        message: `El guía ha reducido el problema a «${event.nextStepTitle}». Revisa esa única acción y su aleatoriedad antes de decidir si gastas.`,
+        ask: {
+          question: `Estoy trabajando ${event.itemName} para mejorar ${event.directionLabel}. ¿Por qué «${event.nextStepTitle}» es la próxima acción segura y qué debo comprobar antes?`,
           intent: "explain_priority",
         },
       };

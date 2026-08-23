@@ -9,6 +9,7 @@ import type {
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { buildTargetFromDraft } from "@/lib/buildTarget";
+import type { ContextEnvelope } from "@shared/mentorContext.js";
 
 /**
  * Construye la petición al mentor con una forma FIJA (orden de claves estable)
@@ -28,6 +29,7 @@ export function buildMentorRequest(
   patch: string,
   journal: CharacterJournal | null,
   intentHint?: Exclude<MentorIntent, "unsupported">,
+  contextEnvelope?: ContextEnvelope,
 ): MentorQueryRequest {
   return {
     question,
@@ -39,5 +41,6 @@ export function buildMentorRequest(
     league,
     patch,
     ...(journal ? { journalRevision: buildRecommendationMemory(journal).revision } : {}),
+    ...(contextEnvelope ? { contextEnvelope } : {}),
   };
 }
