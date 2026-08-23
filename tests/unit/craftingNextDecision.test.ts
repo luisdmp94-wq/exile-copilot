@@ -159,4 +159,33 @@ describe("decisión siguiente tras observar un craft", () => {
     expect(decision.tone).toBe("danger");
     expect(decision.nextAction).toContain("No gastes otra moneda");
   });
+
+  it("para y conserva al cumplir las condiciones elegidas aunque quede un hueco", () => {
+    const added = modifier("p-damage", ["Daño"]);
+    const result = item([
+      modifier("p-one", ["Daño"]),
+      modifier("p-two", ["Daño"]),
+      modifier("s-one", ["Velocidad"]),
+      modifier("s-two", ["Atributo"]),
+      added,
+    ]);
+    const observed = comparison([added]);
+    const decision = decideCraftingNextStep({
+      resultItem: result,
+      comparison: observed,
+      characterContext: context(),
+      addedGoalSignal: evaluateCraftingGoalSignal("damage", observed.addedModifiers),
+      goalCategory: "damage",
+      successAssessment: {
+        status: "fulfilled",
+        title: "Has llegado a tu punto de parada",
+        summary: "Todas cumplidas.",
+        entries: [],
+      },
+    });
+
+    expect(decision.kind).toBe("stop");
+    expect(decision.tone).toBe("positive");
+    expect(decision.title).toBe("Objetivo cumplido: para y conserva");
+  });
 });

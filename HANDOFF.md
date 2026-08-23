@@ -10,6 +10,28 @@
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
 
+## Sesión 33 — Crafting sabe cuándo parar
+
+- Cada pieza admite entre una y tres condiciones de éxito observables elegidas
+  por el jugador: más afijos de la categoría objetivo, una línea exacta nueva o
+  un número mínimo de afijos explícitos.
+- Los umbrales ofrecidos siempre superan el estado del snapshot. «Conservar
+  intocables» sigue siendo una restricción de seguridad y no se confunde con
+  haber mejorado la pieza.
+- Las condiciones viajan con Monedas, Essences y Alloys y quedan persistidas en
+  `craftingExperiment`. Las sesiones antiguas reciben una lista vacía y
+  mantienen el comportamiento anterior.
+- El resultado separa «cumplida», «no aparece» y «no comprobable». El texto
+  libre del objetivo nunca se interpreta como prueba.
+- Si todas las condiciones se cumplen, la recomendación dominante es «Objetivo
+  cumplido: para y conserva», incluso si queda espacio para seguir gastando.
+
+Verificación: **462/462** pruebas unitarias en la primera pasada completa; las
+regresiones específicas siguen en verde tras la corrección conceptual;
+TypeScript y ESLint sin errores; build de producción correcto; equipo y
+Crafting **192/192** en producción y desarrollo/Strict Mode. Vista inicial:
+300 palabras, 375/375 px y 2102 px de alto a 375×844.
+
 ## Sesión 32 — una intención compartida para todo el banco
 
 - Crafting ya no pide el objetivo por separado en Monedas, Essences y Alloys.

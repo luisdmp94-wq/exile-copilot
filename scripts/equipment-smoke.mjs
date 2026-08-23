@@ -278,7 +278,9 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
     const preflight = workspace.getByTestId("crafting-preflight-exalted");
     const outcome = workspace.getByLabel("Cuéntame el matiz");
     const expectedOutcome = "Añadir un modificador útil sin perder el objeto pegado";
+    await click(workspace.getByRole("radio", { name: "Daño", exact: true }));
     await outcome.fill(expectedOutcome);
+    await click(workspace.getByTestId("crafting-success-goal-toggle"));
     await checkBox(preflight.getByLabel(/El objeto sigue igual/));
 
     let failFirstSave = true;
@@ -817,10 +819,11 @@ async function runFlow(mode, port) {
       .getByRole("checkbox")
       .first()
       .check();
+    await intencionCrafting.getByTestId("crafting-success-goal-toggle").click();
     check(
       `[${mode}] la intención combina objetivo y restricciones elegidas por clic`,
       (await intencionCrafting.innerText()).includes("Daño · 1 intocable") &&
-        (await intencionCrafting.innerText()).includes("intocable"),
+        (await intencionCrafting.innerText()).includes("1/3 condiciones"),
     );
 
     // --- Essences P1: contrato real, riesgo y preflight -------------------
@@ -1017,9 +1020,10 @@ async function runFlow(mode, port) {
         !(await contextoPersonaje.innerText()).match(/\d+\/10|% de mejora/),
     );
     check(
-      `[${mode}] el asesor dice parar y conservar cuando el resultado útil llena la pieza`,
+      `[${mode}] el asesor dice parar cuando se cumple la condición elegida`,
       (await siguienteDecision.getAttribute("data-next-decision")) === "stop" &&
-        (await siguienteDecision.innerText()).includes("Para y conserva este resultado") &&
+        (await siguienteDecision.innerText()).includes("Objetivo cumplido: para y conserva") &&
+        (await comprobadorResultado.getByTestId("crafting-success-assessment").getAttribute("data-success-status")) === "fulfilled" &&
         !(await siguienteDecision.innerText()).match(/probabilidad de éxito|DPS|precio estimado/i),
     );
     await page.screenshot({
@@ -1087,6 +1091,9 @@ async function runFlow(mode, port) {
       journalFinal.session?.craftingExperiment?.variantId === "greater" &&
       journalFinal.session?.craftingExperiment?.minimumModifierLevel === 35 &&
       journalFinal.session?.craftingExperiment?.actionLabel === "Orbe exaltado superior" &&
+      journalFinal.session?.craftingExperiment?.successCriteria?.length === 1 &&
+      journalFinal.session?.craftingExperiment?.successCriteria?.[0]?.kind === "goal-affix-count" &&
+      journalFinal.session?.craftingExperiment?.successCriteria?.[0]?.minimumCount === 4 &&
       journalFinal.session?.evidence?.some(
         (entry) =>
           entry.kind === "confirmed" && entry.text.includes("Cambio estructural confirmado"),
