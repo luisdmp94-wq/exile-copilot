@@ -72,6 +72,13 @@ varias, muestra la decisión sin fingir un ranking; y si el raro está lleno
 lleva a las rutas de reemplazo de Essence o Alloy. Un objeto normal bien
 identificado entra correctamente por Transmutación.
 
+La intención se define una sola vez por pieza. El jugador elige con botones el
+objetivo principal, añade un matiz libre —por ejemplo, «más daño sin perder
+velocidad ni +niveles»— y marca directamente sobre los afijos qué líneas deben
+sobrevivir. Ese mismo plan acompaña a Monedas, Essences, Alloys y a la
+comparación final; no hay tres formularios distintos ni se intenta interpretar
+la palabra «sin» como si fuera evidencia estructurada.
+
 La auditoría adversarial y sus límites están documentados en
 [`docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md`](docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md).
 
@@ -113,10 +120,10 @@ el jugador. Después del gasto, la comparación exige exactamente una retirada,
 un añadido marcado como fabricado y no más de un fabricado total. El contrato y
 sus límites están en [`docs/CRAFTING_ALLOYS.md`](docs/CRAFTING_ALLOYS.md).
 
-Cuando la acción puede retirar un afijo —Essence con reemplazo o Alloy— el
-jugador puede marcar los **modificadores que no acepta perder**. Las monedas
-básicas que solo añaden y las Essences sin retirada no muestran una protección
-irrelevante. El contrato distingue
+El jugador puede marcar desde el plan los **modificadores que no acepta
+perder**. Las herramientas muestran un resumen de esa selección sin duplicar el
+formulario; una moneda que solo añade conserva la intención para la comparación,
+pero no inventa un riesgo de retirada. El contrato distingue
 entre retirada aleatoria, retirada elegida por el jugador y mecanismo todavía
 desconocido: advierte cuando existe riesgo, bloquea cuando la pérdida es segura
 y se niega a prometer protección si falta el dato decisivo. Tras pegar el

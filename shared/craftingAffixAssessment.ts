@@ -14,6 +14,7 @@ export type AffixAssessmentKind =
 export interface CraftingAffixAssessmentEntry {
   modifier: Modifier;
   kind: AffixAssessmentKind;
+  protected: boolean;
   label: string;
   reason: string;
   matchedTags: string[];
@@ -29,6 +30,7 @@ export interface CraftingAffixAssessment {
   summary: string;
   alignedCount: number;
   leadingAlignedCount: number;
+  protectedCount: number;
   unknownTierCount: number;
   clusters: CraftingAffixCluster[];
   entries: CraftingAffixAssessmentEntry[];
@@ -59,14 +61,17 @@ function displayTag(tag: string): string {
 function assessModifier(
   modifier: Modifier,
   goalCategory: CraftingGoalCategory,
+  protectedIds: ReadonlySet<string>,
 ): CraftingAffixAssessmentEntry {
   const signal = evaluateCraftingGoalSignal(goalCategory, [modifier]);
   const leadingGrade = modifier.tier !== undefined && modifier.tier <= 2;
+  const protectedModifier = protectedIds.has(modifier.id);
 
   if (signal.status === "direct" && leadingGrade) {
     return {
       modifier,
       kind: "protect-first",
+      protected: protectedModifier,
       label: "Protege primero",
       reason: `Coincide con el objetivo y el juego muestra grado ${modifier.tier}.`,
       matchedTags: signal.matchedTags,
@@ -77,6 +82,7 @@ function assessModifier(
     return {
       modifier,
       kind: "goal-aligned",
+      protected: protectedModifier,
       label: "Aporta al objetivo",
       reason:
         modifier.tier === undefined
@@ -90,6 +96,7 @@ function assessModifier(
     return {
       modifier,
       kind: "review-fit",
+      protected: protectedModifier,
       label: "Revisa su encaje",
       reason: `El juego muestra grado ${modifier.tier}, pero sus etiquetas no coinciden directamente con este objetivo.`,
       matchedTags: [],
@@ -99,6 +106,7 @@ function assessModifier(
   return {
     modifier,
     kind: "contextual",
+    protected: protectedModifier,
     label: "Depende de la build",
     reason:
       signal.status === "unknown"
@@ -116,9 +124,13 @@ function assessModifier(
 export function assessCraftingAffixes(
   item: Item,
   goalCategory: CraftingGoalCategory,
+  protectedModifierIds: readonly string[] = [],
 ): CraftingAffixAssessment {
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
-  const entries = explicit.map((modifier) => assessModifier(modifier, goalCategory));
+  const protectedIds = new Set(protectedModifierIds);
+  const entries = explicit.map((modifier) =>
+    assessModifier(modifier, goalCategory, protectedIds),
+  );
   const aligned = entries.filter(
     (entry) => entry.kind === "protect-first" || entry.kind === "goal-aligned",
   );
@@ -174,6 +186,7 @@ export function assessCraftingAffixes(
     summary,
     alignedCount: aligned.length,
     leadingAlignedCount,
+    protectedCount: entries.filter((entry) => entry.protected).length,
     unknownTierCount,
     clusters,
     entries,

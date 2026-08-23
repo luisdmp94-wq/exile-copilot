@@ -8,10 +8,11 @@ import {
   type StartAlloyDecision,
 } from "@shared/craftingAlloys.js";
 import type { Item } from "@shared/domain.js";
-import type { CraftingGoalCategory } from "@shared/craftingGoal.js";
+import {
+  CRAFTING_GOAL_LABELS,
+  type CraftingGoalCategory,
+} from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
-import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
-import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -34,39 +35,27 @@ interface AlloyPlannerProps {
   item: Item;
   onStart?: StartAlloyDecision;
   onStarted?: () => void;
+  goalCategory: CraftingGoalCategory;
+  desiredOutcome: string;
+  protectedModifierIds: string[];
+  onEditIntention: () => void;
 }
 
-function useProtectedModifiers(item: Item) {
-  const [selection, setSelection] = useState<{ itemId: string; ids: string[] }>({
-    itemId: item.id,
-    ids: [],
-  });
-  const currentIds = new Set(
-    item.modifiers
-      .filter((modifier) => modifier.kind === "explicit")
-      .map((modifier) => modifier.id),
-  );
-  const value =
-    selection.itemId === item.id
-      ? selection.ids.filter((id) => currentIds.has(id))
-      : [];
-
-  return [
-    value,
-    (ids: string[]) => setSelection({ itemId: item.id, ids }),
-  ] as const;
-}
-
-export function AlloyPlanner({ item, onStart, onStarted }: AlloyPlannerProps) {
+export function AlloyPlanner({
+  item,
+  onStart,
+  onStarted,
+  goalCategory,
+  desiredOutcome,
+  protectedModifierIds,
+  onEditIntention,
+}: AlloyPlannerProps) {
   const [alloyName, setAlloyName] = useState("");
   const [fullTooltipText, setFullTooltipText] = useState("");
   const [guaranteedModifierText, setGuaranteedModifierText] = useState("");
   const [declaredItemClassesText, setDeclaredItemClassesText] = useState("");
   const [playerConfirmedClassApplies, setPlayerConfirmedClassApplies] = useState(false);
   const [removalSelection, setRemovalSelection] = useState<AlloyRemovalSelection>("unspecified");
-  const [desiredOutcome, setDesiredOutcome] = useState("");
-  const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
-  const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
   const [snapshotConfirmed, setSnapshotConfirmed] = useState(false);
   const [tooltipConfirmed, setTooltipConfirmed] = useState(false);
   const [replacementConfirmed, setReplacementConfirmed] = useState(false);
@@ -183,22 +172,17 @@ export function AlloyPlanner({ item, onStart, onStarted }: AlloyPlannerProps) {
         <p className="mt-1 leading-relaxed">{evaluation.reason}</p>
       </div>
 
-      <CraftingGoalPicker
-        category={goalCategory}
-        onCategoryChange={setGoalCategory}
-        outcome={desiredOutcome}
-        onOutcomeChange={setDesiredOutcome}
-        idPrefix={`alloy-goal-${item.id}`}
-        label="¿Qué resultado buscas comprobar?"
-        placeholder="Describe el objetivo sin asumir que ocurrirá"
-      />
-
-      <CraftingProtectionPicker
-        item={item}
-        value={protectedModifierIds}
-        onChange={setProtectedModifierIds}
-        idPrefix={`alloy-protected-${item.id}`}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/[0.04] px-3 py-2 text-xs">
+        <span className="text-muted-foreground">
+          Plan: <strong className="text-foreground">{CRAFTING_GOAL_LABELS[goalCategory]}</strong>
+          {protectedModifierIds.length > 0
+            ? ` · ${protectedModifierIds.length} intocable${protectedModifierIds.length === 1 ? "" : "s"}`
+            : " · nada marcado como intocable"}
+        </span>
+        <Button type="button" variant="ghost" size="sm" onClick={onEditIntention}>
+          Editar intención
+        </Button>
+      </div>
 
       {protectedModifierIds.length > 0 && (
         <div

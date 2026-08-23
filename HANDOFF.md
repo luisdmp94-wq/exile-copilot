@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 31,
+> Informe para el propietario. Última actualización: sesión 32,
 > 2026-08-23.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,26 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 32 — una intención compartida para todo el banco
+
+- Crafting ya no pide el objetivo por separado en Monedas, Essences y Alloys.
+  Existe una sola intención por pieza: objetivo principal, matiz libre y líneas
+  del objeto que el jugador marca como «intocables».
+- Las categorías se eligen mediante botones visibles. Los afijos se marcan con
+  tarjetas/checkboxes y muestran un contador; también existe un atajo explícito
+  para grados 1–2, sin seleccionarlos automáticamente.
+- La misma intención acompaña a las tres herramientas y se persiste en la
+  sesión/comparación. Si cambia el snapshot, los ids antiguos dejan de aplicarse
+  y el jugador vuelve a confirmar sobre la pieza nueva.
+- El núcleo de afijos muestra las restricciones elegidas aunque no coincidan
+  con el objetivo principal. La explicación extensa del mentor queda plegada:
+  la vista inicial conserva el plan y la siguiente acción como protagonistas.
+
+Verificación: **457/457** pruebas; TypeScript y ESLint sin errores; build de
+producción correcto; equipo y Crafting **192/192** en producción y
+desarrollo/Strict Mode. Vista inicial: 291 palabras, 375/375 px y 2010 px de
+alto a 375×844.
 
 ## Sesión 31 — lectura observable del núcleo de afijos
 

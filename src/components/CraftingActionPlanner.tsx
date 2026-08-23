@@ -23,7 +23,10 @@ import type { Item } from "@shared/domain.js";
 import { AlloyPlanner } from "@/components/AlloyPlanner";
 import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
 import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
-import type { CraftingGoalCategory } from "@shared/craftingGoal.js";
+import {
+  CRAFTING_GOAL_LABELS,
+  type CraftingGoalCategory,
+} from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
 import { assessCraftingAffixes } from "@shared/craftingAffixAssessment.js";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +145,7 @@ export function CraftingActionPlanner({
     useState<CraftingCurrencyVariant["id"]>("base");
   const [desiredOutcome, setDesiredOutcome] = useState("");
   const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
+  const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
   const [preflightConfirmed, setPreflightConfirmed] = useState(false);
   const [startingDecision, setStartingDecision] = useState(false);
   const [activeTool, setActiveTool] = useState<CraftingTool>("currency");
@@ -181,7 +185,7 @@ export function CraftingActionPlanner({
     desiredOutcome.trim().length >= 3 &&
     preflightConfirmed;
   const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
-  const affixAssessment = assessCraftingAffixes(item, goalCategory);
+  const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds);
   const replacementNeedsConsent =
     route.state === "replacement-tools" && mentorReading.protectCandidates.length > 0;
   const verdictTone =
@@ -235,16 +239,54 @@ export function CraftingActionPlanner({
           </h3>
         )}
         <p className="text-lg font-semibold text-foreground">{diagnosisHeadline}</p>
-        <CraftingGoalPicker
-          category={goalCategory}
-          onCategoryChange={setGoalCategory}
-          outcome={desiredOutcome}
-          onOutcomeChange={setDesiredOutcome}
-          idPrefix={`crafting-goal-${item.id}`}
-          label="¿Qué quieres conseguir?"
-          placeholder="Ej.: más daño físico sin perder velocidad"
-        />
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" data-testid="crafting-mentor-reading">
+        <section
+          id={`crafting-intention-${item.id}`}
+          tabIndex={-1}
+          className="space-y-3 rounded-md border border-primary/25 bg-primary/[0.045] p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          data-testid="crafting-intention"
+          aria-labelledby={`crafting-intention-title-${item.id}`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+                Tu plan para esta pieza
+              </p>
+              <h4 id={`crafting-intention-title-${item.id}`} className="mt-1 text-base font-semibold text-foreground">
+                Decide qué mejorar y qué conservar
+              </h4>
+            </div>
+            <span className="rounded-full border border-primary/30 bg-primary/[0.08] px-2.5 py-1 text-xs text-primary">
+              {CRAFTING_GOAL_LABELS[goalCategory]} · {protectedModifierIds.length} intocable
+              {protectedModifierIds.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <CraftingGoalPicker
+            category={goalCategory}
+            onCategoryChange={setGoalCategory}
+            outcome={desiredOutcome}
+            onOutcomeChange={setDesiredOutcome}
+            idPrefix={`crafting-goal-${item.id}`}
+            label="Cuéntame el matiz"
+            placeholder="Ej.: más daño sin perder velocidad ni +niveles"
+          />
+          <CraftingProtectionPicker
+            item={item}
+            value={protectedModifierIds}
+            onChange={setProtectedModifierIds}
+            idPrefix={`crafting-protected-${item.id}`}
+          />
+        </section>
+        <details
+          className="group rounded-md border border-border/70 bg-background/25 p-3"
+          data-testid="crafting-reading-details"
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <span>Ver por qué el mentor propone este camino</span>
+            <span className={verdictTone}>
+              {mentorReading.verdictLabel} · {affixAssessment.alignedCount}/{affixAssessment.entries.length} alineados
+            </span>
+          </summary>
+          <div className="mt-3 grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="crafting-mentor-reading">
           <div className="crafting-signal-card">
             <span className="crafting-signal-label">¿Compensa seguir?</span>
             <strong className={verdictTone}>{mentorReading.verdictLabel}</strong>
@@ -271,8 +313,8 @@ export function CraftingActionPlanner({
             <strong>{mentorReading.protectCandidates.length}</strong>
             <span>{mentorReading.protectCandidates[0]?.text ?? "No hay grados 1–2 observados"}</span>
           </div>
-        </div>
-        {affixAssessment.entries.length > 0 && (
+          </div>
+          {affixAssessment.entries.length > 0 && (
           <section
             className="rounded-md border border-border/80 bg-background/35 p-3"
             data-testid="crafting-affix-assessment"
@@ -290,9 +332,17 @@ export function CraftingActionPlanner({
                   {affixAssessment.summary}
                 </p>
               </div>
-              <span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
-                {affixAssessment.alignedCount}/{affixAssessment.entries.length} alineados
-              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                  {affixAssessment.alignedCount}/{affixAssessment.entries.length} alineados
+                </span>
+                {affixAssessment.protectedCount > 0 && (
+                  <span className="rounded-full border border-emerald-500/35 bg-emerald-500/[0.08] px-2.5 py-1 text-xs text-emerald-200">
+                    {affixAssessment.protectedCount} intocable
+                    {affixAssessment.protectedCount === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
             </div>
             {(affixAssessment.clusters.length > 0 || affixAssessment.leadingAlignedCount > 0) && (
               <div className="mt-3 flex flex-wrap gap-2" aria-label="Señales destacadas de los afijos">
@@ -320,7 +370,11 @@ export function CraftingActionPlanner({
                 {affixAssessment.entries.map((entry) => (
                   <article
                     key={entry.modifier.id}
-                    className={`rounded border px-3 py-2 ${AFFIX_ASSESSMENT_STYLE[entry.kind]}`}
+                    className={`rounded border px-3 py-2 ${
+                      entry.protected
+                        ? "border-emerald-400/60 bg-emerald-500/[0.11] text-emerald-100"
+                        : AFFIX_ASSESSMENT_STYLE[entry.kind]
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-medium text-foreground">{entry.modifier.text}</span>
@@ -328,7 +382,9 @@ export function CraftingActionPlanner({
                         {entry.modifier.tier ? `G${entry.modifier.tier}` : "G?"}
                       </span>
                     </div>
-                    <p className="mt-1 font-semibold">{entry.label}</p>
+                    <p className="mt-1 font-semibold">
+                      {entry.protected ? "Intocable para este plan" : entry.label}
+                    </p>
                     <p className="mt-1 leading-relaxed opacity-80">{entry.reason}</p>
                   </article>
                 ))}
@@ -338,7 +394,8 @@ export function CraftingActionPlanner({
               </p>
             </details>
           </section>
-        )}
+          )}
+        </details>
         <div
           className="rounded-sm border-l-2 border-primary bg-primary/[0.06] px-3 py-3"
           data-testid="crafting-route"
@@ -635,7 +692,7 @@ export function CraftingActionPlanner({
                             {
                               desiredOutcome: desiredOutcome.trim(),
                               goalCategory,
-                              protectedModifierIds: [],
+                              protectedModifierIds,
                             },
                           )
                             .then((started) => {
@@ -746,6 +803,10 @@ export function CraftingActionPlanner({
           item={item}
           onStart={onStartEssenceDecision}
           onStarted={onStarted}
+          goalCategory={goalCategory}
+          desiredOutcome={desiredOutcome}
+          protectedModifierIds={protectedModifierIds}
+          onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}
         />
       </div>
       <div
@@ -759,6 +820,10 @@ export function CraftingActionPlanner({
           item={item}
           onStart={onStartAlloyDecision}
           onStarted={onStarted}
+          goalCategory={goalCategory}
+          desiredOutcome={desiredOutcome}
+          protectedModifierIds={protectedModifierIds}
+          onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}
         />
       </div>
     </div>
@@ -769,15 +834,24 @@ interface EssencePlannerProps {
   item: Item;
   onStart?: StartEssenceDecision;
   onStarted?: () => void;
+  goalCategory: CraftingGoalCategory;
+  desiredOutcome: string;
+  protectedModifierIds: string[];
+  onEditIntention: () => void;
 }
 
-function EssencePlanner({ item, onStart, onStarted }: EssencePlannerProps) {
+function EssencePlanner({
+  item,
+  onStart,
+  onStarted,
+  goalCategory,
+  desiredOutcome,
+  protectedModifierIds,
+  onEditIntention,
+}: EssencePlannerProps) {
   const [tier, setTier] = useState<EssenceTier>(item.rarity === "magic" ? "normal" : "perfect");
   const [essenceName, setEssenceName] = useState("");
   const [guaranteedModifierText, setGuaranteedModifierText] = useState("");
-  const [desiredOutcome, setDesiredOutcome] = useState("");
-  const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
-  const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
   const [snapshotConfirmed, setSnapshotConfirmed] = useState(false);
   const [tooltipConfirmed, setTooltipConfirmed] = useState(false);
   const [randomRemovalConfirmed, setRandomRemovalConfirmed] = useState(false);
@@ -873,14 +947,17 @@ function EssencePlanner({ item, onStart, onStarted }: EssencePlannerProps) {
         />
       </div>
 
-      {evaluation.randomRemoval && (
-        <CraftingProtectionPicker
-          item={item}
-          value={protectedModifierIds}
-          onChange={setProtectedModifierIds}
-          idPrefix={`essence-protected-${item.id}`}
-        />
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/[0.04] px-3 py-2 text-xs">
+        <span className="text-muted-foreground">
+          Plan: <strong className="text-foreground">{CRAFTING_GOAL_LABELS[goalCategory]}</strong>
+          {protectedModifierIds.length > 0
+            ? ` · ${protectedModifierIds.length} intocable${protectedModifierIds.length === 1 ? "" : "s"}`
+            : " · nada marcado como intocable"}
+        </span>
+        <Button type="button" variant="ghost" size="sm" onClick={onEditIntention}>
+          Editar intención
+        </Button>
+      </div>
 
       {evaluation.randomRemoval && protectedModifierIds.length > 0 && (
         <div
@@ -916,16 +993,6 @@ function EssencePlanner({ item, onStart, onStarted }: EssencePlannerProps) {
         )}
       </div>
 
-      <CraftingGoalPicker
-        category={goalCategory}
-        onCategoryChange={setGoalCategory}
-        outcome={desiredOutcome}
-        onOutcomeChange={setDesiredOutcome}
-        idPrefix={`essence-goal-${item.id}`}
-        label="¿Qué quieres conseguir con este paso?"
-        placeholder="Ej.: añadir el mod garantizado sin perder mi prefijo principal"
-      />
-
       <div className="space-y-2 text-xs text-muted-foreground">
         <label className="flex items-start gap-2">
           <input type="checkbox" checked={snapshotConfirmed} onChange={(event) => setSnapshotConfirmed(event.target.checked)} className="mt-0.5" />
@@ -958,7 +1025,7 @@ function EssencePlanner({ item, onStart, onStarted }: EssencePlannerProps) {
             void onStart(item, plan, evaluation, {
               desiredOutcome: desiredOutcome.trim(),
               goalCategory,
-              protectedModifierIds: evaluation.randomRemoval ? protectedModifierIds : [],
+              protectedModifierIds,
             })
               .then((started) => {
                 if (started) onStarted?.();

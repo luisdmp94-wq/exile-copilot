@@ -79,4 +79,18 @@ describe("lectura observable de afijos", () => {
     expect(result.alignedCount).toBe(0);
     expect(result.entries.every((entry) => entry.kind !== "goal-aligned")).toBe(true);
   });
+
+  it("mantiene visibles las restricciones elegidas aunque no coincidan con el objetivo principal", () => {
+    const result = assessCraftingAffixes(bow, "damage", ["speed", "skills"]);
+
+    expect(result.protectedCount).toBe(2);
+    expect(
+      result.entries
+        .filter((entry) => entry.protected)
+        .map((entry) => entry.modifier.id),
+    ).toEqual(["speed", "skills"]);
+    expect(result.entries.find((entry) => entry.modifier.id === "speed")?.kind).toBe(
+      "review-fit",
+    );
+  });
 });

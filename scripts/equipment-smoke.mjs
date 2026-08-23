@@ -276,7 +276,7 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
         .getByRole("button", { name: "Preparar Orbe exaltado" }),
     );
     const preflight = workspace.getByTestId("crafting-preflight-exalted");
-    const outcome = workspace.getByLabel("¿Qué quieres conseguir?");
+    const outcome = workspace.getByLabel("Cuéntame el matiz");
     const expectedOutcome = "Añadir un modificador útil sin perder el objeto pegado";
     await outcome.fill(expectedOutcome);
     await checkBox(preflight.getByLabel(/El objeto sigue igual/));
@@ -806,6 +806,23 @@ async function runFlow(mode, port) {
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
 
+    // Una sola intención acompaña a todas las herramientas del banco.
+    const intencionCrafting = craftingWorkspace.getByTestId("crafting-intention");
+    await intencionCrafting.getByRole("radio", { name: "Daño", exact: true }).click();
+    await intencionCrafting
+      .getByLabel("Cuéntame el matiz")
+      .fill("Más daño sin perder velocidad ni +niveles");
+    await intencionCrafting
+      .getByTestId("crafting-protection-picker")
+      .getByRole("checkbox")
+      .first()
+      .check();
+    check(
+      `[${mode}] la intención combina objetivo y restricciones elegidas por clic`,
+      (await intencionCrafting.innerText()).includes("Daño · 1 intocable") &&
+        (await intencionCrafting.innerText()).includes("intocable"),
+    );
+
     // --- Essences P1: contrato real, riesgo y preflight -------------------
     await craftingWorkspace.getByTestId("crafting-tool-essence").click();
     const essences = craftingWorkspace.getByTestId("crafting-essences");
@@ -819,14 +836,6 @@ async function runFlow(mode, port) {
     await essences
       .getByLabel("Efecto garantizado exacto del tooltip")
       .fill("Efecto exacto copiado del tooltip de prueba");
-    await essences
-      .getByLabel("¿Qué quieres conseguir con este paso?")
-      .fill("Añadir el efecto garantizado sin perder mi prefijo principal");
-    await essences
-      .getByTestId("crafting-protection-picker")
-      .getByRole("checkbox")
-      .first()
-      .check();
     const crearEssence = essences.getByRole("button", {
       name: "Crear comprobación de Essence",
     });
@@ -834,7 +843,8 @@ async function runFlow(mode, port) {
       `[${mode}] una Essence Perfecta advierte del reemplazo aleatorio`,
       (await essences.innerText()).includes("reemplazando 1 modificador al azar") &&
         (await essences.innerText()).includes("cualquiera de los explícitos actuales está en riesgo") &&
-        (await essences.locator('[data-protection-risk="possible"]').isVisible()),
+        (await essences.locator('[data-protection-risk="possible"]').isVisible()) &&
+        (await essences.innerText()).includes("Plan: Daño · 1 intocable"),
     );
     check(
       `[${mode}] la Essence sigue bloqueada antes de confirmar sus evidencias`,
@@ -868,20 +878,13 @@ async function runFlow(mode, port) {
     await alloys
       .getByLabel("Modificador fabricado garantizado")
       .fill("Modificador fabricado exacto del tooltip");
-    await alloys
-      .getByLabel("¿Qué resultado buscas comprobar?")
-      .fill("Conservar mi prefijo principal y comprobar el fabricado");
-    await alloys
-      .getByTestId("crafting-protection-picker")
-      .getByRole("checkbox")
-      .first()
-      .check();
     const crearAlloy = alloys.getByRole("button", {
       name: "Crear comprobación de Alloy",
     });
     check(
       `[${mode}] el Alloy permanece bloqueado antes del consentimiento irreversible`,
-      await crearAlloy.isDisabled(),
+      (await crearAlloy.isDisabled()) &&
+        (await alloys.innerText()).includes("Plan: Daño · 1 intocable"),
     );
     await alloys.getByLabel(/tooltip del Alloy nombra la clase/).check();
     await alloys.getByLabel(/objeto sigue igual que el snapshot/).check();
@@ -926,11 +929,12 @@ async function runFlow(mode, port) {
       `[${mode}] la variante superior se elige explícitamente`,
       await preflight.getByRole("radio", { name: /^Superior/ }).isChecked(),
     );
-    await craftingWorkspace
-      .getByLabel("¿Qué quieres conseguir?")
-      .fill("Añadir un modificador útil sin alterar los actuales");
-    await craftingWorkspace.getByLabel("Tipo de mejora que buscas").first().selectOption("damage");
     const lecturaAfijos = craftingWorkspace.getByTestId("crafting-affix-assessment");
+    await craftingWorkspace
+      .getByTestId("crafting-reading-details")
+      .locator("summary")
+      .first()
+      .click();
     const textoLecturaAfijos = await lecturaAfijos.innerText();
     check(
       `[${mode}] la lectura separa el núcleo de daño de las etiquetas genéricas de ataque`,
@@ -1125,7 +1129,8 @@ async function runFlow(mode, port) {
     // Una vez cerrado el caso básico, la Essence preparada puede abrir su
     // propia sesión y conserva explícitamente la semántica de reemplazo.
     await craftingWorkspace.getByTestId("crafting-tool-essence").click();
-    await essences
+    await craftingWorkspace
+      .getByTestId("crafting-intention")
       .getByTestId("crafting-protection-picker")
       .getByRole("checkbox")
       .first()

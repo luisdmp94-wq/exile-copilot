@@ -31,22 +31,35 @@ export function CraftingGoalPicker({
   placeholder,
 }: CraftingGoalPickerProps) {
   return (
-    <div className="grid gap-3 sm:grid-cols-[minmax(11rem,0.42fr)_minmax(0,1fr)]">
-      <div className="space-y-1">
-        <label htmlFor={`${idPrefix}-category`} className="text-xs font-medium text-foreground">
-          Tipo de mejora que buscas
-        </label>
-        <select
-          id={`${idPrefix}-category`}
-          value={category}
-          onChange={(event) => onCategoryChange(event.target.value as CraftingGoalCategory)}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+    <div className="space-y-3">
+      <fieldset className="space-y-2">
+        <legend className="text-xs font-medium text-foreground">¿Qué quieres mejorar primero?</legend>
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          role="radiogroup"
+          aria-label="Tipo de mejora que buscas"
         >
-          {GOAL_OPTIONS.map(([value, optionLabel]) => (
-            <option key={value} value={value}>{optionLabel}</option>
-          ))}
-        </select>
-      </div>
+          {GOAL_OPTIONS.map(([value, optionLabel]) => {
+            const selected = category === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`rounded-md border px-3 py-2 text-left text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  selected
+                    ? "border-primary/70 bg-primary/[0.12] text-primary shadow-[0_0_18px_-14px_hsl(var(--primary))]"
+                    : "border-border/70 bg-background/25 text-muted-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground"
+                }`}
+                onClick={() => onCategoryChange(value)}
+              >
+                {optionLabel}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
       <div className="space-y-1">
         <label htmlFor={`${idPrefix}-outcome`} className="text-xs font-medium text-foreground">
           {label}
@@ -56,9 +69,12 @@ export function CraftingGoalPicker({
           value={outcome}
           onChange={(event) => onOutcomeChange(event.target.value)}
           maxLength={300}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:border-primary/60"
           placeholder={placeholder}
         />
+        <p className="text-[11px] text-muted-foreground">
+          Ejemplo: “más daño sin perder velocidad ni +niveles”.
+        </p>
       </div>
     </div>
   );
