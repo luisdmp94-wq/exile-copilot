@@ -31,6 +31,7 @@ import {
   type ImportItemTextRequest,
   type ImportItemTextResponse,
   type CreateJournalEntryRequest,
+  type AbandonSessionRequest,
   type JournalEntryResponse,
   type BuildMemoryEntryResponse,
   type CraftingKnowledgeResponse,
@@ -256,6 +257,16 @@ export const api = {
   ): Promise<JournalResponse> =>
     request(
       `/api/journal/${encodeURIComponent(characterId)}/session/pause`,
+      JournalResponseSchema,
+      jsonInit(payload),
+    ),
+
+  abandonSession: (
+    characterId: string,
+    payload: AbandonSessionRequest,
+  ): Promise<JournalResponse> =>
+    request(
+      `/api/journal/${encodeURIComponent(characterId)}/session/abandon`,
       JournalResponseSchema,
       jsonInit(payload),
     ),

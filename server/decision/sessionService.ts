@@ -32,6 +32,7 @@ import {
   sessionFingerprintHash,
   sessionGateViewFromSession,
   sessionIsOpen,
+  sessionOccupiesActiveSlot,
   type DecisionConclusionKind,
   type DecisionOutcome,
   type DecisionSession,
@@ -131,6 +132,27 @@ export function readJournalBundle(
     sessionRow && sessionRow.character_id === characterId
       ? parseSession(sessionRow.payload)
       : null;
+  // Compatibilidad con datos anteriores: algunas pausas quedaron guardadas en
+  // el puntero activo. Se muestran como aparcadas, nunca como dueñas del banco.
+  if (session?.status === "paused") {
+    session = null;
+  }
+  const pausedSessions = listDecisionSessions(
+    db,
+    characterId,
+    MAX_SESSIONS_PER_CHARACTER,
+  )
+    .map((row) => parseSession(row.payload))
+    .filter((candidate) => candidate.status === "paused")
+    .map((candidate) =>
+      profile === null
+        ? candidate
+        : {
+            ...candidate,
+            needsReconciliation:
+              characterSessionFingerprint(profile) !== candidate.characterFingerprint,
+          },
+    );
   if (session && profile !== null) {
     const fingerprint = characterSessionFingerprint(profile);
     session = {
@@ -146,6 +168,7 @@ export function readJournalBundle(
   const journal: JournalResponse = {
     ...journalBase,
     session,
+    pausedSessions,
     sessionEvents: events,
   };
   return {
@@ -618,7 +641,7 @@ export function startDecisionSession(
     const profile = loadAuthoritativeProfile(db, characterId);
     assertRevision(db, characterId, input.journalRevision, profile);
     const existingOpen = listDecisionSessions(db, characterId, MAX_SESSIONS_PER_CHARACTER).filter(
-      (row) => sessionIsOpen(parseSession(row.payload).status),
+      (row) => sessionOccupiesActiveSlot(parseSession(row.payload).status),
     );
     if (existingOpen.length > 0) {
       throw new ApiHttpError(
@@ -711,7 +734,7 @@ export function startDecisionSession(
     }
 
     const action = session.activeAction;
-    if (action) {
+    if (action && session.status !== "paused") {
       const entry = createJournalAction(
         characterId,
         profile,
@@ -725,12 +748,16 @@ export function startDecisionSession(
       session = {
         ...session,
         activeAction: { ...action, journalEntryId: entry.id },
-        status: session.status === "paused" ? "paused" : entry.status === "waiting_result" ? "waiting_result" : "active",
+        status: entry.status === "waiting_result" ? "waiting_result" : "active",
       };
     }
 
     persistSession(db, session);
-    setActiveSessionId(db, characterId, session.id);
+    setActiveSessionId(
+      db,
+      characterId,
+      sessionOccupiesActiveSlot(session.status) ? session.id : null,
+    );
     // La retención se aplica en la misma transacción: nunca más de
     // MAX_SESSIONS_PER_CHARACTER y solo sobre sesiones ya cerradas.
     enforceSessionRetention(db, characterId);
@@ -1365,7 +1392,7 @@ export function pauseSession(
     assertCompatible(current, profile);
     const from = current.status;
     const now = new Date().toISOString();
-    const session = {
+    let session = {
       ...moveStatus(current, "paused"),
       conclusion: {
         kind: "pause" as const,
@@ -1374,7 +1401,17 @@ export function pauseSession(
         recordedAt: now,
       },
     };
+    // La pausa conserva el experimento, pero deja de mantener una próxima
+    // acción viva en el diario y libera inmediatamente la plaza activa.
+    closePreviousPrimary(db, characterId, now);
+    if (session.activeAction !== null) {
+      session = {
+        ...session,
+        activeAction: { ...session.activeAction, journalEntryId: null },
+      };
+    }
     persistSession(db, session);
+    setActiveSessionId(db, characterId, null);
     appendEvent(db, session, {
       idempotencyKey: input.idempotencyKey,
       operation: ctx.operation,
@@ -1389,12 +1426,71 @@ export function pauseSession(
   );
 }
 
+/**
+ * Cierra voluntariamente una comprobación sin afirmar que su hipótesis quedó
+ * demostrada. El historial se conserva; únicamente se libera la plaza activa.
+ */
+export function abandonSession(
+  db: Database,
+  characterId: string,
+  input: {
+    journalRevision: string;
+    idempotencyKey: string;
+    reason: string;
+    profile: CharacterProfile;
+  },
+): JournalBundle {
+  return runIdempotent(
+    db,
+    input.idempotencyKey,
+    characterId,
+    "abandon",
+    requestFingerprint(input),
+    (ctx) => {
+      const profile = loadAuthoritativeProfile(db, characterId);
+      const bundle = assertRevision(db, characterId, input.journalRevision, profile);
+      const current = requireMutableSession(bundle, profile);
+      assertCompatible(current, profile);
+      const from = current.status;
+      const now = new Date().toISOString();
+      closePreviousPrimary(db, characterId, now);
+      const session = {
+        ...moveStatus(current, "discarded"),
+        activeAction:
+          current.activeAction === null
+            ? null
+            : { ...current.activeAction, journalEntryId: null },
+        conclusion: {
+          kind: "discard" as const,
+          reason: input.reason,
+          reopenWhen: null,
+          recordedAt: now,
+        },
+      };
+      persistSession(db, session);
+      setActiveSessionId(db, characterId, session.id);
+      enforceSessionRetention(db, characterId);
+      appendEvent(db, session, {
+        idempotencyKey: input.idempotencyKey,
+        operation: ctx.operation,
+        requestFingerprint: ctx.fingerprint,
+        fromStatus: from,
+        toStatus: "discarded",
+        trigger: "discarded",
+        summary: input.reason,
+      });
+      return readJournalBundle(db, characterId, profile);
+    },
+  );
+}
+
 export function reopenSession(
   db: Database,
   characterId: string,
   input: {
     journalRevision: string;
     idempotencyKey: string;
+    sessionId: string;
     note: string;
     profile: CharacterProfile;
   },
@@ -1409,17 +1505,27 @@ export function reopenSession(
     // El perfil AUTORITATIVO es el guardado en SQLite, leído dentro de esta
     // transacción. El `profile` del cliente no decide nada.
     const profile = loadAuthoritativeProfile(db, characterId);
-    const bundle = assertRevision(db, characterId, input.journalRevision, profile);
-    const listed = listDecisionSessions(db, characterId, MAX_SESSIONS_PER_CHARACTER);
+    assertRevision(db, characterId, input.journalRevision, profile);
+    const occupied = listDecisionSessions(db, characterId, MAX_SESSIONS_PER_CHARACTER)
+      .map((row) => parseSession(row.payload))
+      .find((candidate) => sessionOccupiesActiveSlot(candidate.status));
+    if (occupied !== undefined && occupied.id !== input.sessionId) {
+      throw new ApiHttpError(
+        400,
+        "sesion-ya-activa",
+        "Ya hay otra decisión ocupando el banco. Paúsala o ciérrala antes de reanudar ésta.",
+      );
+    }
+    const row = getDecisionSession(db, input.sessionId);
     const current =
-      bundle.journal.session ??
-      (listed[0] ? parseSession(listed[0].payload) : null);
+      row !== null && row.character_id === characterId ? parseSession(row.payload) : null;
     if (current === null) {
       throw new ApiHttpError(404, "sesion-no-encontrada", "No hay una decisión que reabrir.");
     }
     assertCompatible(current, profile);
     const from = current.status;
     const now = new Date().toISOString();
+    closePreviousPrimary(db, characterId, now);
     let session = moveStatus(current, "reopening");
     session = {
       ...session,
@@ -1430,6 +1536,22 @@ export function reopenSession(
         recordedAt: now,
       },
     };
+    if (session.activeAction !== null) {
+      const entry = createJournalAction(
+        characterId,
+        profile,
+        session,
+        { ...session.activeAction, journalEntryId: null },
+        null,
+        session.kind === "skill_experiment" ? "experiment" : "decision",
+      );
+      persistEntry(db, entry);
+      setJournalPrimaryEntryId(db, characterId, entry.id);
+      session = {
+        ...session,
+        activeAction: { ...session.activeAction, journalEntryId: entry.id },
+      };
+    }
     persistSession(db, session);
     setActiveSessionId(db, characterId, session.id);
     appendEvent(db, session, {

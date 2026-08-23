@@ -355,6 +355,7 @@ describe("api (integración, app Express con db :memory:)", () => {
       entries: [],
       buildMemory: [],
       session: null,
+      pausedSessions: [],
       sessionEvents: [],
     });
 

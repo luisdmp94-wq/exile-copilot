@@ -307,14 +307,28 @@ async function runFlow(mode, port) {
     );
 
     await page.getByRole("button", { name: "Pausar" }).click();
-    await page.getByText("En pausa", { exact: true }).waitFor({ timeout: 10_000 });
-    check(`[${mode}] pausar conserva el recurso, no es un fracaso`, true);
+    const pausadas = page.getByTestId("decision-paused-sessions");
+    await pausadas.waitFor({ timeout: 10_000 });
+    check(
+      `[${mode}] pausar conserva el caso y libera la plaza activa`,
+      (await pausadas.innerText()).includes("1 comprobación guardada") &&
+        (await page.getByTestId("decision-form-inicio").isVisible()),
+    );
 
     // --- Selector visible de incógnita tras RECARGAR -----------------------
     // Antes dependía de un estado local del formulario de inicio: al recargar
     // se perdía y no había forma de indicar qué dato resolvía la evidencia.
     await page.reload({ waitUntil: "networkidle" });
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
+    await verSesion();
+    const pausadasTrasRecarga = page.getByTestId("decision-paused-sessions");
+    await pausadasTrasRecarga.waitFor({ timeout: 10_000 });
+    check(
+      `[${mode}] la pausa sobrevive a la recarga y se puede reanudar`,
+      await pausadasTrasRecarga.getByRole("button", { name: "Reanudar" }).isVisible(),
+    );
+    await pausadasTrasRecarga.getByRole("button", { name: "Reanudar" }).click();
+    await page.getByText("Candidata a revisar", { exact: true }).waitFor({ timeout: 10_000 });
     await abrirAvanzado();
     const selectorTrasRecarga = page.getByTestId("decision-selector-incognita");
     const haySelector = await selectorTrasRecarga.count();

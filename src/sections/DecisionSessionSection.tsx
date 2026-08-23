@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ClipboardCheck,
   CirclePause,
+  CircleX,
   FlaskConical,
   Loader2,
   RotateCcw,
@@ -88,6 +89,7 @@ export function DecisionSessionSection({
   onApplyCraftingResult,
 }: DecisionSessionSectionProps) {
   const session = journal.journal?.session ?? null;
+  const pausedSessions = journal.journal?.pausedSessions ?? [];
   const events = journal.journal?.sessionEvents ?? [];
   const revision = journal.journal
     ? buildRecommendationMemory(journal.journal, journal.journal.session).revision
@@ -256,6 +258,19 @@ export function DecisionSessionSection({
     if (next) onMentorEvent?.({ type: "paused", title: session.objective });
   };
 
+  const abandonCurrentSession = async () => {
+    if (!session || !revision) return;
+    const next = await journal.abandonSession({
+      ...guard,
+      journalRevision: revision,
+      idempotencyKey: newKey(),
+      reason: session.craftingExperiment
+        ? "Craft cerrado sin aplicar un resultado al expediente."
+        : "Comprobación cerrada por decisión del jugador.",
+    });
+    if (next) onMentorEvent?.({ type: "result", title: session.objective });
+  };
+
   const comparePastedCrafting = async () => {
     const experiment = session?.craftingExperiment ?? null;
     if (!experiment || craftingResultText.trim() === "") return;
@@ -409,6 +424,68 @@ export function DecisionSessionSection({
               Revisa el estado actual antes de seguir.
             </AlertDescription>
           </Alert>
+        )}
+
+        {pausedSessions.length > 0 && (
+          <section
+            className="rounded-md border border-amber-500/30 bg-amber-500/[0.05] p-3"
+            data-testid="decision-paused-sessions"
+            aria-labelledby={`${instanceId}-paused-title`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                  Aparcadas
+                </p>
+                <h3 id={`${instanceId}-paused-title`} className="font-semibold">
+                  {pausedSessions.length === 1
+                    ? "1 comprobación guardada"
+                    : `${pausedSessions.length} comprobaciones guardadas`}
+                </h3>
+              </div>
+              {session !== null && (
+                <span className="text-xs text-muted-foreground">Cierra o pausa la actual para reanudar otra.</span>
+              )}
+            </div>
+            <ul className="mt-3 grid gap-2">
+              {pausedSessions.map((paused) => (
+                <li
+                  key={paused.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded border border-border/70 bg-background/40 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{paused.objective}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {paused.craftingExperiment
+                        ? `${paused.craftingExperiment.originalItem.name} · ${paused.craftingExperiment.actionLabel}`
+                        : paused.conclusion?.reason ?? "Guardada para continuar después."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    data-testid={`decision-resume-${paused.id}`}
+                    disabled={journal.saving || journal.stale || !revision || session !== null}
+                    onClick={() => {
+                      void journal.reopenSession({
+                        ...guard,
+                        journalRevision: revision!,
+                        idempotencyKey: newKey(),
+                        sessionId: paused.id,
+                        note: "Reanudamos esta comprobación pausada.",
+                      }).then((next) => {
+                        if (next) onMentorEvent?.({ type: "reopened", title: paused.objective });
+                      });
+                    }}
+                  >
+                    <RotateCcw className="size-4" aria-hidden="true" />
+                    Reanudar
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {showStartForm && (
@@ -886,24 +963,36 @@ export function DecisionSessionSection({
                           </div>
                         )}
                         <p className="text-sm font-medium">
-                          ¿El cambio resultante sirve para «{session.craftingExperiment.desiredOutcome}»?
+                          {craftingNextDecision
+                            ? "Cierra este paso con la decisión delante"
+                            : `¿El cambio resultante sirve para «${session.craftingExperiment.desiredOutcome}»?`}
                         </p>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
-                            onClick={() => void finishCraftingResult(true)}
+                            onClick={() =>
+                              void finishCraftingResult(craftingNextDecision?.kind !== "restart")
+                            }
                             disabled={savingCrafting || journal.saving}
                           >
-                            Sí, me sirve
+                            {craftingNextDecision?.kind === "continue"
+                              ? "Guardar y preparar el siguiente paso"
+                              : craftingNextDecision?.kind === "restart"
+                                ? "Guardar y replantear"
+                                : craftingNextDecision
+                                  ? "Guardar y parar"
+                                  : "Sí, me sirve"}
                           </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void finishCraftingResult(false)}
-                            disabled={savingCrafting || journal.saving}
-                          >
-                            No era lo que buscaba
-                          </Button>
+                          {!craftingNextDecision && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => void finishCraftingResult(false)}
+                              disabled={savingCrafting || journal.saving}
+                            >
+                              No era lo que buscaba
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
@@ -911,6 +1000,15 @@ export function DecisionSessionSection({
                             disabled={savingCrafting || journal.saving}
                           >
                             Parar por ahora
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => void abandonCurrentSession()}
+                            disabled={savingCrafting || journal.saving}
+                          >
+                            <CircleX className="size-4" aria-hidden="true" />
+                            Cerrar sin aplicar
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -921,16 +1019,28 @@ export function DecisionSessionSection({
                   </div>
                 )}
                 {craftingComparison?.status !== "confirmed" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void pauseCurrentSession()}
-                    disabled={journal.saving || journal.stale || !revision}
-                  >
-                    <CirclePause className="size-4" aria-hidden="true" />
-                    Parar por ahora
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void pauseCurrentSession()}
+                      disabled={journal.saving || journal.stale || !revision}
+                    >
+                      <CirclePause className="size-4" aria-hidden="true" />
+                      Parar por ahora
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void abandonCurrentSession()}
+                      disabled={journal.saving || journal.stale || !revision}
+                    >
+                      <CircleX className="size-4" aria-hidden="true" />
+                      Cerrar comprobación
+                    </Button>
+                  </div>
                 )}
               </section>
             )}
@@ -1326,6 +1436,7 @@ export function DecisionSessionSection({
                     ...guard,
                     journalRevision: revision!,
                     idempotencyKey: newKey(),
+                    sessionId: session.id,
                     note: "Reabrimos como candidata.",
                   }).then((next) => {
                     if (next) onMentorEvent?.({ type: "reopened", title: session.objective });

@@ -822,6 +822,12 @@ async function runFlow(mode, port) {
       await intencionCrafting.evaluate((element) => document.activeElement === element),
     );
     await intencionCrafting.getByRole("radio", { name: "Daño", exact: true }).click();
+    const veredictoBase = intencionCrafting.getByTestId("crafting-base-verdict");
+    check(
+      `[${mode}] antes de elegir moneda el mentor decide si la base merece una prueba`,
+      (await veredictoBase.getAttribute("data-base-verdict")) === "positive" &&
+        (await veredictoBase.innerText()).includes("merece una prueba controlada"),
+    );
     const criterioParada = intencionCrafting.getByTestId("crafting-success-criteria");
     check(
       `[${mode}] elegir una categoría basta como objetivo y ofrece una parada concreta`,
@@ -1072,9 +1078,9 @@ async function runFlow(mode, port) {
       fullPage: true,
     });
     check(
-      `[${mode}] la app pregunta al jugador si el resultado le sirve`,
-      textoComparacion.includes("¿El cambio resultante sirve para") &&
-        (await comprobadorResultado.getByRole("button", { name: "Sí, me sirve" }).isVisible()) &&
+      `[${mode}] la decisión recomendada gobierna el cierre del paso`,
+      textoComparacion.includes("Cierra este paso con la decisión delante") &&
+        (await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).isVisible()) &&
         (await comprobadorResultado.getByRole("button", { name: "Parar por ahora" }).isVisible()) &&
         !textoComparacion.includes("Objeto después de usar la moneda"),
     );
@@ -1088,7 +1094,7 @@ async function runFlow(mode, port) {
       }
       await route.continue();
     });
-    await comprobadorResultado.getByRole("button", { name: "Sí, me sirve" }).click();
+    await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).click();
     await comprobadorResultado.getByText(/La sesión sigue abierta/).waitFor({ timeout: 20000 });
     const journalTrasFallo = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
     check(
@@ -1100,7 +1106,7 @@ async function runFlow(mode, port) {
         ),
     );
     await page.unroute("**/api/character");
-    await comprobadorResultado.getByRole("button", { name: "Sí, me sirve" }).click();
+    await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).click();
     let cierrePersistido = false;
     for (let intento = 0; intento < 80; intento += 1) {
       const [characterResponse, journalResponse] = await Promise.all([
@@ -1200,6 +1206,40 @@ async function runFlow(mode, port) {
       journalEssence.session?.craftingExperiment?.expectedRemovedModifierCount === 1 &&
         journalEssence.session?.craftingExperiment?.resultRarity === "rare" &&
         journalEssence.session?.craftingExperiment?.protectedModifierIds?.length === 1,
+    );
+
+    // Pausar deja el craft guardado, libera el banco y permite preparar otra
+    // herramienta. Después se reanuda por el id exacto, no por «la última».
+    const essenceSessionId = journalEssence.session?.id;
+    await casoEssence.getByRole("button", { name: "Parar por ahora" }).click();
+    const pausadas = craftingWorkspace.getByTestId("crafting-paused-sessions");
+    await pausadas.waitFor({ timeout: 20000 });
+    check(
+      `[${mode}] pausar Essence libera el banco sin perder la sesión`,
+      Boolean(essenceSessionId) &&
+        (await craftingWorkspace.locator('[aria-labelledby="crafting-items-title"]').isVisible()) &&
+        (await pausadas.innerText()).includes("Essence observada de prueba"),
+    );
+
+    await craftingWorkspace.getByTestId("crafting-tool-alloy").click();
+    await crearAlloy.click();
+    const casoAlloy = craftingWorkspace.getByTestId("crafting-result-check");
+    await casoAlloy.waitFor({ timeout: 20000 });
+    const journalAlloy = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
+    check(
+      `[${mode}] un Alloy puede empezar mientras la Essence sigue pausada`,
+      journalAlloy.session?.craftingExperiment?.actionId === "alloy" &&
+        journalAlloy.pausedSessions?.some((entry) => entry.id === essenceSessionId),
+    );
+    await casoAlloy.getByRole("button", { name: "Parar por ahora" }).click();
+    const resumeEssence = craftingWorkspace.getByTestId(`crafting-resume-${essenceSessionId}`);
+    await resumeEssence.click();
+    await craftingWorkspace.getByTestId("crafting-result-check").waitFor({ timeout: 20000 });
+    const journalResumed = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
+    check(
+      `[${mode}] reanudar recupera exactamente la Essence elegida`,
+      journalResumed.session?.id === essenceSessionId &&
+        journalResumed.session?.craftingExperiment?.actionId === "essence",
     );
 
     // --- Recursos externos y consola --------------------------------------

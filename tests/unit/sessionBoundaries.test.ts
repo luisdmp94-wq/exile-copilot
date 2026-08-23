@@ -162,7 +162,8 @@ describe("frontera del historial de eventos", () => {
       reason: "Cerrar de forma segura con el historial lleno.",
       profile,
     });
-    expect(paused.journal.session?.status).toBe("paused");
+    expect(paused.journal.session).toBeNull();
+    expect(paused.journal.pausedSessions[0]?.status).toBe("paused");
   });
 });
 

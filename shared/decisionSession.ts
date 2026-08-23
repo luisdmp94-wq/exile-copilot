@@ -418,8 +418,24 @@ const OPEN_STATUSES: ReadonlySet<DecisionSessionStatus> = new Set([
   "reopening",
 ]);
 
+/**
+ * Estados que ocupan la única plaza de trabajo inmediata del personaje.
+ *
+ * Una sesión pausada sigue abierta (se conserva y puede reanudarse), pero no
+ * puede bloquear el banco ni impedir que el jugador empiece otra comprobación.
+ */
+const ACTIVE_SLOT_STATUSES: ReadonlySet<DecisionSessionStatus> = new Set([
+  "active",
+  "waiting_result",
+  "reopening",
+]);
+
 export function sessionIsOpen(status: string): boolean {
   return OPEN_STATUSES.has(status as DecisionSessionStatus);
+}
+
+export function sessionOccupiesActiveSlot(status: string): boolean {
+  return ACTIVE_SLOT_STATUSES.has(status as DecisionSessionStatus);
 }
 
 export function canTransition(

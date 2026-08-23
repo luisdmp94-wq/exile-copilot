@@ -10,6 +10,7 @@ import {
   recommendationConflictsConstraint,
   sessionFingerprintHash,
   sessionIsOpen,
+  sessionOccupiesActiveSlot,
   sessionMemoryDigest,
 } from "../../shared/decisionSession.js";
 import { CharacterProfileSchema } from "../../shared/domain.js";
@@ -116,6 +117,11 @@ describe("transiciones de sesión", () => {
     expect(sessionIsOpen("paused")).toBe(true);
     expect(sessionIsOpen("completed")).toBe(false);
     expect(sessionIsOpen("discarded")).toBe(false);
+    expect(sessionOccupiesActiveSlot("active")).toBe(true);
+    expect(sessionOccupiesActiveSlot("waiting_result")).toBe(true);
+    expect(sessionOccupiesActiveSlot("reopening")).toBe(true);
+    expect(sessionOccupiesActiveSlot("paused")).toBe(false);
+    expect(sessionOccupiesActiveSlot("completed")).toBe(false);
   });
 });
 

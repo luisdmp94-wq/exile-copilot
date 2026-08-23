@@ -19,7 +19,7 @@ import {
   type EssenceTier,
   type StartEssenceDecision,
 } from "@shared/craftingEssences.js";
-import type { Item } from "@shared/domain.js";
+import type { GoalKind, Item } from "@shared/domain.js";
 import { AlloyPlanner } from "@/components/AlloyPlanner";
 import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
 import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
@@ -121,6 +121,8 @@ const CRAFTING_TOOLS: Array<{
 
 export interface CraftingActionPlannerProps {
   item: Item;
+  /** Objetivo general del expediente; solo se usa como contexto, no como cálculo de build. */
+  profileGoal: GoalKind;
   patch?: string;
   onStartCraftingDecision?: StartCraftingDecision;
   onStartEssenceDecision?: StartEssenceDecision;
@@ -135,6 +137,7 @@ export interface CraftingActionPlannerProps {
 /** Diagnóstico y preflight compartidos por el detalle y la pestaña Crafting. */
 export function CraftingActionPlanner({
   item,
+  profileGoal,
   patch = "",
   onStartCraftingDecision,
   onStartEssenceDecision,
@@ -257,6 +260,62 @@ export function CraftingActionPlanner({
   };
   const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
   const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds);
+  const profileGoalAligned =
+    (profileGoal === "damage" && goalCategory === "damage") ||
+    (profileGoal === "survival" && goalCategory === "defence");
+  const baseVerdict = (() => {
+    if (crafting.state !== "complete") {
+      return {
+        tone: "danger" as const,
+        eyebrow: "Decisión sobre la base",
+        title: "No gastes todavía",
+        detail: crafting.nextAction,
+      };
+    }
+    if (goalCategory === "other") {
+      return {
+        tone: "neutral" as const,
+        eyebrow: "Decisión sobre la base",
+        title: "Primero dime qué quieres conseguir",
+        detail: "Sin un objetivo observable no puedo separar una mejora de un mod que solo ocupa espacio.",
+      };
+    }
+    if (mentorReading.verdict === "protect") {
+      return {
+        tone: "caution" as const,
+        eyebrow: "Decisión sobre la base",
+        title: "No reemplaces nada todavía",
+        detail: mentorReading.verdictDetail,
+      };
+    }
+    if (mentorReading.verdict === "controlled-test") {
+      return {
+        tone: "positive" as const,
+        eyebrow: "Decisión sobre la base",
+        title: "Sí: merece una prueba controlada",
+        detail: `${mentorReading.verdictDetail}${
+          profileGoalAligned ? " Además, este objetivo coincide con el plan general del personaje." : ""
+        }`,
+      };
+    }
+    return {
+      tone: "caution" as const,
+      eyebrow: "Decisión sobre la base",
+      title: item.rarity === "normal" ? "Base aún sin demostrar" : "Base dudosa para este objetivo",
+      detail:
+        item.rarity === "normal"
+          ? "La estructura permite empezar, pero el objeto todavía no muestra afijos que justifiquen una inversión larga."
+          : mentorReading.verdictDetail,
+    };
+  })();
+  const baseVerdictStyle =
+    baseVerdict.tone === "positive"
+      ? "border-emerald-500/45 bg-emerald-500/[0.09] text-emerald-50"
+      : baseVerdict.tone === "danger"
+        ? "border-rose-500/45 bg-rose-500/[0.09] text-rose-50"
+        : baseVerdict.tone === "caution"
+          ? "border-amber-500/45 bg-amber-500/[0.08] text-amber-50"
+          : "border-sky-500/35 bg-sky-500/[0.06] text-sky-50";
   const replacementNeedsConsent =
     route.state === "replacement-tools" && mentorReading.protectCandidates.length > 0;
   const verdictTone =
@@ -385,6 +444,18 @@ export function CraftingActionPlanner({
             value={successCriteria}
             onChange={changeSuccessCriteria}
           />
+          <div
+            className={`rounded-md border p-3 ${baseVerdictStyle}`}
+            data-testid="crafting-base-verdict"
+            data-base-verdict={baseVerdict.tone}
+            aria-live="polite"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">
+              {baseVerdict.eyebrow}
+            </p>
+            <p className="mt-1 text-base font-semibold">{baseVerdict.title}</p>
+            <p className="mt-1 text-xs leading-relaxed opacity-90">{baseVerdict.detail}</p>
+          </div>
         </section>
         <details
           className="group rounded-md border border-border/70 bg-background/25 p-3"

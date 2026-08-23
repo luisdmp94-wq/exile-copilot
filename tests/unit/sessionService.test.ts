@@ -13,6 +13,7 @@ import { saveCharacter } from "../../server/db/repositories.js";
 import {
   addSessionConstraint,
   addSessionEvidence,
+  abandonSession,
   pauseSession,
   readJournalBundle,
   recordSessionResult,
@@ -228,9 +229,10 @@ describe("sessionService — criterios 6B", () => {
       budget: { amount: 10, currency: "exalted" },
       goal: "balanced",
     });
-    expect(paused.journal.session?.status).toBe("paused");
-    expect(paused.journal.session?.conclusion?.kind).toBe("pause");
-    expect(paused.journal.session?.conclusion?.reason).toMatch(/no es un fracaso/i);
+    expect(paused.journal.session).toBeNull();
+    expect(paused.journal.pausedSessions[0]?.status).toBe("paused");
+    expect(paused.journal.pausedSessions[0]?.conclusion?.kind).toBe("pause");
+    expect(paused.journal.pausedSessions[0]?.conclusion?.reason).toMatch(/no es un fracaso/i);
   });
 
   it("6. feedback subjetivo no se trata como medición", () => {
@@ -455,7 +457,119 @@ describe("sessionService — criterios 6B", () => {
       reason: "Pausa para conservar el recurso.",
       profile,
     });
-    expect(paused.journal.session?.status).toBe("paused");
+    expect(paused.journal.session).toBeNull();
+    expect(paused.journal.pausedSessions.map((candidate) => candidate.id)).toContain(
+      first.journal.session?.id,
+    );
+  });
+
+  it("pausar libera la plaza, permite otro craft y reanuda la sesión exacta", () => {
+    const profile = demoProfile();
+    const { db, revision } = emptyRevision(profile);
+    const first = startDecisionSession(db, profile.id, {
+      journalRevision: revision,
+      idempotencyKey: "k-lifecycle-first",
+      kind: "guided_decision",
+      objective: "Craft con Essence",
+      hypothesis: "Comprobar un reemplazo",
+      expectedResult: "Un afijo observado",
+      observationMethod: "Pegar el objeto resultante",
+      unknowns: [],
+      constraints: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      recommendation: null,
+      profile,
+      budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
+    });
+    const firstId = first.journal.session!.id;
+    const parkedFirst = pauseSession(db, profile.id, {
+      journalRevision: first.memoryRevision,
+      idempotencyKey: "k-lifecycle-pause-first",
+      reason: "Guardar para más tarde.",
+      profile,
+    });
+    expect(parkedFirst.journal.session).toBeNull();
+    expect(parkedFirst.journal.primaryEntryId).toBeNull();
+    expect(parkedFirst.journal.pausedSessions.map((entry) => entry.id)).toContain(firstId);
+
+    const second = startDecisionSession(db, profile.id, {
+      journalRevision: parkedFirst.memoryRevision,
+      idempotencyKey: "k-lifecycle-second",
+      kind: "guided_decision",
+      objective: "Craft con Alloy",
+      hypothesis: "Comprobar otra pieza",
+      expectedResult: "Un afijo observado",
+      observationMethod: "Pegar el objeto resultante",
+      unknowns: [],
+      constraints: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      recommendation: null,
+      profile,
+      budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
+    });
+    expect(second.journal.session?.objective).toBe("Craft con Alloy");
+    expect(second.journal.pausedSessions.map((entry) => entry.id)).toContain(firstId);
+    expect(() =>
+      reopenSession(db, profile.id, {
+        journalRevision: second.memoryRevision,
+        idempotencyKey: "k-lifecycle-busy-resume",
+        sessionId: firstId,
+        note: "Intento incorrecto.",
+        profile,
+      }),
+    ).toThrowError(/sesion-ya-activa/);
+
+    const parkedSecond = pauseSession(db, profile.id, {
+      journalRevision: second.memoryRevision,
+      idempotencyKey: "k-lifecycle-pause-second",
+      reason: "Aparcar la segunda.",
+      profile,
+    });
+    const resumed = reopenSession(db, profile.id, {
+      journalRevision: parkedSecond.memoryRevision,
+      idempotencyKey: "k-lifecycle-resume-first",
+      sessionId: firstId,
+      note: "Continuar la primera.",
+      profile,
+    });
+    expect(resumed.journal.session?.id).toBe(firstId);
+    expect(resumed.journal.session?.status).toBe("reopening");
+    expect(resumed.journal.primaryEntryId).toBe(
+      resumed.journal.session?.activeAction?.journalEntryId,
+    );
+
+    const abandoned = abandonSession(db, profile.id, {
+      journalRevision: resumed.memoryRevision,
+      idempotencyKey: "k-lifecycle-abandon",
+      reason: "La base ya no merece otra prueba.",
+      profile,
+    });
+    expect(abandoned.journal.session?.status).toBe("discarded");
+    expect(abandoned.journal.session?.conclusion?.reason).toMatch(/base/);
+    expect(abandoned.journal.primaryEntryId).toBeNull();
+
+    const afterAbandon = startDecisionSession(db, profile.id, {
+      journalRevision: abandoned.memoryRevision,
+      idempotencyKey: "k-lifecycle-after-abandon",
+      kind: "guided_decision",
+      objective: "Nuevo craft tras cerrar",
+      hypothesis: "El banco sigue disponible",
+      expectedResult: "Nueva comprobación",
+      observationMethod: "Observar",
+      unknowns: [],
+      constraints: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      recommendation: null,
+      profile,
+      budget: { amount: 50, currency: "exalted" },
+      goal: "balanced",
+    });
+    expect(afterAbandon.journal.session?.objective).toBe("Nuevo craft tras cerrar");
   });
 
   it("12. transiciones ilegales se rechazan con 400", () => {
@@ -500,6 +614,7 @@ describe("sessionService — criterios 6B", () => {
     const candidate = reopenSession(db, profile.id, {
       journalRevision: completed.memoryRevision,
       idempotencyKey: "k-reopen",
+      sessionId: completed.journal.session!.id,
       note: "Volvemos a mirarla.",
       profile,
     });

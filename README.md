@@ -73,6 +73,11 @@ varias, muestra la decisión sin fingir un ranking; y si el raro está lleno
 lleva a las rutas de reemplazo de Essence o Alloy. Un objeto normal bien
 identificado entra correctamente por Transmutación.
 
+Antes de elegir una moneda, una conclusión destacada responde a la pregunta
+práctica: si esa base merece una prueba controlada, si falta definir el objetivo
+o si no conviene reemplazar todavía. Se apoya solo en la pieza observada, las
+protecciones y la intención declarada; no estima valor, DPS ni probabilidades.
+
 La intención se define una sola vez por pieza. El jugador elige con botones el
 objetivo principal y puede añadir un matiz libre —por ejemplo, «más daño sin perder
 velocidad ni +niveles»— y marca directamente sobre los afijos qué líneas deben
@@ -164,6 +169,12 @@ preparar el craft y la sesión continúa en el mismo clic: no se abre el formula
 completo ni hay que repetir la acción. Durante la sesión, el planificador queda
 oculto y la interfaz muestra únicamente tres etapas: antes de gastar, pegar el
 resultado y decidir.
+
+Una sesión pausada queda guardada sin ocupar el banco. Crafting muestra todos
+los casos pausados, permite reanudar exactamente el elegido y deja empezar otra
+prueba mientras tanto. Un caso abierto también puede cerrarse sin aplicar la
+moneda; se conserva como historial descartado y no se presenta como craft
+ejecutado.
 
 Antes de ofrecer una herramienta de reemplazo sobre una pieza llena, el banco
 obliga a reconocer el riesgo para los afijos de grado alto que ya existen. Tras

@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 34,
+> Informe para el propietario. Última actualización: sesión 37,
 > 2026-08-23.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,31 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 37 — una sesión de craft ya no bloquea el banco
+
+- Pausar un craft lo guarda como caso reanudable y libera inmediatamente el
+  banco. El jugador puede preparar otra pieza o herramienta sin abandonar el
+  progreso anterior.
+- Crafting lista los casos pausados y reanuda el elegido por su identidad, no
+  «el último» por accidente. Si ya hay otro caso activo, impide mezclar ambos.
+- «Cerrar sin aplicar» descarta de forma explícita el caso abierto, limpia su
+  acción viva del diario y conserva el historial; nunca simula que la moneda se
+  usó.
+- Antes de elegir moneda aparece una decisión visible sobre la base: gastar,
+  aportar primero el objetivo o no reemplazar todavía. Solo usa estructura,
+  grados, protecciones y objetivo conocidos; no inventa valor, probabilidad ni
+  resultado.
+- Después de pegar el objeto resultante, la acción principal sigue la decisión
+  estructurada: continuar, parar o replantear. El sí/no manual queda únicamente
+  como respaldo para sesiones antiguas sin esa decisión.
+
+Verificación: TypeScript sin errores; **481/481** pruebas; build de producción
+correcto; equipo/Crafting **212/212**, sesiones **60/60**, diario **58/58**,
+memoria de build **20/20**, mentor **88/88** y flujo principal completo en
+producción y desarrollo/Strict Mode. El lint directo conserva **13 diagnósticos
+preexistentes del baseline** (React Hooks en `App`, carrusel y hooks); el diff de
+esta sesión no modifica ninguna de las líneas señaladas.
 
 ## Sesión 36 — menos lectura antes de una moneda aditiva
 

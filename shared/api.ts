@@ -29,6 +29,7 @@ import {
   DecisionSessionKind,
   DecisionSessionSchema,
   MAX_IDEMPOTENCY_KEY_LENGTH,
+  MAX_SESSIONS_PER_CHARACTER,
   MAX_SESSION_EVENTS,
   SessionEvidenceKind,
 } from "./decisionSession.js";
@@ -227,6 +228,11 @@ export type UpdateJournalEntryRequest = z.infer<typeof UpdateJournalEntryRequest
 
 export const JournalResponseSchema = CharacterJournalSchema.extend({
   session: DecisionSessionSchema.nullable().default(null),
+  /** Sesiones aparcadas: se pueden reanudar, pero no ocupan el banco. */
+  pausedSessions: z
+    .array(DecisionSessionSchema)
+    .max(MAX_SESSIONS_PER_CHARACTER)
+    .default([]),
   sessionEvents: z.array(DecisionSessionEventSchema).max(MAX_SESSION_EVENTS).default([]),
 });
 export const JournalEntryResponseSchema = z.object({
@@ -366,7 +372,14 @@ export const PauseSessionRequestSchema = RevisionGuardSchema.extend({
 });
 export type PauseSessionRequest = z.infer<typeof PauseSessionRequestSchema>;
 
+export const AbandonSessionRequestSchema = RevisionGuardSchema.extend({
+  reason: z.string().trim().min(1).max(2000),
+  profile: CharacterProfileSchema,
+});
+export type AbandonSessionRequest = z.infer<typeof AbandonSessionRequestSchema>;
+
 export const ReopenSessionRequestSchema = RevisionGuardSchema.extend({
+  sessionId: z.string().trim().min(1),
   note: z.string().trim().min(1).max(2000),
   profile: CharacterProfileSchema,
 });

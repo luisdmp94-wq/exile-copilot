@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type {
   AddSessionConstraintRequest,
+  AbandonSessionRequest,
   ReleaseSessionConstraintRequest,
   AddSessionEvidenceRequest,
   CreateJournalEntryRequest,
@@ -44,6 +45,7 @@ export interface JournalState {
   addEvidence: (input: AddSessionEvidenceRequest) => Promise<JournalResponse | null>;
   recordResult: (input: RecordSessionResultRequest) => Promise<JournalResponse | null>;
   pauseSession: (input: PauseSessionRequest) => Promise<JournalResponse | null>;
+  abandonSession: (input: AbandonSessionRequest) => Promise<JournalResponse | null>;
   reopenSession: (input: ReopenSessionRequest) => Promise<JournalResponse | null>;
   reconcileSession: (input: ReconcileSessionRequest) => Promise<JournalResponse | null>;
   reload: () => Promise<JournalResponse | null>;
@@ -286,6 +288,8 @@ export function useJournal(characterId: string | null): JournalState {
       ),
     pauseSession: (input) =>
       runSession(() => api.pauseSession(characterId!, input), "Decisión en pausa"),
+    abandonSession: (input) =>
+      runSession(() => api.abandonSession(characterId!, input), "Comprobación cerrada"),
     reopenSession: (input) =>
       runSession(
         () => api.reopenSession(characterId!, input),

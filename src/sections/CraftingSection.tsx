@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Hammer, PackageSearch } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Hammer, PackageSearch, RotateCcw } from "lucide-react";
 import type { StartCraftingDecision } from "@shared/craftingActions.js";
 import type { StartAlloyDecision } from "@shared/craftingAlloys.js";
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import type { StartEssenceDecision } from "@shared/craftingEssences.js";
-import { sessionIsOpen } from "@shared/decisionSession.js";
+import { sessionOccupiesActiveSlot } from "@shared/decisionSession.js";
+import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import type { Budget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { CraftingActionPlanner } from "@/components/CraftingActionPlanner";
 import { ItemArtwork } from "@/components/ItemArtwork";
@@ -54,7 +55,11 @@ export function CraftingSection({
     ["normal", "magic", "rare"].includes(item.rarity),
   );
   const activeSession = journal.journal?.session ?? null;
-  const hasOpenSession = activeSession !== null && sessionIsOpen(activeSession.status);
+  const hasOpenSession =
+    activeSession !== null && sessionOccupiesActiveSlot(activeSession.status);
+  const pausedCrafts = (journal.journal?.pausedSessions ?? []).filter(
+    (candidate) => candidate.craftingExperiment != null,
+  );
   const activeCrafting = hasOpenSession && activeSession.craftingExperiment
     ? activeSession.craftingExperiment
     : null;
@@ -122,6 +127,68 @@ export function CraftingSection({
             Termina o pausa el caso abierto del expediente antes de empezar un craft. Nunca mantenemos dos próximas acciones simultáneas.
           </AlertDescription>
         </Alert>
+      )}
+
+      {!hasOpenSession && pausedCrafts.length > 0 && journal.journal && (
+        <section
+          className="rounded-md border border-amber-500/30 bg-amber-500/[0.05] p-3"
+          data-testid="crafting-paused-sessions"
+          aria-labelledby="crafting-paused-title"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                Guardado sin bloquear el banco
+              </p>
+              <h3 id="crafting-paused-title" className="font-semibold">
+                {pausedCrafts.length === 1 ? "Tienes un craft pausado" : `Tienes ${pausedCrafts.length} crafts pausados`}
+              </h3>
+            </div>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {pausedCrafts.map((paused) => (
+              <li
+                key={paused.id}
+                className="flex items-center justify-between gap-3 rounded border border-border/70 bg-background/40 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">
+                    {paused.craftingExperiment?.originalItem.name}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {paused.craftingExperiment?.actionLabel}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-testid={`crafting-resume-${paused.id}`}
+                  disabled={journal.saving || journal.stale}
+                  onClick={() => {
+                    void journal.reopenSession({
+                      journalRevision: buildRecommendationMemory(
+                        journal.journal!,
+                        journal.journal!.session,
+                      ).revision,
+                      idempotencyKey: crypto.randomUUID(),
+                      sessionId: paused.id,
+                      note: "Reanudamos este craft pausado.",
+                      profile,
+                    }).then((next) => {
+                      if (!next) return;
+                      onMentorEvent?.({ type: "reopened", title: paused.objective });
+                      focusStartedCraft();
+                    });
+                  }}
+                >
+                  <RotateCcw className="size-4" aria-hidden="true" />
+                  Reanudar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {activeCrafting && (
@@ -239,6 +306,7 @@ export function CraftingSection({
               <CraftingActionPlanner
                 key={selectedItem.id}
                 item={selectedItem}
+                profileGoal={goal}
                 patch={profile.patch}
                 onUpdateItem={onEditExpediente}
                 showStatusLabel={false}

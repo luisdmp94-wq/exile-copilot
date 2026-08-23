@@ -17,6 +17,7 @@ import {
   AddSessionEvidenceRequestSchema,
   RecordSessionResultRequestSchema,
   PauseSessionRequestSchema,
+  AbandonSessionRequestSchema,
   ReopenSessionRequestSchema,
   ReconcileSessionRequestSchema,
   CreateBuildMemoryEntryRequestSchema,
@@ -55,6 +56,7 @@ import {
   addSessionEvidence,
   assertRevision,
   pauseSession,
+  abandonSession,
   readJournalBundle,
   recordSessionResult,
   reconcileSession,
@@ -721,6 +723,20 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
       }
       const journal = pauseSession(db, characterId, input);
+      res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/journal/:characterId/session/abandon", (req, res, next) => {
+    try {
+      const characterId = req.params.characterId;
+      const input = AbandonSessionRequestSchema.parse(req.body);
+      if (input.profile.id !== characterId) {
+        throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
+      }
+      const journal = abandonSession(db, characterId, input);
       res.json(journal.journal);
     } catch (err) {
       next(err);

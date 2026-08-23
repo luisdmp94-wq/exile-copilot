@@ -153,6 +153,79 @@ describe("API de sesiones adaptativas", () => {
     expect(updated.session?.constraints[0]?.label).toBe("Barrera voltaica");
   });
 
+  it("pausa sin bloquear, conserva la sesión y reanuda por id", async () => {
+    const profile = { ...demoProfile, id: "sesion-api-pause-slot" };
+    await postJson("/character", { profile });
+    const empty = JournalResponseSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const startBody = {
+      kind: "guided_decision" as const,
+      hypothesis: "Comprobar una sola acción",
+      expectedResult: "Cambio observable",
+      observationMethod: "Pegar el objeto resultante",
+      profile,
+      budget: { amount: 50, currency: "exalted" as const },
+      goal: "balanced" as const,
+    };
+    const first = JournalResponseSchema.parse(
+      await jsonOf(
+        await postJson(`/journal/${profile.id}/session`, {
+          ...startBody,
+          journalRevision: buildRecommendationMemory(empty).revision,
+          idempotencyKey: "idem-pause-slot-first",
+          objective: "Craft con Essence",
+        }),
+      ),
+    );
+    const firstId = first.session!.id;
+    const pausedFirst = JournalResponseSchema.parse(
+      await jsonOf(
+        await postJson(`/journal/${profile.id}/session/pause`, {
+          journalRevision: buildRecommendationMemory(first).revision,
+          idempotencyKey: "idem-pause-slot-first-pause",
+          reason: "Guardar este craft.",
+          profile,
+        }),
+      ),
+    );
+    expect(pausedFirst.session).toBeNull();
+    expect(pausedFirst.primaryEntryId).toBeNull();
+    expect(pausedFirst.pausedSessions.map((entry) => entry.id)).toContain(firstId);
+
+    const secondResponse = await postJson(`/journal/${profile.id}/session`, {
+      ...startBody,
+      journalRevision: buildRecommendationMemory(pausedFirst).revision,
+      idempotencyKey: "idem-pause-slot-second",
+      objective: "Craft con Alloy",
+    });
+    expect(secondResponse.status).toBe(201);
+    const second = JournalResponseSchema.parse(await jsonOf(secondResponse));
+    expect(second.session?.objective).toBe("Craft con Alloy");
+
+    const pausedSecond = JournalResponseSchema.parse(
+      await jsonOf(
+        await postJson(`/journal/${profile.id}/session/pause`, {
+          journalRevision: buildRecommendationMemory(second).revision,
+          idempotencyKey: "idem-pause-slot-second-pause",
+          reason: "Liberar para volver a la primera.",
+          profile,
+        }),
+      ),
+    );
+    const reopenedResponse = await postJson(`/journal/${profile.id}/session/reopen`, {
+      journalRevision: buildRecommendationMemory(pausedSecond).revision,
+      idempotencyKey: "idem-pause-slot-resume-first",
+      sessionId: firstId,
+      note: "Continuar el primer craft.",
+      profile,
+    });
+    expect(reopenedResponse.status).toBe(200);
+    const reopened = JournalResponseSchema.parse(await jsonOf(reopenedResponse));
+    expect(reopened.session?.id).toBe(firstId);
+    expect(reopened.session?.status).toBe("reopening");
+  });
+
   it("registra un resultado subjetivo y un descarte con reapertura candidata", async () => {
     const profile = { ...demoProfile, id: "sesion-api-result" };
     await postJson("/character", { profile });
