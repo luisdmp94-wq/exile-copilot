@@ -26,15 +26,21 @@ import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker"
 import { CraftingSuccessCriteriaPicker } from "@/components/CraftingSuccessCriteriaPicker";
 import {
   CRAFTING_GOAL_LABELS,
+  evaluateCraftingGoalSignal,
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
 import { assessCraftingAffixes } from "@shared/craftingAffixAssessment.js";
 import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
+import {
+  craftingSuccessCriterionLabel,
+  recommendCraftingSuccessCriterion,
+} from "@shared/craftingSuccessCriteria.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCraftingKnowledge } from "@/hooks/useCraftingKnowledge";
 import { buildCraftingMentorReading } from "@/lib/craftingMentorReading";
+import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 
 const CRAFTING_STATE_STYLE = {
   complete: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
@@ -123,6 +129,7 @@ export interface CraftingActionPlannerProps {
   showStatusLabel?: boolean;
   /** Se ejecuta únicamente cuando la sesión quedó creada. */
   onStarted?: () => void;
+  onMentorContext?: (event: ContextualMentorEvent) => void;
 }
 
 /** Diagnóstico y preflight compartidos por el detalle y la pestaña Crafting. */
@@ -135,6 +142,7 @@ export function CraftingActionPlanner({
   onUpdateItem,
   showStatusLabel = true,
   onStarted,
+  onMentorContext,
 }: CraftingActionPlannerProps) {
   const crafting = diagnoseCraftingItem(item);
   const knowledge = useCraftingKnowledge(item, patch);
@@ -163,13 +171,17 @@ export function CraftingActionPlanner({
     setPreflightConfirmed(false);
   };
   const revealRouteTarget = (targetId: string) => {
-    window.requestAnimationFrame(() => {
+    const reveal = () => {
       const target = document.getElementById(targetId);
-      if (!target) return;
+      if (!target || target.closest("[hidden]")) return false;
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
       target.focus({ preventScroll: true });
-    });
+      return true;
+    };
+    // Los objetivos ya visibles reciben foco en el mismo gesto. Los paneles
+    // que React acaba de montar se resuelven en la siguiente trama.
+    if (!reveal()) window.requestAnimationFrame(reveal);
   };
   const prepareCurrencyAction = (action: CraftingRouteAction) => {
     const evaluation = craftingActions.find((entry) => entry.action.id === action.id);
@@ -178,6 +190,11 @@ export function CraftingActionPlanner({
     setPreparedActionId(action.id);
     setSelectedVariantId(evaluation.action.variants[0]?.id ?? "base");
     resetCurrencyPreflight();
+    onMentorContext?.({
+      type: "craftingAction",
+      itemName: item.name,
+      actionLabel: action.label,
+    });
     revealRouteTarget(`crafting-action-${item.id}-${action.id}`);
   };
   const openTool = (tool: "essence" | "alloy") => {
@@ -208,6 +225,34 @@ export function CraftingActionPlanner({
           : criterion,
       );
     });
+    const recommended = recommendCraftingSuccessCriterion(item, next);
+    const currentCount = next === "other"
+      ? 0
+      : item.modifiers.filter(
+          (modifier) =>
+            modifier.kind === "explicit" &&
+            evaluateCraftingGoalSignal(next, [modifier]).status === "direct",
+        ).length;
+    onMentorContext?.({
+      type: "craftingGoal",
+      itemName: item.name,
+      goal: next,
+      currentCount,
+      nextTarget: recommended?.minimumCount ?? null,
+    });
+  };
+  const changeSuccessCriteria = (next: CraftingSuccessCriterion[]) => {
+    const added = next.find(
+      (criterion) => !successCriteria.some((current) => current.kind === criterion.kind),
+    );
+    setSuccessCriteria(next);
+    if (added) {
+      onMentorContext?.({
+        type: "craftingStop",
+        itemName: item.name,
+        criterionLabel: craftingSuccessCriterionLabel(added),
+      });
+    }
   };
   const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
   const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds);
@@ -309,7 +354,7 @@ export function CraftingActionPlanner({
             item={item}
             goalCategory={goalCategory}
             value={successCriteria}
-            onChange={setSuccessCriteria}
+            onChange={changeSuccessCriteria}
           />
         </section>
         <details

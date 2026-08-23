@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import type { JournalState } from "@/hooks/useJournal";
 import { SLOT_LABELS } from "@/lib/format";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
+import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 
 interface CraftingSectionProps {
   profile: CharacterProfile | null;
@@ -30,6 +31,7 @@ interface CraftingSectionProps {
     type: "started" | "result" | "paused" | "reopened" | "reconciled";
     title: string;
   }) => void;
+  onMentorContext?: (event: ContextualMentorEvent) => void;
 }
 
 /** Tercera área principal: selección, diagnóstico, decisión y resultado. */
@@ -45,6 +47,7 @@ export function CraftingSection({
   onStartAlloyDecision,
   onApplyCraftingResult,
   onMentorEvent,
+  onMentorContext,
 }: CraftingSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const craftableItems = (profile?.items ?? []).filter((item) =>
@@ -177,7 +180,10 @@ export function CraftingSection({
                           ? "border-primary/70 bg-primary/[0.11] shadow-[inset_3px_0_0_hsl(var(--primary))]"
                           : "border-border bg-muted/10 hover:-translate-y-px hover:border-primary/35 lg:hover:translate-x-0.5 lg:hover:translate-y-0"
                       }`}
-                      onClick={() => setSelectedItemId(item.id)}
+                      onClick={() => {
+                        setSelectedItemId(item.id);
+                        onMentorContext?.({ type: "craftingItem", item });
+                      }}
                     >
                       <ItemArtwork item={item} className="size-10 rounded-sm" />
                       <span className="min-w-0 flex-1">
@@ -240,6 +246,7 @@ export function CraftingSection({
                 onStartEssenceDecision={hasOpenSession ? undefined : onStartEssenceDecision}
                 onStartAlloyDecision={hasOpenSession ? undefined : onStartAlloyDecision}
                 onStarted={focusStartedCraft}
+                onMentorContext={onMentorContext}
               />
             </section>
           )}

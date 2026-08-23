@@ -1,4 +1,8 @@
 import type { CurrencyKind, GoalKind, Item, Recommendation } from "@shared/domain.js";
+import {
+  CRAFTING_GOAL_LABELS,
+  type CraftingGoalCategory,
+} from "@shared/craftingGoal.js";
 import type { MentorIntent } from "@shared/mentorQuery.js";
 import { CURRENCY_LABELS, GOAL_LABELS, SLOT_LABELS } from "./format.js";
 
@@ -25,6 +29,16 @@ export type ContextualMentorEvent =
   | { type: "ready"; profileName: string }
   | { type: "workspace"; workspace: "expediente" | "plan" | "crafting" }
   | { type: "item"; item: Item }
+  | { type: "craftingItem"; item: Item }
+  | {
+      type: "craftingGoal";
+      itemName: string;
+      goal: CraftingGoalCategory;
+      currentCount: number;
+      nextTarget: number | null;
+    }
+  | { type: "craftingStop"; itemName: string; criterionLabel: string }
+  | { type: "craftingAction"; itemName: string; actionLabel: string }
   | { type: "editor" }
   | { type: "goal"; goal: GoalKind }
   | { type: "budget"; amount: number; currency: CurrencyKind }
@@ -122,6 +136,74 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         },
       };
     }
+    case "craftingItem": {
+      const name = event.item.name || event.item.baseType || "esta pieza";
+      return {
+        id: `crafting-item:${event.item.id}`,
+        source: "guide",
+        eyebrow: "Pieza seleccionada",
+        title: name,
+        message:
+          "Primero elige qué quieres mejorar. Después fija qué no quieres perder y una condición observable para detenerte.",
+        ask: {
+          question: `Estoy preparando ${name} para crafting. ¿Por qué está relacionada con mi prioridad y qué debo comprobar antes de gastar?`,
+          intent: "explain_priority",
+        },
+      };
+    }
+    case "craftingGoal": {
+      if (event.goal === "other") {
+        return {
+          id: `crafting-goal:${event.itemName}:other`,
+          source: "guide",
+          eyebrow: "Objetivo pendiente",
+          title: "Describe el resultado que buscas",
+          message:
+            "La app no interpretará un objetivo libre que aún esté vacío. Escríbelo con tus palabras antes de preparar el gasto.",
+          ask: null,
+        };
+      }
+      const goalLabel = CRAFTING_GOAL_LABELS[event.goal];
+      return {
+        id: `crafting-goal:${event.itemName}:${event.goal}:${event.currentCount}`,
+        source: "engine",
+        eyebrow: "Objetivo de la pieza",
+        title: `${goalLabel} en ${event.itemName}`,
+        message: event.nextTarget === null
+          ? `Ya se observan ${event.currentCount} afijos con etiquetas de ${goalLabel.toLocaleLowerCase("es")}. Define otra condición de parada verificable.`
+          : `Se observan ${event.currentCount}. Puedes parar al llegar a ${event.nextTarget}; eso confirma una etiqueta más, no que el afijo sea bueno para tu build.`,
+        ask: {
+          question: `Estoy crafteando ${event.itemName} para mejorar ${goalLabel}. ¿Por qué puede ser mi prioridad y qué debo comprobar antes de gastar?`,
+          intent: "explain_priority",
+        },
+      };
+    }
+    case "craftingStop":
+      return {
+        id: `crafting-stop:${event.itemName}:${event.criterionLabel}`,
+        source: "engine",
+        eyebrow: "Punto de parada fijado",
+        title: event.criterionLabel,
+        message:
+          "La comparación usará esta condición contra el texto avanzado resultante. Cumplirla no sustituye tu valoración final del objeto.",
+        ask: {
+          question: `He fijado «${event.criterionLabel}» al craftear ${event.itemName}. ¿Por qué debo comprobar esta señal antes de continuar?`,
+          intent: "explain_priority",
+        },
+      };
+    case "craftingAction":
+      return {
+        id: `crafting-action:${event.itemName}:${event.actionLabel}`,
+        source: "warning",
+        eyebrow: "Gasto preparado",
+        title: event.actionLabel,
+        message:
+          "Comprueba la variante exacta y confirma que el objeto sigue igual. La compatibilidad estructural no predice el modificador que aparecerá.",
+        ask: {
+          question: `Voy a usar ${event.actionLabel} sobre ${event.itemName}. ¿Por qué debo comprobar este paso antes de gastar?`,
+          intent: "explain_priority",
+        },
+      };
     case "editor":
       return {
         id: "editor:open",

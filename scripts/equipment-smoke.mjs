@@ -744,6 +744,12 @@ async function runFlow(mode, port) {
       `[${mode}] el banco usa el objeto real importado`,
       (await craftingWorkspace.innerText()).includes("Núcleo de fénix"),
     );
+    const tituloMentorContextual = page.getByTestId("mentor-contextual-titulo");
+    check(
+      `[${mode}] el mentor acompaña la pieza seleccionada sin consulta automática`,
+      (await tituloMentorContextual.innerText()) === "Núcleo de fénix" &&
+        (await page.getByTestId("mentor-contextual-respuesta").count()) === 0,
+    );
     const rutaCrafting = craftingWorkspace.getByTestId("crafting-route");
     check(
       `[${mode}] el diagnóstico convierte la compatibilidad en una próxima acción`,
@@ -823,7 +829,8 @@ async function runFlow(mode, port) {
         (await criterioParada.innerText()).includes("Un afijo de daño más") &&
         (await criterioParada.innerText()).includes("Ahora hay 3; para al llegar a 4") &&
         (await criterioParada.innerText()).includes("Recomendado") &&
-        (await rutaCrafting.getByRole("button", { name: "Elige cuándo parar" }).isVisible()),
+        (await rutaCrafting.getByRole("button", { name: "Elige cuándo parar" }).isVisible()) &&
+        (await tituloMentorContextual.innerText()) === "Daño en Núcleo de fénix",
     );
     await rutaCrafting.getByRole("button", { name: "Elige cuándo parar" }).click();
     check(
@@ -844,7 +851,8 @@ async function runFlow(mode, port) {
       `[${mode}] la intención combina objetivo y restricciones elegidas por clic`,
       (await intencionCrafting.innerText()).includes("Daño · 1 intocable") &&
         (await intencionCrafting.innerText()).includes("1/3 condiciones") &&
-        (await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).isVisible()),
+        (await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).isVisible()) &&
+        (await tituloMentorContextual.innerText()) === "Al menos 4 afijos de daño",
     );
 
     // --- Essences P1: contrato real, riesgo y preflight -------------------
@@ -932,6 +940,11 @@ async function runFlow(mode, port) {
 
     await craftingWorkspace.getByTestId("crafting-tool-currency").click();
     await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).click();
+    check(
+      `[${mode}] abrir el preflight actualiza el mentor sin gastar ni llamar a la IA`,
+      (await tituloMentorContextual.innerText()) === "Orbe exaltado" &&
+        (await page.getByTestId("mentor-contextual-respuesta").count()) === 0,
+    );
     const accionExaltada = craftingWorkspace.locator("details").filter({ hasText: "Orbe exaltado" });
     check(
       `[${mode}] la acción compatible aparece antes que las no aplicables`,

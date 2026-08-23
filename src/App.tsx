@@ -1247,6 +1247,7 @@ export default function App() {
               onStartAlloyDecision={startAlloyDecision}
               onApplyCraftingResult={character.replaceItemAndSave}
               onMentorEvent={handleSessionMentorEvent}
+              onMentorContext={announceMentor}
             />
           </TabsContent>
         </Tabs>

@@ -39,6 +39,33 @@ describe("mentor contextual", () => {
     expect(cue.message).toContain("dejan de ser vigentes");
   });
 
+  it("acompaña objetivo, parada y gasto de crafting sin prometer el resultado", () => {
+    const goal = contextualMentorCue({
+      type: "craftingGoal",
+      itemName: "Núcleo de fénix",
+      goal: "damage",
+      currentCount: 3,
+      nextTarget: 4,
+    });
+    const stop = contextualMentorCue({
+      type: "craftingStop",
+      itemName: "Núcleo de fénix",
+      criterionLabel: "Al menos 4 afijos de daño",
+    });
+    const action = contextualMentorCue({
+      type: "craftingAction",
+      itemName: "Núcleo de fénix",
+      actionLabel: "Orbe exaltado",
+    });
+
+    expect(goal.title).toBe("Daño en Núcleo de fénix");
+    expect(goal.message).toContain("no que el afijo sea bueno");
+    expect(stop.title).toBe("Al menos 4 afijos de daño");
+    expect(stop.message).toContain("valoración final");
+    expect(action.title).toBe("Orbe exaltado");
+    expect(action.message).toContain("no predice");
+  });
+
   it("mantiene la honestidad cuando el mercado está degradado", () => {
     const cue = contextualMentorCue({
       type: "market",
@@ -77,6 +104,20 @@ describe("mentor contextual", () => {
       { type: "workspace", workspace: "plan" },
       { type: "workspace", workspace: "crafting" },
       { type: "item", item },
+      { type: "craftingItem", item },
+      {
+        type: "craftingGoal",
+        itemName: "Doom Song",
+        goal: "damage",
+        currentCount: 1,
+        nextTarget: 2,
+      },
+      {
+        type: "craftingStop",
+        itemName: "Doom Song",
+        criterionLabel: "Al menos 2 afijos de daño",
+      },
+      { type: "craftingAction", itemName: "Doom Song", actionLabel: "Orbe exaltado" },
       { type: "editor" },
       { type: "goal", goal: "survival" },
       { type: "budget", amount: 50, currency: "exalted" },
