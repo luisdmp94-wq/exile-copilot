@@ -28,6 +28,12 @@ const OBSERVED_TOTAL_AFFIX_LIMIT: Partial<Record<Item["rarity"], number>> = {
   rare: 6,
 };
 
+const SUPPORTED_CRAFTING_RARITIES = new Set<Item["rarity"]>([
+  "normal",
+  "magic",
+  "rare",
+]);
+
 export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const prefixCount = explicit.filter((modifier) => modifier.affix === "prefix").length;
@@ -38,6 +44,12 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
     observedTotalLimit === null ? null : Math.max(0, observedTotalLimit - explicit.length);
   const blockers: string[] = [];
   const itemState = item.craftingState;
+
+  if (itemState === undefined) {
+    blockers.push(
+      "El texto no confirma todavía los estados especiales que pueden impedir el crafting.",
+    );
+  }
 
   if (itemState?.doubleCorrupted || itemState?.corrupted) {
     blockers.push(itemState.doubleCorrupted ? "El objeto tiene doble corrupción." : "El objeto está corrupto.");
@@ -54,15 +66,28 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
   if (itemState?.mutated || itemState?.desecrated) {
     blockers.push("El objeto tiene un estado especial cuya interacción todavía no está verificada.");
   }
+  if (itemState?.split || itemState?.unidentified) {
+    blockers.push(
+      itemState.split && itemState.unidentified
+        ? "El objeto está dividido y sin identificar; su interacción todavía no está verificada."
+        : itemState.split
+          ? "El objeto está dividido; su interacción todavía no está verificada."
+          : "El objeto está sin identificar; su interacción todavía no está verificada.",
+    );
+  }
 
-  if (observedTotalLimit === null) {
-    blockers.push("La lectura inicial solo cubre objetos mágicos y raros.");
+  if (!SUPPORTED_CRAFTING_RARITIES.has(item.rarity)) {
+    blockers.push("La lectura inicial solo cubre objetos normales, mágicos y raros.");
   }
   if (item.itemLevel === undefined) {
     blockers.push("Falta el nivel de objeto.");
   }
-  if (explicit.length === 0) {
+  if (item.rarity !== "normal" && explicit.length === 0) {
     blockers.push("No hay modificadores explícitos registrados.");
+  } else if (item.rarity === "normal" && explicit.length > 0) {
+    blockers.push(
+      "El objeto figura como normal, pero contiene modificadores explícitos; hay una inconsistencia que revisar.",
+    );
   } else if (unclassifiedExplicitCount > 0) {
     blockers.push(
       `${unclassifiedExplicitCount} modificador${unclassifiedExplicitCount === 1 ? "" : "es"} ` +
@@ -77,21 +102,34 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
       itemState?.unmodifiable ||
       itemState?.unmodifiableExceptChaos,
   );
+  const specialStateNeedsData = Boolean(
+    itemState === undefined ||
+      itemState.split ||
+      itemState.unidentified ||
+      itemState.mutated ||
+      itemState.desecrated,
+  );
+  const structureInconsistent =
+    (item.rarity === "normal" && explicit.length > 0) ||
+    (item.rarity !== "normal" && explicit.length === 0);
   const hardBlocked =
     legalStateBlocked ||
-    observedTotalLimit === null ||
+    !SUPPORTED_CRAFTING_RARITIES.has(item.rarity) ||
     item.itemLevel === undefined ||
-    explicit.length === 0;
+    structureInconsistent;
   const state: CraftingItemDiagnosis["state"] = hardBlocked
     ? "blocked"
-    : unclassifiedExplicitCount > 0
+    : specialStateNeedsData || unclassifiedExplicitCount > 0
       ? "partial"
       : "complete";
   const structure = `${prefixCount} prefijo${prefixCount === 1 ? "" : "s"} y ` +
     `${suffixCount} sufijo${suffixCount === 1 ? "" : "s"}`;
 
   let summary: string;
-  if (state === "complete" && observedOpenSlots !== null) {
+  if (state === "complete" && item.rarity === "normal") {
+    summary =
+      "Objeto normal sin modificadores explícitos. Su estructura permite evaluar una Transmutación sin atribuirle todavía un resultado concreto.";
+  } else if (state === "complete" && observedOpenSlots !== null) {
     summary =
       observedOpenSlots === 0
         ? `Se distinguen ${structure}. No quedan huecos totales según el límite observado.`
@@ -105,10 +143,16 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
   }
 
   let nextAction: string;
-  if (item.itemLevel === undefined || unclassifiedExplicitCount > 0) {
+  if (
+    item.itemLevel === undefined ||
+    unclassifiedExplicitCount > 0 ||
+    specialStateNeedsData
+  ) {
     nextAction = "Activa las descripciones avanzadas del juego y vuelve a copiar el objeto.";
-  } else if (explicit.length === 0) {
+  } else if (item.rarity !== "normal" && explicit.length === 0) {
     nextAction = "Importa el texto completo del objeto antes de evaluar una moneda.";
+  } else if (item.rarity === "normal" && explicit.length === 0) {
+    nextAction = "Comprueba una Transmutación para convertirlo en mágico con un solo modificador.";
   } else if (state === "complete" && observedOpenSlots === 0) {
     nextAction = "El asesor debe bloquear acciones que añadan otro modificador hasta verificar una vía legal.";
   } else if (state === "complete") {
@@ -137,7 +181,7 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
     limitations: [
       "Un hueco libre no garantiza que una moneda concreta pueda o deba usarse.",
       "No se muestran probabilidades, pesos ni costes porque todavía no están verificados.",
-      "Los límites totales proceden de evidencia local observada el 22/08/2026 y pueden cambiar con un parche.",
+      "Los límites totales y las transiciones proceden de evidencia local observada el 22/08/2026 y pueden cambiar con un parche.",
     ],
     nextAction,
   };

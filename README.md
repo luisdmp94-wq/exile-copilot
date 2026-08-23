@@ -63,6 +63,15 @@ npm run dev            # frontend + API en http://localhost:7100
 
 ## Crafting guiado con comparación antes/después
 
+La pestaña Crafting convierte la lectura de la pieza en una ruta visible: si
+solo hay una moneda básica compatible permite prepararla directamente; si hay
+varias, muestra la decisión sin fingir un ranking; y si el raro está lleno
+lleva a las rutas de reemplazo de Essence o Alloy. Un objeto normal bien
+identificado entra correctamente por Transmutación.
+
+La auditoría adversarial y sus límites están documentados en
+[`docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md`](docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md).
+
 **Crafting** es la tercera área principal del producto, separada de
 «Expediente y mentor» y «Plan y mercado». Allí eliges una pieza real del
 expediente y completas todo el ciclo sin saltar entre pestañas. El detalle del

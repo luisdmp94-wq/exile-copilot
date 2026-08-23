@@ -50,6 +50,47 @@ describe("diagnoseCraftingItem", () => {
     expect(diagnosis.nextAction).toContain("bloquear acciones");
   });
 
+  it("considera completo un objeto normal bien identificado y lo dirige a Transmutación", () => {
+    const item: Item = {
+      id: "normal",
+      name: "Base normal",
+      baseType: "Ballesta",
+      slot: "weapon",
+      rarity: "normal",
+      itemLevel: 25,
+      modifiers: [],
+      craftingState: {
+        corrupted: false,
+        mirrored: false,
+        split: false,
+        unidentified: false,
+      },
+      sources: [],
+    };
+
+    const diagnosis = diagnoseCraftingItem(item);
+    expect(diagnosis).toMatchObject({
+      state: "complete",
+      explicitCount: 0,
+      observedTotalLimit: null,
+      observedOpenSlots: null,
+      blockers: [],
+    });
+    expect(diagnosis.summary).toContain("Objeto normal");
+    expect(diagnosis.nextAction).toContain("Transmutación");
+  });
+
+  it("no declara una pieza lista si faltan sus estados especiales", () => {
+    const item = parseItemText(crossbowText).item;
+    delete item.craftingState;
+
+    const diagnosis = diagnoseCraftingItem(item);
+    expect(diagnosis.state).toBe("partial");
+    expect(diagnosis.blockers).toContain(
+      "El texto no confirma todavía los estados especiales que pueden impedir el crafting.",
+    );
+  });
+
   it("declara lectura parcial si el texto no identifica prefijos y sufijos", () => {
     const item: Item = {
       id: "simple",
@@ -67,6 +108,12 @@ describe("diagnoseCraftingItem", () => {
           verified: false,
         },
       ],
+      craftingState: {
+        corrupted: false,
+        mirrored: false,
+        split: false,
+        unidentified: false,
+      },
       sources: [],
     };
 

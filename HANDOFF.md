@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 27,
+> Informe para el propietario. Última actualización: sesión 28,
 > 2026-08-23.
 >
 > **Estado de esta rama:** parte del rediseño visual integrado en `5f726a2` e
@@ -9,6 +9,24 @@
 > trabajo. Las secciones de sesiones anteriores son HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 28 — auditoría adversarial y ruta de próxima decisión
+
+- Se recorrió en navegador el ciclo completo desde objeto suelto hasta
+  comparación, valoración y actualización del mismo objeto.
+- Se corrigió una contradicción del dominio: una base normal sin afijos ya no
+  aparece bloqueada y entra por Transmutación; una base normal con explícitos
+  sigue deteniéndose como inconsistente.
+- Ausencia de estados especiales, dividido, sin identificar, mutado y
+  profanado ya no pueden presentarse como «pieza lista».
+- El diagnóstico ahora termina en una acción visible: prepara la única moneda
+  compatible, muestra todas si existen varias sin inventar un ranking, o lleva
+  a Essence/Alloy cuando un raro lleno necesita reemplazo.
+- La ruta es navegación sobre compatibilidad ya demostrada: no interpreta
+  utilidad de afijos, no calcula probabilidades y no declara compatible una
+  herramienta cuyo tooltip todavía no se ha pegado.
+
+Informe completo: `docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md`.
 
 ## Sesión 27 — entrada orientada a tareas
 

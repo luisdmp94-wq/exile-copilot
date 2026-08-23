@@ -475,7 +475,8 @@ async function runFlow(mode, port) {
     check(`[${mode}] el detalle muestra requisitos`, textoDialogo.includes("Nivel 68"));
     check(
       `[${mode}] el detalle muestra el diagnóstico de crafting`,
-      textoDialogo.includes("Estado de la pieza") && /siguiente paso/i.test(textoDialogo),
+      textoDialogo.includes("Estado de la pieza") &&
+        /(Siguiente acción legal|Decisión de ruta|Monedas básicas agotadas|No gastes todavía)/i.test(textoDialogo),
     );
     check(
       `[${mode}] el diagnóstico parcial no presenta ceros como estructura confirmada`,
@@ -780,6 +781,13 @@ async function runFlow(mode, port) {
       `[${mode}] el banco usa el objeto real importado`,
       (await craftingWorkspace.innerText()).includes("Núcleo de fénix"),
     );
+    const rutaCrafting = craftingWorkspace.getByTestId("crafting-route");
+    check(
+      `[${mode}] el diagnóstico convierte la compatibilidad en una próxima acción`,
+      (await rutaCrafting.getAttribute("data-route-state")) === "single-currency" &&
+        (await rutaCrafting.innerText()).includes("Orbe exaltado") &&
+        (await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).isVisible()),
+    );
     const textoCraftingInicial = await craftingWorkspace.innerText();
     const palabrasCraftingInicial = textoCraftingInicial.trim().split(/\s+/).filter(Boolean).length;
     check(
@@ -931,7 +939,7 @@ async function runFlow(mode, port) {
       `[${mode}] una moneda que solo añade no pide proteger modificadores`,
       (await accionExaltada.getByTestId("crafting-protection-picker").count()) === 0,
     );
-    await accionExaltada.getByRole("button", { name: "Elegir esta acción" }).click();
+    await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).click();
     const preflight = craftingWorkspace.getByTestId("crafting-preflight-exalted");
     await preflight.waitFor({ timeout: 15000 });
     const crearDecision = preflight.getByRole("button", {
@@ -1087,6 +1095,14 @@ async function runFlow(mode, port) {
         })),
       );
     }
+
+    const rutaTrasResultado = craftingWorkspace.getByTestId("crafting-route");
+    check(
+      `[${mode}] una pieza llena conduce a reemplazo en vez de dejar al jugador sin salida`,
+      (await rutaTrasResultado.getAttribute("data-route-state")) === "replacement-tools" &&
+        (await rutaTrasResultado.getByRole("button", { name: "Revisar una Essence" }).isVisible()) &&
+        (await rutaTrasResultado.getByRole("button", { name: "Revisar un Alloy" }).isVisible()),
+    );
 
     // Una vez cerrado el caso básico, la Essence preparada puede abrir su
     // propia sesión y conserva explícitamente la semántica de reemplazo.

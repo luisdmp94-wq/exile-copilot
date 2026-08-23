@@ -8,6 +8,10 @@ import {
 import type { StartAlloyDecision } from "@shared/craftingAlloys.js";
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import {
+  buildCraftingRoute,
+  type CraftingRouteAction,
+} from "@shared/craftingRoute.js";
+import {
   ESSENCE_MECHANIC_SOURCE,
   ESSENCE_TIER_LABELS,
   evaluateEssencePlan,
@@ -137,13 +141,45 @@ export function CraftingActionPlanner({
     (entry) => entry.status === "compatible",
   ).length;
   const unavailableActionCount = craftingActions.length - compatibleActionCount;
+  const route = buildCraftingRoute(item, crafting, craftingActions);
+  const resetCurrencyPreflight = () => {
+    setDesiredOutcome("");
+    setProtectedModifierIds([]);
+    setSnapshotConfirmed(false);
+    setRandomConfirmed(false);
+    setNotSpentConfirmed(false);
+  };
+  const revealRouteTarget = (targetId: string) => {
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      target.focus({ preventScroll: true });
+    });
+  };
+  const prepareCurrencyAction = (action: CraftingRouteAction) => {
+    const evaluation = craftingActions.find((entry) => entry.action.id === action.id);
+    if (!evaluation || evaluation.status !== "compatible") return;
+    setActiveTool("currency");
+    setPreparedActionId(action.id);
+    setSelectedVariantId(evaluation.action.variants[0]?.id ?? "base");
+    resetCurrencyPreflight();
+    revealRouteTarget(`crafting-action-${item.id}-${action.id}`);
+  };
+  const openTool = (tool: "essence" | "alloy") => {
+    setActiveTool(tool);
+    revealRouteTarget(`crafting-tool-content-${item.id}-${tool}`);
+  };
   const confirmationReady =
     desiredOutcome.trim().length >= 3 &&
     snapshotConfirmed &&
     randomConfirmed &&
     notSpentConfirmed;
   const diagnosisHeadline =
-    crafting.unclassifiedExplicitCount > 0
+    crafting.state === "complete" && item.rarity === "normal"
+      ? "Objeto normal · sin modificadores explícitos"
+      : crafting.unclassifiedExplicitCount > 0
       ? `${crafting.unclassifiedExplicitCount} modificador${
           crafting.unclassifiedExplicitCount === 1 ? "" : "es"
         } sin clasificar`
@@ -185,13 +221,40 @@ export function CraftingActionPlanner({
           </h3>
         )}
         <p className="text-lg font-semibold text-foreground">{diagnosisHeadline}</p>
-        <div className="rounded-sm border-l-2 border-primary bg-primary/[0.06] px-3 py-2.5">
+        <div
+          className="rounded-sm border-l-2 border-primary bg-primary/[0.06] px-3 py-3"
+          data-testid="crafting-route"
+          data-route-state={route.state}
+        >
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
-            Siguiente paso
+            {route.eyebrow}
           </p>
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-foreground">{crafting.nextAction}</p>
-            {crafting.state !== "complete" && onUpdateItem && (
+          <p className="mt-1 text-sm font-semibold text-foreground">{route.headline}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{route.summary}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {route.currencyActions.map((action) => (
+              <Button
+                key={action.id}
+                type="button"
+                size="sm"
+                variant={route.currencyActions.length === 1 ? "default" : "outline"}
+                onClick={() => prepareCurrencyAction(action)}
+              >
+                {route.currencyActions.length === 1 ? "Preparar " : "Elegir "}
+                {action.label}
+              </Button>
+            ))}
+            {route.toolSuggestions.includes("essence") && (
+              <Button type="button" size="sm" variant="outline" onClick={() => openTool("essence")}>
+                Revisar una Essence
+              </Button>
+            )}
+            {route.toolSuggestions.includes("alloy") && (
+              <Button type="button" size="sm" variant="outline" onClick={() => openTool("alloy")}>
+                Revisar un Alloy
+              </Button>
+            )}
+            {route.state === "needs-data" && onUpdateItem && (
               <Button type="button" size="sm" variant="outline" onClick={onUpdateItem}>
                 Pegar el objeto de nuevo
               </Button>
@@ -377,8 +440,15 @@ export function CraftingActionPlanner({
             return (
               <details
                 key={entry.action.id}
+                id={`crafting-action-${item.id}-${entry.action.id}`}
+                tabIndex={-1}
                 hidden={compatibleActionCount > 0 && unavailable && !showUnavailableActions}
-                open={entry.status === "compatible" && compatibleActionCount === 1 ? true : undefined}
+                open={
+                  entry.status === "compatible" &&
+                  (compatibleActionCount === 1 || preparedActionId === entry.action.id)
+                    ? true
+                    : undefined
+                }
                 className="rounded border border-border/70 p-2"
               >
                 <summary className="cursor-pointer select-none list-none">
@@ -538,11 +608,7 @@ export function CraftingActionPlanner({
                           onClick={() => {
                             setPreparedActionId(entry.action.id);
                             setSelectedVariantId(entry.action.variants[0]?.id ?? "base");
-                            setDesiredOutcome("");
-                            setProtectedModifierIds([]);
-                            setSnapshotConfirmed(false);
-                            setRandomConfirmed(false);
-                            setNotSpentConfirmed(false);
+                            resetCurrencyPreflight();
                           }}
                         >
                           Elegir esta acción
@@ -558,14 +624,24 @@ export function CraftingActionPlanner({
 
       </div>
 
-      <div hidden={activeTool !== "essence"} data-testid="crafting-tool-panel-essence">
+      <div
+        id={`crafting-tool-content-${item.id}-essence`}
+        tabIndex={-1}
+        hidden={activeTool !== "essence"}
+        data-testid="crafting-tool-panel-essence"
+      >
         <EssencePlanner
           item={item}
           onStart={onStartEssenceDecision}
           onStarted={onStarted}
         />
       </div>
-      <div hidden={activeTool !== "alloy"} data-testid="crafting-tool-panel-alloy">
+      <div
+        id={`crafting-tool-content-${item.id}-alloy`}
+        tabIndex={-1}
+        hidden={activeTool !== "alloy"}
+        data-testid="crafting-tool-panel-alloy"
+      >
         <AlloyPlanner
           item={item}
           onStart={onStartAlloyDecision}
