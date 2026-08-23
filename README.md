@@ -146,6 +146,14 @@ pegar el resultado, el asesor formula una única decisión conservadora:
 solo diferencias estructurales, requisitos y etiquetas explícitas verificadas;
 no inventa DPS, precios, probabilidades ni calidad real de los afijos.
 
+El bloque **Núcleo de afijos** cruza el objetivo con las etiquetas y grados que
+aparecen literalmente en el texto avanzado. Resume cuántos afijos convergen en
+la dirección elegida, qué etiquetas específicas se repiten y cuáles de grado
+1–2 conviene revisar antes de reemplazar. El detalle afijo por afijo empieza
+plegado para no saturar la pantalla. Una etiqueta genérica como «Ataque» no se
+convierte por sí sola en daño directo: precisión y otras señales contextuales
+permanecen separadas hasta que la build permita demostrar su utilidad.
+
 La evidencia factual («qué cambió») y la valoración del jugador («me sirve»)
 se guardan por separado. Si falla el guardado del objeto, la sesión permanece
 abierta y permite reintentar; dos clics concurrentes no pueden cerrar o duplicar

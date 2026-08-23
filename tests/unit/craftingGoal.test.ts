@@ -20,7 +20,16 @@ describe("señal del objetivo de crafting", () => {
     ]);
 
     expect(signal.status).toBe("direct");
-    expect(signal.matchedTags).toEqual(["daño", "ataque"]);
+    expect(signal.matchedTags).toEqual(["daño"]);
+  });
+
+  it("no convierte la etiqueta genérica de ataque en daño directo", () => {
+    const signal = evaluateCraftingGoalSignal("damage", [
+      modifier("Precisión aumentada", ["Ataque"]),
+    ]);
+
+    expect(signal.status).toBe("no-direct-signal");
+    expect(signal.matchedTags).toEqual([]);
   });
 
   it("no convierte una categoría distinta en un fracaso", () => {

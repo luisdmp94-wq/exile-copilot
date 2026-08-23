@@ -930,6 +930,24 @@ async function runFlow(mode, port) {
       .getByLabel("¿Qué quieres conseguir?")
       .fill("Añadir un modificador útil sin alterar los actuales");
     await craftingWorkspace.getByLabel("Tipo de mejora que buscas").first().selectOption("damage");
+    const lecturaAfijos = craftingWorkspace.getByTestId("crafting-affix-assessment");
+    const textoLecturaAfijos = await lecturaAfijos.innerText();
+    check(
+      `[${mode}] la lectura separa el núcleo de daño de las etiquetas genéricas de ataque`,
+      (await lecturaAfijos.getAttribute("data-aligned-count")) === "3" &&
+        textoLecturaAfijos.includes("3 afijos apuntan a daño") &&
+        textoLecturaAfijos.includes("3/5 alineados") &&
+        !textoLecturaAfijos.includes("5/5 alineados"),
+    );
+    check(
+      `[${mode}] el detalle afijo por afijo empieza plegado y sin métricas inventadas`,
+      !(await lecturaAfijos.locator("details").getAttribute("open")) &&
+        !textoLecturaAfijos.match(/DPS estimado|probabilidad de éxito|precio estimado/i),
+    );
+    await page.screenshot({
+      path: join(SHOT_DIR, `crafting-affixes-${mode}.png`),
+      fullPage: true,
+    });
     await preflight.getByLabel(/El objeto sigue igual/).check();
     check(`[${mode}] la confirmación compacta habilita la decisión`, !(await crearDecision.isDisabled()));
     await crearDecision.click();

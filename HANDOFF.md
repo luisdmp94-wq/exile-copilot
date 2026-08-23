@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 30,
+> Informe para el propietario. Última actualización: sesión 31,
 > 2026-08-23.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,24 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 31 — lectura observable del núcleo de afijos
+
+- Crafting añade un resumen compacto «Núcleo de afijos» que cruza el objetivo
+  con las etiquetas y grados del texto avanzado real.
+- Distingue «Protege primero», «Aporta al objetivo», «Revisa su encaje» y
+  «Depende de la build» sin convertir estas señales en una puntuación.
+- Detecta convergencias específicas entre varios afijos y mantiene el detalle
+  completo plegado por defecto.
+- Se corrigió un falso positivo importante: la etiqueta genérica «Ataque» ya no
+  basta para declarar daño directo. Un afijo de precisión con esa única etiqueta
+  queda como contexto, no como mejora de daño demostrada.
+- Validación manual con «Rama de alma»: 3/6 afijos alineados con daño, dos con
+  convergencia física y un afijo alineado de grado 1–2.
+
+Verificación: **456/456** pruebas; TypeScript y ESLint sin errores; build de
+producción correcto; equipo y Crafting **190/190** en producción y
+desarrollo/Strict Mode.
 
 ## Sesión 30 — asesor conservador después de cada craft
 

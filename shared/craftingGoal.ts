@@ -24,8 +24,6 @@ const GOAL_TAGS: Record<Exclude<CraftingGoalCategory, "other">, Set<string>> = {
   damage: new Set([
     "damage",
     "daño",
-    "attack",
-    "ataque",
     "physical",
     "físico",
     "elemental",
