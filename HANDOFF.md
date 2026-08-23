@@ -1,14 +1,37 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 28,
+> Informe para el propietario. Última actualización: sesión 29,
 > 2026-08-23.
 >
-> **Estado de esta rama:** parte del rediseño visual integrado en `5f726a2` e
-> incorpora los Hitos 6C «Probar y volver» y 6D «Identidad persistente de la
-> build». `main` no se mueve durante este
-> trabajo. Las secciones de sesiones anteriores son HISTORIA: los SHA y
+> **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
+> «Probar y volver» y 6D «Identidad persistente de la build», y el banco de
+> crafting jugable de la sesión 29. Las secciones de sesiones anteriores son
+> HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 29 — banco de crafting jugable y navegación reparada
+
+- Crafting deja de empezar como una tabla técnica: primero pregunta qué busca
+  el jugador y resume en cuatro señales compactas si debe esperar, probar de
+  forma controlada o revisar la pieza.
+- La lectura separa modificadores con coincidencia literal con el objetivo,
+  modificadores sin señal directa y afijos de grado 1–2 candidatos a conservar.
+  No llama «malo» a un mod ni inventa DPS, precio, pesos o probabilidad.
+- Monedas básicas pasan de tres confirmaciones repetidas a una confirmación
+  compacta que conserva las mismas tres condiciones de seguridad. La ruta
+  mínima desde un objeto suelto queda en seis interacciones.
+- El detalle del objeto ya no duplica el planificador entero: muestra el objeto,
+  sus datos y un único botón para llevarlo al banco.
+- Todas las piezas muestran una ilustración local por clase/hueco y rareza en
+  equipo, detalle y Crafting. Son siluetas propias y deterministas, no arte de
+  GGG ni una imagen exacta resuelta desde BaseItemTypes.
+- La marca «Exile Copilot» vuelve siempre al expediente. Un botón Volver recupera
+  el área anterior sin recargar la página.
+
+Verificación: TypeScript y ESLint sin errores; **447/447** pruebas; build de
+producción correcto; equipo y Crafting **184/184**, flujo principal completo y
+mentor **88/88** en producción y desarrollo/Strict Mode.
 
 ## Sesión 28 — auditoría adversarial y ruta de próxima decisión
 

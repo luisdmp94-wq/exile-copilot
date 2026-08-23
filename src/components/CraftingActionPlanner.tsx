@@ -28,6 +28,7 @@ import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCraftingKnowledge } from "@/hooks/useCraftingKnowledge";
+import { buildCraftingMentorReading } from "@/lib/craftingMentorReading";
 
 const CRAFTING_STATE_STYLE = {
   complete: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
@@ -133,10 +134,7 @@ export function CraftingActionPlanner({
     useState<CraftingCurrencyVariant["id"]>("base");
   const [desiredOutcome, setDesiredOutcome] = useState("");
   const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
-  const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
-  const [snapshotConfirmed, setSnapshotConfirmed] = useState(false);
-  const [randomConfirmed, setRandomConfirmed] = useState(false);
-  const [notSpentConfirmed, setNotSpentConfirmed] = useState(false);
+  const [preflightConfirmed, setPreflightConfirmed] = useState(false);
   const [startingDecision, setStartingDecision] = useState(false);
   const [activeTool, setActiveTool] = useState<CraftingTool>("currency");
   const [showUnavailableActions, setShowUnavailableActions] = useState(false);
@@ -146,12 +144,7 @@ export function CraftingActionPlanner({
   const unavailableActionCount = craftingActions.length - compatibleActionCount;
   const route = buildCraftingRoute(item, crafting, craftingActions);
   const resetCurrencyPreflight = () => {
-    setDesiredOutcome("");
-    setGoalCategory("other");
-    setProtectedModifierIds([]);
-    setSnapshotConfirmed(false);
-    setRandomConfirmed(false);
-    setNotSpentConfirmed(false);
+    setPreflightConfirmed(false);
   };
   const revealRouteTarget = (targetId: string) => {
     window.requestAnimationFrame(() => {
@@ -177,9 +170,14 @@ export function CraftingActionPlanner({
   };
   const confirmationReady =
     desiredOutcome.trim().length >= 3 &&
-    snapshotConfirmed &&
-    randomConfirmed &&
-    notSpentConfirmed;
+    preflightConfirmed;
+  const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
+  const verdictTone =
+    mentorReading.verdict === "controlled-test"
+      ? "text-emerald-200"
+      : mentorReading.verdict === "define"
+        ? "text-sky-200"
+        : "text-amber-200";
   const diagnosisHeadline =
     crafting.state === "complete" && item.rarity === "normal"
       ? "Objeto normal · sin modificadores explícitos"
@@ -225,6 +223,43 @@ export function CraftingActionPlanner({
           </h3>
         )}
         <p className="text-lg font-semibold text-foreground">{diagnosisHeadline}</p>
+        <CraftingGoalPicker
+          category={goalCategory}
+          onCategoryChange={setGoalCategory}
+          outcome={desiredOutcome}
+          onOutcomeChange={setDesiredOutcome}
+          idPrefix={`crafting-goal-${item.id}`}
+          label="¿Qué quieres conseguir?"
+          placeholder="Ej.: más daño físico sin perder velocidad"
+        />
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" data-testid="crafting-mentor-reading">
+          <div className="crafting-signal-card">
+            <span className="crafting-signal-label">¿Compensa seguir?</span>
+            <strong className={verdictTone}>{mentorReading.verdictLabel}</strong>
+            <span>{mentorReading.verdictDetail}</span>
+          </div>
+          <div className="crafting-signal-card">
+            <span className="crafting-signal-label">A favor</span>
+            <strong>{mentorReading.matchingModifiers.length}</strong>
+            <span>
+              {mentorReading.matchingModifiers[0]?.text ??
+                (goalCategory === "other" ? "Elige una categoría" : "Ningún tag directo")}
+            </span>
+          </div>
+          <div className="crafting-signal-card">
+            <span className="crafting-signal-label">Sin señal directa</span>
+            <strong>{mentorReading.unmatchedModifiers.length}</strong>
+            <span>
+              {mentorReading.unmatchedModifiers[0]?.text ??
+                (goalCategory === "other" ? "Pendiente del objetivo" : "Nada señalado")}
+            </span>
+          </div>
+          <div className="crafting-signal-card">
+            <span className="crafting-signal-label">Candidatos a conservar</span>
+            <strong>{mentorReading.protectCandidates.length}</strong>
+            <span>{mentorReading.protectCandidates[0]?.text ?? "No hay grados 1–2 observados"}</span>
+          </div>
+        </div>
         <div
           className="rounded-sm border-l-2 border-primary bg-primary/[0.06] px-3 py-3"
           data-testid="crafting-route"
@@ -279,7 +314,7 @@ export function CraftingActionPlanner({
           ) : knowledge.data ? (
             <>
               <span className="rounded-full border border-border px-2 py-1 text-muted-foreground">
-                {knowledge.data.actions.length} acciones contrastadas
+                {knowledge.data.actions.length} reglas verificadas
               </span>
               {knowledge.data.modPool.probabilityBasis === "insufficient" && (
                 <span className="rounded-full border border-amber-500/35 bg-amber-500/[0.07] px-2 py-1 text-amber-200">
@@ -400,10 +435,17 @@ export function CraftingActionPlanner({
 
       <div
         hidden={activeTool !== "currency"}
+        style={activeTool !== "currency" ? { display: "none" } : undefined}
         className="flex flex-col gap-4"
         data-testid="crafting-tool-panel-currency"
       >
       <section
+        hidden={route.currencyActions.length > 0 && preparedActionId === null}
+        style={
+          route.currencyActions.length > 0 && preparedActionId === null
+            ? { display: "none" }
+            : undefined
+        }
         className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3"
         data-testid="crafting-actions"
         aria-labelledby={`crafting-actions-title-${item.id}`}
@@ -495,7 +537,7 @@ export function CraftingActionPlanner({
                             {
                               desiredOutcome: desiredOutcome.trim(),
                               goalCategory,
-                              protectedModifierIds,
+                              protectedModifierIds: [],
                             },
                           )
                             .then((started) => {
@@ -544,43 +586,16 @@ export function CraftingActionPlanner({
                             Este mínimo reproduce el tooltip observado; no garantiza un afijo concreto ni su probabilidad.
                           </p>
                         </fieldset>
-                        <CraftingGoalPicker
-                          category={goalCategory}
-                          onCategoryChange={setGoalCategory}
-                          outcome={desiredOutcome}
-                          onOutcomeChange={setDesiredOutcome}
-                          idPrefix={`crafting-goal-${item.id}-${entry.action.id}`}
-                          label="¿Qué resultado esperas conseguir?"
-                          placeholder="Ej.: obtener un sufijo útil sin perder los afijos actuales"
-                        />
                         <label className="flex items-start gap-2">
                           <input
                             type="checkbox"
-                            checked={snapshotConfirmed}
-                            onChange={(event) => setSnapshotConfirmed(event.target.checked)}
-                            className="mt-0.5"
-                          />
-                          <span>Confirmo que el objeto sigue igual que el texto importado.</span>
-                        </label>
-                        <label className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            checked={randomConfirmed}
-                            onChange={(event) => setRandomConfirmed(event.target.checked)}
+                            checked={preflightConfirmed}
+                            onChange={(event) => setPreflightConfirmed(event.target.checked)}
                             className="mt-0.5"
                           />
                           <span>
-                            Entiendo que el modificador es aleatorio y no conocemos sus pesos.
+                            El objeto sigue igual, aún no gasté la moneda y acepto que el resultado es aleatorio.
                           </span>
-                        </label>
-                        <label className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            checked={notSpentConfirmed}
-                            onChange={(event) => setNotSpentConfirmed(event.target.checked)}
-                            className="mt-0.5"
-                          />
-                          <span>Confirmo que todavía no he gastado la moneda.</span>
                         </label>
                         <div className="flex flex-wrap gap-2">
                           <Button type="submit" size="sm" disabled={!confirmationReady || startingDecision}>
@@ -626,6 +641,7 @@ export function CraftingActionPlanner({
         id={`crafting-tool-content-${item.id}-essence`}
         tabIndex={-1}
         hidden={activeTool !== "essence"}
+        style={activeTool !== "essence" ? { display: "none" } : undefined}
         data-testid="crafting-tool-panel-essence"
       >
         <EssencePlanner
@@ -638,6 +654,7 @@ export function CraftingActionPlanner({
         id={`crafting-tool-content-${item.id}-alloy`}
         tabIndex={-1}
         hidden={activeTool !== "alloy"}
+        style={activeTool !== "alloy" ? { display: "none" } : undefined}
         data-testid="crafting-tool-panel-alloy"
       >
         <AlloyPlanner

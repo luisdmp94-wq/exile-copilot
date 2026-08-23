@@ -29,10 +29,9 @@
  *  12. el detalle muestra nombre y base
  *  13. el detalle separa los tipos de modificador
  *  14. el detalle muestra requisitos
- *  15. el detalle muestra el diagnóstico de crafting
- *  16. el diagnóstico declara una lectura parcial con datos antiguos
- *  17. el detalle muestra la matriz de acciones básicas
- *  18. la matriz no declara legalidad final con datos incompletos
+ *  15. el detalle muestra una ilustración local del objeto
+ *  16. el detalle lleva al banco sin duplicar el planificador
+ *  17. el detalle compacto no convierte datos parciales en ceros
  *  19. el detalle muestra procedencia
  *  20. el foco queda atrapado dentro del diálogo
  *  19. Escape cierra el detalle
@@ -271,19 +270,16 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
 
     const workspace = page.getByTestId("crafting-workspace");
     await workspace.waitFor({ timeout: 20000 });
-    const exalted = workspace.locator("details").filter({ hasText: "Orbe exaltado" });
-    await exalted.getByRole("button", { name: "Elegir esta acción" }).waitFor({
-      timeout: 20000,
-    });
-    await click(exalted.getByRole("button", { name: "Elegir esta acción" }));
-
+    await click(
+      workspace
+        .getByTestId("crafting-route")
+        .getByRole("button", { name: "Preparar Orbe exaltado" }),
+    );
     const preflight = workspace.getByTestId("crafting-preflight-exalted");
-    const outcome = preflight.getByLabel("¿Qué resultado esperas conseguir?");
+    const outcome = workspace.getByLabel("¿Qué quieres conseguir?");
     const expectedOutcome = "Añadir un modificador útil sin perder el objeto pegado";
     await outcome.fill(expectedOutcome);
-    await checkBox(preflight.getByLabel(/Confirmo que el objeto sigue igual/));
-    await checkBox(preflight.getByLabel(/Entiendo que el modificador es aleatorio/));
-    await checkBox(preflight.getByLabel(/Confirmo que todavía no he gastado la moneda/));
+    await checkBox(preflight.getByLabel(/El objeto sigue igual/));
 
     let failFirstSave = true;
     await page.route("**/api/character", async (route) => {
@@ -305,13 +301,7 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
       timeout: 15000,
     });
 
-    const confirmationsPreserved = await Promise.all(
-      [
-        preflight.getByLabel(/Confirmo que el objeto sigue igual/),
-        preflight.getByLabel(/Entiendo que el modificador es aleatorio/),
-        preflight.getByLabel(/Confirmo que todavía no he gastado la moneda/),
-      ].map((locator) => locator.isChecked()),
-    );
+    const confirmationsPreserved = [await preflight.getByLabel(/El objeto sigue igual/).isChecked()];
     check(
       `[${mode}] un fallo del autoguardado conserva objeto, objetivo y confirmaciones`,
       (await workspace.getByText("Núcleo de fénix").first().isVisible()) &&
@@ -457,13 +447,7 @@ async function runFlow(mode, port) {
     await dialogo.waitFor({ timeout: 15000 });
     check(`[${mode}] Enter abre el detalle`, await dialogo.isVisible());
 
-    // Las acciones ya no nacen de una constante de UI: el servidor valida el
-    // registro de conocimiento antes de exponerlas. Esperar este estado prueba
-    // el contrato asíncrono y evita leer el diálogo durante «Verificando…».
-    await dialogo
-      .getByTestId("crafting-knowledge-status")
-      .getByText(/acciones contrastadas/)
-      .waitFor({ timeout: 15000 });
+    await dialogo.locator(".item-artwork svg").waitFor({ timeout: 15000 });
 
     const textoDialogo = await dialogo.innerText();
     check(
@@ -473,39 +457,16 @@ async function runFlow(mode, port) {
     // El CSS `uppercase` afecta a innerText: se compara sin distinguir mayúsculas.
     check(`[${mode}] el detalle separa los tipos de modificador`, /expl[íi]citos/i.test(textoDialogo));
     check(`[${mode}] el detalle muestra requisitos`, textoDialogo.includes("Nivel 68"));
+    check(`[${mode}] el detalle muestra una ilustración local del objeto`, await dialogo.locator(".item-artwork svg").isVisible());
     check(
-      `[${mode}] el detalle muestra el diagnóstico de crafting`,
-      textoDialogo.includes("Estado de la pieza") &&
-        /(Siguiente acción legal|Decisión de ruta|Monedas básicas agotadas|No gastes todavía)/i.test(textoDialogo),
+      `[${mode}] el detalle lleva al banco sin duplicar el planificador`,
+      textoDialogo.includes("Analizar y trabajar esta pieza") &&
+        !textoDialogo.includes("Monedas disponibles") &&
+        !textoDialogo.includes("Ver evidencia y límites"),
     );
     check(
-      `[${mode}] el diagnóstico parcial no presenta ceros como estructura confirmada`,
-      textoDialogo.includes("Lectura parcial") && textoDialogo.includes("sin clasificar"),
-    );
-    const evidenciaCrafting = dialogo.locator("details").filter({
-      hasText: "Ver evidencia y límites",
-    });
-    check(
-      `[${mode}] los límites técnicos nacen plegados`,
-      !(await evidenciaCrafting.getAttribute("open")),
-    );
-    await evidenciaCrafting.locator("summary").click();
-    const textoEvidenciaCrafting = await evidenciaCrafting.innerText();
-    check(
-      `[${mode}] la evidencia conserva los recuentos sin inventar prefijos o sufijos`,
-      textoEvidenciaCrafting.includes("Huecos totales") &&
-        textoEvidenciaCrafting.includes("Sin determinar") &&
-        !textoEvidenciaCrafting.includes("Prefijos\n0"),
-    );
-    check(
-      `[${mode}] el detalle muestra las monedas disponibles`,
-      textoDialogo.includes("Monedas disponibles") &&
-        textoDialogo.includes("Orbe exaltado"),
-    );
-    check(
-      `[${mode}] la matriz no declara legalidad final con datos incompletos`,
-      textoDialogo.includes("Faltan datos") &&
-        textoDialogo.includes("solo habilita acciones compatibles"),
+      `[${mode}] el detalle compacto no convierte datos parciales en ceros`,
+      !textoDialogo.includes("Prefijos\n0") && !textoDialogo.includes("Sufijos\n0"),
     );
     check(`[${mode}] el detalle muestra procedencia`, textoDialogo.includes("Procedencia"));
     check(
@@ -774,7 +735,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] Crafting existe como tercera área principal`,
       (await page.getByTestId("tab-crafting").getAttribute("data-state")) === "active" &&
-        (await craftingWorkspace.innerText()).includes("Crafting guiado"),
+        (await craftingWorkspace.innerText()).includes("Banco de crafting"),
     );
     await craftingWorkspace.getByTestId(`crafting-item-${craftingItemId}`).click();
     check(
@@ -805,12 +766,22 @@ async function runFlow(mode, port) {
       `[${mode}] el selector usa filas compactas (${altoFilaPieza}px)`,
       altoFilaPieza <= 60,
     );
+    const toolVisibility = {
+      currency: await craftingWorkspace.getByTestId("crafting-tool-panel-currency").isVisible(),
+      essence: await craftingWorkspace.getByTestId("crafting-essences").isVisible(),
+      alloy: await craftingWorkspace.getByTestId("crafting-alloys").isVisible(),
+    };
+    const currencySelected =
+      (await craftingWorkspace.getByTestId("crafting-tool-currency").getAttribute("aria-selected")) ===
+      "true";
     check(
-      `[${mode}] Crafting muestra una herramienta cada vez`,
-      (await craftingWorkspace.getByTestId("crafting-actions").isVisible()) &&
-        !(await craftingWorkspace.getByTestId("crafting-essences").isVisible()) &&
-        !(await craftingWorkspace.getByTestId("crafting-alloys").isVisible()),
+      `[${mode}] Crafting muestra una herramienta cada vez (${JSON.stringify(toolVisibility)})`,
+      currencySelected && !toolVisibility.essence && !toolVisibility.alloy,
     );
+    await page.screenshot({
+      path: join(SHOT_DIR, `crafting-banco-${mode}.png`),
+      fullPage: true,
+    });
 
     await page.setViewportSize({ width: 375, height: 844 });
     const anchoCraftingMovil = await page.evaluate(() => ({
@@ -829,6 +800,10 @@ async function runFlow(mode, port) {
       `[${mode}] la vista inicial de Crafting ocupa como máximo 2,5 pantallas móviles (${altoCraftingMovil}px)`,
       altoCraftingMovil <= 844 * 2.5,
     );
+    await page.screenshot({
+      path: join(SHOT_DIR, `crafting-banco-movil-${mode}.png`),
+      fullPage: true,
+    });
     await page.setViewportSize({ width: 1440, height: 1000 });
 
     // --- Essences P1: contrato real, riesgo y preflight -------------------
@@ -929,6 +904,7 @@ async function runFlow(mode, port) {
     );
 
     await craftingWorkspace.getByTestId("crafting-tool-currency").click();
+    await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).click();
     const accionExaltada = craftingWorkspace.locator("details").filter({ hasText: "Orbe exaltado" });
     check(
       `[${mode}] la acción compatible aparece antes que las no aplicables`,
@@ -939,7 +915,6 @@ async function runFlow(mode, port) {
       `[${mode}] una moneda que solo añade no pide proteger modificadores`,
       (await accionExaltada.getByTestId("crafting-protection-picker").count()) === 0,
     );
-    await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).click();
     const preflight = craftingWorkspace.getByTestId("crafting-preflight-exalted");
     await preflight.waitFor({ timeout: 15000 });
     const crearDecision = preflight.getByRole("button", {
@@ -951,14 +926,12 @@ async function runFlow(mode, port) {
       `[${mode}] la variante superior se elige explícitamente`,
       await preflight.getByRole("radio", { name: /^Superior/ }).isChecked(),
     );
-    await preflight
-      .getByLabel("¿Qué resultado esperas conseguir?")
+    await craftingWorkspace
+      .getByLabel("¿Qué quieres conseguir?")
       .fill("Añadir un modificador útil sin alterar los actuales");
-    await preflight.getByLabel("Tipo de mejora que buscas").selectOption("damage");
-    await preflight.getByLabel(/Confirmo que el objeto sigue igual/).check();
-    await preflight.getByLabel(/Entiendo que el modificador es aleatorio/).check();
-    await preflight.getByLabel(/Confirmo que todavía no he gastado la moneda/).check();
-    check(`[${mode}] las tres confirmaciones habilitan la decisión`, !(await crearDecision.isDisabled()));
+    await craftingWorkspace.getByLabel("Tipo de mejora que buscas").first().selectOption("damage");
+    await preflight.getByLabel(/El objeto sigue igual/).check();
+    check(`[${mode}] la confirmación compacta habilita la decisión`, !(await crearDecision.isDisabled()));
     await crearDecision.click();
     const casoCrafting = craftingWorkspace.locator("#seccion-decision-crafting");
     await casoCrafting.waitFor({ timeout: 20000 });

@@ -24,6 +24,7 @@ import {
   type EquipmentSlot,
 } from "@/lib/equipment";
 import { cn } from "@/lib/utils";
+import { ItemArtwork } from "@/components/ItemArtwork";
 
 /**
  * Paperdoll táctica con diagnóstico contextual — equipo del PERSONAJE ACTUAL.
@@ -328,7 +329,13 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
           <span className={cn("size-2 shrink-0 rounded-full bg-current", TONE_CLASSES[dataState.tone])} />
         </span>
       </span>
-      <span className={cn("line-clamp-2 text-sm font-medium", rarity.text)}>{item.name}</span>
+      <span className="mt-1 flex min-w-0 items-center gap-2">
+        <ItemArtwork item={item} className="size-11 rounded-sm" />
+        <span className="min-w-0">
+          <span className={cn("line-clamp-2 text-sm font-medium", rarity.text)}>{item.name}</span>
+          <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{item.baseType}</span>
+        </span>
+      </span>
     </button>
   );
 }

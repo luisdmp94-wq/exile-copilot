@@ -63,7 +63,10 @@ npm run dev            # frontend + API en http://localhost:7100
 
 ## Crafting guiado con comparación antes/después
 
-La pestaña Crafting convierte la lectura de la pieza en una ruta visible: si
+La pestaña Crafting funciona como un banco de decisión. Primero pregunta qué
+quieres conseguir y separa, sin inventar valor, los mods con señal directa para
+ese objetivo, los que no tienen una relación literal y los grados 1–2 que
+merece la pena revisar antes de arriesgar. Después convierte la lectura de la pieza en una ruta visible: si
 solo hay una moneda básica compatible permite prepararla directamente; si hay
 varias, muestra la decisión sin fingir un ranking; y si el raro está lleno
 lleva a las rutas de reemplazo de Essence o Alloy. Un objeto normal bien
@@ -75,8 +78,8 @@ La auditoría adversarial y sus límites están documentados en
 **Crafting** es la tercera área principal del producto, separada de
 «Expediente y mentor» y «Plan y mercado». Allí eliges una pieza real del
 expediente y completas todo el ciclo sin saltar entre pestañas. El detalle del
-objeto conserva el diagnóstico como consulta, pero el preflight y la sesión
-persistente existen una sola vez, dentro del banco de Crafting.
+objeto conserva sus datos y una entrada directa al banco; el preflight y la
+sesión persistente existen una sola vez, dentro de Crafting.
 
 Al seleccionar un objeto importado mediante texto avanzado, las acciones
 compatibles aparecen primero y las no aplicables quedan en un bloque secundario.
@@ -84,9 +87,15 @@ Transmutación, Aumento, Regio y Exaltado se evalúan únicamente contra la
 evidencia local documentada. El preflight obliga a registrar la variante
 exacta (base, superior o perfecta cuando fue observada) y conserva el mínimo
 mostrado en su tooltip sin tratarlo como probabilidad ni garantía. Una acción compatible permite abrir una
-decisión guiada: antes de gastar exige definir el objetivo y confirmar que el
-snapshot sigue vigente, que el resultado será aleatorio y que la moneda aún no
-se ha usado.
+decisión guiada: antes de gastar exige definir el objetivo y una sola
+confirmación compacta de que el snapshot sigue vigente, el resultado será
+aleatorio y la moneda aún no se ha usado.
+
+Las fichas de equipo, el detalle y el banco incluyen ilustraciones locales por
+tipo de objeto y rareza. Son siluetas propias que siempre funcionan sin red; no
+se presentan como el arte exacto del juego mientras el texto pegado no aporte un
+id oficial verificable. La marca de la cabecera vuelve al expediente y el botón
+Volver recupera el área anterior sin refrescar la página.
 
 El primer flujo P1 cubre también **Essences**. Menor, Normal y Superior se
 tratan como una mejora de mágico a raro; Perfecta y las obtenidas mediante

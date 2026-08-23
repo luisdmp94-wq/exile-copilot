@@ -251,6 +251,18 @@ async function runFlow(mode, port) {
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
     check(`[${mode}] ejemplo precargado visible`, true);
 
+    await irA(page, "plan");
+    await page.getByRole("button", { name: "Ir al inicio de Exile Copilot" }).click();
+    const volvioInicio = (await page.getByTestId("tab-expediente").getAttribute("data-state")) === "active";
+    const volverArea = page.getByRole("button", { name: "Volver al área anterior" });
+    await volverArea.click();
+    const recuperoPlan = (await page.getByTestId("tab-plan").getAttribute("data-state")) === "active";
+    check(
+      `[${mode}] la marca vuelve al inicio y Volver recupera el área anterior`,
+      volvioInicio && recuperoPlan,
+    );
+    await page.getByRole("button", { name: "Ir al inicio de Exile Copilot" }).click();
+
     // El ejemplo todavía no existe en SQLite. Las acciones con memoria no
     // pueden fallar en silencio: deben llevar al editor y explicar el paso.
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();

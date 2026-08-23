@@ -2,7 +2,7 @@ import { useState, type RefObject } from "react";
 import type { Item, Recommendation } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CraftingActionPlanner } from "@/components/CraftingActionPlanner";
+import { ItemArtwork } from "@/components/ItemArtwork";
 import {
   Dialog,
   DialogContent,
@@ -159,11 +159,14 @@ function ItemDetailContent({
         }
       }}
     >
-        <DialogHeader>
-          <DialogTitle className={cn("text-lg", rarity.text)}>{item.name}</DialogTitle>
-          <DialogDescription>
-            {item.baseType} · {SLOT_LABELS[item.slot]} · {RARITY_LABELS[item.rarity]}
-          </DialogDescription>
+        <DialogHeader className="flex-row items-center gap-3 text-left">
+          <ItemArtwork item={item} className="size-16 rounded-md" decorative={false} />
+          <div>
+            <DialogTitle className={cn("text-lg", rarity.text)}>{item.name}</DialogTitle>
+            <DialogDescription>
+              {item.baseType} · {SLOT_LABELS[item.slot]} · {RARITY_LABELS[item.rarity]}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 text-sm">
@@ -191,7 +194,6 @@ function ItemDetailContent({
             </div>
           </dl>
 
-          <CraftingActionPlanner item={item} />
           {onGoToCrafting && (
             <Button
               type="button"
@@ -199,7 +201,7 @@ function ItemDetailContent({
               onClick={() => onGoToCrafting(item.id)}
               data-testid="trabajar-en-crafting"
             >
-              Trabajar esta pieza en Crafting
+              Analizar y trabajar esta pieza
             </Button>
           )}
 

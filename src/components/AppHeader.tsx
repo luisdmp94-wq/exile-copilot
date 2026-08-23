@@ -1,4 +1,4 @@
-import { Swords } from "lucide-react";
+import { ArrowLeft, Swords } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HealthResponse } from "@shared/api.js";
@@ -10,6 +10,9 @@ interface AppHeaderProps {
   loading: boolean;
   /** Resumen discreto del personaje activo; null mientras no haya ninguno. */
   profile: CharacterProfile | null;
+  onHome: () => void;
+  onBack: () => void;
+  canGoBack: boolean;
 }
 
 function patchLabel(health: HealthResponse): string {
@@ -26,11 +29,29 @@ function patchTitle(health: HealthResponse): string {
  * Cabecera compacta: marca, descripción corta, parche y —si existe— un resumen
  * discreto del personaje. Sin menús sin función.
  */
-export function AppHeader({ health, loading, profile }: AppHeaderProps) {
+export function AppHeader({ health, loading, profile, onHome, onBack, canGoBack }: AppHeaderProps) {
   return (
     <header className="command-header border-b border-primary/15">
       <div className="mx-auto flex max-w-[92rem] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 sm:px-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {canGoBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="header-nav-button"
+              aria-label="Volver al área anterior"
+              title="Volver"
+            >
+              <ArrowLeft className="size-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onHome}
+            className="group flex items-center gap-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Ir al inicio de Exile Copilot"
+            title="Volver al expediente"
+          >
           <span className="brand-seal" aria-hidden="true">
             <Swords className="size-5" />
           </span>
@@ -42,6 +63,7 @@ export function AppHeader({ health, loading, profile }: AppHeaderProps) {
               Exile Copilot
             </h1>
           </div>
+          </button>
         </div>
 
         <span className="hidden border-l border-border/70 pl-4 text-xs uppercase tracking-[0.14em] text-muted-foreground lg:inline">

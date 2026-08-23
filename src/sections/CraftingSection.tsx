@@ -7,6 +7,7 @@ import type { StartEssenceDecision } from "@shared/craftingEssences.js";
 import { sessionIsOpen } from "@shared/decisionSession.js";
 import type { Budget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { CraftingActionPlanner } from "@/components/CraftingActionPlanner";
+import { ItemArtwork } from "@/components/ItemArtwork";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,15 +100,15 @@ export function CraftingSection({
           </span>
           <div>
             <h2 id="crafting-workspace-title" className="dossier-title text-2xl font-semibold">
-              Crafting guiado
+              Banco de crafting
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Elige una pieza, comprueba su estado y prepara una sola acción.
+              Elige · decide · aplica · compara.
             </p>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          {craftableItems.length} pieza(s) · una acción cada vez
+          {craftableItems.length} pieza(s)
         </p>
       </section>
 
@@ -147,7 +148,7 @@ export function CraftingSection({
         </section>
       ) : (
         <div className="grid min-w-0 gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
-          <aside className="superficie-panel min-w-0 p-3" aria-labelledby="crafting-items-title">
+          <aside className="superficie-panel min-w-0 p-3 lg:sticky lg:top-24" aria-labelledby="crafting-items-title">
             <div className="flex items-center justify-between gap-2 px-1">
               <h3 id="crafting-items-title" className="text-sm font-semibold">Piezas</h3>
               <Badge variant="outline" className="text-[10px] text-muted-foreground">
@@ -178,17 +179,18 @@ export function CraftingSection({
                       }`}
                       onClick={() => setSelectedItemId(item.id)}
                     >
-                      {needsAttention ? (
-                        <AlertTriangle className="size-3.5 shrink-0 text-amber-300" aria-hidden="true" />
-                      ) : (
-                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
-                      )}
+                      <ItemArtwork item={item} className="size-10 rounded-sm" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{item.name}</span>
                         <span className="block truncate text-[11px] text-muted-foreground">
                           {SLOT_LABELS[item.slot]}
                         </span>
                       </span>
+                      {needsAttention ? (
+                        <AlertTriangle className="size-3.5 shrink-0 text-amber-300" aria-hidden="true" />
+                      ) : (
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
+                      )}
                     </button>
                   </li>
                 );
@@ -199,11 +201,14 @@ export function CraftingSection({
           {selectedItem && (
             <section className="superficie-panel min-w-0 p-4 sm:p-5" aria-live="polite">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-                <div>
+                <div className="flex min-w-0 items-center gap-3">
+                  <ItemArtwork item={selectedItem} className="size-20 rounded-md" decorative={false} />
+                  <div className="min-w-0">
                   <h3 className="dossier-title text-2xl font-semibold">{selectedItem.name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {selectedItem.baseType} · ilvl {selectedItem.itemLevel ?? "desconocido"}
                   </p>
+                  </div>
                 </div>
                 {(() => {
                   const diagnosis = diagnoseCraftingItem(selectedItem);

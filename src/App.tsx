@@ -118,6 +118,7 @@ export default function App() {
   // «Ver el objeto evaluado» del caso. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
   const [tab, setTab] = useState<WorkspaceTab>("expediente");
+  const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceTab[]>([]);
   const [craftingRequestedItemId, setCraftingRequestedItemId] = useState<string | null>(null);
   // Panel lateral con el editor completo del personaje.
   const [editorOpen, setEditorOpen] = useState(false);
@@ -340,10 +341,37 @@ export default function App() {
       ? characterJournal?.session?.craftingExperiment ?? null
       : null;
 
+  const navigateWorkspace = useCallback(
+    (workspace: WorkspaceTab) => {
+      setTab((current) => {
+        if (current === workspace) return current;
+        setWorkspaceHistory((history) => [...history, current].slice(-12));
+        return workspace;
+      });
+      announceMentor({ type: "workspace", workspace });
+    },
+    [announceMentor],
+  );
+
+  const goBackWorkspace = () => {
+    const previous = workspaceHistory.at(-1);
+    if (!previous) return;
+    setWorkspaceHistory((history) => history.slice(0, -1));
+    setTab(previous);
+    announceMentor({ type: "workspace", workspace: previous });
+  };
+
+  const goHome = () => {
+    if (tab === "expediente") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    navigateWorkspace("expediente");
+  };
+
   const openCraftingForItem = (itemId: string) => {
     setCraftingRequestedItemId(itemId);
-    setTab("crafting");
-    announceMentor({ type: "workspace", workspace: "crafting" });
+    navigateWorkspace("crafting");
   };
 
   const restoreMentorBaseContext = () => {
@@ -780,7 +808,7 @@ export default function App() {
   };
 
   const openMentorConversation = () => {
-    setTab("expediente");
+    navigateWorkspace("expediente");
     window.requestAnimationFrame(() => {
       const trigger = document.querySelector<HTMLElement>("[data-testid='acordeon-mentor']");
       if (trigger?.getAttribute("aria-expanded") !== "true") trigger?.click();
@@ -868,7 +896,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-foreground">
-      <AppHeader health={health} loading={metaLoading} profile={character.profile} />
+      <AppHeader
+        health={health}
+        loading={metaLoading}
+        profile={character.profile}
+        onHome={goHome}
+        onBack={goBackWorkspace}
+        canGoBack={workspaceHistory.length > 0}
+      />
 
       <main className="mx-auto max-w-[92rem] px-4 pb-28 pt-0 sm:px-6 sm:pb-12">
         {metaError && (
@@ -885,8 +920,7 @@ export default function App() {
           value={tab}
           onValueChange={(value) => {
             const workspace = value as WorkspaceTab;
-            setTab(workspace);
-            announceMentor({ type: "workspace", workspace });
+            navigateWorkspace(workspace);
           }}
           className="gap-0"
         >
@@ -973,7 +1007,7 @@ export default function App() {
                             Estás comprobando {activeCraftingExperiment.actionLabel} en {activeCraftingExperiment.originalItem.name}.
                             El preflight y el resultado viven en el banco de Crafting para no duplicar la sesión.
                           </p>
-                          <Button type="button" onClick={() => setTab("crafting")}>
+                          <Button type="button" onClick={() => navigateWorkspace("crafting")}>
                             Continuar en Crafting
                           </Button>
                         </div>

@@ -90,6 +90,36 @@
 }
 
 @layer components {
+  .header-nav-button {
+    @apply grid size-9 shrink-0 place-items-center rounded-sm border border-border/70 bg-card/60 text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary;
+  }
+
+  .item-artwork {
+    border: 1px solid color-mix(in srgb, var(--item-accent) 45%, transparent);
+    background:
+      radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--item-accent) 15%, transparent), transparent 52%),
+      linear-gradient(145deg, hsl(var(--card)), hsl(var(--background)));
+    box-shadow:
+      inset 0 0 18px color-mix(in srgb, var(--item-accent) 9%, transparent),
+      0 0 18px -14px var(--item-accent);
+  }
+
+  .crafting-signal-card {
+    @apply flex min-h-24 flex-col gap-1 rounded-sm border border-border/70 bg-background/45 p-3 text-xs text-muted-foreground;
+  }
+
+  .crafting-signal-card strong {
+    @apply line-clamp-1 text-sm font-semibold text-foreground;
+  }
+
+  .crafting-signal-card > span:last-child {
+    @apply line-clamp-2;
+  }
+
+  .crafting-signal-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70;
+  }
+
   /** Superficie elevada: sombra interior discreta, sin transparencias que resten contraste. */
   .superficie-panel {
     @apply border border-border bg-card/95;
