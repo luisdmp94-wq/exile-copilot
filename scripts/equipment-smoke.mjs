@@ -270,17 +270,12 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
 
     const workspace = page.getByTestId("crafting-workspace");
     await workspace.waitFor({ timeout: 20000 });
-    const outcome = workspace.getByLabel("Añade un matiz (opcional)");
-    const expectedOutcome = "Añadir un modificador útil sin perder el objeto pegado";
-    await click(workspace.getByRole("radio", { name: "Daño", exact: true }));
-    await outcome.fill(expectedOutcome);
-    await click(workspace.getByTestId("crafting-success-goal-toggle"));
-    await click(
-      workspace
-        .getByTestId("crafting-route")
-        .getByRole("button", { name: "Preparar Orbe exaltado" }),
-    );
-    const preflight = workspace.getByTestId("crafting-preflight-exalted");
+    const coach = workspace.getByTestId("crafting-quick-coach");
+    const expectedOutcome = "Daño";
+    await click(coach.getByRole("button", { name: "Daño", exact: true }));
+    await click(coach.getByRole("button", { name: "Usar esta parada" }));
+    await click(coach.getByRole("button", { name: "Preparar Orbe exaltado" }));
+    const preflight = coach.getByTestId("crafting-coach-preflight");
     await checkBox(preflight.getByLabel(/El objeto sigue igual/));
 
     let failFirstSave = true;
@@ -297,7 +292,7 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
       await route.continue();
     });
 
-    const prepare = preflight.getByRole("button", { name: "Preparar este craft" });
+    const prepare = preflight.getByRole("button", { name: "Empezar y volver con el resultado" });
     await click(prepare);
     await page.getByText("No se pudieron guardar las correcciones").waitFor({
       timeout: 15000,
@@ -307,7 +302,7 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
     check(
       `[${mode}] un fallo del autoguardado conserva objeto, objetivo y confirmaciones`,
       (await workspace.getByText("Núcleo de fénix").first().isVisible()) &&
-        (await outcome.inputValue()) === expectedOutcome &&
+        (await coach.innerText()).includes("Orbe exaltado") &&
         confirmationsPreserved.every(Boolean),
     );
     check(
@@ -750,6 +745,38 @@ async function runFlow(mode, port) {
       (await tituloMentorContextual.innerText()) === "Núcleo de fénix" &&
         (await page.getByTestId("mentor-contextual-respuesta").count()) === 0,
     );
+    const textoCraftingInicial = await craftingWorkspace.innerText();
+    const coachCrafting = craftingWorkspace.getByTestId("crafting-quick-coach");
+    check(
+      `[${mode}] el objeto real empieza con una sola pregunta`,
+      (await coachCrafting.getAttribute("data-coach-stage")) === "choose-goal" &&
+        (await coachCrafting.innerText()).includes("¿Qué quieres mejorar?") &&
+        !(await craftingWorkspace.getByTestId("crafting-full-workbench").getAttribute("open")),
+    );
+    await coachCrafting.getByRole("button", { name: "Daño", exact: true }).click();
+    check(
+      `[${mode}] el entrenador pide una parada antes de mostrar la moneda`,
+      (await coachCrafting.getAttribute("data-coach-stage")) === "choose-stop" &&
+        (await coachCrafting.innerText()).includes("Al menos 4 afijos de daño"),
+    );
+    await coachCrafting.getByRole("button", { name: "Usar esta parada" }).click();
+    check(
+      `[${mode}] el entrenador termina en una única próxima acción`,
+      (await coachCrafting.getAttribute("data-coach-stage")) === "ready-currency" &&
+        (await coachCrafting.innerText()).includes("Orbe exaltado") &&
+        (await coachCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).isVisible()),
+    );
+    await coachCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).click();
+    check(
+      `[${mode}] el preflight rápido no despliega el banco completo`,
+      (await coachCrafting.getByTestId("crafting-coach-preflight").isVisible()) &&
+        !(await craftingWorkspace.getByTestId("crafting-full-workbench").getAttribute("open")) &&
+        (await coachCrafting.getByRole("button", { name: "Empezar y volver con el resultado" }).isDisabled()),
+    );
+    await coachCrafting.getByRole("button", { name: "Cambiar acción" }).click();
+    await coachCrafting.getByRole("button", { name: "Cambiar objetivo: Daño" }).click();
+    const bancoDetallado = craftingWorkspace.getByTestId("crafting-full-workbench");
+    await bancoDetallado.locator(":scope > summary").click();
     const rutaCrafting = craftingWorkspace.getByTestId("crafting-route");
     check(
       `[${mode}] el diagnóstico convierte la compatibilidad en una próxima acción`,
@@ -757,7 +784,6 @@ async function runFlow(mode, port) {
         (await rutaCrafting.innerText()).includes("Orbe exaltado") &&
         (await rutaCrafting.getByRole("button", { name: "Define tu objetivo" }).isVisible()),
     );
-    const textoCraftingInicial = await craftingWorkspace.innerText();
     const palabrasCraftingInicial = textoCraftingInicial.trim().split(/\s+/).filter(Boolean).length;
     check(
       `[${mode}] el banco inicial cabe en 300 palabras (${palabrasCraftingInicial})`,
@@ -791,6 +817,7 @@ async function runFlow(mode, port) {
       fullPage: true,
     });
 
+    await bancoDetallado.locator(":scope > summary").click();
     await page.setViewportSize({ width: 375, height: 844 });
     const anchoCraftingMovil = await page.evaluate(() => ({
       client: document.documentElement.clientWidth,
@@ -813,6 +840,7 @@ async function runFlow(mode, port) {
       fullPage: true,
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await bancoDetallado.locator(":scope > summary").click();
 
     // Una sola intención acompaña a todas las herramientas del banco.
     const intencionCrafting = craftingWorkspace.getByTestId("crafting-intention");
@@ -958,7 +986,9 @@ async function runFlow(mode, port) {
       (await tituloMentorContextual.innerText()) === "Orbe exaltado" &&
         (await page.getByTestId("mentor-contextual-respuesta").count()) === 0,
     );
-    const accionExaltada = craftingWorkspace.locator("details").filter({ hasText: "Orbe exaltado" });
+    const accionExaltada = craftingWorkspace.locator(
+      `#crafting-action-${craftingItemId}-exalted`,
+    );
     check(
       `[${mode}] la acción compatible aparece antes que las no aplicables`,
       await accionExaltada.isVisible() &&

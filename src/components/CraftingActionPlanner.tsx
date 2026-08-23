@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArrowRight, ChevronDown, Flag, Target } from "lucide-react";
 import {
   craftingCurrencyLabel,
   evaluateObservedCraftingActions,
@@ -36,6 +37,7 @@ import {
   craftingSuccessCriterionLabel,
   recommendCraftingSuccessCriterion,
 } from "@shared/craftingSuccessCriteria.js";
+import { buildCraftingCoachStep } from "@shared/craftingCoach.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCraftingKnowledge } from "@/hooks/useCraftingKnowledge";
@@ -119,6 +121,10 @@ const CRAFTING_TOOLS: Array<{
   },
 ];
 
+const QUICK_GOALS = (Object.entries(CRAFTING_GOAL_LABELS) as Array<
+  [CraftingGoalCategory, string]
+>).filter(([value]) => value !== "other");
+
 export interface CraftingActionPlannerProps {
   item: Item;
   /** Objetivo general del expediente; solo se usa como contexto, no como cálculo de build. */
@@ -166,6 +172,7 @@ export function CraftingActionPlanner({
   const [showUnavailableActions, setShowUnavailableActions] = useState(false);
   const [showReplacementRisk, setShowReplacementRisk] = useState(false);
   const [protectionOpen, setProtectionOpen] = useState(false);
+  const [showFullWorkbench, setShowFullWorkbench] = useState(false);
   const compatibleActionCount = craftingActions.filter(
     (entry) => entry.status === "compatible",
   ).length;
@@ -213,11 +220,20 @@ export function CraftingActionPlanner({
     successCriteria.every(
       (criterion) => criterion.kind !== "exact-modifier-text" || criterion.text.trim().length >= 3,
     );
+  const recommendedSuccessCriterion = recommendCraftingSuccessCriterion(item, goalCategory);
+  const coachStep = buildCraftingCoachStep({
+    diagnosis: crafting,
+    route,
+    goalCategory,
+    successCriteriaReady,
+  });
   const confirmationReady =
     resolvedDesiredOutcome.length >= 3 &&
     successCriteriaReady &&
     preflightConfirmed;
   const changeGoalCategory = (next: CraftingGoalCategory) => {
+    setPreparedActionId(null);
+    resetCurrencyPreflight();
     setGoalCategory(next);
     setSuccessCriteria((current) => {
       if (next === "other") {
@@ -257,6 +273,65 @@ export function CraftingActionPlanner({
         criterionLabel: craftingSuccessCriterionLabel(added),
       });
     }
+  };
+  const acceptRecommendedStop = () => {
+    if (!recommendedSuccessCriterion) {
+      setShowFullWorkbench(true);
+      window.requestAnimationFrame(() => revealRouteTarget(`crafting-success-${item.id}`));
+      return;
+    }
+    changeSuccessCriteria([recommendedSuccessCriterion]);
+  };
+  const prepareQuickCurrencyAction = (action: CraftingRouteAction) => {
+    const evaluation = craftingActions.find((entry) => entry.action.id === action.id);
+    if (!evaluation || evaluation.status !== "compatible") return;
+    setPreparedActionId(action.id);
+    setSelectedVariantId(evaluation.action.variants[0]?.id ?? "base");
+    resetCurrencyPreflight();
+    onMentorContext?.({
+      type: "craftingAction",
+      itemName: item.name,
+      actionLabel: action.label,
+    });
+  };
+  const openDetailedTool = (tool: "essence" | "alloy") => {
+    setShowFullWorkbench(true);
+    if (replacementNeedsConsent) setShowReplacementRisk(true);
+    openTool(tool);
+  };
+  const preparedCurrencyEvaluation = preparedActionId
+    ? craftingActions.find(
+        (entry) => entry.action.id === preparedActionId && entry.status === "compatible",
+      ) ?? null
+    : null;
+  const preparedCurrencyVariant =
+    preparedCurrencyEvaluation?.action.variants.find(
+      (variant) => variant.id === selectedVariantId,
+    ) ?? preparedCurrencyEvaluation?.action.variants[0] ?? null;
+  const startPreparedCurrencySession = () => {
+    if (
+      !preparedCurrencyEvaluation ||
+      !preparedCurrencyVariant ||
+      !confirmationReady ||
+      startingDecision ||
+      !onStartCraftingDecision
+    ) return;
+    setStartingDecision(true);
+    void onStartCraftingDecision(
+      item,
+      preparedCurrencyEvaluation.action,
+      preparedCurrencyVariant,
+      {
+        desiredOutcome: resolvedDesiredOutcome,
+        goalCategory,
+        protectedModifierIds,
+        successCriteria,
+      },
+    )
+      .then((started) => {
+        if (started) onStarted?.();
+      })
+      .finally(() => setStartingDecision(false));
   };
   const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
   const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds);
@@ -348,6 +423,268 @@ export function CraftingActionPlanner({
 
   return (
     <div className="flex flex-col gap-4">
+      <section
+        className="overflow-hidden rounded-lg border border-primary/45 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_42%),linear-gradient(145deg,hsl(var(--card)),hsl(var(--background)))] shadow-[0_22px_70px_-48px_hsl(var(--primary))]"
+        data-testid="crafting-quick-coach"
+        data-coach-stage={coachStep.stage}
+        aria-labelledby={`crafting-coach-title-${item.id}`}
+      >
+        <div className="border-b border-border/70 px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="grid size-8 place-items-center rounded-full border border-primary/40 bg-primary/10 text-primary">
+                <Target className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">
+                  Entrenador de objeto real
+                </p>
+                <p className="text-xs text-muted-foreground">Una decisión cada vez</p>
+              </div>
+            </div>
+            <ol className="flex items-center gap-1.5" aria-label={`Paso ${coachStep.step} de 3`}>
+              {[1, 2, 3].map((step) => (
+                <li
+                  key={step}
+                  className={`h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none ${
+                    step === coachStep.step
+                      ? "w-8 bg-primary"
+                      : step < coachStep.step
+                        ? "w-4 bg-emerald-400/70"
+                        : "w-4 bg-border"
+                  }`}
+                  aria-label={step < coachStep.step ? `Paso ${step} completado` : `Paso ${step}`}
+                />
+              ))}
+            </ol>
+          </div>
+        </div>
+
+        <div className="px-4 py-5 sm:px-6 sm:py-6" aria-live="polite">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+            {coachStep.eyebrow}
+          </p>
+          <h3 id={`crafting-coach-title-${item.id}`} className="dossier-title mt-2 text-2xl font-semibold sm:text-3xl">
+            {coachStep.title}
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            {coachStep.detail}
+          </p>
+
+          {coachStep.stage === "choose-goal" && (
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="crafting-coach-goals">
+              {QUICK_GOALS.map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 justify-between bg-background/45 text-left"
+                  onClick={() => changeGoalCategory(value)}
+                >
+                  {label}
+                  <ArrowRight className="size-4 text-primary" aria-hidden="true" />
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-11 justify-start text-muted-foreground"
+                onClick={() => {
+                  setShowFullWorkbench(true);
+                  window.requestAnimationFrame(() => revealRouteTarget(`crafting-intention-${item.id}`));
+                }}
+              >
+                Otro objetivo…
+              </Button>
+            </div>
+          )}
+
+          {coachStep.stage === "choose-stop" && (
+            <div className="mt-5 rounded-md border border-border/80 bg-background/45 p-4" data-testid="crafting-coach-stop">
+              <div className="flex items-start gap-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full border border-amber-400/35 bg-amber-400/10 text-amber-200">
+                  <Flag className="size-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">Parada recomendada</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {recommendedSuccessCriterion
+                      ? craftingSuccessCriterionLabel(recommendedSuccessCriterion)
+                      : "Define una señal observable"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" onClick={acceptRecommendedStop}>
+                  {recommendedSuccessCriterion ? "Usar esta parada" : "Definir mi parada"}
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowFullWorkbench(true);
+                    window.requestAnimationFrame(() => revealRouteTarget(`crafting-success-${item.id}`));
+                  }}
+                >
+                  Elegir otra
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {(coachStep.stage === "ready-currency" || coachStep.stage === "choose-currency") && (
+            <div className="mt-5 space-y-3" data-testid="crafting-coach-actions">
+              <div className={`rounded-md border px-4 py-3 ${baseVerdictStyle}`}>
+                <p className="text-sm font-semibold">{baseVerdict.title}</p>
+                <p className="mt-1 text-xs leading-relaxed opacity-85">{baseVerdict.detail}</p>
+              </div>
+              {preparedCurrencyEvaluation && preparedCurrencyVariant ? (
+                <form
+                  className="rounded-md border border-primary/35 bg-background/55 p-4"
+                  data-testid="crafting-coach-preflight"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    startPreparedCurrencySession();
+                  }}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Vas a probar</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        {craftingCurrencyLabel(
+                          preparedCurrencyEvaluation.action,
+                          preparedCurrencyVariant,
+                        )}
+                      </p>
+                    </div>
+                    {preparedCurrencyEvaluation.action.variants.length > 1 && (
+                      <fieldset className="flex flex-wrap gap-1.5">
+                        <legend className="sr-only">Variante exacta</legend>
+                        {preparedCurrencyEvaluation.action.variants.map((variant) => (
+                          <label
+                            key={variant.id}
+                            className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs ${
+                              preparedCurrencyVariant.id === variant.id
+                                ? "border-primary/60 bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground"
+                            }`}
+                          >
+                            <input
+                              className="sr-only"
+                              type="radio"
+                              name={`quick-crafting-variant-${item.id}`}
+                              checked={preparedCurrencyVariant.id === variant.id}
+                              onChange={() => setSelectedVariantId(variant.id)}
+                            />
+                            {variant.label}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    {preparedCurrencyEvaluation.action.effect} El modificador concreto sigue siendo aleatorio.
+                  </p>
+                  <label className="mt-4 flex items-start gap-2 rounded border border-border/70 bg-background/40 p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={preflightConfirmed}
+                      onChange={(event) => setPreflightConfirmed(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>El objeto sigue igual y todavía no he gastado esta moneda.</span>
+                  </label>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button type="submit" disabled={!confirmationReady || startingDecision}>
+                      {startingDecision ? "Preparando…" : "Empezar y volver con el resultado"}
+                      <ArrowRight className="size-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={startingDecision}
+                      onClick={() => setPreparedActionId(null)}
+                    >
+                      Cambiar acción
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {route.currencyActions.map((action) => (
+                    <Button key={action.id} type="button" onClick={() => prepareQuickCurrencyAction(action)}>
+                      Preparar {action.label}
+                      <ArrowRight className="size-4" aria-hidden="true" />
+                    </Button>
+                  ))}
+                  <Button type="button" variant="ghost" onClick={() => setShowFullWorkbench(true)}>
+                    Ver el análisis completo
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {coachStep.stage === "replacement" && (
+            <div className="mt-5 space-y-3" data-testid="crafting-coach-replacement">
+              <div className={`rounded-md border px-4 py-3 ${baseVerdictStyle}`}>
+                <p className="text-sm font-semibold">{baseVerdict.title}</p>
+                <p className="mt-1 text-xs leading-relaxed opacity-85">{baseVerdict.detail}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={() => openDetailedTool("essence")}>
+                  Revisar una Essence
+                </Button>
+                <Button type="button" variant="outline" onClick={() => openDetailedTool("alloy")}>
+                  Revisar un Alloy
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setShowFullWorkbench(true)}>
+                  Ver riesgos y afijos
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {(coachStep.stage === "needs-data" || coachStep.stage === "blocked") && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {onUpdateItem && (
+                <Button type="button" onClick={onUpdateItem}>
+                  Pegar el objeto de nuevo
+                </Button>
+              )}
+              <Button type="button" variant="ghost" onClick={() => setShowFullWorkbench(true)}>
+                Ver qué falta
+              </Button>
+            </div>
+          )}
+
+          {goalCategory !== "other" && coachStep.stage !== "choose-goal" && (
+            <button
+              type="button"
+              className="mt-5 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => {
+                changeGoalCategory("other");
+                setSuccessCriteria([]);
+              }}
+            >
+              Cambiar objetivo: {CRAFTING_GOAL_LABELS[goalCategory]}
+            </button>
+          )}
+        </div>
+      </section>
+
+      <details
+        className="group rounded-lg border border-border/70 bg-card/35"
+        open={showFullWorkbench}
+        onToggle={(event) => setShowFullWorkbench(event.currentTarget.open)}
+        data-testid="crafting-full-workbench"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
+          <span>Banco detallado · objetivos, protecciones y herramientas</span>
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+        </summary>
+        <div className="flex flex-col gap-4 border-t border-border/70 p-3 sm:p-4">
       <section
         className="flex flex-col gap-3 rounded-md border border-border bg-muted/15 p-4"
         data-testid="crafting-diagnosis"
@@ -1023,6 +1360,8 @@ export function CraftingActionPlanner({
           onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}
         />
       </div>
+        </div>
+      </details>
     </div>
   );
 }
