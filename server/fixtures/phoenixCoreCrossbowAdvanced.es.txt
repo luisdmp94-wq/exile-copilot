@@ -1,0 +1,28 @@
+Clase de objeto: Ballestas
+Rareza: Raro
+Núcleo de fénix
+Ballesta barnizada
+------------------
+
+Daño físico: 22-65 (augmented)
+Daño elemental: 4-5 (fire), 1-9 (lightning)
+Probabilidad de impacto crítico: 5.00%
+Ataques por segundo: 1.81 (augmented)
+Tiempo de recarga: 0.71 (augmented)
+-----------------------------------
+
+## Requiere: Nivel 24, 19 Fue, 19 Des
+
+## Nivel de objeto: 32
+
+{ Mod. de prefijo "malvado" (Grado: 6) — Daño, Físico, Ataque }
+Daño físico aumentado un 81(65-84)%
+{ Mod. de prefijo "vibrante" (Grado: 10) — Daño, Elemental, Rayo, Ataque }
+Agrega de 1 a 9(7-10) de daño de rayo
+{ Mod. de prefijo "intenso" (Grado: 10) — Daño, Elemental, Fuego, Ataque }
+Agrega de 4(2-4) a 5(5-7) de daño de fuego
+{ Mod. de sufijo "de maestría" (Grado: 3) — Ataque, Velocidad }
+Velocidad de ataque aumentada un 13(11-13)%
+{ Mod. de sufijo "de resplandor" (Grado: 1) — Ataque }
++49(41-60) a la precisión
+Radio de iluminación aumentado un 15%

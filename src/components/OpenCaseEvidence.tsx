@@ -36,6 +36,7 @@ export function OpenCaseEvidence({ recommendation, entry }: OpenCaseEvidenceProp
       {snapshot !== null ? (
         <>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            <Row label="Motivo">{snapshot.reason}</Row>
             <Row label="Riesgo">
               {RISK_LABELS[snapshot.risk.level]} — {snapshot.risk.description}
             </Row>

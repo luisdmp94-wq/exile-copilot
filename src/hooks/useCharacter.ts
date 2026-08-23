@@ -5,7 +5,7 @@ import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import type { PlanResolution } from "@shared/passiveRegistry.js";
 import { api, getErrorMessage } from "@/lib/api";
 
-export type CharacterOrigin = "empty" | "demo" | "imported";
+export type CharacterOrigin = "empty" | "demo" | "imported" | "manual";
 export type CharacterBusy = "demo" | "build" | "item" | "save" | null;
 
 const STORAGE_KEY = "exile-copilot:characterId";
@@ -22,10 +22,13 @@ export interface CharacterState {
   /** true solo después de que este perfil exista realmente en el servidor. */
   persisted: boolean;
   loadDemo: () => Promise<void>;
+  startManual: (defaults: { league: string; patch: string }) => void;
   importBuild: (content: string) => Promise<void>;
-  importItemText: (text: string) => Promise<void>;
+  importItemText: (text: string) => Promise<Item | null>;
   updateProfile: (patch: Partial<CharacterProfile>) => void;
   mutateProfile: (updater: (profile: CharacterProfile) => CharacterProfile) => void;
+  /** Sustituye el snapshot de un objeto y persiste el expediente en una sola operación. */
+  replaceItemAndSave: (originalItemId: string, resultItem: Item) => Promise<boolean>;
   saveCorrections: () => Promise<boolean>;
   /** Limpia el perfil actual y el id guardado en localStorage */
   reset: () => void;
@@ -115,6 +118,32 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     }
   }, []);
 
+  const startManual = useCallback((defaults: { league: string; patch: string }) => {
+    const now = new Date().toISOString();
+    setProfile({
+      id: `manual-${Date.now()}`,
+      name: "Nuevo personaje",
+      characterClass: "Desconocida",
+      ascendancy: null,
+      ascendancyId: null,
+      level: 1,
+      archetype: null,
+      league: defaults.league || "Desconocida",
+      patch: defaults.patch || "Desconocido",
+      items: [],
+      skills: [],
+      passives: { allocated: [] },
+      attributes: { str: null, dex: null, int: null },
+      resistances: { fire: null, cold: null, lightning: null, chaos: null },
+      sources: [],
+      importedAt: now,
+    });
+    setWarnings([]);
+    setOrigin("manual");
+    setDirty(true);
+    setPersisted(false);
+  }, []);
+
   const importBuild = useCallback(
     async (content: string) => {
       setBusy("build");
@@ -163,7 +192,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     async (text: string) => {
       if (!profile) {
         toast.error("Primero importa o carga un personaje");
-        return;
+        return null;
       }
       setBusy("item");
       try {
@@ -186,10 +215,12 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         } else {
           toast.success(`Objeto añadido: ${item.name}`);
         }
+        return item;
       } catch (err) {
         toast.error("No se pudo analizar el objeto", {
           description: getErrorMessage(err),
         });
+        return null;
       } finally {
         setBusy(null);
       }
@@ -231,6 +262,50 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     }
   }, [profile, persistId]);
 
+  const replaceItemAndSave = useCallback(
+    async (originalItemId: string, resultItem: Item): Promise<boolean> => {
+      if (!profile) return false;
+      const original = profile.items.find((item) => item.id === originalItemId);
+      if (!original) {
+        toast.error("El objeto original ya no está en el expediente");
+        return false;
+      }
+      const replacement: Item = {
+        ...resultItem,
+        // La identidad local y el hueco pertenecen al objeto seguido. El texto
+        // importado trae un id aleatorio y la inferencia de slot puede ser
+        // incompleta; ninguno debe romper el vínculo del expediente.
+        id: original.id,
+        slot: original.slot,
+      };
+      const nextProfile: CharacterProfile = {
+        ...profile,
+        items: profile.items.map((item) =>
+          item.id === originalItemId ? replacement : item,
+        ),
+      };
+      setBusy("save");
+      try {
+        const res = await api.saveCharacter(nextProfile);
+        setProfile(res.profile);
+        persistId(res.profile.id);
+        setWarnings([]);
+        setDirty(false);
+        setPersisted(true);
+        toast.success(`Objeto actualizado: ${replacement.name}`);
+        return true;
+      } catch (err) {
+        toast.error("No se pudo actualizar el expediente; la sesión sigue abierta", {
+          description: getErrorMessage(err),
+        });
+        return false;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [profile, persistId],
+  );
+
   const reset = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setProfile(null);
@@ -250,10 +325,12 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     dirty,
     persisted,
     loadDemo,
+    startManual,
     importBuild,
     importItemText,
     updateProfile,
     mutateProfile,
+    replaceItemAndSave,
     saveCorrections,
     reset,
   };

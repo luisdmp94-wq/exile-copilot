@@ -44,9 +44,12 @@ npm run dev            # frontend + API en http://localhost:7100
 
 ## Cómo probar el flujo principal (sin credenciales)
 
-1. Abre http://localhost:7100 y pulsa **«Cargar ejemplo»** (perfil demo: Mercenario Gemling con ballesta, nivel 70, con carencias deliberadas).
+1. Abre http://localhost:7100 y elige una intención: **«Mejorar mi personaje»**
+   abre el importador, **«Empezar desde cero»** crea un perfil editable y
+   **«Evaluar o craftear»** permite pegar un objeto y entrar directamente al
+   banco de Crafting. **«Cargar ejemplo»** sigue disponible como recorrido demo.
 2. Revisa/corrige campos en **Mi personaje** (atributos, resistencias, vida y defensas; «Desconocido» = sin dato, nunca 0) y pulsa **Guardar correcciones**. El personaje se recupera automáticamente al recargar la página (el id solo se guarda tras persistir de verdad en el servidor).
-3. Importa un **`.build` oficial** de GGG: se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building** sí rellena un personaje parcial.
+3. Al importar un **`.build` oficial** de GGG se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building** sí rellena un personaje parcial.
 4. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; tasas de conversión con origen y verificación visibles).
 5. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza. Si cambias cualquier dato, las tarjetas se invalidan.
 6. Guarda una recomendación como **próximo paso**, o pulsa **Probar y volver**.
@@ -57,6 +60,82 @@ npm run dev            # frontend + API en http://localhost:7100
 7. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo
    **`.build` oficial** (GGG Build Planner v1) con las mejoras planificadas
    incrustadas, junto a un informe honesto de lo exportado y lo omitido.
+
+## Crafting guiado con comparación antes/después
+
+**Crafting** es la tercera área principal del producto, separada de
+«Expediente y mentor» y «Plan y mercado». Allí eliges una pieza real del
+expediente y completas todo el ciclo sin saltar entre pestañas. El detalle del
+objeto conserva el diagnóstico como consulta, pero el preflight y la sesión
+persistente existen una sola vez, dentro del banco de Crafting.
+
+Al seleccionar un objeto importado mediante texto avanzado, las acciones
+compatibles aparecen primero y las no aplicables quedan en un bloque secundario.
+Transmutación, Aumento, Regio y Exaltado se evalúan únicamente contra la
+evidencia local documentada. El preflight obliga a registrar la variante
+exacta (base, superior o perfecta cuando fue observada) y conserva el mínimo
+mostrado en su tooltip sin tratarlo como probabilidad ni garantía. Una acción compatible permite abrir una
+decisión guiada: antes de gastar exige definir el objetivo y confirmar que el
+snapshot sigue vigente, que el resultado será aleatorio y que la moneda aún no
+se ha usado.
+
+El primer flujo P1 cubre también **Essences**. Menor, Normal y Superior se
+tratan como una mejora de mágico a raro; Perfecta y las obtenidas mediante
+corrupción, como un reemplazo aleatorio de un modificador explícito en un raro.
+El nombre y el efecto garantizado se copian siempre del tooltip real: la app no
+los deduce ni incorpora una tabla incompleta. El contrato, las fuentes oficiales
+y los límites están en
+[`docs/CRAFTING_ESSENCES.md`](docs/CRAFTING_ESSENCES.md).
+
+El segundo flujo guiado cubre **Alloys** sin inventar una tabla de compatibilidad.
+GGG confirma que reemplazan un modificador existente por un modificador
+fabricado garantizado y que un objeto solo puede tener uno. La pieza admitida y
+la forma de elegir el reemplazo deben proceder del tooltip real que introduce
+el jugador. Después del gasto, la comparación exige exactamente una retirada,
+un añadido marcado como fabricado y no más de un fabricado total. El contrato y
+sus límites están en [`docs/CRAFTING_ALLOYS.md`](docs/CRAFTING_ALLOYS.md).
+
+Cuando la acción puede retirar un afijo —Essence con reemplazo o Alloy— el
+jugador puede marcar los **modificadores que no acepta perder**. Las monedas
+básicas que solo añaden y las Essences sin retirada no muestran una protección
+irrelevante. El contrato distingue
+entre retirada aleatoria, retirada elegida por el jugador y mecanismo todavía
+desconocido: advierte cuando existe riesgo, bloquea cuando la pérdida es segura
+y se niega a prometer protección si falta el dato decisivo. Tras pegar el
+resultado, la comparación indica de forma separada si esos modificadores se
+conservaron o se perdieron. Las selecciones antiguas se descartan cuando cambia
+la pieza o su snapshot, para no aplicar una protección obsoleta a otro objeto.
+
+Después de aplicar **una sola moneda** en el juego, pega el nuevo texto en el
+caso abierto del banco de Crafting. La comparación ignora los ids aleatorios del importador y verifica
+la misma base y el mismo nivel de objeto —si falta cualquiera de los dos niveles
+el resultado queda inconcluso—, la transición de rareza, la conservación de los modificadores
+anteriores —o exactamente una retirada cuando la acción lo declara— y la aparición
+de exactamente un explícito nuevo. El jugador decide
+si ese resultado le sirve; entonces se conserva la comparación en el diario y
+se actualiza el objeto del expediente manteniendo su vínculo local.
+
+Si el jugador empezó pegando una pieza suelta, el perfil mínimo se guarda al
+preparar el craft y la sesión continúa en el mismo clic: no se abre el formulario
+completo ni hay que repetir la acción. Durante la sesión, el planificador queda
+oculto y la interfaz muestra únicamente tres etapas: antes de gastar, pegar el
+resultado y decidir.
+
+La evidencia factual («qué cambió») y la valoración del jugador («me sirve»)
+se guardan por separado. Si falla el guardado del objeto, la sesión permanece
+abierta y permite reintentar; dos clics concurrentes no pueden cerrar o duplicar
+el mismo resultado.
+
+Esto confirma cambios estructurales, no la calidad del afijo. No estima pesos,
+probabilidades, valor de mercado ni el resultado de monedas todavía no
+documentadas.
+
+El motor matemático avanzado ya puede calcular probabilidades ponderadas,
+intentos y costes esperados, además de secuencias condicionales, pero permanece
+cerrado por defecto: solo devuelve porcentajes si recibe un pool marcado y
+validado como **verificado y completo**. Los pools parciales o ausentes producen
+«probabilidad no disponible», nunca `0 %`. El contrato y sus límites están en
+[`docs/CRAFTING_MATH_ENGINE.md`](docs/CRAFTING_MATH_ENGINE.md).
 
 ## Formato `.build` — GGG Build Planner v1
 

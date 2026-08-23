@@ -22,6 +22,7 @@ import {
   CreateBuildMemoryEntryRequestSchema,
   UpdateBuildMemoryEntryRequestSchema,
   type ApiError,
+  CraftingKnowledgeResponseSchema,
 } from "../shared/api.js";
 import {
   CharacterProfileSchema,
@@ -75,6 +76,12 @@ import {
 } from "./mentor/mentorAi.js";
 import { ApiHttpError } from "./errors.js";
 import { resolvePlan } from "./registry/passiveRegistry.js";
+import {
+  loadCraftingKnowledge,
+  listObservedActions,
+  queryModCandidates,
+} from "./crafting/knowledgeRegistry.js";
+import { OBSERVED_CRAFTING_ACTIONS } from "../shared/craftingActions.js";
 
 /**
  * Crea la app Express de la API. Las rutas se definen SIN prefijo: el caller
@@ -107,6 +114,22 @@ function loadPatches(): PatchVersion[] {
   const parsed: unknown = JSON.parse(raw);
   if (!Array.isArray(parsed)) return [];
   return parsed.map((p) => PatchVersionSchema.parse(p));
+}
+
+function loadCraftingKnowledgeRegistry() {
+  const files = [
+    "observedCurrencyActions.2026-08-22.json",
+    "modPools.unavailable.2026-08-22.json",
+  ];
+  const raw = files.map((file) =>
+    JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL(`./data/crafting/${file}`, import.meta.url)),
+        "utf8",
+      ),
+    ) as unknown,
+  );
+  return loadCraftingKnowledge(raw);
 }
 
 function readJournal(
@@ -182,6 +205,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       ? options.mentorSelector
       : createMentorDecisionSelector(config);
   const patches = loadPatches();
+  const craftingKnowledge = loadCraftingKnowledgeRegistry();
 
   const importDefaults = { league: config.defaultLeague, patch: config.defaultPatch };
 
@@ -253,6 +277,52 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     try {
       const { text } = ImportItemTextRequestSchema.parse(req.body);
       res.json(parseItemText(text));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /crafting/knowledge — acciones observadas + disponibilidad real del
+  // pool. Nunca expone candidatos ni pesos si el registro no es exhaustivo.
+  app.get("/crafting/knowledge", (req, res, next) => {
+    try {
+      const itemClass =
+        typeof req.query.itemClass === "string" && req.query.itemClass.trim().length > 0
+          ? req.query.itemClass.trim()
+          : "Desconocida";
+      const baseType =
+        typeof req.query.baseType === "string" && req.query.baseType.trim().length > 0
+          ? req.query.baseType.trim()
+          : undefined;
+      const patch =
+        typeof req.query.patch === "string" && req.query.patch.trim().length > 0
+          ? req.query.patch.trim()
+          : undefined;
+      const pool = queryModCandidates(craftingKnowledge, {
+        itemClass,
+        ...(baseType ? { baseType } : {}),
+        ...(patch ? { patch } : {}),
+      });
+      const observedIds = new Set(listObservedActions(craftingKnowledge).map((action) => action.id));
+      const actions = OBSERVED_CRAFTING_ACTIONS.filter((action) => observedIds.has(action.id));
+      const observedSnapshot = craftingKnowledge.snapshots.find(
+        (snapshot) => snapshot.observedActions.length > 0,
+      );
+
+      res.json(
+        CraftingKnowledgeResponseSchema.parse({
+          asOf: observedSnapshot?.asOf ?? "desconocida",
+          completeness: observedSnapshot?.completeness ?? "unavailable",
+          actions,
+          modPool: {
+            status: pool.status,
+            snapshotId: pool.snapshotId,
+            probabilityBasis: pool.probabilityBasis,
+            reasons: "reasons" in pool ? pool.reasons : [],
+            limitations: pool.limitations,
+          },
+        }),
+      );
     } catch (err) {
       next(err);
     }
@@ -572,6 +642,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         constraints: input.constraints,
         soonReplacedItemIds: input.soonReplacedItemIds,
         protectedResources: input.protectedResources,
+        craftingExperiment: input.craftingExperiment,
         recommendation: input.recommendation,
         profile: input.profile,
         budget: input.budget,

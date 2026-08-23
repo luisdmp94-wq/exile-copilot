@@ -112,6 +112,7 @@ export function RecommendationsSection({
 
   const showGenerate = showGenerateProp ?? view !== "otras";
   const showList = view !== "generar";
+  const compactGenerate = view === "generar";
   const listed = (result?.recommendations ?? []).filter(
     (rec) => rec.id !== excludeRecommendationId,
   );
@@ -119,10 +120,16 @@ export function RecommendationsSection({
   return (
     // tabIndex={-1}: destino programático de la navegación objeto →
     // recomendaciones (patrón «skip link»); no entra en el orden de tabulación.
-    <Card id="seccion-recomendaciones" tabIndex={-1} className="scroll-mt-16 outline-none">
-      <CardHeader>
+    <Card
+      id="seccion-recomendaciones"
+      tabIndex={-1}
+      className={`scroll-mt-16 outline-none ${
+        compactGenerate ? "border-0 bg-transparent shadow-none" : ""
+      }`}
+    >
+      <CardHeader className={compactGenerate ? "px-0 pb-3 pt-0" : undefined}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="text-xl">Próximas mejoras</CardTitle>
+          {!compactGenerate && <CardTitle className="text-xl">Próximas mejoras</CardTitle>}
           {showGenerate && (
           <Button
             type="button"
@@ -155,7 +162,7 @@ export function RecommendationsSection({
           )}
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className={`flex flex-col gap-4 ${compactGenerate ? "px-0 pb-0" : ""}`}>
         {showGenerate && activeJournalEntry && (
           <Alert className="border-primary/40 bg-primary/5">
             <AlertTitle>El mentor ya te ha dado un siguiente paso</AlertTitle>
@@ -201,15 +208,21 @@ export function RecommendationsSection({
           </Alert>
         ) : !result ? (
           showGenerate ? (
-            <Empty className="border border-dashed border-border">
-              <EmptyHeader>
-                <EmptyTitle>Sin recomendaciones todavía</EmptyTitle>
-                <EmptyDescription>
-                  Pulsa «Generar recomendaciones» para recibir hasta 3 mejoras ordenadas
-                  por impacto, coste y riesgo según tu presupuesto y objetivo.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            compactGenerate ? (
+              <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+                Recibirás una prioridad clara según tu equipo, objetivo y presupuesto.
+              </p>
+            ) : (
+              <Empty className="border border-dashed border-border">
+                <EmptyHeader>
+                  <EmptyTitle>Sin recomendaciones todavía</EmptyTitle>
+                  <EmptyDescription>
+                    Pulsa «Generar recomendaciones» para recibir hasta 3 mejoras ordenadas
+                    por impacto, coste y riesgo según tu presupuesto y objetivo.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )
           ) : null
         ) : !showList ? null : (
           <>

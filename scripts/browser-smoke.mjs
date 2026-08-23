@@ -35,6 +35,17 @@ const modes = args.includes("--all")
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const STANDALONE_ITEM = [
+  "Clase de objeto: Ballestas",
+  "Rareza: Raro",
+  "Núcleo de prueba",
+  "Ballesta barnizada",
+  "------------------",
+  "Nivel de objeto: 32",
+  "------------------",
+  "Daño físico aumentado un 81%",
+].join("\n");
+
 async function waitForServer(url, attempts = 90) {
   for (let i = 0; i < attempts; i++) {
     try {
@@ -180,6 +191,50 @@ async function runFlow(mode, port) {
         (await page.getByTestId("caso-abierto").count()) === 0 &&
         importadorAntes === 0,
     );
+    check(
+      `[${mode}] la entrada ofrece tres intenciones reales`,
+      (await page.locator('[data-intent="import"]:visible').count()) === 1 &&
+        (await page.locator('[data-intent="new"]:visible').count()) === 1 &&
+        (await page.locator('[data-intent="item"]:visible').count()) === 1,
+    );
+
+    // Crear personaje ya no es una promesa vacía: crea un perfil manual y
+    // lleva directamente al primer campo que el jugador puede completar.
+    await page.getByTestId("bienvenida-nuevo").click();
+    await page.getByRole("dialog").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] «Empezar desde cero» crea un perfil editable`,
+      (await page.locator("#char-name").inputValue()) === "Nuevo personaje" &&
+        (await page.evaluate(() => document.activeElement?.id)) === "char-name" &&
+        (await page.getByText("Creado aquí").isVisible()),
+    );
+    await cerrarEditor(page);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByTestId("bienvenida").waitFor({ timeout: 15000 });
+
+    // Un objeto suelto también tiene recorrido propio: pegar → analizar →
+    // banco de Crafting, sin exigir importar primero un personaje completo.
+    await page.getByTestId("bienvenida-objeto").click();
+    await page.getByRole("dialog").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] «Evaluar o craftear» enfoca directamente el objeto`,
+      (await page.evaluate(() => document.activeElement?.id)) === "item-text",
+    );
+    await page.locator("#item-text").fill(STANDALONE_ITEM);
+    await page.getByRole("button", { name: "Analizar objeto" }).click();
+    await page.getByTestId("crafting-workspace").waitFor({ timeout: 20000 });
+    check(
+      `[${mode}] objeto suelto continúa automáticamente en Crafting`,
+      (await page.getByTestId("tab-crafting").getAttribute("data-state")) === "active" &&
+        (await page
+          .getByTestId("crafting-workspace")
+          .getByText("Núcleo de prueba")
+          .first()
+          .isVisible()),
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByTestId("bienvenida").waitFor({ timeout: 15000 });
+
     // «Importar mi personaje» abre el editor Y lleva el foco al importador.
     await page.getByTestId("bienvenida-importar").click();
     await page.getByRole("dialog").waitFor({ timeout: 15000 });

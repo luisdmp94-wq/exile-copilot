@@ -1,7 +1,7 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 18 (Groq),
-> 2026-08-22.
+> Informe para el propietario. Última actualización: sesión 27,
+> 2026-08-23.
 >
 > **Estado de esta rama:** parte del rediseño visual integrado en `5f726a2` e
 > incorpora los Hitos 6C «Probar y volver» y 6D «Identidad persistente de la
@@ -9,6 +9,109 @@
 > trabajo. Las secciones de sesiones anteriores son HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 27 — entrada orientada a tareas
+
+- La pantalla vacía ya no obliga a entender la arquitectura del producto:
+  pregunta «¿Qué quieres hacer hoy?» y ofrece tres recorridos completos.
+- «Mejorar mi personaje» abre el importador existente; «Empezar desde cero»
+  crea un perfil local editable; «Evaluar o craftear» acepta directamente el
+  texto de un objeto y abre el banco de Crafting con esa pieza seleccionada.
+- El perfil manual no se presenta como importado ni se persiste hasta que el
+  jugador lo guarda. Un objeto suelto tampoco requiere fingir que existe un
+  personaje completo.
+- El smoke principal prueba las tres rutas en producción y desarrollo. La
+  limpieza de temporales de Windows informa un bloqueo tardío de antivirus o
+  indexadores sin convertirlo en un falso fallo funcional.
+
+## Sesión 26 — Alloys guiados y comprobables
+
+- Nuevo preflight propio para Alloys dentro de Crafting. No deduce el efecto
+  por el nombre: exige nombre, tooltip, objetivo, rareza, modificador fabricado
+  garantizado y forma de selección del reemplazo observados por el jugador.
+- La regla global se limita a lo demostrado por GGG en 0.5.0: reemplazo de un
+  modificador por uno fabricado garantizado y máximo de un fabricado por objeto.
+  La matriz Alloy × pieza y la forma de retirada no se inventan.
+- Se bloquean estados incompatibles conocidos y se detienen como «Faltan datos»
+  las interacciones especiales no verificadas.
+- La sesión persistente conserva el snapshot, el Alloy, el efecto declarado y
+  el contrato de comparación. El resultado solo se confirma si desaparece un
+  explícito, aparece uno fabricado y no hay más de un fabricado total.
+
+Verificación: TypeScript y ESLint sin errores; **421/421** pruebas; build de
+producción correcto; flujo real de navegador **138/138** entre producción y
+desarrollo/Strict Mode. Los puertos temporales 7188/7189 se liberaron.
+
+## Sesión 24 — motor matemático conservador de crafting
+
+- Nuevo contrato separado para pools completos, parciales, observados y no
+  disponibles. Peso desconocido es `null`; peso conocido cero conserva su
+  significado matemático.
+- La probabilidad exacta solo se calcula con alcance, pesos y elegibilidad
+  completos. Incluye intentos medios, acumulada a N intentos y coste esperado
+  únicamente con precio verificado y fechado.
+- Las secuencias usan probabilidades condicionales. El coste hasta acertar se
+  bloquea si no está demostrado que cada fallo puede reiniciarse al mismo estado
+  y cuánto cuesta ese reinicio.
+- El comparador de estrategias solo ordena costes totales en la misma moneda;
+  no confunde coste matemático con utilidad para la build.
+- Los fixtures son sintéticos y no representan mods ni pesos reales de PoE2.
+  La conexión con pools reales queda bloqueada hasta que el registro de datos
+  entregue un snapshot `verified-complete`.
+
+Pruebas específicas del motor: **22/22**; suite global **367/367**, TypeScript y
+ESLint sin errores y build de producción correcto. Véase
+`docs/CRAFTING_MATH_ENGINE.md` para los invariantes y límites.
+
+## Sesión 23 — cierre de consistencia del banco de Crafting
+
+- El preflight ya no se duplica dentro del detalle del objeto: allí solo se
+  consulta el diagnóstico y se navega al banco de Crafting con la pieza elegida.
+- Solo se monta una instancia viva de la sesión de crafting; el expediente
+  muestra un enlace de retorno cuando el caso activo pertenece al banco.
+- La comparación exige coincidencia conocida de base y nivel de objeto. Nivel
+  ausente, dos mods nuevos, roll cambiado o transición inesperada quedan como
+  inconclusos o incompatibles, nunca como confirmación.
+- La evidencia estructural y la valoración subjetiva se persisten por separado.
+  El expediente se guarda antes de cerrar; si falla, la sesión sigue abierta y
+  puede reintentarse. Un cerrojo síncrono impide cierres concurrentes.
+- La prueba de navegador simula de forma explícita un fallo de guardado y comprueba
+  la recuperación completa contra SQLite. Su espera usa sondeo real del servidor,
+  no una promesa asíncrona que pudiera producir un falso positivo.
+
+Verificación: TypeScript y ESLint sin errores; **345/345** pruebas unitarias;
+build de producción correcto; flujo de equipo y crafting **120/120** en
+producción y desarrollo, repetido dos veces seguidas (**240/240**). También
+pasan flujo principal **32/32**, diario **58/58**, mentor **88/88**, sesiones
+**58/58** y memoria de build **20/20**. Los puertos temporales se liberan al
+terminar.
+
+## Sesión 22 — primer ciclo cerrado de crafting
+
+- «Crafting» es una tercera pestaña principal junto a «Expediente y mentor» y
+  «Plan y mercado»; selección, preflight, sesión y comparación permanecen en
+  ese espacio de trabajo.
+- El importador español conserva prefijo/sufijo, grado, etiquetas, fabricación,
+  profanación, runas, implícitos y estados de crafting a partir del texto
+  avanzado aportado por el jugador.
+- Una matriz conservadora evalúa Transmutación, Aumento, Regio y Exaltado con
+  sus variantes observadas; no inventa variantes, pesos ni probabilidades.
+- La variante exacta elegida (base/superior/perfecta), su etiqueta y el nivel
+  mínimo mostrado por el tooltip se guardan en la sesión. Los registros
+  anteriores siguen cargando sin que se les invente una variante base.
+- Antes de gastar se crea una sesión con snapshot estructurado del objeto,
+  moneda protegida, objetivo del jugador, incógnitas y restricciones.
+- Al volver del juego se pega el nuevo objeto. La app compara base, nivel de
+  objeto cuando está presente, rareza y el multiconjunto completo de mods; solo
+  confirma si se preserva todo y aparece exactamente un explícito nuevo.
+- La valoración «me sirve / no era lo que buscaba» queda separada de la
+  comparación factual. El resultado y el snapshot persisten en el diario, y el
+  expediente sustituye el objeto conservando su id y su hueco local.
+- Sesiones antiguas siguen siendo válidas: `craftingExperiment` es opcional.
+
+Verificación histórica de esa sesión: TypeScript y ESLint sin errores;
+**330/330** pruebas; build correcto; navegador de equipo y crafting **112/112** en producción y en
+desarrollo/Strict Mode. Los puertos temporales 7188/7189 se liberan al acabar.
 
 ## Sesión 21 — endurecimiento del mentor contextual
 
@@ -499,6 +602,73 @@ algún día se añada un LLM para redactar.
 
 La resolución de `BaseItemTypes` (nombres de skills y support skills) continúa
 pendiente, pero no bloquea nada de lo anterior.
+
+## Sesión 28 — contrato de protección de modificadores
+
+El preflight de Monedas, Essences y Alloys permite declarar qué modificadores
+explícitos son indispensables antes de gastar. `shared/craftingProtection.ts`
+evalúa la protección usando solo el snapshot real y el mecanismo de retirada
+declarado: retirada aleatoria = riesgo posible, retirada elegida = segura si
+existe una alternativa no protegida, retirada desconocida = faltan datos y
+pérdida inevitable = bloqueo. No se presentan probabilidades inventadas.
+
+La intención se conserva en `DecisionSession.craftingExperiment` y la
+comparación posterior informa por separado si los modificadores protegidos se
+mantuvieron, se perdieron o ya no pueden verificarse. Una pérdida protegida no
+se oculta aunque el cambio estructural de la moneda sea correcto. La selección
+queda acotada al objeto y a sus ids de modificadores vigentes para impedir que
+una protección obsoleta se reutilice después de actualizar el snapshot.
+
+Validación final: TypeScript y ESLint sin errores, build de producción correcto,
+**429/429** pruebas y **166/166** comprobaciones del recorrido de equipo y
+Crafting en producción y desarrollo/Strict Mode. Los puertos temporales 7188 y
+7189 quedaron libres.
+
+## Sesión 29 — Crafting orientado a una decisión
+
+Se aplicaron los hallazgos verificables de la auditoría visual sin alterar el
+motor. El banco sigue la jerarquía pieza → estado → siguiente paso → método: la
+pieza seleccionada muestra un semáforo textual, una lectura parcial ofrece
+volver directamente al importador de objetos y Monedas, Essences y Alloys se
+presentan como controles compactos. La información de conocimiento,
+probabilidades y límites vive ahora en el mismo bloque de evidencia, en lugar
+de tres superficies repetidas.
+
+Se corrigió el crecimiento horizontal del carrusel con `min-w-0`/`max-w-full`
+y se añadió una regresión exacta a 375 px. El guardado de memoria dejó de
+competir visualmente con «Generar recomendaciones»: conserva su función, pero
+usa jerarquía secundaria. No se modificó `ContextualMentor`, porque la auditoría
+lo describía como estático pero el código vigente ya lo posicionaba fijo.
+
+Validación: TypeScript y ESLint sin errores, build de producción correcto,
+**429/429** pruebas y **168/168** comprobaciones reales en producción y
+desarrollo/Strict Mode. Crafting mide 375/375 px sin desbordamiento y su estado
+inicial se mantiene por debajo de 2,5 pantallas móviles.
+
+## Sesión 30 — Crafting utilizable en menos de un minuto
+
+Se cerró el recorrido principal alrededor del motor sin cambiar sus reglas. Un
+objeto suelto puede preparar una sesión en el mismo gesto: el perfil mínimo se
+persiste, se recarga su diario y el editor completo no aparece. La acción
+compatible queda visible por delante de las bloqueadas; las monedas que solo
+añaden y las Essences sin retirada ya no muestran protección de afijos.
+
+Al crear la sesión, el foco y el desplazamiento llegan al caso de Crafting. El
+planificador anterior permanece montado para conservar borradores, pero queda
+oculto mientras la sesión está activa. La sesión específica se reduce a tres
+etapas visibles —antes de gastar, pegar resultado y decidir— y elimina badges,
+restricciones, próxima acción y evidencia avanzada que duplicaban el mismo
+mensaje. Una comparación confirmada deja en pantalla solo el cambio y las
+decisiones «Sí, me sirve», «No era lo que buscaba» y «Parar por ahora».
+
+Validación: TypeScript y ESLint sin errores, build de producción correcta,
+**429/429** pruebas y **184/184** comprobaciones de navegador en producción y
+desarrollo/Strict Mode. El recorrido desde la bienvenida usa ocho interacciones
+y cubre también un fallo controlado del primer autoguardado: conserva objeto,
+objetivo y confirmaciones, no abre el editor ni crea una sesión fantasma, y el
+mismo botón reintenta con éxito. Además, se recorrió una instancia temporal con
+la ballesta real: sesión visible y enfocada, y planificador oculto. Los puertos
+y las bases SQLite temporales quedaron cerrados y eliminados al terminar.
 
 ## Archivos importantes
 

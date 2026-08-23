@@ -1,0 +1,237 @@
+{
+  "snapshotId": "poe2-observed-currency-actions-2026-08-22",
+  "game": "poe2",
+  "patch": null,
+  "leagueScope": null,
+  "asOf": "2026-08-22",
+  "completeness": "observed-only",
+  "scope": {
+    "itemClasses": null,
+    "baseTypes": null
+  },
+  "sources": [
+    {
+      "id": "tooltip-transmutation-2026-08-22",
+      "label": "Captura del cliente: Orbe de transmutación, superior y perfecto",
+      "url": null,
+      "consultedAt": "2026-08-22",
+      "version": null,
+      "method": "in-game-tooltip",
+      "terms": "Contenido del cliente de Path of Exile 2, propiedad de Grinding Gear Games. Se conserva en el repositorio como evidencia de una observación, no como dato redistribuible.",
+      "redistributionAllowed": false,
+      "fingerprint": "sha256:ff84daa203c2f4a7",
+      "extracts": "Los tres tooltips muestran nombre localizado e inglés, el efecto («Mejora un objeto de normal a mágico y le otorga 1 modificador») y el nivel mínimo de modificador de las variantes superior (44) y perfecto (70).",
+      "risk": "Es una observación puntual de una partida concreta. No demuestra el parche, ni que la lista de variantes sea exhaustiva, ni que el comportamiento se mantenga tras un cambio de versión."
+    },
+    {
+      "id": "tooltip-augmentation-2026-08-22",
+      "label": "Captura del cliente: Orbe de aumento, superior y perfecto",
+      "url": null,
+      "consultedAt": "2026-08-22",
+      "version": null,
+      "method": "in-game-tooltip",
+      "terms": "Contenido del cliente de Path of Exile 2, propiedad de Grinding Gear Games. Se conserva como evidencia local.",
+      "redistributionAllowed": false,
+      "fingerprint": "sha256:bc2f905a48bd28b1",
+      "extracts": "Nombre localizado e inglés, el efecto sobre objetos mágicos, la frase «Los objetos mágicos pueden tener hasta dos modificadores aleatorios» y los mínimos 44 y 70.",
+      "risk": "El límite de dos modificadores lo declara el propio tooltip para objetos mágicos; no se ha verificado que no existan excepciones por clase de objeto o por estado especial."
+    },
+    {
+      "id": "tooltip-regal-2026-08-22",
+      "label": "Captura del cliente: Orbe regio y Orbe regio superior",
+      "url": null,
+      "consultedAt": "2026-08-22",
+      "version": null,
+      "method": "in-game-tooltip",
+      "terms": "Contenido del cliente de Path of Exile 2, propiedad de Grinding Gear Games. Se conserva como evidencia local.",
+      "redistributionAllowed": false,
+      "fingerprint": "sha256:d8df02319bd95882",
+      "extracts": "Nombre localizado e inglés, la transición mágico → raro conservando los modificadores actuales y añadiendo uno, y el mínimo 35 de la variante superior.",
+      "risk": "No se observó ninguna variante perfecta. Su ausencia en la captura no demuestra que no exista."
+    },
+    {
+      "id": "tooltip-exalted-2026-08-22",
+      "label": "Captura del cliente: Orbe exaltado y Orbe exaltado superior",
+      "url": null,
+      "consultedAt": "2026-08-22",
+      "version": null,
+      "method": "in-game-tooltip",
+      "terms": "Contenido del cliente de Path of Exile 2, propiedad de Grinding Gear Games. Se conserva como evidencia local.",
+      "redistributionAllowed": false,
+      "fingerprint": "sha256:24a869440ef9931e",
+      "extracts": "Nombre localizado e inglés, el efecto sobre objetos raros, la frase «Los objetos raros pueden tener hasta seis modificadores aleatorios» y el mínimo 35 de la variante superior.",
+      "risk": "No se observó ninguna variante perfecta. El límite de seis lo declara el tooltip; no se ha verificado su interacción con estados especiales."
+    }
+  ],
+  "modCandidates": [],
+  "observedActions": [
+    {
+      "id": "transmutation",
+      "label": "Orbe de transmutación",
+      "labelEnglish": "Orb of Transmutation",
+      "targetRarity": "normal",
+      "effect": "Mejora un objeto de normal a mágico y le otorga 1 modificador.",
+      "declaredTotalLimit": null,
+      "variants": [
+        {
+          "id": "base",
+          "label": "Orbe de transmutación",
+          "minimumModifierLevel": null,
+          "provenance": {
+            "sourceId": "tooltip-transmutation-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "El tooltip base no muestra ninguna línea de nivel mínimo. Eso es «no mostrado», no «sin restricción»."
+          }
+        },
+        {
+          "id": "greater",
+          "label": "Orbe de transmutación superior",
+          "minimumModifierLevel": 44,
+          "provenance": {
+            "sourceId": "tooltip-transmutation-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "Línea «Nivel mínimo de modificador: 44»."
+          }
+        },
+        {
+          "id": "perfect",
+          "label": "Orbe de transmutación perfecto",
+          "minimumModifierLevel": 70,
+          "provenance": {
+            "sourceId": "tooltip-transmutation-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "Línea «Nivel mínimo de modificador: 70»."
+          }
+        }
+      ],
+      "provenance": {
+        "sourceId": "tooltip-transmutation-2026-08-22",
+        "method": "in-game-tooltip"
+      }
+    },
+    {
+      "id": "augmentation",
+      "label": "Orbe de aumento",
+      "labelEnglish": "Orb of Augmentation",
+      "targetRarity": "magic",
+      "effect": "Mejora un objeto mágico agregándole un nuevo modificador aleatorio.",
+      "declaredTotalLimit": 2,
+      "variants": [
+        {
+          "id": "base",
+          "label": "Orbe de aumento",
+          "minimumModifierLevel": null,
+          "provenance": {
+            "sourceId": "tooltip-augmentation-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "El tooltip base no muestra línea de nivel mínimo."
+          }
+        },
+        {
+          "id": "greater",
+          "label": "Orbe de aumento superior",
+          "minimumModifierLevel": 44,
+          "provenance": {
+            "sourceId": "tooltip-augmentation-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "Línea «Nivel mínimo de modificador: 44»."
+          }
+        },
+        {
+          "id": "perfect",
+          "label": "Orbe de aumento perfecto",
+          "minimumModifierLevel": 70,
+          "provenance": {
+            "sourceId": "tooltip-augmentation-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "Línea «Nivel mínimo de modificador: 70»."
+          }
+        }
+      ],
+      "provenance": {
+        "sourceId": "tooltip-augmentation-2026-08-22",
+        "method": "in-game-tooltip",
+        "note": "El propio tooltip declara el máximo de dos modificadores aleatorios para objetos mágicos."
+      }
+    },
+    {
+      "id": "regal",
+      "label": "Orbe regio",
+      "labelEnglish": "Regal Orb",
+      "targetRarity": "magic",
+      "effect": "Mejora un objeto de mágico a raro y le agrega 1 modificador; los modificadores actuales se mantienen.",
+      "declaredTotalLimit": null,
+      "variants": [
+        {
+          "id": "base",
+          "label": "Orbe regio",
+          "minimumModifierLevel": null,
+          "provenance": {
+            "sourceId": "tooltip-regal-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "El tooltip base no muestra línea de nivel mínimo."
+          }
+        },
+        {
+          "id": "greater",
+          "label": "Orbe regio superior",
+          "minimumModifierLevel": 35,
+          "provenance": {
+            "sourceId": "tooltip-regal-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "Línea «Nivel mínimo de modificador: 35»."
+          }
+        }
+      ],
+      "provenance": {
+        "sourceId": "tooltip-regal-2026-08-22",
+        "method": "in-game-tooltip",
+        "note": "No se observó variante perfecta; no se registra ninguna."
+      }
+    },
+    {
+      "id": "exalted",
+      "label": "Orbe exaltado",
+      "labelEnglish": "Exalted Orb",
+      "targetRarity": "rare",
+      "effect": "Mejora un objeto raro agregándole un nuevo modificador aleatorio.",
+      "declaredTotalLimit": 6,
+      "variants": [
+        {
+          "id": "base",
+          "label": "Orbe exaltado",
+          "minimumModifierLevel": null,
+          "provenance": {
+            "sourceId": "tooltip-exalted-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "El tooltip base no muestra línea de nivel mínimo."
+          }
+        },
+        {
+          "id": "greater",
+          "label": "Orbe exaltado superior",
+          "minimumModifierLevel": 35,
+          "provenance": {
+            "sourceId": "tooltip-exalted-2026-08-22",
+            "method": "in-game-tooltip",
+            "note": "Línea «Nivel mínimo de modificador: 35»."
+          }
+        }
+      ],
+      "provenance": {
+        "sourceId": "tooltip-exalted-2026-08-22",
+        "method": "in-game-tooltip",
+        "note": "El propio tooltip declara el máximo de seis modificadores aleatorios para objetos raros. No se observó variante perfecta."
+      }
+    }
+  ],
+  "limitations": [
+    "Toda la evidencia procede de capturas de una sola partida el 2026-08-22: es «observado», no un export verificable.",
+    "El parche no consta en las capturas, así que se registra como desconocido en lugar de asumir el que usa la aplicación.",
+    "Que una variante perfecta no aparezca para Regio ni Exaltado no demuestra que no exista.",
+    "Un tooltip sin línea de nivel mínimo significa «no mostrado», nunca «sin restricción».",
+    "No se ha observado la interacción de estas monedas con corrupción, reflejado, división, fractura ni profanación.",
+    "Este snapshot no contiene ningún pool de modificadores, ningún peso y ninguna base para calcular probabilidades."
+  ],
+  "redistributionAllowed": false
+}

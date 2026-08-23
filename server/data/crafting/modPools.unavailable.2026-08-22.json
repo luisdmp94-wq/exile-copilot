@@ -1,0 +1,76 @@
+{
+  "snapshotId": "poe2-mod-pools-unavailable-2026-08-22",
+  "game": "poe2",
+  "patch": null,
+  "leagueScope": null,
+  "asOf": "2026-08-22",
+  "completeness": "unavailable",
+  "scope": {
+    "itemClasses": null,
+    "baseTypes": null
+  },
+  "sources": [
+    {
+      "id": "ggg-developer-docs-data",
+      "label": "Grinding Gear Games — Developer Docs, game data",
+      "url": "https://www.pathofexile.com/developer/docs/data",
+      "consultedAt": "2026-08-22",
+      "version": null,
+      "method": "official-documentation",
+      "terms": "Documentación oficial publicada por Grinding Gear Games.",
+      "redistributionAllowed": null,
+      "fingerprint": null,
+      "extracts": "La página vigente de datos indica que la información de juego de Path of Exile 2 no se ofrece oficialmente fuera de las APIs admitidas, salvo el árbol de habilidades pasivas. La referencia pública de APIs no expone pools, afijos ni pesos de modificadores.",
+      "risk": "Ninguno en cuanto a autoría: es fuente primaria. La conclusión debe revisarse cuando cambie la documentación o se añada una API admitida."
+    },
+    {
+      "id": "ggg-terms-of-use",
+      "label": "Grinding Gear Games — Terms of Use and Privacy Policy",
+      "url": "https://www.pathofexile.com/legal/terms-of-use-and-privacy-policy",
+      "consultedAt": "2026-08-22",
+      "version": null,
+      "method": "official-documentation",
+      "terms": "Cláusula 4: los derechos incluyen «all graphics, logos, text, images and all other elements included in and deriving from the gameplay». Cláusula 7(f): prohíbe «use any data gathering and extraction tools or software to extract information». No hay cláusula que autorice a terceros a republicar datos extraídos.",
+      "redistributionAllowed": false,
+      "fingerprint": null,
+      "extracts": "El marco legal aplicable a cualquier dato derivado del juego o del sitio.",
+      "risk": "Exile Copilot aplica una política conservadora: no copia ni redistribuye exports derivados del cliente sin permiso explícito. Esto es una decisión de cumplimiento del proyecto, no asesoramiento jurídico."
+    },
+    {
+      "id": "repoe-fork-poe2-export",
+      "label": "RePoE-fork — export de datos de PoE2",
+      "url": "https://repoe-fork.github.io/poe2/",
+      "consultedAt": "2026-08-22",
+      "version": "4.5.4.10.2",
+      "method": "third-party-client-extract",
+      "terms": "LICENSE.md del repositorio: el código es MIT (Copyright 2016 brather1ng), pero «Contents of generated files (all files in the `data` directory) are owned by Grinding Gear Games and shall not be used or published without being in accordance with their terms of use».",
+      "redistributionAllowed": false,
+      "fingerprint": null,
+      "extracts": "Publica JSON estáticos derivados de los archivos del cliente, entre ellos mods.json, mods.min.json y mods_by_base.json, además de base_items y árboles de pasivas. Es, hasta donde se ha comprobado, la única fuente localizada que contendría pesos de aparición de PoE2 sin scraping.",
+      "risk": "Triple. Legal: su propia licencia excluye los datos del permiso MIT y los remite a los términos de GGG, que no autorizan republicación. De correspondencia: declara la versión de cliente «4.5.4.10.2», que no se ha podido mapear a ningún id de parche de `server/data/patches.json` sin inferir. De método: es una extracción de terceros, no un export oficial, así que un error de esquema o de volcado se propagaría sin aviso."
+    },
+    {
+      "id": "poe2wiki-mod-templates",
+      "label": "poe2wiki.net — plantillas y páginas de modificadores",
+      "url": "https://www.poe2wiki.net/wiki/Template:Mod",
+      "consultedAt": "2026-08-22",
+      "version": null,
+      "method": "third-party-editorial",
+      "terms": "Wiki comunitaria editada por voluntarios; los términos concretos de reutilización no se han verificado en esta consulta.",
+      "redistributionAllowed": null,
+      "fingerprint": null,
+      "extracts": "Fichas de modificadores redactadas y mantenidas por la comunidad, con plantillas que en PoE1 incluían grados y pesos.",
+      "risk": "Alto para este uso. No es una fuente de datos versionada: no garantiza estar completa, ni corresponder a un parche concreto, ni distinguir PoE1 de PoE2. Tomarla como pool implicaría afirmar exhaustividad que nadie certifica."
+    }
+  ],
+  "modCandidates": [],
+  "observedActions": [],
+  "limitations": [
+    "No existe pool de modificadores en este registro: ni candidatos, ni grados, ni etiquetas, ni niveles mínimos, ni pesos.",
+    "Grinding Gear Games no ofrece oficialmente pools y pesos de modificadores de PoE2 en sus APIs públicas admitidas.",
+    "La única fuente localizada con pesos de PoE2 es un export de terceros derivado del cliente cuya licencia excluye expresamente los datos y remite a los términos de GGG.",
+    "En consecuencia, cualquier cálculo de probabilidad de crafting carece de base en este repositorio. No es un problema de implementación: es ausencia de dato utilizable.",
+    "Este snapshot existe precisamente para que la ausencia quede registrada y auditable, en lugar de rellenarse con ejemplos inventados."
+  ],
+  "redistributionAllowed": false
+}

@@ -31,6 +31,7 @@ interface ExpedienteSectionProps {
   profilePersisted: boolean;
   savingProfile: boolean;
   onSaveProfile: () => void;
+  onOpenCrafting: (itemId: string) => void;
 }
 
 /**
@@ -57,6 +58,7 @@ export function ExpedienteSection({
   profilePersisted,
   savingProfile,
   onSaveProfile,
+  onOpenCrafting,
 }: ExpedienteSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
@@ -79,11 +81,16 @@ export function ExpedienteSection({
 
   // true mientras el diálogo se cierra por «Ver recomendaciones»: el foco no
   // vuelve al disparador sino al Caso Abierto, que es el destino real.
-  const navigatingToOpenCase = useRef(false);
+  const navigationTarget = useRef<"case" | "crafting" | null>(null);
   const goToOpenCase = () => {
-    navigatingToOpenCase.current = true;
+    navigationTarget.current = "case";
     closeDetail();
     onShowOpenCase();
+  };
+  const goToCrafting = (itemId: string) => {
+    navigationTarget.current = "crafting";
+    closeDetail();
+    onOpenCrafting(itemId);
   };
 
   if (restoring) {
@@ -181,10 +188,13 @@ export function ExpedienteSection({
           if (!open) closeDetail();
         }}
         onGoToRecommendations={goToOpenCase}
+        onGoToCrafting={goToCrafting}
         getCloseFocusTarget={() => {
-          if (!navigatingToOpenCase.current) return null;
-          navigatingToOpenCase.current = false;
-          return document.getElementById("caso-abierto");
+          const target = navigationTarget.current;
+          navigationTarget.current = null;
+          if (target === "case") return document.getElementById("caso-abierto");
+          if (target === "crafting") return document.getElementById("crafting-workspace-title");
+          return null;
         }}
       />
     </section>

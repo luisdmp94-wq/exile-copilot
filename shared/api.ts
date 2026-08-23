@@ -22,6 +22,7 @@ import {
   SourceEvidenceSchema,
 } from "./domain.js";
 import {
+  CraftingExperimentSchema,
   DecisionConclusionKind,
   DecisionOutcome,
   DecisionSessionEventSchema,
@@ -36,6 +37,7 @@ import {
   ExportReportSchema,
 } from "./gggBuildPlanner.js";
 import { PlanResolutionSchema } from "./passiveRegistry.js";
+import { ObservedCraftingActionSchema } from "./craftingActions.js";
 
 /**
  * Contrato de la API REST v1 (toda bajo /api).
@@ -97,6 +99,26 @@ export const ImportItemTextResponseSchema = z.object({
 });
 export type ImportItemTextRequest = z.infer<typeof ImportItemTextRequestSchema>;
 export type ImportItemTextResponse = z.infer<typeof ImportItemTextResponseSchema>;
+
+// GET /api/crafting/knowledge?itemClass=&baseType=&patch=
+export const CraftingKnowledgeResponseSchema = z.object({
+  asOf: z.string(),
+  completeness: z.enum([
+    "verified-complete",
+    "verified-partial",
+    "observed-only",
+    "unavailable",
+  ]),
+  actions: z.array(ObservedCraftingActionSchema),
+  modPool: z.object({
+    status: z.enum(["available-complete", "available-partial", "unavailable"]),
+    snapshotId: z.string().nullable(),
+    probabilityBasis: z.enum(["sufficient", "insufficient"]),
+    reasons: z.array(z.string()),
+    limitations: z.array(z.string()),
+  }),
+});
+export type CraftingKnowledgeResponse = z.infer<typeof CraftingKnowledgeResponseSchema>;
 
 // POST /api/character — guarda/actualiza el perfil (correcciones manuales)
 export const SaveCharacterRequestSchema = z.object({
@@ -289,6 +311,7 @@ export const StartDecisionSessionRequestSchema = RevisionGuardSchema.extend({
     .default([]),
   soonReplacedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
   protectedResources: z.array(z.string().trim().min(1).max(200)).max(10).default([]),
+  craftingExperiment: CraftingExperimentSchema.nullable().optional(),
   recommendation: RecommendationSchema.nullable().default(null),
   profile: CharacterProfileSchema,
   budget: BudgetSchema,

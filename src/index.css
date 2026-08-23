@@ -166,6 +166,10 @@
     min-height: 25rem;
   }
 
+  .case-panel[data-caso="generate"] {
+    min-height: 0;
+  }
+
   .case-panel::after {
     content: "";
     position: absolute;

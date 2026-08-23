@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { RecommendationSchema } from "../../shared/domain.js";
 import {
+  CraftingExperimentSchema,
+  DecisionSessionSchema,
   canTransition,
   characterSessionFingerprint,
   evaluateSessionGate,
@@ -148,6 +150,43 @@ describe("reapertura y huella", () => {
     expect(sessionFingerprintHash("a")).toBe(sessionFingerprintHash("a"));
   });
 
+  it("la huella cambia si el objeto pasa a estar corrupto", () => {
+    const base = CharacterProfileSchema.parse({
+      id: "char-crafting-state",
+      name: "Demo",
+      characterClass: "Mercenary",
+      level: 70,
+      league: "Runes of Aldur",
+      patch: "0.5.4f",
+      items: [
+        {
+          id: "weapon",
+          name: "Ballesta",
+          baseType: "Ballesta barnizada",
+          rarity: "rare",
+          craftingState: {
+            corrupted: false,
+            mirrored: false,
+            split: false,
+            unidentified: false,
+          },
+        },
+      ],
+      importedAt: "2026-08-22T10:00:00.000Z",
+    });
+    const changed = CharacterProfileSchema.parse({
+      ...base,
+      items: base.items.map((item) => ({
+        ...item,
+        craftingState: { ...item.craftingState!, corrupted: true },
+      })),
+    });
+
+    expect(characterSessionFingerprint(changed)).not.toBe(
+      characterSessionFingerprint(base),
+    );
+  });
+
   it("el digest solo incluye restricciones protegidas", () => {
     const digest = sessionMemoryDigest({
       id: "s1",
@@ -198,5 +237,121 @@ describe("reapertura y huella", () => {
         protected: true,
       }),
     ).toBe(true);
+  });
+
+  it("mantiene retrocompatibilidad con sesiones anteriores al crafting estructurado", () => {
+    const parsed = DecisionSessionSchema.parse({
+      id: "legacy",
+      characterId: "c1",
+      kind: "guided_decision",
+      status: "completed",
+      objective: "Objetivo antiguo",
+      hypothesis: "Hipótesis antigua",
+      unknowns: [],
+      constraints: [],
+      evidence: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      activeAction: null,
+      blockedRecommendation: null,
+      budget: null,
+      goal: null,
+      lastResult: null,
+      conclusion: null,
+      characterFingerprint: "abc",
+      needsReconciliation: false,
+      createdAt: "2026-08-21T00:00:00.000Z",
+      updatedAt: "2026-08-21T00:00:00.000Z",
+    });
+    expect(parsed.craftingExperiment).toBeUndefined();
+  });
+
+  it("persiste la variante exacta de la moneda sin reinterpretar su mínimo observado", () => {
+    const experiment = CraftingExperimentSchema.parse({
+      actionId: "exalted",
+      actionLabel: "Orbe exaltado superior",
+      variantId: "greater",
+      variantLabel: "Superior",
+      minimumModifierLevel: 35,
+      desiredOutcome: "Añadir un modificador útil",
+      originalItem: {
+        id: "weapon",
+        name: "Núcleo de fénix",
+        baseType: "Ballesta barnizada",
+        rarity: "rare",
+      },
+    });
+    expect(experiment).toMatchObject({
+      actionLabel: "Orbe exaltado superior",
+      variantId: "greater",
+      variantLabel: "Superior",
+      minimumModifierLevel: 35,
+    });
+
+    const legacy = CraftingExperimentSchema.parse({
+      actionId: "exalted",
+      actionLabel: "Orbe exaltado",
+      desiredOutcome: "Añadir un modificador útil",
+      originalItem: {
+        id: "weapon",
+        name: "Núcleo de fénix",
+        baseType: "Ballesta barnizada",
+        rarity: "rare",
+      },
+    });
+    expect(legacy.variantId).toBeUndefined();
+    expect(legacy.minimumModifierLevel).toBeUndefined();
+  });
+
+  it("persiste una Essence de reemplazo sin convertirla en una moneda básica", () => {
+    const experiment = CraftingExperimentSchema.parse({
+      actionId: "essence",
+      actionLabel: "Essence observada (Perfecta)",
+      variantId: "perfect",
+      variantLabel: "Perfecta",
+      resultRarity: "rare",
+      expectedRemovedModifierCount: 1,
+      guaranteedModifierText: "Efecto exacto del tooltip",
+      resultUnknownLabel: "Falta comprobar el reemplazo.",
+      desiredOutcome: "Conservar el afijo principal",
+      originalItem: {
+        id: "weapon",
+        name: "Núcleo de fénix",
+        baseType: "Ballesta barnizada",
+        rarity: "rare",
+      },
+    });
+    expect(experiment).toMatchObject({
+      actionId: "essence",
+      variantId: "perfect",
+      expectedRemovedModifierCount: 1,
+      guaranteedModifierText: "Efecto exacto del tooltip",
+    });
+  });
+
+  it("persiste un Alloy con su contrato de reemplazo fabricado", () => {
+    const experiment = CraftingExperimentSchema.parse({
+      actionId: "alloy",
+      actionLabel: "Alloy observado",
+      resultRarity: "rare",
+      expectedRemovedModifierCount: 1,
+      expectedAddedCrafted: true,
+      maximumCraftedModifierCount: 1,
+      guaranteedModifierText: "Fabricado garantizado",
+      resultUnknownLabel: "Falta comprobar el resultado.",
+      desiredOutcome: "Conservar el afijo principal",
+      originalItem: {
+        id: "weapon",
+        name: "Núcleo de fénix",
+        baseType: "Ballesta barnizada",
+        rarity: "rare",
+      },
+    });
+    expect(experiment).toMatchObject({
+      actionId: "alloy",
+      expectedRemovedModifierCount: 1,
+      expectedAddedCrafted: true,
+      maximumCraftedModifierCount: 1,
+    });
   });
 });

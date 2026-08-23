@@ -1,7 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Compass, FolderOpen } from "lucide-react";
-import type { Budget, GoalKind, Recommendation } from "@shared/domain.js";
+import { Compass, FolderOpen, Hammer } from "lucide-react";
+import {
+  craftingCurrencyLabel,
+  type CraftingCurrencyVariant,
+  type ObservedCraftingAction,
+} from "@shared/craftingActions.js";
+import { CRAFTING_RESULT_UNKNOWN_LABEL } from "@shared/craftingComparison.js";
+import type { CraftingObjective } from "@shared/craftingProtection.js";
+import {
+  ALLOY_RESULT_UNKNOWN_LABEL,
+  type AlloyEvaluation,
+  type AlloyPlanInput,
+} from "@shared/craftingAlloys.js";
+import {
+  ESSENCE_RESULT_UNKNOWN_LABEL,
+  ESSENCE_TIER_LABELS,
+  type EssenceEvaluation,
+  type EssencePlanInput,
+} from "@shared/craftingEssences.js";
+import type { Budget, GoalKind, Item, Recommendation } from "@shared/domain.js";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import {
@@ -9,6 +27,7 @@ import {
   type PlanResolution,
 } from "@shared/passiveRegistry.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Sheet,
@@ -48,6 +67,7 @@ import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
+import { CraftingSection } from "@/sections/CraftingSection";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   contextualMentorCue,
@@ -64,13 +84,13 @@ const EMPTY_TARGET: TargetDraft = {
 };
 
 /**
- * Las DOS áreas del espacio de trabajo (Fase Visual 1, §2).
+ * Las tres áreas principales del espacio de trabajo.
  *
  * «Personaje» ya no es un área: su editor completo sigue existiendo una sola
  * vez, dentro del panel lateral «Editar expediente».
  */
-type WorkspaceTab = "expediente" | "plan";
-type EditorPrompt = "memory" | null;
+type WorkspaceTab = "expediente" | "plan" | "crafting";
+type EditorPrompt = "memory" | "new" | "item" | null;
 
 /**
  * Los paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
@@ -98,6 +118,7 @@ export default function App() {
   // «Ver el objeto evaluado» del caso. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
   const [tab, setTab] = useState<WorkspaceTab>("expediente");
+  const [craftingRequestedItemId, setCraftingRequestedItemId] = useState<string | null>(null);
   // Panel lateral con el editor completo del personaje.
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPrompt, setEditorPrompt] = useState<EditorPrompt>(null);
@@ -314,6 +335,16 @@ export default function App() {
   );
   const limitations = openCaseLimitations(selection);
   const dominantRecommendation = selection.recommendation;
+  const activeCraftingExperiment =
+    selection.kind === "session"
+      ? characterJournal?.session?.craftingExperiment ?? null
+      : null;
+
+  const openCraftingForItem = (itemId: string) => {
+    setCraftingRequestedItemId(itemId);
+    setTab("crafting");
+    announceMentor({ type: "workspace", workspace: "crafting" });
+  };
 
   const restoreMentorBaseContext = () => {
     if (!character.profile) {
@@ -341,6 +372,21 @@ export default function App() {
   const saveProfileWithMentor = async () => {
     const saved = await character.saveCorrections();
     if (saved) announceMentor({ type: "profileSaved" });
+  };
+
+  /**
+   * Crafting puede empezar desde una pieza suelta. Si el perfil mínimo aún no
+   * existe en SQLite, se guarda y se carga su diario en el mismo gesto: nunca
+   * se abre el editor completo ni se obliga al jugador a pulsar dos veces.
+   */
+  const ensureCraftingJournal = async () => {
+    if (!character.profile) return null;
+    if (!character.persisted) {
+      const saved = await character.saveCorrections();
+      if (!saved) return null;
+      announceMentor({ type: "profileSaved" });
+    }
+    return characterJournal ?? journal.reload();
   };
 
   const updateBudgetWithMentor = (nextBudget: Budget) => {
@@ -392,6 +438,16 @@ export default function App() {
     announceMentor({ type: "editor" });
   };
 
+  const startManualJourney = (intent: "new" | "item") => {
+    if (!character.profile) {
+      character.startManual({
+        league: league || meta?.leagues[0] || "Desconocida",
+        patch: patch || health?.patch.content || "Desconocido",
+      });
+    }
+    openEditor(false, intent);
+  };
+
   const trackRecommendation = (recommendation: Recommendation) => {
     if (!character.profile) return;
     if (!character.persisted || !characterJournal) {
@@ -441,6 +497,247 @@ export default function App() {
           document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
         }
       });
+  };
+
+  const startCraftingDecision = async (
+    item: Item,
+    action: ObservedCraftingAction,
+    variant: CraftingCurrencyVariant,
+    objective: CraftingObjective,
+  ): Promise<boolean> => {
+    const profile = character.profile;
+    if (!profile) return false;
+    const currentJournal = await ensureCraftingJournal();
+    if (!currentJournal) return false;
+    const currencyLabel = craftingCurrencyLabel(action, variant);
+    const title = `Comprobar ${currencyLabel} en ${item.name}`;
+    const next = await journal.startSession({
+      journalRevision: buildRecommendationMemory(currentJournal).revision,
+      idempotencyKey: crypto.randomUUID(),
+      kind: "guided_decision",
+      objective: `${title}: ${objective.desiredOutcome}`,
+      hypothesis:
+        "La acción es compatible con la estructura observada; se comprobará una sola vez sin asumir el modificador resultante.",
+      expectedResult: action.effect,
+      observationMethod:
+        "Conserva el texto actual. Si decides aplicar la moneda, no realices otra acción: copia inmediatamente el objeto resultante y vuelve a importarlo.",
+      unknowns: [
+        {
+          label: CRAFTING_RESULT_UNKNOWN_LABEL,
+          blockingIrreversible: false,
+        },
+        {
+          label: "No hay pesos ni probabilidades verificadas para estimar el resultado.",
+          blockingIrreversible: false,
+        },
+      ],
+      constraints: [
+        {
+          label: "No realizar otra acción de crafting antes de copiar el resultado.",
+          relatedItemIds: [item.id],
+        },
+        {
+          label: "El objeto debe seguir coincidiendo con el snapshot importado.",
+          relatedItemIds: [item.id],
+        },
+        ...(objective.protectedModifierIds.length > 0
+          ? [{
+              label: "Los modificadores marcados como imprescindibles deben seguir presentes en el resultado.",
+              relatedItemIds: [item.id],
+            }]
+          : []),
+      ],
+      soonReplacedItemIds: [],
+      protectedResources: [`1 × ${currencyLabel}`],
+      craftingExperiment: {
+        actionId: action.id,
+        actionLabel: currencyLabel,
+        variantId: variant.id,
+        variantLabel: variant.label,
+        minimumModifierLevel: variant.minimumModifierLevel,
+        desiredOutcome: objective.desiredOutcome,
+        protectedModifierIds: objective.protectedModifierIds,
+        originalItem: item,
+      },
+      recommendation: null,
+      profile,
+      budget,
+      goal,
+    });
+    if (!next) return false;
+    announceMentor({ type: "session", title });
+    document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
+    return true;
+  };
+
+  const startEssenceDecision = async (
+    item: Item,
+    plan: EssencePlanInput,
+    evaluation: EssenceEvaluation,
+    objective: CraftingObjective,
+  ): Promise<boolean> => {
+    const profile = character.profile;
+    if (!profile) return false;
+    const currentJournal = await ensureCraftingJournal();
+    if (!currentJournal) return false;
+    const essenceLabel = plan.essenceName.trim();
+    const tierLabel = ESSENCE_TIER_LABELS[plan.tier];
+    const title = `Comprobar ${essenceLabel} en ${item.name}`;
+    const randomRemovalConstraint = evaluation.randomRemoval
+      ? `Se retirará al azar 1 de los ${item.modifiers.filter((modifier) => modifier.kind === "explicit").length} modificadores explícitos observados.`
+      : "Los modificadores actuales deberían conservarse durante la mejora de mágico a raro.";
+    const next = await journal.startSession({
+      journalRevision: buildRecommendationMemory(currentJournal).revision,
+      idempotencyKey: crypto.randomUUID(),
+      kind: "guided_decision",
+      objective: `${title}: ${objective.desiredOutcome}`,
+      hypothesis: evaluation.randomRemoval
+        ? "La Essence retirará un modificador explícito al azar y añadirá el efecto garantizado copiado de su tooltip."
+        : "La Essence elevará el objeto mágico a raro y añadirá el efecto garantizado copiado de su tooltip.",
+      expectedResult: `Efecto garantizado declarado: ${plan.guaranteedModifierText}`,
+      observationMethod:
+        "Conserva este snapshot. Si aplicas la Essence, no realices ninguna otra acción: copia inmediatamente el objeto resultante y vuelve a importarlo.",
+      unknowns: [
+        {
+          label: ESSENCE_RESULT_UNKNOWN_LABEL,
+          blockingIrreversible: false,
+        },
+        {
+          label: "No existe un pool completo y redistribuible para estimar probabilidades de afijos.",
+          blockingIrreversible: false,
+        },
+      ],
+      constraints: [
+        { label: randomRemovalConstraint, relatedItemIds: [item.id] },
+        {
+          label: "El nombre y el efecto deben coincidir con el tooltip de la Essence que vas a gastar.",
+          relatedItemIds: [item.id],
+        },
+        {
+          label: "El objeto debe seguir coincidiendo con el snapshot importado.",
+          relatedItemIds: [item.id],
+        },
+        ...(objective.protectedModifierIds.length > 0
+          ? [{
+              label: "La comparación debe comprobar uno por uno los modificadores protegidos.",
+              relatedItemIds: [item.id],
+            }]
+          : []),
+      ],
+      soonReplacedItemIds: [],
+      protectedResources: [`1 × ${essenceLabel}`],
+      craftingExperiment: {
+        actionId: "essence",
+        actionLabel: `${essenceLabel} (${tierLabel})`,
+        variantId: plan.tier,
+        variantLabel: tierLabel,
+        resultRarity: evaluation.resultRarity,
+        expectedRemovedModifierCount: evaluation.randomRemoval ? 1 : 0,
+        guaranteedModifierText: plan.guaranteedModifierText,
+        resultUnknownLabel: ESSENCE_RESULT_UNKNOWN_LABEL,
+        desiredOutcome: objective.desiredOutcome,
+        protectedModifierIds: objective.protectedModifierIds,
+        originalItem: item,
+      },
+      recommendation: null,
+      profile,
+      budget,
+      goal,
+    });
+    if (!next) return false;
+    announceMentor({ type: "session", title });
+    document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
+    return true;
+  };
+
+  const startAlloyDecision = async (
+    item: Item,
+    plan: AlloyPlanInput,
+    evaluation: AlloyEvaluation,
+    objective: CraftingObjective,
+  ): Promise<boolean> => {
+    const profile = character.profile;
+    if (!profile) return false;
+    const currentJournal = await ensureCraftingJournal();
+    if (!currentJournal) return false;
+    const alloyLabel = plan.alloyName.trim();
+    const title = `Comprobar ${alloyLabel} en ${item.name}`;
+    const next = await journal.startSession({
+      journalRevision: buildRecommendationMemory(currentJournal).revision,
+      idempotencyKey: crypto.randomUUID(),
+      kind: "guided_decision",
+      objective: `${title}: ${objective.desiredOutcome}`,
+      hypothesis:
+        "El Alloy reemplazará un modificador explícito y añadirá el modificador fabricado garantizado copiado del tooltip.",
+      expectedResult: `Modificador fabricado garantizado declarado: ${plan.guaranteedModifierText}`,
+      observationMethod:
+        "Conserva este snapshot. Si aplicas el Alloy, no realices ninguna otra acción: copia inmediatamente el objeto resultante y vuelve a importarlo.",
+      unknowns: [
+        { label: ALLOY_RESULT_UNKNOWN_LABEL, blockingIrreversible: false },
+        {
+          label: "No existe una matriz pública completa Alloy × tipo de objeto para validar el efecto por nombre.",
+          blockingIrreversible: false,
+        },
+        ...(plan.removalSelection === "unspecified"
+          ? [{
+              label: "No está verificado cómo se elige el modificador reemplazado.",
+              blockingIrreversible: false,
+            }]
+          : []),
+      ],
+      constraints: [
+        {
+          label:
+            plan.removalSelection === "random"
+              ? `Cualquiera de los ${item.modifiers.filter((modifier) => modifier.kind === "explicit").length} modificadores explícitos observados puede ser reemplazado.`
+              : plan.removalSelection === "player-selected"
+                ? "Elige dentro del juego únicamente el modificador que aceptaste reemplazar."
+                : "GGG confirma el reemplazo de un modificador, pero el criterio de selección no está verificado.",
+          relatedItemIds: [item.id],
+        },
+        {
+          label: `El tooltip declara estas clases: ${plan.declaredItemClasses.join(", ")}. El jugador confirmó que la pieza seleccionada pertenece a una de ellas.`,
+          relatedItemIds: [item.id],
+        },
+        {
+          label: "El Alloy y su efecto deben coincidir con el tooltip completo registrado en esta sesión.",
+          relatedItemIds: [item.id],
+        },
+        {
+          label: "El objeto debe seguir coincidiendo con el snapshot importado y no contener otro modificador fabricado.",
+          relatedItemIds: [item.id],
+        },
+        ...(objective.protectedModifierIds.length > 0
+          ? [{
+              label: "Ningún modificador marcado como imprescindible puede desaparecer sin quedar señalado.",
+              relatedItemIds: [item.id],
+            }]
+          : []),
+      ],
+      soonReplacedItemIds: [],
+      protectedResources: [`1 × ${alloyLabel}`],
+      craftingExperiment: {
+        actionId: "alloy",
+        actionLabel: alloyLabel,
+        resultRarity: evaluation.resultRarity,
+        expectedRemovedModifierCount: evaluation.expectedRemovedModifierCount,
+        expectedAddedCrafted: evaluation.expectedAddedCrafted,
+        maximumCraftedModifierCount: evaluation.maximumCraftedModifierCount,
+        guaranteedModifierText: plan.guaranteedModifierText,
+        resultUnknownLabel: ALLOY_RESULT_UNKNOWN_LABEL,
+        desiredOutcome: objective.desiredOutcome,
+        protectedModifierIds: objective.protectedModifierIds,
+        originalItem: item,
+      },
+      recommendation: null,
+      profile,
+      budget,
+      goal,
+    });
+    if (!next) return false;
+    announceMentor({ type: "session", title });
+    document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
+    return true;
   };
 
   const askMentor = async (question: string, intentHint?: ContextualMentorAsk["intent"]) => {
@@ -595,12 +892,12 @@ export default function App() {
           <div className="workspace-nav sticky top-0 z-30 -mx-4 mb-8 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:-mx-6 sm:px-6">
             <TabsList
               aria-label="Áreas de Exile Copilot"
-              className="h-auto w-full justify-start gap-7 bg-transparent p-0 sm:w-auto"
+              className="grid h-auto w-full grid-cols-3 gap-2 bg-transparent p-0 sm:flex sm:w-auto"
             >
               <TabsTrigger
                 value="expediente"
                 data-testid="tab-expediente"
-                className="min-w-0 flex-1 gap-2 rounded-none border-b-2 border-transparent bg-transparent px-0 py-2 text-xs uppercase tracking-[0.13em] shadow-none sm:flex-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+                className="min-w-0 gap-2 rounded-sm border border-border/70 bg-card/55 px-3 py-3 text-xs uppercase tracking-[0.11em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate sm:hidden">Expediente</span>
@@ -609,11 +906,19 @@ export default function App() {
               <TabsTrigger
                 value="plan"
                 data-testid="tab-plan"
-                className="min-w-0 flex-1 gap-2 rounded-none border-b-2 border-transparent bg-transparent px-0 py-2 text-xs uppercase tracking-[0.13em] shadow-none sm:flex-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+                className="min-w-0 gap-2 rounded-sm border border-border/70 bg-card/55 px-3 py-3 text-xs uppercase tracking-[0.11em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <Compass className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate sm:hidden">Plan</span>
                 <span className="hidden truncate sm:inline">Plan y mercado</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="crafting"
+                data-testid="tab-crafting"
+                className="min-w-0 gap-2 rounded-sm border border-border/70 bg-card/55 px-3 py-3 text-xs uppercase tracking-[0.11em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+              >
+                <Hammer className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">Crafting</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -626,6 +931,8 @@ export default function App() {
                 loadingDemo={character.busy === "demo"}
                 onLoadDemo={() => void character.loadDemo()}
                 onGoToImport={() => openEditor(true)}
+                onStartNew={() => startManualJourney("new")}
+                onStartItem={() => startManualJourney("item")}
               />
             ) : !hasProfile ? (
               // Restaurando el personaje guardado: ni bienvenida ni caso vacíos.
@@ -646,6 +953,7 @@ export default function App() {
                 profilePersisted={character.persisted}
                 savingProfile={character.busy === "save"}
                 onSaveProfile={() => void saveProfileWithMentor()}
+                onOpenCrafting={openCraftingForItem}
               />
             ) : (
               <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(23rem,26rem)_minmax(0,1fr)] lg:items-start">
@@ -655,15 +963,29 @@ export default function App() {
                   <OpenCase
                     selection={selection}
                     sessionSlot={
-                      <DecisionSessionSection
-                        profile={character.profile}
-                        budget={budget}
-                        goal={goal}
-                        journal={journal}
-                        pendingRecommendation={dominantRecommendation}
-                        onEditExpediente={() => openEditor()}
-                        onMentorEvent={handleSessionMentorEvent}
-                      />
+                      activeCraftingExperiment ? (
+                        <div className="space-y-3" data-testid="crafting-session-redirect">
+                          <h3 className="text-xl font-semibold">Crafting en curso</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Estás comprobando {activeCraftingExperiment.actionLabel} en {activeCraftingExperiment.originalItem.name}.
+                            El preflight y el resultado viven en el banco de Crafting para no duplicar la sesión.
+                          </p>
+                          <Button type="button" onClick={() => setTab("crafting")}>
+                            Continuar en Crafting
+                          </Button>
+                        </div>
+                      ) : (
+                        <DecisionSessionSection
+                          profile={character.profile}
+                          budget={budget}
+                          goal={goal}
+                          journal={journal}
+                          pendingRecommendation={dominantRecommendation}
+                          onEditExpediente={() => openEditor()}
+                          onMentorEvent={handleSessionMentorEvent}
+                          onApplyCraftingResult={character.replaceItemAndSave}
+                        />
+                      )
                     }
                     journalSlot={
                       <JournalSection
@@ -702,7 +1024,9 @@ export default function App() {
                         patch={patch}
                         journal={characterJournal}
                         journalLoading={characterJournalLoading}
-                        onJournalStale={journal.reload}
+                        onJournalStale={async () => {
+                          await journal.reload();
+                        }}
                         recommendations={recommendations}
                         onLoadDemo={character.loadDemo}
                         onFocusItem={focusItem}
@@ -752,6 +1076,7 @@ export default function App() {
                     profilePersisted={character.persisted}
                     savingProfile={character.busy === "save"}
                     onSaveProfile={() => void saveProfileWithMentor()}
+                    onOpenCrafting={openCraftingForItem}
                   />
                 </div>
 
@@ -769,6 +1094,7 @@ export default function App() {
                           pendingRecommendation={dominantRecommendation}
                           onEditExpediente={() => openEditor()}
                           onMentorEvent={handleSessionMentorEvent}
+                          onApplyCraftingResult={character.replaceItemAndSave}
                         />
                       )
                     }
@@ -791,7 +1117,9 @@ export default function App() {
                         patch={patch}
                         journal={characterJournal}
                         journalLoading={characterJournalLoading}
-                        onJournalStale={journal.reload}
+                        onJournalStale={async () => {
+                          await journal.reload();
+                        }}
                         recommendations={recommendations}
                         onLoadDemo={character.loadDemo}
                         onFocusItem={focusItem}
@@ -864,6 +1192,23 @@ export default function App() {
               />
             </div>
           </TabsContent>
+
+          {/* --- Área 3: Crafting ----------------------------------------- */}
+          <TabsContent value="crafting" forceMount className={PANEL_CLASSES}>
+            <CraftingSection
+              profile={character.profile}
+              budget={budget}
+              goal={goal}
+              journal={journal}
+              requestedItemId={craftingRequestedItemId}
+              onEditExpediente={() => openEditor(false, "item")}
+              onStartCraftingDecision={startCraftingDecision}
+              onStartEssenceDecision={startEssenceDecision}
+              onStartAlloyDecision={startAlloyDecision}
+              onApplyCraftingResult={character.replaceItemAndSave}
+              onMentorEvent={handleSessionMentorEvent}
+            />
+          </TabsContent>
         </Tabs>
 
         {/*
@@ -890,6 +1235,19 @@ export default function App() {
             side="right"
             className="w-full gap-0 overflow-y-auto sm:max-w-2xl"
             onOpenAutoFocus={(event) => {
+              const guidedTarget =
+                editorPrompt === "item"
+                  ? "item-text"
+                  : editorPrompt === "new"
+                    ? "char-name"
+                    : null;
+              if (guidedTarget !== null) {
+                event.preventDefault();
+                window.requestAnimationFrame(() => {
+                  document.getElementById(guidedTarget)?.focus();
+                });
+                return;
+              }
               if (!focusImportOnOpen.current) return;
               focusImportOnOpen.current = false;
               event.preventDefault();
@@ -897,10 +1255,20 @@ export default function App() {
             }}
           >
             <SheetHeader>
-              <SheetTitle>Editar expediente</SheetTitle>
+              <SheetTitle>
+                {editorPrompt === "item"
+                  ? "Evaluar un objeto"
+                  : editorPrompt === "new"
+                    ? "Crear personaje"
+                    : "Editar expediente"}
+              </SheetTitle>
               <SheetDescription>
                 {editorPrompt === "memory"
                   ? "Guarda este personaje para que el mentor pueda recordar próximos pasos y sesiones."
+                  : editorPrompt === "item"
+                    ? "Pega el texto del objeto copiado en PoE2. Al analizarlo pasarás directamente al banco de Crafting."
+                    : editorPrompt === "new"
+                      ? "Completa únicamente lo que sabes. Los datos desconocidos pueden quedarse vacíos."
                   : "Importa, corrige o completa los datos de tu personaje. Los cambios se guardan con «Guardar correcciones»."}
               </SheetDescription>
             </SheetHeader>
@@ -909,10 +1277,24 @@ export default function App() {
                 character={character}
                 meta={meta}
                 drafts={editorDrafts}
+                editorMode={
+                  editorPrompt === "item"
+                    ? "item"
+                    : editorPrompt === "new"
+                      ? "new"
+                      : "full"
+                }
                 // La bienvenida ya ofrece importar y cargar el ejemplo: la
                 // sección no repite ni su vacío ni su botón de ejemplo.
                 hideEmptyState={showWelcome}
-                onProfileSaved={() => announceMentor({ type: "profileSaved" })}
+                onProfileSaved={() => {
+                  announceMentor({ type: "profileSaved" });
+                  if (editorPrompt === "new") setEditorOpen(false);
+                }}
+                onItemImported={(item) => {
+                  setEditorOpen(false);
+                  openCraftingForItem(item.id);
+                }}
               />
             </div>
           </SheetContent>

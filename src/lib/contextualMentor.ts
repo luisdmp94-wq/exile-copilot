@@ -23,7 +23,7 @@ export interface ContextualMentorCue {
 export type ContextualMentorEvent =
   | { type: "welcome" }
   | { type: "ready"; profileName: string }
-  | { type: "workspace"; workspace: "expediente" | "plan" }
+  | { type: "workspace"; workspace: "expediente" | "plan" | "crafting" }
   | { type: "item"; item: Item }
   | { type: "editor" }
   | { type: "goal"; goal: GoalKind }
@@ -67,7 +67,21 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         },
       };
     case "workspace":
-      return event.workspace === "plan"
+      return event.workspace === "crafting"
+        ? {
+            id: "workspace:crafting",
+            source: "guide",
+            eyebrow: "Banco de trabajo",
+            title: "Estás en Crafting",
+            message:
+              "Aquí se trabaja una sola pieza y una sola moneda. Confirma el snapshot antes de gastar y vuelve con el texto resultante para cerrar la comparación.",
+            ask: {
+              question:
+                "¿Por qué la pieza seleccionada está relacionada con mi prioridad y qué dato debo comprobar antes de cambiarla?",
+              intent: "explain_priority",
+            },
+          }
+        : event.workspace === "plan"
         ? {
             id: "workspace:plan",
             source: "guide",

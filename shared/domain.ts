@@ -60,6 +60,18 @@ export const ModifierSchema = z.object({
   kind: ModifierKind.default("explicit"),
   values: z.array(z.number()).default([]),
   verified: z.boolean().default(false),
+  /** Posición observada en el texto avanzado; ausente si no se pudo determinar. */
+  affix: z.enum(["prefix", "suffix"]).optional(),
+  /** Nombre localizado mostrado en la cabecera avanzada del modificador. */
+  name: z.string().optional(),
+  /** Grado mostrado por el cliente. No equivale a una probabilidad ni a un peso. */
+  tier: z.number().int().positive().optional(),
+  /** Etiquetas literales mostradas por el cliente, sin reinterpretarlas. */
+  tags: z.array(z.string()).optional(),
+  crafted: z.boolean().optional(),
+  desecrated: z.boolean().optional(),
+  fractured: z.boolean().optional(),
+  mutated: z.boolean().optional(),
 });
 export type Modifier = z.infer<typeof ModifierSchema>;
 
@@ -98,9 +110,27 @@ export const ItemRequirementsSchema = z.object({
 });
 export type ItemRequirements = z.infer<typeof ItemRequirementsSchema>;
 
+/** Estados que el texto copiado del juego declara de forma explícita. */
+export const CraftingItemStateSchema = z.object({
+  corrupted: z.boolean(),
+  mirrored: z.boolean(),
+  split: z.boolean(),
+  unidentified: z.boolean(),
+  /** Estados adicionales solo se incluyen cuando la entrada los declara. */
+  doubleCorrupted: z.boolean().optional(),
+  sanctified: z.boolean().optional(),
+  unmodifiable: z.boolean().optional(),
+  unmodifiableExceptChaos: z.boolean().optional(),
+  mutated: z.boolean().optional(),
+  desecrated: z.boolean().optional(),
+});
+export type CraftingItemState = z.infer<typeof CraftingItemStateSchema>;
+
 export const ItemSchema = z.object({
   id: z.string(),
   name: z.string(),
+  /** Clase literal del texto del juego; no se deduce de la base. */
+  itemClass: z.string().optional(),
   baseType: z.string(),
   slot: ItemSlot.default("other"),
   rarity: ItemRarity.default("rare"),
@@ -108,6 +138,8 @@ export const ItemSchema = z.object({
   quality: z.number().int().optional(),
   modifiers: z.array(ModifierSchema).default([]),
   requirements: ItemRequirementsSchema.optional(),
+  /** Ausente = la procedencia no permite afirmar estos estados. */
+  craftingState: CraftingItemStateSchema.optional(),
   rawText: z.string().optional(),
   sources: z.array(SourceEvidenceSchema).default([]),
 });

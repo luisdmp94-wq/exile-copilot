@@ -112,6 +112,7 @@ export function BuildMemorySection({
           <Button
             type="button"
             size="sm"
+            variant="outline"
             className="mt-2"
             disabled={savingProfile}
             onClick={onSaveProfile}

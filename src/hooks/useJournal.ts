@@ -46,7 +46,7 @@ export interface JournalState {
   pauseSession: (input: PauseSessionRequest) => Promise<JournalResponse | null>;
   reopenSession: (input: ReopenSessionRequest) => Promise<JournalResponse | null>;
   reconcileSession: (input: ReconcileSessionRequest) => Promise<JournalResponse | null>;
-  reload: () => Promise<void>;
+  reload: () => Promise<JournalResponse | null>;
   clearStale: () => void;
 }
 
@@ -65,20 +65,23 @@ export function useJournal(characterId: string | null): JournalState {
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<JournalResponse | null> => {
     if (characterId === null) {
       setJournal(null);
       setError(null);
       setStale(false);
-      return;
+      return null;
     }
     setLoading(true);
     setError(null);
     try {
-      setJournal(await api.journal(characterId));
+      const next = await api.journal(characterId);
+      setJournal(next);
       setStale(false);
+      return next;
     } catch (err) {
       setError(getErrorMessage(err));
+      return null;
     } finally {
       setLoading(false);
     }

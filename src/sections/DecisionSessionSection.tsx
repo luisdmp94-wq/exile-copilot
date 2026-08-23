@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   ClipboardCheck,
@@ -9,7 +9,13 @@ import {
   Shield,
   Sparkles,
 } from "lucide-react";
-import type { Budget, CharacterProfile, GoalKind, Recommendation } from "@shared/domain.js";
+import type { Budget, CharacterProfile, GoalKind, Item, Recommendation } from "@shared/domain.js";
+import {
+  CRAFTING_RESULT_UNKNOWN_LABEL,
+  compareCraftingResult,
+  craftingComparisonEvidence,
+  type CraftingComparison,
+} from "@shared/craftingComparison.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   CONCLUSION_LABELS,
@@ -29,6 +35,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { api, getErrorMessage } from "@/lib/api";
 import { SLOT_LABELS } from "@/lib/format";
 import { compactRecommendationReason } from "@/lib/journal";
 import {
@@ -38,6 +45,8 @@ import {
 } from "@/lib/sessionOutcome";
 
 interface DecisionSessionSectionProps {
+  /** Identificador único cuando la sesión se presenta en más de un workspace montado. */
+  instanceId?: string;
   profile: CharacterProfile | null;
   budget: Budget;
   /**
@@ -53,6 +62,7 @@ interface DecisionSessionSectionProps {
     type: "started" | "result" | "paused" | "reopened" | "reconciled";
     title: string;
   }) => void;
+  onApplyCraftingResult?: (originalItemId: string, resultItem: Item) => Promise<boolean>;
 }
 
 function newKey(): string {
@@ -60,6 +70,7 @@ function newKey(): string {
 }
 
 export function DecisionSessionSection({
+  instanceId = "seccion-decision-adaptativa",
   profile,
   budget,
   goal,
@@ -67,6 +78,7 @@ export function DecisionSessionSection({
   pendingRecommendation,
   onEditExpediente,
   onMentorEvent,
+  onApplyCraftingResult,
 }: DecisionSessionSectionProps) {
   const session = journal.journal?.session ?? null;
   const events = journal.journal?.sessionEvents ?? [];
@@ -95,6 +107,13 @@ export function DecisionSessionSection({
   const [resolvesUnknownId, setResolvesUnknownId] = useState("");
   /** El jugador pidió explícitamente empezar otra decisión tras cerrar la anterior. */
   const [startingNew, setStartingNew] = useState(false);
+  const [craftingResultText, setCraftingResultText] = useState("");
+  const [craftingComparison, setCraftingComparison] = useState<CraftingComparison | null>(null);
+  const [craftingResultItem, setCraftingResultItem] = useState<Item | null>(null);
+  const [craftingError, setCraftingError] = useState<string | null>(null);
+  const [comparingCrafting, setComparingCrafting] = useState(false);
+  const [savingCrafting, setSavingCrafting] = useState(false);
+  const savingCraftingRef = useRef(false);
 
   if (!profile) return null;
 
@@ -104,6 +123,7 @@ export function DecisionSessionSection({
    * en su lugar una vía clara para empezar otra decisión.
    */
   const isOpen = session !== null && sessionIsOpen(session.status);
+  const isCraftingSession = session?.craftingExperiment != null;
   const showStartForm = session === null || (!isOpen && startingNew);
   const unresolvedUnknowns = (session?.unknowns ?? []).filter(
     (item) => !item.resolved,
@@ -172,15 +192,157 @@ export function DecisionSessionSection({
     setHypothesis("");
   };
 
+  const pauseCurrentSession = async () => {
+    if (!session || !revision) return;
+    const next = await journal.pauseSession({
+      ...guard,
+      journalRevision: revision,
+      idempotencyKey: newKey(),
+      reason: "Pausa para conservar el recurso o esperar un mejor momento.",
+    });
+    if (next) onMentorEvent?.({ type: "paused", title: session.objective });
+  };
+
+  const comparePastedCrafting = async () => {
+    const experiment = session?.craftingExperiment ?? null;
+    if (!experiment || craftingResultText.trim() === "") return;
+    setComparingCrafting(true);
+    setCraftingError(null);
+    setCraftingComparison(null);
+    setCraftingResultItem(null);
+    try {
+      const imported = await api.importItemText({ text: craftingResultText });
+      const comparison = compareCraftingResult(
+        experiment.originalItem,
+        imported.item,
+        experiment.actionId,
+        {
+          expectedRarity: experiment.resultRarity,
+          expectedRemovedModifierCount: experiment.expectedRemovedModifierCount,
+          expectedAddedCrafted: experiment.expectedAddedCrafted,
+          maximumCraftedModifierCount: experiment.maximumCraftedModifierCount,
+          expectedAddedModifierText: experiment.guaranteedModifierText,
+          protectedModifierIds: experiment.protectedModifierIds,
+        },
+      );
+      setCraftingResultItem(imported.item);
+      setCraftingComparison(comparison);
+      if (imported.warnings.length > 0) {
+        setCraftingError(`Importación con avisos: ${imported.warnings.join(" ")}`);
+      }
+    } catch (error) {
+      setCraftingError(getErrorMessage(error));
+    } finally {
+      setComparingCrafting(false);
+    }
+  };
+
+  const finishCraftingResult = async (useful: boolean) => {
+    // El estado de React deshabilita la UI, pero no es un cerrojo síncrono:
+    // dos eventos en el mismo frame podrían entrar antes del siguiente render.
+    // Este guard evita dos cierres concurrentes y resultados que se pisen.
+    if (savingCraftingRef.current) return;
+    const experiment = session?.craftingExperiment ?? null;
+    if (
+      !session ||
+      !experiment ||
+      !craftingComparison ||
+      craftingComparison.status !== "confirmed" ||
+      !craftingResultItem ||
+      !revision ||
+      !profile ||
+      !onApplyCraftingResult
+    ) {
+      return;
+    }
+    savingCraftingRef.current = true;
+    setSavingCrafting(true);
+    setCraftingError(null);
+    try {
+      const factualEvidence = craftingComparisonEvidence(craftingComparison);
+      const resultUnknownLabel =
+        experiment.resultUnknownLabel ?? CRAFTING_RESULT_UNKNOWN_LABEL;
+      const evidenceAlreadySaved = session.evidence.some(
+        (entry) => entry.kind === "confirmed" && entry.text === factualEvidence,
+      );
+      if (!evidenceAlreadySaved) {
+        const afterEvidence = await journal.addEvidence({
+          journalRevision: revision,
+          idempotencyKey: newKey(),
+          kind: "confirmed",
+          text: factualEvidence,
+          resolvesUnknownLabel: resultUnknownLabel,
+          profile,
+        });
+        if (!afterEvidence) return;
+      }
+
+      // El expediente se actualiza ANTES de cerrar la sesión. Si este guardado
+      // falla, el caso permanece abierto y el jugador puede reintentar.
+      const applied = await onApplyCraftingResult(
+        experiment.originalItem.id,
+        craftingResultItem,
+      );
+      if (!applied) {
+        setCraftingError(
+          "No se actualizó el expediente. La sesión sigue abierta: puedes reintentar sin volver a gastar ninguna moneda.",
+        );
+        return;
+      }
+
+      // Guardar el objeto cambia la huella autoritativa del personaje. Se lee
+      // la revisión nueva y se reconcilia la MISMA sesión antes de cerrarla.
+      const refreshed = await api.journal(profile.id);
+      const reconciled = await api.reconcileSession(profile.id, {
+        journalRevision: buildRecommendationMemory(refreshed, refreshed.session).revision,
+        idempotencyKey: newKey(),
+        profile,
+      });
+      const result = useful
+        ? `El jugador indica que el resultado sirve para «${experiment.desiredOutcome}».`
+        : `El jugador indica que el resultado no sirve para «${experiment.desiredOutcome}».`;
+      await api.recordSessionResult(profile.id, {
+        journalRevision: buildRecommendationMemory(reconciled, reconciled.session).revision,
+        idempotencyKey: newKey(),
+        result,
+        subjective: true,
+        outcome: useful ? "resolved" : "different",
+        unexpectedValuable: null,
+        conclusion: "complete",
+        reopenWhen: null,
+        profile,
+      });
+      await journal.reload();
+      onMentorEvent?.({ type: "result", title: experiment.actionLabel });
+    } catch (error) {
+      setCraftingError(
+        `${getErrorMessage(error)} La sesión no se ha dado por cerrada; revisa el expediente y reintenta.`,
+      );
+    } finally {
+      savingCraftingRef.current = false;
+      setSavingCrafting(false);
+    }
+  };
+
   return (
-    <Card id="seccion-decision-adaptativa" className="mb-6 min-w-0 max-w-full overflow-hidden border-primary/40">
+    <Card
+      id={instanceId}
+      tabIndex={-1}
+      className="mb-6 min-w-0 max-w-full scroll-mt-20 overflow-hidden border-primary/40 outline-none"
+    >
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <FlaskConical className="size-5 text-primary" aria-hidden="true" />
-          {isOpen ? "Prueba en curso" : "Comprobar una decisión"}
+          {isCraftingSession && isOpen
+            ? "Craft preparado"
+            : isOpen
+              ? "Prueba en curso"
+              : "Comprobar una decisión"}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          {isOpen
+          {isCraftingSession && isOpen
+            ? "Haz una sola acción, pega el objeto resultante y decide con la diferencia delante."
+            : isOpen
             ? "Haz una sola prueba, vuelve con lo que ocurrió y el mentor decidirá si cerramos o mantenemos el caso."
             : "El mentor recuerda qué estamos intentando, qué falta por ver y una sola acción."}
         </p>
@@ -275,13 +437,13 @@ export function DecisionSessionSection({
         )}
         {session !== null && (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
+            {!isCraftingSession && <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">{SESSION_KIND_LABELS[session.kind]}</Badge>
               <Badge>{SESSION_STATUS_LABELS[session.status]}</Badge>
               {session.conclusion && (
                 <Badge variant="outline">{CONCLUSION_LABELS[session.conclusion.kind]}</Badge>
               )}
-            </div>
+            </div>}
             {needsReconcile && (
               <Alert>
                 <AlertTitle>El personaje ya no es el mismo</AlertTitle>
@@ -309,15 +471,15 @@ export function DecisionSessionSection({
                 </AlertDescription>
               </Alert>
             )}
-            <div>
+            {!isCraftingSession && <div>
               <h3 className="font-medium">Qué intentamos</h3>
               <p>{session.objective}</p>
-            </div>
-            <div>
+            </div>}
+            {!isCraftingSession && <div>
               <h3 className="font-medium">Por qué creemos que ayudará</h3>
               <p>{compactRecommendationReason(session.hypothesis)}</p>
-            </div>
-            {session.constraints.length > 0 && (
+            </div>}
+            {!isCraftingSession && session.constraints.length > 0 && (
               <div>
                 <h3 className="font-medium">Intocable</h3>
                 <ul className="list-disc pl-5">
@@ -327,7 +489,7 @@ export function DecisionSessionSection({
                 </ul>
               </div>
             )}
-            {session.unknowns.some((item) => !item.resolved) && (
+            {!isCraftingSession && session.unknowns.some((item) => !item.resolved) && (
               <div>
                 <h3 className="font-medium">Aún no sabemos</h3>
                 <ul className="list-disc pl-5">
@@ -339,7 +501,234 @@ export function DecisionSessionSection({
                 </ul>
               </div>
             )}
-            {session.activeAction && (
+            {session.craftingExperiment && (
+              <section
+                className="space-y-4 rounded-md border border-sky-500/30 bg-sky-500/[0.05] p-4 sm:p-5"
+                aria-labelledby={`${instanceId}-crafting-resultado-titulo`}
+                data-testid="crafting-result-check"
+              >
+                <ol className="grid gap-2 text-xs sm:grid-cols-3" aria-label="Progreso del craft">
+                  <li className="rounded border border-emerald-500/35 bg-emerald-500/[0.07] px-3 py-2 text-emerald-100">
+                    1. Antes de gastar ✓
+                  </li>
+                  <li className={`rounded border px-3 py-2 ${
+                    craftingComparison?.status === "confirmed"
+                      ? "border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-100"
+                      : "border-sky-500/45 bg-sky-500/[0.08] text-sky-100"
+                  }`}>
+                    2. Pega el resultado{craftingComparison?.status === "confirmed" ? " ✓" : ""}
+                  </li>
+                  <li className={`rounded border px-3 py-2 ${
+                    craftingComparison?.status === "confirmed"
+                      ? "border-primary/50 bg-primary/[0.08] text-foreground"
+                      : "border-border text-muted-foreground"
+                  }`}>
+                    3. Decide
+                  </li>
+                </ol>
+                {craftingComparison?.status !== "confirmed" && <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-200">
+                    Cerrar el ciclo
+                  </p>
+                  <h3
+                    id={`${instanceId}-crafting-resultado-titulo`}
+                    className="mt-1 text-lg font-semibold"
+                  >
+                    Compara el objeto después del crafting
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Pega el texto avanzado inmediatamente después de usar {session.craftingExperiment.actionLabel}.
+                    Se comparará con el snapshot guardado; no se valorará si el mod es bueno sin que tú lo confirmes.
+                  </p>
+                </div>}
+                {craftingComparison?.status !== "confirmed" && <dl
+                  className="grid gap-2 rounded border border-sky-500/20 bg-background/30 p-3 sm:grid-cols-2"
+                  data-testid="crafting-experiment-summary"
+                >
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">Objeto</dt>
+                    <dd className="font-medium">{session.craftingExperiment.originalItem.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">Moneda registrada</dt>
+                    <dd className="font-medium">{session.craftingExperiment.actionLabel}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">Objetivo</dt>
+                    <dd className="font-medium">{session.craftingExperiment.desiredOutcome}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">
+                      {session.craftingExperiment.actionId === "essence" ||
+                      session.craftingExperiment.actionId === "alloy"
+                        ? "Efecto garantizado declarado"
+                        : "Mínimo mostrado en su tooltip"}
+                    </dt>
+                    <dd className="font-medium">
+                      {session.craftingExperiment.actionId === "essence" ||
+                      session.craftingExperiment.actionId === "alloy"
+                        ? session.craftingExperiment.guaranteedModifierText ?? "No registrado"
+                        : session.craftingExperiment.minimumModifierLevel === undefined
+                          ? "Variante no registrada en esta sesión antigua"
+                          : session.craftingExperiment.minimumModifierLevel === null
+                            ? "El tooltip observado no muestra un mínimo"
+                            : `Nivel de modificador ${session.craftingExperiment.minimumModifierLevel}`}
+                    </dd>
+                  </div>
+                  {session.craftingExperiment.protectedModifierIds.length > 0 && (
+                    <div>
+                      <dt className="text-[11px] text-muted-foreground">Protección declarada</dt>
+                      <dd className="font-medium">
+                        {session.craftingExperiment.protectedModifierIds.length} modificador
+                        {session.craftingExperiment.protectedModifierIds.length === 1 ? "" : "es"}
+                      </dd>
+                    </div>
+                  )}
+                </dl>}
+                {craftingComparison?.status !== "confirmed" && <div className="space-y-1">
+                  <Label htmlFor={`${instanceId}-crafting-result-${session.id}`}>
+                    Objeto después de usar la moneda
+                  </Label>
+                  <Textarea
+                    id={`${instanceId}-crafting-result-${session.id}`}
+                    value={craftingResultText}
+                    onChange={(event) => {
+                      setCraftingResultText(event.target.value);
+                      setCraftingComparison(null);
+                      setCraftingResultItem(null);
+                      setCraftingError(null);
+                    }}
+                    rows={7}
+                    maxLength={50_000}
+                    placeholder="Pega aquí el texto copiado con Ctrl+C desde PoE2"
+                  />
+                </div>}
+                {craftingComparison?.status !== "confirmed" && <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void comparePastedCrafting()}
+                  disabled={
+                    comparingCrafting ||
+                    savingCrafting ||
+                    craftingResultText.trim() === ""
+                  }
+                >
+                  {comparingCrafting ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <ClipboardCheck className="size-4" aria-hidden="true" />
+                  )}
+                  Comparar con el snapshot anterior
+                </Button>}
+
+                {craftingError && (
+                  <Alert>
+                    <AlertTitle>La importación necesita revisión</AlertTitle>
+                    <AlertDescription>{craftingError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {craftingComparison && (
+                  <div
+                    className={
+                      craftingComparison.protectionStatus === "lost"
+                        ? "rounded-md border border-rose-500/45 bg-rose-500/[0.09] p-4"
+                        : craftingComparison.status === "confirmed"
+                        ? "rounded-md border border-emerald-500/35 bg-emerald-500/[0.07] p-4"
+                        : "rounded-md border border-amber-500/35 bg-amber-500/[0.07] p-4"
+                    }
+                    data-comparison-status={craftingComparison.status}
+                  >
+                    <h4 className="font-semibold">{craftingComparison.title}</h4>
+                    <p className="mt-1 text-sm">{craftingComparison.summary}</p>
+                    {craftingComparison.protectionStatus === "preserved" && (
+                      <p className="mt-3 rounded border border-emerald-500/30 bg-emerald-500/[0.06] p-2 text-sm text-emerald-100">
+                        Los {craftingComparison.protectedModifiers.length} modificadores protegidos siguen presentes.
+                      </p>
+                    )}
+                    {craftingComparison.addedModifiers.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Aparece ahora
+                        </p>
+                        <ul className="mt-1 list-disc pl-5 text-sm">
+                          {craftingComparison.addedModifiers.map((modifier) => (
+                            <li key={`${modifier.kind}-${modifier.text}`}>{modifier.text}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {craftingComparison.removedModifiers.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Ya no aparece
+                        </p>
+                        <ul className="mt-1 list-disc pl-5 text-sm">
+                          {craftingComparison.removedModifiers.map((modifier) => (
+                            <li key={`${modifier.kind}-${modifier.text}`}>{modifier.text}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {craftingComparison.warnings.length > 0 && (
+                      <ul className="mt-3 list-disc pl-5 text-sm text-amber-100">
+                        {craftingComparison.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {craftingComparison.status === "confirmed" && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm font-medium">
+                          ¿El cambio resultante sirve para «{session.craftingExperiment.desiredOutcome}»?
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => void finishCraftingResult(true)}
+                            disabled={savingCrafting || journal.saving}
+                          >
+                            Sí, me sirve
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void finishCraftingResult(false)}
+                            disabled={savingCrafting || journal.saving}
+                          >
+                            No era lo que buscaba
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => void pauseCurrentSession()}
+                            disabled={savingCrafting || journal.saving}
+                          >
+                            Parar por ahora
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Al confirmar se guarda la comparación, se cierra esta prueba y se actualiza el objeto del expediente.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {craftingComparison?.status !== "confirmed" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void pauseCurrentSession()}
+                    disabled={journal.saving || journal.stale || !revision}
+                  >
+                    <CirclePause className="size-4" aria-hidden="true" />
+                    Parar por ahora
+                  </Button>
+                )}
+              </section>
+            )}
+            {!isCraftingSession && session.activeAction && (
               <section
                 className="rounded-md border border-primary/40 bg-primary/[0.06] p-4 sm:p-5"
                 aria-labelledby="prueba-activa-titulo"
@@ -379,7 +768,7 @@ export function DecisionSessionSection({
                 )}
               </section>
             )}
-            {session.conclusion && (
+            {!isCraftingSession && session.conclusion && (
               <p className="text-sm">
                 {session.conclusion.reason}
                 {session.conclusion.reopenWhen
@@ -387,7 +776,7 @@ export function DecisionSessionSection({
                   : ""}
               </p>
             )}
-            {session.lastResult && (
+            {!isCraftingSession && session.lastResult && (
               <div className="rounded-md border border-border bg-muted/20 p-3 text-sm">
                 <p className="font-medium text-foreground">
                   Último resultado
@@ -406,7 +795,7 @@ export function DecisionSessionSection({
 
             {/* Protecciones vigentes: cada una se puede retirar A CONCIENCIA, que
                 es justo lo que propone el texto del conflicto. */}
-            {activeConstraints.length > 0 && (
+            {!isCraftingSession && activeConstraints.length > 0 && (
               <div className="space-y-1" data-testid="decision-protecciones">
                 <h3 className="font-medium">Piezas protegidas</h3>
                 <ul className="space-y-1 text-sm">
@@ -460,7 +849,7 @@ export function DecisionSessionSection({
               </Alert>
             )}
 
-            {isOpen && (
+            {isOpen && !isCraftingSession && (
             <>
             {showReturnForm && (
               <form
@@ -700,22 +1089,15 @@ export function DecisionSessionSection({
             </>
             )}
 
-            <div className="flex flex-wrap gap-2">
-              {isOpen && (
+            {!isCraftingSession && <div className="flex flex-wrap gap-2">
+              {isOpen && !isCraftingSession && (
               <Button
                 type="button"
                 variant="outline"
                 data-testid="decision-pausar"
                 disabled={journal.saving || journal.stale || !revision}
                 onClick={() => {
-                  void journal.pauseSession({
-                    ...guard,
-                    journalRevision: revision!,
-                    idempotencyKey: newKey(),
-                    reason: "Pausa para conservar el recurso o esperar un mejor momento.",
-                  }).then((next) => {
-                    if (next) onMentorEvent?.({ type: "paused", title: session.objective });
-                  });
+                  void pauseCurrentSession();
                 }}
               >
                 <CirclePause className="size-4" aria-hidden="true" />
@@ -747,9 +1129,9 @@ export function DecisionSessionSection({
                 <RotateCcw className="size-4" aria-hidden="true" />
                 Reabrir como candidata
               </Button>
-            </div>
+            </div>}
 
-            {session.evidence.length > 0 && (
+            {!isCraftingSession && session.evidence.length > 0 && (
               <div>
                 <h3 className="font-medium">Evidencia</h3>
                 <ul className="space-y-1 text-sm">
@@ -762,7 +1144,7 @@ export function DecisionSessionSection({
               </div>
             )}
 
-            {events.length > 0 && (
+            {!isCraftingSession && events.length > 0 && (
               <div>
                 <h3 className="font-medium">Por qué hemos cambiado de plan</h3>
                 <ol className="list-decimal space-y-1 pl-5 text-sm">

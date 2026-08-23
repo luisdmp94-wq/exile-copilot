@@ -179,36 +179,38 @@ export function EquipmentPanel({
           </div>
         </div>
 
-        <aside className="flex flex-col gap-2" aria-label="Diagnóstico del equipo">
-          <h4 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Diagnóstico
-          </h4>
-          <dl className={cn("grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border border-border p-3 sm:grid-cols-3", SURFACE)}>
-            <DiagnosticRow label="Objetos registrados" value={diagnostics.equipped} />
-            <DiagnosticRow label="Ranuras vacías" value={diagnostics.emptySlots} />
-            <DiagnosticRow label="Objetos indicados por ti" value={diagnostics.userProvided} />
-            <DiagnosticRow label="Objetos sin fuente" value={diagnostics.withoutSource} />
-            <DiagnosticRow
-              label="Modificadores sin verificar"
-              value={diagnostics.unverifiedModifiers}
-            />
-            {diagnostics.highlighted > 0 && (
+        <details
+          className={cn("group rounded-md border border-border px-3 py-2", SURFACE)}
+          data-testid="equipment-diagnostics"
+        >
+          <summary className="cursor-pointer list-none text-xs text-muted-foreground marker:content-none">
+            <span className="font-medium text-foreground">Diagnóstico</span>
+            {` · ${diagnostics.equipped} objetos · ${diagnostics.emptySlots} huecos · ${diagnostics.unverifiedModifiers} mods sin verificar`}
+          </summary>
+          <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+              <DiagnosticRow label="Objetos registrados" value={diagnostics.equipped} />
+              <DiagnosticRow label="Ranuras vacías" value={diagnostics.emptySlots} />
+              <DiagnosticRow label="Objetos indicados por ti" value={diagnostics.userProvided} />
+              <DiagnosticRow label="Objetos sin fuente" value={diagnostics.withoutSource} />
               <DiagnosticRow
-                label="Señalados por recomendaciones"
-                value={diagnostics.highlighted}
-                emphasis
+                label="Modificadores sin verificar"
+                value={diagnostics.unverifiedModifiers}
               />
-            )}
-          </dl>
-          <p className="text-[11px] text-muted-foreground">
-            Solo tu equipo real. Las pistas de una build objetivo importada no se
-            muestran aquí: son un plan, no objetos equipados.
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            Recuentos derivados de tus datos. Exile Copilot no calcula puntuaciones de
-            build ni compara con el meta.
-          </p>
-        </aside>
+              {diagnostics.highlighted > 0 && (
+                <DiagnosticRow
+                  label="Señalados por recomendaciones"
+                  value={diagnostics.highlighted}
+                  emphasis
+                />
+              )}
+            </dl>
+            <p className="text-[11px] text-muted-foreground">
+              Solo tu equipo real; sin puntuaciones, comparación con el meta ni objetos de
+              una build objetivo.
+            </p>
+          </div>
+        </details>
       </div>
 
       {layout.extraItems.length > 0 && (
@@ -302,9 +304,10 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
       data-item-id={item.id}
       data-highlighted={highlighted ? "true" : "false"}
       onClick={(event) => onSelect(item, event.currentTarget)}
-      aria-label={`${slotLabel}: ${item.name}, ${item.baseType}, ${RARITY_LABELS[item.rarity]}${
+      aria-label={`${slotLabel}: ${item.name}, ${item.baseType}, ${RARITY_LABELS[item.rarity]}. ${dataState.label}. ${dataState.detail}${
         highlighted ? ". Señalado por una recomendación" : ""
       }`}
+      title={`${item.name} · ${item.baseType} · ${RARITY_LABELS[item.rarity]} · ${dataState.label}`}
       className={cn(
         "gear-slot flex h-full min-h-20 w-full flex-col gap-1 border p-2 text-left",
         SURFACE,
@@ -319,25 +322,13 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
           <Icon className="size-3.5 shrink-0" aria-hidden="true" />
           {slotLabel}
         </span>
-        <span className={cn("size-2 shrink-0 rounded-full", rarity.dot)} aria-hidden="true" />
+        <span className="flex items-center gap-1.5" aria-hidden="true">
+          {highlighted && <Crosshair className={cn("size-3", SELECTED_TEXT)} />}
+          <span className={cn("size-2 shrink-0 rounded-full", rarity.dot)} />
+          <span className={cn("size-2 shrink-0 rounded-full bg-current", TONE_CLASSES[dataState.tone])} />
+        </span>
       </span>
       <span className={cn("line-clamp-2 text-sm font-medium", rarity.text)}>{item.name}</span>
-      <span className="line-clamp-2 text-xs text-muted-foreground">{item.baseType}</span>
-      <span className="mt-auto flex flex-wrap items-center gap-x-1">
-        <span className={cn("text-[11px]", rarity.text)}>{RARITY_LABELS[item.rarity]}</span>
-        <span
-          className={cn("text-[11px]", TONE_CLASSES[dataState.tone])}
-          title={dataState.detail}
-        >
-          · {dataState.label}
-        </span>
-      </span>
-      {highlighted && (
-        <span className={cn("flex items-center gap-1 text-[11px]", SELECTED_TEXT)}>
-          <Crosshair className="size-3 shrink-0" aria-hidden="true" />
-          Señalado por una recomendación
-        </span>
-      )}
     </button>
   );
 }

@@ -12,6 +12,7 @@ import type { MetaResponse } from "@shared/api.js";
 import type {
   Attributes,
   CharacterProfile,
+  Item,
   Resistances,
   SkillSetup,
 } from "@shared/domain.js";
@@ -57,8 +58,11 @@ interface CharacterSectionProps {
    * lógica de personaje: solo qué se pinta sin personaje.
    */
   hideEmptyState: boolean;
+  editorMode?: "full" | "new" | "item";
   /** Notifica una persistencia real para actualizar el mentor contextual. */
   onProfileSaved?: () => void;
+  /** Continúa directamente al banco de Crafting con el objeto recién leído. */
+  onItemImported?: (item: Item) => void;
 }
 
 const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
@@ -111,6 +115,10 @@ const ORIGIN_BADGES = {
     label: "Importado",
     className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
   },
+  manual: {
+    label: "Creado aquí",
+    className: "border-sky-500/40 bg-sky-500/15 text-sky-300",
+  },
 } as const;
 
 export function CharacterSection({
@@ -118,7 +126,9 @@ export function CharacterSection({
   meta,
   drafts,
   hideEmptyState,
+  editorMode = "full",
   onProfileSaved,
+  onItemImported,
 }: CharacterSectionProps) {
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const { itemText, setItemText } = drafts;
@@ -130,7 +140,13 @@ export function CharacterSection({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <CardTitle className="text-xl">Mi personaje</CardTitle>
+            <CardTitle className="text-xl">
+              {editorMode === "item"
+                ? "Analizar un objeto"
+                : editorMode === "new"
+                  ? "Crear personaje"
+                  : "Mi personaje"}
+            </CardTitle>
             <Badge variant="outline" className={originBadge.className}>
               {originBadge.label}
             </Badge>
@@ -180,12 +196,14 @@ export function CharacterSection({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <ImportPanel
-          busy={busy === "build"}
-          onImport={character.importBuild}
-          pasted={drafts.pastedBuild}
-          onPastedChange={drafts.setPastedBuild}
-        />
+        {editorMode === "full" && (
+          <ImportPanel
+            busy={busy === "build"}
+            onImport={character.importBuild}
+            pasted={drafts.pastedBuild}
+            onPastedChange={drafts.setPastedBuild}
+          />
+        )}
 
         {warnings.length > 0 && (
           <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
@@ -233,7 +251,7 @@ export function CharacterSection({
               </EmptyContent>
             </Empty>
           )
-        ) : (
+        ) : editorMode !== "item" ? (
           // El paperdoll ya NO vive aquí: es la vista de solo lectura del
           // expediente. Esta sección es exclusivamente el editor completo.
           <ProfileEditor
@@ -244,61 +262,71 @@ export function CharacterSection({
             supportsDrafts={drafts.supports}
             setSupportsDrafts={drafts.setSupports}
           />
-        )}
+        ) : null}
 
         {profile && !restoring && (
           <>
-            <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
-              <Label htmlFor="item-text">
-                Analizar objeto copiado del juego (Ctrl+C sobre el objeto en PoE2)
-              </Label>
-              <Textarea
-                id="item-text"
-                value={itemText}
-                onChange={(e) => setItemText(e.target.value)}
-                rows={5}
-                disabled={busy !== null}
-                placeholder={"Rarity: Rare\nDoom Bow\nAdvanced Crossbow\n…"}
-                className="font-mono text-xs"
-              />
-              <div>
+            {editorMode !== "new" && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
+                <Label htmlFor="item-text">
+                  Analizar objeto copiado del juego (Ctrl+C sobre el objeto en PoE2)
+                </Label>
+                <Textarea
+                  id="item-text"
+                  value={itemText}
+                  onChange={(e) => setItemText(e.target.value)}
+                  rows={5}
+                  disabled={busy !== null}
+                  placeholder={
+                    "Clase de objeto: Ballestas\nRareza: Raro\nNúcleo de fénix\nBallesta barnizada\n…"
+                  }
+                  className="font-mono text-xs"
+                />
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={busy !== null || !itemText.trim()}
+                    onClick={() => {
+                      void character.importItemText(itemText).then((item) => {
+                        if (item === null) return;
+                        setItemText("");
+                        onItemImported?.(item);
+                      });
+                    }}
+                  >
+                    {busy === "item" ? (
+                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <ScanSearch className="size-4" aria-hidden="true" />
+                    )}
+                    Analizar objeto
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {editorMode !== "item" && (
+              <div className="flex justify-end">
                 <Button
                   type="button"
-                  variant="secondary"
-                  disabled={busy !== null || !itemText.trim()}
+                  data-testid="guardar-correcciones"
                   onClick={() => {
-                    void character.importItemText(itemText).then(() => setItemText(""));
+                    void character.saveCorrections().then((saved) => {
+                      if (saved) onProfileSaved?.();
+                    });
                   }}
+                  disabled={busy !== null || !dirty}
                 >
-                  {busy === "item" ? (
+                  {busy === "save" ? (
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <ScanSearch className="size-4" aria-hidden="true" />
+                    <Save className="size-4" aria-hidden="true" />
                   )}
-                  Analizar objeto
+                  Guardar correcciones
                 </Button>
               </div>
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                data-testid="guardar-correcciones"
-                onClick={() => {
-                  void character.saveCorrections().then((saved) => {
-                    if (saved) onProfileSaved?.();
-                  });
-                }}
-                disabled={busy !== null || !dirty}
-              >
-                {busy === "save" ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Save className="size-4" aria-hidden="true" />
-                )}
-                Guardar correcciones
-              </Button>
-            </div>
+            )}
           </>
         )}
 

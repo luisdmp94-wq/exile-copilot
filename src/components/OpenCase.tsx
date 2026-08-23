@@ -43,6 +43,7 @@ export function OpenCase({
   evidenceSlot,
   mentorSlot,
 }: OpenCaseProps) {
+  const isWaitingForDiagnosis = selection.kind === "generate";
   const dominant =
     selection.kind === "session"
       ? sessionSlot
@@ -62,21 +63,31 @@ export function OpenCase({
         data-testid="caso-abierto"
         data-caso={selection.kind}
         aria-labelledby="caso-abierto-titulo"
-        className="case-panel superficie-accion scroll-mt-20 p-6 outline-none sm:p-8"
+        className={`case-panel superficie-accion scroll-mt-20 outline-none ${
+          isWaitingForDiagnosis ? "p-5 sm:p-6" : "p-6 sm:p-8"
+        }`}
       >
-        <div className="relative z-10 grid gap-6 sm:grid-cols-[8rem_minmax(0,1fr)]">
+        <div
+          className={`relative z-10 grid gap-6 ${
+            isWaitingForDiagnosis
+              ? "sm:grid-cols-[minmax(10rem,0.7fr)_minmax(16rem,1.3fr)] sm:items-center"
+              : "sm:grid-cols-[8rem_minmax(0,1fr)]"
+          }`}
+        >
           <div className="border-b border-primary/25 pb-4 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/70">
-              Diagnóstico activo
+              {isWaitingForDiagnosis ? "Listo para analizar" : "Diagnóstico activo"}
             </p>
             <h2
               id="caso-abierto-titulo"
               className="dossier-title mt-2 text-2xl font-semibold leading-tight text-primary"
             >
-              Caso abierto
+              {isWaitingForDiagnosis ? "¿Qué mejoro ahora?" : "Caso abierto"}
             </h2>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Una sola decisión. La evidencia queda registrada.
+              {isWaitingForDiagnosis
+                ? "El mentor revisará tu personaje y elegirá una sola prioridad."
+                : "Una sola decisión. La evidencia queda registrada."}
             </p>
           </div>
           <div className="min-w-0">{dominant}</div>

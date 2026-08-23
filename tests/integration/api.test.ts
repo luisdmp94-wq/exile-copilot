@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GggBuildPlannerV1Schema } from "../../shared/gggBuildPlanner.js";
 import { CharacterJournalSchema, CharacterProfileSchema } from "../../shared/domain.js";
 import { buildRecommendationMemory } from "../../shared/journalMemory.js";
+import { CraftingKnowledgeResponseSchema } from "../../shared/api.js";
 import { createApiApp } from "../../server/app.js";
 
 let server: Server;
@@ -485,6 +486,26 @@ describe("api (integración, app Express con db :memory:)", () => {
     const body = await jsonOf(res);
     expect(body.error).toBe("validacion-fallida");
     expect(body.detail).toContain("próxima acción");
+  });
+
+  it("GET /crafting/knowledge expone acciones observadas pero bloquea probabilidades", async () => {
+    const res = await fetch(
+      `${base}/crafting/knowledge?itemClass=Ballestas&baseType=Ballesta%20barnizada&patch=0.5.4f`,
+    );
+    expect(res.status).toBe(200);
+    const body = CraftingKnowledgeResponseSchema.parse(await jsonOf(res));
+
+    expect(body.completeness).toBe("observed-only");
+    expect(body.actions.map((action) => action.id)).toEqual([
+      "transmutation",
+      "augmentation",
+      "regal",
+      "exalted",
+    ]);
+    expect(body.modPool.status).toBe("unavailable");
+    expect(body.modPool.probabilityBasis).toBe("insufficient");
+    expect(body.modPool.limitations.join(" ")).toContain("No existe pool de modificadores");
+    expect(body.modPool).not.toHaveProperty("candidates");
   });
 
   it("GET /market/prices offline: fixtures degradados + primaryCurrency + rates (objeto con origen)", async () => {

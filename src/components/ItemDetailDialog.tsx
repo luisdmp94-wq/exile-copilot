@@ -2,6 +2,7 @@ import { useState, type RefObject } from "react";
 import type { Item, Recommendation } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CraftingActionPlanner } from "@/components/CraftingActionPlanner";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,8 @@ interface ItemDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Navegación objeto → recomendación. */
   onGoToRecommendations: () => void;
+  /** Lleva esta pieza al banco dedicado, donde vive el único preflight. */
+  onGoToCrafting?: (itemId: string) => void;
   /**
    * Destino de foco ALTERNATIVO al cerrar, consultado antes que el disparador.
    * Devuelve null en un cierre normal (el foco vuelve al disparador); devuelve
@@ -69,6 +72,7 @@ export function ItemDetailDialog({
   relatedRecommendations,
   onOpenChange,
   onGoToRecommendations,
+  onGoToCrafting,
   getCloseFocusTarget,
 }: ItemDetailDialogProps) {
   // Accesibilidad del cierre: Radix devuelve el foco al elemento que abrió el
@@ -84,10 +88,12 @@ export function ItemDetailDialog({
     <Dialog open={item !== null} onOpenChange={onOpenChange}>
       {shown !== null && (
         <ItemDetailContent
+          key={shown.id}
           item={shown}
           triggerRef={triggerRef}
           relatedRecommendations={relatedRecommendations}
           onGoToRecommendations={onGoToRecommendations}
+          onGoToCrafting={onGoToCrafting}
           getCloseFocusTarget={getCloseFocusTarget}
         />
       )}
@@ -100,19 +106,20 @@ function ItemDetailContent({
   triggerRef,
   relatedRecommendations,
   onGoToRecommendations,
+  onGoToCrafting,
   getCloseFocusTarget,
 }: {
   item: Item;
   triggerRef: RefObject<HTMLElement | null>;
   relatedRecommendations: Recommendation[];
   onGoToRecommendations: () => void;
+  onGoToCrafting?: ItemDetailDialogProps["onGoToCrafting"];
   getCloseFocusTarget?: (() => HTMLElement | null) | undefined;
 }) {
   const rarity = rarityStyle(item.rarity);
   const dataState = describeItemDataState(item);
   const requirements = describeRequirements(item);
   const modifierGroups = groupModifiersByKind(item);
-
   return (
     <DialogContent
       className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
@@ -184,6 +191,18 @@ function ItemDetailContent({
             </div>
           </dl>
 
+          <CraftingActionPlanner item={item} />
+          {onGoToCrafting && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onGoToCrafting(item.id)}
+              data-testid="trabajar-en-crafting"
+            >
+              Trabajar esta pieza en Crafting
+            </Button>
+          )}
+
           <section className="flex flex-col gap-1">
             <h4 className="text-xs font-medium text-muted-foreground">Requisitos</h4>
             {requirements.length > 0 ? (
@@ -214,7 +233,25 @@ function ItemDetailContent({
                   <ul className="flex flex-col gap-1">
                     {group.mods.map((mod) => (
                       <li key={mod.id} className="flex items-start justify-between gap-2">
-                        <span>{mod.text}</span>
+                        <div className="flex min-w-0 flex-col gap-1">
+                          {(mod.affix || mod.name || mod.tier || mod.crafted || mod.desecrated) && (
+                            <span className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
+                              {mod.affix && (
+                                <span>{mod.affix === "prefix" ? "Prefijo" : "Sufijo"}</span>
+                              )}
+                              {mod.name && <span>· «{mod.name}»</span>}
+                              {mod.tier && <span>· Grado {mod.tier}</span>}
+                              {mod.crafted && <span>· Fabricado</span>}
+                              {mod.desecrated && <span>· Profanado</span>}
+                            </span>
+                          )}
+                          <span className="whitespace-pre-line">{mod.text}</span>
+                          {mod.tags && mod.tags.length > 0 && (
+                            <span className="text-[11px] text-sky-300/80">
+                              {mod.tags.join(" · ")}
+                            </span>
+                          )}
+                        </div>
                         {!mod.verified && (
                           <span className="shrink-0 text-[11px] text-amber-300">
                             No verificado

@@ -1,6 +1,13 @@
 import { z } from "zod";
 import type { CharacterProfile, Recommendation } from "./domain.js";
-import { BudgetSchema, GoalKind, RecommendationSchema, RiskLevel } from "./domain.js";
+import {
+  BudgetSchema,
+  GoalKind,
+  ItemRarity,
+  ItemSchema,
+  RecommendationSchema,
+  RiskLevel,
+} from "./domain.js";
 
 /** Límites duros: el historial no crece sin cota. */
 export const MAX_SESSION_EVENTS = 40;
@@ -131,6 +138,29 @@ export const SessionConclusionSchema = z.object({
 });
 export type SessionConclusion = z.infer<typeof SessionConclusionSchema>;
 
+/** Contexto estructurado de una única moneda de crafting guiada. */
+export const CraftingExperimentSchema = z.object({
+  actionId: z.enum(["transmutation", "augmentation", "regal", "exalted", "essence", "alloy"]),
+  /** Etiqueta exacta de la moneda; en sesiones antiguas puede ser la genérica. */
+  actionLabel: z.string().trim().min(1).max(100),
+  /** Ausentes en sesiones anteriores: no se presupone que usaran la variante base. */
+  variantId: z.enum(["base", "lesser", "normal", "greater", "perfect", "corrupted"]).optional(),
+  variantLabel: z.string().trim().min(1).max(50).optional(),
+  minimumModifierLevel: z.number().int().nonnegative().nullable().optional(),
+  /** Datos de resultado explícitos para acciones que reemplazan un afijo. */
+  resultRarity: ItemRarity.optional(),
+  expectedRemovedModifierCount: z.number().int().min(0).max(1).optional(),
+  expectedAddedCrafted: z.boolean().optional(),
+  maximumCraftedModifierCount: z.number().int().positive().optional(),
+  guaranteedModifierText: z.string().trim().min(1).max(500).optional(),
+  resultUnknownLabel: z.string().trim().min(1).max(500).optional(),
+  desiredOutcome: z.string().trim().min(1).max(500),
+  /** Ids del snapshot original que el jugador declaró imprescindibles. */
+  protectedModifierIds: z.array(z.string().trim().min(1).max(200)).max(12).default([]),
+  originalItem: ItemSchema,
+});
+export type CraftingExperiment = z.infer<typeof CraftingExperimentSchema>;
+
 export const DecisionSessionSchema = z.object({
   id: z.string().min(1),
   characterId: z.string().min(1),
@@ -143,6 +173,8 @@ export const DecisionSessionSchema = z.object({
   evidence: z.array(SessionEvidenceSchema).max(MAX_SESSION_EVIDENCE).default([]),
   soonReplacedItemIds: z.array(z.string().min(1).max(200)).max(20).default([]),
   protectedResources: z.array(z.string().trim().min(1).max(200)).max(10).default([]),
+  /** Ausente o `null` para sesiones normales y sesiones antiguas. */
+  craftingExperiment: CraftingExperimentSchema.nullable().optional(),
   activeAction: SessionActiveActionSchema.nullable().default(null),
   /**
    * Recomendación (o plan manual) que un freno dejó sin ejecutar, conservada
@@ -273,7 +305,8 @@ export function sessionFingerprintHash(value: string): string {
  * Debe cambiar ante CUALQUIER cambio que pueda invalidar una decisión en curso:
  * nivel, liga, parche, vida y defensas, atributos, resistencias, habilidades,
  * pasivas y el CONTENIDO del equipo (slot, id, base, rareza, calidad,
- * requisitos y mods) — no solo el id del objeto, que sobrevive a una edición.
+ * requisitos, estados de crafting y mods) — no solo el id del objeto, que
+ * sobrevive a una edición.
  *
  * No entra nada volátil: ni fechas (`retrievedAt`, `dataUpdatedAt`), ni
  * `sources`, ni `rawText`. Todas las colecciones se ORDENAN por una clave
@@ -300,12 +333,26 @@ export function characterSessionFingerprint(
       dex: item.requirements?.dex ?? null,
       int: item.requirements?.int ?? null,
     },
+    craftingState: item.craftingState
+      ? {
+          corrupted: item.craftingState.corrupted,
+          mirrored: item.craftingState.mirrored,
+          split: item.craftingState.split,
+          unidentified: item.craftingState.unidentified,
+        }
+      : null,
     // El texto del mod es lo que el jugador ve; el id puede regenerarse.
     modifiers: byKey(
       item.modifiers.map((modifier) => ({
         kind: modifier.kind,
         text: modifier.text,
         values: modifier.values,
+        affix: modifier.affix ?? null,
+        name: modifier.name ?? null,
+        tier: modifier.tier ?? null,
+        tags: modifier.tags ? [...modifier.tags].sort() : [],
+        crafted: modifier.crafted ?? false,
+        desecrated: modifier.desecrated ?? false,
       })),
       (modifier) => `${modifier.kind}|${modifier.text}`,
     ),

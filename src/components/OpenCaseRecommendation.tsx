@@ -78,6 +78,8 @@ export function OpenCaseRecommendation({
   // Caso Abierto ya los presenta de forma estructurada debajo. Repetir aquí
   // enums, timestamps, parche, coste y confianza convierte el motivo en un log.
   const visibleReason = compactRecommendationReason(rec.reason);
+  const compactAction = compactCaseAction(rec.action);
+  const compactReason = compactCaseText(visibleReason);
 
   return (
     <div className="flex flex-col gap-5">
@@ -106,21 +108,30 @@ export function OpenCaseRecommendation({
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Acción
         </p>
-        <p className="mt-1 text-base leading-relaxed text-foreground">{rec.action}</p>
+        <p
+          className="mt-1 text-base leading-relaxed text-foreground"
+          aria-label={rec.action}
+          title={rec.action}
+        >
+          {compactAction}
+        </p>
       </div>
 
-      <div
-        className="rounded-md border border-sky-500/30 bg-sky-500/[0.06] p-4"
+      <details
+        className="group rounded-md border border-sky-500/30 bg-sky-500/[0.06] px-4 py-3"
         data-testid="caso-que-observar"
       >
-        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200 marker:content-none">
           <FlaskConical className="size-4" aria-hidden="true" />
-          Después del cambio, observa
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-foreground">
+          Qué comprobar después
+          <span className="ml-auto text-base leading-none transition-transform group-open:rotate-45 motion-reduce:transition-none" aria-hidden="true">
+            +
+          </span>
+        </summary>
+        <p className="mt-3 border-t border-sky-500/20 pt-3 text-sm leading-relaxed text-foreground">
           {observationMethodForRecommendation(rec)}
         </p>
-      </div>
+      </details>
 
       {/* ---- Alertas críticas: antes del CTA, nunca plegadas ---------------- */}
       {(overBudget || rec.mayLoseValuableMods || rec.irreversible) && (
@@ -223,52 +234,41 @@ export function OpenCaseRecommendation({
         )}
       </div>
 
-      {/* ---- Justificación: visible, sin plegar ----------------------------- */}
+      {/* Resumen de cinco segundos: la explicación extensa vive en Evidencia. */}
       <div className="flex flex-col gap-3 border-t border-border pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Justificación
+        <p
+          className="line-clamp-2 text-sm leading-relaxed text-muted-foreground"
+          aria-label={visibleReason}
+          title={visibleReason}
+        >
+          {compactReason}
         </p>
-        <div>
-          <p className="text-sm font-medium text-foreground">Motivo</p>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {visibleReason}
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <p className="text-sm font-medium text-foreground">Impacto esperado</p>
-            <p className="text-sm text-muted-foreground">
-              {rec.impact.description} ({rec.impact.metric}:{" "}
-              {MAGNITUDE_LABELS[rec.impact.magnitude]})
-            </p>
-            {rec.impact.isPartialMetric && (
-              <p className="text-xs italic text-muted-foreground">
-                Métrica parcial: no es una estimación de DPS completa.
-              </p>
+        <div className="flex flex-wrap items-center gap-2" data-testid="caso-datos-clave">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-muted-foreground",
+              overBudget && "border-amber-500/50 bg-amber-500/10 text-amber-200",
             )}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">Coste</p>
-            <p
-              className={cn(
-                "text-sm text-muted-foreground",
-                overBudget && "font-semibold text-amber-200",
-              )}
-            >
-              {formatCost(rec.cost.min, rec.cost.max, rec.cost.currency, rec.cost.known)}
-            </p>
-          </div>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">Riesgo</p>
-          <p className="text-sm text-muted-foreground">{rec.risk.description}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+          >
+            Coste {formatCost(rec.cost.min, rec.cost.max, rec.cost.currency, rec.cost.known)}
+          </Badge>
           <Badge variant="outline" className={RISK_BADGE_CLASSES[rec.risk.level]}>
             Riesgo {RISK_LABELS[rec.risk.level]}
           </Badge>
           <Badge variant="outline" className={CONFIDENCE_BADGE_CLASSES[rec.confidence]}>
             Confianza {CONFIDENCE_LABELS[rec.confidence]}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="text-muted-foreground"
+            title={`${rec.impact.description} (${rec.impact.metric})${
+              rec.impact.isPartialMetric
+                ? ". Métrica parcial: no es una estimación de DPS completa."
+                : ""
+            }`}
+          >
+            Impacto {MAGNITUDE_LABELS[rec.impact.magnitude]}
           </Badge>
           <Badge variant="outline" className="text-muted-foreground">
             {rec.sources.length === 0
@@ -281,6 +281,23 @@ export function OpenCaseRecommendation({
       </div>
     </div>
   );
+}
+
+/** Límite visual seguro por puntos de código; el texto completo queda accesible. */
+function compactCaseAction(text: string): string {
+  return compactCaseText(text.replace(/;\s*después\s+/i, " y "));
+}
+
+function compactCaseText(text: string, maxLength = 160): string {
+  const characters = Array.from(text.trim());
+  if (characters.length <= maxLength) return text.trim();
+  const candidate = characters.slice(0, maxLength - 1).join("").trimEnd();
+  const lastWordBoundary = candidate.lastIndexOf(" ");
+  const compacted =
+    lastWordBoundary >= Math.floor(maxLength * 0.72)
+      ? candidate.slice(0, lastWordBoundary)
+      : candidate;
+  return `${compacted.trimEnd()}…`;
 }
 
 /**

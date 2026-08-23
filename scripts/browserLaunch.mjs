@@ -44,13 +44,28 @@ export function removeSmokeTempDir(dir) {
   // último handle después de detener el proceso. `rmSync` solo reintenta si se
   // le indica explícitamente; sin esto un smoke completamente correcto podía
   // terminar con EPERM durante su propia limpieza.
-  rmSync(abs, {
-    recursive: true,
-    force: true,
-    maxRetries: 5,
-    retryDelay: 200,
-  });
-  return true;
+  try {
+    rmSync(abs, {
+      recursive: true,
+      force: true,
+      // La última escritura del expediente hace que SQLite cierre el WAL justo
+      // al final del smoke; en Windows ese handle puede tardar algo más de un
+      // segundo en liberarse aunque el servidor ya no escuche.
+      maxRetries: 20,
+      retryDelay: 250,
+    });
+    return true;
+  } catch (error) {
+    // Antivirus e indexadores de Windows pueden retener un handle incluso
+    // después de que los puertos estén libres. El smoke ya terminó: se informa
+    // del temporal pendiente sin convertir una limpieza tardía en un falso
+    // fallo funcional.
+    if (error?.code === "EPERM" || error?.code === "EBUSY") {
+      console.warn(`[smoke] Windows aún mantiene abierto el temporal propio: ${abs}`);
+      return false;
+    }
+    throw error;
+  }
 }
 
 /**

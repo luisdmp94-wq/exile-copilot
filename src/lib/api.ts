@@ -15,6 +15,7 @@ import {
   ImportItemTextResponseSchema,
   JournalEntryResponseSchema,
   BuildMemoryEntryResponseSchema,
+  CraftingKnowledgeResponseSchema,
   JournalResponseSchema,
   MarketPricesResponseSchema,
   MetaResponseSchema,
@@ -32,6 +33,7 @@ import {
   type CreateJournalEntryRequest,
   type JournalEntryResponse,
   type BuildMemoryEntryResponse,
+  type CraftingKnowledgeResponse,
   type CreateBuildMemoryEntryRequest,
   type UpdateBuildMemoryEntryRequest,
   type JournalResponse,
@@ -281,6 +283,22 @@ export const api = {
   marketPrices: (league: string, names: string[]): Promise<MarketPricesResponse> => {
     const params = new URLSearchParams({ league, names: names.join(",") });
     return request(`/api/market/prices?${params.toString()}`, MarketPricesResponseSchema);
+  },
+
+  craftingKnowledge: (input: {
+    itemClass?: string;
+    baseType?: string;
+    patch?: string;
+  }): Promise<CraftingKnowledgeResponse> => {
+    const params = new URLSearchParams();
+    if (input.itemClass) params.set("itemClass", input.itemClass);
+    if (input.baseType) params.set("baseType", input.baseType);
+    if (input.patch) params.set("patch", input.patch);
+    const query = params.toString();
+    return request(
+      `/api/crafting/knowledge${query ? `?${query}` : ""}`,
+      CraftingKnowledgeResponseSchema,
+    );
   },
 
   /** Conversación determinista con el mentor (Hito 6A). */

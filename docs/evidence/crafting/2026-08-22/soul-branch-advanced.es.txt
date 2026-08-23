@@ -1,0 +1,41 @@
+Clase de objeto: Arcos
+Rareza: Raro
+Rama de alma
+Arco obliterador
+----------------
+
+Calidad: +20% (augmented)
+Daño físico: 154-288 (augmented)
+Daño de hielo: 79-117 (cold)
+Probabilidad de impacto crítico: 5.00%
+Ataques por segundo: 1.28 (augmented)
+-------------------------------------
+
+## Requiere: Nivel 78, 163 Des
+
+## Engarces: S S
+
+## Nivel de objeto: 81
+
+Daño físico aumentado un 18% (rune)
+Los ataques con arco disparan una flecha adicional (rune)
+---------------------------------------------------------
+
+{ Mod. implícito }
+Alcance de los proyectiles reducido un 50%
+------------------------------------------
+
+{ Mod. de prefijo "cristalizador" (Grado: 1) — Daño, Elemental, Hielo, Ataque }
+Agrega de 79(72-81) a 117(110-123) de daño de hielo
+{ Mod. de prefijo "del mercenario" (Grado: 5) — Daño, Físico, Ataque }
+Daño físico aumentado un 40(35-44)%
++76(73-97) a la precisión
+{ Mod. de prefijo "filoso" de fabricación (Grado: 3) — Daño, Físico, Ataque }
+Agrega de 19(16-24) a 37(28-42) de daño físico
+{ Mod. de sufijo "del fantasma" (Grado: 1) — Atributo }
++33(31-33) a la destreza
+{ Mod. de sufijo "de Amanamu" profanado (Grado: 1) }
+Velocidad de ataque aumentada un 16(12-18)%
+Los compañeros tienen la velocidad de ataque aumentada un 14(12-18)%
+{ Mod. de sufijo "del tirador" (Grado: 3) }
++2 al nivel de todas las habilidades de proyectiles

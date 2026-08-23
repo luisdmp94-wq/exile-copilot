@@ -75,6 +75,7 @@ describe("mentor contextual", () => {
       { type: "ready", profileName: "Demo" },
       { type: "workspace", workspace: "expediente" },
       { type: "workspace", workspace: "plan" },
+      { type: "workspace", workspace: "crafting" },
       { type: "item", item },
       { type: "editor" },
       { type: "goal", goal: "survival" },

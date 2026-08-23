@@ -595,6 +595,7 @@ export function startDecisionSession(
     constraints: Array<{ label: string; relatedItemIds: string[] }>;
     soonReplacedItemIds: string[];
     protectedResources: string[];
+    craftingExperiment?: DecisionSession["craftingExperiment"];
     recommendation: Recommendation | null;
     profile: CharacterProfile;
     budget: { amount: number; currency: "divine" | "exalted" | "chaos" | "gold" };
@@ -647,6 +648,7 @@ export function startDecisionSession(
       evidence: [],
       soonReplacedItemIds: input.soonReplacedItemIds,
       protectedResources: input.protectedResources,
+      craftingExperiment: input.craftingExperiment ?? null,
       activeAction: null,
       blockedRecommendation: null,
       budget: input.budget,
