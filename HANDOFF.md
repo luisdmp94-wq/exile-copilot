@@ -5,10 +5,31 @@
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
 > «Probar y volver» y 6D «Identidad persistente de la build», y el banco de
-> crafting jugable de la sesión 29. Las secciones de sesiones anteriores son
+> crafting guiado hasta una condición observable de parada. Las secciones de sesiones anteriores son
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 35 — objetivo y parada guiados por la interfaz
+
+- Elegir una categoría como «Daño» ya define un objetivo suficiente; el matiz
+  libre pasa a ser opcional. «Otro objetivo» sigue exigiendo que el jugador lo
+  describa y nunca se interpreta como evidencia.
+- El banco propone en un clic el siguiente umbral observable. En la ballesta de
+  prueba muestra «Un afijo de daño más · Ahora hay 3; para al llegar a 4» sin
+  afirmar que el nuevo afijo será bueno.
+- La ruta principal no abre un preflight bloqueado: primero lleva y enfoca el
+  objetivo pendiente, después la condición de parada y solo entonces permite
+  preparar la moneda.
+- El mentor contextual reacciona localmente a la pieza, el objetivo, la parada
+  y la moneda elegida. No llama automáticamente a Groq ni consume cuota; la
+  consulta supervisada sigue requiriendo «Analizar este contexto».
+- Se eliminó una carrera de foco visible únicamente en desarrollo/Strict Mode.
+
+Verificación: TypeScript y ESLint sin errores, build de producción correcto,
+**479/479** pruebas; equipo/Crafting **202/202** y mentor **88/88** en
+producción y desarrollo/Strict Mode. Vista inicial: 297 palabras, 375/375 px y
+2102 px de alto a 375×844.
 
 ## Sesión 34 — nivel desconocido coherente en toda la aplicación
 

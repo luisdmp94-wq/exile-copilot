@@ -12,7 +12,8 @@ devuelve acciones concretas y conserva el resultado de cada decisión en el
 diario del personaje. Además, un **mentor contextual persistente** acompaña la
 navegación: reacciona al objeto inspeccionado, al área abierta, al objetivo, al
 presupuesto, al mercado y a las recomendaciones. La reacción inmediata es local
-y determinista. Su cabecera permanece visible y empieza plegada para no tapar
+y determinista. En Crafting también sigue la pieza, el objetivo, la condición
+de parada y la moneda que el jugador prepara. Su cabecera permanece visible y empieza plegada para no tapar
 acciones; solo consulta al proveedor de IA cuando el jugador despliega el panel
 y pulsa «Analizar este contexto». Mientras haya un paso activo no genera tareas
 paralelas; si una mejora ya se intentó, exige reconciliar el resultado con el
@@ -73,7 +74,7 @@ lleva a las rutas de reemplazo de Essence o Alloy. Un objeto normal bien
 identificado entra correctamente por Transmutación.
 
 La intención se define una sola vez por pieza. El jugador elige con botones el
-objetivo principal, añade un matiz libre —por ejemplo, «más daño sin perder
+objetivo principal y puede añadir un matiz libre —por ejemplo, «más daño sin perder
 velocidad ni +niveles»— y marca directamente sobre los afijos qué líneas deben
 sobrevivir. Ese mismo plan acompaña a Monedas, Essences, Alloys y a la
 comparación final; no hay tres formularios distintos ni se intenta interpretar
@@ -84,7 +85,9 @@ mediante una a tres condiciones observables: aumentar el número de afijos con
 etiquetas de la categoría elegida, hacer aparecer una línea exacta escrita por
 él o alcanzar un número de afijos explícitos. Los umbrales siempre parten por
 encima del snapshot actual, así que una condición no puede presentarse como
-mejora si ya estaba cumplida. Después del craft se muestra cada condición como
+mejora si ya estaba cumplida. La interfaz ofrece como primera opción una señal
+adicional de la categoría elegida y muestra el recuento actual y el objetivo en
+lenguaje directo; el jugador debe aceptarla con un clic. Después del craft se muestra cada condición como
 «cumplida», «no aparece» o «no comprobable». Si todas se cumplen, la acción
 principal es parar y conservar, aunque todavía exista un hueco. La descripción
 libre nunca se analiza como evidencia y las sesiones anteriores cargan sin
