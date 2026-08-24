@@ -145,13 +145,13 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
   let nextAction: string;
   if (item.itemLevel === undefined) {
     nextAction =
-      "Activa las descripciones avanzadas del juego y vuelve a copiar esta pieza; necesito que aparezca «Nivel de objeto».";
+      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C; necesito que aparezca «Nivel de objeto».";
   } else if (unclassifiedExplicitCount > 0) {
     nextAction =
-      "Activa las descripciones avanzadas del juego y vuelve a copiar esta pieza; necesito distinguir cada prefijo y sufijo.";
+      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C; así podré distinguir cada prefijo y sufijo.";
   } else if (itemState === undefined) {
     nextAction =
-      "Vuelve a copiar esta pieza con las descripciones avanzadas activadas para confirmar si puede modificarse.";
+      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C para confirmar si puede modificarse.";
   } else if (specialStateNeedsData) {
     nextAction =
       "Esta pieza tiene un estado especial que todavía no sé resolver con seguridad. No gastes moneda sobre ella.";

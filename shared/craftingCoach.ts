@@ -96,7 +96,7 @@ export function readItemInPlainWords(item: Item): CoachItemReading {
     sentence =
       `Es ${rarityWord} y he leído ${explicitCount} ${plural(explicitCount, "modificador", "modificadores")}: ` +
       `${estructura}, pero ${unclassifiedExplicitCount} ${plural(unclassifiedExplicitCount, "línea sigue", "líneas siguen")} sin clasificar. ` +
-      "No puedo confirmar los huecos hasta volver a copiarlo con las descripciones avanzadas.";
+      "No puedo confirmar los huecos hasta volver a copiarlo con Ctrl+Alt+C.";
   } else if (presentableOpenSlots === null) {
     sentence = `Es ${rarityWord} y tiene ${explicitCount} ${plural(explicitCount, "modificador", "modificadores")}.`;
   } else if (presentableOpenSlots === 0) {

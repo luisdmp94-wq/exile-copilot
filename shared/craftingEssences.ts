@@ -106,7 +106,7 @@ export function evaluateEssencePlan(item: Item, input: EssencePlanInput): Essenc
     return result(
       plan,
       "needs-data",
-      "El texto no confirma los estados especiales del objeto; vuelve a copiarlo con descripciones avanzadas.",
+      "El texto no confirma los estados especiales del objeto; vuelve a copiarlo con Ctrl+Alt+C.",
     );
   }
   if (state.doubleCorrupted || state.corrupted) {

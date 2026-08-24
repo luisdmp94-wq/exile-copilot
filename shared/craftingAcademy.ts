@@ -433,7 +433,7 @@ export const CRAFTING_ACADEMY_LESSONS: readonly AcademyLesson[] = [
         id: "l1-afijos",
         conceptId: "afijos",
         situation:
-          "El mismo yelmo, ahora con las descripciones avanzadas activadas: el juego separa los modificadores en prefijos y sufijos.",
+          "El mismo yelmo, copiado con Ctrl+Alt+C: el juego separa los modificadores en prefijos y sufijos.",
         question: "¿Cuántos prefijos tiene este yelmo?",
         item: YELMO_RARO,
         options: [
@@ -446,7 +446,7 @@ export const CRAFTING_ACADEMY_LESSONS: readonly AcademyLesson[] = [
           "Dos prefijos y un sufijo. Vida y armadura ocupan la familia de prefijos; la resistencia al fuego, la de sufijos.",
         why: [
           "Exile Copilot solo separa prefijos de sufijos cuando el texto copiado lo declara. Si no lo declara, lo dice y no lo adivina.",
-          "Un modificador sin clasificar bloquea el diagnóstico: el banco pide volver a copiar el objeto con las descripciones avanzadas activadas.",
+          "Un modificador sin clasificar bloquea el diagnóstico: el banco pide volver a copiar el objeto con Ctrl+Alt+C.",
           "Exile Copilot no dispone de una lista verificada de modificadores posibles: solo lee los que ya están en tu objeto.",
         ],
         misconception:
@@ -634,7 +634,7 @@ export const CRAFTING_ACADEMY_LESSONS: readonly AcademyLesson[] = [
         ],
         expectedOptionId: "stop",
         explanation:
-          "Todavía no. Sin confirmar el estado del objeto no se puede afirmar que ninguna moneda sea legal sobre él. Vuelve a copiarlo con las descripciones avanzadas activadas.",
+          "Todavía no. Sin confirmar el estado del objeto no se puede afirmar que ninguna moneda sea legal sobre él. Vuelve a copiarlo con Ctrl+Alt+C.",
         why: [
           "Un objeto corrupto, reflejado o santificado bloquea estas monedas; si el texto no lo declara, la aplicación no lo da por descartado.",
           "«No mostrado» nunca se traduce como «sin restricción». Es la misma regla que aplica el banco real.",

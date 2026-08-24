@@ -101,7 +101,7 @@ export function evaluateAlloyPlan(item: Item, input: AlloyPlanInput): AlloyEvalu
     return result(
       item,
       "needs-data",
-      "El texto no confirma los estados especiales del objeto; vuelve a copiarlo con descripciones avanzadas.",
+      "El texto no confirma los estados especiales del objeto; vuelve a copiarlo con Ctrl+Alt+C.",
     );
   }
   if (state.doubleCorrupted || state.corrupted) {
@@ -153,7 +153,7 @@ export function evaluateAlloyPlan(item: Item, input: AlloyPlanInput): AlloyEvalu
     return result(
       item,
       "needs-data",
-      "Necesito el texto con descripciones avanzadas para clasificar todos los modificadores explícitos antes del reemplazo.",
+      "Necesito el texto copiado con Ctrl+Alt+C para clasificar todos los modificadores explícitos antes del reemplazo.",
     );
   }
 

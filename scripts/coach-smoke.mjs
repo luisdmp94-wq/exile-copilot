@@ -484,7 +484,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] datos incompletos → pedir la evidencia que falta, no gastar`,
       (await recomendacion.getAttribute("data-kind")) === "needs-data" &&
-        (await recomendacion.innerText()).includes("descripciones avanzadas") &&
+        (await recomendacion.innerText()).includes("Ctrl+Alt+C") &&
         (await page.getByTestId("coach-volver-pegar").isVisible()) &&
         (await page.getByTestId("coach-otro-camino").isVisible()),
     );

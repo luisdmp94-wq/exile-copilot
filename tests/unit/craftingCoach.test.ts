@@ -138,7 +138,7 @@ describe("guía de crafting — la única siguiente acción", () => {
 
     expect(step.kind).toBe("needs-data");
     if (step.kind !== "needs-data") return;
-    expect(step.instruction).toContain("descripciones avanzadas");
+    expect(step.instruction).toContain("Ctrl+Alt+C");
     expect(step.instruction).toContain("esta pieza");
     expect(step.missingEvidence).toContain(
       "El texto no confirma todavía los estados especiales que pueden impedir el crafting.",

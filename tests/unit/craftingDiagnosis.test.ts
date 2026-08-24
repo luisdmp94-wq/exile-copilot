@@ -122,7 +122,7 @@ describe("diagnoseCraftingItem", () => {
     expect(diagnosis.state).toBe("partial");
     expect(diagnosis.unclassifiedExplicitCount).toBe(1);
     expect(diagnosis.blockers[0]).toContain("sin clasificar");
-    expect(diagnosis.nextAction).toContain("descripciones avanzadas");
+    expect(diagnosis.nextAction).toContain("Ctrl+Alt+C");
     expect(diagnosis.nextAction).toContain("prefijo y sufijo");
   });
 

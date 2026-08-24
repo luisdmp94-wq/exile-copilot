@@ -304,7 +304,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     },
     question: "¿Qué resuelve primero el bloqueo?",
     options: [
-      option("av-recopiar", "complete-data", "Volver a copiar el objeto completo", "Con descripciones avanzadas activadas"),
+      option("av-recopiar", "complete-data", "Volver a copiar el objeto completo", "Con Ctrl+Alt+C"),
       option("av-probar-moneda", "exalted", "Probar una moneda barata", "Si no funciona, no pasa nada"),
       option("av-deducir", "compare-risks", "Deducir el hueco por la apariencia", "Parece una pieza incompleta"),
     ],

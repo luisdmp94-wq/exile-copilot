@@ -745,7 +745,7 @@ export function DecisionSessionSection({
                     }}
                     rows={7}
                     maxLength={50_000}
-                    placeholder="Pega aquí el texto copiado con Ctrl+C desde PoE2"
+                    placeholder="Pega aquí el texto copiado con Ctrl+Alt+C desde PoE2"
                   />
                 </div>}
                 {craftingComparison?.status !== "confirmed" && <Button

@@ -25,6 +25,14 @@ Verificación: TypeScript y ESLint sin errores; **571/571** pruebas; build de
 producción correcto; recorrido completo del guía **96/96** en producción y
 desarrollo/Strict Mode.
 
+### Corrección de instrucciones de copia
+
+La prueba jugando mostró que `Ctrl+C` entrega el formato simple: conserva las
+líneas, pero no las cabeceras que identifican prefijos, sufijos, grado y tags.
+Todas las entradas del recorrido de Crafting indican ahora **Ctrl+Alt+C**. El
+diagnóstico bloqueado enseña la combinación exacta en vez de la frase ambigua
+«activa las descripciones avanzadas».
+
 ## Sesión 46 — resultado de Transmutación reconocido y recuperable
 
 - Corregido el fallo descubierto jugando: después de una Transmutación, PoE2

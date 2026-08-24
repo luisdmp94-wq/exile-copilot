@@ -269,7 +269,7 @@ export function CharacterSection({
         {!restoring && editorMode !== "new" && (profile || editorMode === "item") && (
           <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
             <Label htmlFor="item-text">
-              Analizar objeto copiado del juego (Ctrl+C sobre el objeto en PoE2)
+              Analizar objeto copiado del juego (Ctrl+Alt+C sobre el objeto en PoE2)
             </Label>
             <Textarea
               id="item-text"

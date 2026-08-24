@@ -46,7 +46,7 @@ interface CraftingCoachProps {
 
 /** Cómo copiar el objeto, en una sola frase. */
 const COPY_HINT =
-  "En el juego, pasa el ratón por el objeto y pulsa Ctrl+C; luego pégalo aquí.";
+  "En PoE2, pasa el ratón por el objeto y pulsa Ctrl+Alt+C; luego pégalo aquí.";
 
 function DirectionButton({
   id,
