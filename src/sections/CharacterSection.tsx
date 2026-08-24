@@ -266,70 +266,66 @@ export function CharacterSection({
           />
         ) : null}
 
-        {profile && !restoring && (
-          <>
-            {editorMode !== "new" && (
-              <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
-                <Label htmlFor="item-text">
-                  Analizar objeto copiado del juego (Ctrl+C sobre el objeto en PoE2)
-                </Label>
-                <Textarea
-                  id="item-text"
-                  value={itemText}
-                  onChange={(e) => setItemText(e.target.value)}
-                  rows={5}
-                  disabled={busy !== null}
-                  placeholder={
-                    "Clase de objeto: Ballestas\nRareza: Raro\nNúcleo de fénix\nBallesta barnizada\n…"
-                  }
-                  className="font-mono text-xs"
-                />
-                <div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={busy !== null || !itemText.trim()}
-                    onClick={() => {
-                      void character.importItemText(itemText).then((item) => {
-                        if (item === null) return;
-                        setItemText("");
-                        onItemImported?.(item);
-                      });
-                    }}
-                  >
-                    {busy === "item" ? (
-                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <ScanSearch className="size-4" aria-hidden="true" />
-                    )}
-                    Analizar objeto
-                  </Button>
-                </div>
-              </div>
-            )}
+        {!restoring && editorMode !== "new" && (profile || editorMode === "item") && (
+          <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
+            <Label htmlFor="item-text">
+              Analizar objeto copiado del juego (Ctrl+C sobre el objeto en PoE2)
+            </Label>
+            <Textarea
+              id="item-text"
+              value={itemText}
+              onChange={(e) => setItemText(e.target.value)}
+              rows={5}
+              disabled={busy !== null}
+              placeholder={
+                "Clase de objeto: Ballestas\nRareza: Raro\nNúcleo de fénix\nBallesta barnizada\n…"
+              }
+              className="font-mono text-xs"
+            />
+            <div>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy !== null || !itemText.trim()}
+                onClick={() => {
+                  void character.importItemText(itemText).then((item) => {
+                    if (item === null) return;
+                    setItemText("");
+                    onItemImported?.(item);
+                  });
+                }}
+              >
+                {busy === "item" ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ScanSearch className="size-4" aria-hidden="true" />
+                )}
+                Analizar objeto
+              </Button>
+            </div>
+          </div>
+        )}
 
-            {editorMode !== "item" && (
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  data-testid="guardar-correcciones"
-                  onClick={() => {
-                    void character.saveCorrections().then((saved) => {
-                      if (saved) onProfileSaved?.();
-                    });
-                  }}
-                  disabled={busy !== null || !dirty}
-                >
-                  {busy === "save" ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Save className="size-4" aria-hidden="true" />
-                  )}
-                  Guardar correcciones
-                </Button>
-              </div>
-            )}
-          </>
+        {profile && !restoring && editorMode !== "item" && (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              data-testid="guardar-correcciones"
+              onClick={() => {
+                void character.saveCorrections().then((saved) => {
+                  if (saved) onProfileSaved?.();
+                });
+              }}
+              disabled={busy !== null || !dirty}
+            >
+              {busy === "save" ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Save className="size-4" aria-hidden="true" />
+              )}
+              Guardar correcciones
+            </Button>
+          </div>
         )}
 
       </CardContent>

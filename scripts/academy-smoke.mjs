@@ -45,6 +45,17 @@ const args = process.argv.slice(2);
 const UPDATE_SCREENSHOTS = args.includes("--update-screenshots");
 const modes = args.includes("--all") ? ["prod", "dev"] : args.includes("--dev") ? ["dev"] : ["prod"];
 
+const STANDALONE_ITEM = [
+  "Clase de objeto: Ballestas",
+  "Rareza: Raro",
+  "Núcleo de prueba",
+  "Ballesta barnizada",
+  "------------------",
+  "Nivel de objeto: 32",
+  "------------------",
+  "Daño físico aumentado un 81%",
+].join("\n");
+
 const SHOT_DIR = UPDATE_SCREENSHOTS
   ? join(REPO, "docs", "screenshots")
   : join(TEMP_ROOT, "capturas");
@@ -191,6 +202,30 @@ async function runFlow(mode, port) {
         (await page.getByTestId("crafting-mode-coach").getAttribute("data-active")) === "true",
     );
     await page.screenshot({ path: join(SHOT_DIR, `academia-entrada-${mode}.png`), fullPage: false });
+
+    // Entrar directamente por Crafting no exige crear un personaje invisible:
+    // el pegado está disponible y la pieza abre el guía en un único recorrido.
+    await page.getByTestId("coach-pegar-objeto").click();
+    const standaloneDialog = page.getByRole("dialog");
+    await standaloneDialog.waitFor({ timeout: 10000 });
+    const standaloneInput = standaloneDialog.locator("#item-text");
+    check(
+      `[${mode}] desde Crafting se puede pegar un objeto sin crear personaje`,
+      (await standaloneInput.isVisible()) && (await standaloneInput.isEnabled()),
+    );
+    await standaloneInput.fill(STANDALONE_ITEM);
+    await standaloneDialog.getByRole("button", { name: "Analizar objeto" }).click();
+    await page.getByTestId("coach-objeto").getByText("Núcleo de prueba").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] el objeto suelto abre el guía sin pedir datos de personaje`,
+      (await page.getByTestId("tab-crafting").getAttribute("data-state")) === "active" &&
+        (await page.getByTestId("coach-objeto").getByText("Núcleo de prueba").isVisible()),
+    );
+
+    // La sesión de objeto es local hasta que se guarda una decisión; al recargar
+    // volvemos al estado realmente sin personaje para auditar la Academia.
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
 
     await page.getByTestId("crafting-mode-academy").click();
     const academia = page.getByTestId("academia-crafting");

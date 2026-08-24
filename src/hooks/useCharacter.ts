@@ -48,6 +48,29 @@ export interface UseCharacterOptions {
   ) => void;
 }
 
+function standaloneItemProfile(item: Item): CharacterProfile {
+  const now = new Date().toISOString();
+  return {
+    id: `standalone-item-${Date.now()}`,
+    name: "Objeto suelto",
+    characterClass: "Desconocida",
+    ascendancy: null,
+    ascendancyId: null,
+    level: PLACEHOLDER_CHARACTER_LEVEL,
+    levelSource: "placeholder",
+    archetype: null,
+    league: "Desconocida",
+    patch: "Desconocido",
+    items: [item],
+    skills: [],
+    passives: { allocated: [] },
+    attributes: { str: null, dex: null, int: null },
+    resistances: { fire: null, cold: null, lightning: null, chaos: null },
+    sources: [],
+    importedAt: now,
+  };
+}
+
 /** Estado del perfil del personaje + acciones de importación, guardado y restauración. */
 export function useCharacter(options?: UseCharacterOptions): CharacterState {
   const [profile, setProfile] = useState<CharacterProfile | null>(null);
@@ -193,22 +216,23 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
 
   const importItemText = useCallback(
     async (text: string) => {
-      if (!profile) {
-        toast.error("Primero importa o carga un personaje");
-        return null;
-      }
+      const importingStandaloneItem = profile === null;
       setBusy("item");
       try {
         const res = await api.importItemText({ text });
         const item: Item = res.item;
         setProfile((prev) => {
-          if (!prev) return prev;
+          if (!prev) return standaloneItemProfile(item);
           const exists = prev.items.some((it) => it.id === item.id);
           const items = exists
             ? prev.items.map((it) => (it.id === item.id ? item : it))
             : [...prev.items, item];
           return { ...prev, items };
         });
+        if (importingStandaloneItem) {
+          setOrigin("manual");
+          setPersisted(false);
+        }
         setWarnings(res.warnings);
         setDirty(true);
         if (res.warnings.length > 0) {

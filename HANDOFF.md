@@ -1,7 +1,7 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 44,
-> 2026-08-24.
+> Informe para el propietario. Última actualización: sesión 45,
+> 2026-08-25.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
 > «Probar y volver» y 6D «Identidad persistente de la build», y el banco de
@@ -9,6 +9,22 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 45 — Crafting directo sin personaje
+
+- Corregido el bloqueo descubierto durante la primera prueba real: entrar en
+  **Crafting → Ayúdame con mi objeto → Pegar un objeto del juego** ya muestra el
+  campo de texto aunque no exista ningún personaje.
+- El objeto se analiza primero y solo entonces se crea internamente una sesión
+  mínima llamada «Objeto suelto». El jugador no tiene que rellenar nombre,
+  clase, nivel, liga ni ningún otro dato para recibir el guía de Crafting.
+- El recorrido anterior desde la bienvenida sigue funcionando. Se añadió una
+  regresión específica que comienza directamente en la pestaña Crafting, pega
+  una pieza realista y comprueba que el guía la recibe sin pedir personaje.
+
+Verificación: TypeScript y ESLint global sin errores; **566/566** pruebas;
+build de producción correcto; Academia y acceso directo a Crafting **124/124**
+en producción y desarrollo/Strict Mode, sin errores de consola.
 
 ## Sesión 44 — estabilización antes de probar jugando
 
