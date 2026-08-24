@@ -89,6 +89,7 @@ describe("diagnoseCraftingItem", () => {
     expect(diagnosis.blockers).toContain(
       "El texto no confirma todavía los estados especiales que pueden impedir el crafting.",
     );
+    expect(diagnosis.nextAction).toContain("confirmar si puede modificarse");
   });
 
   it("declara lectura parcial si el texto no identifica prefijos y sufijos", () => {
@@ -122,6 +123,17 @@ describe("diagnoseCraftingItem", () => {
     expect(diagnosis.unclassifiedExplicitCount).toBe(1);
     expect(diagnosis.blockers[0]).toContain("sin clasificar");
     expect(diagnosis.nextAction).toContain("descripciones avanzadas");
+    expect(diagnosis.nextAction).toContain("prefijo y sufijo");
+  });
+
+  it("dice exactamente que falta el nivel de objeto cuando ese es el dato ausente", () => {
+    const item = parseItemText(crossbowText).item;
+    delete item.itemLevel;
+
+    const diagnosis = diagnoseCraftingItem(item);
+    expect(diagnosis.state).toBe("blocked");
+    expect(diagnosis.nextAction).toContain("Nivel de objeto");
+    expect(diagnosis.blockers).toContain("Falta el nivel de objeto.");
   });
 
   it("no inventa capacidad para rarezas fuera del alcance inicial", () => {

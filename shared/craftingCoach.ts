@@ -436,6 +436,8 @@ export type CoachNextStep =
       headline: string;
       instruction: string;
       why: string;
+      /** Todo lo que falta, sin esconder los demás bloqueos tras el primero. */
+      missingEvidence: string[];
     }
   | {
       kind: "use-currency";
@@ -572,6 +574,7 @@ export function chooseNextStep(
       why:
         diagnosis.blockers[0] ??
         "Con lo que hay copiado no puedo afirmar que ninguna moneda sea legal sobre este objeto.",
+      missingEvidence: diagnosis.blockers,
     };
   }
 

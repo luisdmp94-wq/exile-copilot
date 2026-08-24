@@ -85,6 +85,7 @@ function Recommendation({
   onDone,
   onHold,
   onOther,
+  onRepaste,
   onOpenAdvanced,
   headingRef,
 }: {
@@ -92,6 +93,7 @@ function Recommendation({
   onDone: () => void;
   onHold: () => void;
   onOther: () => void;
+  onRepaste: () => void;
   onOpenAdvanced: () => void;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }) {
@@ -109,13 +111,23 @@ function Recommendation({
           {step.headline}
         </h3>
         <p className="mt-2 text-sm leading-relaxed">{step.instruction}</p>
-        <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
-          <summary className="cursor-pointer font-medium">Por qué</summary>
-          <p className="mt-2 text-muted-foreground">{step.why}</p>
-        </details>
-        <Button className="mt-3 w-full sm:w-auto" type="button" onClick={onOther} data-testid="coach-otro-camino">
-          Elegir otra pieza
-        </Button>
+        <div className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
+          <p className="font-medium">Qué falta</p>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+            {(step.missingEvidence.length > 0 ? step.missingEvidence : [step.why]).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button type="button" onClick={onRepaste} data-testid="coach-volver-pegar">
+            <ClipboardPaste className="size-4" aria-hidden="true" />
+            Volver a pegar esta pieza
+          </Button>
+          <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
+            Elegir otra pieza
+          </Button>
+        </div>
       </div>
     );
   }
@@ -713,6 +725,7 @@ export function CraftingCoach({
               onDone={() => setPhase("await-result")}
               onHold={() => setPhase("hold")}
               onOther={resetFlow}
+              onRepaste={onPasteItem}
               onOpenAdvanced={onOpenAdvanced}
             />
           )}

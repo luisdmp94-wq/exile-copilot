@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 46,
+> Informe para el propietario. Última actualización: sesión 47,
 > 2026-08-25.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,21 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 47 — los datos incompletos ya no expulsan del objeto
+
+- El bloqueo por texto incompleto explica ahora exactamente qué falta: nivel
+  de objeto, clasificación de prefijos/sufijos o confirmación del estado de la
+  pieza. Si faltan varias evidencias se muestran todas, no solo la primera.
+- La acción principal del bloqueo es **Volver a pegar esta pieza** y reabre el
+  importador directo. **Elegir otra pieza** queda como alternativa secundaria;
+  ya no es necesario reiniciar el objetivo para corregir la copia.
+- El servidor de desarrollo de `7201` sirve el cambio mediante recarga en
+  caliente. No fue necesario matar ni sustituir su proceso.
+
+Verificación: TypeScript y ESLint sin errores; **571/571** pruebas; build de
+producción correcto; recorrido completo del guía **96/96** en producción y
+desarrollo/Strict Mode.
 
 ## Sesión 46 — resultado de Transmutación reconocido y recuperable
 

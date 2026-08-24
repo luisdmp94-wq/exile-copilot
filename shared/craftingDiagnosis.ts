@@ -143,12 +143,18 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
   }
 
   let nextAction: string;
-  if (
-    item.itemLevel === undefined ||
-    unclassifiedExplicitCount > 0 ||
-    specialStateNeedsData
-  ) {
-    nextAction = "Activa las descripciones avanzadas del juego y vuelve a copiar el objeto.";
+  if (item.itemLevel === undefined) {
+    nextAction =
+      "Activa las descripciones avanzadas del juego y vuelve a copiar esta pieza; necesito que aparezca «Nivel de objeto».";
+  } else if (unclassifiedExplicitCount > 0) {
+    nextAction =
+      "Activa las descripciones avanzadas del juego y vuelve a copiar esta pieza; necesito distinguir cada prefijo y sufijo.";
+  } else if (itemState === undefined) {
+    nextAction =
+      "Vuelve a copiar esta pieza con las descripciones avanzadas activadas para confirmar si puede modificarse.";
+  } else if (specialStateNeedsData) {
+    nextAction =
+      "Esta pieza tiene un estado especial que todavía no sé resolver con seguridad. No gastes moneda sobre ella.";
   } else if (item.rarity !== "normal" && explicit.length === 0) {
     nextAction = "Importa el texto completo del objeto antes de evaluar una moneda.";
   } else if (item.rarity === "normal" && explicit.length === 0) {
