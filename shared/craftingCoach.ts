@@ -114,6 +114,10 @@ export interface CoachGoalInterpretation {
   direction: CoachDirection | null;
   /** Texto breve y honesto que explica qué entendió —o qué falta aclarar—. */
   reason: string;
+  /** Líneas reales del snapshot que coinciden literalmente con «no perder…». */
+  protectedModifiers: Array<{ id: string; text: string }>;
+  /** Peticiones de protección que no pudieron vincularse a ninguna línea. */
+  unresolvedProtections: string[];
 }
 
 const DAMAGE_GOAL_WORDS = [
@@ -152,6 +156,108 @@ function normalizeGoalText(value: string): string {
     .trim();
 }
 
+const PROTECTION_MARKER =
+  /\b(?:sin\s+(?:perder|sacrificar)|(?:no\s+)?quiero\s+perder|manteniendo|mantener|conservando|conservar|protegiendo|proteger)\b/i;
+
+const PROTECTION_STOP_WORDS = new Set([
+  "a",
+  "actual",
+  "actuales",
+  "al",
+  "de",
+  "del",
+  "el",
+  "en",
+  "la",
+  "las",
+  "linea",
+  "lineas",
+  "los",
+  "mi",
+  "mis",
+  "mod",
+  "mods",
+  "modificador",
+  "modificadores",
+  "que",
+  "un",
+  "una",
+  "y",
+]);
+
+const CANONICAL_PROTECTION_TOKEN: Record<string, string> = {
+  habilidades: "habilidad",
+  proyectiles: "proyectil",
+  resistencias: "resistencia",
+  ataques: "ataque",
+  atributos: "atributo",
+};
+
+function protectionTokens(value: string): string[] {
+  return normalizeGoalText(value)
+    .replace(/[^a-z0-9ñ]+/g, " ")
+    .split(" ")
+    .map((token) => CANONICAL_PROTECTION_TOKEN[token] ?? token)
+    .filter((token) => token.length >= 3 && !PROTECTION_STOP_WORDS.has(token));
+}
+
+function protectionSegments(value: string): { primary: string; requested: string[] } {
+  const normalized = normalizeGoalText(value);
+  const match = PROTECTION_MARKER.exec(normalized);
+  if (match?.index === undefined) return { primary: normalized, requested: [] };
+  const primary = normalized.slice(0, match.index).trim();
+  const tail = normalized.slice(match.index + match[0].length).trim();
+  return {
+    primary,
+    requested: tail
+      .split(/\s+(?:y|ni)\s+|[,;]/)
+      .map((segment) => segment.trim())
+      .filter(Boolean),
+  };
+}
+
+function matchProtectedModifiers(
+  requested: readonly string[],
+  item: Pick<Item, "modifiers"> | undefined,
+): Pick<CoachGoalInterpretation, "protectedModifiers" | "unresolvedProtections"> {
+  if (requested.length === 0) {
+    return { protectedModifiers: [], unresolvedProtections: [] };
+  }
+  if (item === undefined) {
+    return { protectedModifiers: [], unresolvedProtections: [...requested] };
+  }
+
+  const protectedById = new Map<string, { id: string; text: string }>();
+  const unresolvedProtections: string[] = [];
+  for (const request of requested) {
+    const wanted = protectionTokens(request);
+    if (wanted.length === 0) {
+      unresolvedProtections.push(request);
+      continue;
+    }
+    const matches = item.modifiers.filter((modifier) => {
+      if (modifier.kind !== "explicit") return false;
+      const observed = new Set(
+        protectionTokens(
+          [modifier.text, modifier.name, ...(modifier.tags ?? [])].filter(Boolean).join(" "),
+        ),
+      );
+      return wanted.every((token) => observed.has(token));
+    });
+    if (matches.length === 0) {
+      unresolvedProtections.push(request);
+      continue;
+    }
+    for (const modifier of matches) {
+      protectedById.set(modifier.id, { id: modifier.id, text: modifier.text });
+    }
+  }
+  return {
+    protectedModifiers: [...protectedById.values()],
+    unresolvedProtections,
+  };
+}
+
 /**
  * Interpreta únicamente la DIRECCIÓN general escrita por el jugador.
  *
@@ -159,40 +265,50 @@ function normalizeGoalText(value: string): string {
  * direcciones o ninguna señal reconocible, devuelve `null` para que la
  * interfaz pida una aclaración antes de recomendar un gasto.
  */
-export function interpretCoachGoal(value: string): CoachGoalInterpretation {
+export function interpretCoachGoal(
+  value: string,
+  item?: Pick<Item, "modifiers">,
+): CoachGoalInterpretation {
   const normalized = normalizeGoalText(value);
+  const { primary, requested } = protectionSegments(value);
+  const protections = matchProtectedModifiers(requested, item);
   if (normalized === "") {
     return {
       direction: null,
       reason: "Cuéntame qué te gustaría conseguir con esta pieza.",
+      ...protections,
     };
   }
 
-  const damage = DAMAGE_GOAL_WORDS.some((word) => normalized.includes(word));
-  const defence = DEFENCE_GOAL_WORDS.some((word) => normalized.includes(word));
+  const damage = DAMAGE_GOAL_WORDS.some((word) => primary.includes(word));
+  const defence = DEFENCE_GOAL_WORDS.some((word) => primary.includes(word));
 
   if (damage && defence) {
     return {
       direction: null,
       reason: "Veo un objetivo de daño y otro de defensa. Elige cuál quieres trabajar primero.",
+      ...protections,
     };
   }
   if (damage) {
     return {
       direction: "damage",
       reason: "He entendido que primero quieres trabajar el daño.",
+      ...protections,
     };
   }
   if (defence) {
     return {
       direction: "defence",
       reason: "He entendido que primero quieres trabajar la defensa.",
+      ...protections,
     };
   }
   return {
     direction: null,
     reason:
       "Entiendo tus palabras, pero no puedo convertirlas con seguridad en una dirección de crafting. Aclaremos primero si buscas daño o defensa.",
+    ...protections,
   };
 }
 
@@ -585,8 +701,14 @@ export function readCraftResult(input: {
       "Esto no demuestra todavía que la pieza completa sea mejor para tu personaje. Pruébala o compárala en el personaje.";
   }
 
-  const verdict: CoachResultReading["verdict"] =
-    nextStep.kind === "use-currency" ? "continue" : nextStep.kind === "stop" ? "stop" : "unclear";
+  const protectedLineLost = comparison.protectionStatus === "lost";
+  const verdict: CoachResultReading["verdict"] = protectedLineLost
+    ? "stop"
+    : nextStep.kind === "use-currency"
+      ? "continue"
+      : nextStep.kind === "stop"
+        ? "stop"
+        : "unclear";
 
   return {
     headline:
@@ -594,13 +716,16 @@ export function readCraftResult(input: {
         ? "El cambio está confirmado, pero no veo ningún modificador nuevo"
         : `Ha aparecido ${plural(changed.length, "un modificador nuevo", `${changed.length} modificadores nuevos`)}`,
     changed,
-    kept:
-      removed === 0
+    kept: protectedLineLost
+      ? `Se ha perdido una línea que pediste conservar: ${comparison.lostProtectedModifiers.map((modifier) => modifier.text).join(" · ")}.`
+      : removed === 0
         ? "No se ha perdido nada de lo que ya tenías."
         : `Han desaparecido ${removed} ${plural(removed, "modificador", "modificadores")}. Revísalo antes de seguir.`,
     verdict,
     verdictText:
-      verdict === "continue"
+      protectedLineLost
+        ? "Para: el resultado ha perdido algo que marcaste como intocable. No gastes otra moneda."
+        : verdict === "continue"
         ? "Puedes seguir si quieres, de una moneda en una."
         : verdict === "stop"
           ? nextStep.kind === "stop"

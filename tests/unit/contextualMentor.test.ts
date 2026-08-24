@@ -74,11 +74,15 @@ describe("mentor contextual", () => {
       directionLabel: "el daño",
       nextStepTitle: "Orbe exaltado",
       stepKind: "use-currency",
+      protectedLineCount: 2,
+      unresolvedProtectionCount: 1,
     });
 
     expect(cue.title).toContain("Núcleo de fénix");
     expect(cue.message).toContain("Orbe exaltado");
     expect(cue.message).toContain("más daño físico");
+    expect(cue.message).toContain("2 líneas existentes");
+    expect(cue.message).toContain("1 protección sin vincular");
     expect(cue.ask?.question).toContain("Núcleo de fénix");
     expect(cue.ask?.question).toContain("Orbe exaltado");
   });

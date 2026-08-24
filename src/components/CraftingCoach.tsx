@@ -12,11 +12,13 @@ import {
 } from "lucide-react";
 import {
   COACH_DIRECTION_LABELS,
+  COACH_DIRECTION_NOUNS,
   chooseNextStep,
   interpretCoachGoal,
   readCraftResult,
   suggestDirectionFromCharacter,
   type CoachDirection,
+  type CoachGoalInterpretation,
   type CoachNextStep,
 } from "@shared/craftingCoach.js";
 import { compareCraftingResult, type CraftingComparison } from "@shared/craftingComparison.js";
@@ -277,6 +279,10 @@ export function CraftingCoach({
   const [goalText, setGoalText] = useState("");
   const [directionChosen, setDirectionChosen] = useState(false);
   const [directionNote, setDirectionNote] = useState<string | null>(null);
+  const [protectedModifiers, setProtectedModifiers] = useState<
+    CoachGoalInterpretation["protectedModifiers"]
+  >([]);
+  const [unresolvedProtections, setUnresolvedProtections] = useState<string[]>([]);
   /** El jugador pidió que decidiera yo y no hay evidencia con la que hacerlo. */
   const [noEvidence, setNoEvidence] = useState(false);
   const [phase, setPhase] = useState<CoachPhase>("choose");
@@ -325,6 +331,8 @@ export function CraftingCoach({
     setGoalText("");
     setDirectionChosen(false);
     setDirectionNote(null);
+    setProtectedModifiers([]);
+    setUnresolvedProtections([]);
     setNoEvidence(false);
     setPhase("choose");
     setResultText("");
@@ -386,10 +394,14 @@ export function CraftingCoach({
     next: CoachDirection | null,
     note: string | null,
     playerGoal = goalText.trim(),
+    protections = protectedModifiers,
+    unresolved = unresolvedProtections,
   ) => {
     const nextStep = chooseNextStep(activeItem, next);
     setDirection(next);
     setDirectionNote(note);
+    setProtectedModifiers(protections);
+    setUnresolvedProtections(unresolved);
     setNoEvidence(false);
     setDirectionChosen(true);
     setPhase("recommend");
@@ -400,6 +412,8 @@ export function CraftingCoach({
       directionLabel: next === null ? "objetivo sin determinar" : COACH_DIRECTION_LABELS[next],
       nextStepTitle: nextStep.kind === "use-currency" ? nextStep.label : nextStep.headline,
       stepKind: nextStep.kind,
+      protectedLineCount: protections.length,
+      unresolvedProtectionCount: unresolved.length,
     });
   };
 
@@ -407,12 +421,20 @@ export function CraftingCoach({
   const guess = suggestDirectionFromCharacter(profile);
 
   const submitGoal = () => {
-    const interpretation = interpretCoachGoal(goalText);
+    const interpretation = interpretCoachGoal(goalText, activeItem);
     if (interpretation.direction !== null) {
-      chooseDirection(interpretation.direction, interpretation.reason);
+      chooseDirection(
+        interpretation.direction,
+        interpretation.reason,
+        goalText.trim(),
+        interpretation.protectedModifiers,
+        interpretation.unresolvedProtections,
+      );
       return;
     }
     setDirectionNote(interpretation.reason);
+    setProtectedModifiers(interpretation.protectedModifiers);
+    setUnresolvedProtections(interpretation.unresolvedProtections);
     setNoEvidence(true);
   };
 
@@ -427,15 +449,21 @@ export function CraftingCoach({
       const pasted: Item = { ...imported.item, id: activeItem.id, slot: activeItem.slot };
       const antesDeCraftear = activeItem;
       const nextComparison = compareCraftingResult(antesDeCraftear, pasted, step.actionId, {
-        protectedModifierIds: [],
+        protectedModifierIds: protectedModifiers.map((modifier) => modifier.id),
       });
       const nextReading = readCraftResult({
         comparison: nextComparison,
         resultItem: pasted,
         direction,
       });
+      // Los ids de modificadores cambian en cada importación. Vuelve a
+      // vincular las protecciones contra el snapshot recién pegado para que
+      // sigan siendo válidas si el jugador continúa con otro paso.
+      const refreshedGoal = interpretCoachGoal(goalText, pasted);
       setComparison(nextComparison);
       setResultItem(pasted);
+      setProtectedModifiers(refreshedGoal.protectedModifiers);
+      setUnresolvedProtections(refreshedGoal.unresolvedProtections);
       // A partir de aquí la pieza que se enseña es la que el jugador acaba de
       // pegar: dejar la anterior a la vista contradiría el propio resultado.
       setWorkingItem(pasted);
@@ -533,6 +561,8 @@ export function CraftingCoach({
                   setGoalText(event.target.value);
                   setNoEvidence(false);
                   setDirectionNote(null);
+                  setProtectedModifiers([]);
+                  setUnresolvedProtections([]);
                 }}
                 data-testid="coach-objetivo-texto"
                 aria-label="Qué quieres conseguir con esta pieza"
@@ -639,7 +669,7 @@ export function CraftingCoach({
             <p className="text-xs text-muted-foreground" data-testid="coach-direccion-elegida">
               Objetivo: «{goalText.trim()}». {direction === null
                 ? "Sin dirección elegida."
-                : `Dirección: ${COACH_DIRECTION_LABELS[direction]}.`}{" "}
+                : `Prioridad: ${COACH_DIRECTION_NOUNS[direction]}.`}{" "}
               {directionNote?.includes("expediente") ? directionNote : null}
               <button
                 type="button"
@@ -650,6 +680,26 @@ export function CraftingCoach({
                 Cambiar
               </button>
             </p>
+          )}
+
+          {directionChosen && (protectedModifiers.length > 0 || unresolvedProtections.length > 0) && (
+            <div
+              className="rounded-md border border-border/70 bg-muted/[0.05] px-3 py-2 text-xs"
+              data-testid="coach-protecciones"
+            >
+              {protectedModifiers.length > 0 && (
+                <p>
+                  <span className="font-semibold text-foreground">Protegido:</span>{" "}
+                  {protectedModifiers.map((modifier) => modifier.text).join(" · ")}
+                </p>
+              )}
+              {unresolvedProtections.length > 0 && (
+                <p className="mt-1 text-amber-200" data-testid="coach-protecciones-no-vinculadas">
+                  No encuentro en la pieza: {unresolvedProtections.join(" · ")}. No lo trataré como
+                  protegido hasta que coincida con una línea real.
+                </p>
+              )}
+            </div>
           )}
 
           {/* Paso 2: una sola recomendación. */}

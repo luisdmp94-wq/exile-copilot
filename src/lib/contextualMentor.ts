@@ -37,6 +37,8 @@ export type ContextualMentorEvent =
       directionLabel: string;
       nextStepTitle: string;
       stepKind: "use-currency" | "needs-data" | "stop";
+      protectedLineCount?: number;
+      unresolvedProtectionCount?: number;
     }
   | {
       type: "craftingCoachResult";
@@ -170,7 +172,13 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
     case "craftingCoachDirection": {
       const directionTitle = event.directionLabel.charAt(0).toLocaleUpperCase("es") +
         event.directionLabel.slice(1);
-      const message = event.stepKind === "use-currency"
+      const protection = (event.protectedLineCount ?? 0) > 0
+        ? ` He vinculado ${event.protectedLineCount} ${event.protectedLineCount === 1 ? "línea existente" : "líneas existentes"} que no quieres perder.`
+        : "";
+      const unresolved = (event.unresolvedProtectionCount ?? 0) > 0
+        ? ` Quedan ${event.unresolvedProtectionCount} ${event.unresolvedProtectionCount === 1 ? "protección sin vincular" : "protecciones sin vincular"}; no las trataré como hechos.`
+        : "";
+      const baseMessage = event.stepKind === "use-currency"
         ? `Tu objetivo es «${event.playerGoal}». El guía lo ha reducido a «${event.nextStepTitle}». Revisa esa única acción y su aleatoriedad antes de decidir si gastas.`
         : event.stepKind === "needs-data"
           ? `Tu objetivo es «${event.playerGoal}». Antes de gastar, el guía necesita «${event.nextStepTitle}». Completa ese dato para no inventar una acción.`
@@ -183,7 +191,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         source: "engine",
         eyebrow: "Ruta elegida",
         title: `${directionTitle} · ${event.itemName}`,
-        message,
+        message: `${baseMessage}${protection}${unresolved}`,
         ask: {
           question,
           intent: "explain_priority",

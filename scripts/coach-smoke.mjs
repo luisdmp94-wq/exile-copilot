@@ -527,16 +527,23 @@ async function runFlow(mode, port) {
     await abrirPiezaConObjetivo(
       page,
       "taller-ballesta",
-      "Quiero que esta ballesta haga más daño físico",
+      "Quiero más daño físico sin perder velocidad de ataque",
     );
     check(
       `[${mode}] el objetivo escrito se conserva y se interpreta antes de gastar`,
       (await page.getByTestId("coach-direccion-elegida").innerText()).includes(
-        "Quiero que esta ballesta haga más daño físico",
+        "Quiero más daño físico sin perder velocidad de ataque",
       ) &&
         (await page.getByTestId("coach-direccion-elegida").innerText()).toLocaleLowerCase("es").includes(
-          "dirección: el daño",
+          "prioridad: daño",
         ),
+    );
+    check(
+      `[${mode}] vincula «no perder velocidad de ataque» a una línea real de la pieza`,
+      (await page.getByTestId("coach-protecciones").innerText()).includes(
+        "Velocidad de ataque aumentada un 13",
+      ) &&
+        (await page.getByTestId("coach-protecciones-no-vinculadas").count()) === 0,
     );
     check(
       `[${mode}] la ballesta real recibe una única acción compatible`,

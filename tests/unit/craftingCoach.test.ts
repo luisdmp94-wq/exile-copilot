@@ -305,6 +305,8 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
     expect(interpretCoachGoal("Quiero que esta ballesta haga más daño físico")).toEqual({
       direction: "damage",
       reason: "He entendido que primero quieres trabajar el daño.",
+      protectedModifiers: [],
+      unresolvedProtections: [],
     });
     expect(interpretCoachGoal("Busco crítico y velocidad de ataque").direction).toBe("damage");
   });
@@ -324,6 +326,41 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
     const result = interpretCoachGoal("Quiero crear el arma definitiva");
     expect(result.direction).toBeNull();
     expect(result.reason).toContain("no puedo convertirlas con seguridad");
+  });
+
+  it("separa la prioridad de las líneas que el jugador pide conservar", () => {
+    const item = pieza({
+      modifiers: [
+        mod("fisico", "Daño físico aumentado un 81%", "prefix", ["Daño", "Físico", "Ataque"]),
+        mod("velocidad", "Velocidad de ataque aumentada un 16%", "suffix", ["Ataque", "Velocidad"]),
+        mod("proyectiles", "+2 al nivel de todas las habilidades de proyectiles", "suffix", ["Habilidades", "Proyectiles"]),
+      ],
+    });
+    const result = interpretCoachGoal(
+      "Quiero mejorar el daño físico sin perder velocidad de ataque ni habilidades de proyectiles",
+      item,
+    );
+
+    expect(result.direction).toBe("damage");
+    expect(result.protectedModifiers.map((modifier) => modifier.id)).toEqual([
+      "velocidad",
+      "proyectiles",
+    ]);
+    expect(result.unresolvedProtections).toEqual([]);
+  });
+
+  it("no finge haber protegido una línea que no aparece en el snapshot", () => {
+    const item = pieza({
+      modifiers: [mod("velocidad", "Velocidad de ataque aumentada un 16%", "suffix", ["Ataque", "Velocidad"])],
+    });
+    const result = interpretCoachGoal(
+      "Quiero más daño sin perder resistencia al caos",
+      item,
+    );
+
+    expect(result.direction).toBe("damage");
+    expect(result.protectedModifiers).toEqual([]);
+    expect(result.unresolvedProtections).toEqual(["resistencia al caos"]);
   });
 });
 
@@ -397,5 +434,24 @@ describe("guía de crafting — antes y después", () => {
 
     expect(reading.verdict).toBe("stop");
     expect(reading.nextStep?.kind).toBe("stop");
+  });
+
+  it("si desaparece una línea protegida obliga a parar aunque el cambio sea válido", () => {
+    const protegida = mod("protegida", "Velocidad de ataque aumentada un 16%", "suffix", ["Ataque", "Velocidad"]);
+    const original = pieza({ modifiers: [protegida] });
+    const resultado = pieza({
+      modifiers: [mod("nueva", "+24% a la resistencia al frío", "suffix", ["Resistencias"])],
+    });
+    const comparison = compareCraftingResult(original, resultado, "essence", {
+      expectedRemovedModifierCount: 1,
+      protectedModifierIds: [protegida.id],
+    });
+    const reading = readCraftResult({ comparison, resultItem: resultado, direction: "damage" });
+
+    expect(comparison.status).toBe("confirmed");
+    expect(comparison.protectionStatus).toBe("lost");
+    expect(reading.verdict).toBe("stop");
+    expect(reading.kept).toContain("Velocidad de ataque");
+    expect(reading.verdictText).toContain("No gastes otra moneda");
   });
 });

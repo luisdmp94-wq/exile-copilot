@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 42,
+> Informe para el propietario. Última actualización: sesión 43,
 > 2026-08-24.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,27 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 43 — objetivos concretos y líneas protegidas
+
+- El objetivo natural ya separa la **prioridad principal** de expresiones como
+  «sin perder», «conservar» o «mantener». Así, «más daño físico sin perder
+  velocidad de ataque» no se confunde con dos objetivos contradictorios.
+- Una protección solo existe si sus palabras coinciden con uno o varios
+  modificadores explícitos del snapshot. La interfaz enseña las líneas reales
+  vinculadas; una petición sin coincidencia queda marcada como no vinculada y
+  nunca se trata como un hecho.
+- Los ids del importador cambian al volver a pegar el objeto. El guía vuelve a
+  vincular las protecciones contra cada snapshot nuevo para conservarlas entre
+  pasos. El comparador obliga a parar si desaparece una línea protegida, aunque
+  la transición estructural de la moneda sea válida.
+- El mentor contextual conoce cuántas líneas están protegidas y cuántas siguen
+  sin vincular. La pantalla mantiene una sola acción y un máximo de 130 palabras
+  visibles en el recorrido probado.
+
+Verificación: TypeScript y ESLint de archivos modificados sin errores;
+**566/566** pruebas; build correcto; guía de Crafting **90/90** en producción y
+desarrollo/Strict Mode; 390 px sin desbordamiento y sin errores de consola.
 
 ## Sesión 42 — bucle natural «preguntar, jugar y volver»
 

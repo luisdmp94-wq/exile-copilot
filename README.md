@@ -71,6 +71,13 @@ jugador la realiza dentro del juego, pega el resultado y el mentor continúa
 desde el cambio observado. Si la intención mezcla prioridades o no puede
 interpretarse con seguridad, pregunta antes de recomendar.
 
+También entiende una restricción escrita como **«sin perder…»**, pero solo la
+considera protegida cuando puede vincularla con una línea explícita del objeto
+copiado. Esa protección se comprueba al volver del juego: si desaparece, el
+guía manda parar incluso cuando la acción aplicada produjo la estructura
+esperada. Una frase que no coincida con ninguna línea visible se conserva como
+pendiente y no se presenta como validada.
+
 La entrada **Quiero aprender crafting** tiene tres niveles. El básico enseña a
 leer rareza, afijos, huecos y acciones observadas; el medio practica la
 comparación antes/después y la decisión de continuar o parar; el avanzado
