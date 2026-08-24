@@ -148,7 +148,9 @@ describe("compareCraftingResult", () => {
       "Ataques por segundo: 1.40",
       "-------------------------",
       "## Nivel de objeto: 64",
-      '{ Mod. de prefijo "" (Grado: 4) — Ataque }',
+      // El mismo efecto puede volver con una cabecera localizada distinta al
+      // cambiar de rareza. Eso no significa que el mod haya desaparecido.
+      '{ Mod. de prefijo "certero" (Grado: 5) — Ataque, Precisión }',
       "+233(168-236) a la precisión",
       '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
       "Ganas 8(7-9) de vida por cada enemigo asesinado",
@@ -178,6 +180,7 @@ describe("compareCraftingResult", () => {
     const regal = compareCraftingResult(magic, rareAfterRegal, "regal");
     expect(regal.status).toBe("confirmed");
     expect(regal.identityMatches).toBe(true);
+    expect(regal.removedModifiers).toEqual([]);
     expect(regal.addedModifiers.map((modifier) => modifier.text)).toEqual(["+12 a la fuerza"]);
 
     const exalted = compareCraftingResult(rareAfterRegal, rareAfterExalted, "exalted");

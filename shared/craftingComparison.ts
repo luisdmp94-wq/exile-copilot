@@ -54,19 +54,18 @@ function normalized(value: string): string {
 /**
  * Firma estable de un modificador copiado del juego.
  *
- * Los ids del importador son nuevos en cada pegado y no pueden compararse.
- * La firma conserva en cambio el texto y la clasificación observables. No
- * intenta resolver ids internos de PoE2 ni agrupar líneas por una mecánica que
- * no esté presente en el texto.
+ * Los ids del importador son nuevos en cada pegado y no pueden compararse. Los
+ * nombres localizados, el grado y las etiquetas de la cabecera tampoco forman
+ * parte de la identidad del efecto: el cliente puede completar o reformatear
+ * esos metadatos al cambiar la rareza. Para decidir si un mod sobrevivió solo
+ * usamos lo que la moneda debe conservar: tipo, posición y texto del efecto.
+ * Los flags especiales (fabricado, profanado...) se validan por separado
+ * cuando la acción concreta los exige.
  */
 function modifierSignature(modifier: Modifier): string {
   return [
     modifier.kind,
     modifier.affix ?? "",
-    modifier.name ?? "",
-    modifier.tier?.toString() ?? "",
-    modifier.crafted ? "crafted" : "",
-    modifier.desecrated ? "desecrated" : "",
     normalized(modifier.text),
   ].join("|");
 }
