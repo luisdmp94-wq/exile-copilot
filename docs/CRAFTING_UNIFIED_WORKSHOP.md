@@ -7,7 +7,7 @@
 
 `CraftingSection` es ahora un enrutador delgado:
 
-- **Quiero aprender crafting** → la Academia básica, sin cambios de alcance.
+- **Quiero aprender crafting** → la Academia, con recorridos Básico y Avanzado.
 - **Ayúdame con mi objeto** → `CraftingCoach`, el modo por defecto.
 
 Ambos comparten la pieza seleccionada. Ninguno desmonta al otro: cambiar de

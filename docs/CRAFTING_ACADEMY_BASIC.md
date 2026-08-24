@@ -81,8 +81,9 @@ expediente, el diario ni las sesiones de crafting.
 
 ## Límites conocidos
 
-- Solo nivel básico. Medio y avanzado aparecen como «próximamente», sin
-  describir mecánicas ni abrir pantallas vacías.
+- Este documento cubre solo el nivel básico. El selector también ofrece el
+  nivel avanzado documentado en `CRAFTING_ACADEMY_ADVANCED.md`; el nivel medio
+  permanece desactivado como «próximamente».
 - La prueba mide comprensión de estas lecciones. El resultado dice
   explícitamente que **no** es una probabilidad de crafting ni una valoración.
 - «Parar» se enseña con dos causas distintas —límite alcanzado y falta de

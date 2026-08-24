@@ -1,5 +1,5 @@
 /**
- * Prueba de navegador de la ACADEMIA DE CRAFTING — NIVEL BÁSICO.
+ * Prueba de navegador de la ACADEMIA DE CRAFTING — BÁSICO Y AVANZADO.
  *
  * Uso:
  *   node scripts/academy-smoke.mjs                      → producción (requiere build previo)
@@ -12,7 +12,7 @@
  *
  * COMPROBACIONES:
  *   1. La entrada a Crafting ofrece las dos opciones reales.
- *   2. La Academia se abre sin exigir personaje.
+ *   2. La Academia se abre sin exigir personaje y permite cambiar de nivel.
  *   3. Cada situación muestra objeto, una pregunta y entre 2 y 4 decisiones.
  *   4. Un fallo se corrige con color Y texto, y no bloquea el recorrido.
  *   5. Un acierto se confirma con color Y texto.
@@ -25,7 +25,8 @@
  *  12. El banco anterior sigue funcionando igual.
  *  13. 390 px sin desbordamiento horizontal.
  *  14. Teclado, foco tras responder y prefers-reduced-motion.
- *  15. Sin peticiones externas ni errores de consola relevantes.
+ *  15. El nivel avanzado recorre contrato, protección, salida y riesgos.
+ *  16. Sin peticiones externas ni errores de consola relevantes.
  */
 import { spawn, execSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
@@ -198,6 +199,56 @@ async function runFlow(mode, port) {
       `[${mode}] la Academia se abre sin exigir personaje`,
       (await academia.getAttribute("data-stage")) === "intro" &&
         (await page.getByTestId("academia-indice").locator("li").count()) === 5,
+    );
+
+    // --- 1b. Nivel avanzado completo ------------------------------------
+    check(
+      `[${mode}] el selector ofrece Básico y Avanzado sin habilitar Medio`,
+      (await page.getByTestId("academia-nivel-basico").isVisible()) &&
+        (await page.getByTestId("academia-nivel-avanzado").isVisible()) &&
+        (await page.getByRole("button", { name: "Nivel medio, en preparación" }).isDisabled()),
+    );
+    await page.getByTestId("academia-nivel-avanzado").click();
+    const avanzada = page.getByTestId("academia-avanzada");
+    await avanzada.waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el nivel avanzado presenta seis casos y su evidencia`,
+      (await avanzada.getAttribute("data-stage")) === "intro" &&
+        (await page.getByTestId("academia-avanzada-indice").locator("li").count()) === 6 &&
+        (await avanzada.innerText()).includes("casos son sintéticos"),
+    );
+    await page.getByTestId("academia-avanzada-empezar").click();
+    const respuestasAvanzadas = [
+      "av-definir-salida",
+      "av-aumento",
+      "av-pedir-tooltip",
+      "av-parar",
+      "av-recopiar",
+      "av-comparar",
+    ];
+    for (const opcion of respuestasAvanzadas) {
+      await page.getByTestId(`academia-avanzada-opcion-${opcion}`).click();
+      const feedback = page.getByTestId("academia-avanzada-feedback");
+      await feedback.waitFor({ timeout: 10000 });
+      check(
+        `[${mode}] caso avanzado ${opcion} se corrige con evidencia`,
+        (await feedback.getAttribute("data-result")) === "correcto" &&
+          (await feedback.innerText()).includes("Idea que te llevas"),
+      );
+      await page.getByTestId("academia-avanzada-continuar").click();
+    }
+    await page.getByTestId("academia-avanzada-resultado").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el nivel avanzado termina y permite llevarlo al laboratorio`,
+      (await avanzada.getAttribute("data-stage")) === "results" &&
+        (await page.getByTestId("academia-avanzada-resultado").innerText()).includes("6 de 6") &&
+        (await page.getByTestId("academia-avanzada-practicar").isVisible()),
+    );
+    await page.getByRole("button", { name: "Volver a niveles" }).click();
+    await page.getByTestId("academia-crafting").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] volver desde Avanzado conserva el nivel básico disponible`,
+      (await page.getByTestId("academia-crafting").getAttribute("data-stage")) === "intro",
     );
 
     // --- 2. Recorrido de lecciones ---------------------------------------
@@ -570,7 +621,7 @@ console.log(
 );
 console.log(
   failures === 0
-    ? `\nACADEMIA — NIVEL BÁSICO: ${total}/${total} COMPROBACIONES PASARON`
-    : `\nACADEMIA — NIVEL BÁSICO: ${failures} de ${total} COMPROBACIONES FALLARON`,
+    ? `\nACADEMIA — BÁSICO Y AVANZADO: ${total}/${total} COMPROBACIONES PASARON`
+    : `\nACADEMIA — BÁSICO Y AVANZADO: ${failures} de ${total} COMPROBACIONES FALLARON`,
 );
 process.exit(failures === 0 ? 0 : 1);

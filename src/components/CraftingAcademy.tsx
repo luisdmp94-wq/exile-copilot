@@ -14,6 +14,7 @@ import {
   type AcademyScenario,
 } from "@shared/craftingAcademy.js";
 import { AcademyItemBoard } from "@/components/AcademyItemBoard";
+import { CraftingAdvancedAcademy } from "@/components/CraftingAdvancedAcademy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -210,7 +211,7 @@ function ScenarioView({
 }
 
 /** Nivel básico de la Academia: una situación, una pregunta, una corrección. */
-export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) {
+function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) {
   const academy = useCraftingAcademy();
   const [confirmingRestart, setConfirmingRestart] = useState(false);
 
@@ -314,9 +315,6 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
           {academy.hasProgress && restartButton}
         </div>
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          Nivel medio y nivel avanzado: <strong className="font-medium">próximamente</strong>.
-        </p>
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
           {CRAFTING_ACADEMY_EVIDENCE}
         </p>
@@ -466,5 +464,59 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
       </div>
       {restartDialog}
     </section>
+  );
+}
+
+/** Selector de niveles: el básico conserva su progreso y el avanzado es independiente. */
+export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) {
+  const [level, setLevel] = useState<"basic" | "advanced">("basic");
+
+  return (
+    <div className="min-w-0 space-y-3">
+      <nav
+        className="flex flex-wrap items-center gap-1 rounded-md border border-border/70 bg-background/65 p-1"
+        aria-label="Nivel de la Academia"
+        data-testid="academia-niveles"
+      >
+        <button
+          type="button"
+          onClick={() => setLevel("basic")}
+          data-testid="academia-nivel-basico"
+          data-active={level === "basic" ? "true" : "false"}
+          className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${level === "basic" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"}`}
+        >
+          Básico
+        </button>
+        <button
+          type="button"
+          disabled
+          className="cursor-not-allowed rounded px-3 py-2 text-xs font-semibold text-muted-foreground opacity-50"
+          aria-label="Nivel medio, en preparación"
+        >
+          Medio · Próximamente
+        </button>
+        <button
+          type="button"
+          onClick={() => setLevel("advanced")}
+          data-testid="academia-nivel-avanzado"
+          data-active={level === "advanced" ? "true" : "false"}
+          className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${level === "advanced" ? "bg-cyan-500/15 text-cyan-200" : "text-cyan-300/75 hover:bg-cyan-500/[0.08] hover:text-cyan-100"}`}
+        >
+          Avanzado · Nuevo
+        </button>
+        <span className="ml-auto hidden px-2 text-[11px] text-muted-foreground sm:inline">
+          Cambia de nivel sin tocar tu personaje
+        </span>
+      </nav>
+
+      {level === "advanced" ? (
+        <CraftingAdvancedAcademy
+          onBack={() => setLevel("basic")}
+          onPracticeWithMyItem={onPracticeWithMyItem}
+        />
+      ) : (
+        <BasicCraftingAcademy onPracticeWithMyItem={onPracticeWithMyItem} />
+      )}
+    </div>
   );
 }
