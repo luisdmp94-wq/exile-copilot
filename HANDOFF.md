@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 39,
+> Informe para el propietario. Última actualización: sesión 40,
 > 2026-08-24.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,29 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 40 — plano experto de Crafting
+
+- El laboratorio ya no repite un comparador decorativo. Muestra un único
+  contrato operativo: resultado buscado, líneas que no se deben sacrificar,
+  condición de salida y rutas desde el estado actual.
+- Cada ruta explica la consecuencia estructural: mantener o cambiar etapa,
+  ocupar un hueco o entrar en reemplazo. Los detalles de conservación e
+  incertidumbre quedan plegados.
+- Si Aumento y Regio son legales a la vez, propone Aumento primero porque
+  conserva Regio como opción futura. No llama a esa ruta “mejor” ni inventa
+  probabilidades.
+- En una pieza rara llena, Essence y Alloy quedan como decisiones manuales que
+  exigen tooltip. Si hay líneas intocables, el plano no promete conservarlas.
+- Si falta objetivo o parada, las rutas no se pueden ejecutar. Si la pieza ya
+  cumple la salida, el plano detiene el gasto.
+
+Verificación: TypeScript sin errores; **547/547** pruebas; build correcto;
+taller de Crafting **84/84** en producción y desarrollo/Strict Mode; revisión
+manual en escritorio y 390×844. Los archivos del parche pasan ESLint. El lint
+global conserva 13 diagnósticos preexistentes fuera de este bloque.
+
+Documento: `docs/CRAFTING_EXPERT_BLUEPRINT.md`.
 
 ## Sesión 39 — Mentor v3 fundamentado y conversacional
 

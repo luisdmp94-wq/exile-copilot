@@ -334,7 +334,8 @@ async function runFlow(mode, port) {
       `[${mode}] el laboratorio avanzado muestra las cinco decisiones y compara rutas`,
       (await page.getByTestId("crafting-workspace").innerText()).includes("Laboratorio avanzado") &&
         (await page.getByTestId("crafting-laboratory-status").locator("li").count()) === 5 &&
-        (await page.getByTestId("crafting-route-comparison").isVisible()),
+        (await page.getByTestId("crafting-route-comparison").isVisible()) &&
+        (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "needs-objective",
     );
     await page.getByRole("radio", { name: "Daño", exact: true }).click();
     await page.getByTestId("crafting-success-exact-toggle").click();
@@ -353,6 +354,8 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] si la pieza ya cumple la parada, el laboratorio frena otra inversión`,
       (await page.getByTestId("crafting-base-verdict").innerText()).includes("objetivo ya está cumplido") &&
+        (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete" &&
+        (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("PARAR CUANDO") &&
         (await page.getByTestId("crafting-route-comparison").getByRole("button").first().isEnabled()) === false,
     );
     await page.screenshot({ path: join(SHOT_DIR, `taller-laboratorio-${mode}.png`), fullPage: false });

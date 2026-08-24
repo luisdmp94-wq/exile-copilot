@@ -6,6 +6,7 @@ import {
   type StartCraftingDecision,
 } from "@shared/craftingActions.js";
 import type { StartAlloyDecision } from "@shared/craftingAlloys.js";
+import { buildExpertCraftingBlueprint } from "@shared/craftingBlueprint.js";
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import {
   buildCraftingRoute,
@@ -21,6 +22,7 @@ import {
 } from "@shared/craftingEssences.js";
 import type { GoalKind, Item } from "@shared/domain.js";
 import { AlloyPlanner } from "@/components/AlloyPlanner";
+import { CraftingExpertBlueprint } from "@/components/CraftingExpertBlueprint";
 import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
 import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
 import { CraftingSuccessCriteriaPicker } from "@/components/CraftingSuccessCriteriaPicker";
@@ -222,6 +224,15 @@ export function CraftingActionPlanner({
     resultItem: item,
   });
   const stopAlreadyReached = currentSuccessAssessment.status === "fulfilled";
+  const expertBlueprint = buildExpertCraftingBlueprint({
+    item,
+    diagnosis: crafting,
+    evaluations: craftingActions,
+    route,
+    objective: resolvedDesiredOutcome,
+    protectedModifierIds,
+    successCriteria,
+  });
   const confirmationReady =
     resolvedDesiredOutcome.length >= 3 &&
     successCriteriaReady &&
@@ -662,11 +673,12 @@ export function CraftingActionPlanner({
           </section>
           )}
         </details>
-        <div
-          className="rounded-sm border-l-2 border-primary bg-primary/[0.06] px-3 py-3"
-          data-testid="crafting-route"
-          data-route-state={route.state}
-        >
+        {experience !== "laboratory" && (
+          <div
+            className="rounded-sm border-l-2 border-primary bg-primary/[0.06] px-3 py-3"
+            data-testid="crafting-route"
+            data-route-state={route.state}
+          >
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
             {route.eyebrow}
           </p>
@@ -732,73 +744,21 @@ export function CraftingActionPlanner({
               </Button>
             )}
           </div>
-        </div>
+          </div>
+        )}
         {experience === "laboratory" && (
-          <section
-            className="rounded-md border border-border/80 bg-background/30 p-3"
-            data-testid="crafting-route-comparison"
-            aria-labelledby={`crafting-route-comparison-title-${item.id}`}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300/75">
-                  Comparador de rutas
-                </p>
-                <h4 id={`crafting-route-comparison-title-${item.id}`} className="mt-1 text-sm font-semibold">
-                  Lo que puedes intentar desde este estado
-                </h4>
-              </div>
-              <span className="text-[11px] text-muted-foreground">No ordena una ruta como “mejor”</span>
-            </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {route.currencyActions.map((routeAction) => {
-                const evaluation = craftingActions.find((entry) => entry.action.id === routeAction.id);
-                if (!evaluation) return null;
-                return (
-                  <article key={routeAction.id} className="rounded border border-emerald-500/30 bg-emerald-500/[0.045] p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <strong className="text-sm text-foreground">{routeAction.label}</strong>
-                      <span className="text-[10px] font-semibold uppercase text-emerald-300">Legal</span>
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">{evaluation.action.effect}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
-                      <span className="rounded-full border border-border px-2 py-0.5">Dirección: aleatoria</span>
-                      <span className="rounded-full border border-border px-2 py-0.5">Coste: 1 uso</span>
-                      <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-amber-200">Precio: sin verificar</span>
-                    </div>
-                    <Button className="mt-3" type="button" size="sm" variant="outline" disabled={stopAlreadyReached} onClick={() => prepareCurrencyAction(routeAction)}>
-                      {stopAlreadyReached ? "Parada ya cumplida" : "Preparar esta ruta"}
-                    </Button>
-                  </article>
-                );
-              })}
-              {route.toolSuggestions.map((tool) => (
-                <article key={tool} className="rounded border border-amber-500/30 bg-amber-500/[0.04] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-sm text-foreground">{tool === "essence" ? "Essence" : "Alloy"}</strong>
-                    <span className="text-[10px] font-semibold uppercase text-amber-300">Requiere tooltip</span>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Puede reemplazar una línea. La compatibilidad y el riesgo se calculan después de copiar el efecto real.
-                  </p>
-                  <Button className="mt-3" type="button" size="sm" variant="outline" disabled={stopAlreadyReached} onClick={() => {
-                    if (replacementNeedsConsent) setShowReplacementRisk(true);
-                    openTool(tool);
-                  }}>
-                    {stopAlreadyReached ? "Parada ya cumplida" : "Evaluar esta ruta"}
-                  </Button>
-                </article>
-              ))}
-              {route.currencyActions.length === 0 && route.toolSuggestions.length === 0 && (
-                <p className="rounded border border-rose-500/30 bg-rose-500/[0.04] p-3 text-xs text-rose-100 sm:col-span-2">
-                  No hay una ruta confirmada con el snapshot actual. Completa la pieza antes de gastar.
-                </p>
-              )}
-            </div>
-            <p className="mt-3 text-[11px] text-muted-foreground">
-              Sin pool exhaustivo no se muestran probabilidades, intentos esperados ni coste total.
-            </p>
-          </section>
+          <CraftingExpertBlueprint
+            blueprint={expertBlueprint}
+            disabled={stopAlreadyReached}
+            onChooseRoute={(selectedRoute) => {
+              if (selectedRoute.id === "essence" || selectedRoute.id === "alloy") {
+                if (replacementNeedsConsent) setShowReplacementRisk(true);
+                openTool(selectedRoute.id);
+                return;
+              }
+              prepareCurrencyAction({ id: selectedRoute.id, label: selectedRoute.label });
+            }}
+          />
         )}
         <div
           className="flex flex-wrap gap-2 text-[11px]"
