@@ -100,6 +100,16 @@ type EditorPrompt = "memory" | "new" | "item" | null;
 const PANEL_CLASSES =
   "flex flex-col gap-6 focus-visible:outline-none data-[state=inactive]:hidden";
 
+function deferEffect(task: () => void): () => void {
+  let cancelled = false;
+  queueMicrotask(() => {
+    if (!cancelled) task();
+  });
+  return () => {
+    cancelled = true;
+  };
+}
+
 export default function App() {
   const { health, meta, loading: metaLoading, error: metaError } = useMeta();
 
@@ -205,40 +215,46 @@ export default function App() {
   // las recomendaciones y la conversación que se veían ya no corresponden a la
   // memoria vigente y se retiran en lugar de quedar en pantalla.
   useEffect(() => {
-    if (journal.stale) {
-      clear();
-      clearMentor();
-      announceMentor({
-        type: "error",
-        area: "diario",
-        message: "El diario cambió en otra pestaña. He retirado el diagnóstico anterior.",
-      });
-    }
+    return deferEffect(() => {
+      if (journal.stale) {
+        clear();
+        clearMentor();
+        announceMentor({
+          type: "error",
+          area: "diario",
+          message: "El diario cambió en otra pestaña. He retirado el diagnóstico anterior.",
+        });
+      }
+    });
   }, [journal.stale, clear, clearMentor, announceMentor]);
 
   const hasProfile = character.profile !== null;
 
   // Valores por defecto en cuanto llegan /api/meta y /api/health.
   useEffect(() => {
-    if (meta && !league && meta.leagues.length > 0) {
-      setLeague(meta.leagues[0]);
-    }
-    if (!patch) {
-      if (meta && meta.patches.length > 0) {
-        setPatch(meta.patches[0].id);
-      } else if (health) {
-        setPatch(health.patch.content);
+    return deferEffect(() => {
+      if (meta && !league && meta.leagues.length > 0) {
+        setLeague(meta.leagues[0]);
       }
-    }
+      if (!patch) {
+        if (meta && meta.patches.length > 0) {
+          setPatch(meta.patches[0].id);
+        } else if (health) {
+          setPatch(health.patch.content);
+        }
+      }
+    });
   }, [meta, health, league, patch]);
 
   // Si el perfil importado/restaurado trae liga y parche propios, respetarlos.
   useEffect(() => {
-    const profile = character.profile;
-    if (profile) {
-      setLeague(profile.league || league);
-      setPatch(profile.patch || patch);
-    }
+    return deferEffect(() => {
+      const profile = character.profile;
+      if (profile) {
+        setLeague(profile.league || league);
+        setPatch(profile.patch || patch);
+      }
+    });
     // Solo reacciona al cambio de perfil cargado, no a cada edición de campos.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character.profile?.id]);
@@ -258,15 +274,17 @@ export default function App() {
       )
     : null;
   useEffect(() => {
-    if (resultInputsKey && resultInputsKey !== currentInputsKey) {
-      if (budgetCueTimerRef.current !== null) {
-        window.clearTimeout(budgetCueTimerRef.current);
-        budgetCueTimerRef.current = null;
+    return deferEffect(() => {
+      if (resultInputsKey && resultInputsKey !== currentInputsKey) {
+        if (budgetCueTimerRef.current !== null) {
+          window.clearTimeout(budgetCueTimerRef.current);
+          budgetCueTimerRef.current = null;
+        }
+        clear();
+        toast.info("Los datos han cambiado — vuelve a generar las recomendaciones");
+        announceMentor({ type: "invalidated" });
       }
-      clear();
-      toast.info("Los datos han cambiado — vuelve a generar las recomendaciones");
-      announceMentor({ type: "invalidated" });
-    }
+    });
   }, [currentInputsKey, resultInputsKey, clear, announceMentor]);
 
   // La conversación NO se persiste y se descarta en cuanto cambian los inputs
@@ -855,49 +873,59 @@ export default function App() {
   const contextualProfileId = character.profile?.id ?? null;
   const contextualProfileName = character.profile?.name ?? null;
   useEffect(() => {
-    if (contextualProfileId && contextualProfileName) {
-      announceMentor({ type: "ready", profileName: contextualProfileName });
-    } else if (!character.restoring) {
-      announceMentor({ type: "welcome" });
-    }
+    return deferEffect(() => {
+      if (contextualProfileId && contextualProfileName) {
+        announceMentor({ type: "ready", profileName: contextualProfileName });
+      } else if (!character.restoring) {
+        announceMentor({ type: "welcome" });
+      }
+    });
     // Solo anuncia una carga real de perfil; renombrarlo no equivale a cargarlo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextualProfileId, character.restoring, announceMentor]);
 
   useEffect(() => {
-    if (recommendations.result) {
-      announceMentor({
-        type: "recommendations",
-        recommendations: recommendations.result.recommendations,
-      });
-    }
+    return deferEffect(() => {
+      if (recommendations.result) {
+        announceMentor({
+          type: "recommendations",
+          recommendations: recommendations.result.recommendations,
+        });
+      }
+    });
   }, [recommendations.result, announceMentor]);
 
   useEffect(() => {
-    if (market.prices) {
-      announceMentor({
-        type: "market",
-        quoteCount: market.prices.quotes.length,
-        verifiedCount: market.prices.quotes.filter((quote) => quote.verified).length,
-        degraded: market.prices.degraded,
-      });
-    }
+    return deferEffect(() => {
+      if (market.prices) {
+        announceMentor({
+          type: "market",
+          quoteCount: market.prices.quotes.length,
+          verifiedCount: market.prices.quotes.filter((quote) => quote.verified).length,
+          degraded: market.prices.degraded,
+        });
+      }
+    });
   }, [market.prices, announceMentor]);
 
   useEffect(() => {
-    if (market.error) {
-      announceMentor({ type: "error", area: "mercado", message: market.error });
-    }
+    return deferEffect(() => {
+      if (market.error) {
+        announceMentor({ type: "error", area: "mercado", message: market.error });
+      }
+    });
   }, [market.error, announceMentor]);
 
   useEffect(() => {
-    if (recommendations.error) {
-      announceMentor({
-        type: "error",
-        area: "recomendaciones",
-        message: recommendations.error,
-      });
-    }
+    return deferEffect(() => {
+      if (recommendations.error) {
+        announceMentor({
+          type: "error",
+          area: "recomendaciones",
+          message: recommendations.error,
+        });
+      }
+    });
   }, [recommendations.error, announceMentor]);
 
   useEffect(
@@ -1391,7 +1419,7 @@ export default function App() {
         cue={contextualCue}
         answer={contextualAnswer}
         error={contextualError}
-        loading={contextualLoadingSeq === contextualSeqRef.current}
+        loading={contextualLoadingSeq !== null}
         canAsk={character.profile !== null}
         collapsed={contextualCollapsed}
         onCollapsedChange={setContextualCollapsed}

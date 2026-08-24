@@ -91,28 +91,32 @@ export function useJournal(characterId: string | null): JournalState {
 
   useEffect(() => {
     let cancelled = false;
-    if (characterId === null) {
-      setJournal(null);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (characterId === null) {
+        setJournal(null);
+        setLoading(false);
+        setError(null);
+        setStale(false);
+        return;
+      }
+      setLoading(true);
       setError(null);
-      setStale(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    api
-      .journal(characterId)
-      .then((value) => {
-        if (!cancelled) {
-          setJournal(value);
-          setStale(false);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(getErrorMessage(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      api
+        .journal(characterId)
+        .then((value) => {
+          if (!cancelled) {
+            setJournal(value);
+            setStale(false);
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) setError(getErrorMessage(err));
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    });
     return () => {
       cancelled = true;
     };

@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 43,
+> Informe para el propietario. Última actualización: sesión 44,
 > 2026-08-24.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,28 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 44 — estabilización antes de probar jugando
+
+- El barrido completo de calidad queda por primera vez en **cero errores de
+  ESLint**. Se corrigieron los 13 avisos heredados de React 19 sin cambiar el
+  diseño, las reglas de juego ni los recorridos del producto.
+- La detección móvil nace con el valor correcto y reacciona directamente al
+  cambio de breakpoint, evitando un render inicial innecesario.
+- El diario cancela correctamente una carga anterior si cambia el personaje o
+  el componente se desmonta. La restauración sigue funcionando bajo Strict
+  Mode sin dejar estados de carga atascados.
+- El carrusel elimina ahora todos sus listeners al desmontarse; antes quedaba
+  suscrito a `reInit`. Los anuncios del mentor, los valores por defecto y las
+  invalidaciones se difieren de forma cancelable para evitar cascadas de
+  renderizado. El indicador de carga del mentor ya no lee una ref durante el
+  render.
+
+Verificación: TypeScript y ESLint global sin errores; **566/566** pruebas;
+build de producción correcto; flujo principal **42/42**, mentor **94/94**,
+diario **58/58**, taller de Crafting **90/90** y Academia **120/120**, todos en
+producción y desarrollo/Strict Mode. Revisión adicional en `localhost:7201`
+sin errores ni avisos de consola.
 
 ## Sesión 43 — objetivos concretos y líneas protegidas
 
