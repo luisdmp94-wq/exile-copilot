@@ -153,6 +153,56 @@ describe("itemTextParser", () => {
     expect(item.craftingState).toBeDefined();
   });
 
+  it("acepta un prefijo sin nombre localizado y requisitos incumplidos del texto real", () => {
+    const text = [
+      "Clase de objeto: Mazas a una mano",
+      "Rareza: Mágico",
+      "Maza de procesión  de victoria",
+      "------------------------------",
+      "",
+      "Daño físico: 33-69",
+      "Probabilidad de impacto crítico: 5.00%",
+      "Ataques por segundo: 1.40",
+      "-------------------------",
+      "",
+      "## Requiere: Nivel 54, 96 (unmet) Fue",
+      "",
+      "## Nivel de objeto: 64",
+      "",
+      '{ Mod. de prefijo "" (Grado: 4) — Ataque }',
+      "+233(168-236) a la precisión",
+      '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+      "Ganas 8(7-9) de vida por cada enemigo asesinado",
+    ].join("\n");
+
+    const { item, warnings } = parseItemText(text);
+
+    expect(warnings).toEqual([]);
+    expect(item).toMatchObject({
+      itemClass: "Mazas a una mano",
+      rarity: "magic",
+      itemLevel: 64,
+      requirements: { level: 54, str: 96 },
+    });
+    expect(item.modifiers).toHaveLength(2);
+    expect(item.modifiers[0]).toMatchObject({
+      kind: "explicit",
+      affix: "prefix",
+      tier: 4,
+      tags: ["Ataque"],
+      text: "+233(168-236) a la precisión",
+    });
+    expect(item.modifiers[0]).not.toHaveProperty("name");
+    expect(item.modifiers[1]).toMatchObject({
+      kind: "explicit",
+      affix: "suffix",
+      name: "de victoria",
+      tier: 7,
+      tags: ["Vida"],
+    });
+    expect(item.craftingState).toBeDefined();
+  });
+
   it("agrupa afijos multilínea del texto avanzado real en español", () => {
     const { item, warnings } = parseItemText(spanishAdvancedCrossbow);
 

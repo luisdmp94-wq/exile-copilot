@@ -175,7 +175,11 @@ function parseAdvancedModifierHeader(line: string): AdvancedModifierHeader | nul
     return { kind: "implicit" };
   }
 
-  const match = /^\{\s*(?:mod\.|modifier)\s+(?:de\s+)?(prefijo|sufijo|prefix|suffix)\s+"([^"]+)"([\s\S]*?)\}$/i.exec(
+  // Algunos afijos no tienen nombre localizado y el cliente los serializa
+  // literalmente como `Mod. de prefijo ""`. Las comillas vacías siguen siendo
+  // una cabecera estructural válida: el tipo, el grado y las etiquetas sí
+  // están presentes y no debemos convertir la cabecera en un tercer mod.
+  const match = /^\{\s*(?:mod\.|modifier)\s+(?:de\s+)?(prefijo|sufijo|prefix|suffix)\s+"([^"]*)"([\s\S]*?)\}$/i.exec(
     line,
   );
   if (!match) return null;
@@ -189,10 +193,12 @@ function parseAdvancedModifierHeader(line: string): AdvancedModifierHeader | nul
     .map((tag) => tag.trim())
     .filter(Boolean);
 
+  const localizedName = (match[2] ?? "").trim();
+
   return {
     kind: "explicit",
     affix: localizedAffix === "prefijo" || localizedAffix === "prefix" ? "prefix" : "suffix",
-    name: (match[2] ?? "").trim(),
+    ...(localizedName.length > 0 ? { name: localizedName } : {}),
     ...(tierMatch ? { tier: Number.parseInt(tierMatch[1] ?? "0", 10) } : {}),
     ...(tags && tags.length > 0 ? { tags } : {}),
     ...(/\bde fabricación\b|\bcrafted\b/i.test(details) ? { crafted: true } : {}),
@@ -221,9 +227,9 @@ function parseRequirementsLine(
     [/(?:fue|fuerza|str)\s*:?\s*(\d+)/i, "str"],
     [/(?:des|destreza|dex)\s*:?\s*(\d+)/i, "dex"],
     [/(?:int|inteligencia)\s*:?\s*(\d+)/i, "int"],
-    [/(\d+)\s*(?:fue|fuerza|str)\b/i, "str"],
-    [/(\d+)\s*(?:des|destreza|dex)\b/i, "dex"],
-    [/(\d+)\s*(?:int|inteligencia)\b/i, "int"],
+    [/(\d+)(?:\s*\([^)]*\))?\s*(?:fue|fuerza|str)\b/i, "str"],
+    [/(\d+)(?:\s*\([^)]*\))?\s*(?:des|destreza|dex)\b/i, "dex"],
+    [/(\d+)(?:\s*\([^)]*\))?\s*(?:int|inteligencia)\b/i, "int"],
   ];
   for (const [pattern, key] of localizedKeys) {
     const match = pattern.exec(line);

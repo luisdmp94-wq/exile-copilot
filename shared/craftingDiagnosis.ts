@@ -93,6 +93,9 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
       `${unclassifiedExplicitCount} modificador${unclassifiedExplicitCount === 1 ? "" : "es"} ` +
         `explícito${unclassifiedExplicitCount === 1 ? "" : "s"} sin clasificar como prefijo o sufijo.`,
     );
+    for (const modifier of explicit.filter((candidate) => candidate.affix === undefined)) {
+      blockers.push(`Línea sin clasificar: «${modifier.text}».`);
+    }
   }
 
   const legalStateBlocked = Boolean(

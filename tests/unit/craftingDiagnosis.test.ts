@@ -122,6 +122,9 @@ describe("diagnoseCraftingItem", () => {
     expect(diagnosis.state).toBe("partial");
     expect(diagnosis.unclassifiedExplicitCount).toBe(1);
     expect(diagnosis.blockers[0]).toContain("sin clasificar");
+    expect(diagnosis.blockers).toContain(
+      "Línea sin clasificar: «+20 a la vida máxima».",
+    );
     expect(diagnosis.nextAction).toContain("Ctrl+Alt+C");
     expect(diagnosis.nextAction).toContain("prefijo y sufijo");
   });
