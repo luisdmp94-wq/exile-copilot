@@ -110,6 +110,92 @@ export interface CoachDirectionGuess {
   reason: string;
 }
 
+export interface CoachGoalInterpretation {
+  direction: CoachDirection | null;
+  /** Texto breve y honesto que explica qué entendió —o qué falta aclarar—. */
+  reason: string;
+}
+
+const DAMAGE_GOAL_WORDS = [
+  "dano",
+  "dps",
+  "ataque",
+  "critico",
+  "precision",
+  "proyectil",
+  "proyectiles",
+  "flecha",
+  "flechas",
+  "velocidad de ataque",
+] as const;
+
+const DEFENCE_GOAL_WORDS = [
+  "defensa",
+  "defensivo",
+  "vida",
+  "armadura",
+  "evasion",
+  "escudo de energia",
+  "resistencia",
+  "resistencias",
+  "aguantar",
+  "supervivencia",
+  "tanque",
+] as const;
+
+function normalizeGoalText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Interpreta únicamente la DIRECCIÓN general escrita por el jugador.
+ *
+ * No convierte texto libre en una receta ni adivina mods. Si aparecen dos
+ * direcciones o ninguna señal reconocible, devuelve `null` para que la
+ * interfaz pida una aclaración antes de recomendar un gasto.
+ */
+export function interpretCoachGoal(value: string): CoachGoalInterpretation {
+  const normalized = normalizeGoalText(value);
+  if (normalized === "") {
+    return {
+      direction: null,
+      reason: "Cuéntame qué te gustaría conseguir con esta pieza.",
+    };
+  }
+
+  const damage = DAMAGE_GOAL_WORDS.some((word) => normalized.includes(word));
+  const defence = DEFENCE_GOAL_WORDS.some((word) => normalized.includes(word));
+
+  if (damage && defence) {
+    return {
+      direction: null,
+      reason: "Veo un objetivo de daño y otro de defensa. Elige cuál quieres trabajar primero.",
+    };
+  }
+  if (damage) {
+    return {
+      direction: "damage",
+      reason: "He entendido que primero quieres trabajar el daño.",
+    };
+  }
+  if (defence) {
+    return {
+      direction: "defence",
+      reason: "He entendido que primero quieres trabajar la defensa.",
+    };
+  }
+  return {
+    direction: null,
+    reason:
+      "Entiendo tus palabras, pero no puedo convertirlas con seguridad en una dirección de crafting. Aclaremos primero si buscas daño o defensa.",
+  };
+}
+
 const DIRECTION_CATEGORY: Record<CoachDirection, CraftingGoalCategory> = {
   damage: "damage",
   defence: "defence",

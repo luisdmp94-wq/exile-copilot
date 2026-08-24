@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   chooseNextStep,
+  interpretCoachGoal,
   readCraftResult,
   suggestDirectionFromCharacter,
   readItemInPlainWords,
@@ -296,6 +297,33 @@ describe("guía de crafting — «No sé qué necesita»", () => {
     // Solo se citan las que están por debajo del umbral.
     expect(guess.reason).not.toContain("frío");
     expect(guess.reason).not.toContain("rayo");
+  });
+});
+
+describe("guía de crafting — objetivo escrito como jugador", () => {
+  it("entiende objetivos habituales de daño sin convertirlos en una receta", () => {
+    expect(interpretCoachGoal("Quiero que esta ballesta haga más daño físico")).toEqual({
+      direction: "damage",
+      reason: "He entendido que primero quieres trabajar el daño.",
+    });
+    expect(interpretCoachGoal("Busco crítico y velocidad de ataque").direction).toBe("damage");
+  });
+
+  it("entiende objetivos defensivos con y sin tildes", () => {
+    expect(interpretCoachGoal("Necesito más vida y resistencias").direction).toBe("defence");
+    expect(interpretCoachGoal("Quiero mas evasion").direction).toBe("defence");
+  });
+
+  it("pide elegir una prioridad cuando el objetivo mezcla dos direcciones", () => {
+    const result = interpretCoachGoal("Quiero más daño pero también resistencias");
+    expect(result.direction).toBeNull();
+    expect(result.reason).toContain("cuál quieres trabajar primero");
+  });
+
+  it("no inventa una interpretación cuando el objetivo es demasiado abierto", () => {
+    const result = interpretCoachGoal("Quiero crear el arma definitiva");
+    expect(result.direction).toBeNull();
+    expect(result.reason).toContain("no puedo convertirlas con seguridad");
   });
 });
 

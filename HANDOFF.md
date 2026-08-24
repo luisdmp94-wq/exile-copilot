@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 41,
+> Informe para el propietario. Última actualización: sesión 42,
 > 2026-08-24.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,31 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 42 — bucle natural «preguntar, jugar y volver»
+
+- Crafting deja de empezar obligando al jugador a traducir su intención a un
+  formulario técnico. Ahora pregunta **«¿Qué quieres conseguir con esta
+  pieza?»** y acepta una respuesta natural. La interpretación segura inicial
+  distingue daño y defensa; una intención ambigua o desconocida pide aclaración
+  en vez de inventar una receta.
+- El guía conserva el objetivo escrito por el jugador, lo cruza con la pieza
+  observada y presenta una sola próxima acción, una petición concreta de datos
+  o una parada. La explicación extensa y los posibles resultados quedan
+  plegados para que la pantalla principal siga siendo operativa.
+- Al pegar el objeto después de actuar en el juego, el comparador mantiene el
+  objetivo original, explica qué cambió y envía al mentor contextual el
+  resultado y el siguiente paso. El producto acompaña el ciclo; no intenta
+  reproducir el crafting dentro de la web.
+- El mentor diferencia correctamente entre **hacer una acción**, **aportar un
+  dato que falta** y **detenerse**. No presenta una carencia de información como
+  si fuera aleatoriedad del juego.
+
+Verificación: TypeScript sin errores; **563/563** pruebas; build correcto; guía
+de Crafting **88/88** en producción y desarrollo/Strict Mode; 390 px sin
+desbordamiento. ESLint limpio en los archivos modificados. El barrido global
+conserva 13 errores preexistentes de reglas React en archivos ajenos a esta
+sesión.
 
 ## Sesión 41 — Academia media y plan avanzado comprensible
 

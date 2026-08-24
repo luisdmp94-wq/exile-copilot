@@ -246,6 +246,15 @@ async function abrirPieza(page, itemId, direccion = "damage") {
   await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
 }
 
+/** El mismo recorrido, empezando por lo que escribiría un jugador. */
+async function abrirPiezaConObjetivo(page, itemId, objetivo) {
+  await elegirPieza(page, itemId);
+  await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
+  await page.getByTestId("coach-objetivo-texto").fill(objetivo);
+  await page.getByTestId("coach-interpretar-objetivo").click();
+  await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
+}
+
 /** ¿Se solapan dos rectángulos? */
 function seSolapan(a, b) {
   if (!a || !b) return false;
@@ -366,7 +375,8 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] con piezas importadas el guía muestra la primera sin abrir el banco`,
       (await page.getByTestId("coach-objeto").isVisible()) &&
-        (await page.getByTestId("crafting-workspace").isVisible()) === false,
+        (await page.getByTestId("crafting-workspace").isVisible()) === false &&
+        (await page.getByTestId("coach-objetivo-texto").isVisible()),
     );
     await page.screenshot({ path: join(SHOT_DIR, `taller-objeto-${mode}.png`), fullPage: false });
 
@@ -378,6 +388,19 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el recorrido principal cabe en pocas palabras (${palabras})`,
       palabras <= 90,
+    );
+
+    // Un objetivo libre ambiguo no se convierte en una receta a escondidas.
+    await page.getByTestId("coach-objetivo-texto").fill("Quiero más daño y resistencias");
+    await page.getByTestId("coach-interpretar-objetivo").click();
+    await page.getByTestId("coach-sin-evidencia").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] un objetivo libre ambiguo pide elegir una prioridad antes de gastar`,
+      (await page.getByTestId("coach-sin-evidencia").innerText()).includes(
+        "Elige cuál quieres trabajar primero",
+      ) &&
+        (await page.getByTestId("coach-elegir-damage").isVisible()) &&
+        (await page.getByTestId("coach-elegir-defence").isVisible()),
     );
 
     // --- 3. Pieza normal → una única acción compatible -------------------
@@ -501,7 +524,20 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
 
     // --- 8. Recorrido completo con la ballesta real ----------------------
-    await abrirPieza(page, "taller-ballesta", "damage");
+    await abrirPiezaConObjetivo(
+      page,
+      "taller-ballesta",
+      "Quiero que esta ballesta haga más daño físico",
+    );
+    check(
+      `[${mode}] el objetivo escrito se conserva y se interpreta antes de gastar`,
+      (await page.getByTestId("coach-direccion-elegida").innerText()).includes(
+        "Quiero que esta ballesta haga más daño físico",
+      ) &&
+        (await page.getByTestId("coach-direccion-elegida").innerText()).toLocaleLowerCase("es").includes(
+          "dirección: el daño",
+        ),
+    );
     check(
       `[${mode}] la ballesta real recibe una única acción compatible`,
       (await recomendacion.getAttribute("data-action")) === "exalted",

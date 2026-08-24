@@ -33,8 +33,18 @@ export type ContextualMentorEvent =
   | {
       type: "craftingCoachDirection";
       itemName: string;
+      playerGoal: string;
       directionLabel: string;
       nextStepTitle: string;
+      stepKind: "use-currency" | "needs-data" | "stop";
+    }
+  | {
+      type: "craftingCoachResult";
+      itemName: string;
+      playerGoal: string;
+      headline: string;
+      verdict: "continue" | "stop" | "unclear";
+      nextStepTitle: string | null;
     }
   | {
       type: "craftingGoal";
@@ -160,14 +170,38 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
     case "craftingCoachDirection": {
       const directionTitle = event.directionLabel.charAt(0).toLocaleUpperCase("es") +
         event.directionLabel.slice(1);
+      const message = event.stepKind === "use-currency"
+        ? `Tu objetivo es «${event.playerGoal}». El guía lo ha reducido a «${event.nextStepTitle}». Revisa esa única acción y su aleatoriedad antes de decidir si gastas.`
+        : event.stepKind === "needs-data"
+          ? `Tu objetivo es «${event.playerGoal}». Antes de gastar, el guía necesita «${event.nextStepTitle}». Completa ese dato para no inventar una acción.`
+          : `Tu objetivo es «${event.playerGoal}». El guía recomienda detenerse: «${event.nextStepTitle}». Revisa el motivo antes de cambiar la pieza.`;
+      const question = event.stepKind === "use-currency"
+        ? `Quiero «${event.playerGoal}» con ${event.itemName}. La app propone «${event.nextStepTitle}». ¿Por qué es el siguiente paso legal y qué debo comprobar antes?`
+        : `Quiero «${event.playerGoal}» con ${event.itemName}, pero la app indica «${event.nextStepTitle}». Explícame qué falta o por qué debo parar antes de gastar.`;
       return {
-        id: `crafting-coach:${event.itemName}:${event.directionLabel}:${event.nextStepTitle}`,
+        id: `crafting-coach:${event.itemName}:${event.playerGoal}:${event.nextStepTitle}`,
         source: "engine",
         eyebrow: "Ruta elegida",
         title: `${directionTitle} · ${event.itemName}`,
-        message: `El guía ha reducido el problema a «${event.nextStepTitle}». Revisa esa única acción y su aleatoriedad antes de decidir si gastas.`,
+        message,
         ask: {
-          question: `Estoy trabajando ${event.itemName} para mejorar ${event.directionLabel}. ¿Por qué «${event.nextStepTitle}» es la próxima acción segura y qué debo comprobar antes?`,
+          question,
+          intent: "explain_priority",
+        },
+      };
+    }
+    case "craftingCoachResult": {
+      const next = event.nextStepTitle === null
+        ? "El guía no propone otro gasto todavía."
+        : `La siguiente decisión comprobable es «${event.nextStepTitle}».`;
+      return {
+        id: `crafting-result:${event.itemName}:${event.headline}:${event.verdict}`,
+        source: event.verdict === "continue" ? "engine" : "warning",
+        eyebrow: "Resultado leído",
+        title: event.headline,
+        message: `${next} El objetivo que seguimos es «${event.playerGoal}».`,
+        ask: {
+          question: `Tras craftear ${event.itemName}, el resultado dice «${event.headline}» y el objetivo era «${event.playerGoal}». ${next} Explícame por qué debo continuar o parar.`,
           intent: "explain_priority",
         },
       };

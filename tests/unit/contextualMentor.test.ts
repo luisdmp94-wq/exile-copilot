@@ -70,14 +70,48 @@ describe("mentor contextual", () => {
     const cue = contextualMentorCue({
       type: "craftingCoachDirection",
       itemName: "Núcleo de fénix",
+      playerGoal: "quiero que haga más daño físico",
       directionLabel: "el daño",
       nextStepTitle: "Orbe exaltado",
+      stepKind: "use-currency",
     });
 
     expect(cue.title).toContain("Núcleo de fénix");
     expect(cue.message).toContain("Orbe exaltado");
+    expect(cue.message).toContain("más daño físico");
     expect(cue.ask?.question).toContain("Núcleo de fénix");
     expect(cue.ask?.question).toContain("Orbe exaltado");
+  });
+
+  it("si faltan datos no habla de gastar ni de aleatoriedad", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachDirection",
+      itemName: "Doom Song",
+      playerGoal: "quiero más daño",
+      directionLabel: "el daño",
+      nextStepTitle: "Me falta ver bien la pieza",
+      stepKind: "needs-data",
+    });
+
+    expect(cue.message).toContain("Antes de gastar");
+    expect(cue.message).toContain("Completa ese dato");
+    expect(cue.message).not.toMatch(/aleatoriedad|decidir si gastas/i);
+  });
+
+  it("tras pegar el resultado conserva el objetivo y la próxima decisión", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachResult",
+      itemName: "Doom Song",
+      playerGoal: "quiero más daño físico",
+      headline: "Ha aparecido un modificador nuevo",
+      verdict: "continue",
+      nextStepTitle: "Orbe exaltado",
+    });
+
+    expect(cue.source).toBe("engine");
+    expect(cue.message).toContain("Orbe exaltado");
+    expect(cue.message).toContain("más daño físico");
+    expect(cue.ask?.question).toContain("continuar o parar");
   });
 
   it("mantiene la honestidad cuando el mercado está degradado", () => {
@@ -122,7 +156,17 @@ describe("mentor contextual", () => {
       {
         type: "craftingCoachDirection",
         itemName: "Doom Song",
+        playerGoal: "quiero más daño",
         directionLabel: "el daño",
+        nextStepTitle: "Orbe exaltado",
+        stepKind: "use-currency",
+      },
+      {
+        type: "craftingCoachResult",
+        itemName: "Doom Song",
+        playerGoal: "quiero más daño",
+        headline: "Ha aparecido un modificador nuevo",
+        verdict: "continue",
         nextStepTitle: "Orbe exaltado",
       },
       {

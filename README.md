@@ -64,6 +64,13 @@ npm run dev            # frontend + API en http://localhost:7100
 
 ## Crafting guiado con comparación antes/después
 
+El propósito de Crafting no es simular Path of Exile 2 dentro del navegador.
+El jugador explica con sus palabras qué quiere conseguir, Exile Copilot lo
+convierte en una dirección segura y propone **una sola próxima acción**. El
+jugador la realiza dentro del juego, pega el resultado y el mentor continúa
+desde el cambio observado. Si la intención mezcla prioridades o no puede
+interpretarse con seguridad, pregunta antes de recomendar.
+
 La entrada **Quiero aprender crafting** tiene tres niveles. El básico enseña a
 leer rareza, afijos, huecos y acciones observadas; el medio practica la
 comparación antes/después y la decisión de continuar o parar; el avanzado

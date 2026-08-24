@@ -13,6 +13,7 @@ import {
 import {
   COACH_DIRECTION_LABELS,
   chooseNextStep,
+  interpretCoachGoal,
   readCraftResult,
   suggestDirectionFromCharacter,
   type CoachDirection,
@@ -184,7 +185,6 @@ function Recommendation({
       <p className="mt-2 text-sm leading-relaxed" data-testid="coach-instruccion">
         {step.instruction}
       </p>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.why}</p>
 
       {/* Aleatoriedad y límite de dirección: SIEMPRE a la vista, nunca plegados. */}
       <p
@@ -211,8 +211,9 @@ function Recommendation({
       )}
 
       <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
-        <summary className="cursor-pointer font-medium">Qué puede ocurrir</summary>
+        <summary className="cursor-pointer font-medium">Por qué y qué puede ocurrir</summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+          <li>{step.why}</li>
           {step.whatCanHappen.map((line) => (
             <li key={line}>{line}</li>
           ))}
@@ -273,6 +274,7 @@ export function CraftingCoach({
   onMentorContext,
 }: CraftingCoachProps) {
   const [direction, setDirection] = useState<CoachDirection | null>(null);
+  const [goalText, setGoalText] = useState("");
   const [directionChosen, setDirectionChosen] = useState(false);
   const [directionNote, setDirectionNote] = useState<string | null>(null);
   /** El jugador pidió que decidiera yo y no hay evidencia con la que hacerlo. */
@@ -320,6 +322,7 @@ export function CraftingCoach({
 
   const resetFlow = () => {
     setDirection(null);
+    setGoalText("");
     setDirectionChosen(false);
     setDirectionNote(null);
     setNoEvidence(false);
@@ -379,7 +382,11 @@ export function CraftingCoach({
     workingItem !== null && workingItem.id === selectedItem.id ? workingItem : selectedItem;
   const step = chooseNextStep(activeItem, direction);
 
-  const chooseDirection = (next: CoachDirection | null, note: string | null) => {
+  const chooseDirection = (
+    next: CoachDirection | null,
+    note: string | null,
+    playerGoal = goalText.trim(),
+  ) => {
     const nextStep = chooseNextStep(activeItem, next);
     setDirection(next);
     setDirectionNote(note);
@@ -389,13 +396,25 @@ export function CraftingCoach({
     onMentorContext?.({
       type: "craftingCoachDirection",
       itemName: activeItem.name || activeItem.baseType,
+      playerGoal: playerGoal || "decidir qué necesita esta pieza",
       directionLabel: next === null ? "objetivo sin determinar" : COACH_DIRECTION_LABELS[next],
       nextStepTitle: nextStep.kind === "use-currency" ? nextStep.label : nextStep.headline,
+      stepKind: nextStep.kind,
     });
   };
 
   // La dirección solo se deduce del expediente, jamás de la propia pieza.
   const guess = suggestDirectionFromCharacter(profile);
+
+  const submitGoal = () => {
+    const interpretation = interpretCoachGoal(goalText);
+    if (interpretation.direction !== null) {
+      chooseDirection(interpretation.direction, interpretation.reason);
+      return;
+    }
+    setDirectionNote(interpretation.reason);
+    setNoEvidence(true);
+  };
 
   const compareResult = async () => {
     if (step.kind !== "use-currency" || resultText.trim() === "") return;
@@ -407,16 +426,31 @@ export function CraftingCoach({
       // pieza seguida para que el guía siga hablando del mismo objeto.
       const pasted: Item = { ...imported.item, id: activeItem.id, slot: activeItem.slot };
       const antesDeCraftear = activeItem;
-      setComparison(
-        compareCraftingResult(antesDeCraftear, pasted, step.actionId, {
-          protectedModifierIds: [],
-        }),
-      );
+      const nextComparison = compareCraftingResult(antesDeCraftear, pasted, step.actionId, {
+        protectedModifierIds: [],
+      });
+      const nextReading = readCraftResult({
+        comparison: nextComparison,
+        resultItem: pasted,
+        direction,
+      });
+      setComparison(nextComparison);
       setResultItem(pasted);
       // A partir de aquí la pieza que se enseña es la que el jugador acaba de
       // pegar: dejar la anterior a la vista contradiría el propio resultado.
       setWorkingItem(pasted);
       setPhase("result");
+      onMentorContext?.({
+        type: "craftingCoachResult",
+        itemName: activeItem.name || activeItem.baseType,
+        playerGoal: goalText.trim() || "decidir qué necesita esta pieza",
+        headline: nextReading.headline,
+        verdict: nextReading.verdict,
+        nextStepTitle:
+          nextReading.nextStep?.kind === "use-currency"
+            ? nextReading.nextStep.label
+            : nextReading.nextStep?.headline ?? null,
+      });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -445,7 +479,7 @@ export function CraftingCoach({
         <div className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-24">
           {/* En la elección solo hace falta saber qué es; el detalle llega con
               la recomendación, cuando toca decidir qué se conserva. */}
-          <CoachItemCard item={activeItem} compact={!directionChosen} />
+          <CoachItemCard item={activeItem} compact />
           {items.length > 1 && (
             <details className="rounded-md border border-border/70 px-2.5 py-2 text-xs">
               <summary className="cursor-pointer font-medium">Trabajar con otra pieza</summary>
@@ -486,26 +520,63 @@ export function CraftingCoach({
           {!directionChosen ? (
             <div className="min-w-0" data-testid="coach-eleccion">
               <h3 className="dossier-title text-xl font-semibold sm:text-2xl">
-                ¿Qué quieres mejorar?
+                ¿Qué quieres conseguir con esta pieza?
               </h3>
-              <div className="mt-3 grid min-w-0 gap-2">
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Escríbelo como se lo dirías a otro jugador. Yo lo convertiré en una sola decisión.
+              </p>
+              <Textarea
+                className="mt-3 min-h-24 resize-y"
+                value={goalText}
+                maxLength={240}
+                onChange={(event) => {
+                  setGoalText(event.target.value);
+                  setNoEvidence(false);
+                  setDirectionNote(null);
+                }}
+                data-testid="coach-objetivo-texto"
+                aria-label="Qué quieres conseguir con esta pieza"
+                placeholder="p. ej. Quiero que esta ballesta haga más daño físico"
+              />
+              <Button
+                className="mt-3 w-full sm:w-auto"
+                type="button"
+                disabled={goalText.trim() === ""}
+                onClick={submitGoal}
+                data-testid="coach-interpretar-objetivo"
+              >
+                Dime el siguiente paso
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Button>
+              <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                O elige una forma rápida
+              </p>
+              <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-3">
                 <DirectionButton
                   id="damage"
-                  label="Quiero mejorar el daño"
-                  hint="Buscas pegar más fuerte"
+                  label="Más daño"
+                  hint="Pegar más fuerte"
                   icon={Swords}
-                  onChoose={() => chooseDirection("damage", null)}
+                  onChoose={() => {
+                    const goal = "Quiero mejorar el daño";
+                    setGoalText(goal);
+                    chooseDirection("damage", "Has elegido trabajar primero el daño.", goal);
+                  }}
                 />
                 <DirectionButton
                   id="defence"
-                  label="Quiero mejorar la defensa"
-                  hint="Buscas aguantar más"
+                  label="Más defensa"
+                  hint="Aguantar más"
                   icon={ShieldAlert}
-                  onChoose={() => chooseDirection("defence", null)}
+                  onChoose={() => {
+                    const goal = "Quiero mejorar la defensa";
+                    setGoalText(goal);
+                    chooseDirection("defence", "Has elegido trabajar primero la defensa.", goal);
+                  }}
                 />
                 <DirectionButton
                   id="unknown"
-                  label="No sé qué necesita"
+                  label="No lo sé"
                   hint={
                     guess.direction === null
                       ? "Te diré con qué cuento"
@@ -513,26 +584,29 @@ export function CraftingCoach({
                   }
                   icon={Sparkles}
                   onChoose={() => {
+                    const goal = "No sé qué necesita esta pieza";
+                    setGoalText(goal);
                     if (guess.direction === null) {
+                      setDirectionNote(guess.reason);
                       setNoEvidence(true);
                       return;
                     }
-                    chooseDirection(guess.direction, guess.reason);
+                    chooseDirection(guess.direction, guess.reason, goal);
                   }}
                 />
               </div>
-              {noEvidence && guess.direction === null && (
+              {noEvidence && (
                 <div
                   className="mt-3 rounded-md border border-border bg-muted/[0.06] p-3"
                   data-testid="coach-sin-evidencia"
                   role="status"
                 >
-                  <p className="text-sm font-medium">{guess.reason}</p>
+                  <p className="text-sm font-medium">{directionNote ?? guess.reason}</p>
                   <div className="mt-2.5 flex flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => chooseDirection("damage", null)}
+                      onClick={() => chooseDirection("damage", directionNote, goalText.trim())}
                       data-testid="coach-elegir-damage"
                     >
                       Elegir daño
@@ -540,7 +614,7 @@ export function CraftingCoach({
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => chooseDirection("defence", null)}
+                      onClick={() => chooseDirection("defence", directionNote, goalText.trim())}
                       data-testid="coach-elegir-defence"
                     >
                       Elegir defensa
@@ -563,10 +637,10 @@ export function CraftingCoach({
             </div>
           ) : (
             <p className="text-xs text-muted-foreground" data-testid="coach-direccion-elegida">
-              {direction === null
+              Objetivo: «{goalText.trim()}». {direction === null
                 ? "Sin dirección elegida."
-                : `Buscas mejorar ${COACH_DIRECTION_LABELS[direction]}.`}{" "}
-              {directionNote}
+                : `Dirección: ${COACH_DIRECTION_LABELS[direction]}.`}{" "}
+              {directionNote?.includes("expediente") ? directionNote : null}
               <button
                 type="button"
                 className="ml-1 underline underline-offset-2 hover:text-foreground"
