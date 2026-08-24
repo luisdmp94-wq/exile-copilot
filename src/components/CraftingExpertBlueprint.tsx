@@ -50,10 +50,13 @@ export function CraftingExpertBlueprint({
   blueprint,
   disabled,
   onChooseRoute,
+  showContract = true,
 }: {
   blueprint: ExpertCraftingBlueprint;
   disabled: boolean;
   onChooseRoute: (route: ExpertCraftingRouteCandidate) => void;
+  /** El laboratorio ya muestra el contrato paso a paso; evita repetirlo aquí. */
+  showContract?: boolean;
 }) {
   const protectedSummary =
     blueprint.protectedLines.length > 0
@@ -83,23 +86,25 @@ export function CraftingExpertBlueprint({
         </div>
       </div>
 
-      <div className="grid gap-px bg-border/50 sm:grid-cols-3" aria-label="Contrato del craft">
-        <ContractCell
-          label="Resultado buscado"
-          value={blueprint.objective ?? "Objetivo pendiente"}
-          empty={blueprint.objective === null}
-        />
-        <ContractCell
-          label="No sacrificar"
-          value={protectedSummary}
-          empty={blueprint.protectedLines.length === 0}
-        />
-        <ContractCell
-          label="Parar cuando"
-          value={stopSummary}
-          empty={blueprint.stopConditions.length === 0}
-        />
-      </div>
+      {showContract && (
+        <div className="grid gap-px bg-border/50 sm:grid-cols-3" aria-label="Contrato del craft">
+          <ContractCell
+            label="Resultado buscado"
+            value={blueprint.objective ?? "Objetivo pendiente"}
+            empty={blueprint.objective === null}
+          />
+          <ContractCell
+            label="No sacrificar"
+            value={protectedSummary}
+            empty={blueprint.protectedLines.length === 0}
+          />
+          <ContractCell
+            label="Parar cuando"
+            value={stopSummary}
+            empty={blueprint.stopConditions.length === 0}
+          />
+        </div>
+      )}
 
       {blueprint.routes.length > 0 && (
         <div className="p-3" data-testid="crafting-route-comparison">

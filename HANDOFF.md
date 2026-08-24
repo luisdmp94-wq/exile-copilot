@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 40,
+> Informe para el propietario. Última actualización: sesión 41,
 > 2026-08-24.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,27 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 41 — Academia media y plan avanzado comprensible
+
+- La Academia ya ofrece Básico, Medio y Avanzado. El nivel medio contiene seis
+  comparaciones cortas y enseña a cerrar el bucle antes/después: recuperar un
+  resultado incompleto, confirmar identidad, detectar un cambio inesperado,
+  frenar una pérdida protegida, parar al cumplir la salida o volver al plan.
+- «Diseñar un craft avanzado» pasa a llamarse **Planear un craft**. La pantalla
+  deja de enseñar contrato, rutas y herramientas simultáneamente: primero hace
+  una pregunta y avanza por objetivo, protección opcional, parada y ruta.
+- El contrato se resume al completarlo; objetivo y parada siguen siendo
+  editables. Las rutas aparecen solo cuando hay información suficiente. La
+  lectura de afijos, estados de conocimiento y selector técnico permanecen
+  disponibles sin competir con la próxima decisión.
+- El motor, los preflights, las protecciones y las confirmaciones no cambian.
+
+Verificación: TypeScript sin errores; **557/557** pruebas; build correcto;
+Academia **120/120** y taller **84/84** en producción y desarrollo/Strict Mode;
+390 px sin desbordamiento. ESLint limpio en todos los archivos modificados.
+
+Documento: `docs/CRAFTING_ACADEMY_MEDIUM.md`.
 
 ## Sesión 40 — plano experto de Crafting
 

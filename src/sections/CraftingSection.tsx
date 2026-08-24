@@ -80,8 +80,8 @@ function CraftingModeChooser({
       id: "laboratory" as const,
       testId: "crafting-mode-laboratory",
       icon: FlaskConical,
-      title: "Diseñar un craft avanzado",
-      detail: "Objetivos exactos, líneas intocables, parada y rutas.",
+      title: "Planear un craft",
+      detail: "Dime el resultado y te guío en cuatro pasos.",
     },
   ];
   return (
@@ -317,11 +317,11 @@ export function CraftingSection({
           </span>
           <div>
             <h2 id="crafting-workspace-title" className="dossier-title text-2xl font-semibold">
-              {mode === "laboratory" ? "Laboratorio avanzado" : "Banco de crafting"}
+              {mode === "laboratory" ? "Plan del craft" : "Banco de crafting"}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {mode === "laboratory"
-                ? "Define · protege · compara rutas · registra el resultado."
+                ? "Una decisión cada vez, sin perder el control."
                 : "Elige · decide · aplica · compara."}
             </p>
           </div>

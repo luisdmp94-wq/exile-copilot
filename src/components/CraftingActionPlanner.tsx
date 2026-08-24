@@ -172,6 +172,9 @@ export function CraftingActionPlanner({
   const [showUnavailableActions, setShowUnavailableActions] = useState(false);
   const [showReplacementRisk, setShowReplacementRisk] = useState(false);
   const [protectionOpen, setProtectionOpen] = useState(false);
+  const [laboratoryEditStep, setLaboratoryEditStep] = useState<
+    "objective" | "stop" | null
+  >(null);
   const compatibleActionCount = craftingActions.filter(
     (entry) => entry.status === "compatible",
   ).length;
@@ -224,6 +227,7 @@ export function CraftingActionPlanner({
     resultItem: item,
   });
   const stopAlreadyReached = currentSuccessAssessment.status === "fulfilled";
+  const objectiveReady = resolvedDesiredOutcome.length >= 3;
   const expertBlueprint = buildExpertCraftingBlueprint({
     item,
     diagnosis: crafting,
@@ -271,6 +275,7 @@ export function CraftingActionPlanner({
       (criterion) => !successCriteria.some((current) => current.kind === criterion.kind),
     );
     setSuccessCriteria(next);
+    if (experience === "laboratory") setLaboratoryEditStep("stop");
     if (added) {
       onMentorContext?.({
         type: "craftingStop",
@@ -374,38 +379,62 @@ export function CraftingActionPlanner({
     crafting.limitations.length +
     (knowledge.data?.modPool.reasons.length ?? 0) +
     (knowledge.data?.modPool.limitations.length ?? 0);
+  const laboratoryPhase =
+    crafting.state !== "complete"
+      ? "item"
+      : !objectiveReady
+        ? "objective"
+        : !successCriteriaReady
+          ? "stop"
+          : stopAlreadyReached
+            ? "complete"
+            : "route";
+  const laboratoryPrompt =
+    laboratoryPhase === "item"
+      ? "Completa primero los datos de la pieza."
+      : laboratoryPhase === "objective"
+        ? "Empieza por una sola pregunta: ¿qué quieres conseguir?"
+        : laboratoryPhase === "stop"
+          ? "Ahora decide qué resultado hará que dejes de gastar."
+          : laboratoryPhase === "complete"
+            ? "Tu condición ya se cumple: conserva la pieza."
+            : "Contrato listo. Compara las rutas disponibles.";
   const laboratorySteps = [
-    { label: "Pieza", ready: crafting.state === "complete", value: crafting.label },
     {
       label: "Objetivo",
-      ready: resolvedDesiredOutcome.length >= 3,
-      value: resolvedDesiredOutcome.length >= 3 ? CRAFTING_GOAL_LABELS[goalCategory] : "Pendiente",
+      ready: objectiveReady,
+      value: objectiveReady ? CRAFTING_GOAL_LABELS[goalCategory] : "Elige uno",
+      onClick: () => {
+        setLaboratoryEditStep("objective");
+        revealRouteTarget(`crafting-intention-${item.id}`);
+      },
     },
     {
-      label: "Intocables",
+      label: "Protege",
       ready: true,
-      value: protectedModifierIds.length === 0 ? "Ninguno" : `${protectedModifierIds.length} marcados`,
+      value: protectedModifierIds.length === 0 ? "Opcional" : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`,
+      onClick: () => {
+        setProtectionOpen(true);
+        revealRouteTarget(`crafting-intention-${item.id}`);
+      },
     },
     {
       label: "Parada",
       ready: successCriteriaReady,
-      value: stopAlreadyReached
-        ? "Ya cumplida"
-        : successCriteriaReady
-          ? `${successCriteria.length} condición${successCriteria.length === 1 ? "" : "es"}`
-          : "Pendiente",
+      value: stopAlreadyReached ? "Cumplida" : successCriteriaReady ? `${successCriteria.length} definida${successCriteria.length === 1 ? "" : "s"}` : "Elige una",
+      onClick: () => {
+        setLaboratoryEditStep("stop");
+        revealRouteTarget(`crafting-success-${item.id}`);
+      },
     },
     {
       label: "Ruta",
-      ready: route.currencyActions.length > 0 || route.toolSuggestions.length > 0,
-      value:
-        route.currencyActions.length > 0
-          ? `${route.currencyActions.length} legal${route.currencyActions.length === 1 ? "" : "es"}`
-          : route.toolSuggestions.length > 0
-            ? "Reemplazo"
-            : "Bloqueada",
+      ready: laboratoryPhase === "route" || laboratoryPhase === "complete",
+      value: laboratoryPhase === "complete" ? "Parar" : laboratoryPhase === "route" ? "Lista" : "Después",
+      onClick: () => revealRouteTarget(`crafting-blueprint-${item.id}`),
+      disabled: laboratoryPhase !== "route" && laboratoryPhase !== "complete",
     },
-  ];
+  ].map((step) => ({ disabled: false, ...step }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -417,28 +446,20 @@ export function CraftingActionPlanner({
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan-500/20 px-4 py-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">
-                Laboratorio avanzado
-              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Plan guiado</p>
               <h3 id={`crafting-laboratory-title-${item.id}`} className="mt-1 text-lg font-semibold">
-                Diseña el craft antes de gastar
+                {laboratoryPrompt}
               </h3>
             </div>
-            <Badge variant="outline" className="border-cyan-500/35 bg-cyan-500/[0.08] text-cyan-200">
-              Sin simulaciones inventadas
-            </Badge>
+            <Badge variant="outline" className="border-cyan-500/35 bg-cyan-500/[0.08] text-cyan-200">{crafting.label}</Badge>
           </div>
-          <ol className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-5" aria-label="Estado del plan avanzado">
+          <ol className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-4" aria-label="Estado del plan avanzado">
             {laboratorySteps.map((step, index) => (
-              <li
-                key={step.label}
-                className="min-w-0 bg-background/80 px-3 py-2.5"
-                data-ready={step.ready ? "true" : "false"}
-              >
-                <span className={`text-[10px] font-semibold uppercase tracking-wide ${step.ready ? "text-cyan-300" : "text-amber-300"}`}>
-                  {index + 1}. {step.label}
-                </span>
-                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{step.value}</span>
+              <li key={step.label} className="min-w-0 bg-background/80" data-ready={step.ready ? "true" : "false"}>
+                <button type="button" onClick={step.onClick} disabled={step.disabled} className="w-full px-3 py-2.5 text-left hover:bg-cyan-500/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-55">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${step.ready ? "text-cyan-300" : "text-amber-300"}`}>{index + 1}. {step.label}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{step.value}</span>
+                </button>
               </li>
             ))}
           </ol>
@@ -477,16 +498,14 @@ export function CraftingActionPlanner({
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
                 Tu plan para esta pieza
               </p>
-              <h4 id={`crafting-intention-title-${item.id}`} className="mt-1 text-base font-semibold text-foreground">
-                Decide qué mejorar y qué conservar
-              </h4>
+              <h4 id={`crafting-intention-title-${item.id}`} className="mt-1 text-base font-semibold text-foreground">Tu contrato</h4>
             </div>
-            <span className="rounded-full border border-primary/30 bg-primary/[0.08] px-2.5 py-1 text-xs text-primary">
+            <span className={`rounded-full border border-primary/30 bg-primary/[0.08] px-2.5 py-1 text-xs text-primary ${experience === "laboratory" ? "hidden sm:inline" : ""}`}>
               {CRAFTING_GOAL_LABELS[goalCategory]} · {protectedModifierIds.length} intocable
               {protectedModifierIds.length === 1 ? "" : "s"}
             </span>
           </div>
-          <CraftingGoalPicker
+          {(experience !== "laboratory" || !objectiveReady || laboratoryEditStep === "objective") && <CraftingGoalPicker
             category={goalCategory}
             onCategoryChange={changeGoalCategory}
             outcome={desiredOutcome}
@@ -499,13 +518,22 @@ export function CraftingActionPlanner({
                 ? "Describe qué resultado buscas."
                 : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`
             }
-          />
+          />}
+          {experience === "laboratory" && objectiveReady && laboratoryEditStep !== "objective" && (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/35 px-3 py-2">
+              <span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-cyan-300/75">Objetivo</span><strong className="block truncate text-sm">{resolvedDesiredOutcome}</strong></span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setLaboratoryEditStep("objective")}>Cambiar</Button>
+            </div>
+          )}
+          {experience === "laboratory" && laboratoryEditStep === "objective" && objectiveReady && (
+            <Button type="button" size="sm" variant="outline" className="self-start" onClick={() => setLaboratoryEditStep(null)}>Guardar objetivo</Button>
+          )}
           <details
             className="group rounded-md border border-border/70 bg-background/20"
             data-testid="crafting-protection-details"
-            open={route.state === "replacement-tools" || protectionOpen}
+            open={(experience !== "laboratory" && route.state === "replacement-tools") || protectionOpen}
             onToggle={(event) => {
-              if (route.state === "replacement-tools" && !event.currentTarget.open) {
+              if (experience !== "laboratory" && route.state === "replacement-tools" && !event.currentTarget.open) {
                 event.currentTarget.open = true;
                 return;
               }
@@ -514,9 +542,9 @@ export function CraftingActionPlanner({
           >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-foreground">
               <span>
-                {route.state === "replacement-tools"
+                {experience !== "laboratory" && route.state === "replacement-tools"
                   ? "Antes de reemplazar: protege lo importante"
-                  : "Líneas intocables (opcional)"}
+                  : "¿Hay algo que no quieres perder? (opcional)"}
               </span>
               <span className="text-xs font-normal text-muted-foreground">
                 {protectedModifierIds.length === 0
@@ -534,13 +562,22 @@ export function CraftingActionPlanner({
               />
             </div>
           </details>
-          <CraftingSuccessCriteriaPicker
+          {(experience !== "laboratory" || (objectiveReady && (!successCriteriaReady || laboratoryEditStep === "stop"))) && <CraftingSuccessCriteriaPicker
             item={item}
             goalCategory={goalCategory}
             value={successCriteria}
             onChange={changeSuccessCriteria}
-          />
-          <div
+          />}
+          {experience === "laboratory" && successCriteriaReady && laboratoryEditStep !== "stop" && (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/35 px-3 py-2">
+              <span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-cyan-300/75">Parar cuando</span><strong className="block truncate text-sm">{successCriteria.map(craftingSuccessCriterionLabel).join(" · ")}</strong></span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setLaboratoryEditStep("stop")}>Cambiar</Button>
+            </div>
+          )}
+          {experience === "laboratory" && laboratoryEditStep === "stop" && successCriteriaReady && (
+            <Button type="button" size="sm" variant="outline" className="self-start" onClick={() => setLaboratoryEditStep(null)}>Guardar parada</Button>
+          )}
+          {(experience !== "laboratory" || (objectiveReady && successCriteriaReady && laboratoryEditStep !== "stop")) && <div
             className={`rounded-md border p-3 ${baseVerdictStyle}`}
             data-testid="crafting-base-verdict"
             data-base-verdict={baseVerdict.tone}
@@ -551,9 +588,9 @@ export function CraftingActionPlanner({
             </p>
             <p className="mt-1 text-base font-semibold">{baseVerdict.title}</p>
             <p className="mt-1 text-xs leading-relaxed opacity-90">{baseVerdict.detail}</p>
-          </div>
+          </div>}
         </section>
-        <details
+        {experience !== "laboratory" && <details
           className="group rounded-md border border-border/70 bg-background/25 p-3"
           data-testid="crafting-reading-details"
         >
@@ -672,7 +709,7 @@ export function CraftingActionPlanner({
             </details>
           </section>
           )}
-        </details>
+        </details>}
         {experience !== "laboratory" && (
           <div
             className="rounded-sm border-l-2 border-primary bg-primary/[0.06] px-3 py-3"
@@ -746,10 +783,12 @@ export function CraftingActionPlanner({
           </div>
           </div>
         )}
-        {experience === "laboratory" && (
-          <CraftingExpertBlueprint
+        {experience === "laboratory" && objectiveReady && successCriteriaReady && laboratoryEditStep !== "stop" && (
+          <div id={`crafting-blueprint-${item.id}`} tabIndex={-1} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+            <CraftingExpertBlueprint
             blueprint={expertBlueprint}
             disabled={stopAlreadyReached}
+            showContract={false}
             onChooseRoute={(selectedRoute) => {
               if (selectedRoute.id === "essence" || selectedRoute.id === "alloy") {
                 if (replacementNeedsConsent) setShowReplacementRisk(true);
@@ -758,9 +797,10 @@ export function CraftingActionPlanner({
               }
               prepareCurrencyAction({ id: selectedRoute.id, label: selectedRoute.label });
             }}
-          />
+            />
+          </div>
         )}
-        <div
+        {experience !== "laboratory" && <div
           className="flex flex-wrap gap-2 text-[11px]"
           data-testid="crafting-knowledge-status"
           aria-live="polite"
@@ -785,7 +825,7 @@ export function CraftingActionPlanner({
           ) : (
             <span className="text-muted-foreground">Sin conocimiento cargado</span>
           )}
-        </div>
+        </div>}
         <details className="group text-xs text-muted-foreground">
           <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
             Ver evidencia y límites ({evidenceCount})
@@ -858,7 +898,7 @@ export function CraftingActionPlanner({
         </details>
       </section>
 
-      <section aria-labelledby={`crafting-tools-title-${item.id}`}>
+      {experience !== "laboratory" && <section aria-labelledby={`crafting-tools-title-${item.id}`}>
         <h3 id={`crafting-tools-title-${item.id}`} className="mb-2 text-sm font-semibold">
           ¿Con qué vas a intentarlo?
         </h3>
@@ -894,7 +934,7 @@ export function CraftingActionPlanner({
             );
           })}
         </div>
-      </section>
+      </section>}
 
       <div
         hidden={activeTool !== "currency" || route.state === "replacement-tools"}

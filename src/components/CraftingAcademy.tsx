@@ -15,6 +15,7 @@ import {
 } from "@shared/craftingAcademy.js";
 import { AcademyItemBoard } from "@/components/AcademyItemBoard";
 import { CraftingAdvancedAcademy } from "@/components/CraftingAdvancedAcademy";
+import { CraftingMediumAcademy } from "@/components/CraftingMediumAcademy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -467,9 +468,9 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) {
   );
 }
 
-/** Selector de niveles: el básico conserva su progreso y el avanzado es independiente. */
+/** Selector de niveles: cada recorrido es independiente y no altera el personaje. */
 export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) {
-  const [level, setLevel] = useState<"basic" | "advanced">("basic");
+  const [level, setLevel] = useState<"basic" | "medium" | "advanced">("basic");
 
   return (
     <div className="min-w-0 space-y-3">
@@ -489,11 +490,12 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
         </button>
         <button
           type="button"
-          disabled
-          className="cursor-not-allowed rounded px-3 py-2 text-xs font-semibold text-muted-foreground opacity-50"
-          aria-label="Nivel medio, en preparación"
+          onClick={() => setLevel("medium")}
+          data-testid="academia-nivel-medio"
+          data-active={level === "medium" ? "true" : "false"}
+          className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${level === "medium" ? "bg-sky-500/15 text-sky-200" : "text-muted-foreground hover:bg-sky-500/[0.08] hover:text-sky-100"}`}
         >
-          Medio · Próximamente
+          Medio
         </button>
         <button
           type="button"
@@ -511,6 +513,11 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
 
       {level === "advanced" ? (
         <CraftingAdvancedAcademy
+          onBack={() => setLevel("basic")}
+          onPracticeWithMyItem={onPracticeWithMyItem}
+        />
+      ) : level === "medium" ? (
+        <CraftingMediumAcademy
           onBack={() => setLevel("basic")}
           onPracticeWithMyItem={onPracticeWithMyItem}
         />

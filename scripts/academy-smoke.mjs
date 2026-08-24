@@ -201,13 +201,53 @@ async function runFlow(mode, port) {
         (await page.getByTestId("academia-indice").locator("li").count()) === 5,
     );
 
-    // --- 1b. Nivel avanzado completo ------------------------------------
+    // --- 1b. Nivel medio: cerrar el bucle antes → después ----------------
     check(
-      `[${mode}] el selector ofrece Básico y Avanzado sin habilitar Medio`,
+      `[${mode}] el selector ofrece los tres niveles`,
       (await page.getByTestId("academia-nivel-basico").isVisible()) &&
-        (await page.getByTestId("academia-nivel-avanzado").isVisible()) &&
-        (await page.getByRole("button", { name: "Nivel medio, en preparación" }).isDisabled()),
+        (await page.getByTestId("academia-nivel-medio").isVisible()) &&
+        (await page.getByTestId("academia-nivel-avanzado").isVisible()),
     );
+    await page.getByTestId("academia-nivel-medio").click();
+    const media = page.getByTestId("academia-media");
+    await media.waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el nivel medio presenta seis comparaciones`,
+      (await media.getAttribute("data-stage")) === "intro" &&
+        (await page.getByTestId("academia-media-indice").locator("li").count()) === 6 &&
+        (await media.innerText()).includes("comparar antes y después"),
+    );
+    await page.getByTestId("academia-media-empezar").click();
+    const respuestasMedias = [
+      "med-recopiar",
+      "med-rechazar-identidad",
+      "med-revisar",
+      "med-frenar-protegido",
+      "med-conservar-parar",
+      "med-continuar-contrato",
+    ];
+    for (const opcion of respuestasMedias) {
+      await page.getByTestId(`academia-media-opcion-${opcion}`).click();
+      const feedback = page.getByTestId("academia-media-feedback");
+      await feedback.waitFor({ timeout: 10000 });
+      check(
+        `[${mode}] comparación media ${opcion} se corrige con una idea clave`,
+        (await feedback.getAttribute("data-result")) === "correcto" &&
+          (await feedback.innerText()).includes("Idea clave"),
+      );
+      await page.getByTestId("academia-media-continuar").click();
+    }
+    await page.getByTestId("academia-media-resultado").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el nivel medio termina y permite practicar con una pieza`,
+      (await media.getAttribute("data-stage")) === "results" &&
+        (await page.getByTestId("academia-media-resultado").innerText()).includes("6 de 6") &&
+        (await page.getByTestId("academia-media-practicar").isVisible()),
+    );
+    await page.getByRole("button", { name: "Volver a niveles" }).click();
+    await page.getByTestId("academia-crafting").waitFor({ timeout: 10000 });
+
+    // --- 1c. Nivel avanzado completo ------------------------------------
     await page.getByTestId("academia-nivel-avanzado").click();
     const avanzada = page.getByTestId("academia-avanzada");
     await avanzada.waitFor({ timeout: 10000 });
@@ -621,7 +661,7 @@ console.log(
 );
 console.log(
   failures === 0
-    ? `\nACADEMIA — BÁSICO Y AVANZADO: ${total}/${total} COMPROBACIONES PASARON`
-    : `\nACADEMIA — BÁSICO Y AVANZADO: ${failures} de ${total} COMPROBACIONES FALLARON`,
+    ? `\nACADEMIA — BÁSICO, MEDIO Y AVANZADO: ${total}/${total} COMPROBACIONES PASARON`
+    : `\nACADEMIA — BÁSICO, MEDIO Y AVANZADO: ${failures} de ${total} COMPROBACIONES FALLARON`,
 );
 process.exit(failures === 0 ? 0 : 1);

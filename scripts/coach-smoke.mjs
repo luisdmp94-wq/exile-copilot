@@ -299,7 +299,7 @@ async function runFlow(mode, port) {
           "Ayúdame con mi objeto",
         ) &&
         (await page.getByTestId("crafting-mode-laboratory").innerText()).includes(
-          "Diseñar un craft avanzado",
+          "Planear un craft",
         ) &&
         (await page.getByTestId("crafting-mode-coach").getAttribute("data-active")) === "true",
     );
@@ -327,15 +327,15 @@ async function runFlow(mode, port) {
     await irA(page, "crafting");
     await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
 
-    // El tercer recorrido expone el motor experto sin pasar por el guía básico.
+    // El tercer recorrido expone el motor experto como una secuencia guiada.
     await page.getByTestId("crafting-mode-laboratory").click();
     await page.getByTestId("crafting-laboratory-status").waitFor({ timeout: 15000 });
     check(
-      `[${mode}] el laboratorio avanzado muestra las cinco decisiones y compara rutas`,
-      (await page.getByTestId("crafting-workspace").innerText()).includes("Laboratorio avanzado") &&
-        (await page.getByTestId("crafting-laboratory-status").locator("li").count()) === 5 &&
-        (await page.getByTestId("crafting-route-comparison").isVisible()) &&
-        (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "needs-objective",
+      `[${mode}] el plan avanzado empieza con una sola pregunta y cuatro pasos`,
+      (await page.getByTestId("crafting-workspace").innerText()).includes("Plan del craft") &&
+        (await page.getByTestId("crafting-laboratory-status").locator("li").count()) === 4 &&
+        (await page.getByTestId("crafting-expert-blueprint").count()) === 0 &&
+        (await page.getByTestId("crafting-diagnosis").innerText()).includes("¿Qué quieres mejorar primero?"),
     );
     await page.getByRole("radio", { name: "Daño", exact: true }).click();
     await page.getByTestId("crafting-success-exact-toggle").click();
@@ -347,6 +347,7 @@ async function runFlow(mode, port) {
       (await exactTargets.locator("input").first().inputValue()).includes("Daño físico") &&
         (await exactTargets.locator("select").first().inputValue()) === "6",
     );
+    await page.getByRole("button", { name: "Guardar parada" }).click();
     await page
       .getByTestId("crafting-base-verdict")
       .getByText("Tu objetivo ya está cumplido", { exact: true })
@@ -355,7 +356,7 @@ async function runFlow(mode, port) {
       `[${mode}] si la pieza ya cumple la parada, el laboratorio frena otra inversión`,
       (await page.getByTestId("crafting-base-verdict").innerText()).includes("objetivo ya está cumplido") &&
         (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete" &&
-        (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("PARAR CUANDO") &&
+        (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("cumple tu contrato de salida") &&
         (await page.getByTestId("crafting-route-comparison").getByRole("button").first().isEnabled()) === false,
     );
     await page.screenshot({ path: join(SHOT_DIR, `taller-laboratorio-${mode}.png`), fullPage: false });

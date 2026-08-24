@@ -64,7 +64,17 @@ npm run dev            # frontend + API en http://localhost:7100
 
 ## Crafting guiado con comparación antes/después
 
-La pestaña Crafting funciona como un banco de decisión. Primero pregunta qué
+La entrada **Quiero aprender crafting** tiene tres niveles. El básico enseña a
+leer rareza, afijos, huecos y acciones observadas; el medio practica la
+comparación antes/después y la decisión de continuar o parar; el avanzado
+enseña a cerrar un contrato con objetivo, líneas intocables, salida y rutas.
+Los tres trabajan con casos sintéticos explícitos y no inventan pools,
+probabilidades ni recetas.
+
+La pestaña Crafting funciona como un banco de decisión. **Planear un craft** ya
+no muestra todo el laboratorio a la vez: guía por objetivo, protección,
+condición de parada y ruta; los diagnósticos y límites quedan plegados. El
+banco técnico sigue usando los mismos contratos y preflights. Primero pregunta qué
 quieres conseguir y separa, sin inventar valor, los mods con señal directa para
 ese objetivo, los que no tienen una relación literal y los grados 1–2 que
 merece la pena revisar antes de arriesgar. Después convierte la lectura de la pieza en una ruta visible: si
