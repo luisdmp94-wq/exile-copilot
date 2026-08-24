@@ -843,7 +843,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // POST /mentor/query — conversación supervisada (reglas + selector IA opcional).
+  // POST /mentor/query — conversación fundamentada (reglas + redacción IA opcional).
   // Mismas protecciones que /recommendations: el servidor carga la memoria
   // autoritativa del diario, rechaza una revisión obsoleta con 409 y vuelve a
   // comprobarla tras cualquier espera asíncrona (carrera entre pestañas).
@@ -875,6 +875,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           memory,
           ...(body.target !== undefined ? { target: body.target } : {}),
           ...(body.contextEnvelope !== undefined ? { contextEnvelope: body.contextEnvelope } : {}),
+          ...(body.conversation !== undefined ? { conversation: body.conversation } : {}),
         },
         { priceService, selector: mentorSelector },
       );

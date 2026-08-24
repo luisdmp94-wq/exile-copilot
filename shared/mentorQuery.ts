@@ -14,9 +14,10 @@ import { ContextEnvelopeSchema } from "./mentorContext.js";
 /**
  * Contrato de la conversación con el mentor (Hito 6A).
  *
- * La autoridad sigue siendo el motor: no se inventa conocimiento de PoE2. El
- * selector IA opcional de Hito 6E solo puede escoger ids canónicos; toda
- * respuesta procede del perfil, la build objetivo, el presupuesto/objetivo, el
+ * La autoridad sigue siendo el motor: no se inventa conocimiento de PoE2.
+ * Mentor v3 permite que la IA redacte conversación natural, pero obliga a
+ * fundamentarla con ids canónicos. Acciones, cifras, fuentes y carencias siguen
+ * procediendo del perfil, la build objetivo, el presupuesto/objetivo, el
  * Character Journal y las recomendaciones ya calculadas.
  */
 
@@ -25,6 +26,8 @@ import { ContextEnvelopeSchema } from "./mentorContext.js";
  * propósito: preferimos declarar «no lo sé» antes que adivinar.
  */
 export const MentorIntent = z.enum([
+  /** Saludos, agradecimientos y conversación sin una decisión de juego. */
+  "conversation",
   /** «¿Qué mejoro ahora?», «¿Qué hago primero?» */
   "next_improvement",
   /** «¿Por qué me recomiendas esto?», «¿Cuál es mi problema principal?» */
@@ -33,6 +36,16 @@ export const MentorIntent = z.enum([
   "unsupported",
 ]);
 export type MentorIntent = z.infer<typeof MentorIntent>;
+
+/**
+ * Memoria breve y no autoritativa del chat. El servidor la trata como texto
+ * del jugador: ayuda a mantener el hilo, pero jamás crea hechos de PoE2.
+ */
+export const MentorConversationTurnSchema = z.strictObject({
+  role: z.enum(["player", "mentor"]),
+  text: z.string().trim().min(1).max(800),
+});
+export type MentorConversationTurn = z.infer<typeof MentorConversationTurnSchema>;
 
 /** Longitud máxima de la pregunta aceptada por la API. */
 export const MAX_MENTOR_QUESTION_LENGTH = 500;
@@ -104,9 +117,9 @@ export const MentorAnswerSchema = z.strictObject({
   unsupported: MentorUnsupportedSchema.nullable(),
   generatedAt: z.string(),
   engineVersion: z.string(),
-  /** `ai` significa selección supervisada; nunca texto libre autoritativo. */
+  /** `ai` significa redacción fundamentada; nunca conocimiento autoritativo nuevo. */
   responseMode: MentorResponseModeSchema.optional(),
-  /** Modelo que tomó la decisión estructurada; null en modo reglas. */
+  /** Modelo que tomó la decisión y redactó la respuesta; null en modo reglas. */
   model: z.string().min(1).max(200).nullable().optional(),
   /** Motivo seguro y sin secretos cuando la IA falló y se usaron reglas. */
   fallbackReason: z.string().min(1).max(500).nullable().optional(),
@@ -133,6 +146,8 @@ export const MentorQueryRequestSchema = z.object({
    */
   journalRevision: z.string().min(1).max(4000).nullable().optional(),
   contextEnvelope: ContextEnvelopeSchema.optional(),
+  /** Últimos turnos visibles; máximo deliberadamente pequeño. */
+  conversation: z.array(MentorConversationTurnSchema).max(8).optional(),
 });
 export type MentorQueryRequest = z.infer<typeof MentorQueryRequestSchema>;
 

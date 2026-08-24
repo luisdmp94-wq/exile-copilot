@@ -29,7 +29,7 @@ const SOURCE_STYLES: Record<ContextualMentorCue["source"], string> = {
 
 function answerLabel(answer: MentorAnswer): string {
   if (answer.responseMode === "ai") {
-    return answer.model ? `IA supervisada · ${answer.model}` : "IA supervisada";
+    return answer.model ? `IA fundamentada · ${answer.model}` : "IA fundamentada";
   }
   if (answer.responseMode === "rules_fallback") return "Respaldo del motor de reglas";
   return "Respuesta del motor";

@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 38,
+> Informe para el propietario. Última actualización: sesión 39,
 > 2026-08-24.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,30 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 39 — Mentor v3 fundamentado y conversacional
+
+- Groq ya no se limita a elegir una respuesta preescrita: puede saludar,
+  explicar y formular preguntas de seguimiento con texto natural.
+- La interfaz envía únicamente los ocho últimos turnos como memoria breve. El
+  historial no se persiste y el servidor lo trata como texto no confiable.
+- La redacción debe citar recomendaciones o carencias canónicas. El servidor
+  rechaza ids internos, campos técnicos, HTML, enlaces y cifras ausentes del
+  contexto; ante cualquier duda usa el respaldo de reglas.
+- Una acción activa del diario sigue mandando. Mentor v3 no abre otra decisión
+  en paralelo ni convierte la conversación en una fuente nueva de hechos.
+- La revisión real en `localhost:7201` confirmó una respuesta natural de Groq a
+  «Hola» y una pregunta de seguimiento basada en el personaje demo, ambas con
+  `openai/gpt-oss-120b` y sin errores de consola.
+- Esa revisión detectó y corrigió una regresión exclusiva de HMR: el contador
+  de turnos podía reutilizar claves tras una recarga en caliente. Los turnos
+  usan ahora UUID y la repetición en una pestaña limpia termina sin avisos.
+
+Verificación: TypeScript sin errores; **541/541** pruebas; build de producción
+correcto; mentor **47/47** en producción y **47/47** en desarrollo/Strict Mode;
+taller de Crafting **84/84**. ESLint pasa en todos los archivos modificados
+salvo `App.tsx`, que conserva los **10 diagnósticos preexistentes** de React
+Hooks del baseline y no añade ninguno en las líneas de Mentor v3.
 
 ## Sesión 38 — Mentor v2 contextual y supervisado
 

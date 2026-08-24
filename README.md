@@ -294,24 +294,27 @@ id crudo: el nombre nunca se deduce del texto del id.
 
 > This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
 
-## Habla con tu mentor (Hitos 6A, 6E y Mentor v2)
+## Habla con tu mentor (Hitos 6A, 6E y Mentor v3)
 
-«Habla con tu mentor», dentro de **Expediente y mentor**, permite preguntar en español.
-Por defecto responde solo con reglas, sin llamadas externas ni coste. El Hito
-6E añade un selector IA opcional: interpreta preguntas más naturales, pero solo
-puede elegir una recomendación o un dato faltante que el motor ya haya
-producido. La acción, las fuentes, la confianza y el texto final se reconstruyen
-en el servidor a partir de esos datos canónicos.
+«Habla con tu mentor», dentro de **Expediente y mentor**, permite conversar en
+español. Por defecto responde solo con reglas, sin llamadas externas ni coste.
+Con Mentor v3 activo, Groq redacta respuestas naturales, recuerda los ocho
+últimos turnos visibles y puede hacer una pregunta de seguimiento. No recibe
+autoridad para inventar PoE2: toda afirmación de juego debe citar una
+recomendación o carencia que el motor ya haya producido.
 
 Preguntas que entiende hoy:
 
 - «¿Qué mejoro ahora?», «¿Qué debería hacer primero?» → siguiente paso.
 - «¿Por qué me recomiendas esto?», «¿Cuál es mi principal problema?» → explicación.
+- «Hola», «gracias» → conversación social sin fabricar una decisión.
+- Una pregunta libre puede relacionarse con el diagnóstico real o pedir el dato
+  exacto que falta antes de aconsejar.
 
 Los botones que genera el propio mentor incluyen una intención estructurada y
 se prueban contra este contrato. Una respuesta tardía puede conservarse en el
 hilo, pero nunca sustituye el objeto, área o decisión que el jugador haya abierto
-mientras esperaba. La etiqueta declara su origen real: «IA supervisada» con
+mientras esperaba. La etiqueta declara su origen real: «IA fundamentada» con
 modelo, «Respaldo del motor de reglas» o «Respuesta del motor»; nunca se atribuye
 una respuesta a Groq solo por configuración.
 
@@ -321,13 +324,15 @@ servidor no confía en esa copia del navegador: vuelve a obtener personaje,
 build, presupuesto y liga desde sus inputs canónicos; solo acepta una pieza o
 recomendación si su id existe realmente. En Crafting, seleccionar otra pieza o
 elegir daño/defensa actualiza el mentor inmediatamente con la pieza y el único
-paso calculado por el guía. El modelo sigue sin redactar la acción visible.
+paso calculado por el guía.
 
 Con IA desactivada, cualquier otra pregunta se declara **no soportada**. Con IA
 activada puede relacionarla con hasta tres candidatos reales, pedir un dato
-faltante real, explicar el caso o declarar que no existe una acción segura. Un
-id inventado, una respuesta inválida, un rechazo, timeout o error de red activa
-automáticamente el respaldo por reglas y queda visible en la evidencia.
+faltante real, explicar el caso o declarar que no existe una acción segura. El
+servidor valida los ids citados y también el texto: rechaza identificadores
+internos, campos técnicos, HTML, enlaces o cifras que no existan en el contexto.
+Un dato inventado, una respuesta inválida, un rechazo, timeout o error de red
+activa automáticamente el respaldo por reglas.
 
 La conversación reutiliza el motor y el Character Journal: si ya tienes una
 acción activa, el mentor **recuerda ese paso** en lugar de crear otro y no
@@ -337,14 +342,15 @@ servidor, con caché y ETag). Por eso **las fechas y la evidencia pueden
 cambiar**: la misma pregunta con los mismos datos puede citar precios o fechas
 distintos más adelante, aunque la decisión siga saliendo del motor.
 
-Cada respuesta se lee primero como te la contaría una persona — diagnóstico,
-única próxima acción y confianza —; las fuentes, la fecha, la versión del motor
-y lo que falta por verificar están completas dentro de «Ver evidencia y
-limitaciones».
+Cada respuesta se lee primero como te la contaría una persona. Cuando existe
+una decisión muestra diagnóstico, una única próxima acción y confianza; las
+fuentes, la fecha, la versión del motor y lo que falta por verificar quedan
+dentro de «Ver evidencia y limitaciones». Un saludo no fabrica esos bloques.
 
-**Limitación:** el hilo vive solo en memoria de la interfaz. No se persiste, se
-pierde al recargar y se descarta cuando cambian los datos relevantes para no
-mostrar respuestas obsoletas. Groq es el proveedor predeterminado para la
+**Limitación:** el hilo vive solo en memoria de la interfaz. Los ocho últimos
+turnos se envían como contexto conversacional no autoritativo, pero no se
+persisten; se pierden al recargar y se descartan cuando cambian los datos
+relevantes para no mostrar respuestas obsoletas. Groq es el proveedor predeterminado para la
 prueba gratuita; su cuota no está garantizada para producción. OpenAI sigue
 disponible como alternativa, con facturación API separada de ChatGPT. Ninguna
 clave real se guarda en el repositorio. Detalles en `docs/HITO_6A.md` y
@@ -353,7 +359,7 @@ clave real se guarda en el repositorio. Detalles en `docs/HITO_6A.md` y
 ## Estructura
 
 - `shared/` — esquemas zod: dominio interno, contrato API y esquema oficial GGG Build Planner v1.
-- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente, selector IA supervisado opcional con respaldo determinista, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista y exportador `.build` oficial con informe.
+- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente, conversación IA fundamentada opcional con respaldo determinista, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista y exportador `.build` oficial con informe.
 - `src/` — frontend React + Tailwind + shadcn/ui (español, tema oscuro).
 - `tests/` — vitest: unit, integration, e2e. `scripts/browser-smoke.mjs` — prueba de navegador real.
 - `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — memoria persistente.
@@ -370,7 +376,7 @@ prefijo `VITE_` para una clave privada. Destacadas:
 - `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
 - `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — flags desactivadas por defecto.
 - `MENTOR_AI_ENABLED=true` + `MENTOR_AI_PROVIDER=groq` + `GROQ_API_KEY` — activa
-  el selector IA gratuito sujeto a la cuota de Groq. El valor por defecto de la
+  la conversación fundamentada sujeta a la cuota de Groq. El valor por defecto de la
   flag es `false`, así que sin activarlo hay cero llamadas.
 - `MENTOR_AI_PROVIDER=openai` + `OPENAI_API_KEY` — alternativa opcional de pago.
 - `MENTOR_AI_MODEL`, `MENTOR_AI_REASONING_EFFORT`, `MENTOR_AI_TIMEOUT_MS` y

@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 
 /** Tipo de consulta en español; el id interno nunca se muestra. */
 const INTENT_LABELS: Record<MentorAnswer["intent"], string> = {
+  conversation: "Conversación",
   next_improvement: "Qué mejorar ahora",
   explain_priority: "Por qué esa es tu prioridad",
   unsupported: "Fuera de lo que sé responder",
@@ -69,7 +70,7 @@ export function MentorChatSection({
   const latestAnswer = [...turns].reverse().find((turn) => turn.answer !== null)?.answer ?? null;
   const modeLabel =
     latestAnswer?.responseMode === "ai"
-      ? "IA supervisada"
+      ? "IA fundamentada"
       : latestAnswer?.responseMode === "rules_fallback"
         ? "Respaldo por reglas"
         : "Reglas verificables";
@@ -118,10 +119,9 @@ export function MentorChatSection({
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          El mentor responde solo con tu personaje, tu build objetivo, tu presupuesto y tu
-          diario. Cuando la IA está activa interpreta tu pregunta y elige entre hechos del
-          motor; no puede crear acciones, estadísticas, mods ni precios. Si falla, las reglas
-          responden automáticamente. Siempre da una única próxima acción.
+          Conversa usando tu personaje, el objeto abierto, tu objetivo, presupuesto y diario.
+          Puede explicar y preguntar con naturalidad, pero las acciones y cifras proceden de
+          datos verificados. Si la IA falla o añade algo dudoso, responden las reglas.
         </p>
       </CardHeader>
 
@@ -392,8 +392,12 @@ function MentorAnswerDetail({
         </div>
       )}
 
-      {/* 3) Trazabilidad completa, plegada por defecto. */}
-      <MentorEvidence answer={answer} />
+      {/* 3) Trazabilidad completa, solo cuando realmente existe evidencia. */}
+      {(answer.sources.length > 0 ||
+        answer.unverified.length > 0 ||
+        answer.confidence !== null ||
+        answer.fallbackReason != null ||
+        answer.usedRecommendationIds.length > 0) && <MentorEvidence answer={answer} />}
     </div>
   );
 }
@@ -454,7 +458,7 @@ function MentorEvidence({ answer }: { answer: MentorAnswer }) {
           <span>Tipo de consulta: {INTENT_LABELS[answer.intent]}</span>
           <span>· Motor {answer.engineVersion}</span>
           <span>
-            · Respuesta: {answer.responseMode === "ai" ? "IA supervisada" : answer.responseMode === "rules_fallback" ? "reglas de respaldo" : "reglas"}
+            · Respuesta: {answer.responseMode === "ai" ? "IA fundamentada" : answer.responseMode === "rules_fallback" ? "reglas de respaldo" : "reglas"}
           </span>
           {answer.model != null && <span>· Modelo {answer.model}</span>}
           <span>· Respondido el {formatDateTime(answer.generatedAt)}</span>

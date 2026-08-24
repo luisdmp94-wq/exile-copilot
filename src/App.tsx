@@ -814,6 +814,10 @@ export default function App() {
         characterJournal,
         intentHint,
         envelope,
+        mentor.turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          text: turn.text.slice(0, 800),
+        })),
       ),
     );
     if (outcome.status === "journal-stale") void journal.reload();

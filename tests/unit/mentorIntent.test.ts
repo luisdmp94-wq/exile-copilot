@@ -71,7 +71,6 @@ describe("intención unsupported", () => {
     for (const pregunta of [
       "¿Cuánto vale mi arma?",
       "¿Cuál es la mejor build del meta?",
-      "hola",
       "¿Me subes de nivel?",
       "dime el DPS de mi personaje",
       "?????",
@@ -83,6 +82,20 @@ describe("intención unsupported", () => {
   it("una pregunta vacía tras normalizar tampoco se adivina", () => {
     expect(classifyMentorQuestion("¿¿¿???").intent).toBe("unsupported");
     expect(classifyMentorQuestion("   ").intent).toBe("unsupported");
+  });
+});
+
+describe("intención conversation", () => {
+  it("un saludo o agradecimiento nunca se convierte en una recomendación", () => {
+    for (const pregunta of ["hola", "¡Buenos días!", "gracias", "ok, entendido"]) {
+      expect(classifyMentorQuestion(pregunta).intent, pregunta).toBe("conversation");
+    }
+  });
+
+  it("una pregunta de juego conserva prioridad aunque empiece saludando", () => {
+    expect(classifyMentorQuestion("Hola, ¿qué mejoro ahora?").intent).toBe(
+      "next_improvement",
+    );
   });
 });
 

@@ -371,6 +371,24 @@ async function runFlow(mode, port) {
       (await page.getByTestId("mentor-sugerencia").count()) >= 3,
     );
 
+    // --- Mentor v3: conversación social -----------------------------------
+    await preguntar(page, "hola");
+    const saludo = page.getByTestId("mentor-turno-mentor").last();
+    const textoSaludo = await saludo.innerText();
+    check(
+      `[${mode}] «hola» recibe un saludo y no dispara una recomendación`,
+      /hola|ayudarte/i.test(textoSaludo) &&
+        (await page.getByTestId("mentor-proxima-accion").count()) === 0,
+    );
+    check(
+      `[${mode}] un saludo no muestra evidencia técnica vacía`,
+      (await saludo.getByTestId("mentor-evidencia").count()) === 0,
+    );
+    check(
+      `[${mode}] el saludo no filtra ids internos`,
+      !/\b(?:rec|fact)(?::|-)/i.test(textoSaludo),
+    );
+
     // --- next_improvement --------------------------------------------------
     await preguntar(page, "¿Qué mejoro ahora?");
     const proximaAccion = page.getByTestId("mentor-proxima-accion");
@@ -401,7 +419,8 @@ async function runFlow(mode, port) {
     const internos = ["next_improvement", "explain_priority", "calculation", "inputFingerprint"];
     check(
       `[${mode}] la respuesta no muestra identificadores internos del contrato`,
-      internos.every((token) => !textoMentor.includes(token)),
+      internos.every((token) => !textoMentor.includes(token)) &&
+        !/\b(?:rec|fact)(?::|-)/i.test(textoMentor),
     );
     check(
       `[${mode}] la respuesta no muestra niveles en inglés (high/medium/low)`,

@@ -73,6 +73,21 @@ const NEXT_IMPROVEMENT_PATTERNS: readonly string[] = [
   "que sigue",
 ];
 
+/** Conversación social que no debe convertirse en una recomendación. */
+const CONVERSATION_PATTERNS: readonly string[] = [
+  "hola",
+  "buenos dias",
+  "buenas tardes",
+  "buenas noches",
+  "buenas",
+  "hey",
+  "gracias",
+  "muchas gracias",
+  "vale",
+  "entendido",
+  "ok",
+];
+
 /**
  * Clasifica la pregunta. El orden importa: primero explicación, después
  * siguiente paso; si nada casa, `unsupported`.
@@ -105,6 +120,17 @@ export function classifyMentorQuestion(question: string): {
         matchedPattern: pattern,
       };
     }
+  }
+  if (
+    CONVERSATION_PATTERNS.some(
+      (pattern) => normalized === pattern || normalized.startsWith(`${pattern} `),
+    )
+  ) {
+    return {
+      intent: "conversation",
+      normalizedQuestion: normalized,
+      matchedPattern: normalized.split(" ").slice(0, 2).join(" "),
+    };
   }
   return { intent: "unsupported", normalizedQuestion: normalized, matchedPattern: null };
 }

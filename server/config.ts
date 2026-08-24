@@ -16,7 +16,7 @@ export interface ServerConfig {
   databasePath: string;
   gggOauthEnabled: boolean;
   explainerLlmEnabled: boolean;
-  /** Hito 6E: selector IA supervisado del mentor. Apagado por defecto. */
+  /** Mentor v3: conversación IA fundamentada. Apagada por defecto. */
   mentorAiEnabled: boolean;
   /** Proveedor de inferencia. Groq permite probar el mentor sin facturación. */
   mentorAiProvider: "groq" | "openai";

@@ -111,6 +111,147 @@ describe("mentor — intención next_improvement", () => {
   });
 });
 
+describe("Mentor v3 — conversación fundamentada", () => {
+  function v3Selector(
+    decide: (context: MentorAiContext) => MentorAiDecision | Promise<MentorAiDecision>,
+  ): MentorDecisionSelector {
+    return { name: "modelo-v3-prueba", select: async (context) => decide(context) };
+  }
+
+  it("responde a «hola» como conversación y conserva la memoria breve", async () => {
+    const received: MentorAiContext[] = [];
+    const selector = v3Selector((context) => {
+      received.push(context);
+      return {
+        kind: "conversation",
+        recommendationId: null,
+        missingFactId: null,
+        message: "¡Hola! Veo tu expediente y puedo ayudarte a elegir por dónde empezar.",
+        followUpQuestion: "¿Quieres revisar el personaje o una pieza concreta?",
+        groundedRecommendationIds: [],
+        groundedMissingFactIds: [],
+      };
+    });
+    const answer = await answerMentorQuery(
+      {
+        ...BASE,
+        question: "hola",
+        memory: emptyMemory(),
+        conversation: [
+          { role: "player", text: "Ayer estábamos revisando mi equipo." },
+          { role: "mentor", text: "De acuerdo, seguimos cuando quieras." },
+        ],
+      },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(received[0]?.conversation).toHaveLength(2);
+    expect(answer.intent).toBe("conversation");
+    expect(answer.responseMode).toBe("ai");
+    expect(answer.nextAction).toBeNull();
+    expect(answer.unsupported).toBeNull();
+    expect(answer.answer).toContain("¡Hola!");
+    expect(answer.answer).toContain("¿Quieres revisar");
+  });
+
+  it("rechaza ids internos en la prosa y responde con un saludo seguro", async () => {
+    const selector = v3Selector((context) => ({
+      kind: "conversation",
+      recommendationId: null,
+      missingFactId: null,
+      message: `Hola. Ejecuta ${context.candidates[0]!.id}.`,
+      followUpQuestion: null,
+      groundedRecommendationIds: [context.candidates[0]!.id],
+      groundedMissingFactIds: [],
+    }));
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "hola", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(answer.answer).toContain("¡Hola!");
+    expect(answer.answer).not.toMatch(/\brec(?::|-)/i);
+    expect(answer.fallbackReason).toContain("datos internos");
+  });
+
+  it("rechaza una cifra inventada y conserva la acción canónica", async () => {
+    const selector = v3Selector((context) => ({
+      kind: "choose_recommendation",
+      recommendationId: context.candidates[0]!.id,
+      missingFactId: null,
+      message: "Tienes 999 puntos de daño; cambia esta pieza.",
+      followUpQuestion: null,
+      groundedRecommendationIds: [context.candidates[0]!.id],
+      groundedMissingFactIds: [],
+    }));
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "¿Qué mejoro ahora?", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(answer.answer).not.toContain("999");
+    expect(answer.nextAction?.recommendationId).toBeTruthy();
+    expect(answer.fallbackReason).toContain("cifra no verificada");
+  });
+
+  it("una pregunta libre no puede disfrazarse de conversación sin fundamento", async () => {
+    const selector = v3Selector(() => ({
+      kind: "conversation",
+      recommendationId: null,
+      missingFactId: null,
+      message: "Tu arma necesita una mejora especial.",
+      followUpQuestion: null,
+      groundedRecommendationIds: [],
+      groundedMissingFactIds: [],
+    }));
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "¿Cómo arreglo mi personaje?", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(answer.intent).toBe("unsupported");
+    expect(answer.answer).not.toContain("mejora especial");
+  });
+
+  it("una explicación generada debe citar la prioridad que explica", async () => {
+    const selector = v3Selector(() => ({
+      kind: "explain_current_case",
+      recommendationId: null,
+      missingFactId: null,
+      message: "Esta es tu prioridad actual.",
+      followUpQuestion: null,
+      groundedRecommendationIds: [],
+      groundedMissingFactIds: [],
+    }));
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "¿Por qué me recomiendas esto?", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(answer.nextAction?.recommendationId).toBeTruthy();
+    expect(answer.fallbackReason).toContain("caso actual");
+  });
+
+  it("los datos pendientes visibles nunca filtran ids de recomendación", async () => {
+    const selector = v3Selector((context) => ({
+      kind: "ask_missing_fact",
+      recommendationId: null,
+      missingFactId: context.missingFacts[0]!.id,
+    }));
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "¿Es seguro seguir?", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(answer.answer).not.toMatch(/\brec(?::|-)/i);
+    expect(answer.unverified.join(" ")).not.toMatch(/\brec(?::|-)/i);
+  });
+});
+
 describe("mentor — intención explain_priority", () => {
   it("explica la prioridad citando el motivo del motor, sin cambiar de decisión", async () => {
     const memory = emptyMemory();

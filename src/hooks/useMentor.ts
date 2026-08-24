@@ -21,10 +21,10 @@ export type { MentorTurn, MentorTurnRole } from "@/lib/mentorThread";
  * llamada HTTP y los avisos; las transiciones del hilo se prueban sin DOM.
  *
  * LIMITACIÓN DELIBERADA: el hilo vive SOLO en memoria de la interfaz. No se
- * persiste ni se envía al servidor como contexto. Si cambian los inputs
- * relevantes (personaje, build objetivo, presupuesto, objetivo, liga, parche o
- * revisión del diario) el hilo se descarta para no mostrar respuestas
- * obsoletas.
+ * persiste. Cada consulta envía como contexto no autoritativo un máximo de ocho
+ * turnos visibles; si cambian personaje, build objetivo, presupuesto, objetivo,
+ * liga, parche o revisión del diario, el hilo se descarta para no mostrar
+ * respuestas obsoletas.
  */
 
 export type MentorAskOutcome =
@@ -40,7 +40,10 @@ export interface MentorState extends MentorThreadState {
 let turnCounter = 0;
 function nextTurnId(prefix: string): string {
   turnCounter += 1;
-  return `${prefix}-${turnCounter}`;
+  // El contador del módulo se reinicia con HMR mientras React conserva el
+  // estado del hilo. Un UUID evita reutilizar claves de turnos ya visibles.
+  const unique = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${turnCounter}`;
+  return `${prefix}-${unique}`;
 }
 
 export function useMentor(): MentorState {

@@ -13,6 +13,7 @@ import {
   MentorAnswerSchema,
   MENTOR_SUGGESTIONS,
   type MentorAnswer,
+  type MentorConversationTurn,
   type MentorIntent,
   type MentorNextAction,
 } from "../../shared/mentorQuery.js";
@@ -35,10 +36,10 @@ import type { ContextEnvelope } from "../../shared/mentorContext.js";
 /**
  * Mentor conversacional.
  *
- * El motor y la memoria siguen siendo la autoridad. Cuando Hito 6E está
- * activo, la IA recibe un contexto compacto y solo puede escoger ids que el
- * motor ya produjo. El servidor valida esa elección y redacta la respuesta
- * canónica; ante cualquier fallo vuelve a las reglas.
+ * El motor y la memoria siguen siendo la autoridad. Cuando Mentor v3 está
+ * activo, la IA recibe un contexto compacto, redacta conversación natural y
+ * debe fundamentarla con ids que el motor ya produjo. El servidor valida
+ * estructura y texto; ante cualquier fallo vuelve a las reglas.
  */
 
 export interface MentorQueryOptions {
@@ -54,6 +55,8 @@ export interface MentorQueryOptions {
   /** Memoria AUTORITATIVA leída por el servidor; el cliente nunca la construye. */
   memory: RecommendationMemory;
   contextEnvelope?: ContextEnvelope;
+  /** Historial visible, compacto y NO autoritativo. */
+  conversation?: MentorConversationTurn[];
 }
 
 export interface MentorQueryDependencies {
@@ -84,13 +87,33 @@ function memoryImpactWithoutEngine(memory: RecommendationMemory): Recommendation
 
 function nextActionFromRecommendation(recommendation: Recommendation): MentorNextAction {
   return {
-    text: recommendation.action,
+    text: publicText(recommendation.action, [recommendation]),
     recommendationId: recommendation.id,
     relatedItemIds: [...recommendation.relatedItemIds],
     canSaveToJournal: recommendation.actionKind !== "session_gate",
     recommendation,
     recalledFromEntryId: null,
   };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Nunca presenta ids internos aunque un texto legado los contenga. */
+function publicText(value: string, recommendations: Recommendation[] = []): string {
+  let result = value;
+  for (const recommendation of recommendations) {
+    result = result.replace(
+      new RegExp(escapeRegExp(recommendation.id), "gi"),
+      `«${recommendation.title}»`,
+    );
+  }
+  return result
+    .replace(/\b(?:rec|fact)(?::|-)[a-z0-9][a-z0-9:_-]*/gi, "la mejora correspondiente")
+    .replace(/\b(?:recommendationId|missingFactId|inputFingerprint)\b/gi, "dato interno")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function fingerprintInput(options: MentorQueryOptions) {
@@ -133,6 +156,36 @@ function unsupportedAnswer(
   });
 }
 
+function conversationFallback(
+  options: MentorQueryOptions,
+  normalizedQuestion: string,
+  fallback?: { model: string; reason: string },
+): MentorAnswer {
+  const thanks = /\bgracias\b/.test(normalizedQuestion);
+  const answer = thanks
+    ? "De nada. Cuando quieras, dime qué pieza o parte del personaje quieres revisar."
+    : "¡Hola! Puedo revisar tu personaje, explicar tu prioridad actual o ayudarte con la pieza que tengas abierta. ¿Qué quieres trabajar primero?";
+  return MentorAnswerSchema.parse({
+    intent: "conversation",
+    normalizedQuestion,
+    answer,
+    nextAction: null,
+    usedRecommendationIds: [],
+    relatedItemIds: [],
+    sources: [],
+    confidence: null,
+    unverified: [],
+    memoryImpact: memoryImpactWithoutEngine(options.memory),
+    inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
+    unsupported: null,
+    generatedAt: new Date().toISOString(),
+    engineVersion: ENGINE_VERSION,
+    responseMode: fallback ? "rules_fallback" : "rules",
+    model: fallback?.model ?? null,
+    fallbackReason: fallback?.reason ?? null,
+  });
+}
+
 type AnswerMetadata = {
   responseMode: "rules" | "ai" | "rules_fallback";
   model: string | null;
@@ -149,18 +202,23 @@ function metadata(
 
 function answerFromRecommendation(
   recommendation: Recommendation,
-  intent: Exclude<MentorIntent, "unsupported">,
+  intent: "next_improvement" | "explain_priority",
   normalizedQuestion: string,
   result: EngineResult,
   answerMetadata: AnswerMetadata,
 ): MentorAnswer {
+  const title = publicText(recommendation.title, [recommendation]);
+  const reason = publicText(recommendation.reason, [recommendation]);
+  const action = publicText(recommendation.action, [recommendation]);
+  const impact = publicText(recommendation.impact.description, [recommendation]);
+  const risk = publicText(recommendation.risk.description, [recommendation]);
   const answer =
     recommendation.actionKind === "session_gate"
-      ? `${recommendation.title}. ${recommendation.reason} ${recommendation.action}`
+      ? `${title}. ${reason} ${action}`
       : intent === "explain_priority"
-        ? `Tu principal problema ahora es «${recommendation.title}». ${recommendation.reason} ` +
-          `${recommendation.impact.description} Riesgo ${RISK_LEVEL_ES[recommendation.risk.level]}: ${recommendation.risk.description}`
-        : `Lo siguiente que haría: ${recommendation.title}. ${recommendation.reason}`;
+        ? `Tu principal problema ahora es «${title}». ${reason} ` +
+          `${impact} Riesgo ${RISK_LEVEL_ES[recommendation.risk.level]}: ${risk}`
+        : `Lo siguiente que haría: ${title}. ${reason}`;
 
   return MentorAnswerSchema.parse({
     intent,
@@ -171,7 +229,7 @@ function answerFromRecommendation(
     relatedItemIds: [...recommendation.relatedItemIds],
     sources: recommendation.sources,
     confidence: recommendation.confidence,
-    unverified: [...recommendation.unverified],
+    unverified: recommendation.unverified.map((text) => publicText(text, [recommendation])),
     memoryImpact: result.memoryImpact,
     inputFingerprint: result.inputFingerprint,
     unsupported: null,
@@ -191,7 +249,7 @@ function recalledAnswer(
   const recalled: MentorNextAction | null =
     primaryEntry.nextAction !== null
       ? {
-          text: primaryEntry.nextAction,
+          text: publicText(primaryEntry.nextAction, result.recommendations),
           recommendationId: primaryEntry.recommendationId,
           relatedItemIds: [...primaryEntry.relatedItemIds],
           canSaveToJournal: false,
@@ -200,11 +258,12 @@ function recalledAnswer(
         }
       : null;
 
+  const primaryTitle = publicText(primaryEntry.title, result.recommendations);
   const answer =
     intent === "explain_priority"
-      ? `Tu prioridad sigue siendo «${primaryEntry.title}», que anotaste en el diario y aún está ` +
+      ? `Tu prioridad sigue siendo «${primaryTitle}», que anotaste en el diario y aún está ` +
         "en curso. No propongo otra decisión hasta que registres su resultado: una sola acción a la vez."
-      : `Ya tienes una acción en marcha: «${primaryEntry.title}». Termínala y anota el resultado en ` +
+      : `Ya tienes una acción en marcha: «${primaryTitle}». Termínala y anota el resultado en ` +
         "el diario; entonces calcularé el siguiente paso.";
 
   return MentorAnswerSchema.parse({
@@ -303,7 +362,7 @@ function buildAiContext(
   const missingByText = new Map<string, MissingFact>();
   for (const recommendation of recommendations) {
     for (const rawFact of recommendation.unverified) {
-      const text = compact(rawFact, 400);
+      const text = compact(publicText(rawFact, recommendations), 400);
       if (!text) continue;
       const current = missingByText.get(text);
       if (current) {
@@ -326,6 +385,10 @@ function buildAiContext(
   const context: MentorAiContext = {
     question: options.question,
     heuristicIntent,
+    conversation: (options.conversation ?? []).slice(-8).map((turn) => ({
+      role: turn.role,
+      text: compact(turn.text, 800) ?? "Mensaje vacío",
+    })),
     character: {
       level: levelReading.known ? levelReading.level : null,
       characterClass: compact(options.profile.characterClass, 100) ?? "Desconocida",
@@ -392,7 +455,29 @@ function validateDecision(
   decision: MentorAiDecision,
   recommendations: Recommendation[],
   missingById: Map<string, MissingFact>,
+  heuristicIntent: MentorIntent,
 ): void {
+  const groundedRecommendationIds = decision.groundedRecommendationIds ?? [];
+  const groundedMissingFactIds = decision.groundedMissingFactIds ?? [];
+  if (
+    groundedRecommendationIds.some(
+      (id) => !recommendations.some((candidate) => candidate.id === id),
+    ) || groundedMissingFactIds.some((id) => !missingById.has(id))
+  ) {
+    throw new MentorAiError("La IA citó un hecho inexistente; se usaron las reglas.");
+  }
+
+  if (decision.kind === "conversation") {
+    if (
+      heuristicIntent !== "conversation" ||
+      decision.recommendationId !== null ||
+      decision.missingFactId !== null ||
+      !decision.message
+    ) {
+      throw new MentorAiError("La conversación de IA no pasó la validación; se usaron las reglas.");
+    }
+    return;
+  }
   if (decision.kind === "choose_recommendation") {
     if (
       decision.recommendationId === null ||
@@ -400,6 +485,12 @@ function validateDecision(
       decision.missingFactId !== null
     ) {
       throw new MentorAiError("La IA eligió una recomendación inexistente; se usaron las reglas.");
+    }
+    if (
+      decision.message &&
+      !groundedRecommendationIds.includes(decision.recommendationId)
+    ) {
+      throw new MentorAiError("La explicación de IA no citó su recomendación; se usaron las reglas.");
     }
     return;
   }
@@ -411,24 +502,153 @@ function validateDecision(
     ) {
       throw new MentorAiError("La IA pidió un dato inexistente; se usaron las reglas.");
     }
+    if (decision.message && !groundedMissingFactIds.includes(decision.missingFactId)) {
+      throw new MentorAiError("La pregunta de IA no citó el dato pendiente; se usaron las reglas.");
+    }
     return;
+  }
+  if (
+    decision.kind === "explain_current_case" &&
+    decision.message &&
+    (recommendations[0] === undefined ||
+      !groundedRecommendationIds.includes(recommendations[0].id))
+  ) {
+    throw new MentorAiError(
+      "La explicación de IA no citó el caso actual; se usaron las reglas.",
+    );
   }
   if (decision.recommendationId !== null || decision.missingFactId !== null) {
     throw new MentorAiError("La decisión de IA contenía ids inesperados; se usaron las reglas.");
   }
 }
 
+function meaningfulContextText(context: MentorAiContext): string {
+  return JSON.stringify({
+    character: context.character,
+    goal: context.goal,
+    budget: context.budget,
+    activeAction: context.activeAction
+      ? { title: context.activeAction.title, action: context.activeAction.action }
+      : null,
+    buildMemory: context.buildMemory.map(({ kind, label, reason }) => ({ kind, label, reason })),
+    items: context.items.map(({ slot, name, baseType }) => ({ slot, name, baseType })),
+    candidates: context.candidates.map(
+      ({ priority, title, action, reason, confidence, actionKind }) => ({
+        priority,
+        title,
+        action,
+        reason,
+        confidence,
+        actionKind,
+      }),
+    ),
+    missingFacts: context.missingFacts.map(({ text }) => text),
+    envelope: context.envelope
+      ? {
+          activeArea: context.envelope.activeArea,
+          character: context.envelope.character,
+          targetBuild: context.envelope.targetBuild,
+          selectedItem: context.envelope.selectedItem?.name ?? null,
+          market: context.envelope.market,
+          sessionActive: context.envelope.sessionActive,
+        }
+      : null,
+  });
+}
+
+function numberTokens(value: string): string[] {
+  return value.match(/\d+(?:[.,]\d+)?%?/g) ?? [];
+}
+
+/**
+ * Permite prosa libre, pero no deja pasar ids, HTML, enlaces ni números que no
+ * existan en los hechos canónicos. Ante la duda se conserva la respuesta de
+ * reglas: nunca se «arregla» silenciosamente una alucinación.
+ */
+function generatedCopy(
+  decision: MentorAiDecision,
+  context: MentorAiContext,
+): string | null {
+  if (!decision.message) return null;
+  const combined = [decision.message, decision.followUpQuestion].filter(Boolean).join("\n\n");
+  const forbiddenIds = [
+    ...context.candidates.map((candidate) => candidate.id),
+    ...context.missingFacts.map((fact) => fact.id),
+  ];
+  if (
+    forbiddenIds.some((id) => combined.toLowerCase().includes(id.toLowerCase())) ||
+    /\b(?:rec|fact)(?::|-)[a-z0-9]/i.test(combined) ||
+    /\b(?:recommendationId|missingFactId|inputFingerprint)\b/i.test(combined) ||
+    /<\/?[a-z][^>]*>|https?:\/\//i.test(combined)
+  ) {
+    throw new MentorAiError("La IA intentó mostrar datos internos; se usaron las reglas.");
+  }
+
+  const allowedNumbers = new Set(["2", ...numberTokens(meaningfulContextText(context))]);
+  const inventedNumber = numberTokens(combined).find((token) => !allowedNumbers.has(token));
+  if (inventedNumber) {
+    throw new MentorAiError("La IA añadió una cifra no verificada; se usaron las reglas.");
+  }
+  return combined.trim();
+}
+
+function withGeneratedCopy(answer: MentorAnswer, copy: string | null): MentorAnswer {
+  return copy ? MentorAnswerSchema.parse({ ...answer, answer: copy }) : answer;
+}
+
+function conversationalAnswer(
+  decision: MentorAiDecision,
+  context: MentorAiContext,
+  normalizedQuestion: string,
+  result: EngineResult,
+  selector: MentorDecisionSelector,
+  missingById: Map<string, MissingFact>,
+): MentorAnswer {
+  const copy = generatedCopy(decision, context);
+  if (!copy) {
+    throw new MentorAiError("La IA no redactó una respuesta conversacional; se usaron las reglas.");
+  }
+  const usedRecommendationIds = decision.groundedRecommendationIds ?? [];
+  const usedRecommendations = result.recommendations.filter((candidate) =>
+    usedRecommendationIds.includes(candidate.id),
+  );
+  const groundedFacts = (decision.groundedMissingFactIds ?? [])
+    .map((id) => missingById.get(id))
+    .filter((fact): fact is MissingFact => fact !== undefined);
+  return MentorAnswerSchema.parse({
+    intent: "conversation",
+    normalizedQuestion,
+    answer: copy,
+    nextAction: null,
+    usedRecommendationIds,
+    relatedItemIds: Array.from(
+      new Set(usedRecommendations.flatMap((candidate) => candidate.relatedItemIds)),
+    ),
+    sources: usedRecommendations.flatMap((candidate) => candidate.sources),
+    confidence: null,
+    unverified: groundedFacts.map((fact) => fact.text),
+    memoryImpact: result.memoryImpact,
+    inputFingerprint: result.inputFingerprint,
+    unsupported: null,
+    generatedAt: result.generatedAt,
+    engineVersion: result.engineVersion,
+    ...metadata("ai", selector.name),
+  });
+}
+
 function noSafeAction(
   normalizedQuestion: string,
   result: EngineResult,
   selector: MentorDecisionSelector,
+  copy: string | null = null,
 ): MentorAnswer {
   return MentorAnswerSchema.parse({
     intent: "unsupported",
     normalizedQuestion,
     answer:
+      copy ??
       "No encuentro una acción segura entre las opciones verificadas para responder a esa pregunta. " +
-      "No voy a improvisar un cambio fuera del motor.",
+        "No voy a improvisar un cambio fuera del motor.",
     nextAction: null,
     usedRecommendationIds: [],
     relatedItemIds: [],
@@ -460,6 +680,12 @@ async function buildAnswer(
   const { normalizedQuestion } = classified;
   const selector = deps.selector ?? null;
 
+  // La conversación social nunca se convierte en una recomendación por
+  // ausencia de IA. Con IA sí recibe el contexto canónico para responder.
+  if (intent === "conversation" && selector === null) {
+    return conversationFallback(options, normalizedQuestion);
+  }
+
   // Sin IA se conserva la salida honesta original y no se ejecuta el motor.
   if (intent === "unsupported" && selector === null) {
     return unsupportedAnswer(options, normalizedQuestion);
@@ -479,12 +705,18 @@ async function buildAnswer(
   );
 
   // La acción activa es autoritativa: ni siquiera se consulta la IA.
-  if (options.memory.primaryEntry !== null) {
+  if (
+    options.memory.primaryEntry !== null &&
+    intent !== "conversation"
+  ) {
     return recalledAnswer(options, normalizedQuestion, intent, result);
   }
 
   const top = result.recommendations[0];
-  if (top === undefined) {
+  if (
+    top === undefined &&
+    (selector === null || intent === "next_improvement" || intent === "explain_priority")
+  ) {
     return MentorAnswerSchema.parse({
       intent: intent === "unsupported" ? "next_improvement" : intent,
       normalizedQuestion,
@@ -506,31 +738,52 @@ async function buildAnswer(
     });
   }
 
-  if (selector === null) {
+  if (selector === null && top !== undefined) {
     return answerFromRecommendation(
       top,
-      intent === "unsupported" ? "next_improvement" : intent,
+      intent === "explain_priority" ? "explain_priority" : "next_improvement",
       normalizedQuestion,
       result,
       metadata(),
     );
   }
 
+  // Las ramas sin selector ya han devuelto arriba; esta guarda hace explícita
+  // la invariancia para TypeScript y para futuros cambios del flujo.
+  if (selector === null) {
+    return unsupportedAnswer(options, normalizedQuestion);
+  }
+
   const { context, missingById } = buildAiContext(options, intent, result.recommendations);
   try {
     const decision = await selector.select(context, safetyIdentifier(options.profile.id));
-    validateDecision(decision, result.recommendations, missingById);
+    validateDecision(decision, result.recommendations, missingById, intent);
+    const copy = generatedCopy(decision, context);
+
+    if (decision.kind === "conversation") {
+      return conversationalAnswer(
+        decision,
+        context,
+        normalizedQuestion,
+        result,
+        selector,
+        missingById,
+      );
+    }
 
     if (decision.kind === "choose_recommendation") {
       const chosen = result.recommendations.find(
         (candidate) => candidate.id === decision.recommendationId,
       )!;
-      return answerFromRecommendation(
-        chosen,
-        intent === "explain_priority" ? "explain_priority" : "next_improvement",
-        normalizedQuestion,
-        result,
-        metadata("ai", selector.name),
+      return withGeneratedCopy(
+        answerFromRecommendation(
+          chosen,
+          intent === "explain_priority" ? "explain_priority" : "next_improvement",
+          normalizedQuestion,
+          result,
+          metadata("ai", selector.name),
+        ),
+        copy,
       );
     }
 
@@ -540,8 +793,8 @@ async function buildAnswer(
         fact.recommendationIds.includes(candidate.id),
       );
 
-      return MentorAnswerSchema.parse({
-        intent: intent === "unsupported" ? "next_improvement" : intent,
+      const canonical = MentorAnswerSchema.parse({
+        intent: intent === "explain_priority" ? "explain_priority" : "next_improvement",
         normalizedQuestion,
         answer: `Antes de decidir necesito resolver este dato: ${fact.text}`,
         nextAction: null,
@@ -559,25 +812,36 @@ async function buildAnswer(
         engineVersion: result.engineVersion,
         ...metadata("ai", selector.name),
       });
+      return withGeneratedCopy(canonical, copy);
     }
 
     if (decision.kind === "explain_current_case") {
-      return answerFromRecommendation(
-        top,
-        "explain_priority",
-        normalizedQuestion,
-        result,
-        metadata("ai", selector.name),
+      if (top === undefined) return noSafeAction(normalizedQuestion, result, selector, copy);
+      return withGeneratedCopy(
+        answerFromRecommendation(
+          top,
+          "explain_priority",
+          normalizedQuestion,
+          result,
+          metadata("ai", selector.name),
+        ),
+        copy,
       );
     }
 
-    return noSafeAction(normalizedQuestion, result, selector);
+    return noSafeAction(normalizedQuestion, result, selector, copy);
   } catch (error) {
     const reason =
       error instanceof MentorAiError
         ? error.safeReason
         : "La IA no pudo decidir con seguridad; se usaron las reglas.";
+    if (intent === "conversation") {
+      return conversationFallback(options, normalizedQuestion, { model: selector.name, reason });
+    }
     if (intent === "unsupported") {
+      return unsupportedAnswer(options, normalizedQuestion, { model: selector.name, reason });
+    }
+    if (top === undefined) {
       return unsupportedAnswer(options, normalizedQuestion, { model: selector.name, reason });
     }
     return answerFromRecommendation(

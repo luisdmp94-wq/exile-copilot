@@ -1,4 +1,4 @@
-# Hito 6E — Mentor IA supervisado
+# Hito 6E — Mentor IA fundamentado (Mentor v3)
 
 ## Objetivo
 
@@ -12,11 +12,13 @@ siguen siendo autoritativos.
 2. Construye un contexto compacto: resumen del personaje, presupuesto,
    objetivo, acción activa, memoria de build, candidatos y datos faltantes.
 3. Si la flag está activa, la Responses API del proveedor configurado devuelve
-   uno de cuatro resultados:
+   texto natural y uno de cinco resultados estructurados:
+   `conversation`,
    `choose_recommendation`, `ask_missing_fact`, `explain_current_case` o
    `no_safe_action`.
-4. El servidor comprueba que cada id existe en el contexto y reconstruye la
-   respuesta a partir de las estructuras canónicas.
+4. El servidor comprueba que cada id existe en el contexto y que cada cifra del
+   texto aparece en los hechos canónicos. También rechaza ids internos, nombres
+   de campos, HTML y enlaces.
 5. Cualquier fallo produce `rules_fallback`; la consulta sigue funcionando.
 
 ## Mentor v2: contexto de la interfaz
@@ -31,13 +33,25 @@ visible. Es una pista de navegación, no una nueva fuente de verdad:
 - el objetivo libre de crafting y la última acción del cliente se descartan
   mientras no exista una fuente autoritativa del servidor;
 - `activeArea` y `sessionActive` son valores acotados por esquema;
-- la respuesta visible se vuelve a construir desde la recomendación o carencia
-  canónica seleccionada. La salida del modelo no admite texto para el jugador.
+- la respuesta visible solo puede fundamentarse en una recomendación o carencia
+  canónica seleccionada.
 
 La interfaz mantiene sincronizada la pieza seleccionada al cambiarla dentro del
 guía de Crafting. Al elegir una dirección, el mentor contextual muestra esa
 pieza y el siguiente paso legal calculado, sin hacer una llamada automática a
-Groq. Solo «Analizar este contexto» consulta al selector opcional.
+Groq. Solo «Analizar este contexto» consulta al modelo opcional.
+
+## Mentor v3: conversación con vida, sin perder rigor
+
+- Saludos y agradecimientos ya son conversación, no preguntas no soportadas.
+- Los últimos ocho turnos viajan con cada consulta para conservar el hilo. Son
+  texto no confiable y nunca sustituyen al personaje, diario o motor.
+- Groq puede explicar, resumir y formular una pregunta de seguimiento con sus
+  propias palabras, siempre citando los ids canónicos que lo fundamentan.
+- Una acción activa del diario continúa teniendo prioridad: el modelo no abre
+  una segunda decisión mientras la primera siga en curso.
+- Si el validador detecta una cifra, id o afirmación fuera del contexto, desecha
+  toda la redacción y responde con el respaldo seguro de reglas.
 
 ## Límites de seguridad y coste
 
@@ -48,10 +62,12 @@ Groq. Solo «Analizar este contexto» consulta al selector opcional.
   `safety_identifier`). Tampoco se reutiliza estado remoto de conversación.
 - Con OpenAI, `store:false` evita almacenar la respuesta y el id del personaje
   se envía únicamente como hash en `safety_identifier`.
-- Contexto acotado a 3 candidatos, 14 objetos, 12 memorias y 12 datos faltantes.
+- Contexto acotado a 3 candidatos, 14 objetos, 12 memorias, 12 datos faltantes y
+  8 turnos conversacionales de hasta 800 caracteres.
 - Tiempo máximo 1–30 s y salida 128–1024 tokens; valores iniciales 12 s/256.
-- La pregunta, nombres de objetos y memoria se marcan explícitamente como datos
-  no confiables. La salida estructurada no incluye texto libre de consejo.
+- La pregunta, nombres de objetos, memoria y conversación se marcan
+  explícitamente como datos no confiables. El texto libre se valida antes de
+  poder llegar al jugador.
 
 ## Configuración
 
@@ -84,3 +100,7 @@ repositorio.
   recomendación, ni pasar instrucciones libres al selector.
 - IDs inventados y errores del selector conservan la misma próxima acción del
   respaldo determinista.
+- Un saludo real llega a Groq, responde sin acción ni evidencia vacía y mantiene
+  los turnos siguientes como memoria breve.
+- IDs visibles, campos técnicos y cifras inventadas en el texto generado son
+  rechazados y activan el respaldo seguro.
