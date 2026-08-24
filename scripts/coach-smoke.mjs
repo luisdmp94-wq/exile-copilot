@@ -137,6 +137,18 @@ const CROSSBOW_TEXT = readFileSync(
   "utf8",
 );
 
+const TRANSMUTED_MACE_TEXT = [
+  "Clase de objeto: Guantes",
+  "Rareza: Mágico",
+  "Guantes de cuero de victoria",
+  "------------------",
+  "Evasión: 45",
+  "------------------",
+  "## Nivel de objeto: 55",
+  '{ Mod. de sufijo "de victoria" (Grado: 1) — Ataque }',
+  "+25 a la precisión",
+].join("\n");
+
 /**
  * Perfil con una pieza de cada estado que el guía debe saber resolver, más la
  * ballesta real importada por la ruta normal de la API.
@@ -161,6 +173,7 @@ async function seedProfile(base) {
         id: "taller-normal",
         name: "Guantes en bruto",
         baseType: "Guantes de cuero",
+        itemClass: "Guantes",
         slot: "gloves",
         rarity: "normal",
         itemLevel: 55,
@@ -415,7 +428,35 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] «Qué puede ocurrir» y «Evidencia técnica» llegan plegados`,
       (await recomendacion.locator("details[open]").count()) === 0 &&
-        (await recomendacion.locator("details").count()) === 2,
+      (await recomendacion.locator("details").count()) === 2,
+    );
+    await page.getByTestId("coach-lo-hare").click();
+    const textoQueNoCuadra = TRANSMUTED_MACE_TEXT
+      .replace("Clase de objeto: Guantes", "Clase de objeto: Bastones")
+      .replace("Guantes de cuero de victoria", "Bastón distinto de victoria");
+    await page.getByTestId("coach-resultado-texto").fill(textoQueNoCuadra);
+    await page.getByTestId("coach-comparar").click();
+    await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] si el texto no cuadra explica el motivo y permite corregirlo sin reiniciar`,
+      (await page.getByTestId("coach-veredicto").innerText()).includes("La base cambió") &&
+        (await page.getByTestId("coach-corregir-resultado").isVisible()) &&
+        (await page.getByTestId("coach-objeto-resumen").innerText()).includes("pieza normal"),
+    );
+    await page.getByTestId("coach-corregir-resultado").click();
+    check(
+      `[${mode}] corregir conserva el texto anterior para poder editarlo`,
+      (await page.getByTestId("coach-resultado-texto").evaluate((element) => element.value)) ===
+        textoQueNoCuadra,
+    );
+    await page.getByTestId("coach-resultado-texto").fill(TRANSMUTED_MACE_TEXT);
+    await page.getByTestId("coach-comparar").click();
+    await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el nombre mágico nuevo no rompe la comparación tras Transmutación`,
+      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "continue" &&
+        (await page.getByTestId("coach-comparacion").innerText()).includes("modificador nuevo") &&
+        (await page.getByTestId("coach-objeto-resumen").innerText()).includes("cabe uno más"),
     );
 
     // --- 4. Pieza mágica incompleta --------------------------------------

@@ -87,6 +87,36 @@ function multisetDifference(left: Modifier[], right: Modifier[]): Modifier[] {
 }
 
 /**
+ * Una Transmutación cambia el nombre visible de una base normal al añadir el
+ * afijo mágico. En el texto del portapapeles, los objetos mágicos no traen una
+ * segunda línea separada con la base, por lo que el importador solo puede
+ * conservar el nombre completo. Para esta transición concreta aceptamos que
+ * el nombre resultante contenga íntegramente la base anterior, siempre dentro
+ * de la misma clase de objeto. El nivel de objeto se comprueba por separado.
+ */
+function baseIdentityMatches(
+  original: Item,
+  result: Item,
+  actionId: CraftingComparisonActionId,
+): boolean {
+  const originalBase = normalized(original.baseType);
+  const resultBase = normalized(result.baseType);
+  if (originalBase === resultBase) return true;
+  if (actionId !== "transmutation" || original.rarity !== "normal" || result.rarity !== "magic") {
+    return false;
+  }
+
+  const originalClass = normalized(original.itemClass ?? "");
+  const resultClass = normalized(result.itemClass ?? "");
+  return (
+    originalClass.length > 0 &&
+    originalClass === resultClass &&
+    originalBase.length > 0 &&
+    resultBase.includes(originalBase)
+  );
+}
+
+/**
  * Compara el snapshot anterior con el texto pegado después de gastar UNA
  * moneda observada. Solo confirma estructura: misma base, transición de rareza
  * esperada, el número esperado de explícitos retirados y exactamente uno nuevo.
@@ -99,7 +129,7 @@ export function compareCraftingResult(
   options: CraftingComparisonOptions = {},
 ): CraftingComparison {
   const warnings: string[] = [];
-  const baseTypeMatches = normalized(original.baseType) === normalized(result.baseType);
+  const baseTypeMatches = baseIdentityMatches(original, result, actionId);
   if (!baseTypeMatches) {
     warnings.push(
       `La base cambió de «${original.baseType}» a «${result.baseType}»: no parece el mismo objeto.`,

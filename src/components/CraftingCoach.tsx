@@ -462,11 +462,14 @@ export function CraftingCoach({
       const refreshedGoal = interpretCoachGoal(goalText, pasted);
       setComparison(nextComparison);
       setResultItem(pasted);
-      setProtectedModifiers(refreshedGoal.protectedModifiers);
-      setUnresolvedProtections(refreshedGoal.unresolvedProtections);
-      // A partir de aquí la pieza que se enseña es la que el jugador acaba de
-      // pegar: dejar la anterior a la vista contradiría el propio resultado.
-      setWorkingItem(pasted);
+      if (nextComparison.status === "confirmed") {
+        setProtectedModifiers(refreshedGoal.protectedModifiers);
+        setUnresolvedProtections(refreshedGoal.unresolvedProtections);
+        // Solo avanzamos el snapshot cuando la comparación se confirmó. Si el
+        // pegado no cuadra, conservar la pieza anterior permite corregir el
+        // texto sin perder el punto de partida de la sesión.
+        setWorkingItem(pasted);
+      }
       setPhase("result");
       onMentorContext?.({
         type: "craftingCoachResult",
@@ -852,6 +855,19 @@ export function CraftingCoach({
                   >
                     Ver la siguiente acción
                     <ArrowRight className="size-4" aria-hidden="true" />
+                  </Button>
+                )}
+                {comparison?.status !== "confirmed" && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setPhase("await-result");
+                      setComparison(null);
+                      setResultItem(null);
+                    }}
+                    data-testid="coach-corregir-resultado"
+                  >
+                    Revisar el texto pegado
                   </Button>
                 )}
                 <Button type="button" variant="outline" onClick={resetFlow} data-testid="coach-empezar-otra">

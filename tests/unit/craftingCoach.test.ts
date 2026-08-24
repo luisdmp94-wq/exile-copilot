@@ -184,6 +184,30 @@ describe("guía de crafting — leer la pieza en palabras", () => {
     expect(reading.sentence).toContain("no cabe nada más");
     expect(reading.openSlots).toBe(0);
   });
+
+  it("no declara llena una pieza cuando existe una línea explícita sin clasificar", () => {
+    const reading = readItemInPlainWords(
+      pieza({
+        rarity: "magic",
+        modifiers: [
+          mod("sufijo", "+24% a la resistencia al frío", "suffix", ["Resistencias"]),
+          {
+            id: "sin-clasificar",
+            text: "Línea cuyo tipo no se pudo leer",
+            kind: "explicit",
+            values: [],
+            verified: false,
+          },
+        ],
+      }),
+    );
+
+    expect(reading.openSlots).toBeNull();
+    expect(reading.sentence).toContain("1 línea sigue sin clasificar");
+    expect(reading.sentence).toContain("No puedo confirmar los huecos");
+    expect(reading.sentence).not.toContain("Está lleno");
+    expect(reading.sentence).not.toContain("con sin prefijos");
+  });
 });
 
 describe("guía de crafting — legalidad, orientación y ajuste son ejes distintos", () => {
@@ -412,7 +436,8 @@ describe("guía de crafting — antes y después", () => {
     const reading = readCraftResult({ comparison, resultItem: otro, direction: null });
 
     expect(reading.verdict).toBe("stop");
-    expect(reading.verdictText).toContain("Vuelve a copiar");
+    expect(reading.verdictText).toContain("rareza resultante");
+    expect(reading.verdictText).toContain("Revisa el texto pegado");
     expect(reading.nextStep).toBeNull();
   });
 

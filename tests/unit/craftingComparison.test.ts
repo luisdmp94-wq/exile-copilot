@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { compareCraftingResult } from "../../shared/craftingComparison.js";
+import { readItemInPlainWords } from "../../shared/craftingCoach.js";
 import type { Item, Modifier } from "../../shared/domain.js";
+import { parseItemText } from "../../server/importers/itemTextParser.js";
 
 function modifier(
   text: string,
@@ -66,6 +68,76 @@ describe("compareCraftingResult", () => {
       modifiers: [...original.modifiers, modifier("Afijo del regio", "suffix")],
     });
     expect(compareCraftingResult(original, result, "regal").status).toBe("confirmed");
+  });
+
+  it("reconoce la misma base tras una Transmutación aunque el nombre mágico añada un afijo", () => {
+    const original = item({
+      name: "Maza de procesión",
+      baseType: "Maza de procesión",
+      itemClass: "Mazas",
+      rarity: "normal",
+      modifiers: [],
+    });
+    const result = item({
+      name: "Maza de procesión de victoria",
+      baseType: "Maza de procesión de victoria",
+      itemClass: "Mazas",
+      rarity: "magic",
+      modifiers: [modifier("Modificador de victoria", "suffix")],
+    });
+
+    const comparison = compareCraftingResult(original, result, "transmutation");
+    expect(comparison.status).toBe("confirmed");
+    expect(comparison.identityMatches).toBe(true);
+  });
+
+  it("confirma de extremo a extremo un texto español normal que vuelve como mágico", () => {
+    const original = parseItemText([
+      "Clase de objeto: Mazas",
+      "Rareza: Normal",
+      "Maza de procesión",
+      "------------------",
+      "Daño físico: 12-18",
+      "Ataques por segundo: 1.20",
+      "------------------",
+      "## Nivel de objeto: 44",
+    ].join("\n")).item;
+    const result = parseItemText([
+      "Clase de objeto: Mazas",
+      "Rareza: Mágico",
+      "Maza de procesión de victoria",
+      "------------------",
+      "Daño físico: 12-18",
+      "Ataques por segundo: 1.20",
+      "------------------",
+      "## Nivel de objeto: 44",
+      '{ Mod. de sufijo "de victoria" (Grado: 1) — Ataque }',
+      "+25 a la precisión",
+    ].join("\n")).item;
+
+    const comparison = compareCraftingResult(original, result, "transmutation");
+    expect(comparison.status).toBe("confirmed");
+    expect(comparison.addedModifiers.map((modifier) => modifier.text)).toEqual([
+      "+25 a la precisión",
+    ]);
+    expect(readItemInPlainWords(result).sentence).toContain("Todavía cabe uno más");
+  });
+
+  it("no usa la excepción de Transmutación si cambia la clase de objeto", () => {
+    const original = item({
+      baseType: "Maza de procesión",
+      itemClass: "Mazas",
+      rarity: "normal",
+      modifiers: [],
+    });
+    const result = item({
+      baseType: "Maza de procesión de victoria",
+      itemClass: "Bastones",
+      rarity: "magic",
+      modifiers: [modifier("Modificador de victoria", "suffix")],
+    });
+
+    expect(compareCraftingResult(original, result, "transmutation").status).toBe("mismatch");
   });
 
   it("rechaza un texto de otra base aunque también tenga un mod nuevo", () => {

@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 45,
+> Informe para el propietario. Última actualización: sesión 46,
 > 2026-08-25.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,30 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 46 — resultado de Transmutación reconocido y recuperable
+
+- Corregido el fallo descubierto jugando: después de una Transmutación, PoE2
+  añade el afijo al nombre visible de un objeto mágico y no repite la base en
+  otra línea. El comparador reconoce ahora esa transición como la misma pieza
+  cuando coinciden clase, nivel y nombre base; sigue rechazando una clase o una
+  base distintas.
+- La lectura ya no puede mostrar la contradicción «sin prefijos, 1 sufijo y
+  lleno». Si hay una línea explícita que el importador no logró clasificar, la
+  enumera como tal, deja los huecos como desconocidos y pide el texto avanzado
+  en vez de inventar una estructura.
+- Una comparación fallida explica el motivo concreto. El jugador puede pulsar
+  **Revisar el texto pegado**, conservar lo que había pegado y corregirlo sin
+  reiniciar el objetivo ni perder el snapshot anterior.
+- El snapshot del guía solo avanza al resultado cuando la comparación queda
+  confirmada; un pegado erróneo ya no sustituye silenciosamente la pieza de
+  partida.
+
+Verificación: TypeScript y ESLint sin errores; **570/570** pruebas; build de
+producción correcto; recorrido completo del guía **96/96** en producción y
+desarrollo/Strict Mode. Incluye una regresión de texto español normal → mágico
+con el nombre «de victoria» y otra de recuperación tras pegar una pieza que no
+cuadra.
 
 ## Sesión 45 — Crafting directo sin personaje
 

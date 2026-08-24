@@ -64,24 +64,47 @@ function plural(count: number, one: string, many: string): string {
 export function readItemInPlainWords(item: Item): CoachItemReading {
   const diagnosis = diagnoseCraftingItem(item);
   const rarityWord = RARITY_WORD[item.rarity] ?? "de un tipo que todavía no sé leer";
-  const { prefixCount, suffixCount, explicitCount, observedTotalLimit, observedOpenSlots } =
-    diagnosis;
+  const {
+    prefixCount,
+    suffixCount,
+    unclassifiedExplicitCount,
+    explicitCount,
+    observedTotalLimit,
+    observedOpenSlots,
+  } = diagnosis;
 
-  const familia = (count: number, one: string, many: string) =>
-    count === 0 ? `sin ${many}` : `${count} ${plural(count, one, many)}`;
-  const estructura = `${familia(prefixCount, "prefijo", "prefijos")} y ${familia(suffixCount, "sufijo", "sufijos")}`;
+  const prefijos = `${prefixCount} ${plural(prefixCount, "prefijo", "prefijos")}`;
+  const sufijos = `${suffixCount} ${plural(suffixCount, "sufijo", "sufijos")}`;
+  const estructura =
+    prefixCount === 0 && suffixCount === 0
+      ? "no tiene prefijos ni sufijos"
+      : prefixCount === 0
+        ? `no tiene prefijos y tiene ${sufijos}`
+        : suffixCount === 0
+          ? `tiene ${prefijos} y no tiene sufijos`
+          : `tiene ${prefijos} y ${sufijos}`;
+  // Si alguna línea explícita no está clasificada, el total permite conocer
+  // cuántas líneas leyó el parser, pero no dibujar huecos de prefijo/sufijo con
+  // seguridad. Presentarlo como «0 prefijos + 1 sufijo = lleno» contradice los
+  // propios datos y empuja al jugador a tomar una decisión falsa.
+  const presentableOpenSlots = unclassifiedExplicitCount > 0 ? null : observedOpenSlots;
 
   let sentence: string;
   if (item.rarity === "normal" && explicitCount === 0) {
     sentence = "Es una pieza normal: todavía no tiene ningún modificador.";
-  } else if (observedOpenSlots === null) {
+  } else if (unclassifiedExplicitCount > 0) {
+    sentence =
+      `Es ${rarityWord} y he leído ${explicitCount} ${plural(explicitCount, "modificador", "modificadores")}: ` +
+      `${estructura}, pero ${unclassifiedExplicitCount} ${plural(unclassifiedExplicitCount, "línea sigue", "líneas siguen")} sin clasificar. ` +
+      "No puedo confirmar los huecos hasta volver a copiarlo con las descripciones avanzadas.";
+  } else if (presentableOpenSlots === null) {
     sentence = `Es ${rarityWord} y tiene ${explicitCount} ${plural(explicitCount, "modificador", "modificadores")}.`;
-  } else if (observedOpenSlots === 0) {
-    sentence = `Es ${rarityWord}, con ${estructura}. Está lleno: no cabe nada más.`;
+  } else if (presentableOpenSlots === 0) {
+    sentence = `Es ${rarityWord}: ${estructura}. Está lleno: no cabe nada más.`;
   } else {
     sentence =
-      `Es ${rarityWord}, con ${estructura}. Todavía ` +
-      `${plural(observedOpenSlots, "cabe uno más", `caben ${observedOpenSlots} más`)}.`;
+      `Es ${rarityWord}: ${estructura}. Todavía ` +
+      `${plural(presentableOpenSlots, "cabe uno más", `caben ${presentableOpenSlots} más`)}.`;
   }
 
   return {
@@ -90,7 +113,7 @@ export function readItemInPlainWords(item: Item): CoachItemReading {
     prefixCount,
     suffixCount,
     observedTotalLimit,
-    openSlots: observedOpenSlots,
+    openSlots: presentableOpenSlots,
     sentence,
     keepsSentence:
       explicitCount === 0
@@ -656,6 +679,7 @@ export function readCraftResult(input: {
   const { comparison, resultItem, direction } = input;
 
   if (comparison.status !== "confirmed") {
+    const reason = comparison.summary.trim();
     return {
       headline:
         comparison.status === "mismatch"
@@ -665,7 +689,7 @@ export function readCraftResult(input: {
       kept: "",
       verdict: "stop",
       verdictText:
-        "No gastes otra moneda. Vuelve a copiar el objeto del juego y pégalo otra vez.",
+        `${reason} No gastes otra moneda. Revisa el texto pegado y vuelve a comprobarlo.`,
       nextStep: null,
       goalFit: "not-evaluable",
       directionNote: null,
