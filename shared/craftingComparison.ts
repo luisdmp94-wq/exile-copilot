@@ -87,12 +87,16 @@ function multisetDifference(left: Modifier[], right: Modifier[]): Modifier[] {
 }
 
 /**
- * Una Transmutación cambia el nombre visible de una base normal al añadir el
- * afijo mágico. En el texto del portapapeles, los objetos mágicos no traen una
- * segunda línea separada con la base, por lo que el importador solo puede
- * conservar el nombre completo. Para esta transición concreta aceptamos que
- * el nombre resultante contenga íntegramente la base anterior, siempre dentro
- * de la misma clase de objeto. El nivel de objeto se comprueba por separado.
+ * PoE2 no serializa igual la identidad visible en todas las rarezas:
+ *
+ * - normal: una línea con la base;
+ * - mágico: una línea con base + afijo, sin base separada;
+ * - raro: nombre raro y base en dos líneas.
+ *
+ * Por eso las dos transiciones que CAMBIAN de etapa necesitan reconciliar la
+ * base usando la frase que contiene a la otra, siempre con la misma clase. El
+ * nivel de objeto y la conservación de mods se comprueban por separado, de
+ * modo que esta tolerancia no basta por sí sola para aceptar otra pieza.
  */
 function baseIdentityMatches(
   original: Item,
@@ -102,18 +106,19 @@ function baseIdentityMatches(
   const originalBase = normalized(original.baseType);
   const resultBase = normalized(result.baseType);
   if (originalBase === resultBase) return true;
-  if (actionId !== "transmutation" || original.rarity !== "normal" || result.rarity !== "magic") {
-    return false;
-  }
-
   const originalClass = normalized(original.itemClass ?? "");
   const resultClass = normalized(result.itemClass ?? "");
-  return (
-    originalClass.length > 0 &&
-    originalClass === resultClass &&
-    originalBase.length > 0 &&
-    resultBase.includes(originalBase)
-  );
+  if (originalClass.length === 0 || originalClass !== resultClass) return false;
+
+  if (actionId === "transmutation" && original.rarity === "normal" && result.rarity === "magic") {
+    return originalBase.length > 0 && resultBase.includes(originalBase);
+  }
+
+  if (actionId === "regal" && original.rarity === "magic" && result.rarity === "rare") {
+    return resultBase.length > 0 && originalBase.includes(resultBase);
+  }
+
+  return false;
 }
 
 /**

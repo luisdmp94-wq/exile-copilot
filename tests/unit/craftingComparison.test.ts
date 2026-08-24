@@ -123,6 +123,71 @@ describe("compareCraftingResult", () => {
     expect(readItemInPlainWords(result).sentence).toContain("Todavía cabe uno más");
   });
 
+  it("mantiene la identidad del objeto real durante Regio y el siguiente Exaltado", () => {
+    const magic = parseItemText([
+      "Clase de objeto: Mazas a una mano",
+      "Rareza: Mágico",
+      "Maza de procesión  de victoria",
+      "------------------------------",
+      "Daño físico: 33-69",
+      "Ataques por segundo: 1.40",
+      "-------------------------",
+      "## Nivel de objeto: 64",
+      '{ Mod. de prefijo "" (Grado: 4) — Ataque }',
+      "+233(168-236) a la precisión",
+      '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+      "Ganas 8(7-9) de vida por cada enemigo asesinado",
+    ].join("\n")).item;
+    const rareAfterRegal = parseItemText([
+      "Clase de objeto: Mazas a una mano",
+      "Rareza: Raro",
+      "Golpe del peregrino",
+      "Maza de procesión",
+      "------------------------------",
+      "Daño físico: 33-69",
+      "Ataques por segundo: 1.40",
+      "-------------------------",
+      "## Nivel de objeto: 64",
+      '{ Mod. de prefijo "" (Grado: 4) — Ataque }',
+      "+233(168-236) a la precisión",
+      '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+      "Ganas 8(7-9) de vida por cada enemigo asesinado",
+      '{ Mod. de sufijo "del oso" (Grado: 8) — Atributo }',
+      "+12 a la fuerza",
+    ].join("\n")).item;
+    const rareAfterExalted = parseItemText([
+      "Clase de objeto: Mazas a una mano",
+      "Rareza: Raro",
+      "Golpe del peregrino",
+      "Maza de procesión",
+      "------------------------------",
+      "Daño físico: 33-69",
+      "Ataques por segundo: 1.40",
+      "-------------------------",
+      "## Nivel de objeto: 64",
+      '{ Mod. de prefijo "" (Grado: 4) — Ataque }',
+      "+233(168-236) a la precisión",
+      '{ Mod. de prefijo "férreo" (Grado: 8) — Daño, Físico }',
+      "Daño físico aumentado un 20%",
+      '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+      "Ganas 8(7-9) de vida por cada enemigo asesinado",
+      '{ Mod. de sufijo "del oso" (Grado: 8) — Atributo }',
+      "+12 a la fuerza",
+    ].join("\n")).item;
+
+    const regal = compareCraftingResult(magic, rareAfterRegal, "regal");
+    expect(regal.status).toBe("confirmed");
+    expect(regal.identityMatches).toBe(true);
+    expect(regal.addedModifiers.map((modifier) => modifier.text)).toEqual(["+12 a la fuerza"]);
+
+    const exalted = compareCraftingResult(rareAfterRegal, rareAfterExalted, "exalted");
+    expect(exalted.status).toBe("confirmed");
+    expect(exalted.identityMatches).toBe(true);
+    expect(exalted.addedModifiers.map((modifier) => modifier.text)).toEqual([
+      "Daño físico aumentado un 20%",
+    ]);
+  });
+
   it("no usa la excepción de Transmutación si cambia la clase de objeto", () => {
     const original = item({
       baseType: "Maza de procesión",
