@@ -123,6 +123,36 @@ describe("itemTextParser", () => {
     expect(item.modifiers.map((m) => m.kind)).toEqual(["enchant", "rune", "explicit"]);
   });
 
+  it("reconoce los marcadores localizados de runa, implícito y encantamiento", () => {
+    const text = [
+      "Clase de objeto: Mazas",
+      "Rareza: Mágico",
+      "Maza de procesión de victoria",
+      "Maza de procesión",
+      "--------",
+      "Nivel de objeto: 55",
+      "--------",
+      "Daño físico aumentado un 18% (runa)",
+      "Agrega de 3 a 5 de daño de fuego (runa)",
+      "Los ataques empujan a los enemigos (implícito)",
+      "Calidad aumentada un 5% (encantamiento)",
+      '{ Mod. de sufijo "de victoria" (Grado: 1) — Ataque }',
+      "+25(20-30) a la precisión",
+    ].join("\n");
+
+    const { item } = parseItemText(text);
+    expect(item.modifiers.map((modifier) => modifier.kind)).toEqual([
+      "rune",
+      "rune",
+      "implicit",
+      "enchant",
+      "explicit",
+    ]);
+    expect(item.modifiers.filter((modifier) => modifier.kind === "explicit")).toHaveLength(1);
+    expect(item.modifiers.at(-1)?.affix).toBe("suffix");
+    expect(item.craftingState).toBeDefined();
+  });
+
   it("agrupa afijos multilínea del texto avanzado real en español", () => {
     const { item, warnings } = parseItemText(spanishAdvancedCrossbow);
 

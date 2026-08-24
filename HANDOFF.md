@@ -33,6 +33,11 @@ Todas las entradas del recorrido de Crafting indican ahora **Ctrl+Alt+C**. El
 diagnóstico bloqueado enseña la combinación exacta en vez de la frase ambigua
 «activa las descripciones avanzadas».
 
+El cliente español puede localizar también los marcadores auxiliares. El
+importador reconoce ahora `(runa)`, `(implícito)` y `(encantamiento)`, además de
+sus variantes inglesas, para que esas líneas no ocupen falsamente huecos de
+prefijo o sufijo.
+
 ## Sesión 46 — resultado de Transmutación reconocido y recuperable
 
 - Corregido el fallo descubierto jugando: después de una Transmutación, PoE2

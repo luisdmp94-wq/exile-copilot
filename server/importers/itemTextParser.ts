@@ -440,11 +440,22 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
       // Todo lo demás se conserva como mod (nunca se inventa ni se descarta).
       let kind: Modifier["kind"] = "explicit";
       let text = line;
-      const marker = /\((implicit|enchant|rune)\)\s*$/i.exec(text);
+      const marker =
+        /\((implicit|implícito|implicito|enchant|encantamiento|rune|runa)\)\s*$/iu.exec(text);
       if (marker) {
         const k = (marker[1] ?? "").toLowerCase();
-        kind = k === "implicit" ? "implicit" : k === "enchant" ? "enchant" : "rune";
-        text = text.replace(/\((implicit|enchant|rune)\)\s*$/i, "").trim();
+        kind =
+          k === "implicit" || k === "implícito" || k === "implicito"
+            ? "implicit"
+            : k === "enchant" || k === "encantamiento"
+              ? "enchant"
+              : "rune";
+        text = text
+          .replace(
+            /\((implicit|implícito|implicito|enchant|encantamiento|rune|runa)\)\s*$/iu,
+            "",
+          )
+          .trim();
       }
       result.modifiers.push({
         id: randomUUID(),
