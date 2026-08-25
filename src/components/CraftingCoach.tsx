@@ -21,7 +21,11 @@ import {
   type CoachGoalInterpretation,
   type CoachNextStep,
 } from "@shared/craftingCoach.js";
-import { compareCraftingResult, type CraftingComparison } from "@shared/craftingComparison.js";
+import {
+  compareCraftingResult,
+  type CraftingComparison,
+  type CraftingComparisonActionId,
+} from "@shared/craftingComparison.js";
 import type { CharacterProfile, Item } from "@shared/domain.js";
 import { CoachItemCard } from "@/components/CoachItemCard";
 import { Button } from "@/components/ui/button";
@@ -30,6 +34,27 @@ import { api, getErrorMessage } from "@/lib/api";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 
 export type CoachPhase = "choose" | "recommend" | "hold" | "await-result" | "result";
+
+interface PendingCraftAttempt {
+  /** Fotografía exacta tomada antes de que el jugador gaste la moneda. */
+  before: Item;
+  /** La acción también se congela: no se recalcula desde una pieza que ya cambió. */
+  actionId: CraftingComparisonActionId;
+}
+
+function snapshotItem(item: Item): Item {
+  return {
+    ...item,
+    modifiers: item.modifiers.map((modifier) => ({
+      ...modifier,
+      values: [...modifier.values],
+      ...(modifier.tags ? { tags: [...modifier.tags] } : {}),
+    })),
+    ...(item.requirements ? { requirements: { ...item.requirements } } : {}),
+    ...(item.craftingState ? { craftingState: { ...item.craftingState } } : {}),
+    sources: item.sources.map((source) => ({ ...source })),
+  };
+}
 
 interface CraftingCoachProps {
   /** Único origen de evidencia sobre el personaje. `null` = todavía no hay. */
@@ -309,6 +334,11 @@ export function CraftingCoach({
    * No escribe en el expediente: eso sigue siendo decisión del banco.
    */
   const [workingItem, setWorkingItem] = useState<Item | null>(null);
+  /**
+   * Snapshot inmutable del paso en curso. Mientras existe, ni un cambio de
+   * selección ni un rerender puede sustituir el «antes» que se compara.
+   */
+  const [pendingAttempt, setPendingAttempt] = useState<PendingCraftAttempt | null>(null);
 
   const recommendationRef = useRef<HTMLHeadingElement>(null);
   const resultTextRef = useRef<HTMLTextAreaElement>(null);
@@ -350,8 +380,14 @@ export function CraftingCoach({
     setResultText("");
     setComparison(null);
     setResultItem(null);
-    setWorkingItem(null);
+    setPendingAttempt(null);
     setError(null);
+  };
+
+  const chooseDifferentItem = (itemId: string) => {
+    setWorkingItem(null);
+    resetFlow();
+    onSelectItem(itemId);
   };
 
   // --- Sin pieza --------------------------------------------------------
@@ -451,18 +487,26 @@ export function CraftingCoach({
   };
 
   const compareResult = async () => {
-    if (step.kind !== "use-currency" || resultText.trim() === "") return;
+    if (pendingAttempt === null || resultText.trim() === "") return;
     setComparing(true);
     setError(null);
     try {
       const imported = await api.importItemText({ text: resultText });
       // El importador genera un id nuevo en cada pegado; se conserva el de la
       // pieza seguida para que el guía siga hablando del mismo objeto.
-      const pasted: Item = { ...imported.item, id: activeItem.id, slot: activeItem.slot };
-      const antesDeCraftear = activeItem;
-      const nextComparison = compareCraftingResult(antesDeCraftear, pasted, step.actionId, {
+      const pasted: Item = {
+        ...imported.item,
+        id: pendingAttempt.before.id,
+        slot: pendingAttempt.before.slot,
+      };
+      const nextComparison = compareCraftingResult(
+        pendingAttempt.before,
+        pasted,
+        pendingAttempt.actionId,
+        {
         protectedModifierIds: protectedModifiers.map((modifier) => modifier.id),
-      });
+        },
+      );
       const nextReading = readCraftResult({
         comparison: nextComparison,
         resultItem: pasted,
@@ -501,6 +545,32 @@ export function CraftingCoach({
     }
   };
 
+  const beginAttempt = () => {
+    if (step.kind !== "use-currency") return;
+    setPendingAttempt({ before: snapshotItem(activeItem), actionId: step.actionId });
+    setResultText("");
+    setComparison(null);
+    setResultItem(null);
+    setError(null);
+    setPhase("await-result");
+  };
+
+  /**
+   * Recuperación explícita: si el resultado es realmente el objeto actual pero
+   * no coincide con una sola acción, se puede continuar DESDE él sin afirmar
+   * qué moneda produjo la diferencia.
+   */
+  const continueFromObservedResult = () => {
+    if (!resultItem) return;
+    setWorkingItem(snapshotItem(resultItem));
+    setPendingAttempt(null);
+    setComparison(null);
+    setResultItem(null);
+    setResultText("");
+    setError(null);
+    setPhase("recommend");
+  };
+
   const resultReading =
     comparison && resultItem
       ? readCraftResult({ comparison, resultItem, direction })
@@ -533,10 +603,7 @@ export function CraftingCoach({
                       type="button"
                       data-testid={`coach-elegir-${item.id}`}
                       data-active={item.id === selectedItem.id ? "true" : "false"}
-                      onClick={() => {
-                        resetFlow();
-                        onSelectItem(item.id);
-                      }}
+                      onClick={() => chooseDifferentItem(item.id)}
                       className="flex min-h-10 w-full items-center rounded-sm border border-border/70 px-2.5 py-1.5 text-left transition-colors hover:border-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary data-[active=true]:border-primary/60 data-[active=true]:bg-primary/[0.08] motion-reduce:transition-none"
                     >
                       <span className="min-w-0 flex-1 truncate">{item.name}</span>
@@ -722,7 +789,7 @@ export function CraftingCoach({
             <Recommendation
               step={step}
               headingRef={recommendationRef}
-              onDone={() => setPhase("await-result")}
+              onDone={beginAttempt}
               onHold={() => setPhase("hold")}
               onOther={resetFlow}
               onRepaste={onPasteItem}
@@ -864,8 +931,12 @@ export function CraftingCoach({
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     <p>
                       <span className="font-semibold text-foreground">Antes:</span>{" "}
-                      {activeItem.name || activeItem.baseType} · {activeItem.rarity} ·{" "}
-                      {activeItem.modifiers.filter((modifier) => modifier.kind === "explicit").length}{" "}
+                      {(pendingAttempt?.before ?? activeItem).name ||
+                        (pendingAttempt?.before ?? activeItem).baseType}{" "}
+                      · {(pendingAttempt?.before ?? activeItem).rarity} ·{" "}
+                      {(pendingAttempt?.before ?? activeItem).modifiers.filter(
+                        (modifier) => modifier.kind === "explicit",
+                      ).length}{" "}
                       explícitos
                     </p>
                     <p>
@@ -907,6 +978,7 @@ export function CraftingCoach({
                     type="button"
                     onClick={() => {
                       setPhase("recommend");
+                      setPendingAttempt(null);
                       setComparison(null);
                       setResultItem(null);
                       setResultText("");
@@ -917,18 +989,30 @@ export function CraftingCoach({
                     <ArrowRight className="size-4" aria-hidden="true" />
                   </Button>
                 )}
-                {comparison?.status !== "confirmed" && (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setPhase("await-result");
-                      setComparison(null);
-                      setResultItem(null);
-                    }}
-                    data-testid="coach-corregir-resultado"
-                  >
-                    Revisar el texto pegado
-                  </Button>
+                {comparison && comparison.status !== "confirmed" && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setPhase("await-result");
+                        setComparison(null);
+                        setResultItem(null);
+                      }}
+                      data-testid="coach-corregir-resultado"
+                    >
+                      Revisar el texto pegado
+                    </Button>
+                    {comparison.identityMatches && comparison.itemLevelMatches && resultItem && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={continueFromObservedResult}
+                        data-testid="coach-usar-resultado-base"
+                      >
+                        Este es mi objeto actual
+                      </Button>
+                    )}
+                  </>
                 )}
                 <Button type="button" variant="outline" onClick={resetFlow} data-testid="coach-empezar-otra">
                   Empezar otra vez

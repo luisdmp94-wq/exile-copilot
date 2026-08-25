@@ -149,6 +149,67 @@ const TRANSMUTED_MACE_TEXT = [
   "+25 a la precisión",
 ].join("\n");
 
+// Cadena localizada basada en el objeto real que descubrió las regresiones de
+// nombres mágicos, afijos sin nombre y transición Mágico → Raro.
+const REAL_MAGIC_MACE_TEXT = [
+  "Clase de objeto: Mazas a una mano",
+  "Rareza: Mágico",
+  "Maza de procesión  de victoria",
+  "------------------------------",
+  "Daño físico: 33-69",
+  "Probabilidad de impacto crítico: 5.00%",
+  "Ataques por segundo: 1.40",
+  "-------------------------",
+  "## Requiere: Nivel 54, 96 (unmet) Fue",
+  "## Nivel de objeto: 64",
+  '{ Mod. de prefijo "" (Grado: 4) — Ataque }',
+  "+233(168-236) a la precisión",
+  '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+  "Ganas 8(7-9) de vida por cada enemigo asesinado",
+].join("\n");
+
+const REAL_MACE_AFTER_REGAL_TEXT = [
+  "Clase de objeto: Mazas a una mano",
+  "Rareza: Raro",
+  "Destructor de venganza",
+  "Maza de procesión",
+  "------------------------------",
+  "Daño físico: 33-69",
+  "Probabilidad de impacto crítico: 5.00%",
+  "Ataques por segundo: 1.40",
+  "-------------------------",
+  "## Requiere: Nivel 54, 96 (unmet) Fue",
+  "## Nivel de objeto: 64",
+  '{ Mod. de prefijo "certero" (Grado: 4) — Ataque }',
+  "+233(168-236) a la precisión",
+  '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+  "Ganas 8(7-9) de vida por cada enemigo asesinado",
+  '{ Mod. de sufijo "de venganza" (Grado: 8) — Atributo }',
+  "+12 a la fuerza",
+].join("\n");
+
+const REAL_MACE_AFTER_EXALTED_TEXT = [
+  "Clase de objeto: Mazas a una mano",
+  "Rareza: Raro",
+  "Destructor de venganza",
+  "Maza de procesión",
+  "------------------------------",
+  "Daño físico: 33-69",
+  "Probabilidad de impacto crítico: 5.00%",
+  "Ataques por segundo: 1.40",
+  "-------------------------",
+  "## Requiere: Nivel 54, 96 (unmet) Fue",
+  "## Nivel de objeto: 64",
+  '{ Mod. de prefijo "certero" (Grado: 4) — Ataque }',
+  "+233(168-236) a la precisión",
+  '{ Mod. de prefijo "férreo" (Grado: 8) — Daño, Físico }',
+  "Daño físico aumentado un 20%",
+  '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+  "Ganas 8(7-9) de vida por cada enemigo asesinado",
+  '{ Mod. de sufijo "de venganza" (Grado: 8) — Atributo }',
+  "+12 a la fuerza",
+].join("\n");
+
 /**
  * Perfil con una pieza de cada estado que el guía debe saber resolver, más la
  * ballesta real importada por la ruta normal de la API.
@@ -163,12 +224,21 @@ async function seedProfile(base) {
   if (!importada.ok) throw new Error(`no se pudo importar la ballesta: HTTP ${importada.status}`);
   const ballesta = (await importada.json()).item;
   ballesta.id = "taller-ballesta";
+  const mazaResponse = await fetch(`${base}/api/import/item-text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: REAL_MAGIC_MACE_TEXT }),
+  });
+  if (!mazaResponse.ok) throw new Error(`no se pudo importar la maza: HTTP ${mazaResponse.status}`);
+  const mazaReal = (await mazaResponse.json()).item;
+  mazaReal.id = "taller-maza-real";
 
   const profile = {
     ...demo.profile,
     id: "taller-smoke-perfil",
     items: [
       ballesta,
+      mazaReal,
       {
         id: "taller-normal",
         name: "Guantes en bruto",
@@ -495,7 +565,50 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-otro-camino").isVisible()),
     );
 
-    // --- 7. «No sé qué necesita» -----------------------------------------
+    // --- 7. Cadena real localizada: Regio → Exaltado --------------------
+    await abrirPieza(page, "taller-maza-real");
+    check(
+      `[${mode}] la maza mágica real empieza por Regio`,
+      (await recomendacion.getAttribute("data-action")) === "regal",
+    );
+    await page.getByTestId("coach-lo-hare").click();
+    await page.getByTestId("coach-resultado-texto").fill(REAL_MACE_AFTER_REGAL_TEXT);
+    await page.getByTestId("coach-comparar").click();
+    await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] Regio conserva el snapshot mágico y acepta un único afijo nuevo`,
+      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "continue" &&
+        (await page.getByTestId("coach-cambios").innerText()).includes("+12 a la fuerza"),
+    );
+    await page.getByTestId("coach-seguir").click();
+    await recomendacion.waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el siguiente paso usa el resultado de Regio, no la pieza antigua`,
+      (await recomendacion.getAttribute("data-action")) === "exalted" &&
+        (await page.getByTestId("coach-objeto").innerText()).includes("Destructor de venganza"),
+    );
+    await page.getByTestId("coach-lo-hare").click();
+    const dosCambios = `${REAL_MACE_AFTER_EXALTED_TEXT}\n{ Mod. de sufijo "extra" (Grado: 9) — Atributo }\n+7 a la destreza`;
+    await page.getByTestId("coach-resultado-texto").fill(dosCambios);
+    await page.getByTestId("coach-comparar").click();
+    await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] dos cambios en un solo pegado no se confirman y permiten recuperar el estado actual`,
+      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
+        (await page.getByTestId("coach-diagnostico-nuevos").locator("li").count()) === 2 &&
+        (await page.getByTestId("coach-usar-resultado-base").isVisible()),
+    );
+    await page.getByTestId("coach-corregir-resultado").click();
+    await page.getByTestId("coach-resultado-texto").fill(REAL_MACE_AFTER_EXALTED_TEXT);
+    await page.getByTestId("coach-comparar").click();
+    await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] Exaltado compara contra el Regio congelado y acepta solo su afijo`,
+      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "continue" &&
+        (await page.getByTestId("coach-cambios").innerText()).includes("Daño físico aumentado"),
+    );
+
+    // --- 8. «No sé qué necesita» -----------------------------------------
     // El perfil demo declara resistencias por debajo del umbral, así que SÍ
     // existe una carencia citable; el guía debe apoyarse en ese dato y no en
     // las etiquetas de la pieza.
@@ -619,8 +732,15 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-no-gastar").isVisible()) &&
         (await page.getByTestId("coach-explorar-avanzado").isVisible()),
     );
-    const contar = async (testId) =>
-      (await page.getByTestId(testId).innerText()).trim().split(/\s+/).filter(Boolean).length;
+    const contar = async (testId) => {
+      const textoVisible = await page.getByTestId(testId).evaluate((element) => {
+        const copy = element.cloneNode(true);
+        if (!(copy instanceof HTMLElement)) return "";
+        copy.querySelectorAll("[hidden], details:not([open]) > :not(summary)").forEach((node) => node.remove());
+        return copy.textContent ?? "";
+      });
+      return textoVisible.trim().split(/\s+/).filter(Boolean).length;
+    };
     const palabrasDecision = await contar("coach-recomendacion");
     const palabrasPanel = await contar("crafting-coach");
     check(
