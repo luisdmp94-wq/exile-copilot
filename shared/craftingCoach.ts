@@ -3,7 +3,11 @@ import {
   evaluateObservedCraftingActions,
   type CraftingActionId,
 } from "./craftingActions.js";
-import { LOW_ELEMENTAL_RESISTANCE } from "./craftingCharacterContext.js";
+import {
+  LOW_ELEMENTAL_RESISTANCE,
+  evaluateCraftingCharacterContext,
+  hasCraftingCharacterContext,
+} from "./craftingCharacterContext.js";
 import { EXPECTED_RESULT_RARITY, type CraftingComparison } from "./craftingComparison.js";
 import { diagnoseCraftingItem, type CraftingItemDiagnosis } from "./craftingDiagnosis.js";
 import {
@@ -12,8 +16,16 @@ import {
   type CraftingGoalSignal,
 } from "./craftingGoal.js";
 import {
+  COACH_FOCUS_LABELS,
+  evaluateCoachFocus,
+  inferCoachFocus,
+  type CoachFocus,
+} from "./craftingFocus.js";
+import { decideCraftingNextStep } from "./craftingNextDecision.js";
+import {
   RESISTANCE_LABELS,
   type CharacterProfile,
+  type GoalKind,
   type Item,
   type ItemRarity,
 } from "./domain.js";
@@ -135,6 +147,8 @@ export interface CoachDirectionGuess {
 
 export interface CoachGoalInterpretation {
   direction: CoachDirection | null;
+  /** Objetivo observable exacto. null = «daño/defensa» aún es demasiado amplio. */
+  focus: CoachFocus | null;
   /** Texto breve y honesto que explica qué entendió —o qué falta aclarar—. */
   reason: string;
   /** Líneas reales del snapshot que coinciden literalmente con «no perder…». */
@@ -298,6 +312,7 @@ export function interpretCoachGoal(
   if (normalized === "") {
     return {
       direction: null,
+      focus: null,
       reason: "Cuéntame qué te gustaría conseguir con esta pieza.",
       ...protections,
     };
@@ -309,26 +324,36 @@ export function interpretCoachGoal(
   if (damage && defence) {
     return {
       direction: null,
+      focus: null,
       reason: "Veo un objetivo de daño y otro de defensa. Elige cuál quieres trabajar primero.",
       ...protections,
     };
   }
   if (damage) {
+    const focus = inferCoachFocus(primary);
     return {
       direction: "damage",
-      reason: "He entendido que primero quieres trabajar el daño.",
+      focus,
+      reason: focus === null
+        ? "Sé que buscas daño, pero necesito saber qué tipo para juzgar cada resultado."
+        : `He entendido que primero buscas ${COACH_FOCUS_LABELS[focus]}.`,
       ...protections,
     };
   }
   if (defence) {
+    const focus = inferCoachFocus(primary);
     return {
       direction: "defence",
-      reason: "He entendido que primero quieres trabajar la defensa.",
+      focus,
+      reason: focus === null
+        ? "Sé que buscas defensa, pero necesito saber cuál para juzgar cada resultado."
+        : `He entendido que primero buscas ${COACH_FOCUS_LABELS[focus]}.`,
       ...protections,
     };
   }
   return {
     direction: null,
+    focus: null,
     reason:
       "Entiendo tus palabras, pero no puedo convertirlas con seguridad en una dirección de crafting. Aclaremos primero si buscas daño o defensa.",
     ...protections,
@@ -760,6 +785,118 @@ export function readCraftResult(input: {
             : "Para y consigue el dato que falta."
           : "Consigue el dato que falta antes de gastar otra vez.",
     nextStep,
+    goalFit,
+    directionNote,
+    improvementCaveat,
+  };
+}
+
+/**
+ * Lectura usada por «Ayúdame con mi objeto». Añade tres frenos que la lectura
+ * estructural no puede decidir por sí sola: objetivo exacto, expediente real y
+ * decisión contextual de continuar/parar.
+ */
+export function readPurposefulCraftResult(input: {
+  comparison: CraftingComparison;
+  originalItem: Item;
+  resultItem: Item;
+  direction: CoachDirection | null;
+  focus: CoachFocus | null;
+  profile: CharacterProfile | null;
+  profileGoal: GoalKind;
+}): CoachResultReading {
+  const {
+    comparison,
+    originalItem,
+    resultItem,
+    direction,
+    focus,
+    profile,
+    profileGoal,
+  } = input;
+  const base = readCraftResult({ comparison, resultItem, direction });
+  if (comparison.status !== "confirmed" || comparison.protectionStatus === "lost") {
+    return base;
+  }
+
+  const signal = evaluateCoachFocus(focus, comparison.addedModifiers);
+  const focusLabel = focus === null ? null : COACH_FOCUS_LABELS[focus];
+  const goalFit: CoachGoalFit = signal.status === "direct"
+    ? "confirmed"
+    : signal.status === "no-direct-signal"
+      ? "not-confirmed"
+      : "not-evaluable";
+  const directionNote = focusLabel === null
+    ? "Todavía no has concretado qué resultado buscas."
+    : signal.status === "direct"
+      ? `El nuevo modificador coincide con tu objetivo: ${focusLabel}.`
+      : signal.status === "no-direct-signal"
+        ? `El nuevo modificador no coincide con tu objetivo principal: ${focusLabel}.`
+        : `No puedo comprobar si el nuevo modificador aporta ${focusLabel}.`;
+  const improvementCaveat =
+    "Coincidir con el objetivo no demuestra por sí solo que el tier, el valor o la pieza completa mejoren al personaje.";
+
+  if (focus === null || direction === null) {
+    return {
+      ...base,
+      verdict: "stop",
+      verdictText: "No gastes otra moneda: concreta primero el objetivo que debe cumplir el siguiente afijo.",
+      nextStep: null,
+      goalFit,
+      directionNote,
+      improvementCaveat,
+    };
+  }
+
+  if (signal.status !== "direct") {
+    return {
+      ...base,
+      verdict: "stop",
+      verdictText:
+        "Para aquí. Tener huecos libres no basta: este cambio no aporta una señal directa de tu objetivo.",
+      nextStep: null,
+      goalFit,
+      directionNote,
+      improvementCaveat,
+    };
+  }
+
+  if (!hasCraftingCharacterContext(profile)) {
+    return {
+      ...base,
+      verdict: "stop",
+      verdictText:
+        "Resultado registrado. Como solo tengo un objeto suelto, no voy a recomendar otra moneda como si conociera tu build. Vincula el personaje o úsalo como ejercicio.",
+      nextStep: null,
+      goalFit,
+      directionNote,
+      improvementCaveat,
+    };
+  }
+
+  const category = DIRECTION_CATEGORY[direction];
+  const characterContext = evaluateCraftingCharacterContext({
+    profile: profile!,
+    profileGoal,
+    originalItem,
+    resultItem,
+    comparison,
+    goalCategory: category,
+    goalSignal: signal,
+  });
+  const decision = decideCraftingNextStep({
+    resultItem,
+    comparison,
+    characterContext,
+    addedGoalSignal: signal,
+    goalCategory: category,
+  });
+
+  return {
+    ...base,
+    verdict: decision.kind === "continue" ? "continue" : "stop",
+    verdictText: `${decision.title}. ${decision.summary} ${decision.nextAction}`,
+    nextStep: decision.kind === "continue" ? base.nextStep : null,
     goalFit,
     directionNote,
     improvementCaveat,

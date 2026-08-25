@@ -102,7 +102,15 @@ práctica: si esa base merece una prueba controlada, si falta definir el objetiv
 o si no conviene reemplazar todavía. Se apoya solo en la pieza observada, las
 protecciones y la intención declarada; no estima valor, DPS ni probabilidades.
 
-La intención se define una sola vez por pieza. El jugador elige con botones el
+La intención se define una sola vez por pieza. En «Ayúdame con mi objeto», una
+dirección genérica ya no basta: antes de gastar se concreta si se busca daño
+físico, elemental, velocidad, crítico, vida, resistencias u otra señal observable.
+Después de pegar el resultado, un afijo ajeno a esa señal detiene la cadena aunque
+queden huecos; si coincide, todavía se comprueban el expediente, los requisitos y
+las protecciones. Un objeto suelto sirve para aprender legalidad, pero no recibe
+una falsa recomendación personalizada.
+
+En el laboratorio, el jugador elige con botones el
 objetivo principal y puede añadir un matiz libre —por ejemplo, «más daño sin perder
 velocidad ni +niveles»— y marca directamente sobre los afijos qué líneas deben
 sobrevivir. Ese mismo plan acompaña a Monedas, Essences, Alloys y a la

@@ -255,6 +255,8 @@ export function CraftingSection({
   const coach = (
     <CraftingCoach
       profile={profile}
+      budget={budget}
+      goal={goal}
       items={craftableItems}
       selectedItem={selectedItem}
       onSelectItem={selectItem}

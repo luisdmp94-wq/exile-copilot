@@ -15,22 +15,30 @@ import {
   COACH_DIRECTION_NOUNS,
   chooseNextStep,
   interpretCoachGoal,
-  readCraftResult,
+  readPurposefulCraftResult,
   suggestDirectionFromCharacter,
   type CoachDirection,
   type CoachGoalInterpretation,
   type CoachNextStep,
 } from "@shared/craftingCoach.js";
+import { hasCraftingCharacterContext } from "@shared/craftingCharacterContext.js";
+import {
+  COACH_FOCUS_LABELS,
+  DAMAGE_COACH_FOCUSES,
+  DEFENCE_COACH_FOCUSES,
+  type CoachFocus,
+} from "@shared/craftingFocus.js";
 import {
   compareCraftingResult,
   type CraftingComparison,
   type CraftingComparisonActionId,
 } from "@shared/craftingComparison.js";
-import type { CharacterProfile, Item } from "@shared/domain.js";
+import type { Budget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { CoachItemCard } from "@/components/CoachItemCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, getErrorMessage } from "@/lib/api";
+import { CURRENCY_LABELS, GOAL_LABELS } from "@/lib/format";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 
 export type CoachPhase = "choose" | "recommend" | "hold" | "await-result" | "result";
@@ -59,6 +67,8 @@ function snapshotItem(item: Item): Item {
 interface CraftingCoachProps {
   /** Único origen de evidencia sobre el personaje. `null` = todavía no hay. */
   profile: CharacterProfile | null;
+  budget: Budget;
+  goal: GoalKind;
   items: readonly Item[];
   selectedItem: Item | null;
   onSelectItem: (itemId: string) => void;
@@ -305,6 +315,8 @@ function Recommendation({
  */
 export function CraftingCoach({
   profile,
+  budget,
+  goal,
   items,
   selectedItem,
   onSelectItem,
@@ -313,6 +325,7 @@ export function CraftingCoach({
   onMentorContext,
 }: CraftingCoachProps) {
   const [direction, setDirection] = useState<CoachDirection | null>(null);
+  const [focus, setFocus] = useState<CoachFocus | null>(null);
   const [goalText, setGoalText] = useState("");
   const [directionChosen, setDirectionChosen] = useState(false);
   const [directionNote, setDirectionNote] = useState<string | null>(null);
@@ -370,6 +383,7 @@ export function CraftingCoach({
 
   const resetFlow = () => {
     setDirection(null);
+    setFocus(null);
     setGoalText("");
     setDirectionChosen(false);
     setDirectionNote(null);
@@ -439,7 +453,8 @@ export function CraftingCoach({
   const step = chooseNextStep(activeItem, direction);
 
   const chooseDirection = (
-    next: CoachDirection | null,
+    next: CoachDirection,
+    nextFocus: CoachFocus,
     note: string | null,
     playerGoal = goalText.trim(),
     protections = protectedModifiers,
@@ -447,6 +462,7 @@ export function CraftingCoach({
   ) => {
     const nextStep = chooseNextStep(activeItem, next);
     setDirection(next);
+    setFocus(nextFocus);
     setDirectionNote(note);
     setProtectedModifiers(protections);
     setUnresolvedProtections(unresolved);
@@ -470,9 +486,10 @@ export function CraftingCoach({
 
   const submitGoal = () => {
     const interpretation = interpretCoachGoal(goalText, activeItem);
-    if (interpretation.direction !== null) {
+    if (interpretation.direction !== null && interpretation.focus !== null) {
       chooseDirection(
         interpretation.direction,
+        interpretation.focus,
         interpretation.reason,
         goalText.trim(),
         interpretation.protectedModifiers,
@@ -480,10 +497,34 @@ export function CraftingCoach({
       );
       return;
     }
+    setDirection(interpretation.direction);
+    setFocus(null);
     setDirectionNote(interpretation.reason);
     setProtectedModifiers(interpretation.protectedModifiers);
     setUnresolvedProtections(interpretation.unresolvedProtections);
     setNoEvidence(true);
+  };
+
+  const requestFocus = (next: CoachDirection, playerGoal: string, note: string) => {
+    setGoalText(playerGoal);
+    setDirection(next);
+    setFocus(null);
+    setDirectionNote(note);
+    setNoEvidence(true);
+  };
+
+  const chooseFocus = (nextFocus: CoachFocus) => {
+    const nextDirection: CoachDirection = DAMAGE_COACH_FOCUSES.includes(nextFocus)
+      ? "damage"
+      : "defence";
+    const playerGoal = `Quiero mejorar ${COACH_FOCUS_LABELS[nextFocus]}`;
+    setGoalText(playerGoal);
+    chooseDirection(
+      nextDirection,
+      nextFocus,
+      `Objetivo principal: ${COACH_FOCUS_LABELS[nextFocus]}.`,
+      playerGoal,
+    );
   };
 
   const compareResult = async () => {
@@ -507,10 +548,14 @@ export function CraftingCoach({
         protectedModifierIds: protectedModifiers.map((modifier) => modifier.id),
         },
       );
-      const nextReading = readCraftResult({
+      const nextReading = readPurposefulCraftResult({
         comparison: nextComparison,
+        originalItem: pendingAttempt.before,
         resultItem: pasted,
         direction,
+        focus,
+        profile,
+        profileGoal: goal,
       });
       // Los ids de modificadores cambian en cada importación. Vuelve a
       // vincular las protecciones contra el snapshot recién pegado para que
@@ -573,7 +618,15 @@ export function CraftingCoach({
 
   const resultReading =
     comparison && resultItem
-      ? readCraftResult({ comparison, resultItem, direction })
+      ? readPurposefulCraftResult({
+          comparison,
+          originalItem: pendingAttempt?.before ?? activeItem,
+          resultItem,
+          direction,
+          focus,
+          profile,
+          profileGoal: goal,
+        })
       : null;
 
   return (
@@ -641,6 +694,8 @@ export function CraftingCoach({
                 maxLength={240}
                 onChange={(event) => {
                   setGoalText(event.target.value);
+                  setDirection(null);
+                  setFocus(null);
                   setNoEvidence(false);
                   setDirectionNote(null);
                   setProtectedModifiers([]);
@@ -671,8 +726,11 @@ export function CraftingCoach({
                   icon={Swords}
                   onChoose={() => {
                     const goal = "Quiero mejorar el daño";
-                    setGoalText(goal);
-                    chooseDirection("damage", "Has elegido trabajar primero el daño.", goal);
+                    requestFocus(
+                      "damage",
+                      goal,
+                      "El daño puede ser físico, elemental, crítico o velocidad. Elige qué debe aportar el siguiente afijo.",
+                    );
                   }}
                 />
                 <DirectionButton
@@ -682,8 +740,11 @@ export function CraftingCoach({
                   icon={ShieldAlert}
                   onChoose={() => {
                     const goal = "Quiero mejorar la defensa";
-                    setGoalText(goal);
-                    chooseDirection("defence", "Has elegido trabajar primero la defensa.", goal);
+                    requestFocus(
+                      "defence",
+                      goal,
+                      "La defensa puede ser vida, resistencias, armadura, evasión o escudo de energía. Elige una prioridad.",
+                    );
                   }}
                 />
                 <DirectionButton
@@ -699,11 +760,13 @@ export function CraftingCoach({
                     const goal = "No sé qué necesita esta pieza";
                     setGoalText(goal);
                     if (guess.direction === null) {
+                      setDirection(null);
+                      setFocus(null);
                       setDirectionNote(guess.reason);
                       setNoEvidence(true);
                       return;
                     }
-                    chooseDirection(guess.direction, guess.reason, goal);
+                    requestFocus(guess.direction, goal, `${guess.reason} Ahora elige qué dato quieres corregir primero.`);
                   }}
                 />
               </div>
@@ -715,22 +778,39 @@ export function CraftingCoach({
                 >
                   <p className="text-sm font-medium">{directionNote ?? guess.reason}</p>
                   <div className="mt-2.5 flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => chooseDirection("damage", directionNote, goalText.trim())}
-                      data-testid="coach-elegir-damage"
-                    >
-                      Elegir daño
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => chooseDirection("defence", directionNote, goalText.trim())}
-                      data-testid="coach-elegir-defence"
-                    >
-                      Elegir defensa
-                    </Button>
+                    {direction === null ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => requestFocus("damage", "Quiero mejorar el daño", "Elige qué tipo de daño debe aportar el siguiente afijo.")}
+                          data-testid="coach-elegir-damage"
+                        >
+                          Elegir daño
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => requestFocus("defence", "Quiero mejorar la defensa", "Elige qué defensa debe aportar el siguiente afijo.")}
+                          data-testid="coach-elegir-defence"
+                        >
+                          Elegir defensa
+                        </Button>
+                      </>
+                    ) : (
+                      (direction === "damage" ? DAMAGE_COACH_FOCUSES : DEFENCE_COACH_FOCUSES).map((option) => (
+                        <Button
+                          key={option}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => chooseFocus(option)}
+                          data-testid={`coach-focus-${option}`}
+                        >
+                          {COACH_FOCUS_LABELS[option]}
+                        </Button>
+                      ))
+                    )}
                     <Button
                       type="button"
                       size="sm"
@@ -751,7 +831,7 @@ export function CraftingCoach({
             <p className="text-xs text-muted-foreground" data-testid="coach-direccion-elegida">
               Objetivo: «{goalText.trim()}». {direction === null
                 ? "Sin dirección elegida."
-                : `Prioridad: ${COACH_DIRECTION_NOUNS[direction]}.`}{" "}
+                : `Prioridad: ${focus === null ? COACH_DIRECTION_NOUNS[direction] : COACH_FOCUS_LABELS[focus]}.`}{" "}
               {directionNote?.includes("expediente") ? directionNote : null}
               <button
                 type="button"
@@ -762,6 +842,28 @@ export function CraftingCoach({
                 Cambiar
               </button>
             </p>
+          )}
+
+          {directionChosen && (
+            <div
+              className={`rounded-md border px-3 py-2 text-xs ${
+                hasCraftingCharacterContext(profile)
+                  ? "border-cyan-400/30 bg-cyan-500/[0.06] text-cyan-50"
+                  : "border-amber-500/35 bg-amber-500/[0.07] text-amber-50"
+              }`}
+              data-testid="coach-contexto-personaje"
+              data-context={hasCraftingCharacterContext(profile) ? "character" : "loose-item"}
+            >
+              {hasCraftingCharacterContext(profile) ? (
+                <p>
+                  <span className="font-semibold">Contexto activo:</span> {profile?.name} · objetivo general {GOAL_LABELS[goal].toLocaleLowerCase("es")} · presupuesto {budget.amount} {CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.
+                </p>
+              ) : (
+                <p>
+                  <span className="font-semibold">Objeto suelto:</span> puedo enseñarte qué acción es legal y comprobar el resultado, pero no afirmar que conviene a una build que todavía no conozco.
+                </p>
+              )}
+            </div>
           )}
 
           {directionChosen && (protectedModifiers.length > 0 || unresolvedProtections.length > 0) && (

@@ -328,6 +328,10 @@ async function abrirPieza(page, itemId, direccion = "damage") {
   await elegirPieza(page, itemId);
   await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
   await page.getByTestId(`coach-direccion-${direccion}`).click();
+  await page.getByTestId("coach-sin-evidencia").waitFor({ timeout: 10000 });
+  await page
+    .getByTestId(direccion === "damage" ? "coach-focus-physical" : "coach-focus-maximum-life")
+    .click();
   await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
 }
 
@@ -531,10 +535,13 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-comparar").click();
     await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el nombre mágico nuevo no rompe la comparación tras Transmutación`,
-      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "continue" &&
+      `[${mode}] el nombre mágico nuevo se reconoce, pero un afijo ajeno al objetivo frena`,
+      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
         (await page.getByTestId("coach-comparacion").innerText()).includes("modificador nuevo") &&
-        (await page.getByTestId("coach-objeto-resumen").innerText()).includes("cabe uno más"),
+        (await page.getByTestId("coach-objeto-resumen").innerText()).includes("cabe uno más") &&
+        (await page.getByTestId("coach-veredicto").innerText()).includes(
+          "Tener huecos libres no basta",
+        ),
     );
 
     // --- 4. Pieza mágica incompleta --------------------------------------
@@ -567,7 +574,7 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-otro-camino").isVisible()),
     );
 
-    // --- 7. Cadena real localizada: Regio → Exaltado --------------------
+    // --- 7. Cadena real: un resultado ajeno al objetivo frena ------------
     await abrirPieza(page, "taller-maza-real");
     check(
       `[${mode}] la maza mágica real empieza por Regio`,
@@ -578,14 +585,20 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-comparar").click();
     await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] Regio conserva el snapshot mágico y acepta un único afijo nuevo`,
-      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "continue" &&
-        (await page.getByTestId("coach-cambios").innerText()).includes("+12 a la fuerza"),
+      `[${mode}] Regio conserva el snapshot pero frena si el afijo no aporta daño físico`,
+      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
+        (await page.getByTestId("coach-cambios").innerText()).includes("+12 a la fuerza") &&
+        (await page.getByTestId("coach-veredicto").innerText()).includes("Tener huecos libres no basta") &&
+        (await page.getByTestId("coach-seguir").count()) === 0,
     );
-    await page.getByTestId("coach-seguir").click();
+    // El jugador puede replantearlo explícitamente desde el resultado actual;
+    // no se encadena Exaltado a escondidas.
+    await page.getByTestId("coach-empezar-otra").click();
+    await page.getByTestId("coach-direccion-damage").click();
+    await page.getByTestId("coach-focus-physical").click();
     await recomendacion.waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el siguiente paso usa el resultado de Regio, no la pieza antigua`,
+      `[${mode}] solo tras replantearlo el banco usa el resultado de Regio`,
       (await recomendacion.getAttribute("data-action")) === "exalted" &&
         (await page.getByTestId("coach-objeto").innerText()).includes("Destructor de venganza"),
     );
@@ -605,9 +618,15 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-comparar").click();
     await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] Exaltado compara contra el Regio congelado y acepta solo su afijo`,
-      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "continue" &&
-        (await page.getByTestId("coach-cambios").innerText()).includes("Daño físico aumentado"),
+      `[${mode}] Exaltado compara contra el Regio, reconoce daño físico y respeta los requisitos`,
+      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
+        (await page.getByTestId("coach-cambios").innerText()).includes("Daño físico aumentado") &&
+        (await page.getByTestId("coach-relacion-objetivo").innerText()).includes(
+          "coincide con tu objetivo: daño físico",
+        ) &&
+        (await page.getByTestId("coach-veredicto").innerText()).includes(
+          "no cumple requisitos",
+        ),
     );
 
     // --- 8. «No sé qué necesita» -----------------------------------------
@@ -618,25 +637,15 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
     await page.getByTestId("coach-direccion-unknown").click();
     const sinEvidencia = page.getByTestId("coach-sin-evidencia");
-    const decidio = (await page.getByTestId("coach-direccion-elegida").count()) > 0;
-    if (decidio) {
-      const razon = await page.getByTestId("coach-direccion-elegida").innerText();
-      check(
-        `[${mode}] «No sé qué necesita» cita un dato del expediente, no las etiquetas de la pieza`,
-        /expediente declara/.test(razon) &&
-          /%/.test(razon) &&
-          !/etiquetas de/.test(razon) &&
-          !/ya lleva/.test(razon),
-      );
-    } else {
-      check(
-        `[${mode}] sin evidencia dice que no puede decidirlo y ofrece salida`,
-        (await sinEvidencia.innerText()).includes("No puedo decidirlo mirando solo esta pieza.") &&
-          (await page.getByTestId("coach-elegir-damage").isVisible()) &&
-          (await page.getByTestId("coach-elegir-defence").isVisible()) &&
-          (await page.getByTestId("coach-no-gastar-sin-evidencia").isVisible()),
-      );
-    }
+    await sinEvidencia.waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] «No sé qué necesita» cita el expediente y pide concretar la defensa`,
+      /expediente declara/.test(await sinEvidencia.innerText()) &&
+        /%/.test(await sinEvidencia.innerText()) &&
+        (await page.getByTestId("coach-focus-resistances").isVisible()) &&
+        (await page.getByTestId("coach-no-gastar-sin-evidencia").isVisible()) &&
+        !/etiquetas de|ya lleva/.test(await sinEvidencia.innerText()),
+    );
     await page.screenshot({ path: join(SHOT_DIR, `taller-no-se-${mode}.png`), fullPage: false });
 
     // Y ahora el caso SIN evidencia: mismo perfil con las resistencias por
@@ -808,13 +817,14 @@ async function runFlow(mode, port) {
       !/garantiz/i.test(comparacion),
     );
     check(
-      `[${mode}] el nuevo modificador se describe como relacionado, no como mejora`,
+      `[${mode}] un afijo ajeno al objetivo se describe como tal y detiene la cadena`,
       (await page.getByTestId("coach-relacion-objetivo").innerText()).includes(
-        "está relacionado con daño",
+        "no coincide con tu objetivo principal: daño físico",
       ) &&
         (await page.getByTestId("coach-salvedad-mejora").innerText()).includes(
-          "no demuestra todavía que la pieza completa sea mejor",
+          "no demuestra por sí solo",
         ) &&
+        (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
         !/es una mejora|ha mejorado/i.test(comparacion),
     );
     await page.screenshot({ path: join(SHOT_DIR, `taller-comparacion-${mode}.png`), fullPage: false });
@@ -878,6 +888,8 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
     await page.getByTestId("coach-direccion-damage").focus();
     await page.keyboard.press("Enter");
+    await page.getByTestId("coach-focus-physical").focus();
+    await page.keyboard.press("Enter");
     await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
     check(
       `[${mode}] se puede decidir con teclado y el foco va a la recomendación`,
@@ -936,6 +948,7 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-cambiar-direccion").click();
     await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
     await page.getByTestId("coach-direccion-defence").click();
+    await page.getByTestId("coach-focus-maximum-life").click();
     await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
     await wait(700);
     // Con el mentor abierto ocupa parte de la pantalla; lo exigible es que el

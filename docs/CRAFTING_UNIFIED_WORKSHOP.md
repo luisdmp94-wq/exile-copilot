@@ -1,14 +1,16 @@
 # Taller unificado de Crafting
 
-> Crafting abre con dos caminos evidentes. El banco técnico sigue existiendo
+> Crafting abre con tres caminos evidentes. El banco técnico sigue existiendo
 > entero, pero deja de ser la puerta de entrada.
 
-## Los dos caminos
+## Los tres caminos
 
 `CraftingSection` es ahora un enrutador delgado:
 
 - **Quiero aprender crafting** → la Academia, con recorridos Básico y Avanzado.
 - **Ayúdame con mi objeto** → `CraftingCoach`, el modo por defecto.
+- **Planear un craft** → el laboratorio para fijar objetivo, protecciones y
+  condición de parada antes de elegir herramientas.
 
 Ambos comparten la pieza seleccionada. Ninguno desmonta al otro: cambiar de
 camino no borra nada.
@@ -26,12 +28,15 @@ camino no borra nada.
    llegan plegados.
 5. **¿Cuándo parar?** Cuando ninguna moneda observada es compatible, o cuando
    falta un dato: el guía lo dice y no ofrece gastar.
-6. **¿Qué salió?** El jugador pega el resultado y `readCraftResult()` traduce la
-   comparación: qué cambió, qué se conservó, continuar o parar. Si el modificador
-   nuevo comparte etiqueta con la dirección elegida se dice «está relacionado
-   con daño» —nunca «es una mejora»— seguido de «Esto no demuestra todavía que
-   la pieza completa sea mejor para tu personaje. Pruébala o compárala en el
-   personaje.»
+6. **¿Qué resultado exacto buscas?** «Más daño» o «más defensa» no bastan. El
+   jugador concreta daño físico, fuego, frío, rayo, caos, velocidad de ataque,
+   crítico, niveles de proyectiles, vida máxima, resistencias, armadura, evasión
+   o escudo de energía.
+7. **¿Qué salió?** El jugador pega el resultado y
+   `readPurposefulCraftResult()` traduce la comparación. Un hueco libre ya no
+   basta para encadenar otra moneda: si el afijo nuevo no coincide literalmente
+   con el objetivo exacto, el guía para. Si coincide, todavía comprueba el
+   expediente, requisitos y protecciones antes de permitir continuar.
 
 ## Tres ejes que no se mezclan
 
@@ -68,10 +73,11 @@ porque la otra seguirá disponible después y esa no. La regla sale de
 que exigían la anterior, y quedarse a un hueco del límite observado significa
 que después no cabrá nada.
 
-**La dirección no cambia lo que es legal.** Elegir daño o defensa no altera qué
+**El objetivo no cambia lo que es legal.** Elegir daño físico, vida máxima u
+otra señal exacta no altera qué
 moneda es compatible —eso lo decide la estructura—. Sirve para leer el resultado
-después, comparando etiquetas con `evaluateCraftingGoalSignal`. El guía lo dice
-en vez de fingir una recomendación personalizada.
+después, mediante coincidencias literales verificables. El guía lo dice en vez
+de fingir una recomendación personalizada.
 
 **«No sé qué necesita»** NO mira la pieza. Que un objeto lleve modificadores de
 daño no demuestra que necesite más daño: eso confunde lo que hay con lo que
@@ -122,6 +128,12 @@ interacción**, con el mentor plegado y desplegado, no en una captura.
 
 - El guía razona sobre la pieza que el jugador pega, pero **no escribe en el
   expediente**: aplicar el resultado al personaje sigue siendo del banco.
+- Con un objeto suelto enseña legalidad y lee el resultado, pero se niega a
+  recomendar una segunda moneda como si conociera la build. Para esa decisión
+  exige un personaje con contexto real.
+- El presupuesto se muestra como contexto declarado; todavía no existe una
+  valoración verificable de cada tirada básica que permita descontarlo o
+  afirmar rentabilidad.
 - Solo cubre las cuatro monedas observadas. Essences y Alloys siguen en
   herramientas avanzadas porque exigen su propio tooltip verificado.
 - Con el mentor desplegado en móvil, una tarjeta muy alta puede exceder el

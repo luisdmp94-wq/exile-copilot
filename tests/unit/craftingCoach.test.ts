@@ -3,12 +3,19 @@ import {
   chooseNextStep,
   interpretCoachGoal,
   readCraftResult,
+  readPurposefulCraftResult,
   suggestDirectionFromCharacter,
   readItemInPlainWords,
 } from "../../shared/craftingCoach.js";
 import { compareCraftingResult } from "../../shared/craftingComparison.js";
 import { evaluateObservedCraftingActions } from "../../shared/craftingActions.js";
-import { ItemSchema, type Item, type Modifier } from "../../shared/domain.js";
+import {
+  CharacterProfileSchema,
+  ItemSchema,
+  type CharacterProfile,
+  type Item,
+  type Modifier,
+} from "../../shared/domain.js";
 
 const ESTADO_LIMPIO = { corrupted: false, mirrored: false, split: false, unidentified: false };
 
@@ -28,6 +35,28 @@ function pieza(overrides: Record<string, unknown> = {}): Item {
     craftingState: { ...ESTADO_LIMPIO },
     sources: [],
     ...overrides,
+  });
+}
+
+function perfil(items: Item[], real = true): CharacterProfile {
+  return CharacterProfileSchema.parse({
+    id: real ? "perfil-real" : "objeto-suelto",
+    name: real ? "Mercenario de prueba" : "Objeto suelto",
+    characterClass: real ? "Mercenary" : "Desconocida",
+    ascendancy: null,
+    ascendancyId: null,
+    level: real ? 80 : 1,
+    levelSource: real ? "observed" : "placeholder",
+    archetype: null,
+    league: "Prueba",
+    patch: "Prueba",
+    items,
+    skills: [],
+    passives: { allocated: [] },
+    attributes: { str: null, dex: null, int: null },
+    resistances: { fire: null, cold: null, lightning: null, chaos: null },
+    sources: [],
+    importedAt: "2026-08-25T00:00:00.000Z",
   });
 }
 
@@ -332,11 +361,13 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
   it("entiende objetivos habituales de daño sin convertirlos en una receta", () => {
     expect(interpretCoachGoal("Quiero que esta ballesta haga más daño físico")).toEqual({
       direction: "damage",
-      reason: "He entendido que primero quieres trabajar el daño.",
+      focus: "physical",
+      reason: "He entendido que primero buscas daño físico.",
       protectedModifiers: [],
       unresolvedProtections: [],
     });
-    expect(interpretCoachGoal("Busco crítico y velocidad de ataque").direction).toBe("damage");
+    expect(interpretCoachGoal("Busco crítico").focus).toBe("critical");
+    expect(interpretCoachGoal("Quiero más daño").focus).toBeNull();
   });
 
   it("entiende objetivos defensivos con y sin tildes", () => {
@@ -389,6 +420,91 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
     expect(result.direction).toBe("damage");
     expect(result.protectedModifiers).toEqual([]);
     expect(result.unresolvedProtections).toEqual(["resistencia al caos"]);
+  });
+});
+
+describe("guía de crafting — propósito y contexto", () => {
+  const original = pieza({
+    rarity: "rare",
+    modifiers: [mod("vida", "+31 a la vida máxima", "suffix", ["Vida"])],
+  });
+
+  it("para si el afijo nuevo no coincide con el objetivo exacto aunque queden huecos", () => {
+    const result = pieza({
+      rarity: "rare",
+      modifiers: [
+        mod("vida2", "+31 a la vida máxima", "suffix", ["Vida"]),
+        mod("fuego", "Agrega de 10 a 20 de daño de fuego", "prefix", ["Daño", "Fuego"]),
+      ],
+    });
+    const comparison = compareCraftingResult(original, result, "exalted", {
+      protectedModifierIds: [],
+    });
+    const reading = readPurposefulCraftResult({
+      comparison,
+      originalItem: original,
+      resultItem: result,
+      direction: "damage",
+      focus: "physical",
+      profile: perfil([original]),
+      profileGoal: "damage",
+    });
+
+    expect(reading.verdict).toBe("stop");
+    expect(reading.nextStep).toBeNull();
+    expect(reading.directionNote).toContain("no coincide");
+    expect(reading.verdictText).toContain("Tener huecos libres no basta");
+  });
+
+  it("solo permite continuar cuando el afijo coincide y hay expediente real", () => {
+    const result = pieza({
+      rarity: "rare",
+      modifiers: [
+        mod("vida2", "+31 a la vida máxima", "suffix", ["Vida"]),
+        mod("fisico", "Agrega de 15 a 24 de daño físico", "prefix", ["Daño", "Físico", "Ataque"]),
+      ],
+    });
+    const comparison = compareCraftingResult(original, result, "exalted", {
+      protectedModifierIds: [],
+    });
+    const reading = readPurposefulCraftResult({
+      comparison,
+      originalItem: original,
+      resultItem: result,
+      direction: "damage",
+      focus: "physical",
+      profile: perfil([original]),
+      profileGoal: "damage",
+    });
+
+    expect(reading.verdict).toBe("continue");
+    expect(reading.directionNote).toContain("coincide con tu objetivo: daño físico");
+  });
+
+  it("un objeto suelto nunca encadena otra moneda como consejo personalizado", () => {
+    const result = pieza({
+      rarity: "rare",
+      modifiers: [
+        mod("vida2", "+31 a la vida máxima", "suffix", ["Vida"]),
+        mod("fisico", "Agrega de 15 a 24 de daño físico", "prefix", ["Daño", "Físico", "Ataque"]),
+      ],
+    });
+    const comparison = compareCraftingResult(original, result, "exalted", {
+      protectedModifierIds: [],
+    });
+    const reading = readPurposefulCraftResult({
+      comparison,
+      originalItem: original,
+      resultItem: result,
+      direction: "damage",
+      focus: "physical",
+      profile: perfil([original], false),
+      profileGoal: "damage",
+    });
+
+    expect(reading.verdict).toBe("stop");
+    expect(reading.nextStep).toBeNull();
+    expect(reading.verdictText).toContain("objeto suelto");
   });
 });
 

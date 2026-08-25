@@ -1,6 +1,6 @@
 # HANDOFF — Exile Copilot
 
-> Informe para el propietario. Última actualización: sesión 47,
+> Informe para el propietario. Última actualización: sesión 48,
 > 2026-08-25.
 >
 > **Estado actual:** `main` incorpora el rediseño visual, los Hitos 6C
@@ -9,6 +9,27 @@
 > HISTORIA: los SHA y
 > los «sin integrar» que aparecen en ellas describen el momento en que se
 > escribieron, no el estado actual.
+
+## Sesión 48 — el guía deja de encadenar monedas sin propósito
+
+- «Más daño» y «más defensa» ya no disparan una receta genérica: el jugador
+  concreta la señal que busca (por ejemplo, daño físico, velocidad de ataque,
+  vida máxima o resistencias) antes de gastar.
+- El resultado se compara contra ese objetivo exacto. Un afijo que no coincide
+  detiene la cadena aunque queden huecos; tener espacio libre ya no se presenta
+  como razón suficiente para usar Regio o Exaltado.
+- Cuando el resultado sí coincide, todavía se revisan requisitos, protecciones
+  y el expediente antes de continuar. La maza real de regresión frena con
+  Fuerza si se pidió daño físico y reconoce correctamente un afijo físico.
+- Un objeto suelto puede usarse para aprender, pero no recibe consejo
+  fingidamente personalizado. El guía explica que necesita vincular un
+  personaje para juzgar la siguiente inversión.
+- El recorrido muestra el objetivo general y el presupuesto disponibles sin
+  afirmar que exista una valoración de coste que aún no está verificada.
+
+Verificación: TypeScript y ESLint sin errores; **578/578** pruebas (incluidas
+**31/31** específicas del guía); build de producción correcto; taller
+**108/108** en producción y desarrollo/Strict Mode.
 
 ## Sesión 47 — los datos incompletos ya no expulsan del objeto
 

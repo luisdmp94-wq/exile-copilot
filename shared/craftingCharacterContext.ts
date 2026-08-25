@@ -44,6 +44,23 @@ const RESISTANCE_TAGS = new Set(["resistance", "resistances", "resistencia", "re
  */
 export const LOW_ELEMENTAL_RESISTANCE = 75;
 
+/**
+ * Distingue un expediente real del perfil técnico creado al pegar únicamente
+ * un objeto. Nunca usa el nombre visible como contrato: exige alguna evidencia
+ * que pertenezca al personaje y no a la pieza.
+ */
+export function hasCraftingCharacterContext(profile: CharacterProfile | null): boolean {
+  if (profile === null) return false;
+  if (readCharacterLevel(profile).known) return true;
+  if (profile.ascendancy !== null || profile.skills.length > 0) return true;
+  if (profile.characterClass.trim().toLocaleLowerCase("es") !== "desconocida") return true;
+  if (Object.values(profile.attributes).some((value) => value !== null)) return true;
+  if (Object.values(profile.resistances).some((value) => value !== null)) return true;
+  return [profile.life, profile.energyShield, profile.evasion, profile.armour].some(
+    (value) => value !== undefined,
+  );
+}
+
 function normalizedTag(value: string): string {
   return value.normalize("NFKC").trim().toLocaleLowerCase("es").replace(/\s+/g, " ");
 }
