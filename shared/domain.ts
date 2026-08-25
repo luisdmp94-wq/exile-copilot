@@ -135,6 +135,25 @@ export const CraftingItemStateSchema = z.object({
 });
 export type CraftingItemState = z.infer<typeof CraftingItemStateSchema>;
 
+/** Valores visibles que el propio tooltip del arma ya ha calculado. */
+export const DamageRangeSchema = z.object({
+  min: z.number().nonnegative(),
+  max: z.number().nonnegative(),
+});
+export type DamageRange = z.infer<typeof DamageRangeSchema>;
+
+export const WeaponCombatStatsSchema = z.object({
+  physical: DamageRangeSchema.optional(),
+  fire: DamageRangeSchema.optional(),
+  cold: DamageRangeSchema.optional(),
+  lightning: DamageRangeSchema.optional(),
+  chaos: DamageRangeSchema.optional(),
+  criticalChance: z.number().nonnegative().optional(),
+  attacksPerSecond: z.number().positive().optional(),
+  reloadTime: z.number().nonnegative().optional(),
+});
+export type WeaponCombatStats = z.infer<typeof WeaponCombatStatsSchema>;
+
 export const ItemSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -147,6 +166,8 @@ export const ItemSchema = z.object({
   quality: z.number().int().optional(),
   modifiers: z.array(ModifierSchema).default([]),
   requirements: ItemRequirementsSchema.optional(),
+  /** Ausente cuando el texto pegado no declara propiedades visibles de arma. */
+  weaponStats: WeaponCombatStatsSchema.optional(),
   /** Ausente = la procedencia no permite afirmar estos estados. */
   craftingState: CraftingItemStateSchema.optional(),
   rawText: z.string().optional(),

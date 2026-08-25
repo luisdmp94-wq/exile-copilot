@@ -82,6 +82,30 @@ describe("itemTextParser", () => {
     expect(item.modifiers[0]?.values).toEqual([45]);
   });
 
+  it("conserva las cifras visibles de la ballesta real sin convertirlas en afijos", () => {
+    const { item } = parseItemText(spanishAdvancedCrossbow);
+
+    expect(item.weaponStats).toEqual({
+      physical: { min: 22, max: 65 },
+      fire: { min: 4, max: 5 },
+      lightning: { min: 1, max: 9 },
+      criticalChance: 5,
+      attacksPerSecond: 1.81,
+      reloadTime: 0.71,
+    });
+  });
+
+  it("conserva daño físico y de hielo del arco real", () => {
+    const { item } = parseItemText(spanishAdvancedBow);
+
+    expect(item.weaponStats).toEqual({
+      physical: { min: 154, max: 288 },
+      cold: { min: 79, max: 117 },
+      criticalChance: 5,
+      attacksPerSecond: 1.28,
+    });
+  });
+
   it("acepta rareza en español", () => {
     const text = ["Item Class: Crossbows", "Rarity: Raro", "Canción Funesta", "Ballesta"].join("\n");
     const { item } = parseItemText(text);
@@ -236,6 +260,16 @@ describe("itemTextParser", () => {
 
     expect(warnings).toEqual([]);
     expect(item.quality).toBe(20);
+    expect(item.weaponStats).toEqual({
+      physical: { min: 33, max: 69 },
+      fire: { min: 31, max: 45 },
+      cold: { min: 4, max: 8 },
+      lightning: { min: 1, max: 20 },
+      chaos: { min: 2, max: 6 },
+      criticalChance: 5,
+      attacksPerSecond: 1.4,
+      reloadTime: 0.71,
+    });
     expect(item.modifiers).toHaveLength(4);
     expect(item.modifiers.map((modifier) => modifier.text)).toEqual([
       "+233(168-236) a la precisión",

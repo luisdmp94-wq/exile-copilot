@@ -27,6 +27,10 @@ import {
   type ObservedRollBand,
 } from "./craftingRollQuality.js";
 import {
+  evaluateCraftingWeaponPerformance,
+  type CraftingWeaponPerformance,
+} from "./craftingWeaponPerformance.js";
+import {
   RESISTANCE_LABELS,
   type CharacterProfile,
   type GoalKind,
@@ -706,6 +710,8 @@ export interface CoachResultReading {
     rollLabel: string;
     goalFit: CoachGoalFit;
   }>;
+  /** Comparación conservadora basada solo en las cifras visibles del tooltip. */
+  weaponPerformance: CraftingWeaponPerformance | null;
 }
 
 function readObservedAffixes(
@@ -760,6 +766,7 @@ export function readCraftResult(input: {
       directionNote: null,
       improvementCaveat: null,
       observedAffixes: [],
+      weaponPerformance: null,
     };
   }
 
@@ -832,6 +839,7 @@ export function readCraftResult(input: {
     directionNote,
     improvementCaveat,
     observedAffixes,
+    weaponPerformance: null,
   };
 }
 
@@ -863,6 +871,13 @@ export function readPurposefulCraftResult(input: {
     return base;
   }
 
+  const weaponPerformance = evaluateCraftingWeaponPerformance({
+    originalItem,
+    resultItem,
+    profile,
+    focus,
+  });
+
   const signal = evaluateCoachFocus(focus, comparison.addedModifiers);
   const focusLabel = focus === null ? null : COACH_FOCUS_LABELS[focus];
   const goalFit: CoachGoalFit = signal.status === "direct"
@@ -893,6 +908,7 @@ export function readPurposefulCraftResult(input: {
       directionNote,
       improvementCaveat,
       observedAffixes,
+      weaponPerformance,
     };
   }
 
@@ -907,6 +923,7 @@ export function readPurposefulCraftResult(input: {
       directionNote,
       improvementCaveat,
       observedAffixes,
+      weaponPerformance,
     };
   }
 
@@ -921,6 +938,7 @@ export function readPurposefulCraftResult(input: {
       directionNote,
       improvementCaveat,
       observedAffixes,
+      weaponPerformance,
     };
   }
 
@@ -946,14 +964,34 @@ export function readPurposefulCraftResult(input: {
         : assessObservedModifierRoll(comparison.addedModifiers[0]),
   });
 
+  const focusComparison = weaponPerformance?.focusComparison ?? null;
+  const visibleComparisonText = focusComparison === null
+    ? ""
+    : focusComparison.outcome === "higher"
+      ? ` En cifras visibles, ${focusComparison.label} sube de ${focusComparison.before} a ${focusComparison.after}.`
+      : focusComparison.outcome === "lower"
+        ? ` En cifras visibles, ${focusComparison.label} baja de ${focusComparison.before} a ${focusComparison.after}.`
+        : ` En cifras visibles, ${focusComparison.label} no mejora: sigue en ${focusComparison.after}.`;
+  const visibleGoalFailed =
+    weaponPerformance?.comparedToEquipped === true &&
+    focusComparison !== null &&
+    focusComparison.outcome !== "higher";
+  // Un requisito incumplido o una protección perdida es un bloqueo más fuerte
+  // que el rendimiento del arma y debe seguir siendo el motivo principal.
+  const visibleBlocksContinuation = visibleGoalFailed && decision.kind === "continue";
+
   return {
     ...base,
-    verdict: decision.kind === "continue" ? "continue" : "stop",
-    verdictText: `${decision.title}. ${decision.summary} ${decision.nextAction}`,
-    nextStep: decision.kind === "continue" ? base.nextStep : null,
+    verdict: visibleBlocksContinuation ? "stop" : decision.kind === "continue" ? "continue" : "stop",
+    verdictText: visibleBlocksContinuation
+      ? `Para aquí: no supera ${weaponPerformance.baselineLabel} en ${focusComparison.label}.${visibleComparisonText}`
+      : `${decision.title}. ${decision.summary} ${decision.nextAction}${visibleComparisonText}`,
+    nextStep:
+      !visibleBlocksContinuation && decision.kind === "continue" ? base.nextStep : null,
     goalFit,
     directionNote,
     improvementCaveat,
     observedAffixes,
+    weaponPerformance,
   };
 }

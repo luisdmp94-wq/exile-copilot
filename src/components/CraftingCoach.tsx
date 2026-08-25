@@ -59,6 +59,18 @@ function snapshotItem(item: Item): Item {
       ...(modifier.tags ? { tags: [...modifier.tags] } : {}),
     })),
     ...(item.requirements ? { requirements: { ...item.requirements } } : {}),
+    ...(item.weaponStats
+      ? {
+          weaponStats: {
+            ...item.weaponStats,
+            ...(item.weaponStats.physical ? { physical: { ...item.weaponStats.physical } } : {}),
+            ...(item.weaponStats.fire ? { fire: { ...item.weaponStats.fire } } : {}),
+            ...(item.weaponStats.cold ? { cold: { ...item.weaponStats.cold } } : {}),
+            ...(item.weaponStats.lightning ? { lightning: { ...item.weaponStats.lightning } } : {}),
+            ...(item.weaponStats.chaos ? { chaos: { ...item.weaponStats.chaos } } : {}),
+          },
+        }
+      : {}),
     ...(item.craftingState ? { craftingState: { ...item.craftingState } } : {}),
     sources: item.sources.map((source) => ({ ...source })),
   };
@@ -1054,6 +1066,57 @@ export function CraftingCoach({
                     </li>
                   ))}
                 </ul>
+              )}
+              {resultReading.weaponPerformance && (
+                <section
+                  className="mt-3 rounded-md border border-cyan-400/25 bg-cyan-500/[0.05] p-3"
+                  data-testid="coach-rendimiento-arma"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-cyan-50">Rendimiento visible del arma</h4>
+                    <span className="text-xs text-muted-foreground">Calculado desde el tooltip</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-sm border border-border/60 bg-background/35 px-2 py-1.5">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Físico</p>
+                      <p className="font-semibold">{resultReading.weaponPerformance.candidate.physicalDps}</p>
+                    </div>
+                    <div className="rounded-sm border border-border/60 bg-background/35 px-2 py-1.5">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Elemental</p>
+                      <p className="font-semibold">{resultReading.weaponPerformance.candidate.elementalDps}</p>
+                    </div>
+                    <div className="rounded-sm border border-cyan-400/25 bg-cyan-500/[0.06] px-2 py-1.5">
+                      <p className="text-[11px] uppercase tracking-wide text-cyan-100/70">Total</p>
+                      <p className="font-semibold text-cyan-50">{resultReading.weaponPerformance.candidate.totalDps}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-1 text-xs">
+                    <p data-testid="coach-delta-dps-total">
+                      Desde el paso anterior: {resultReading.weaponPerformance.craftDelta.delta > 0 ? "+" : ""}
+                      {resultReading.weaponPerformance.craftDelta.delta} DPS visible total
+                      {resultReading.weaponPerformance.craftDelta.percent === null
+                        ? ""
+                        : ` (${resultReading.weaponPerformance.craftDelta.percent > 0 ? "+" : ""}${resultReading.weaponPerformance.craftDelta.percent}%)`}.
+                    </p>
+                    {resultReading.weaponPerformance.focusComparison && (
+                      <p
+                        className={
+                          resultReading.weaponPerformance.focusComparison.outcome === "higher"
+                            ? "text-emerald-200"
+                            : resultReading.weaponPerformance.focusComparison.outcome === "lower"
+                              ? "text-rose-200"
+                              : "text-amber-200"
+                        }
+                        data-testid="coach-comparacion-objetivo-arma"
+                      >
+                        Tu objetivo · {resultReading.weaponPerformance.focusComparison.label}: {resultReading.weaponPerformance.focusComparison.before} → {resultReading.weaponPerformance.focusComparison.after} frente a {resultReading.weaponPerformance.baselineLabel}.
+                      </p>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    {resultReading.weaponPerformance.limitation}
+                  </p>
+                </section>
               )}
               <p className="mt-2 text-sm text-muted-foreground">{resultReading.kept}</p>
               {resultReading.directionNote !== null && (

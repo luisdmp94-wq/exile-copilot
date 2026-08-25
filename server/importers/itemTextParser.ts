@@ -6,6 +6,7 @@ import type {
   ItemRequirements,
   ItemSlot,
   Modifier,
+  WeaponCombatStats,
 } from "../../shared/domain.js";
 import { extractObservedModifierRolls } from "../../shared/craftingRollQuality.js";
 
@@ -89,6 +90,75 @@ function extractNumbers(text: string): number[] {
   return out;
 }
 
+function parseLocalizedNumber(value: string): number | null {
+  const parsed = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseDamageRange(value: string): { min: number; max: number } | null {
+  const match = /(-?\d+(?:[.,]\d+)?)\s*-\s*(-?\d+(?:[.,]\d+)?)/.exec(value);
+  if (!match?.[1] || !match[2]) return null;
+  const min = parseLocalizedNumber(match[1]);
+  const max = parseLocalizedNumber(match[2]);
+  if (min === null || max === null || min < 0 || max < min) return null;
+  return { min, max };
+}
+
+/** Conserva solo cifras que el tooltip declara; no deriva daño desde afijos. */
+function parseWeaponBaseProperty(line: string, stats: WeaponCombatStats): boolean {
+  const property = /^([^:]+)\s*:\s*(.+)$/.exec(line);
+  if (!property?.[1] || !property[2]) return false;
+  const label = property[1].trim().toLocaleLowerCase("es");
+  const value = property[2].trim();
+  const damageLabels: Array<[RegExp, keyof Pick<WeaponCombatStats, "physical" | "fire" | "cold" | "lightning" | "chaos">]> = [
+    [/^(?:physical damage|daño físico)$/i, "physical"],
+    [/^(?:fire damage|daño de fuego)$/i, "fire"],
+    [/^(?:cold damage|daño de hielo)$/i, "cold"],
+    [/^(?:lightning damage|daño de rayo)$/i, "lightning"],
+    [/^(?:chaos damage|daño de caos)$/i, "chaos"],
+  ];
+  for (const [pattern, key] of damageLabels) {
+    if (!pattern.test(label)) continue;
+    const range = parseDamageRange(value);
+    if (range) stats[key] = range;
+    return true;
+  }
+
+  if (/^(?:elemental damage|daño elemental)$/i.test(label)) {
+    const annotated = /(-?\d+(?:[.,]\d+)?)\s*-\s*(-?\d+(?:[.,]\d+)?)\s*\((fire|fuego|cold|hielo|lightning|rayo)\)/gi;
+    for (const match of value.matchAll(annotated)) {
+      if (!match[1] || !match[2] || !match[3]) continue;
+      const min = parseLocalizedNumber(match[1]);
+      const max = parseLocalizedNumber(match[2]);
+      if (min === null || max === null || min < 0 || max < min) continue;
+      const element = match[3].toLocaleLowerCase("es");
+      const key = element === "fire" || element === "fuego"
+        ? "fire"
+        : element === "cold" || element === "hielo"
+          ? "cold"
+          : "lightning";
+      stats[key] = { min, max };
+    }
+    return true;
+  }
+
+  const scalar = /-?\d+(?:[.,]\d+)?/.exec(value)?.[0];
+  const parsed = scalar ? parseLocalizedNumber(scalar) : null;
+  if (/^(?:critical hit chance|probabilidad de impacto crítico)$/i.test(label)) {
+    if (parsed !== null && parsed >= 0) stats.criticalChance = parsed;
+    return true;
+  }
+  if (/^(?:attacks per second|ataques por segundo)$/i.test(label)) {
+    if (parsed !== null && parsed > 0) stats.attacksPerSecond = parsed;
+    return true;
+  }
+  if (/^(?:reload time|tiempo de recarga)$/i.test(label)) {
+    if (parsed !== null && parsed >= 0) stats.reloadTime = parsed;
+    return true;
+  }
+  return false;
+}
+
 interface ParsedSections {
   itemClass: string;
   rarity: ItemRarity;
@@ -97,6 +167,7 @@ interface ParsedSections {
   quality?: number;
   itemLevel?: number;
   requirements?: ItemRequirements;
+  weaponStats: WeaponCombatStats;
   craftingState: CraftingItemState;
   /**
    * `false` mientras el texto no permita AFIRMAR estos estados. Sin esto, un
@@ -306,6 +377,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
       unidentified: false,
     },
     craftingStateVerified: false,
+    weaponStats: {},
     modifiers: [],
   };
 
@@ -386,6 +458,9 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
       const qualityMatch = /^(?:quality|calidad)\s*:\s*\+?(\d+)%/i.exec(structuralLine);
       if (qualityMatch) {
         result.quality = Number.parseInt(qualityMatch[1] ?? "0", 10);
+        continue;
+      }
+      if (parseWeaponBaseProperty(structuralLine, result.weaponStats)) {
         continue;
       }
       const ilvlMatch = ITEM_LEVEL_RE.exec(structuralLine);
@@ -589,6 +664,7 @@ export function parseItemText(input: string): ParsedItemText {
   if (parsed.itemLevel !== undefined) item.itemLevel = parsed.itemLevel;
   if (parsed.quality !== undefined) item.quality = parsed.quality;
   if (parsed.requirements !== undefined) item.requirements = parsed.requirements;
+  if (Object.keys(parsed.weaponStats).length > 0) item.weaponStats = parsed.weaponStats;
 
   return { item, warnings };
 }

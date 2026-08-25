@@ -195,7 +195,7 @@ const REAL_MACE_AFTER_EXALTED_TEXT = [
   "Destructor de venganza",
   "Maza de procesión",
   "------------------------------",
-  "Daño físico: 33-69",
+  "Daño físico: 48-93",
   "Daño de fuego: 31-45 (fire)",
   "Probabilidad de impacto crítico: 5.00%",
   "Ataques por segundo: 1.40",
@@ -627,6 +627,12 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-calidad-afijo").innerText()).includes("Grado 8") &&
         (await page.getByTestId("coach-relacion-objetivo").innerText()).includes(
           "coincide con tu objetivo: daño físico",
+        ) &&
+        (await page.getByTestId("coach-rendimiento-arma").innerText()).includes(
+          "98.7",
+        ) &&
+        (await page.getByTestId("coach-comparacion-objetivo-arma").innerText()).includes(
+          "71.4 → 98.7",
         ) &&
         (await page.getByTestId("coach-veredicto").innerText()).includes(
           "no cumple requisitos",
