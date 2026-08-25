@@ -461,7 +461,10 @@ describe("guía de crafting — propósito y contexto", () => {
       rarity: "rare",
       modifiers: [
         mod("vida2", "+31 a la vida máxima", "suffix", ["Vida"]),
-        mod("fisico", "Agrega de 15 a 24 de daño físico", "prefix", ["Daño", "Físico", "Ataque"]),
+        {
+          ...mod("fisico", "Agrega de 15(10-15) a 24(18-26) de daño físico", "prefix", ["Daño", "Físico", "Ataque"]),
+          tier: 5,
+        },
       ],
     });
     const comparison = compareCraftingResult(original, result, "exalted", {
@@ -479,6 +482,12 @@ describe("guía de crafting — propósito y contexto", () => {
 
     expect(reading.verdict).toBe("continue");
     expect(reading.directionNote).toContain("coincide con tu objetivo: daño físico");
+    expect(reading.observedAffixes[0]).toMatchObject({
+      tier: 5,
+      rollBand: "high",
+      rollPositionPercent: 88,
+      goalFit: "confirmed",
+    });
   });
 
   it("un objeto suelto nunca encadena otra moneda como consejo personalizado", () => {

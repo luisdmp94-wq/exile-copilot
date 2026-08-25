@@ -4,6 +4,10 @@ import {
   type CraftingGoalCategory,
 } from "./craftingGoal.js";
 import type { Item, Modifier } from "./domain.js";
+import {
+  assessObservedModifierRoll,
+  type ObservedModifierRollQuality,
+} from "./craftingRollQuality.js";
 
 export type AffixAssessmentKind =
   | "protect-first"
@@ -18,6 +22,7 @@ export interface CraftingAffixAssessmentEntry {
   label: string;
   reason: string;
   matchedTags: string[];
+  rollQuality: ObservedModifierRollQuality;
 }
 
 export interface CraftingAffixCluster {
@@ -66,6 +71,7 @@ function assessModifier(
   const signal = evaluateCraftingGoalSignal(goalCategory, [modifier]);
   const leadingGrade = modifier.tier !== undefined && modifier.tier <= 2;
   const protectedModifier = protectedIds.has(modifier.id);
+  const rollQuality = assessObservedModifierRoll(modifier);
 
   if (signal.status === "direct" && leadingGrade) {
     return {
@@ -75,6 +81,7 @@ function assessModifier(
       label: "Protege primero",
       reason: `Coincide con el objetivo y el juego muestra grado ${modifier.tier}.`,
       matchedTags: signal.matchedTags,
+      rollQuality,
     };
   }
 
@@ -89,6 +96,7 @@ function assessModifier(
           ? "Sus etiquetas coinciden, pero el grado no está disponible."
           : `Sus etiquetas coinciden; el juego muestra grado ${modifier.tier}.`,
       matchedTags: signal.matchedTags,
+      rollQuality,
     };
   }
 
@@ -100,6 +108,7 @@ function assessModifier(
       label: "Revisa su encaje",
       reason: `El juego muestra grado ${modifier.tier}, pero sus etiquetas no coinciden directamente con este objetivo.`,
       matchedTags: [],
+      rollQuality,
     };
   }
 
@@ -113,13 +122,15 @@ function assessModifier(
         ? "El texto no aporta etiquetas suficientes para clasificarlo."
         : "No hay coincidencia literal; puede existir una interacción indirecta.",
     matchedTags: [],
+    rollQuality,
   };
 }
 
 /**
  * Lectura del objeto observado, no del pool posible. Cruza exclusivamente el
  * grado y las etiquetas que el propio texto avanzado expone con el objetivo
- * elegido. No estima DPS, roll relativo, precio, peso ni probabilidad.
+ * elegido. Sitúa la tirada únicamente dentro del rango que imprime el juego;
+ * no estima DPS, calidad frente al pool global, precio, peso ni probabilidad.
  */
 export function assessCraftingAffixes(
   item: Item,

@@ -989,15 +989,68 @@ export function CraftingCoach({
               data-verdict={resultReading.verdict}
             >
               <h3 className="dossier-title text-xl font-semibold">{resultReading.headline}</h3>
-              {resultReading.changed.length > 0 && (
+              {resultReading.observedAffixes.length > 0 && (
                 <ul className="mt-2 flex flex-col gap-1.5" data-testid="coach-cambios">
-                  {resultReading.changed.map((text) => (
+                  {resultReading.observedAffixes.map((affix) => (
                     <li
-                      key={text}
-                      className="flex min-w-0 items-start gap-2 rounded-sm border border-emerald-400/45 bg-emerald-500/[0.08] px-2.5 py-1.5 text-xs text-emerald-100"
+                      key={affix.id}
+                      className={`min-w-0 rounded-sm border px-3 py-2 text-xs ${
+                        affix.goalFit === "confirmed"
+                          ? "border-cyan-400/35 bg-cyan-500/[0.07] text-cyan-50"
+                          : affix.goalFit === "not-confirmed"
+                            ? "border-rose-400/35 bg-rose-500/[0.06] text-rose-50"
+                            : "border-border bg-background/35 text-foreground"
+                      }`}
+                      data-testid="coach-calidad-afijo"
+                      data-roll-band={affix.rollBand}
+                      data-goal-fit={affix.goalFit}
                     >
-                      <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-300" />
-                      <span className="min-w-0 flex-1 break-words">{text}</span>
+                      <div className="flex min-w-0 items-start gap-2">
+                        <span
+                          aria-hidden="true"
+                          className={`mt-1.5 size-1.5 shrink-0 rounded-full ${
+                            affix.goalFit === "confirmed"
+                              ? "bg-cyan-300"
+                              : affix.goalFit === "not-confirmed"
+                                ? "bg-rose-300"
+                                : "bg-muted-foreground"
+                          }`}
+                        />
+                        <span className="min-w-0 flex-1 break-words">{affix.text}</span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5 pl-3.5">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 font-medium ${
+                            affix.goalFit === "confirmed"
+                              ? "border-cyan-400/40 bg-cyan-500/[0.09] text-cyan-100"
+                              : affix.goalFit === "not-confirmed"
+                                ? "border-rose-400/35 bg-rose-500/[0.08] text-rose-100"
+                                : "border-border bg-background/40 text-muted-foreground"
+                          }`}
+                        >
+                          {affix.goalFit === "confirmed"
+                            ? "Encaja con el objetivo"
+                            : affix.goalFit === "not-confirmed"
+                              ? "No encaja con el objetivo"
+                              : "Encaje sin confirmar"}
+                        </span>
+                        <span className="rounded-full border border-border bg-background/40 px-2 py-0.5 text-muted-foreground">
+                          {affix.tier === null ? "Grado no visible" : `Grado ${affix.tier}`}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 ${
+                            affix.rollBand === "high"
+                              ? "border-emerald-400/40 bg-emerald-500/[0.09] text-emerald-100"
+                              : affix.rollBand === "middle"
+                                ? "border-amber-400/40 bg-amber-500/[0.09] text-amber-100"
+                                : affix.rollBand === "low"
+                                  ? "border-rose-400/40 bg-rose-500/[0.09] text-rose-100"
+                                  : "border-border bg-background/40 text-muted-foreground"
+                          }`}
+                        >
+                          {affix.rollLabel}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>

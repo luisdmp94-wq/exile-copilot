@@ -58,7 +58,26 @@ describe("lectura observable de afijos", () => {
     expect(result.entries.find((entry) => entry.modifier.id === "cold")?.kind).toBe(
       "protect-first",
     );
+    expect(
+      result.entries.find((entry) => entry.modifier.id === "cold")?.rollQuality.band,
+    ).toBe("unknown");
     expect(JSON.stringify(result)).not.toMatch(/DPS estimado|probabilidad de éxito|precio/i);
+  });
+
+  it("separa el grado de la posición observada dentro del rango", () => {
+    const physical = {
+      ...mod("physical-roll", ["Daño", "Físico", "Ataque"], 5, "prefix"),
+      text: "Agrega de 15(10-15) a 24(18-26) de daño físico",
+    };
+    const result = assessCraftingAffixes(
+      ItemSchema.parse({ ...bow, modifiers: [physical] }),
+      "damage",
+    );
+    const entry = result.entries[0];
+
+    expect(entry?.kind).toBe("goal-aligned");
+    expect(entry?.reason).toContain("grado 5");
+    expect(entry?.rollQuality).toMatchObject({ band: "high", positionPercent: 88 });
   });
 
   it("no llama inútil a un grado alto que no coincide con el objetivo", () => {

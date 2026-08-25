@@ -8,6 +8,7 @@ import {
 } from "./craftingGoal.js";
 import type { Item } from "./domain.js";
 import type { CraftingSuccessAssessment } from "./craftingSuccessCriteria.js";
+import type { ObservedModifierRollQuality } from "./craftingRollQuality.js";
 
 export type CraftingNextDecisionKind = "continue" | "stop" | "restart";
 export type CraftingNextDecisionTone = "positive" | "caution" | "danger";
@@ -34,6 +35,7 @@ export function decideCraftingNextStep(input: {
   addedGoalSignal: CraftingGoalSignal;
   goalCategory: CraftingGoalCategory | undefined;
   successAssessment?: CraftingSuccessAssessment | null;
+  addedRollQuality?: ObservedModifierRollQuality | null;
 }): CraftingNextDecision {
   const {
     resultItem,
@@ -42,6 +44,7 @@ export function decideCraftingNextStep(input: {
     addedGoalSignal,
     goalCategory,
     successAssessment,
+    addedRollQuality,
   } = input;
   const diagnosis = diagnoseCraftingItem(resultItem);
   const explicitModifiers = resultItem.modifiers.filter(
@@ -94,6 +97,20 @@ export function decideCraftingNextStep(input: {
       summary:
         "El resultado cumple todas las condiciones observables que elegiste antes de gastar.",
       nextAction: "Guarda la pieza y pruébala en el personaje antes de arriesgar lo conseguido.",
+      observedOpenSlots,
+      resultGoalSignal,
+    };
+  }
+
+  if (addedGoalSignal.status === "direct" && addedRollQuality?.band === "low") {
+    return {
+      kind: "stop",
+      tone: "caution",
+      title: "Coincide, pero la tirada observada es baja",
+      summary:
+        "El afijo apunta al objetivo, pero sus valores están en el tramo bajo del rango que muestra el juego.",
+      nextAction:
+        "No encadenes otra moneda todavía: decide si esta tirada cumple tu condición de parada.",
       observedOpenSlots,
       resultGoalSignal,
     };

@@ -7,6 +7,7 @@ import type {
   ItemSlot,
   Modifier,
 } from "../../shared/domain.js";
+import { extractObservedModifierRolls } from "../../shared/craftingRollQuality.js";
 
 /**
  * Parser del texto de objeto copiado desde el juego (formato clipboard PoE2).
@@ -327,10 +328,12 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
       pendingAdvanced = null;
       return;
     }
+    const observedRolls = extractObservedModifierRolls(text);
     result.modifiers.push({
       id: randomUUID(),
       text,
       values: extractNumbers(text),
+      ...(observedRolls.length > 0 ? { observedRolls } : {}),
       verified: false,
       ...pendingAdvanced.header,
     });

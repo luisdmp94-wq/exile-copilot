@@ -205,7 +205,7 @@ const REAL_MACE_AFTER_EXALTED_TEXT = [
   '{ Mod. de prefijo "certero" (Grado: 4) — Ataque }',
   "+233(168-236) a la precisión",
   '{ Mod. de prefijo "férreo" (Grado: 8) — Daño, Físico }',
-  "Daño físico aumentado un 20%",
+  "Daño físico aumentado un 22(18-22)%",
   '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
   "Ganas 8(7-9) de vida por cada enemigo asesinado",
   '{ Mod. de sufijo "de venganza" (Grado: 8) — Atributo }',
@@ -621,6 +621,10 @@ async function runFlow(mode, port) {
       `[${mode}] Exaltado compara contra el Regio, reconoce daño físico y respeta los requisitos`,
       (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
         (await page.getByTestId("coach-cambios").innerText()).includes("Daño físico aumentado") &&
+        (await page.getByTestId("coach-calidad-afijo").getAttribute("data-roll-band")) === "high" &&
+        (await page.getByTestId("coach-calidad-afijo").getAttribute("data-goal-fit")) === "confirmed" &&
+        (await page.getByTestId("coach-calidad-afijo").innerText()).includes("Tirada alta") &&
+        (await page.getByTestId("coach-calidad-afijo").innerText()).includes("Grado 8") &&
         (await page.getByTestId("coach-relacion-objetivo").innerText()).includes(
           "coincide con tu objetivo: daño físico",
         ) &&
@@ -818,12 +822,12 @@ async function runFlow(mode, port) {
     );
     check(
       `[${mode}] un afijo ajeno al objetivo se describe como tal y detiene la cadena`,
-      (await page.getByTestId("coach-relacion-objetivo").innerText()).includes(
-        "no coincide con tu objetivo principal: daño físico",
-      ) &&
-        (await page.getByTestId("coach-salvedad-mejora").innerText()).includes(
-          "no demuestra por sí solo",
+      (await page.getByTestId("coach-calidad-afijo").getAttribute("data-goal-fit")) ===
+        "not-confirmed" &&
+        (await page.getByTestId("coach-calidad-afijo").innerText()).includes(
+          "No encaja con el objetivo",
         ) &&
+        (await page.getByTestId("coach-salvedad-mejora").innerText()).includes("pieza completa") &&
         (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
         !/es una mejora|ha mejorado/i.test(comparacion),
     );

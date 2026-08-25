@@ -23,6 +23,10 @@ import {
 } from "./craftingFocus.js";
 import { decideCraftingNextStep } from "./craftingNextDecision.js";
 import {
+  assessObservedModifierRoll,
+  type ObservedRollBand,
+} from "./craftingRollQuality.js";
+import {
   RESISTANCE_LABELS,
   type CharacterProfile,
   type GoalKind,
@@ -36,8 +40,8 @@ import {
  * Capa PURA: traduce a lenguaje corriente lo que los motores ya demuestran
  * (`diagnoseCraftingItem`, `evaluateObservedCraftingActions`,
  * `compareCraftingResult`, `evaluateCraftingGoalSignal`). No duplica el motor
- * de legalidad, no ordena resultados por calidad y no inventa mods, pools,
- * pesos, probabilidades ni precios.
+ * de legalidad. Solo puede situar una tirada dentro del rango visible que
+ * imprime el juego; no inventa mods, pools, pesos, probabilidades ni precios.
  *
  * Todo lo que afirma procede de la evidencia local observada el 22/08/2026.
  */
@@ -693,6 +697,39 @@ export interface CoachResultReading {
   directionNote: string | null;
   /** Aclaración que acompaña siempre a `directionNote`. */
   improvementCaveat: string | null;
+  observedAffixes: Array<{
+    id: string;
+    text: string;
+    tier: number | null;
+    rollBand: ObservedRollBand;
+    rollPositionPercent: number | null;
+    rollLabel: string;
+    goalFit: CoachGoalFit;
+  }>;
+}
+
+function readObservedAffixes(
+  modifiers: readonly import("./domain.js").Modifier[],
+  fit: (modifier: import("./domain.js").Modifier) => CraftingGoalSignal["status"],
+): CoachResultReading["observedAffixes"] {
+  return modifiers.map((modifier) => {
+    const roll = assessObservedModifierRoll(modifier);
+    const signal = fit(modifier);
+    return {
+      id: modifier.id,
+      text: modifier.text,
+      tier: modifier.tier ?? null,
+      rollBand: roll.band,
+      rollPositionPercent: roll.positionPercent,
+      rollLabel: roll.label,
+      goalFit:
+        signal === "direct"
+          ? "confirmed"
+          : signal === "no-direct-signal"
+            ? "not-confirmed"
+            : "not-evaluable",
+    };
+  });
 }
 
 /**
@@ -722,10 +759,16 @@ export function readCraftResult(input: {
       goalFit: "not-evaluable",
       directionNote: null,
       improvementCaveat: null,
+      observedAffixes: [],
     };
   }
 
   const changed = comparison.addedModifiers.map((modifier) => modifier.text);
+  const observedAffixes = readObservedAffixes(comparison.addedModifiers, (modifier) =>
+    direction === null
+      ? "unknown"
+      : evaluateCraftingGoalSignal(DIRECTION_CATEGORY[direction], [modifier]).status,
+  );
   const removed = comparison.removedModifiers.length;
   const nextStep = chooseNextStep(resultItem, direction);
 
@@ -788,6 +831,7 @@ export function readCraftResult(input: {
     goalFit,
     directionNote,
     improvementCaveat,
+    observedAffixes,
   };
 }
 
@@ -834,7 +878,10 @@ export function readPurposefulCraftResult(input: {
         ? `El nuevo modificador no coincide con tu objetivo principal: ${focusLabel}.`
         : `No puedo comprobar si el nuevo modificador aporta ${focusLabel}.`;
   const improvementCaveat =
-    "Coincidir con el objetivo no demuestra por sí solo que el tier, el valor o la pieza completa mejoren al personaje.";
+    "El grado y el rango solo describen este afijo; esto no demuestra por sí solo que la pieza completa mejore tu personaje.";
+  const observedAffixes = readObservedAffixes(comparison.addedModifiers, (modifier) =>
+    evaluateCoachFocus(focus, [modifier]).status,
+  );
 
   if (focus === null || direction === null) {
     return {
@@ -845,6 +892,7 @@ export function readPurposefulCraftResult(input: {
       goalFit,
       directionNote,
       improvementCaveat,
+      observedAffixes,
     };
   }
 
@@ -858,6 +906,7 @@ export function readPurposefulCraftResult(input: {
       goalFit,
       directionNote,
       improvementCaveat,
+      observedAffixes,
     };
   }
 
@@ -871,6 +920,7 @@ export function readPurposefulCraftResult(input: {
       goalFit,
       directionNote,
       improvementCaveat,
+      observedAffixes,
     };
   }
 
@@ -890,6 +940,10 @@ export function readPurposefulCraftResult(input: {
     characterContext,
     addedGoalSignal: signal,
     goalCategory: category,
+    addedRollQuality:
+      comparison.addedModifiers[0] === undefined
+        ? null
+        : assessObservedModifierRoll(comparison.addedModifiers[0]),
   });
 
   return {
@@ -900,5 +954,6 @@ export function readPurposefulCraftResult(input: {
     goalFit,
     directionNote,
     improvementCaveat,
+    observedAffixes,
   };
 }

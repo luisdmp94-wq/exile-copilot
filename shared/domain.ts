@@ -66,6 +66,15 @@ export const ModifierSchema = z.object({
   name: z.string().optional(),
   /** Grado mostrado por el cliente. No equivale a una probabilidad ni a un peso. */
   tier: z.number().int().positive().optional(),
+  /**
+   * Valores y rangos que el cliente muestra dentro del texto avanzado, por
+   * ejemplo `15(10-15)`. Describen esta tirada, no el pool ni su probabilidad.
+   */
+  observedRolls: z.array(z.object({
+    value: z.number(),
+    min: z.number(),
+    max: z.number(),
+  })).optional(),
   /** Etiquetas literales mostradas por el cliente, sin reinterpretarlas. */
   tags: z.array(z.string()).optional(),
   crafted: z.boolean().optional(),

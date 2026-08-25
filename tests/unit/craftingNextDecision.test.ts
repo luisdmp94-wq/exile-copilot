@@ -188,4 +188,28 @@ describe("decisión siguiente tras observar un craft", () => {
     expect(decision.tone).toBe("positive");
     expect(decision.title).toBe("Objetivo cumplido: para y conserva");
   });
+
+  it("no encadena otra moneda si el afijo coincide pero la tirada visible es baja", () => {
+    const added = modifier("p-damage-low", ["Daño", "Físico"]);
+    const result = item([added]);
+    const observed = comparison([added]);
+    const decision = decideCraftingNextStep({
+      resultItem: result,
+      comparison: observed,
+      characterContext: context(),
+      addedGoalSignal: evaluateCraftingGoalSignal("damage", observed.addedModifiers),
+      goalCategory: "damage",
+      addedRollQuality: {
+        band: "low",
+        positionPercent: 0,
+        observedCount: 1,
+        label: "Tirada baja · 0% del rango",
+        detail: "Posición observada.",
+      },
+    });
+
+    expect(decision.kind).toBe("stop");
+    expect(decision.title).toContain("tirada observada es baja");
+    expect(decision.nextAction).toContain("condición de parada");
+  });
 });
