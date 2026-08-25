@@ -854,6 +854,53 @@ export function CraftingCoach({
               <p className="mt-3 text-sm font-medium" data-testid="coach-veredicto">
                 {resultReading.verdictText}
               </p>
+              {comparison && comparison.status !== "confirmed" && resultItem && (
+                <details
+                  className="mt-3 rounded-md border border-border/70 bg-background/35 px-3 py-2 text-xs"
+                  open
+                  data-testid="coach-diagnostico-comparacion"
+                >
+                  <summary className="cursor-pointer font-semibold">Qué estoy comparando</summary>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <p>
+                      <span className="font-semibold text-foreground">Antes:</span>{" "}
+                      {activeItem.name || activeItem.baseType} · {activeItem.rarity} ·{" "}
+                      {activeItem.modifiers.filter((modifier) => modifier.kind === "explicit").length}{" "}
+                      explícitos
+                    </p>
+                    <p>
+                      <span className="font-semibold text-foreground">Después:</span>{" "}
+                      {resultItem.name || resultItem.baseType} · {resultItem.rarity} ·{" "}
+                      {resultItem.modifiers.filter((modifier) => modifier.kind === "explicit").length}{" "}
+                      explícitos
+                    </p>
+                  </div>
+                  {comparison.addedModifiers.length > 0 && (
+                    <div className="mt-2" data-testid="coach-diagnostico-nuevos">
+                      <p className="font-semibold text-foreground">Cuenta como nuevo:</p>
+                      <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                        {comparison.addedModifiers.map((modifier) => (
+                          <li key={`added-${modifier.id}`} className="whitespace-pre-line break-words">
+                            {modifier.text}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {comparison.removedModifiers.length > 0 && (
+                    <div className="mt-2" data-testid="coach-diagnostico-perdidos">
+                      <p className="font-semibold text-foreground">Ya no reconoce como la misma línea:</p>
+                      <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+                        {comparison.removedModifiers.map((modifier) => (
+                          <li key={`removed-${modifier.id}`} className="whitespace-pre-line break-words">
+                            {modifier.text}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </details>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {resultReading.verdict === "continue" && resultItem && (
                   <Button

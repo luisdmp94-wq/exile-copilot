@@ -443,6 +443,12 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-corregir-resultado").isVisible()) &&
         (await page.getByTestId("coach-objeto-resumen").innerText()).includes("pieza normal"),
     );
+    check(
+      `[${mode}] un bloqueo muestra el snapshot anterior y las diferencias exactas`,
+      (await page.getByTestId("coach-diagnostico-comparacion").innerText()).includes("Antes:") &&
+        (await page.getByTestId("coach-diagnostico-comparacion").innerText()).includes("Después:") &&
+        (await page.getByTestId("coach-diagnostico-nuevos").isVisible()),
+    );
     await page.getByTestId("coach-corregir-resultado").click();
     check(
       `[${mode}] corregir conserva el texto anterior para poder editarlo`,
