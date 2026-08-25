@@ -203,6 +203,50 @@ describe("itemTextParser", () => {
     expect(item.craftingState).toBeDefined();
   });
 
+  it("no convierte las propiedades elementales de la cabecera en modificadores", () => {
+    const text = [
+      "Clase de objeto: Mazas a una mano",
+      "Rareza: Raro",
+      "Destructor de venganza",
+      "Maza de procesión",
+      "------------------------------",
+      "Calidad: +20% (augmented)",
+      "Daño físico: 33-69",
+      "Daño de fuego: 31-45 (fire)",
+      "Daño de hielo: 4-8 (cold)",
+      "Daño de rayo: 1-20 (lightning)",
+      "Daño de caos: 2-6 (chaos)",
+      "Probabilidad de impacto crítico: 5.00%",
+      "Ataques por segundo: 1.40",
+      "Tiempo de recarga: 0.71",
+      "-------------------------",
+      "## Requiere: Nivel 54, 96 (unmet) Fue",
+      "## Nivel de objeto: 64",
+      '{ Mod. de prefijo "certero" (Grado: 4) — Ataque }',
+      "+233(168-236) a la precisión",
+      '{ Mod. de prefijo "ígneo" (Grado: 8) — Daño, Elemental, Fuego, Ataque }',
+      "Agrega de 31 a 45 de daño de fuego",
+      '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
+      "Ganas 8(7-9) de vida por cada enemigo asesinado",
+      '{ Mod. de sufijo "de venganza" (Grado: 8) — Atributo }',
+      "+12 a la fuerza",
+    ].join("\n");
+
+    const { item, warnings } = parseItemText(text);
+
+    expect(warnings).toEqual([]);
+    expect(item.quality).toBe(20);
+    expect(item.modifiers).toHaveLength(4);
+    expect(item.modifiers.map((modifier) => modifier.text)).toEqual([
+      "+233(168-236) a la precisión",
+      "Agrega de 31 a 45 de daño de fuego",
+      "Ganas 8(7-9) de vida por cada enemigo asesinado",
+      "+12 a la fuerza",
+    ]);
+    expect(item.modifiers.every((modifier) => modifier.affix !== undefined)).toBe(true);
+    expect(item.craftingState).toBeDefined();
+  });
+
   it("agrupa afijos multilínea del texto avanzado real en español", () => {
     const { item, warnings } = parseItemText(spanishAdvancedCrossbow);
 

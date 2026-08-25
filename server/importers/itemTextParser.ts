@@ -25,7 +25,15 @@ export interface ParsedItemText {
 }
 
 const SECTION_SEPARATOR = /^-{8,}$/;
-const BASE_PROPERTY_RE = /^(?:quality|calidad|physical damage|daño físico|elemental damage|daño elemental|chaos damage|daño de caos|cold damage|daño de hielo|critical hit chance|probabilidad de impacto crítico|attacks per second|ataques por segundo|reload time|tiempo de recarga|armour|armadura|evasion|evasión|energy shield|escudo de energía|block chance|probabilidad de bloqueo|sockets|engarces|limited to|limitado a|grants skill|otorga habilidad)\s*:/i;
+/**
+ * Propiedades calculadas que aparecen en la cabecera del objeto. No son afijos:
+ * el juego las vuelve a calcular a partir de la base, la calidad y los mods.
+ *
+ * Se exige `:` tras una etiqueta cerrada para no confundir, por ejemplo,
+ * `Daño de fuego aumentado...` (un modificador real) con
+ * `Daño de fuego: 31-45 (fire)` (una propiedad resumen del arma).
+ */
+const BASE_PROPERTY_RE = /^(?:quality|calidad|physical damage|daño físico|elemental damage|daño elemental|fire damage|daño de fuego|cold damage|daño de hielo|lightning damage|daño de rayo|chaos damage|daño de caos|critical hit chance|probabilidad de impacto crítico|attacks per second|ataques por segundo|reload time|tiempo de recarga|armour|armadura|evasion(?: rating)?|evasión|energy shield|escudo de energía|ward|barrera|spirit|espíritu|block chance|probabilidad de bloqueo|sockets|engarces|limited to|limitado a|grants skill|otorga habilidad)\s*:/i;
 
 const RARITY_MAP: Record<string, ItemRarity> = {
   normal: "normal",
@@ -154,7 +162,8 @@ function isStructuralBoundary(line: string): boolean {
     MUTATED_RE.test(line) ||
     DESECRATED_RE.test(line) ||
     ITEM_LEVEL_RE.test(line) ||
-    REQUIREMENTS_RE.test(line)
+    REQUIREMENTS_RE.test(line) ||
+    BASE_PROPERTY_RE.test(line)
   );
 }
 
