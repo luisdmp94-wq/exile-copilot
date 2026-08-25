@@ -32,6 +32,7 @@ import {
 } from "./craftingWeaponPerformance.js";
 import {
   RESISTANCE_LABELS,
+  type BuildTarget,
   type CharacterProfile,
   type GoalKind,
   type Item,
@@ -712,6 +713,66 @@ export interface CoachResultReading {
   }>;
   /** Comparación conservadora basada solo en las cifras visibles del tooltip. */
   weaponPerformance: CraftingWeaponPerformance | null;
+}
+
+export type CoachContextSuggestionSource = "target" | "resistances" | "none";
+
+export interface CoachContextSuggestion {
+  source: CoachContextSuggestionSource;
+  focuses: CoachFocus[];
+  reason: string;
+  evidence: string[];
+}
+
+/**
+ * Busca prioridades SOLO en datos que el jugador ya declaró: los mods
+ * deseados de su plan o una carencia elemental medible del expediente.
+ *
+ * Puede devolver varias prioridades. En ese caso la interfaz debe pedir que
+ * el jugador elija; el orden del texto nunca se convierte en un ranking.
+ */
+export function suggestCraftingFocusFromContext(
+  profile: Pick<CharacterProfile, "resistances"> | null,
+  target: Pick<BuildTarget, "name" | "desiredMods"> | null | undefined,
+): CoachContextSuggestion {
+  const declared = (target?.desiredMods ?? [])
+    .map((line) => ({ line: line.trim(), focus: inferCoachFocus(line) }))
+    .filter(
+      (entry): entry is { line: string; focus: CoachFocus } =>
+        entry.line.length > 0 && entry.focus !== null,
+    );
+  const targetFocuses = [...new Set(declared.map((entry) => entry.focus))];
+  if (targetFocuses.length > 0) {
+    return {
+      source: "target",
+      focuses: targetFocuses,
+      reason:
+        targetFocuses.length === 1
+          ? `Tu plan «${target?.name || "Build objetivo"}» declara una prioridad reconocible.`
+          : `Tu plan «${target?.name || "Build objetivo"}» declara varias prioridades. Elige cuál trabajar primero.`,
+      evidence: declared.map((entry) => entry.line),
+    };
+  }
+
+  const direction = suggestDirectionFromCharacter(profile);
+  if (direction.direction === "defence") {
+    return {
+      source: "resistances",
+      focuses: ["resistances"],
+      reason: direction.reason,
+      evidence: [direction.reason],
+    };
+  }
+
+  return {
+    source: "none",
+    focuses: [],
+    reason:
+      target && target.desiredMods.length === 0
+        ? `Tu plan «${target.name || "Build objetivo"}» todavía no declara mods deseados que pueda relacionar con esta pieza.`
+        : "No encuentro una prioridad concreta en tu plan ni una carencia medible en el expediente.",
+    evidence: [],
+  };
 }
 
 function readObservedAffixes(

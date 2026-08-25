@@ -4,6 +4,7 @@ import {
   interpretCoachGoal,
   readCraftResult,
   readPurposefulCraftResult,
+  suggestCraftingFocusFromContext,
   suggestDirectionFromCharacter,
   readItemInPlainWords,
 } from "../../shared/craftingCoach.js";
@@ -354,6 +355,48 @@ describe("guía de crafting — «No sé qué necesita»", () => {
     // Solo se citan las que están por debajo del umbral.
     expect(guess.reason).not.toContain("frío");
     expect(guess.reason).not.toContain("rayo");
+  });
+});
+
+describe("guía de crafting — prioridades declaradas del plan", () => {
+  it("ofrece los objetivos reconocibles del plan sin ordenarlos como receta", () => {
+    const suggestion = suggestCraftingFocusFromContext(null, {
+      name: "Ballesta física",
+      desiredMods: [
+        "Daño físico aumentado",
+        "Velocidad de ataque",
+        "Una línea que el guía no sabe interpretar",
+      ],
+    });
+
+    expect(suggestion.source).toBe("target");
+    expect(suggestion.focuses).toEqual(["physical", "attack-speed"]);
+    expect(suggestion.reason).toContain("varias prioridades");
+    expect(suggestion.evidence).toEqual([
+      "Daño físico aumentado",
+      "Velocidad de ataque",
+    ]);
+  });
+
+  it("usa una resistencia baja cuando el plan no declara una prioridad reconocible", () => {
+    const suggestion = suggestCraftingFocusFromContext(
+      { resistances: { fire: 40, cold: 75, lightning: 75, chaos: null } },
+      { name: "Plan defensivo", desiredMods: [] },
+    );
+
+    expect(suggestion.source).toBe("resistances");
+    expect(suggestion.focuses).toEqual(["resistances"]);
+    expect(suggestion.evidence[0]).toContain("fuego 40%");
+  });
+
+  it("declara la falta de contexto en vez de adivinar una prioridad", () => {
+    const suggestion = suggestCraftingFocusFromContext(
+      { resistances: { fire: null, cold: null, lightning: null, chaos: null } },
+      undefined,
+    );
+
+    expect(suggestion).toMatchObject({ source: "none", focuses: [], evidence: [] });
+    expect(suggestion.reason).toContain("No encuentro una prioridad concreta");
   });
 });
 

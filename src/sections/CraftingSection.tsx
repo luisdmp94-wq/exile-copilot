@@ -15,7 +15,7 @@ import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import type { StartEssenceDecision } from "@shared/craftingEssences.js";
 import { sessionOccupiesActiveSlot } from "@shared/decisionSession.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
-import type { Budget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
+import type { Budget, BuildTarget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { CraftingAcademy } from "@/components/CraftingAcademy";
 import { CraftingCoach } from "@/components/CraftingCoach";
 import { CraftingActionPlanner } from "@/components/CraftingActionPlanner";
@@ -32,6 +32,7 @@ interface CraftingSectionProps {
   profile: CharacterProfile | null;
   budget: Budget;
   goal: GoalKind;
+  target?: BuildTarget;
   journal: JournalState;
   requestedItemId?: string | null;
   onEditExpediente: () => void;
@@ -178,6 +179,7 @@ export function CraftingSection({
   profile,
   budget,
   goal,
+  target,
   journal,
   requestedItemId = null,
   onEditExpediente,
@@ -257,6 +259,7 @@ export function CraftingSection({
       profile={profile}
       budget={budget}
       goal={goal}
+      target={target}
       items={craftableItems}
       selectedItem={selectedItem}
       onSelectItem={selectItem}

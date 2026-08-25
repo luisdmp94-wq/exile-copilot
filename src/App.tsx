@@ -63,6 +63,7 @@ import { observationMethodForRecommendation } from "@/lib/sessionOutcome";
 import { MentorChatSection } from "@/sections/MentorChatSection";
 import { useMentor } from "@/hooks/useMentor";
 import { buildMentorRequest } from "@/lib/mentorRequest";
+import { buildTargetFromDraft } from "@/lib/buildTarget";
 import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
@@ -1303,6 +1304,7 @@ export default function App() {
               profile={character.profile}
               budget={budget}
               goal={goal}
+              target={buildTargetFromDraft(targetDraft)}
               journal={journal}
               requestedItemId={craftingRequestedItemId}
               onSelectedItemChange={setCraftingRequestedItemId}

@@ -16,7 +16,7 @@ import {
   chooseNextStep,
   interpretCoachGoal,
   readPurposefulCraftResult,
-  suggestDirectionFromCharacter,
+  suggestCraftingFocusFromContext,
   type CoachDirection,
   type CoachGoalInterpretation,
   type CoachNextStep,
@@ -33,7 +33,7 @@ import {
   type CraftingComparison,
   type CraftingComparisonActionId,
 } from "@shared/craftingComparison.js";
-import type { Budget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
+import type { Budget, BuildTarget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { CoachItemCard } from "@/components/CoachItemCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,6 +81,8 @@ interface CraftingCoachProps {
   profile: CharacterProfile | null;
   budget: Budget;
   goal: GoalKind;
+  /** Plan declarado por el jugador; es referencia, nunca una verdad de la build. */
+  target?: BuildTarget;
   items: readonly Item[];
   selectedItem: Item | null;
   onSelectItem: (itemId: string) => void;
@@ -329,6 +331,7 @@ export function CraftingCoach({
   profile,
   budget,
   goal,
+  target,
   items,
   selectedItem,
   onSelectItem,
@@ -493,8 +496,12 @@ export function CraftingCoach({
     });
   };
 
-  // La dirección solo se deduce del expediente, jamás de la propia pieza.
-  const guess = suggestDirectionFromCharacter(profile);
+  // La sugerencia solo usa el plan declarado y carencias medibles del
+  // expediente. Nunca deduce lo que falta mirando los mods de esta pieza.
+  const contextSuggestion = suggestCraftingFocusFromContext(profile, target);
+  const usingContextSuggestion = goalText === "No sé qué necesita esta pieza";
+  const targetFocuses =
+    contextSuggestion.source === "target" ? contextSuggestion.focuses : [];
 
   const submitGoal = () => {
     const interpretation = interpretCoachGoal(goalText, activeItem);
@@ -763,22 +770,32 @@ export function CraftingCoach({
                   id="unknown"
                   label="No lo sé"
                   hint={
-                    guess.direction === null
-                      ? "Te diré con qué cuento"
-                      : "Lo miro en tu expediente"
+                    contextSuggestion.source === "target"
+                      ? "Lo miro en tu plan"
+                      : contextSuggestion.source === "resistances"
+                        ? "Lo miro en tu expediente"
+                        : "Te diré qué información falta"
                   }
                   icon={Sparkles}
                   onChoose={() => {
                     const goal = "No sé qué necesita esta pieza";
                     setGoalText(goal);
-                    if (guess.direction === null) {
+                    if (contextSuggestion.focuses.length === 0) {
                       setDirection(null);
                       setFocus(null);
-                      setDirectionNote(guess.reason);
+                      setDirectionNote(contextSuggestion.reason);
                       setNoEvidence(true);
                       return;
                     }
-                    requestFocus(guess.direction, goal, `${guess.reason} Ahora elige qué dato quieres corregir primero.`);
+                    const directions = new Set(
+                      contextSuggestion.focuses.map((option) =>
+                        DAMAGE_COACH_FOCUSES.includes(option) ? "damage" : "defence",
+                      ),
+                    );
+                    setDirection(directions.size === 1 ? [...directions][0]! : null);
+                    setFocus(null);
+                    setDirectionNote(contextSuggestion.reason);
+                    setNoEvidence(true);
                   }}
                 />
               </div>
@@ -788,9 +805,29 @@ export function CraftingCoach({
                   data-testid="coach-sin-evidencia"
                   role="status"
                 >
-                  <p className="text-sm font-medium">{directionNote ?? guess.reason}</p>
+                  <p className="text-sm font-medium">{directionNote ?? contextSuggestion.reason}</p>
+                  {usingContextSuggestion && contextSuggestion.evidence.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground" data-testid="coach-contexto-evidencia">
+                      {contextSuggestion.evidence.map((line) => (
+                        <li key={line}>«{line}»</li>
+                      ))}
+                    </ul>
+                  )}
                   <div className="mt-2.5 flex flex-wrap gap-2">
-                    {direction === null ? (
+                    {usingContextSuggestion && contextSuggestion.focuses.length > 0 ? (
+                      contextSuggestion.focuses.map((option) => (
+                        <Button
+                          key={option}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => chooseFocus(option)}
+                          data-testid={`coach-context-focus-${option}`}
+                        >
+                          {COACH_FOCUS_LABELS[option]}
+                        </Button>
+                      ))
+                    ) : direction === null ? (
                       <>
                         <Button
                           type="button"
@@ -867,15 +904,38 @@ export function CraftingCoach({
               data-context={hasCraftingCharacterContext(profile) ? "character" : "loose-item"}
             >
               {hasCraftingCharacterContext(profile) ? (
-                <p>
-                  <span className="font-semibold">Contexto activo:</span> {profile?.name} · objetivo general {GOAL_LABELS[goal].toLocaleLowerCase("es")} · presupuesto {budget.amount} {CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.
-                </p>
+                <>
+                  <p>
+                    <span className="font-semibold">Contexto activo:</span> {profile?.name} · objetivo general {GOAL_LABELS[goal].toLocaleLowerCase("es")} · presupuesto {budget.amount} {CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.
+                  </p>
+                  {target && (
+                    <p className="mt-1 text-cyan-100/75">
+                      Plan de referencia: {target.name} · {target.desiredMods.length} objetivo(s) de mod declarados.
+                    </p>
+                  )}
+                </>
               ) : (
                 <p>
                   <span className="font-semibold">Objeto suelto:</span> puedo enseñarte qué acción es legal y comprobar el resultado, pero no afirmar que conviene a una build que todavía no conozco.
                 </p>
               )}
             </div>
+          )}
+
+          {directionChosen && focus !== null && targetFocuses.length > 0 && (
+            <p
+              className={`rounded-md border px-3 py-2 text-xs ${
+                targetFocuses.includes(focus)
+                  ? "border-emerald-400/30 bg-emerald-500/[0.06] text-emerald-100"
+                  : "border-amber-500/35 bg-amber-500/[0.07] text-amber-100"
+              }`}
+              data-testid="coach-ajuste-plan"
+              data-fit={targetFocuses.includes(focus) ? "matched" : "different"}
+            >
+              {targetFocuses.includes(focus)
+                ? `Esta prioridad aparece en tu plan: ${COACH_FOCUS_LABELS[focus]}.`
+                : `Esta prioridad no aparece entre los mods deseados del plan. Puedes trabajarla, pero no la trataré como objetivo de la build.`}
+            </p>
           )}
 
           {directionChosen && (protectedModifiers.length > 0 || unresolvedProtections.length > 0) && (
