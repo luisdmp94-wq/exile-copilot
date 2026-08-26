@@ -10,7 +10,7 @@ import {
   evaluateCraftingSuccessCriteria,
   type CraftingSuccessCriterion,
 } from "./craftingSuccessCriteria.js";
-import type { Item } from "./domain.js";
+import type { Budget, Item } from "./domain.js";
 
 export type ExpertCraftingBlueprintStatus =
   | "needs-item-data"
@@ -21,6 +21,28 @@ export type ExpertCraftingBlueprintStatus =
   | "ready";
 
 export type ExpertRouteRisk = "controlled" | "stage-change" | "replacement";
+
+export type ExpertCraftingProjectPhase =
+  | "blocked"
+  | "base"
+  | "foundation"
+  | "finishing"
+  | "recovery"
+  | "finished";
+
+export type ExpertCraftingBaseDecisionKind =
+  | "hold"
+  | "continue"
+  | "recover"
+  | "change-base"
+  | "stop";
+
+export interface ExpertCraftingProjectBranch {
+  id: "success" | "salvage" | "failure";
+  label: string;
+  trigger: string;
+  response: string;
+}
 
 export interface ExpertCraftingRouteCandidate {
   id: CraftingActionId | "essence" | "alloy";
@@ -45,8 +67,23 @@ export interface ExpertCraftingBlueprint {
   stopConditions: string[];
   routes: ExpertCraftingRouteCandidate[];
   recommendedRouteId: ExpertCraftingRouteCandidate["id"] | null;
+  projectPhase: ExpertCraftingProjectPhase;
+  baseDecision: {
+    kind: ExpertCraftingBaseDecisionKind;
+    label: string;
+    detail: string;
+  };
+  branches: ExpertCraftingProjectBranch[];
+  budgetLabel: string | null;
   limitations: string[];
 }
+
+const BUDGET_CURRENCY_LABEL: Record<Budget["currency"], string> = {
+  chaos: "caos",
+  exalted: "exaltados",
+  divine: "divinos",
+  gold: "oro",
+};
 
 function legalCurrencyCandidates(
   item: Item,
@@ -125,6 +162,7 @@ export function buildExpertCraftingBlueprint(input: {
   objective: string;
   protectedModifierIds: readonly string[];
   successCriteria: readonly CraftingSuccessCriterion[];
+  budget?: Budget;
 }): ExpertCraftingBlueprint {
   const objective = input.objective.trim();
   const explicitById = new Map(
@@ -149,6 +187,74 @@ export function buildExpertCraftingBlueprint(input: {
     ...replacementCandidates(input.route),
   ];
   const recommendedRoute = routes.find((candidate) => candidate.recommended) ?? null;
+  const projectPhase: ExpertCraftingProjectPhase =
+    input.diagnosis.state !== "complete"
+      ? "blocked"
+      : currentAssessment.status === "fulfilled"
+        ? "finished"
+        : input.item.rarity === "normal"
+          ? "base"
+          : input.item.rarity === "magic"
+            ? "foundation"
+            : input.route.state === "replacement-tools"
+              ? "recovery"
+              : "finishing";
+  const baseDecision: ExpertCraftingBlueprint["baseDecision"] =
+    input.diagnosis.state !== "complete"
+      ? {
+          kind: "hold",
+          label: "No invertir todavía",
+          detail: input.diagnosis.nextAction,
+        }
+      : currentAssessment.status === "fulfilled"
+        ? {
+            kind: "stop",
+            label: "Conservar esta pieza",
+            detail: "El contrato observable ya está cumplido; otra acción solo añadiría riesgo.",
+          }
+        : routes.length === 0
+          ? {
+              kind: "change-base",
+              label: "Cambiar de base",
+              detail: "No existe una primera acción demostrada desde el estado actual.",
+            }
+          : input.route.state === "replacement-tools"
+            ? {
+                kind: "recover",
+                label: "Decidir si merece recuperación",
+                detail: "La pieza está llena: continuar exige leer una herramienta de reemplazo y aceptar qué línea puede perderse.",
+              }
+            : {
+                kind: "continue",
+                label: "La base puede continuar",
+                detail: recommendedRoute
+                  ? `Hay una primera acción conservadora demostrada: ${recommendedRoute.label}.`
+                  : "Hay rutas legales, pero ninguna domina con la evidencia disponible.",
+              };
+  const branches: ExpertCraftingProjectBranch[] = [
+    {
+      id: "success",
+      label: "Si sale bien",
+      trigger: stopConditions.length > 0
+        ? "El resultado cumple todas las condiciones de parada."
+        : "El resultado alcanza el final que definas.",
+      response: "Detener el gasto, conservar el resultado y compararlo con tu equipo antes de llamarlo mejora.",
+    },
+    {
+      id: "salvage",
+      label: "Si es aprovechable",
+      trigger: "Conserva lo intocable o mejora la dirección, pero todavía no cumple el contrato.",
+      response: "Pegar el resultado y recalcular la fase. El proyecto mantiene objetivo, protecciones y parada.",
+    },
+    {
+      id: "failure",
+      label: "Si falla",
+      trigger: protectedLines.length > 0
+        ? "Pierde una línea protegida, agota la ruta o el resultado deja de justificar la base."
+        : "Agota la ruta o el resultado deja de justificar la base.",
+      response: "Parar. Evaluar recuperación con el tooltip real o cambiar de base; nunca encadenar otra moneda por inercia.",
+    },
+  ];
 
   const common = {
     objective: objective.length >= 3 ? objective : null,
@@ -156,6 +262,12 @@ export function buildExpertCraftingBlueprint(input: {
     stopConditions,
     routes,
     recommendedRouteId: recommendedRoute?.id ?? null,
+    projectPhase,
+    baseDecision,
+    branches,
+    budgetLabel: input.budget
+      ? `${input.budget.amount} ${BUDGET_CURRENCY_LABEL[input.budget.currency]}`
+      : null,
     limitations: [
       "Sin un pool exhaustivo no se calculan probabilidades ni intentos esperados.",
       "El plan compara cambios estructurales; no estima DPS ni el valor de mercado de la pieza.",

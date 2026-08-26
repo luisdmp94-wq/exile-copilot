@@ -4,6 +4,11 @@ import {
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
 import type { MentorIntent } from "@shared/mentorQuery.js";
+import type { MentorCraftingState } from "@shared/mentorContext.js";
+import type { CoachFocus } from "@shared/craftingFocus.js";
+import type { CoachBaseAssessmentStatus, CoachRollMinimum } from "@shared/craftingCoach.js";
+import { OBSERVED_CRAFTING_ACTIONS } from "@shared/craftingActions.js";
+import { craftingBuildIntentLabel } from "@shared/craftingBuildIntent.js";
 import { CURRENCY_LABELS, GOAL_LABELS, SLOT_LABELS } from "./format.js";
 
 export type ContextualMentorSource = "guide" | "engine" | "market" | "warning";
@@ -12,6 +17,8 @@ export interface ContextualMentorAsk {
   question: string;
   /** Intención conocida por la propia interfaz; el servidor sigue validando la petición. */
   intent: Exclude<MentorIntent, "unsupported">;
+  /** Contrato estructurado; nunca sustituye a las reglas de crafting. */
+  craftingState?: MentorCraftingState;
 }
 
 export interface ContextualMentorCue {
@@ -37,8 +44,27 @@ export type ContextualMentorEvent =
       directionLabel: string;
       nextStepTitle: string;
       stepKind: "use-currency" | "needs-data" | "stop";
+      focus: CoachFocus;
+      rollMinimum: CoachRollMinimum;
+      rollMinimumLabel: string;
+      attemptLimit: number;
+      nextAction: Extract<MentorCraftingState, { mode: "coach" }>["nextAction"];
       protectedLineCount?: number;
       unresolvedProtectionCount?: number;
+      baseStatus: CoachBaseAssessmentStatus;
+      baseVerdictTitle: string;
+      baseVerdictSummary: string;
+    }
+  | {
+      type: "craftingCoachContract";
+      itemName: string;
+      playerGoal: string;
+      focus: CoachFocus;
+      focusLabel: string;
+      rollMinimum: CoachRollMinimum;
+      rollMinimumLabel: string;
+      attemptLimit: number;
+      nextAction: Extract<MentorCraftingState, { mode: "coach" }>["nextAction"];
     }
   | {
       type: "craftingCoachResult";
@@ -46,7 +72,21 @@ export type ContextualMentorEvent =
       playerGoal: string;
       headline: string;
       verdict: "continue" | "stop" | "unclear";
+      decisionKind: "continue" | "stop" | "restart" | null;
+      verdictText: string;
       nextStepTitle: string | null;
+      focus: CoachFocus | null;
+      rollMinimum: CoachRollMinimum;
+      rollMinimumLabel: string;
+      attemptCurrent: number;
+      attemptLimit: number;
+      attemptsRemaining: number;
+      nextAction: Extract<MentorCraftingState, { mode: "coach" }>["nextAction"];
+    }
+  | {
+      type: "craftingAdvancedPlan";
+      itemName: string;
+      state: Extract<MentorCraftingState, { mode: "advanced" }>;
     }
   | {
       type: "craftingGoal";
@@ -179,22 +219,61 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         ? ` Quedan ${event.unresolvedProtectionCount} ${event.unresolvedProtectionCount === 1 ? "protección sin vincular" : "protecciones sin vincular"}; no las trataré como hechos.`
         : "";
       const baseMessage = event.stepKind === "use-currency"
-        ? `Tu objetivo es «${event.playerGoal}». El guía lo ha reducido a «${event.nextStepTitle}». Revisa esa única acción y su aleatoriedad antes de decidir si gastas.`
+        ? `${event.baseVerdictTitle}. ${event.baseVerdictSummary} Tu objetivo es «${event.playerGoal}». El guía lo ha reducido a «${event.nextStepTitle}». La parada exige ${event.rollMinimumLabel} y permite como máximo ${event.attemptLimit} ${event.attemptLimit === 1 ? "paso" : "pasos"}.`
         : event.stepKind === "needs-data"
-          ? `Tu objetivo es «${event.playerGoal}». Antes de gastar, el guía necesita «${event.nextStepTitle}». Completa ese dato para no inventar una acción.`
-          : `Tu objetivo es «${event.playerGoal}». El guía recomienda detenerse: «${event.nextStepTitle}». Revisa el motivo antes de cambiar la pieza.`;
+          ? `${event.baseVerdictTitle}. ${event.baseVerdictSummary} Tu objetivo es «${event.playerGoal}». Antes de gastar, el guía necesita «${event.nextStepTitle}». Completa ese dato para no inventar una acción.`
+          : `${event.baseVerdictTitle}. ${event.baseVerdictSummary} Tu objetivo es «${event.playerGoal}». El guía recomienda detenerse: «${event.nextStepTitle}».`;
       const question = event.stepKind === "use-currency"
         ? `Quiero «${event.playerGoal}» con ${event.itemName}. La app propone «${event.nextStepTitle}». ¿Por qué es el siguiente paso legal y qué debo comprobar antes?`
         : `Quiero «${event.playerGoal}» con ${event.itemName}, pero la app indica «${event.nextStepTitle}». Explícame qué falta o por qué debo parar antes de gastar.`;
       return {
         id: `crafting-coach:${event.itemName}:${event.playerGoal}:${event.nextStepTitle}`,
-        source: "engine",
-        eyebrow: "Ruta elegida",
+        source:
+          event.baseStatus === "aligned" || event.baseStatus === "already-satisfied"
+            ? "engine"
+            : "warning",
+        eyebrow: "Base evaluada",
         title: `${directionTitle} · ${event.itemName}`,
         message: `${baseMessage}${protection}${unresolved}`,
         ask: {
           question,
           intent: "explain_priority",
+          craftingState: {
+            mode: "coach",
+            focus: event.focus,
+            rollMinimum: event.rollMinimum,
+            attemptCurrent: 0,
+            attemptLimit: event.attemptLimit,
+            phase: "planning",
+            decision: null,
+            nextAction: event.nextAction,
+          },
+        },
+      };
+    }
+    case "craftingCoachContract": {
+      const steps = `${event.attemptLimit} ${event.attemptLimit === 1 ? "paso" : "pasos"}`;
+      return {
+        id: `crafting-contract:${event.itemName}:${event.focusLabel}:${event.rollMinimumLabel}:${event.attemptLimit}`,
+        source: "engine",
+        eyebrow: "Contrato actualizado",
+        title: `${event.focusLabel} · ${event.rollMinimumLabel}`,
+        message:
+          `Aceptarás el resultado solo si aporta ${event.focusLabel} con ${event.rollMinimumLabel}. El límite de esta base es ${steps}; alcanzarlo obliga a parar y reevaluar. La tirada se mide dentro del rango visible, no como probabilidad.`,
+        ask: {
+          question:
+            `Estoy crafteando ${event.itemName} para «${event.playerGoal}». He fijado ${event.rollMinimumLabel} y un máximo de ${steps}. ¿Por qué debo respetar esta parada antes de gastar?`,
+          intent: "explain_priority",
+          craftingState: {
+            mode: "coach",
+            focus: event.focus,
+            rollMinimum: event.rollMinimum,
+            attemptCurrent: 0,
+            attemptLimit: event.attemptLimit,
+            phase: "planning",
+            decision: null,
+            nextAction: event.nextAction,
+          },
         },
       };
     }
@@ -202,15 +281,119 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
       const next = event.nextStepTitle === null
         ? "El guía no propone otro gasto todavía."
         : `La siguiente decisión comprobable es «${event.nextStepTitle}».`;
+      const progress = `Paso ${event.attemptCurrent} de ${event.attemptLimit}.`;
+      const remaining = event.attemptsRemaining === 0
+        ? "No queda ningún paso dentro del límite."
+        : event.attemptsRemaining === 1
+          ? "Queda 1 paso dentro del límite."
+          : `Quedan ${event.attemptsRemaining} pasos dentro del límite.`;
       return {
         id: `crafting-result:${event.itemName}:${event.headline}:${event.verdict}`,
-        source: event.verdict === "continue" ? "engine" : "warning",
+        source: event.verdict === "continue" && event.decisionKind !== "restart" ? "engine" : "warning",
         eyebrow: "Resultado leído",
         title: event.headline,
-        message: `${next} El objetivo que seguimos es «${event.playerGoal}».`,
+        message: `${progress} ${remaining} Objetivo: «${event.playerGoal}». ${event.verdictText} ${next}`,
         ask: {
-          question: `Tras craftear ${event.itemName}, el resultado dice «${event.headline}» y el objetivo era «${event.playerGoal}». ${next} Explícame por qué debo continuar o parar.`,
+          question: `Tras el paso ${event.attemptCurrent} de ${event.attemptLimit} al craftear ${event.itemName}, el resultado dice «${event.headline}» y buscaba «${event.playerGoal}» con ${event.rollMinimumLabel}. ${event.verdictText} Explícame por qué debo continuar, parar o cambiar de base.`,
           intent: "explain_priority",
+          craftingState: {
+            mode: "coach",
+            focus: event.focus,
+            rollMinimum: event.rollMinimum,
+            attemptCurrent: event.attemptCurrent,
+            attemptLimit: event.attemptLimit,
+            phase: "result",
+            decision: event.decisionKind ?? (event.verdict === "unclear" ? "unclear" : event.verdict),
+            nextAction: event.nextAction,
+          },
+        },
+      };
+    }
+    case "craftingAdvancedPlan": {
+      const state = event.state;
+      const goal = CRAFTING_GOAL_LABELS[state.goalCategory];
+      const protectedCopy = state.protectedModifierCount === 0
+        ? "sin líneas protegidas"
+        : `${state.protectedModifierCount} ${state.protectedModifierCount === 1 ? "línea protegida" : "líneas protegidas"}`;
+      const stopCopy = state.stopCriteria.length === 0
+        ? "sin condición de parada"
+        : `${state.stopCriteria.length} ${state.stopCriteria.length === 1 ? "condición de parada" : "condiciones de parada"}`;
+      const actionLabel = state.action === null
+        ? state.tool === "currency"
+          ? "sin moneda elegida"
+          : state.tool === "essence"
+            ? "Essence todavía sin preflight completo"
+            : "Alloy todavía sin preflight completo"
+        : OBSERVED_CRAFTING_ACTIONS.find((action) => action.id === state.action)?.label ??
+          "moneda observada";
+      const buildCopy = state.buildIntent === null
+        ? "encaje con el personaje sin comprobar"
+        : state.buildIntent.alignment === "aligned"
+          ? `encaje alineado con ${craftingBuildIntentLabel(state.buildIntent)}`
+          : state.buildIntent.alignment === "choice-required"
+            ? `el personaje apunta a ${craftingBuildIntentLabel(state.buildIntent)}; falta elegir`
+            : state.buildIntent.alignment === "conflict"
+              ? `encaje por revisar: el contexto apunta a ${craftingBuildIntentLabel(state.buildIntent)}`
+              : "el expediente no demuestra una prioridad para esta pieza";
+      const phaseCopy = {
+        blocked: "lectura bloqueada",
+        base: "selección de base",
+        foundation: "fundación del craft",
+        finishing: "cierre del craft",
+        recovery: "recuperación",
+        finished: "proyecto terminado",
+      }[state.projectPhase];
+      const baseDecisionCopy = {
+        hold: "no invertir todavía",
+        continue: "la base puede continuar",
+        recover: "evaluar recuperación",
+        "change-base": "cambiar de base",
+        stop: "conservar y parar",
+      }[state.baseDecision];
+      const projectMemory = state.attemptCount === 0
+        ? "Aún no hay intentos registrados"
+        : `${state.attemptCount} ${state.attemptCount === 1 ? "intento registrado" : "intentos registrados"}; último resultado: ${
+            state.latestBranch === "success"
+              ? "objetivo alcanzado"
+              : state.latestBranch === "failure"
+                ? "ruta agotada"
+                : "resultado aprovechable"
+          }`;
+      const targetEvidenceCopy = state.targetEvidence === "target-on-current"
+        ? "El objetivo ya está observado en la base actual"
+        : state.targetEvidence === "target-observed-locally"
+          ? "el objetivo aparece en otra base comparable importada"
+          : state.targetEvidence === "partial-local-evidence"
+            ? `${state.localObservationCount ?? 0} señales locales, pero el contrato completo no está demostrado`
+            : state.targetEvidence === "unobserved"
+              ? "el objetivo no aparece todavía en la evidencia local"
+              : "evidencia local del objetivo sin evaluar";
+      const poolCopy = state.modPoolCoverage === "available-complete"
+        ? "pool completo disponible"
+        : state.modPoolCoverage === "available-partial"
+          ? "pool parcial sin probabilidades normalizables"
+          : state.modPoolCoverage === "unavailable"
+            ? "sin pool autorizado"
+            : "cobertura del pool pendiente";
+      const status = state.stopAlreadyReached
+        ? "La condición ya se cumple: no debes gastar para perseguir el mismo resultado."
+        : state.ready
+          ? "El contrato y el preflight están completos; revisa una última vez antes de abrir la sesión."
+          : "El contrato aún no autoriza el gasto: completa lo que falta antes de preparar la sesión.";
+      return {
+        id: `crafting-advanced:${event.itemName}:${state.goalCategory}:${state.projectPhase}:${state.baseDecision}:${state.targetEvidence ?? "unknown"}:${state.localObservationCount ?? 0}:${state.modPoolCoverage ?? "unknown"}:${state.attemptCount}:${state.latestBranch ?? "none"}:${state.buildIntent?.source ?? "none"}:${state.buildIntent?.alignment ?? "unknown"}:${state.buildIntent?.suggestedCategories.join(",") ?? "none"}:${state.protectedModifierCount}:${state.stopCriteria.length}:${state.tool}:${state.action ?? "none"}:${state.variant ?? "none"}:${state.preflightConfirmed}`,
+        source:
+          state.stopAlreadyReached || state.buildIntent?.alignment === "conflict"
+            ? "warning"
+            : "engine",
+        eyebrow: "Proyecto avanzado",
+        title: `${goal} · ${event.itemName}`,
+        message: `Fase: ${phaseCopy} · decisión: ${baseDecisionCopy}. ${targetEvidenceCopy}; ${poolCopy}. ${projectMemory}. ${buildCopy} · ${protectedCopy} · ${stopCopy} · ${actionLabel}. ${status}`,
+        ask: {
+          question:
+            `Estoy revisando el proyecto avanzado de ${event.itemName}: fase ${phaseCopy}, decisión ${baseDecisionCopy}, ${targetEvidenceCopy}, ${poolCopy}, ${projectMemory}, objetivo ${goal}, ${buildCopy}, ${protectedCopy}, ${stopCopy} y ${actionLabel}. Explícame qué falta, qué rama seguiría tras el resultado o por qué ya está listo sin cambiar la decisión del banco.`,
+          intent: "explain_priority",
+          craftingState: state,
         },
       };
     }

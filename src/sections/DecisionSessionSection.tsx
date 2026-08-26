@@ -47,6 +47,11 @@ import { api, getErrorMessage } from "@/lib/api";
 import { SLOT_LABELS } from "@/lib/format";
 import { compactRecommendationReason } from "@/lib/journal";
 import {
+  appendCraftingProjectAttempt,
+  classifyCraftingProjectBranch,
+  craftingProjectStorageKey,
+} from "@/lib/craftingProject";
+import {
   DECISION_OUTCOME_OPTIONS,
   observationMethodForRecommendation,
   outcomeResultText,
@@ -279,7 +284,10 @@ export function DecisionSessionSection({
     setCraftingComparison(null);
     setCraftingResultItem(null);
     try {
-      const imported = await api.importItemText({ text: craftingResultText });
+      const imported = await api.importItemText({
+        text: craftingResultText,
+        patch: profile.patch,
+      });
       const comparison = compareCraftingResult(
         experiment.originalItem,
         imported.item,
@@ -380,6 +388,28 @@ export function DecisionSessionSection({
         reopenWhen: null,
         profile,
       });
+      const successStatus = craftingSuccessAssessment?.status ?? "not-defined";
+      const decisionKind = craftingNextDecision?.kind ?? "stop";
+      appendCraftingProjectAttempt(
+        craftingProjectStorageKey(profile.id, experiment.originalItem.id),
+        {
+          sessionId: session.id,
+          recordedAt: new Date().toISOString(),
+          actionLabel: experiment.actionLabel,
+          resultName: craftingResultItem.name || craftingResultItem.baseType,
+          branch: classifyCraftingProjectBranch({
+            successStatus,
+            decisionKind,
+            protectedStatus: craftingComparison.protectionStatus,
+          }),
+          decisionKind,
+          decisionTitle: craftingNextDecision?.title ?? (useful ? "Resultado aceptado" : "Resultado descartado"),
+          addedModifiers: craftingComparison.addedModifiers.map((modifier) => modifier.text),
+          removedModifiers: craftingComparison.removedModifiers.map((modifier) => modifier.text),
+          protectedStatus: craftingComparison.protectionStatus,
+          successStatus,
+        },
+      );
       await journal.reload();
       onMentorEvent?.({ type: "result", title: experiment.actionLabel });
     } catch (error) {

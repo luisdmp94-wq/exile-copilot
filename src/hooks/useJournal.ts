@@ -60,7 +60,7 @@ function isStaleError(err: unknown): boolean {
   );
 }
 
-export function useJournal(characterId: string | null): JournalState {
+export function useJournal(characterId: string | null, autoLoad = true): JournalState {
   const [journal, setJournal] = useState<JournalResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -93,7 +93,7 @@ export function useJournal(characterId: string | null): JournalState {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      if (characterId === null) {
+      if (characterId === null || !autoLoad) {
         setJournal(null);
         setLoading(false);
         setError(null);
@@ -120,7 +120,7 @@ export function useJournal(characterId: string | null): JournalState {
     return () => {
       cancelled = true;
     };
-  }, [characterId]);
+  }, [autoLoad, characterId]);
 
   const handleStale = useCallback(
     async (err: unknown, fallbackMessage: string) => {

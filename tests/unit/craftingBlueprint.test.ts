@@ -60,6 +60,7 @@ function blueprint(current: Item, overrides: {
     objective: overrides.objective ?? "Arma final de proyectiles",
     protectedModifierIds: overrides.protectedModifierIds ?? ["p1"],
     successCriteria: overrides.successCriteria ?? stop,
+    budget: { amount: 50, currency: "exalted" },
   });
 }
 
@@ -74,6 +75,10 @@ describe("buildExpertCraftingBlueprint", () => {
     expect(result.routes.find((route) => route.id === "regal")?.consequence).toContain(
       "ya no podrás usar Aumento",
     );
+    expect(result.projectPhase).toBe("foundation");
+    expect(result.baseDecision.kind).toBe("continue");
+    expect(result.budgetLabel).toBe("50 exaltados");
+    expect(result.branches.map((branch) => branch.id)).toEqual(["success", "salvage", "failure"]);
   });
 
   it("conserva en el contrato el objetivo, las líneas protegidas y la parada", () => {
@@ -119,6 +124,8 @@ describe("buildExpertCraftingBlueprint", () => {
     const result = blueprint(fullRare, { protectedModifierIds: ["p1", "s1"] });
     expect(result.status).toBe("ready");
     expect(result.recommendedRouteId).toBeNull();
+    expect(result.projectPhase).toBe("recovery");
+    expect(result.baseDecision.kind).toBe("recover");
     expect(result.routes.map((route) => [route.id, route.availability, route.risk])).toEqual([
       ["essence", "needs-tooltip", "replacement"],
       ["alloy", "needs-tooltip", "replacement"],

@@ -8,6 +8,8 @@ describe("configuración del mentor IA", () => {
     expect(config.mentorAiProvider).toBe("groq");
     expect(config.mentorAiApiKey).toBeNull();
     expect(config.mentorAiModel).toBe("openai/gpt-oss-120b");
+    expect(config.requestBodyLimitBytes).toBe(4 * 1024 * 1024);
+    expect(config.writeRateLimitPerMinute).toBe(60);
   });
 
   it("acepta activación explícita de Groq y solo lee su clave", () => {
@@ -53,5 +55,19 @@ describe("configuración del mentor IA", () => {
     expect(config.mentorAiTimeoutMs).toBe(30_000);
     expect(config.mentorAiMaxOutputTokens).toBe(128);
     expect(config.mentorAiReasoningEffort).toBe("low");
+  });
+
+  it("acota el tamaño HTTP configurable a un rango seguro", () => {
+    expect(loadConfig({ REQUEST_BODY_LIMIT_BYTES: "1" }).requestBodyLimitBytes).toBe(
+      256 * 1024,
+    );
+    expect(
+      loadConfig({ REQUEST_BODY_LIMIT_BYTES: String(32 * 1024 * 1024) })
+        .requestBodyLimitBytes,
+    ).toBe(16 * 1024 * 1024);
+    expect(loadConfig({ WRITE_RATE_LIMIT_PER_MINUTE: "1" }).writeRateLimitPerMinute).toBe(5);
+    expect(loadConfig({ WRITE_RATE_LIMIT_PER_MINUTE: "9999" }).writeRateLimitPerMinute).toBe(
+      2_000,
+    );
   });
 });

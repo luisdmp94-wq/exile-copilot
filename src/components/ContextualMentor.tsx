@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Bot, ChevronDown, ChevronUp, MessageCircleMore, Sparkles } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Bot, ChevronDown, ChevronUp, MessageCircleMore, Sparkles, X } from "lucide-react";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,10 +14,13 @@ interface ContextualMentorProps {
   error: string | null;
   loading: boolean;
   canAsk: boolean;
+  blockedReason?: string | null;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onAsk: (ask: ContextualMentorAsk) => Promise<void>;
   onOpenMentor: () => void;
+  /** Flotante fuera del Expediente; integrado cuando acompaña a la paperdoll. */
+  placement?: "floating" | "inline";
 }
 
 const SOURCE_STYLES: Record<ContextualMentorCue["source"], string> = {
@@ -35,6 +38,20 @@ function answerLabel(answer: MentorAnswer): string {
   return "Respuesta del motor";
 }
 
+function shouldSpeakAutomatically(
+  cue: ContextualMentorCue,
+  error: string | null,
+  blockedReason: string | null,
+): boolean {
+  return (
+    cue.id.startsWith("crafting-result:") ||
+    cue.id.startsWith("crafting-coach:") ||
+    cue.source === "warning" ||
+    error !== null ||
+    blockedReason !== null
+  );
+}
+
 /** Presencia persistente: reacciona a decisiones semánticas, no a clics decorativos. */
 export function ContextualMentor({
   cue,
@@ -42,15 +59,26 @@ export function ContextualMentor({
   error,
   loading,
   canAsk,
+  blockedReason = null,
   collapsed,
   onCollapsedChange,
   onAsk,
   onOpenMentor,
+  placement = "floating",
 }: ContextualMentorProps) {
   const requestLockedRef = useRef(false);
   const shellRef = useRef<HTMLElement>(null);
   const askButtonRef = useRef<HTMLButtonElement | null>(null);
   const [restoreAskFocus, setRestoreAskFocus] = useState(false);
+  const [dismissedSpeechKey, setDismissedSpeechKey] = useState<string | null>(null);
+  const contentCollapsed = placement === "floating" && collapsed;
+  const speechKey = `${cue.id}\n${cue.message}\n${error ?? ""}\n${blockedReason ?? ""}`;
+  const speechVisible =
+    placement === "floating" &&
+    collapsed &&
+    shouldSpeakAutomatically(cue, error, blockedReason) &&
+    dismissedSpeechKey !== speechKey;
+
   useEffect(() => {
     if (!loading) requestLockedRef.current = false;
     if (loading || !restoreAskFocus || (answer === null && error === null)) return;
@@ -96,9 +124,13 @@ export function ContextualMentor({
    * el contenido principal reserva ese espacio. Es sincronización con el DOM,
    * no estado de React: no provoca renders ni depende de un breakpoint.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     const shell = shellRef.current;
     const root = document.documentElement;
+    if (placement !== "floating") {
+      root.style.removeProperty("--mentor-inset");
+      return;
+    }
     if (!shell) return;
     const publish = () => {
       const alto = Math.ceil(shell.getBoundingClientRect().height);
@@ -106,24 +138,172 @@ export function ContextualMentor({
       root.style.setProperty("--mentor-inset", `${alto + 24}px`);
     };
     publish();
+    // El cambio de plegado y la aparición del bocadillo alteran la geometría
+    // después del render. Un segundo cálculo en el frame siguiente cubre ese
+    // cambio incluso si el navegador no emite ResizeObserver a tiempo.
+    const frame = window.requestAnimationFrame(publish);
     const observer = new ResizeObserver(publish);
     observer.observe(shell);
+    window.addEventListener("resize", publish);
     return () => {
+      window.cancelAnimationFrame(frame);
       observer.disconnect();
+      window.removeEventListener("resize", publish);
       root.style.removeProperty("--mentor-inset");
     };
-  }, []);
+  }, [placement, contentCollapsed, speechVisible]);
+
+  /*
+   * El Copiloto habla solo en momentos que cambian una decisión: resultados,
+   * bloqueos y advertencias. El bocadillo usa el resultado canónico que ya
+   * existe en pantalla; no dispara una petición de IA por cada interacción.
+   */
+  useEffect(() => {
+    if (!speechVisible) return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timeout = window.setTimeout(
+      () => setDismissedSpeechKey(speechKey),
+      prefersReducedMotion ? 12_000 : 10_000,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [speechKey, speechVisible]);
+
+  const openFromSpeech = () => {
+    setDismissedSpeechKey(speechKey);
+    onCollapsedChange(false);
+  };
 
   return (
     <aside
       ref={shellRef}
-      className="fixed bottom-3 right-3 z-40 w-[min(28rem,calc(100vw-1.5rem))] shadow-2xl shadow-black/45 sm:bottom-5 sm:right-5"
+      className={cn(
+        placement === "floating"
+          ? "mentor-floating-shell fixed bottom-3 right-3 z-40 sm:bottom-5 sm:right-5"
+          : "mentor-lens relative z-10 w-full",
+      )}
       aria-label="Mentor contextual"
       data-testid="mentor-contextual"
+      data-placement={placement}
+      data-collapsed={contentCollapsed ? "true" : "false"}
+      data-speaking={speechVisible ? "true" : "false"}
     >
-      <div className="max-h-[42vh] overflow-y-auto border border-primary/35 bg-background/95 backdrop-blur-xl sm:max-h-[70vh]">
-        <div className="flex items-center gap-3 border-b border-border/70 px-4 py-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full border border-primary/40 bg-primary/10 text-primary">
+      {placement === "floating" && contentCollapsed && speechVisible && (
+        <div
+          className="mentor-speech-bubble"
+          role="status"
+          aria-live="polite"
+          data-testid="mentor-speech-bubble"
+          data-cue-id={cue.id}
+        >
+          <button
+            type="button"
+            className="mentor-speech-bubble__open"
+            onClick={openFromSpeech}
+            aria-label={`Abrir explicación del Copiloto: ${cue.title}`}
+            data-testid="mentor-speech-open"
+          >
+            <span className="mentor-speech-bubble__speaker">Copiloto</span>
+            <strong>{cue.title}</strong>
+            <span className="mentor-speech-bubble__message">{error ?? blockedReason ?? cue.message}</span>
+            <span className="mentor-speech-bubble__action">Ver explicación</span>
+          </button>
+          <button
+            type="button"
+            className="mentor-speech-bubble__dismiss"
+            onClick={() => setDismissedSpeechKey(speechKey)}
+            aria-label="Cerrar mensaje del Copiloto"
+            data-testid="mentor-speech-dismiss"
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {placement === "floating" && (
+        <button
+          type="button"
+          className="mentor-floating-mascot"
+          data-state={loading ? "thinking" : error ? "error" : answer?.responseMode === "ai" ? "ai" : "ready"}
+          onClick={() => onCollapsedChange(!collapsed)}
+          aria-label={collapsed ? "Abrir mentor contextual" : "Cerrar mentor contextual"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Abrir mentor" : "Cerrar mentor"}
+          data-testid="mentor-mascota"
+        >
+          <span className="mentor-robot" aria-hidden="true">
+            <span className="mentor-robot__antenna">
+              <span />
+            </span>
+            <span className="mentor-robot__head">
+              <span className="mentor-robot__eyes">
+                <span />
+                <span />
+              </span>
+              <span className="mentor-robot__mouth" />
+            </span>
+            <span className="mentor-robot__body">
+              <Bot className="size-5" />
+            </span>
+          </span>
+          <span className="mentor-floating-mascot__hint">Hablar</span>
+        </button>
+      )}
+
+      <div
+        className={cn(
+          "overflow-y-auto border border-primary/35 bg-background/95 backdrop-blur-xl",
+          placement === "floating"
+            ? contentCollapsed
+              ? "hidden"
+              : "max-h-[40vh] sm:max-h-[70vh]"
+            : "mentor-lens__surface",
+          placement === "inline" && "mentor-companion",
+        )}
+      >
+        {placement === "inline" && (
+          <button
+            type="button"
+            className="mentor-mascot"
+            data-state={loading ? "thinking" : error ? "error" : answer?.responseMode === "ai" ? "ai" : "ready"}
+            onClick={onOpenMentor}
+            aria-label="Abrir conversación con tu Copiloto"
+            title="Hablar con tu Copiloto"
+            data-testid="mentor-mascota"
+          >
+            <span className="mentor-robot" aria-hidden="true">
+              <span className="mentor-robot__antenna">
+                <span />
+              </span>
+              <span className="mentor-robot__head">
+                <span className="mentor-robot__eyes">
+                  <span />
+                  <span />
+                </span>
+                <span className="mentor-robot__mouth" />
+              </span>
+              <span className="mentor-robot__body">
+                <Bot className="size-5" />
+              </span>
+            </span>
+            <span className="mentor-mascot__status">
+              <span className="ai-dot" aria-hidden="true" />
+              {loading ? "Pensando" : error ? "Alerta" : "Copiloto"}
+            </span>
+          </button>
+        )}
+
+        <div
+          className={cn(
+            "flex items-center gap-3 border-b border-border/70 px-4 py-3",
+            placement === "inline" && "mentor-companion__header",
+            placement === "floating" && "mentor-floating-header",
+          )}
+        >
+          <span className={cn(
+            "grid size-9 shrink-0 place-items-center rounded-full border border-primary/40 bg-primary/10 text-primary",
+            placement === "inline" || placement === "floating" ? "hidden" : null,
+          )}>
             {answer?.responseMode === "ai" ? (
               <Sparkles className="size-4" aria-hidden="true" />
             ) : (
@@ -132,7 +312,7 @@ export function ContextualMentor({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/75">
-              Mentor contextual
+              {placement === "inline" ? "Tu Copiloto" : "Mentor contextual"}
             </p>
             <p
               className="truncate text-sm font-semibold text-foreground"
@@ -141,29 +321,35 @@ export function ContextualMentor({
               {cue.title}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-8 shrink-0"
-            aria-label={collapsed ? "Desplegar mentor contextual" : "Plegar mentor contextual"}
-            aria-expanded={!collapsed}
-            data-testid="mentor-contextual-plegar"
-            onClick={() => onCollapsedChange(!collapsed)}
-          >
-            {collapsed ? (
-              <ChevronUp className="size-4" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="size-4" aria-hidden="true" />
-            )}
-          </Button>
+          {placement === "floating" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 shrink-0"
+              aria-label={collapsed ? "Desplegar mentor contextual" : "Plegar mentor contextual"}
+              aria-expanded={!collapsed}
+              data-testid="mentor-contextual-plegar"
+              onClick={() => onCollapsedChange(!collapsed)}
+            >
+              {collapsed ? (
+                <ChevronUp className="size-4" aria-hidden="true" />
+              ) : (
+                <ChevronDown className="size-4" aria-hidden="true" />
+              )}
+            </Button>
+          )}
         </div>
 
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           {cue.title}. {answer?.answer ?? error ?? cue.message}
         </div>
 
-        <div className={cn("flex flex-col gap-3 px-4 py-4", collapsed && "hidden")}>
+        <div className={cn(
+          "flex flex-col gap-3 px-4 py-4",
+          contentCollapsed && "hidden",
+          placement === "inline" && "mentor-companion__body",
+        )}>
             <span
               className={cn(
                 "w-fit border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]",
@@ -175,6 +361,14 @@ export function ContextualMentor({
             <p className="text-sm leading-relaxed text-muted-foreground" data-testid="mentor-contextual-mensaje">
               {cue.message}
             </p>
+            {blockedReason !== null && (
+              <p
+                className="border-l-2 border-amber-400/60 bg-amber-400/5 px-3 py-2 text-xs text-amber-100"
+                data-testid="mentor-contextual-patch-review-gate"
+              >
+                {blockedReason}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               {cue.ask !== null && (
                 <Button
@@ -204,12 +398,20 @@ export function ContextualMentor({
                   data-testid="mentor-contextual-preguntar"
                 >
                   <Sparkles className={cn("size-4", loading && "animate-pulse")} aria-hidden="true" />
-                  {loading ? "Revisando…" : answer ? "Analizar de nuevo" : "Analizar este contexto"}
+                  {loading
+                    ? "Pensando…"
+                    : blockedReason
+                      ? "Esperando revisión"
+                    : answer
+                      ? "Preguntar de nuevo"
+                      : placement === "inline"
+                        ? "Preguntarle"
+                        : "Analizar este contexto"}
                 </Button>
               )}
               <Button type="button" size="sm" variant="outline" onClick={onOpenMentor}>
                 <MessageCircleMore className="size-4" aria-hidden="true" />
-                Ver conversación
+                {placement === "inline" ? "Abrir chat" : "Ver conversación"}
               </Button>
             </div>
 

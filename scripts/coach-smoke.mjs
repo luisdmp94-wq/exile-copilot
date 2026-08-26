@@ -32,6 +32,7 @@ import { fileURLToPath } from "node:url";
 import {
   createSmokeTempDir,
   launchBrowser,
+  productionServerCommand,
   removeSmokeTempDir,
   toolCommand,
 } from "./browserLaunch.mjs";
@@ -73,7 +74,7 @@ async function waitForFile(path, attempts = 50) {
 function startServer(mode, port) {
   const { command, args: cmdArgs, shell } =
     mode === "prod"
-      ? toolCommand("tsx", ["server/index.ts"])
+      ? productionServerCommand()
       : toolCommand("vite", ["--port", String(port), "--strictPort"]);
   const proc = spawn(command, cmdArgs, {
     cwd: REPO,
@@ -81,6 +82,7 @@ function startServer(mode, port) {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
       DATABASE_PATH: dbPathFor(mode),
     },
@@ -216,22 +218,18 @@ const REAL_MACE_AFTER_EXALTED_TEXT = [
  * Perfil con una pieza de cada estado que el guía debe saber resolver, más la
  * ballesta real importada por la ruta normal de la API.
  */
-async function seedProfile(base) {
-  const demo = await (await fetch(`${base}/api/character/demo`)).json();
-  const importada = await fetch(`${base}/api/import/item-text`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: CROSSBOW_TEXT }),
+async function seedProfile(request, base) {
+  const demo = await (await request.get(`${base}/api/character/demo`)).json();
+  const importada = await request.post(`${base}/api/import/item-text`, {
+    data: { text: CROSSBOW_TEXT, patch: "0.5.4f" },
   });
-  if (!importada.ok) throw new Error(`no se pudo importar la ballesta: HTTP ${importada.status}`);
+  if (!importada.ok()) throw new Error(`no se pudo importar la ballesta: HTTP ${importada.status()}`);
   const ballesta = (await importada.json()).item;
   ballesta.id = "taller-ballesta";
-  const mazaResponse = await fetch(`${base}/api/import/item-text`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: REAL_MAGIC_MACE_TEXT }),
+  const mazaResponse = await request.post(`${base}/api/import/item-text`, {
+    data: { text: REAL_MAGIC_MACE_TEXT, patch: "0.5.4f" },
   });
-  if (!mazaResponse.ok) throw new Error(`no se pudo importar la maza: HTTP ${mazaResponse.status}`);
+  if (!mazaResponse.ok()) throw new Error(`no se pudo importar la maza: HTTP ${mazaResponse.status()}`);
   const mazaReal = (await mazaResponse.json()).item;
   mazaReal.id = "taller-maza-real";
 
@@ -295,12 +293,10 @@ async function seedProfile(base) {
     ],
   };
 
-  const saved = await fetch(`${base}/api/character`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ profile }),
+  const saved = await request.post(`${base}/api/character`, {
+    data: { profile },
   });
-  if (!saved.ok) throw new Error(`no se pudo sembrar el personaje: HTTP ${saved.status}`);
+  if (!saved.ok()) throw new Error(`no se pudo sembrar el personaje: HTTP ${saved.status()}`);
   return profile;
 }
 
@@ -391,13 +387,13 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] Crafting abre con tres recorridos y el guía por defecto`,
       (await page.getByTestId("crafting-mode-academy").innerText()).includes(
-        "Quiero aprender crafting",
+        "Aprender crafting",
       ) &&
         (await page.getByTestId("crafting-mode-coach").innerText()).includes(
-          "Ayúdame con mi objeto",
+          "Ayuda en vivo",
         ) &&
         (await page.getByTestId("crafting-mode-laboratory").innerText()).includes(
-          "Planear un craft",
+          "Taller avanzado",
         ) &&
         (await page.getByTestId("crafting-mode-coach").getAttribute("data-active")) === "true",
     );
@@ -419,45 +415,161 @@ async function runFlow(mode, port) {
     await page.getByTestId("crafting-mode-coach").click();
 
     // --- 2. Con piezas reales --------------------------------------------
-    const profile = await seedProfile(BASE);
+    const profile = await seedProfile(context.request, BASE);
     await page.evaluate((id) => localStorage.setItem("exile-copilot:characterId", id), profile.id);
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "crafting");
     await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
+    await page.getByText("Trabajar con otra pieza", { exact: true }).click();
+    const selectorPiezas = page.getByTestId("coach-piezas-importadas");
+    check(
+      `[${mode}] el selector muestra arte, nombre, base y rareza de cada pieza`,
+      (await selectorPiezas.locator(".item-artwork").count()) === profile.items.length &&
+        (await selectorPiezas.innerText()).includes(profile.items[0]?.baseType ?? "") &&
+        /Normal|Mágico|Raro|Único|Moneda|Gema|Otro/.test(await selectorPiezas.innerText()),
+    );
+    await page.getByText("Trabajar con otra pieza", { exact: true }).click();
 
     // El tercer recorrido expone el motor experto como una secuencia guiada.
     await page.getByTestId("crafting-mode-laboratory").click();
     await page.getByTestId("crafting-laboratory-status").waitFor({ timeout: 15000 });
     check(
-      `[${mode}] el plan avanzado empieza con una sola pregunta y cuatro pasos`,
-      (await page.getByTestId("crafting-workspace").innerText()).includes("Plan del craft") &&
-        (await page.getByTestId("crafting-laboratory-status").locator("li").count()) === 4 &&
+      `[${mode}] el Taller avanzado empieza con una sola pregunta y cinco pasos`,
+      (await page.getByTestId("crafting-workspace").innerText()).includes("Taller avanzado") &&
+        (await page.getByTestId("crafting-laboratory-status").locator("li").count()) === 5 &&
         (await page.getByTestId("crafting-expert-blueprint").count()) === 0 &&
         (await page.getByTestId("crafting-diagnosis").innerText()).includes("¿Qué quieres mejorar primero?"),
     );
+    const laboratoryTracker = page.getByTestId("crafting-laboratory-tracker");
+    check(
+      `[${mode}] el recorrido avanzado mantiene un único paso actual con estados explícitos`,
+      (await laboratoryTracker.locator('[aria-current="step"]').count()) === 1 &&
+        (await laboratoryTracker.locator('[data-step-state="current"]').count()) === 1 &&
+        (await laboratoryTracker.locator('[data-step-state="pending"]').count()) >= 1,
+    );
+    const buildIntent = page.getByTestId("crafting-build-intent");
+    check(
+      `[${mode}] el plan avanzado señala una necesidad medible sin elegir por el jugador`,
+      (await buildIntent.getAttribute("data-alignment")) === "choice-required" &&
+        (await buildIntent.innerText()).includes("resistencias") &&
+        (await page.getByTestId("crafting-use-build-intent-defence").isVisible()),
+    );
     await page.getByRole("radio", { name: "Daño", exact: true }).click();
-    await page.getByTestId("crafting-success-exact-toggle").click();
+    check(
+      `[${mode}] un objetivo contrario queda marcado para revisión`,
+      (await page.getByTestId("crafting-build-intent").getAttribute("data-alignment")) === "conflict" &&
+        (await page.getByTestId("crafting-build-intent").innerText()).includes("Revisa el objetivo") &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "encaje por revisar",
+        ),
+    );
+    await page.getByRole("button", { name: "Guardar objetivo y continuar" }).click();
+    await page.getByTestId("crafting-base-workbench").waitFor({ timeout: 10000 });
+    const baseWorkbenchText = await page.getByTestId("crafting-base-workbench").innerText();
+    const baseComparableBy = await page
+      .getByTestId("crafting-base-workbench")
+      .getAttribute("data-comparable-by");
+    const baseCandidateCount = await page.locator('[data-testid^="crafting-base-candidate-"]').count();
+    check(
+      `[${mode}] el proyecto compara bases sin inventar una mejor pieza`,
+      /Banco de bases/i.test(baseWorkbenchText) &&
+        ["item-class", "slot"].includes(baseComparableBy) &&
+        baseWorkbenchText.includes("probabilidades") &&
+        baseCandidateCount >= 1,
+    );
+    check(
+      `[${mode}] el objetivo se contrasta con evidencia local sin fingir un pool`,
+      (await page.getByTestId("crafting-target-evidence").isVisible()) &&
+        (await page.getByTestId("crafting-target-evidence").getAttribute("data-pool-coverage")) === "unavailable" &&
+        (await page.getByTestId("crafting-target-evidence").innerText()).includes("Pool no disponible") &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes("sin pool autorizado"),
+    );
+    await page.getByRole("button", { name: "Confirmar esta base" }).click();
+    await page.getByRole("button", { name: "Continuar sin marcar" }).click();
+    await page.getByTestId("crafting-observed-targets").locator("summary").click();
+    await page.getByTestId("crafting-use-observed-target-0").click();
     const exactTargets = page.getByTestId("crafting-exact-targets");
     await exactTargets.locator("input").first().fill("Daño físico aumentado un 81(65-84)%");
     await exactTargets.locator("select").first().selectOption("6");
     check(
-      `[${mode}] un jugador experto puede fijar una línea exacta y grado 6 o mejor`,
+      `[${mode}] un jugador experto puede partir de una línea observada y fijar grado 6 o mejor`,
       (await exactTargets.locator("input").first().inputValue()).includes("Daño físico") &&
         (await exactTargets.locator("select").first().inputValue()) === "6",
     );
-    await page.getByRole("button", { name: "Guardar parada" }).click();
-    await page
-      .getByTestId("crafting-base-verdict")
-      .getByText("Tu objetivo ya está cumplido", { exact: true })
-      .waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el Mentor recibe el contrato avanzado completo y frena si ya se cumple`,
+      (await page.getByTestId("mentor-contextual-titulo").innerText()).includes("Daño") &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "1 condición de parada",
+        ) &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "no debes gastar",
+        ),
+    );
+    await page.getByRole("button", { name: "Guardar parada y continuar" }).click();
+    await page.getByTestId("crafting-expert-blueprint").waitFor({ timeout: 10000 });
     check(
       `[${mode}] si la pieza ya cumple la parada, el laboratorio frena otra inversión`,
-      (await page.getByTestId("crafting-base-verdict").innerText()).includes("objetivo ya está cumplido") &&
-        (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete" &&
+      (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete" &&
         (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("cumple tu contrato de salida") &&
         (await page.getByTestId("crafting-route-comparison").getByRole("button").first().isEnabled()) === false,
     );
+    check(
+      `[${mode}] el proyecto experto muestra fase, presupuesto y las tres salidas`,
+      (await page.getByTestId("crafting-project-saved").isVisible()) &&
+        (await page.getByTestId("crafting-project-base-decision").getAttribute("data-decision")) === "stop" &&
+        (await page.getByTestId("crafting-project-branches").locator("article").count()) === 3 &&
+        (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("Tope · 50 exaltados"),
+    );
+    await page.evaluate((profileId) => {
+      const prefix = `exile-copilot:crafting-project:v1:${profileId}:`;
+      const storageKey = Object.keys(localStorage).find((key) => key.startsWith(prefix));
+      if (!storageKey) throw new Error("No se encontró el proyecto avanzado guardado");
+      const project = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
+      project.attempts = [
+        {
+          sessionId: "smoke-project-attempt",
+          recordedAt: new Date().toISOString(),
+          actionLabel: "Orbe exaltado",
+          resultName: "Núcleo de fénix",
+          branch: "salvage",
+          decisionKind: "stop",
+          decisionTitle: "No gastes otra moneda todavía",
+          addedModifiers: ["+12 a la fuerza"],
+          removedModifiers: [],
+          protectedStatus: "preserved",
+          successStatus: "not-fulfilled",
+        },
+      ];
+      localStorage.setItem(storageKey, JSON.stringify(project));
+      window.dispatchEvent(
+        new CustomEvent("exile-copilot:crafting-project-updated", {
+          detail: { storageKey },
+        }),
+      );
+    }, profile.id);
+    await page.getByTestId("crafting-project-history").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el proyecto conserva memoria de cada intento y su rama`,
+      (await page.getByTestId("crafting-project-history").getAttribute("data-attempt-count")) === "1" &&
+        (await page.getByTestId("crafting-project-history").innerText()).includes("Resultado aprovechable") &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes("1 intento registrado"),
+    );
     await page.screenshot({ path: join(SHOT_DIR, `taller-laboratorio-${mode}.png`), fullPage: false });
+    await page.getByTestId("crafting-mode-coach").click();
+    await page.getByTestId("crafting-coach").waitFor({ timeout: 15000 });
+    await page.getByTestId("crafting-mode-laboratory").click();
+    await page.getByTestId("crafting-expert-blueprint").waitFor({ timeout: 15000 });
+    const persistedAdvancedContract = await page.evaluate((profileId) => {
+      const prefix = `exile-copilot:crafting-project:v1:${profileId}:`;
+      const storageKey = Object.keys(localStorage).find((key) => key.startsWith(prefix));
+      return storageKey ? localStorage.getItem(storageKey) ?? "" : "";
+    }, profile.id);
+    check(
+      `[${mode}] el proyecto conserva su contrato al salir y volver`,
+      persistedAdvancedContract.includes("Daño físico aumentado un 81") &&
+        (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete",
+    );
     await page.getByTestId("crafting-mode-coach").click();
     await page.getByTestId("crafting-coach").waitFor({ timeout: 15000 });
 
@@ -478,6 +590,31 @@ async function runFlow(mode, port) {
       `[${mode}] el recorrido principal cabe en pocas palabras (${palabras})`,
       palabras <= 90,
     );
+
+    // El jugador puede describir la build sin conocer la taxonomía interna.
+    await page
+      .getByTestId("coach-objetivo-texto")
+      .fill("Quiero un arco destinado a mi arquera de hielo nivel 86");
+    await page.getByTestId("coach-interpretar-objetivo").click();
+    const baseAssessment = page.getByTestId("coach-evaluacion-base");
+    await baseAssessment.waitFor({ timeout: 10000 });
+    await baseAssessment.locator("summary").click();
+    check(
+      `[${mode}] «arquera de hielo» se convierte directamente en un contrato de frío`,
+      (await page.getByTestId("coach-direccion-elegida").innerText()).includes("daño de hielo") &&
+        (await baseAssessment.getAttribute("data-status")) === "controlled-attempt" &&
+        (await page.getByTestId("coach-base-personaje").innerText()).includes("expediente") &&
+        (await page.getByTestId("coach-base-objetivo").innerText()).includes("daño de hielo") &&
+        (await page.getByTestId("coach-base-decision").innerText()).includes("apuesta limitada"),
+    );
+    await baseAssessment.locator("summary").click();
+    check(
+      `[${mode}] el Mentor anuncia automáticamente el veredicto previo de la base`,
+      (await page.getByTestId("mentor-speech-bubble").isVisible()) &&
+        (await page.getByTestId("mentor-speech-bubble").innerText()).includes("intento controlado"),
+    );
+    await page.getByTestId("mentor-speech-dismiss").click();
+    await page.getByTestId("coach-cambiar-direccion").click();
 
     // Un objetivo libre ambiguo no se convierte en una receta a escondidas.
     await page.getByTestId("coach-objetivo-texto").fill("Quiero más daño y resistencias");
@@ -502,11 +639,46 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-instruccion").innerText()).includes("Guantes en bruto"),
     );
     check(
+      `[${mode}] antes de gastar declara cuándo debe detenerse el paso`,
+      (await page.getByTestId("coach-condicion-parada").innerText()).includes("daño físico") &&
+        (await page.getByTestId("coach-condicion-parada").innerText()).includes("media+") &&
+        (await page.getByTestId("coach-condicion-parada").innerText()).includes("1 paso"),
+    );
+    check(
+      `[${mode}] el contrato permite elegir tirada mínima y límite antes de gastar`,
+      (await page.getByTestId("coach-contrato-controles").locator("summary").isVisible()) &&
+      (await page.getByTestId("coach-roll-minimum-middle").getAttribute("aria-pressed")) === "true" &&
+        (await page.getByTestId("coach-attempt-limit-1").getAttribute("aria-pressed")) === "true",
+    );
+    await page.getByTestId("coach-contrato-controles").locator("summary").click();
+    await page.getByTestId("coach-roll-minimum-high").click();
+    await page.getByTestId("coach-attempt-limit-2").click();
+    await page.getByTestId("coach-contrato-controles").locator("summary").click();
+    check(
+      `[${mode}] cambiar el contrato actualiza su resumen antes de gastar`,
+      (await page.getByTestId("coach-condicion-parada").innerText()).includes("alta") &&
+        (await page.getByTestId("coach-condicion-parada").innerText()).includes("2 pasos"),
+    );
+    check(
+      `[${mode}] el Mentor recibe la tirada y el límite elegidos`,
+      (await page.getByTestId("mentor-contextual-titulo").innerText()).includes(
+        "daño físico · tirada alta",
+      ) &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes("2 pasos") &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "no como probabilidad",
+        ),
+    );
+    check(
       `[${mode}] «Qué puede ocurrir» y «Evidencia técnica» llegan plegados`,
       (await recomendacion.locator("details[open]").count()) === 0 &&
       (await recomendacion.locator("details").count()) === 2,
     );
     await page.getByTestId("coach-lo-hare").click();
+    check(
+      `[${mode}] el contrato queda congelado mientras se espera el resultado`,
+      (await page.getByTestId("coach-contrato-controles").count()) === 0,
+    );
     const textoQueNoCuadra = TRANSMUTED_MACE_TEXT
       .replace("Clase de objeto: Guantes", "Clase de objeto: Bastones")
       .replace("Guantes de cuero de victoria", "Bastón distinto de victoria");
@@ -515,10 +687,11 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
     check(
       `[${mode}] si el texto no cuadra explica el motivo y permite corregirlo sin reiniciar`,
-      (await page.getByTestId("coach-veredicto").innerText()).includes("La base cambió") &&
+      (await page.getByTestId("coach-veredicto").textContent()).includes("La base cambió") &&
         (await page.getByTestId("coach-corregir-resultado").isVisible()) &&
         (await page.getByTestId("coach-objeto-resumen").innerText()).includes("pieza normal"),
     );
+    await page.getByTestId("coach-diagnostico-comparacion").locator("summary").click();
     check(
       `[${mode}] un bloqueo muestra el snapshot anterior y las diferencias exactas`,
       (await page.getByTestId("coach-diagnostico-comparacion").innerText()).includes("Antes:") &&
@@ -535,13 +708,43 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-comparar").click();
     await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el nombre mágico nuevo se reconoce, pero un afijo ajeno al objetivo frena`,
-      (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
+      `[${mode}] un afijo ajeno permite solo el paso restante que el jugador autorizó`,
+        (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "continue" &&
         (await page.getByTestId("coach-comparacion").innerText()).includes("modificador nuevo") &&
         (await page.getByTestId("coach-objeto-resumen").innerText()).includes("cabe uno más") &&
-        (await page.getByTestId("coach-veredicto").innerText()).includes(
-          "Tener huecos libres no basta",
+        (await page.getByTestId("coach-comparacion").getAttribute("data-decision-kind")) === "continue" &&
+        /queda 1 paso/i.test(
+          await page.getByTestId("coach-veredicto").textContent(),
+        ) &&
+        (await page.getByTestId("coach-seguir").isVisible()),
+    );
+    check(
+      `[${mode}] el Mentor explica el progreso del contrato tras el resultado`,
+      (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes("Paso 1 de 2") &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "Queda 1 paso",
         ),
+    );
+    const speechBubble = page.getByTestId("mentor-speech-bubble");
+    await speechBubble.waitFor({ state: "visible", timeout: 10000 });
+    check(
+      `[${mode}] la mascota anuncia el resultado automáticamente sin pedir otra consulta`,
+      (await speechBubble.getAttribute("data-cue-id"))?.startsWith("crafting-result:") === true &&
+        (await speechBubble.innerText()).includes("Paso 1 de 2") &&
+        (await page.getByTestId("mentor-contextual").getAttribute("data-collapsed")) === "true",
+    );
+    await page.getByTestId("mentor-speech-open").click();
+    check(
+      `[${mode}] pulsar el bocadillo abre la explicación completa`,
+      (await page.getByTestId("mentor-contextual").getAttribute("data-collapsed")) === "false" &&
+        (await page.getByTestId("mentor-contextual-mensaje").isVisible()),
+    );
+    await page.getByTestId("mentor-contextual-plegar").click();
+    check(
+      `[${mode}] tras el resultado ofrece reevaluar, cambiar de pieza o terminar`,
+      (await page.getByTestId("coach-empezar-otra").innerText()).includes("Replantear") &&
+        (await page.getByTestId("coach-cambiar-pieza-resultado").isVisible()) &&
+        (await page.getByTestId("coach-terminar-resultado").isVisible()),
     );
 
     // --- 4. Pieza mágica incompleta --------------------------------------
@@ -566,11 +769,12 @@ async function runFlow(mode, port) {
 
     // --- 6. Datos incompletos --------------------------------------------
     await abrirPieza(page, "taller-incompleto");
+    await recomendacion.getByTestId("crafting-repair-toggle").click();
     check(
       `[${mode}] datos incompletos → pedir la evidencia que falta, no gastar`,
       (await recomendacion.getAttribute("data-kind")) === "needs-data" &&
         (await recomendacion.innerText()).includes("Ctrl+Alt+C") &&
-        (await page.getByTestId("coach-volver-pegar").isVisible()) &&
+        (await recomendacion.getByTestId("crafting-repair-repaste").isVisible()) &&
         (await page.getByTestId("coach-otro-camino").isVisible()),
     );
 
@@ -585,16 +789,42 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-comparar").click();
     await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] Regio conserva el snapshot pero frena si el afijo no aporta daño físico`,
+      `[${mode}] Regio conserva el snapshot, frena y separa el bloqueo del encaje`,
       (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
         (await page.getByTestId("coach-cambios").innerText()).includes("+12 a la fuerza") &&
-        (await page.getByTestId("coach-veredicto").innerText()).includes("Tener huecos libres no basta") &&
+        (await page.getByTestId("coach-relacion-objetivo").getAttribute("title")).includes(
+          "no coincide con tu objetivo principal: daño físico",
+        ) &&
         (await page.getByTestId("coach-seguir").count()) === 0,
+    );
+    check(
+      `[${mode}] al agotar el intento ofrece otra base sin empujar otra moneda`,
+      (await page.getByTestId("coach-probar-otra-base").isVisible()) &&
+        (await page.getByTestId("coach-empezar-otra").innerText()).includes("Cambiar objetivo"),
     );
     // El jugador puede replantearlo explícitamente desde el resultado actual;
     // no se encadena Exaltado a escondidas.
     await page.getByTestId("coach-empezar-otra").click();
     await page.getByTestId("coach-direccion-damage").click();
+    const focusButtons = page.locator('button[data-testid^="coach-focus-"]');
+    const focusHeights = await focusButtons.evaluateAll((buttons) =>
+      buttons.map((button) => button.getBoundingClientRect().height),
+    );
+    const interpretButton = page.getByTestId("coach-interpretar-objetivo");
+    await page.waitForTimeout(200);
+    const disabledStyle = await interpretButton.evaluate((button) => ({
+      disabled: button instanceof HTMLButtonElement && button.disabled,
+      background: getComputedStyle(button).backgroundColor,
+    }));
+    check(
+      `[${mode}] el objetivo exacto está agrupado, es táctil y la CTA bloqueada no finge estar activa`,
+      (await page.getByTestId("coach-focus-grupos").isVisible()) &&
+        focusHeights.length === 8 &&
+        focusHeights.every((height) => height >= 44) &&
+        disabledStyle.disabled &&
+        disabledStyle.background !== "rgb(246, 182, 35)" &&
+        (await page.getByText("Elige un objetivo exacto.", { exact: true }).isVisible()),
+    );
     await page.getByTestId("coach-focus-physical").click();
     await recomendacion.waitFor({ timeout: 10000 });
     check(
@@ -623,9 +853,9 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-cambios").innerText()).includes("Daño físico aumentado") &&
         (await page.getByTestId("coach-calidad-afijo").getAttribute("data-roll-band")) === "high" &&
         (await page.getByTestId("coach-calidad-afijo").getAttribute("data-goal-fit")) === "confirmed" &&
-        (await page.getByTestId("coach-calidad-afijo").innerText()).includes("Tirada alta") &&
+        (await page.getByTestId("coach-calidad-afijo").innerText()).includes("Alta") &&
         (await page.getByTestId("coach-calidad-afijo").innerText()).includes("Grado 8") &&
-        (await page.getByTestId("coach-relacion-objetivo").innerText()).includes(
+        (await page.getByTestId("coach-relacion-objetivo").getAttribute("title")).includes(
           "coincide con tu objetivo: daño físico",
         ) &&
         (await page.getByTestId("coach-rendimiento-arma").innerText()).includes(
@@ -634,7 +864,7 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-comparacion-objetivo-arma").innerText()).includes(
           "71.4 → 98.7",
         ) &&
-        (await page.getByTestId("coach-veredicto").innerText()).includes(
+        (await page.getByTestId("coach-veredicto").textContent()).includes(
           "no cumple requisitos",
         ),
     );
@@ -649,10 +879,17 @@ async function runFlow(mode, port) {
     const sinEvidencia = page.getByTestId("coach-sin-evidencia");
     await sinEvidencia.waitFor({ timeout: 10000 });
     check(
-      `[${mode}] «No sé qué necesita» cita el expediente y pide concretar la defensa`,
+      `[${mode}] «No sé qué necesita» separa carencia, encaje de pieza y decisión`,
       /expediente declara/.test(await sinEvidencia.innerText()) &&
         /%/.test(await sinEvidencia.innerText()) &&
-        (await page.getByTestId("coach-focus-resistances").isVisible()) &&
+        (await page.getByTestId("coach-contexto-encaje-pieza").innerText()).includes(
+          "sea la pieza adecuada",
+        ) &&
+        (await page.getByTestId("coach-context-focus-resistances").innerText()).includes(
+          "en esta pieza",
+        ) &&
+        (await page.getByTestId("coach-context-focus-resistances").isVisible()) &&
+        (await page.getByTestId("coach-cambiar-pieza-contexto").isVisible()) &&
         (await page.getByTestId("coach-no-gastar-sin-evidencia").isVisible()) &&
         !/etiquetas de|ya lleva/.test(await sinEvidencia.innerText()),
     );
@@ -664,10 +901,8 @@ async function runFlow(mode, port) {
       ...profile,
       resistances: { fire: 78, cold: 80, lightning: 76, chaos: -10 },
     };
-    await fetch(`${BASE}/api/character`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile: sinCarencia }),
+    await context.request.post(`${BASE}/api/character`, {
+      data: { profile: sinCarencia },
     });
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "crafting");
@@ -677,7 +912,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] sin carencia comprobable dice que no puede decidirlo y ofrece salida`,
       (await page.getByTestId("coach-sin-evidencia").innerText()).includes(
-        "No puedo decidirlo mirando solo esta pieza.",
+        "No encuentro una prioridad concreta en tu plan ni una carencia medible en el expediente.",
       ) &&
         (await page.getByTestId("coach-elegir-damage").isVisible()) &&
         (await page.getByTestId("coach-elegir-defence").isVisible()) &&
@@ -697,10 +932,8 @@ async function runFlow(mode, port) {
     );
     await page.getByTestId("coach-otro-camino").click();
     // Se restaura el expediente original para el resto del recorrido.
-    await fetch(`${BASE}/api/character`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile }),
+    await context.request.post(`${BASE}/api/character`, {
+      data: { profile },
     });
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "crafting");
@@ -710,15 +943,14 @@ async function runFlow(mode, port) {
     await abrirPiezaConObjetivo(
       page,
       "taller-ballesta",
-      "Quiero más daño físico sin perder velocidad de ataque",
+      "Quiero más daño de hielo sin perder velocidad de ataque",
     );
     check(
       `[${mode}] el objetivo escrito se conserva y se interpreta antes de gastar`,
-      (await page.getByTestId("coach-direccion-elegida").innerText()).includes(
-        "Quiero más daño físico sin perder velocidad de ataque",
-      ) &&
+      (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+        "Quiero más daño de hielo sin perder velocidad de ataque" &&
         (await page.getByTestId("coach-direccion-elegida").innerText()).toLocaleLowerCase("es").includes(
-          "prioridad: daño",
+          "daño de hielo",
         ),
     );
     check(
@@ -749,7 +981,7 @@ async function runFlow(mode, port) {
     );
     check(
       `[${mode}] las acciones son aceptar el riesgo, no gastar y explorar avanzadas`,
-      (await page.getByTestId("coach-lo-hare").innerText()).includes("Aceptar el riesgo") &&
+      (await page.getByTestId("coach-lo-hare").innerText()).includes("Aceptar riesgo") &&
         (await page.getByTestId("coach-no-gastar").isVisible()) &&
         (await page.getByTestId("coach-explorar-avanzado").isVisible()),
     );
@@ -816,7 +1048,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el antes/después dice qué cambió y qué se conservó`,
       (await page.getByTestId("coach-cambios").innerText()).includes("velocidad de ataque") &&
-        comparacion.includes("No se ha perdido nada"),
+        (await page.getByTestId("coach-hechos-resultado").innerText()).includes("Nada perdido"),
     );
     check(
       `[${mode}] tras llenar la pieza, el veredicto es parar`,
@@ -830,13 +1062,69 @@ async function runFlow(mode, port) {
       `[${mode}] un afijo ajeno al objetivo se describe como tal y detiene la cadena`,
       (await page.getByTestId("coach-calidad-afijo").getAttribute("data-goal-fit")) ===
         "not-confirmed" &&
-        (await page.getByTestId("coach-calidad-afijo").innerText()).includes(
-          "No encaja con el objetivo",
-        ) &&
-        (await page.getByTestId("coach-salvedad-mejora").innerText()).includes("pieza completa") &&
+        (await page.getByTestId("coach-calidad-afijo").innerText()).includes("No encaja") &&
+        (await page.getByTestId("coach-salvedad-mejora").textContent()).includes("pieza completa") &&
         (await page.getByTestId("coach-comparacion").getAttribute("data-verdict")) === "stop" &&
         !/es una mejora|ha mejorado/i.test(comparacion),
     );
+    const resultLayout = await page.getByTestId("coach-comparacion").evaluate((card) => {
+      const visibleText = Array.from(card.querySelectorAll("*"))
+        .filter((node) => {
+          const style = getComputedStyle(node);
+          return node.children.length === 0 &&
+            !node.classList.contains("sr-only") &&
+            node.closest("details:not([open])") === null &&
+            style.display !== "none" &&
+            style.visibility !== "hidden";
+        })
+        .map((node) => node.textContent ?? "")
+        .join(" ");
+      const visibleWords = visibleText.trim().split(/\s+/).filter(Boolean).length;
+      const buttons = Array.from(card.querySelectorAll("button")).filter((button) => {
+        const rect = button.getBoundingClientRect();
+        const style = getComputedStyle(button);
+        return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden";
+      });
+      return {
+        visibleWords,
+        goldLabels: buttons
+          .filter((button) => getComputedStyle(button).backgroundColor === "rgb(246, 182, 35)")
+          .map((button) => button.textContent?.trim() ?? ""),
+        buttonHeights: buttons.map((button) => button.getBoundingClientRect().height),
+        valueFontSizes: Array.from(
+          card.querySelectorAll('[data-testid="coach-rendimiento-arma"] .text-xl'),
+        ).map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+      };
+    });
+    check(
+      `[${mode}] el parte muestra un veredicto con palabra e icono y una sola acción dorada coherente`,
+      (await page.getByTestId("coach-estado-resultado").innerText()).includes("PARA") &&
+        resultLayout.goldLabels.length === 1 &&
+        !resultLayout.goldLabels.includes("Probar otra base"),
+    );
+    check(
+      `[${mode}] cifras y densidad forman un parte escaneable (${resultLayout.visibleWords} palabras)`,
+      resultLayout.visibleWords <= 70 &&
+        resultLayout.valueFontSizes.length === 3 &&
+        resultLayout.valueFontSizes.every((size) => size >= 20),
+    );
+    const desktopViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileResult = await page.getByTestId("coach-comparacion").evaluate((card) => ({
+      height: card.getBoundingClientRect().height,
+      clientWidth: card.clientWidth,
+      scrollWidth: card.scrollWidth,
+      buttonHeights: Array.from(card.querySelectorAll("button"))
+        .filter((button) => button.getBoundingClientRect().height > 0)
+        .map((button) => button.getBoundingClientRect().height),
+    }));
+    check(
+      `[${mode}] el parte móvil cabe en 520 px, no desborda y sus acciones son táctiles (${Math.round(mobileResult.height)} px)`,
+      mobileResult.height <= 520 &&
+        mobileResult.scrollWidth === mobileResult.clientWidth &&
+        mobileResult.buttonHeights.every((height) => height >= 44),
+    );
+    if (desktopViewport) await page.setViewportSize(desktopViewport);
     await page.screenshot({ path: join(SHOT_DIR, `taller-comparacion-${mode}.png`), fullPage: false });
 
     // --- 9. Banco avanzado: plegado, con estado --------------------------
@@ -953,8 +1241,27 @@ async function runFlow(mode, port) {
 
     // Y tampoco al desplegarlo, que es cuando más sitio ocupa. Se comprueba
     // rehaciendo una decisión real: la app mueve el foco y desplaza la vista.
-    await page.getByTestId("mentor-contextual-plegar").click();
+    // El mentor puede llegar abierto o como mascota según el estado conservado
+    // por el recorrido. Abrirlo mediante el control que sea realmente visible
+    // evita que la prueba intente pulsar el botón interno de un panel oculto.
+    if ((await page.getByTestId("mentor-contextual").getAttribute("data-collapsed")) === "true") {
+      await page.getByTestId("mentor-mascota").click();
+    }
     await wait(400);
+    const reservaMentor = await page.evaluate(() => {
+      const mentor = document.querySelector('[data-testid="mentor-contextual"]');
+      if (!mentor) return null;
+      const inset = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--mentor-inset"),
+      );
+      return { inset, height: mentor.getBoundingClientRect().height };
+    });
+    check(
+      `[${mode}] al abrir el mentor se reserva su altura real`,
+      reservaMentor !== null &&
+        Number.isFinite(reservaMentor.inset) &&
+        reservaMentor.inset >= reservaMentor.height,
+    );
     await page.getByTestId("coach-cambiar-direccion").click();
     await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
     await page.getByTestId("coach-direccion-defence").click();

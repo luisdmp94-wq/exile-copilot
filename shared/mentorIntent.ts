@@ -89,6 +89,25 @@ const CONVERSATION_PATTERNS: readonly string[] = [
 ];
 
 /**
+ * Preguntas sobre la identidad y el alcance del propio Mentor. Son conversación
+ * de producto, no consultas de juego: nunca deben producir una recomendación.
+ */
+const IDENTITY_PATTERNS: readonly string[] = [
+  "quien eres",
+  "que eres",
+  "como te llamas",
+  "que puedes hacer",
+  "para que sirves",
+];
+
+export function isMentorIdentityQuestion(question: string): boolean {
+  const normalized = normalizeQuestion(question);
+  return IDENTITY_PATTERNS.some(
+    (pattern) => normalized === pattern || normalized.startsWith(`${pattern} `),
+  );
+}
+
+/**
  * Clasifica la pregunta. El orden importa: primero explicación, después
  * siguiente paso; si nada casa, `unsupported`.
  */
@@ -120,6 +139,16 @@ export function classifyMentorQuestion(question: string): {
         matchedPattern: pattern,
       };
     }
+  }
+  if (isMentorIdentityQuestion(normalized)) {
+    return {
+      intent: "conversation",
+      normalizedQuestion: normalized,
+      matchedPattern:
+        IDENTITY_PATTERNS.find(
+          (pattern) => normalized === pattern || normalized.startsWith(`${pattern} `),
+        ) ?? null,
+    };
   }
   if (
     CONVERSATION_PATTERNS.some(

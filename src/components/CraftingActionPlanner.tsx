@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  CraftingActionIdSchema,
   craftingCurrencyLabel,
   evaluateObservedCraftingActions,
   type CraftingCurrencyVariant,
@@ -7,6 +8,11 @@ import {
 } from "@shared/craftingActions.js";
 import type { StartAlloyDecision } from "@shared/craftingAlloys.js";
 import { buildExpertCraftingBlueprint } from "@shared/craftingBlueprint.js";
+import {
+  craftingBuildIntentLabel,
+  deriveCraftingBuildIntent,
+  type CraftingBuildIntent,
+} from "@shared/craftingBuildIntent.js";
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import {
   buildCraftingRoute,
@@ -20,9 +26,12 @@ import {
   type EssenceTier,
   type StartEssenceDecision,
 } from "@shared/craftingEssences.js";
-import type { GoalKind, Item } from "@shared/domain.js";
+import type { Budget, BuildTarget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { AlloyPlanner } from "@/components/AlloyPlanner";
+import { CraftingBaseWorkbench } from "@/components/CraftingBaseWorkbench";
+import { CraftingRepairBanner } from "@/components/CraftingRepairBanner";
 import { CraftingExpertBlueprint } from "@/components/CraftingExpertBlueprint";
+import { CraftingTargetEvidencePanel } from "@/components/CraftingTargetEvidencePanel";
 import { CraftingGoalPicker } from "@/components/CraftingGoalPicker";
 import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker";
 import { CraftingSuccessCriteriaPicker } from "@/components/CraftingSuccessCriteriaPicker";
@@ -33,23 +42,73 @@ import {
 } from "@shared/craftingGoal.js";
 import { evaluateCraftingProtection } from "@shared/craftingProtection.js";
 import { assessCraftingAffixes } from "@shared/craftingAffixAssessment.js";
-import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
 import {
   craftingSuccessCriterionLabel,
   evaluateCraftingSuccessCriteria,
   recommendCraftingSuccessCriterion,
+  type CraftingSuccessCriterion,
 } from "@shared/craftingSuccessCriteria.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCraftingKnowledge } from "@/hooks/useCraftingKnowledge";
 import { buildCraftingMentorReading } from "@/lib/craftingMentorReading";
+import {
+  CRAFTING_PROJECT_UPDATED_EVENT,
+  craftingProjectStorageKey,
+  emptyCraftingProject,
+  readCraftingProject,
+  saveCraftingProjectContract,
+} from "@/lib/craftingProject";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
+import type { MentorCraftingState } from "@shared/mentorContext.js";
+import { buildCraftingTargetEvidence } from "@shared/craftingTargetEvidence.js";
 
 const CRAFTING_STATE_STYLE = {
   complete: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
   partial: "border-amber-500/40 bg-amber-500/10 text-amber-300",
   blocked: "border-rose-500/40 bg-rose-500/10 text-rose-300",
 } as const;
+
+const BUILD_ALIGNMENT_STYLE: Record<CraftingBuildIntent["alignment"], string> = {
+  aligned: "border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-100",
+  "choice-required": "border-cyan-500/35 bg-cyan-500/[0.07] text-cyan-100",
+  conflict: "border-amber-500/40 bg-amber-500/[0.08] text-amber-50",
+  unknown: "border-border/80 bg-background/35 text-foreground",
+};
+
+function buildIntentCopy(
+  intent: CraftingBuildIntent,
+  currentGoal: CraftingGoalCategory,
+): { title: string; detail: string } {
+  const label = craftingBuildIntentLabel(intent);
+  if (intent.alignment === "aligned") {
+    return {
+      title: `Alineado con ${label}`,
+      detail:
+        intent.source === "target"
+          ? "Tu build objetivo declara esta prioridad; aún falta confirmar que esta base pueda cubrirla."
+          : intent.source === "resistances"
+            ? "El expediente demuestra la carencia, pero no que esta pieza sea la mejor ranura para resolverla."
+            : "Coincide con el objetivo general que elegiste para el personaje.",
+    };
+  }
+  if (intent.alignment === "choice-required") {
+    return {
+      title: `El personaje apunta a ${label}`,
+      detail: "Elige qué necesidad quieres trabajar primero; el Mentor no ordenará prioridades por ti.",
+    };
+  }
+  if (intent.alignment === "conflict") {
+    return {
+      title: `Revisa el objetivo: el contexto apunta a ${label}`,
+      detail: `Ahora has elegido ${CRAFTING_GOAL_LABELS[currentGoal]}. Puedes mantenerlo, pero el expediente no demuestra esa prioridad.`,
+    };
+  }
+  return {
+    title: "Sin prioridad demostrada por el expediente",
+    detail: "Puedes diseñar el craft, pero la app no afirmará que resuelve una necesidad de tu personaje.",
+  };
+}
 
 const ACTION_STATUS = {
   compatible: {
@@ -74,11 +133,26 @@ const AFFIX_ASSESSMENT_STYLE = {
 } as const;
 
 type CraftingTool = "currency" | "essence" | "alloy";
+type LaboratoryStepId = "objective" | "base" | "protect" | "stop" | "route";
 
-function useProtectedModifiers(item: Item) {
+interface LaboratoryNavigation {
+  itemId: string;
+  active: LaboratoryStepId;
+  completed: LaboratoryStepId[];
+}
+
+interface LaboratoryStep {
+  id: LaboratoryStepId;
+  label: string;
+  value: string;
+  state: "done" | "current" | "pending" | "blocked";
+  reason?: string;
+}
+
+function useProtectedModifiers(item: Item, initialIds: string[] = []) {
   const [selection, setSelection] = useState<{ itemId: string; ids: string[] }>({
     itemId: item.id,
-    ids: [],
+    ids: initialIds,
   });
   const currentIds = new Set(
     item.modifiers
@@ -124,8 +198,11 @@ const CRAFTING_TOOLS: Array<{
 
 export interface CraftingActionPlannerProps {
   item: Item;
+  profile: CharacterProfile | null;
+  target?: BuildTarget;
   /** Objetivo general del expediente; solo se usa como contexto, no como cálculo de build. */
   profileGoal: GoalKind;
+  budget?: Budget;
   patch?: string;
   onStartCraftingDecision?: StartCraftingDecision;
   onStartEssenceDecision?: StartEssenceDecision;
@@ -137,12 +214,19 @@ export interface CraftingActionPlannerProps {
   onMentorContext?: (event: ContextualMentorEvent) => void;
   /** Presenta el mismo motor como un recorrido experto explícito. */
   experience?: "bank" | "laboratory";
+  /** Bases importadas que pueden contrastarse sin salir del proyecto avanzado. */
+  candidateItems?: readonly Item[];
+  onSelectCandidate?: (itemId: string) => void;
+  onAddCandidate?: () => void;
 }
 
 /** Diagnóstico y preflight compartidos por el detalle y la pestaña Crafting. */
 export function CraftingActionPlanner({
   item,
+  profile,
+  target,
   profileGoal,
+  budget,
   patch = "",
   onStartCraftingDecision,
   onStartEssenceDecision,
@@ -152,7 +236,15 @@ export function CraftingActionPlanner({
   onStarted,
   onMentorContext,
   experience = "bank",
+  candidateItems = [],
+  onSelectCandidate,
+  onAddCandidate,
 }: CraftingActionPlannerProps) {
+  const laboratoryStorageKey = craftingProjectStorageKey(profile?.id ?? null, item.id);
+  const laboratoryProject = useMemo(
+    () => experience === "laboratory" ? readCraftingProject(laboratoryStorageKey) : emptyCraftingProject(),
+    [experience, laboratoryStorageKey],
+  );
   const crafting = diagnoseCraftingItem(item);
   const knowledge = useCraftingKnowledge(item, patch);
   const craftingActions = evaluateObservedCraftingActions(
@@ -162,19 +254,110 @@ export function CraftingActionPlanner({
   const [preparedActionId, setPreparedActionId] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] =
     useState<CraftingCurrencyVariant["id"]>("base");
-  const [desiredOutcome, setDesiredOutcome] = useState("");
-  const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>("other");
-  const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(item);
-  const [successCriteria, setSuccessCriteria] = useState<CraftingSuccessCriterion[]>([]);
+  const [desiredOutcome, setDesiredOutcome] = useState(laboratoryProject.desiredOutcome);
+  const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>(laboratoryProject.goalCategory);
+  const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(
+    item,
+    laboratoryProject.protectedModifierIds,
+  );
+  const [successCriteria, setSuccessCriteria] = useState<CraftingSuccessCriterion[]>(
+    laboratoryProject.successCriteria,
+  );
+  const [projectAttempts, setProjectAttempts] = useState(laboratoryProject.attempts);
   const [preflightConfirmed, setPreflightConfirmed] = useState(false);
   const [startingDecision, setStartingDecision] = useState(false);
   const [activeTool, setActiveTool] = useState<CraftingTool>("currency");
   const [showUnavailableActions, setShowUnavailableActions] = useState(false);
   const [showReplacementRisk, setShowReplacementRisk] = useState(false);
   const [protectionOpen, setProtectionOpen] = useState(false);
-  const [laboratoryEditStep, setLaboratoryEditStep] = useState<
-    "objective" | "stop" | null
-  >(null);
+  const initialLaboratoryObjective =
+    (laboratoryProject.desiredOutcome.trim() ||
+      (laboratoryProject.goalCategory === "other"
+        ? ""
+        : CRAFTING_GOAL_LABELS[laboratoryProject.goalCategory])).length >= 3;
+  const initialLaboratoryStop =
+    laboratoryProject.successCriteria.length > 0 &&
+    laboratoryProject.successCriteria.every(
+      (criterion) => criterion.kind !== "exact-modifier-text" || criterion.text.trim().length >= 3,
+    );
+  const initialLaboratoryActive: LaboratoryStepId =
+    crafting.state !== "complete" || !initialLaboratoryObjective
+      ? "objective"
+      : initialLaboratoryStop
+        ? "route"
+        : "base";
+  const [laboratoryNavigation, setLaboratoryNavigation] = useState<LaboratoryNavigation>(() => ({
+    itemId: item.id,
+    active: initialLaboratoryActive,
+    completed:
+      initialLaboratoryActive === "route"
+        ? ["objective", "base", "protect", "stop"]
+        : initialLaboratoryActive === "base"
+          ? ["objective"]
+          : [],
+  }));
+  const currentLaboratoryNavigation =
+    laboratoryNavigation.itemId === item.id
+      ? laboratoryNavigation
+      : {
+          itemId: item.id,
+          active: initialLaboratoryActive,
+          completed:
+            initialLaboratoryActive === "route"
+              ? (["objective", "base", "protect", "stop"] as LaboratoryStepId[])
+              : initialLaboratoryActive === "base"
+                ? (["objective"] as LaboratoryStepId[])
+                : [],
+        };
+  const laboratoryActiveStep = currentLaboratoryNavigation.active;
+  const openLaboratoryStep = (step: LaboratoryStepId) => {
+    setLaboratoryNavigation((current) => ({
+      ...(current.itemId === item.id ? current : currentLaboratoryNavigation),
+      itemId: item.id,
+      active: step,
+    }));
+  };
+  const completeLaboratoryStep = (
+    completedStep: LaboratoryStepId,
+    nextStep: LaboratoryStepId,
+  ) => {
+    setLaboratoryNavigation((current) => {
+      const navigation = current.itemId === item.id ? current : currentLaboratoryNavigation;
+      return {
+        itemId: item.id,
+        active: nextStep,
+        completed: navigation.completed.includes(completedStep)
+          ? navigation.completed
+          : [...navigation.completed, completedStep],
+      };
+    });
+  };
+  useEffect(() => {
+    if (experience !== "laboratory") return;
+    saveCraftingProjectContract(laboratoryStorageKey, {
+      desiredOutcome,
+      goalCategory,
+      protectedModifierIds,
+      successCriteria,
+    });
+  }, [
+    desiredOutcome,
+    experience,
+    goalCategory,
+    laboratoryStorageKey,
+    protectedModifierIds,
+    successCriteria,
+  ]);
+  useEffect(() => {
+    if (experience !== "laboratory" || typeof window === "undefined") return;
+    const refreshAttempts = (event: Event) => {
+      const detail = (event as CustomEvent<{ storageKey?: string }>).detail;
+      if (detail?.storageKey !== laboratoryStorageKey) return;
+      setProjectAttempts(readCraftingProject(laboratoryStorageKey).attempts);
+    };
+    window.addEventListener(CRAFTING_PROJECT_UPDATED_EVENT, refreshAttempts);
+    return () => window.removeEventListener(CRAFTING_PROJECT_UPDATED_EVENT, refreshAttempts);
+  }, [experience, laboratoryStorageKey]);
   const compatibleActionCount = craftingActions.filter(
     (entry) => entry.status === "compatible",
   ).length;
@@ -226,6 +409,18 @@ export function CraftingActionPlanner({
     criteria: successCriteria,
     resultItem: item,
   });
+  const targetEvidence = useMemo(
+    () => buildCraftingTargetEvidence({
+      selectedItem: item,
+      items: candidateItems.length > 0 ? candidateItems : [item],
+      goalCategory,
+      successCriteria,
+      modPoolCoverage: knowledge.loading || knowledge.error
+        ? "unknown"
+        : knowledge.data?.modPool.status ?? "unknown",
+    }),
+    [candidateItems, goalCategory, item, knowledge.data?.modPool.status, knowledge.error, knowledge.loading, successCriteria],
+  );
   const stopAlreadyReached = currentSuccessAssessment.status === "fulfilled";
   const objectiveReady = resolvedDesiredOutcome.length >= 3;
   const expertBlueprint = buildExpertCraftingBlueprint({
@@ -236,12 +431,107 @@ export function CraftingActionPlanner({
     objective: resolvedDesiredOutcome,
     protectedModifierIds,
     successCriteria,
+    budget,
   });
   const confirmationReady =
     resolvedDesiredOutcome.length >= 3 &&
     successCriteriaReady &&
     !stopAlreadyReached &&
     preflightConfirmed;
+  const buildIntent = useMemo(
+    () =>
+      deriveCraftingBuildIntent({
+        profile,
+        target,
+        profileGoal,
+        goalCategory,
+      }),
+    [goalCategory, profile, profileGoal, target],
+  );
+  const buildIntentPresentation = buildIntentCopy(buildIntent, goalCategory);
+  const projectPhase: Extract<MentorCraftingState, { mode: "advanced" }>["projectPhase"] =
+    crafting.state !== "complete"
+      ? "blocked"
+      : currentSuccessAssessment.status === "fulfilled"
+        ? "finished"
+        : item.rarity === "normal"
+          ? "base"
+          : item.rarity === "magic"
+            ? "foundation"
+            : route.state === "replacement-tools"
+              ? "recovery"
+              : "finishing";
+  const baseDecisionKind: Extract<MentorCraftingState, { mode: "advanced" }>["baseDecision"] =
+    crafting.state !== "complete"
+      ? "hold"
+      : currentSuccessAssessment.status === "fulfilled"
+        ? "stop"
+        : compatibleActionCount === 0 && route.toolSuggestions.length === 0
+          ? "change-base"
+          : route.state === "replacement-tools"
+            ? "recover"
+            : "continue";
+  const advancedMentorState = useMemo<
+    Extract<MentorCraftingState, { mode: "advanced" }>
+  >(
+    () => {
+      const parsedAction = CraftingActionIdSchema.safeParse(preparedActionId);
+      const action = parsedAction.success ? parsedAction.data : null;
+      return {
+        mode: "advanced",
+        goalCategory,
+        buildIntent,
+        protectedModifierCount: protectedModifierIds.length,
+        stopCriteria: successCriteria.map((criterion) =>
+          criterion.kind === "exact-modifier-text"
+            ? {
+                kind: criterion.kind,
+                maximumTier: criterion.maximumTier ?? null,
+              }
+            : criterion,
+        ),
+        tool: activeTool,
+        action,
+        variant: action === null ? null : selectedVariantId,
+        preflightConfirmed,
+        stopAlreadyReached,
+        ready: confirmationReady,
+        projectPhase,
+        baseDecision: baseDecisionKind,
+        attemptCount: projectAttempts.length,
+        latestBranch: projectAttempts.at(-1)?.branch ?? null,
+        targetEvidence: targetEvidence.status,
+        localObservationCount: targetEvidence.observations.length,
+        modPoolCoverage: targetEvidence.modPoolCoverage,
+      };
+    },
+    [
+      activeTool,
+      buildIntent,
+      confirmationReady,
+      baseDecisionKind,
+      goalCategory,
+      preflightConfirmed,
+      projectAttempts,
+      preparedActionId,
+      projectPhase,
+      protectedModifierIds.length,
+      selectedVariantId,
+      stopAlreadyReached,
+      successCriteria,
+      targetEvidence.modPoolCoverage,
+      targetEvidence.observations.length,
+      targetEvidence.status,
+    ],
+  );
+  useEffect(() => {
+    if (experience !== "laboratory") return;
+    onMentorContext?.({
+      type: "craftingAdvancedPlan",
+      itemName: item.name || item.baseType,
+      state: advancedMentorState,
+    });
+  }, [advancedMentorState, experience, item.baseType, item.name, onMentorContext]);
   const changeGoalCategory = (next: CraftingGoalCategory) => {
     setGoalCategory(next);
     setSuccessCriteria((current) => {
@@ -275,7 +565,7 @@ export function CraftingActionPlanner({
       (criterion) => !successCriteria.some((current) => current.kind === criterion.kind),
     );
     setSuccessCriteria(next);
-    if (experience === "laboratory") setLaboratoryEditStep("stop");
+    if (experience === "laboratory") openLaboratoryStep("stop");
     if (added) {
       onMentorContext?.({
         type: "craftingStop",
@@ -283,6 +573,21 @@ export function CraftingActionPlanner({
         criterionLabel: craftingSuccessCriterionLabel(added),
       });
     }
+  };
+  const chooseCandidate = (itemId: string) => {
+    if (itemId === item.id || !onSelectCandidate) return;
+    // El objetivo y la parada pertenecen al proyecto; las protecciones, a los
+    // modificadores concretos de la pieza actual y no deben cruzar de base.
+    saveCraftingProjectContract(
+      craftingProjectStorageKey(profile?.id ?? null, itemId),
+      {
+        desiredOutcome,
+        goalCategory,
+        protectedModifierIds: [],
+        successCriteria,
+      },
+    );
+    onSelectCandidate(itemId);
   };
   const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
   const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds);
@@ -379,86 +684,168 @@ export function CraftingActionPlanner({
     crafting.limitations.length +
     (knowledge.data?.modPool.reasons.length ?? 0) +
     (knowledge.data?.modPool.limitations.length ?? 0);
-  const laboratoryPhase =
-    crafting.state !== "complete"
-      ? "item"
-      : !objectiveReady
-        ? "objective"
-        : !successCriteriaReady
-          ? "stop"
-          : stopAlreadyReached
-            ? "complete"
-            : "route";
-  const laboratoryPrompt =
-    laboratoryPhase === "item"
-      ? "Completa primero los datos de la pieza."
-      : laboratoryPhase === "objective"
-        ? "Empieza por una sola pregunta: ¿qué quieres conseguir?"
-        : laboratoryPhase === "stop"
-          ? "Ahora decide qué resultado hará que dejes de gastar."
-          : laboratoryPhase === "complete"
-            ? "Tu condición ya se cumple: conserva la pieza."
-            : "Contrato listo. Compara las rutas disponibles.";
-  const laboratorySteps = [
+  const laboratoryPrompt: Record<LaboratoryStepId, string> = {
+    objective: "Define una sola mejora para esta pieza.",
+    base: "Comprueba si esta es la base correcta antes de gastar.",
+    protect: "Marca lo que no estás dispuesto a perder.",
+    stop: "Decide qué resultado hará que dejes de gastar.",
+    route: stopAlreadyReached
+      ? "La condición ya se cumple: conserva la pieza."
+      : "Contrato listo: elige una ruta verificable.",
+  };
+  const laboratoryCompleted = currentLaboratoryNavigation.completed;
+  const laboratoryStepDefinitions: Array<Omit<LaboratoryStep, "state">> = [
     {
+      id: "objective",
       label: "Objetivo",
-      ready: objectiveReady,
       value: objectiveReady ? CRAFTING_GOAL_LABELS[goalCategory] : "Elige uno",
-      onClick: () => {
-        setLaboratoryEditStep("objective");
-        revealRouteTarget(`crafting-intention-${item.id}`);
-      },
     },
     {
+      id: "base",
+      label: "Base",
+      value: candidateItems.length > 1 ? `${candidateItems.length} importadas` : item.baseType,
+      reason: crafting.state !== "complete" ? "Completa la lectura de la pieza" : undefined,
+    },
+    {
+      id: "protect",
       label: "Protege",
-      ready: true,
-      value: protectedModifierIds.length === 0 ? "Opcional" : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`,
-      onClick: () => {
-        setProtectionOpen(true);
-        revealRouteTarget(`crafting-intention-${item.id}`);
-      },
+      value:
+        protectedModifierIds.length === 0
+          ? "Nada marcado"
+          : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`,
     },
     {
+      id: "stop",
       label: "Parada",
-      ready: successCriteriaReady,
-      value: stopAlreadyReached ? "Cumplida" : successCriteriaReady ? `${successCriteria.length} definida${successCriteria.length === 1 ? "" : "s"}` : "Elige una",
-      onClick: () => {
-        setLaboratoryEditStep("stop");
-        revealRouteTarget(`crafting-success-${item.id}`);
-      },
+      value: stopAlreadyReached
+        ? "Cumplida"
+        : successCriteriaReady
+          ? `${successCriteria.length} definida${successCriteria.length === 1 ? "" : "s"}`
+          : "Elige una",
     },
     {
+      id: "route",
       label: "Ruta",
-      ready: laboratoryPhase === "route" || laboratoryPhase === "complete",
-      value: laboratoryPhase === "complete" ? "Parar" : laboratoryPhase === "route" ? "Lista" : "Después",
-      onClick: () => revealRouteTarget(`crafting-blueprint-${item.id}`),
-      disabled: laboratoryPhase !== "route" && laboratoryPhase !== "complete",
+      value: stopAlreadyReached
+        ? "Parar"
+        : objectiveReady && successCriteriaReady
+          ? "Lista"
+          : "Después",
+      reason:
+        crafting.state !== "complete"
+          ? "Completa la lectura de la pieza"
+          : !objectiveReady || !successCriteriaReady
+            ? "Completa el contrato"
+            : undefined,
     },
-  ].map((step) => ({ disabled: false, ...step }));
+  ];
+  const laboratorySteps: LaboratoryStep[] = laboratoryStepDefinitions.map((step) => {
+    if (step.id === laboratoryActiveStep) return { ...step, state: "current" as const };
+    if (step.reason) return { ...step, state: "blocked" as const };
+    if (laboratoryCompleted.includes(step.id)) return { ...step, state: "done" as const };
+    return { ...step, state: "pending" as const };
+  });
+
+  if (crafting.state !== "complete" && experience !== "laboratory") {
+    const availableActions = craftingActions.filter((action) => action.status === "compatible").length;
+    return (
+      <div className="flex flex-col gap-4" data-testid="crafting-planner-blocked">
+        <CraftingRepairBanner
+          onRepaste={onUpdateItem}
+          reason={crafting.blockers[0] ?? crafting.limitations[0] ?? null}
+        />
+        <section className="pointer-events-none rounded-md border border-border/60 bg-background/30 p-4 opacity-55" aria-hidden="true">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/70">Proyecto de craft</p>
+          <h3 className="mt-1 text-lg font-semibold">{item.name || item.baseType}</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Monedas · {availableActions} de {craftingActions.length} disponibles
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
+      {experience === "laboratory" && crafting.state !== "complete" && (
+        <CraftingRepairBanner
+          onRepaste={onUpdateItem}
+          reason={crafting.blockers[0] ?? crafting.limitations[0] ?? null}
+        />
+      )}
       {experience === "laboratory" && (
         <section
-          className="overflow-hidden rounded-md border border-cyan-500/30 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.09),transparent_42%)]"
+          className="rounded-md border border-cyan-500/30 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.09),transparent_42%)]"
           data-testid="crafting-laboratory-status"
           aria-labelledby={`crafting-laboratory-title-${item.id}`}
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan-500/20 px-4 py-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Plan guiado</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Proyecto de craft</p>
               <h3 id={`crafting-laboratory-title-${item.id}`} className="mt-1 text-lg font-semibold">
-                {laboratoryPrompt}
+                {laboratoryPrompt[laboratoryActiveStep]}
               </h3>
             </div>
-            <Badge variant="outline" className="border-cyan-500/35 bg-cyan-500/[0.08] text-cyan-200">{crafting.label}</Badge>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="outline" className="border-cyan-500/35 bg-cyan-500/[0.08] text-cyan-200">{crafting.label}</Badge>
+              <Badge
+                variant="outline"
+                className="border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-200"
+                data-testid="crafting-project-saved"
+              >
+                Autoguardado local
+              </Badge>
+            </div>
           </div>
-          <ol className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-4" aria-label="Estado del plan avanzado">
+          <ol
+            className="sticky top-0 z-20 grid grid-cols-5 gap-px overflow-hidden rounded-b-md border-t border-cyan-500/20 bg-background/95 shadow-lg backdrop-blur"
+            aria-label="Estado del plan avanzado"
+            data-testid="crafting-laboratory-tracker"
+          >
             {laboratorySteps.map((step, index) => (
-              <li key={step.label} className="min-w-0 bg-background/80" data-ready={step.ready ? "true" : "false"}>
-                <button type="button" onClick={step.onClick} disabled={step.disabled} className="w-full px-3 py-2.5 text-left hover:bg-cyan-500/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-55">
-                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${step.ready ? "text-cyan-300" : "text-amber-300"}`}>{index + 1}. {step.label}</span>
-                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{step.value}</span>
+              <li
+                key={step.id}
+                className={`min-w-0 bg-background/85 ${step.state === "blocked" ? "border border-dashed border-rose-500/40" : ""}`}
+                data-step-state={step.state}
+              >
+                <button
+                  type="button"
+                  aria-current={step.state === "current" ? "step" : undefined}
+                  aria-disabled={
+                    step.state === "blocked" ||
+                    (step.state === "pending" && step.id !== "objective" && step.id !== "stop")
+                      ? "true"
+                      : undefined
+                  }
+                  title={step.reason}
+                  onClick={() => {
+                    if (
+                      step.state === "blocked" ||
+                      (step.state === "pending" && step.id !== "objective" && step.id !== "stop")
+                    ) return;
+                    openLaboratoryStep(step.id);
+                    revealRouteTarget(`crafting-intention-${item.id}`);
+                  }}
+                  className={`min-h-11 w-full px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400 sm:min-h-16 sm:px-3 ${
+                    step.state === "current"
+                      ? "border-l-[3px] border-cyan-300 bg-cyan-500/[0.09] font-semibold"
+                      : step.state === "done"
+                        ? "hover:bg-cyan-500/[0.05]"
+                        : step.state === "blocked"
+                          ? "cursor-not-allowed text-rose-200/70"
+                          : step.id === "objective" || step.id === "stop"
+                            ? "opacity-75 hover:bg-cyan-500/[0.05]"
+                            : "cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide sm:text-xs">
+                    <span aria-hidden="true">
+                      {step.state === "done" ? "✓" : step.state === "current" ? "▸" : step.state === "blocked" ? "⛔" : "·"}
+                    </span>
+                    <span className="sm:hidden">{index + 1}</span>
+                    <span className="hidden sm:inline">{index + 1}. {step.label}</span>
+                  </span>
+                  <span className="mt-0.5 hidden truncate text-xs text-muted-foreground sm:block">{step.value}</span>
                 </button>
               </li>
             ))}
@@ -505,79 +892,112 @@ export function CraftingActionPlanner({
               {protectedModifierIds.length === 1 ? "" : "s"}
             </span>
           </div>
-          {(experience !== "laboratory" || !objectiveReady || laboratoryEditStep === "objective") && <CraftingGoalPicker
-            category={goalCategory}
-            onCategoryChange={changeGoalCategory}
-            outcome={desiredOutcome}
-            onOutcomeChange={setDesiredOutcome}
-            idPrefix={`crafting-goal-${item.id}`}
-            label={goalCategory === "other" ? "Describe el objetivo" : "Añade un matiz (opcional)"}
-            placeholder="Ej.: más daño sin perder velocidad ni +niveles"
-            helperText={
-              goalCategory === "other"
-                ? "Describe qué resultado buscas."
-                : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`
-            }
-          />}
-          {experience === "laboratory" && objectiveReady && laboratoryEditStep !== "objective" && (
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/35 px-3 py-2">
-              <span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-cyan-300/75">Objetivo</span><strong className="block truncate text-sm">{resolvedDesiredOutcome}</strong></span>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setLaboratoryEditStep("objective")}>Cambiar</Button>
+          {experience !== "laboratory" && <>
+            <CraftingGoalPicker
+              category={goalCategory}
+              onCategoryChange={changeGoalCategory}
+              outcome={desiredOutcome}
+              onOutcomeChange={setDesiredOutcome}
+              idPrefix={`crafting-goal-${item.id}`}
+              label={goalCategory === "other" ? "Describe el objetivo" : "Añade un matiz (opcional)"}
+              placeholder="Ej.: más daño sin perder velocidad ni +niveles"
+              helperText={goalCategory === "other" ? "Describe qué resultado buscas." : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`}
+            />
+            <details
+              className="group rounded-md border border-border/70 bg-background/20"
+              data-testid="crafting-protection-details"
+              open={route.state === "replacement-tools" || protectionOpen}
+              onToggle={(event) => {
+                if (route.state === "replacement-tools" && !event.currentTarget.open) {
+                  event.currentTarget.open = true;
+                  return;
+                }
+                setProtectionOpen(event.currentTarget.open);
+              }}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-foreground">
+                <span>{route.state === "replacement-tools" ? "Antes de reemplazar: protege lo importante" : "¿Hay algo que no quieres perder? (opcional)"}</span>
+                <span className="text-xs font-normal text-muted-foreground">{protectedModifierIds.length === 0 ? "Nada marcado" : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`}</span>
+              </summary>
+              <div className="border-t border-border/60 p-2">
+                <CraftingProtectionPicker item={item} value={protectedModifierIds} onChange={setProtectedModifierIds} idPrefix={`crafting-protected-${item.id}`} compact />
+              </div>
+            </details>
+            <CraftingSuccessCriteriaPicker item={item} goalCategory={goalCategory} value={successCriteria} onChange={changeSuccessCriteria} observedTargets={targetEvidence.observations} />
+          </>}
+
+          {experience === "laboratory" && laboratoryActiveStep === "objective" && <>
+            <CraftingGoalPicker
+              category={goalCategory}
+              onCategoryChange={changeGoalCategory}
+              outcome={desiredOutcome}
+              onOutcomeChange={setDesiredOutcome}
+              idPrefix={`crafting-goal-${item.id}`}
+              label={goalCategory === "other" ? "Describe el objetivo" : "Añade un matiz (opcional)"}
+              placeholder="Ej.: más daño sin perder velocidad ni +niveles"
+              helperText={goalCategory === "other" ? "Describe qué resultado buscas." : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`}
+            />
+            <div className={`flex flex-col gap-2 rounded-md border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between ${BUILD_ALIGNMENT_STYLE[buildIntent.alignment]}`} data-testid="crafting-build-intent" data-alignment={buildIntent.alignment} role="status">
+              <div className="min-w-0">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">Sugerencia del personaje</span>
+                <strong className="mt-0.5 block text-sm">{buildIntentPresentation.title}</strong>
+                <span className="mt-0.5 block text-xs leading-relaxed opacity-80">{buildIntentPresentation.detail}</span>
+              </div>
+              {(buildIntent.alignment === "choice-required" || buildIntent.alignment === "conflict") && buildIntent.suggestedCategories.length > 0 && (
+                <div className="flex shrink-0 flex-wrap gap-1.5">
+                  {buildIntent.suggestedCategories.map((category) => <Button key={category} type="button" size="sm" variant="outline" onClick={() => changeGoalCategory(category)} data-testid={`crafting-use-build-intent-${category}`}>Usar {CRAFTING_GOAL_LABELS[category]}</Button>)}
+                </div>
+              )}
             </div>
+            <Button type="button" size="sm" className="min-h-11 self-start" disabled={!objectiveReady} onClick={() => completeLaboratoryStep(
+              "objective",
+              crafting.state !== "complete"
+                ? "stop"
+                : laboratoryCompleted.includes("base") && laboratoryCompleted.includes("protect") && laboratoryCompleted.includes("stop")
+                  ? "route"
+                  : "base",
+            )}>
+              Guardar objetivo y continuar
+            </Button>
+          </>}
+
+          {experience === "laboratory" && laboratoryActiveStep === "base" && (
+            crafting.state === "complete" ? <>
+              <div className="space-y-2">
+                <CraftingBaseWorkbench selectedItem={item} items={candidateItems.length > 0 ? candidateItems : [item]} profile={profile} goalCategory={goalCategory} onChoose={chooseCandidate} onAdd={onAddCandidate} />
+                <CraftingTargetEvidencePanel evidence={targetEvidence} />
+              </div>
+              <div className={`rounded-md border p-3 ${baseVerdictStyle}`} data-testid="crafting-base-verdict" data-base-verdict={baseVerdict.tone} aria-live="polite">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">{baseVerdict.eyebrow}</p>
+                <p className="mt-1 text-base font-semibold">{baseVerdict.title}</p>
+                <p className="mt-1 text-xs leading-relaxed opacity-90">{baseVerdict.detail}</p>
+              </div>
+              <Button type="button" size="sm" className="min-h-11 self-start" onClick={() => completeLaboratoryStep(
+                "base",
+                laboratoryCompleted.includes("protect") && laboratoryCompleted.includes("stop") ? "route" : "protect",
+              )}>Confirmar esta base</Button>
+            </> : <p className="rounded-md border border-dashed border-rose-500/40 bg-rose-500/[0.06] p-3 text-sm text-rose-100">La base necesita una lectura completa. Puedes definir el objetivo y la parada sin gastar nada.</p>
           )}
-          {experience === "laboratory" && laboratoryEditStep === "objective" && objectiveReady && (
-            <Button type="button" size="sm" variant="outline" className="self-start" onClick={() => setLaboratoryEditStep(null)}>Guardar objetivo</Button>
-          )}
-          <details
-            className="group rounded-md border border-border/70 bg-background/20"
-            data-testid="crafting-protection-details"
-            open={(experience !== "laboratory" && route.state === "replacement-tools") || protectionOpen}
-            onToggle={(event) => {
-              if (experience !== "laboratory" && route.state === "replacement-tools" && !event.currentTarget.open) {
-                event.currentTarget.open = true;
-                return;
-              }
-              setProtectionOpen(event.currentTarget.open);
-            }}
-          >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-foreground">
-              <span>
-                {experience !== "laboratory" && route.state === "replacement-tools"
-                  ? "Antes de reemplazar: protege lo importante"
-                  : "¿Hay algo que no quieres perder? (opcional)"}
-              </span>
-              <span className="text-xs font-normal text-muted-foreground">
-                {protectedModifierIds.length === 0
-                  ? "Nada marcado"
-                  : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`}
-              </span>
-            </summary>
-            <div className="border-t border-border/60 p-2">
-              <CraftingProtectionPicker
-                item={item}
-                value={protectedModifierIds}
-                onChange={setProtectedModifierIds}
-                idPrefix={`crafting-protected-${item.id}`}
-                compact
-              />
+
+          {experience === "laboratory" && laboratoryActiveStep === "protect" && <>
+            <div className="rounded-md border border-border/70 bg-background/20 p-2" data-testid="crafting-protection-details">
+              <CraftingProtectionPicker item={item} value={protectedModifierIds} onChange={setProtectedModifierIds} idPrefix={`crafting-protected-${item.id}`} compact />
             </div>
-          </details>
-          {(experience !== "laboratory" || (objectiveReady && (!successCriteriaReady || laboratoryEditStep === "stop"))) && <CraftingSuccessCriteriaPicker
-            item={item}
-            goalCategory={goalCategory}
-            value={successCriteria}
-            onChange={changeSuccessCriteria}
-          />}
-          {experience === "laboratory" && successCriteriaReady && laboratoryEditStep !== "stop" && (
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/35 px-3 py-2">
-              <span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-cyan-300/75">Parar cuando</span><strong className="block truncate text-sm">{successCriteria.map(craftingSuccessCriterionLabel).join(" · ")}</strong></span>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setLaboratoryEditStep("stop")}>Cambiar</Button>
+            <Button type="button" size="sm" className="min-h-11 self-start" onClick={() => completeLaboratoryStep(
+              "protect",
+              laboratoryCompleted.includes("stop") ? "route" : "stop",
+            )}>{protectedModifierIds.length === 0 ? "Continuar sin marcar" : "Guardar protecciones"}</Button>
+          </>}
+
+          {experience === "laboratory" && laboratoryActiveStep === "stop" && <>
+            <div id={`crafting-success-${item.id}`}>
+              <CraftingSuccessCriteriaPicker item={item} goalCategory={goalCategory} value={successCriteria} onChange={changeSuccessCriteria} observedTargets={targetEvidence.observations} />
             </div>
-          )}
-          {experience === "laboratory" && laboratoryEditStep === "stop" && successCriteriaReady && (
-            <Button type="button" size="sm" variant="outline" className="self-start" onClick={() => setLaboratoryEditStep(null)}>Guardar parada</Button>
-          )}
-          {(experience !== "laboratory" || (objectiveReady && successCriteriaReady && laboratoryEditStep !== "stop")) && <div
+            {!laboratoryCompleted.includes("stop") && <Button type="button" size="sm" className="min-h-11 self-start" disabled={!successCriteriaReady} onClick={() => completeLaboratoryStep("stop", crafting.state === "complete" ? "route" : "stop")}>Guardar parada y continuar</Button>}
+            {laboratoryCompleted.includes("stop") && crafting.state !== "complete" && <p className="text-sm font-medium text-emerald-200">Parada guardada. Completa la lectura para abrir la ruta.</p>}
+          </>}
+
+          {experience !== "laboratory" && <div
             className={`rounded-md border p-3 ${baseVerdictStyle}`}
             data-testid="crafting-base-verdict"
             data-base-verdict={baseVerdict.tone}
@@ -783,10 +1203,11 @@ export function CraftingActionPlanner({
           </div>
           </div>
         )}
-        {experience === "laboratory" && objectiveReady && successCriteriaReady && laboratoryEditStep !== "stop" && (
+        {experience === "laboratory" && laboratoryActiveStep === "route" && crafting.state === "complete" && objectiveReady && successCriteriaReady && (
           <div id={`crafting-blueprint-${item.id}`} tabIndex={-1} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
             <CraftingExpertBlueprint
             blueprint={expertBlueprint}
+            attempts={projectAttempts}
             disabled={stopAlreadyReached}
             showContract={false}
             onChooseRoute={(selectedRoute) => {
@@ -826,7 +1247,7 @@ export function CraftingActionPlanner({
             <span className="text-muted-foreground">Sin conocimiento cargado</span>
           )}
         </div>}
-        <details className="group text-xs text-muted-foreground">
+        {experience !== "laboratory" && <details className="group text-xs text-muted-foreground">
           <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
             Ver evidencia y límites ({evidenceCount})
           </summary>
@@ -895,7 +1316,7 @@ export function CraftingActionPlanner({
               </div>
             )}
           </div>
-        </details>
+        </details>}
       </section>
 
       {experience !== "laboratory" && <section aria-labelledby={`crafting-tools-title-${item.id}`}>
@@ -937,9 +1358,9 @@ export function CraftingActionPlanner({
       </section>}
 
       <div
-        hidden={activeTool !== "currency" || route.state === "replacement-tools"}
+        hidden={activeTool !== "currency" || route.state === "replacement-tools" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
         style={
-          activeTool !== "currency" || route.state === "replacement-tools"
+          activeTool !== "currency" || route.state === "replacement-tools" || (experience === "laboratory" && laboratoryActiveStep !== "route")
             ? { display: "none" }
             : undefined
         }
@@ -1148,8 +1569,8 @@ export function CraftingActionPlanner({
       <div
         id={`crafting-tool-content-${item.id}-essence`}
         tabIndex={-1}
-        hidden={activeTool !== "essence"}
-        style={activeTool !== "essence" ? { display: "none" } : undefined}
+        hidden={activeTool !== "essence" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
+        style={activeTool !== "essence" || (experience === "laboratory" && laboratoryActiveStep !== "route") ? { display: "none" } : undefined}
         data-testid="crafting-tool-panel-essence"
       >
         <EssencePlanner
@@ -1166,8 +1587,8 @@ export function CraftingActionPlanner({
       <div
         id={`crafting-tool-content-${item.id}-alloy`}
         tabIndex={-1}
-        hidden={activeTool !== "alloy"}
-        style={activeTool !== "alloy" ? { display: "none" } : undefined}
+        hidden={activeTool !== "alloy" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
+        style={activeTool !== "alloy" || (experience === "laboratory" && laboratoryActiveStep !== "route") ? { display: "none" } : undefined}
         data-testid="crafting-tool-panel-alloy"
       >
         <AlloyPlanner

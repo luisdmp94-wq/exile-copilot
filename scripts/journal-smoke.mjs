@@ -15,7 +15,12 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, stopChild } from "./browserLaunch.mjs";
+import {
+  launchBrowser,
+  productionServerCommand,
+  stopChild,
+  toolCommand,
+} from "./browserLaunch.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -41,11 +46,11 @@ async function waitForServer(base) {
 }
 
 function startServer(mode, port) {
-  const command =
+  const launch =
     mode === "prod"
-      ? [join(REPO, "node_modules", "tsx", "dist", "cli.mjs"), "server/index.ts"]
-      : [join(REPO, "node_modules", "vite", "bin", "vite.js"), "--port", String(port), "--strictPort"];
-  const process = spawn(globalThis.process.execPath, command, {
+      ? productionServerCommand()
+      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+  const process = spawn(launch.command, launch.args, {
     cwd: REPO,
     env: {
       ...globalThis.process.env,
@@ -53,8 +58,9 @@ function startServer(mode, port) {
       DATABASE_PATH: join(tempRoot, `${mode}.db`),
       NODE_ENV: mode === "prod" ? "production" : "development",
       POE_NINJA_OFFLINE: "true",
+      SECURE_COOKIES: "false",
     },
-    shell: false,
+    shell: launch.shell,
     stdio: ["ignore", "pipe", "pipe"],
   });
   process.stderr.on("data", () => {});
@@ -125,14 +131,12 @@ function check(label, condition) {
   if (!condition) failures += 1;
 }
 
-async function persistDemo(base) {
-  const demoResponse = await fetch(`${base}/api/character/demo`);
+async function persistDemo(request, base) {
+  const demoResponse = await request.get(`${base}/api/character/demo`);
   if (!demoResponse.ok) throw new Error(`demo no disponible: HTTP ${demoResponse.status}`);
   const { profile } = await demoResponse.json();
-  const saveResponse = await fetch(`${base}/api/character`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ profile }),
+  const saveResponse = await request.post(`${base}/api/character`, {
+    data: { profile },
   });
   if (!saveResponse.ok) throw new Error(`demo no persistido: HTTP ${saveResponse.status}`);
   return profile.id;
@@ -218,7 +222,7 @@ async function runFlow(mode, port) {
     // «Cargar ejemplo» es deliberadamente efímero. Persistimos el mismo
     // snapshot por las rutas públicas y verificamos la restauración real que
     // tendrá un personaje guardado por el usuario.
-    const persistedCharacterId = await persistDemo(base);
+    const persistedCharacterId = await persistDemo(context.request, base);
     await page.evaluate(
       (id) => localStorage.setItem("exile-copilot:characterId", id),
       persistedCharacterId,
@@ -227,6 +231,9 @@ async function runFlow(mode, port) {
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
 
     await irA(page, "plan");
+    await page.getByTestId("market-context-details").evaluate((element) => {
+      if (element instanceof HTMLDetailsElement) element.open = true;
+    });
     await page.locator("#market-budget").fill("5");
     await irA(page, "expediente");
     await generar(page);
@@ -240,12 +247,10 @@ async function runFlow(mode, port) {
     // Otra pestaña crea una acción mientras esta UI conserva recomendaciones
     // antiguas. El 409 debe retirar esas tarjetas ANTES de esperar el GET de
     // recarga, para que no puedan guardarse ni exportarse durante la ventana.
-    const concurrentResponse = await fetch(
+    const concurrentResponse = await context.request.post(
       `${base}/api/journal/${persistedCharacterId}/entries`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        data: {
           kind: "note",
           title: "Cambio concurrente",
           summary: "Creado por la prueba desde una segunda pestaña.",
@@ -261,7 +266,7 @@ async function runFlow(mode, port) {
           },
           recommendationSnapshot: null,
           makePrimary: true,
-        }),
+        },
       },
     );
     if (!concurrentResponse.ok) {
@@ -309,15 +314,13 @@ async function runFlow(mode, port) {
       recommendationConflicts === 1,
     );
 
-    const resolveConcurrent = await fetch(
+    const resolveConcurrent = await context.request.patch(
       `${base}/api/journal/${persistedCharacterId}/entries/${concurrentEntry.id}`,
       {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        data: {
           status: "completed",
           result: "Entrada concurrente reconocida por la prueba.",
-        }),
+        },
       },
     );
     if (!resolveConcurrent.ok) {
@@ -325,6 +328,9 @@ async function runFlow(mode, port) {
     }
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "plan");
+    await page.getByTestId("market-context-details").evaluate((element) => {
+      if (element instanceof HTMLDetailsElement) element.open = true;
+    });
     await page.locator("#market-budget").fill("5");
     await irA(page, "expediente");
     await generar(page);
@@ -356,7 +362,9 @@ async function runFlow(mode, port) {
       `[${mode}] personaje persistido antes del diario`,
       characterId === persistedCharacterId,
     );
-    const journalBeforeReload = await (await fetch(`${base}/api/journal/${characterId}`)).json();
+    const journalBeforeReload = await (
+      await context.request.get(`${base}/api/journal/${characterId}`)
+    ).json();
     check(
       `[${mode}] snapshot auditable guardado`,
       journalBeforeReload.primaryEntry?.recommendationSnapshot !== null &&

@@ -90,6 +90,44 @@ describe("huella del hilo conversacional", () => {
     expect(mentorInputsKey(requestFor({ profile: otroPerfil }))).not.toBe(base);
   });
 
+  it("cambiar el contrato o la pieza activa de crafting SÍ invalida el hilo", () => {
+    const profile = demoProfile();
+    const selected = profile.items[0]!;
+    const requestWithContext = (attemptLimit: 1 | 2 | 3, itemId = selected.id) =>
+      MentorQueryRequestSchema.parse({
+        ...requestFor({ profile }),
+        contextEnvelope: {
+          version: "1.0",
+          activeArea: "crafting",
+          character: { level: profile.level, characterClass: profile.characterClass },
+          targetBuild: null,
+          selectedItem: { id: itemId, name: selected.name || selected.baseType },
+          craftingState: {
+            mode: "coach",
+            focus: "physical",
+            rollMinimum: "high",
+            attemptCurrent: 0,
+            attemptLimit,
+            phase: "planning",
+            decision: null,
+            nextAction: "regal",
+          },
+          activeRecommendationId: null,
+          market: {
+            budgetAmount: 50,
+            budgetCurrency: "chaos",
+            league: profile.league,
+          },
+          sessionActive: false,
+          lastAction: null,
+        },
+      });
+
+    const base = mentorInputsKey(requestWithContext(1));
+    expect(mentorInputsKey(requestWithContext(2))).not.toBe(base);
+    expect(mentorInputsKey(requestWithContext(1, "otra-pieza"))).not.toBe(base);
+  });
+
   it("cambiar la revisión del diario SÍ invalida el hilo", () => {
     const profile = demoProfile();
     const conDiarioVacio = mentorInputsKey(requestFor({ profile }));

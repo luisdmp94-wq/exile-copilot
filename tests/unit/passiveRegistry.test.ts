@@ -7,6 +7,7 @@ import {
   resolveAscendancy,
   resolvePassive,
   resolvePlan,
+  registrySupportsPatch,
 } from "../../server/registry/passiveRegistry.js";
 import {
   GggSkillTreeExportSchema,
@@ -109,6 +110,12 @@ describe("registro: artefacto y procedencia", () => {
 });
 
 describe("registro: resolución de pasivas y ascendencias", () => {
+  it("solo autoriza el registro para su parche probado y evidencia exacta", () => {
+    expect(registrySupportsPatch("0.5.4f", ["passiveRegistry.1e9eb2d8"])).toBe(true);
+    expect(registrySupportsPatch("1.0", ["passiveRegistry.1e9eb2d8"])).toBe(false);
+    expect(registrySupportsPatch("0.5.4f", [])).toBe(false);
+  });
+
   it("Titan Warrior resuelve 34/34 pasivas contra el árbol oficial", () => {
     const build = GggBuildPlannerV1Schema.parse(JSON.parse(titanRaw));
     const resolution = resolvePlan(build);

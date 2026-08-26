@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MAX_BUILD_IMPORT_CHARACTERS } from "@shared/api.js";
 
 interface ImportPanelProps {
   busy: boolean;
@@ -24,7 +25,7 @@ export function ImportPanel({ busy, onImport, pasted, onPastedChange }: ImportPa
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > MAX_BUILD_IMPORT_CHARACTERS) {
       toast.error("El archivo es demasiado grande (máx. 2 MB)");
       return;
     }
@@ -70,6 +71,7 @@ export function ImportPanel({ busy, onImport, pasted, onPastedChange }: ImportPa
           onChange={(e) => onPastedChange(e.target.value)}
           placeholder='{"name": "…", "passives": […], …} (Build Planner v1) o código PoB en base64'
           rows={4}
+          maxLength={MAX_BUILD_IMPORT_CHARACTERS}
           disabled={busy}
           className="font-mono text-xs"
         />

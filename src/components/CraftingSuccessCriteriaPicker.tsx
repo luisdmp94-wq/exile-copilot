@@ -9,12 +9,17 @@ import {
   recommendCraftingSuccessCriterion,
   type CraftingSuccessCriterion,
 } from "@shared/craftingSuccessCriteria.js";
+import {
+  suggestObservedCraftingTargets,
+  type CraftingTargetObservation,
+} from "@shared/craftingTargetEvidence.js";
 
 interface CraftingSuccessCriteriaPickerProps {
   item: Item;
   goalCategory: CraftingGoalCategory;
   value: CraftingSuccessCriterion[];
   onChange: (value: CraftingSuccessCriterion[]) => void;
+  observedTargets?: readonly CraftingTargetObservation[];
 }
 
 function criterionButton(active: boolean): string {
@@ -31,6 +36,7 @@ export function CraftingSuccessCriteriaPicker({
   goalCategory,
   value,
   onChange,
+  observedTargets = [],
 }: CraftingSuccessCriteriaPickerProps) {
   const explicitCount = item.modifiers.filter((modifier) => modifier.kind === "explicit").length;
   const currentGoalCount =
@@ -53,6 +59,10 @@ export function CraftingSuccessCriteriaPicker({
     { length: Math.max(0, 6 - Math.min(currentGoalCount, 6)) },
     (_, index) => currentGoalCount + index + 1,
   );
+  const observedSuggestions = suggestObservedCraftingTargets({
+    observations: observedTargets,
+    criteria: value,
+  });
 
   const replace = (criterion: CraftingSuccessCriterion) => {
     onChange([...value.filter((entry) => entry.kind !== criterion.kind), criterion]);
@@ -182,6 +192,44 @@ export function CraftingSuccessCriteriaPicker({
           </div>
         )}
       </div>
+
+      {observedSuggestions.length > 0 && (
+        <details
+          className="mt-2 rounded border border-cyan-500/25 bg-cyan-500/[0.035]"
+          data-testid="crafting-observed-targets"
+        >
+          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-cyan-100">
+            Elegir entre tus líneas observadas · {observedSuggestions.length}
+          </summary>
+          <div className="grid gap-1.5 border-t border-cyan-500/20 p-2 sm:grid-cols-2">
+            {observedSuggestions.map((suggestion, index) => (
+              <button
+                key={`${suggestion.itemName}:${suggestion.text}`}
+                type="button"
+                className="rounded border border-border/80 bg-background/45 px-3 py-2 text-left text-xs hover:border-cyan-500/40 hover:bg-cyan-500/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid={`crafting-use-observed-target-${index}`}
+                disabled={value.length >= 3}
+                onClick={() => onChange([
+                  ...value,
+                  {
+                    kind: "exact-modifier-text",
+                    text: suggestion.text,
+                    maximumTier: suggestion.maximumTier,
+                  },
+                ])}
+              >
+                <strong className="line-clamp-2 text-foreground">{suggestion.text}</strong>
+                <span className="mt-1 block text-[10px] text-muted-foreground">
+                  {suggestion.itemName} · ilvl {suggestion.itemLevel ?? "?"} · {suggestion.maximumTier === undefined ? "grado no visible" : `G${suggestion.maximumTier}`}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="border-t border-cyan-500/15 px-3 py-2 text-[10px] text-muted-foreground">
+            Usa la línea literal observada. No identifica una familia de mods ni demuestra su probabilidad.
+          </p>
+        </details>
+      )}
 
       {exactCriteria.length > 0 && (
         <div className="mt-2 grid gap-2" data-testid="crafting-exact-targets">

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Compass, FolderOpen, Hammer } from "lucide-react";
+import { Compass, FolderOpen, Hammer, RefreshCw } from "lucide-react";
 import {
   craftingCurrencyLabel,
   type CraftingCurrencyVariant,
@@ -39,15 +39,14 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { ContextualMentor } from "@/components/ContextualMentor";
+import { DataPrivacyDialog } from "@/components/DataPrivacyDialog";
 import { WelcomePanel } from "@/components/WelcomePanel";
 import { OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
 import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
 import { OpenCaseRecommendation } from "@/components/OpenCaseRecommendation";
-import { CharacterSection } from "@/sections/CharacterSection";
 import { ExpedienteSection } from "@/sections/ExpedienteSection";
-import { MarketSection } from "@/sections/MarketSection";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
-import { TargetSection, type TargetDraft } from "@/sections/TargetSection";
+import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
 import { useMarket } from "@/hooks/useMarket";
@@ -68,13 +67,38 @@ import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
-import { CraftingSection } from "@/sections/CraftingSection";
+
+const CraftingSection = lazy(() =>
+  import("@/sections/CraftingSection").then((module) => ({
+    default: module.CraftingSection,
+  })),
+);
+const CharacterSection = lazy(() =>
+  import("@/sections/CharacterSection").then((module) => ({
+    default: module.CharacterSection,
+  })),
+);
+const TargetSection = lazy(() =>
+  import("@/sections/TargetSection").then((module) => ({
+    default: module.TargetSection,
+  })),
+);
+const MarketSection = lazy(() =>
+  import("@/sections/MarketSection").then((module) => ({
+    default: module.MarketSection,
+  })),
+);
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import {
   contextualMentorCue,
   type ContextualMentorAsk,
   type ContextualMentorEvent,
 } from "@/lib/contextualMentor";
+import {
+  allowsPatchGuidance,
+  compatibilityForPatch,
+  type PatchCompatibilityRecord,
+} from "@shared/patchCompatibility.js";
 
 const EMPTY_TARGET: TargetDraft = {
   name: "",
@@ -91,7 +115,7 @@ const EMPTY_TARGET: TargetDraft = {
  * vez, dentro del panel lateral «Editar expediente».
  */
 type WorkspaceTab = "expediente" | "plan" | "crafting";
-type EditorPrompt = "memory" | "new" | "item" | null;
+type EditorPrompt = "memory" | "new" | "item" | "import" | null;
 
 /**
  * Los paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
@@ -112,7 +136,13 @@ function deferEffect(task: () => void): () => void {
 }
 
 export default function App() {
-  const { health, meta, loading: metaLoading, error: metaError } = useMeta();
+  const {
+    health,
+    meta,
+    loading: metaLoading,
+    error: metaError,
+    reload: reloadMeta,
+  } = useMeta();
 
   const [league, setLeague] = useState("");
   const [patch, setPatch] = useState("");
@@ -129,6 +159,11 @@ export default function App() {
   // «Ver el objeto evaluado» del caso. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
   const [tab, setTab] = useState<WorkspaceTab>("expediente");
+  // Las áreas pesadas se descargan al visitarlas por primera vez y después
+  // permanecen montadas para no perder formularios, selección ni sesiones.
+  const [mountedWorkspaces, setMountedWorkspaces] = useState<Set<WorkspaceTab>>(
+    () => new Set(["expediente"]),
+  );
   const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceTab[]>([]);
   const [craftingRequestedItemId, setCraftingRequestedItemId] = useState<string | null>(null);
   // Panel lateral con el editor completo del personaje.
@@ -147,9 +182,6 @@ export default function App() {
   const contextualSeqRef = useRef(0);
   const budgetCueTimerRef = useRef<number | null>(null);
   const announcedPlanRef = useRef<BuildTargetPlan | null>(null);
-  // La bienvenida pide «Importar mi personaje»: abre el editor Y lleva el foco
-  // al panel de importación en lugar de al primer control del panel.
-  const focusImportOnOpen = useRef(false);
   // Borradores del editor: viven fuera del panel para sobrevivir a su cierre.
   const editorDrafts = useEditorDrafts();
 
@@ -175,14 +207,19 @@ export default function App() {
     [],
   );
   const character = useCharacter(characterOptions);
-  const journal = useJournal(character.profile?.id ?? null);
+  // El borrador conserva su id para poder guardarlo y comenzar una sesión en el
+  // mismo gesto. El diario privado, sin embargo, no se consulta automáticamente
+  // hasta que el perfil ya ha sido persistido para este visitante.
+  const journal = useJournal(character.profile?.id ?? null, character.persisted);
   const mentor = useMentor();
   const characterJournal =
     character.profile && journal.journal?.characterId === character.profile.id
       ? journal.journal
       : null;
   const characterJournalLoading =
-    character.profile !== null && (journal.loading || characterJournal === null);
+    character.persisted &&
+    character.profile !== null &&
+    (journal.loading || characterJournal === null);
   const market = useMarket();
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
@@ -230,6 +267,16 @@ export default function App() {
   }, [journal.stale, clear, clearMentor, announceMentor]);
 
   const hasProfile = character.profile !== null;
+  const activePatchId = character.profile?.patch || patch || health?.patch.id || "";
+  const activePatchCompatibility = useMemo<PatchCompatibilityRecord | null>(() => {
+    if (meta && activePatchId) {
+      return compatibilityForPatch(meta.compatibility, activePatchId);
+    }
+    if (health && activePatchId === health.patch.id) return health.compatibility;
+    return null;
+  }, [activePatchId, health, meta]);
+  const patchGuidanceBlocked =
+    activePatchCompatibility !== null && !allowsPatchGuidance(activePatchCompatibility);
 
   // Valores por defecto en cuanto llegan /api/meta y /api/health.
   useEffect(() => {
@@ -241,7 +288,7 @@ export default function App() {
         if (meta && meta.patches.length > 0) {
           setPatch(meta.patches[0].id);
         } else if (health) {
-          setPatch(health.patch.content);
+          setPatch(health.patch.id);
         }
       }
     });
@@ -290,6 +337,40 @@ export default function App() {
 
   // La conversación NO se persiste y se descarta en cuanto cambian los inputs
   // relevantes: así el hilo nunca muestra respuestas obsoletas.
+  const currentMentorContextItemId =
+    tab === "crafting" ? craftingRequestedItemId : focusedItemId;
+  const currentMentorContextItem = character.profile?.items.find(
+    (item) => item.id === currentMentorContextItemId,
+  );
+  const currentMentorEnvelope: import("@shared/mentorContext.js").ContextEnvelope | undefined =
+    character.profile
+      ? {
+          version: "1.0",
+          activeArea: tab,
+          character: {
+            level: character.profile.level,
+            characterClass: character.profile.characterClass,
+          },
+          targetBuild: targetDraft.name || null,
+          selectedItem: currentMentorContextItem
+            ? {
+                id: currentMentorContextItem.id,
+                name: currentMentorContextItem.name || currentMentorContextItem.baseType,
+              }
+            : null,
+          craftingState:
+            tab === "crafting" ? (contextualCue.ask?.craftingState ?? null) : null,
+          activeRecommendationId: null,
+          market: {
+            budgetAmount: budget.amount,
+            budgetCurrency: budget.currency,
+            league: league || "Desconocida",
+          },
+          sessionActive:
+            characterJournal?.session !== null && characterJournal?.session !== undefined,
+          lastAction: null,
+        }
+      : undefined;
   const currentMentorInputsKey = character.profile
     ? mentorInputsKey(
         buildMentorRequest(
@@ -301,6 +382,8 @@ export default function App() {
           league,
           patch,
           characterJournal,
+          undefined,
+          currentMentorEnvelope,
         ),
       )
     : null;
@@ -362,6 +445,12 @@ export default function App() {
 
   const navigateWorkspace = useCallback(
     (workspace: WorkspaceTab) => {
+      setMountedWorkspaces((mounted) => {
+        if (mounted.has(workspace)) return mounted;
+        const next = new Set(mounted);
+        next.add(workspace);
+        return next;
+      });
       setTab((current) => {
         if (current === workspace) return current;
         setWorkspaceHistory((history) => [...history, current].slice(-12));
@@ -479,8 +568,7 @@ export default function App() {
   };
 
   const openEditor = (focusImport = false, prompt: EditorPrompt = null) => {
-    focusImportOnOpen.current = focusImport;
-    setEditorPrompt(prompt);
+    setEditorPrompt(focusImport && prompt === null ? "import" : prompt);
     setEditorOpen(true);
     announceMentor({ type: "editor" });
   };
@@ -793,7 +881,11 @@ export default function App() {
     return true;
   };
 
-  const askMentor = async (question: string, intentHint?: ContextualMentorAsk["intent"]) => {
+  const askMentor = async (
+    question: string,
+    intentHint?: ContextualMentorAsk["intent"],
+    contextualCraftingState?: import("@shared/mentorContext.js").MentorCraftingState,
+  ) => {
     if (!character.profile) return null;
 
     const activeItemId = tab === "crafting" ? craftingRequestedItemId : focusedItemId;
@@ -807,10 +899,10 @@ export default function App() {
       },
       targetBuild: targetDraft.name || null,
       selectedItem: activeItem ? { id: activeItem.id, name: activeItem.name || activeItem.baseType } : null,
-      craftingState: activeCraftingExperiment ? {
-        goal: activeCraftingExperiment.goalCategory ?? null,
-        stopCondition: activeCraftingExperiment.successCriteria.length > 0 ? "defined" : null,
-      } : null,
+      craftingState:
+        tab === "crafting"
+          ? (contextualCraftingState ?? contextualCue.ask?.craftingState ?? null)
+          : null,
       activeRecommendationId: dominantRecommendation?.id ?? null,
       market: {
         budgetAmount: budget.amount,
@@ -848,7 +940,7 @@ export default function App() {
     setContextualAnswer(null);
     setContextualError(null);
     setContextualLoadingSeq(requestedSeq);
-    const outcome = await askMentor(ask.question, ask.intent);
+    const outcome = await askMentor(ask.question, ask.intent, ask.craftingState);
     // La respuesta conserva su turno en la conversación, pero nunca pisa un
     // objeto, área o decisión que el jugador abrió mientras esperaba.
     if (requestedSeq !== contextualSeqRef.current) return;
@@ -975,11 +1067,28 @@ export default function App() {
         style={{ paddingBottom: "calc(var(--mentor-inset, 6rem) + 1rem)" }}
       >
         {metaError && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-6" data-testid="meta-error">
             <AlertTitle>No se pudo cargar la configuración del servidor</AlertTitle>
             <AlertDescription>
-              {metaError}. La interfaz sigue disponible, pero algunas listas (ligas,
-              objetivos) pueden estar incompletas.
+              <p>
+                {metaError}. La interfaz sigue disponible, pero algunas listas (ligas,
+                objetivos) pueden estar incompletas.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                disabled={metaLoading}
+                onClick={reloadMeta}
+                data-testid="meta-reintentar"
+              >
+                <RefreshCw
+                  className={`size-4 ${metaLoading ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                {metaLoading ? "Reconectando…" : "Reintentar conexión"}
+              </Button>
             </AlertDescription>
           </Alert>
         )}
@@ -1038,6 +1147,9 @@ export default function App() {
                 onGoToImport={() => openEditor(true)}
                 onStartNew={() => startManualJourney("new")}
                 onStartItem={() => startManualJourney("item")}
+                previousCharacterName={character.previousCharacter?.name ?? null}
+                onRestorePrevious={() => void character.restorePrevious()}
+                restoringPrevious={character.busy === "restore"}
               />
             ) : !hasProfile ? (
               // Restaurando el personaje guardado: ni bienvenida ni caso vacíos.
@@ -1061,7 +1173,7 @@ export default function App() {
                 onOpenCrafting={openCraftingForItem}
               />
             ) : (
-              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(23rem,26rem)_minmax(0,1fr)] lg:items-start">
+              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(28rem,32rem)_minmax(0,1fr)] lg:items-start">
                 {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
                     contexto antes de inspeccionar la pieza (§8). */}
                 <div className="order-1 flex flex-col gap-6 lg:order-2 lg:col-start-2">
@@ -1148,6 +1260,7 @@ export default function App() {
                     mentorSlot={
                       <MentorChatSection
                         profile={character.profile}
+                        patchCompatibility={activePatchCompatibility}
                         mentor={mentor}
                         savingNextAction={journal.saving}
                         onAsk={askMentor}
@@ -1182,6 +1295,7 @@ export default function App() {
                     savingProfile={character.busy === "save"}
                     onSaveProfile={() => void saveProfileWithMentor()}
                     onOpenCrafting={openCraftingForItem}
+                    mentorContextId={contextualCue.id}
                   />
                 </div>
 
@@ -1252,70 +1366,92 @@ export default function App() {
           {/* Dos columnas en escritorio, una sola en móvil. NUNCA se mezcla con
               el expediente: el plan objetivo es un plan, no el personaje real. */}
           <TabsContent value="plan" forceMount className={PANEL_CLASSES}>
-            <section className="operations-intro mb-7 px-6 py-7" aria-labelledby="operaciones-titulo">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/75">
-                Mesa de operaciones
-              </p>
-              <h2 id="operaciones-titulo" className="dossier-title mt-2 text-4xl font-semibold text-foreground">
-                Decide el rumbo antes de gastar
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-                Tu objetivo marca la dirección. El mercado solo acota lo que es posible
-                comprobar hoy; no sustituye el diagnóstico del mentor.
-              </p>
-            </section>
-            <div className="grid grid-cols-1 items-start gap-7 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-              <TargetSection
-                draft={targetDraft}
-                warnings={targetWarnings}
-                resolution={targetResolution}
-                onChange={(draft) => {
-                  setTargetDraft(draft);
-                  if (draft.plan !== targetDraft.plan) {
-                    setTargetWarnings([]);
-                    setTargetResolution(null);
-                  }
-                }}
-              />
-              <MarketSection
-                meta={meta}
-                metaLoading={metaLoading}
-                profile={character.profile}
-                league={league}
-                onLeagueChange={(nextLeague) => {
-                  setLeague(nextLeague);
-                  announceMentor({ type: "league", league: nextLeague });
-                }}
-                budget={budget}
-                onBudgetChange={updateBudgetWithMentor}
-                goal={goal}
-                onGoalChange={(nextGoal) => {
-                  setGoal(nextGoal);
-                  announceMentor({ type: "goal", goal: nextGoal });
-                }}
-                market={market}
-              />
-            </div>
+            {mountedWorkspaces.has("plan") && (
+              <Suspense
+                fallback={
+                  <section className="superficie-panel p-6 text-sm text-muted-foreground" role="status">
+                    Preparando el plan y el mercado…
+                  </section>
+                }
+              >
+                <section className="operations-intro mb-7 px-6 py-7" aria-labelledby="operaciones-titulo">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/75">
+                    Mesa de operaciones
+                  </p>
+                  <h2 id="operaciones-titulo" className="dossier-title mt-2 text-4xl font-semibold text-foreground">
+                    Decide el rumbo antes de gastar
+                  </h2>
+                </section>
+                <div className="grid grid-cols-1 items-start gap-7 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+                  <MarketSection
+                    meta={meta}
+                    metaLoading={metaLoading}
+                    profile={character.profile}
+                    league={league}
+                    patch={activePatchId || "Desconocido"}
+                    onLeagueChange={(nextLeague) => {
+                      setLeague(nextLeague);
+                      announceMentor({ type: "league", league: nextLeague });
+                    }}
+                    budget={budget}
+                    onBudgetChange={updateBudgetWithMentor}
+                    goal={goal}
+                    onGoalChange={(nextGoal) => {
+                      setGoal(nextGoal);
+                      announceMentor({ type: "goal", goal: nextGoal });
+                    }}
+                    market={market}
+                  />
+                  <TargetSection
+                    draft={targetDraft}
+                    warnings={targetWarnings}
+                    resolution={targetResolution}
+                    onChange={(draft) => {
+                      setTargetDraft(draft);
+                      if (draft.plan !== targetDraft.plan) {
+                        setTargetWarnings([]);
+                        setTargetResolution(null);
+                      }
+                    }}
+                  />
+                </div>
+              </Suspense>
+            )}
           </TabsContent>
 
           {/* --- Área 3: Crafting ----------------------------------------- */}
           <TabsContent value="crafting" forceMount className={PANEL_CLASSES}>
-            <CraftingSection
-              profile={character.profile}
-              budget={budget}
-              goal={goal}
-              target={buildTargetFromDraft(targetDraft)}
-              journal={journal}
-              requestedItemId={craftingRequestedItemId}
-              onSelectedItemChange={setCraftingRequestedItemId}
-              onEditExpediente={() => openEditor(false, "item")}
-              onStartCraftingDecision={startCraftingDecision}
-              onStartEssenceDecision={startEssenceDecision}
-              onStartAlloyDecision={startAlloyDecision}
-              onApplyCraftingResult={character.replaceItemAndSave}
-              onMentorEvent={handleSessionMentorEvent}
-              onMentorContext={announceMentor}
-            />
+            {mountedWorkspaces.has("crafting") && (
+              <Suspense
+                fallback={
+                  <section
+                    className="superficie-panel p-6 text-sm text-muted-foreground"
+                    role="status"
+                    data-testid="crafting-loading"
+                  >
+                    Preparando el banco de Crafting…
+                  </section>
+                }
+              >
+                <CraftingSection
+                  profile={character.profile}
+                  patchCompatibility={activePatchCompatibility}
+                  budget={budget}
+                  goal={goal}
+                  target={buildTargetFromDraft(targetDraft)}
+                  journal={journal}
+                  requestedItemId={craftingRequestedItemId}
+                  onSelectedItemChange={setCraftingRequestedItemId}
+                  onEditExpediente={() => openEditor(false, "item")}
+                  onStartCraftingDecision={startCraftingDecision}
+                  onStartEssenceDecision={startEssenceDecision}
+                  onStartAlloyDecision={startAlloyDecision}
+                  onApplyCraftingResult={character.replaceItemAndSave}
+                  onMentorEvent={handleSessionMentorEvent}
+                  onMentorContext={announceMentor}
+                />
+              </Suspense>
+            )}
           </TabsContent>
         </Tabs>
 
@@ -1348,18 +1484,12 @@ export default function App() {
                   ? "item-text"
                   : editorPrompt === "new"
                     ? "char-name"
-                    : null;
+                    : editorPrompt === "import"
+                      ? "panel-importacion"
+                      : null;
               if (guidedTarget !== null) {
                 event.preventDefault();
-                window.requestAnimationFrame(() => {
-                  document.getElementById(guidedTarget)?.focus();
-                });
-                return;
               }
-              if (!focusImportOnOpen.current) return;
-              focusImportOnOpen.current = false;
-              event.preventDefault();
-              document.getElementById("panel-importacion")?.focus();
             }}
           >
             <SheetHeader>
@@ -1381,29 +1511,47 @@ export default function App() {
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-8">
-              <CharacterSection
-                character={character}
-                meta={meta}
-                drafts={editorDrafts}
-                editorMode={
-                  editorPrompt === "item"
-                    ? "item"
-                    : editorPrompt === "new"
-                      ? "new"
-                      : "full"
+              <Suspense
+                fallback={
+                  <div className="p-6 text-sm text-muted-foreground" role="status">
+                    Preparando el editor…
+                  </div>
                 }
-                // La bienvenida ya ofrece importar y cargar el ejemplo: la
-                // sección no repite ni su vacío ni su botón de ejemplo.
-                hideEmptyState={showWelcome}
-                onProfileSaved={() => {
-                  announceMentor({ type: "profileSaved" });
-                  if (editorPrompt === "new") setEditorOpen(false);
-                }}
-                onItemImported={(item) => {
-                  setEditorOpen(false);
-                  openCraftingForItem(item.id);
-                }}
-              />
+              >
+                <CharacterSection
+                  character={character}
+                  meta={meta}
+                  activePatch={activePatchId || "Desconocido"}
+                  drafts={editorDrafts}
+                  editorMode={
+                    editorPrompt === "item"
+                      ? "item"
+                      : editorPrompt === "new"
+                        ? "new"
+                        : "full"
+                  }
+                  // La bienvenida ya ofrece importar y cargar el ejemplo: la
+                  // sección no repite ni su vacío ni su botón de ejemplo.
+                  hideEmptyState={showWelcome}
+                  initialFocus={
+                    editorPrompt === "item"
+                      ? "item"
+                      : editorPrompt === "new"
+                        ? "character"
+                        : editorPrompt === "import"
+                          ? "import"
+                          : null
+                  }
+                  onProfileSaved={() => {
+                    announceMentor({ type: "profileSaved" });
+                    if (editorPrompt === "new") setEditorOpen(false);
+                  }}
+                  onItemImported={(item) => {
+                    setEditorOpen(false);
+                    openCraftingForItem(item.id);
+                  }}
+                />
+              </Suspense>
             </div>
           </SheetContent>
         </Sheet>
@@ -1414,15 +1562,24 @@ export default function App() {
             Los precios proceden de poe.ninja y las referencias de builds de la comunidad
             no están verificadas.
           </p>
+          <p className="mt-1">
+            <DataPrivacyDialog health={health} />
+          </p>
         </footer>
       </main>
 
       <ContextualMentor
+        placement="floating"
         cue={contextualCue}
         answer={contextualAnswer}
         error={contextualError}
         loading={contextualLoadingSeq !== null}
-        canAsk={character.profile !== null}
+        canAsk={character.profile !== null && !patchGuidanceBlocked}
+        blockedReason={
+          patchGuidanceBlocked
+            ? `El parche ${activePatchCompatibility?.patchId} aún no está revisado. No analizaré mejoras ni acciones mecánicas con datos anteriores.`
+            : null
+        }
         collapsed={contextualCollapsed}
         onCollapsedChange={setContextualCollapsed}
         onAsk={askContextualMentor}

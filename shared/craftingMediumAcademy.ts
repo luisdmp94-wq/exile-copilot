@@ -10,7 +10,7 @@
  * no estima probabilidades y no inventa resultados de PoE2.
  */
 
-export const CRAFTING_MEDIUM_ACADEMY_VERSION = "medio-2026-08-24";
+export const CRAFTING_MEDIUM_ACADEMY_VERSION = "medio-2026-08-26";
 
 export const CRAFTING_MEDIUM_ACADEMY_EVIDENCE =
   "Casos sintéticos basados en los estados del comparador local. No representan drops, pools, pesos ni probabilidades.";
@@ -20,6 +20,7 @@ export type MediumAcademyDecision =
   | "reject-different-item"
   | "review-mismatch"
   | "protect-and-stop"
+  | "review-below-minimum"
   | "keep-and-stop"
   | "continue-contract";
 
@@ -28,6 +29,8 @@ export interface MediumAcademyFacts {
   identityMatches: boolean;
   actionStructureMatches: boolean;
   protectedLineLost: boolean;
+  /** Solo existe cuando el jugador declaró un mínimo numérico observable. */
+  declaredMinimumMet?: boolean;
   stopConditionFulfilled: boolean;
 }
 
@@ -61,6 +64,7 @@ export function resolveMediumAcademyDecision(
   if (!facts.identityMatches) return "reject-different-item";
   if (!facts.actionStructureMatches) return "review-mismatch";
   if (facts.protectedLineLost) return "protect-and-stop";
+  if (facts.declaredMinimumMet === false) return "review-below-minimum";
   if (facts.stopConditionFulfilled) return "keep-and-stop";
   return "continue-contract";
 }
@@ -180,6 +184,48 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     expectedDecision: "continue-contract",
     explanation: "El resultado es compatible, pero no decide por sí solo la siguiente moneda. Vuelve al contrato y compara las rutas todavía legales.",
     takeaway: "Continuar es una nueva decisión; nunca una repetición automática.",
+  },
+  {
+    id: "medio-minimo-no-cumplido",
+    order: 7,
+    title: "El nombre del afijo no basta",
+    situation:
+      "Antes de gastar escribiste un mínimo observable. El resultado trae la clase de modificador que querías, pero su valor queda por debajo.",
+    before: "Objetivo: al menos +30 a la vida máxima",
+    after: "Resultado: +24 a la vida máxima",
+    facts: {
+      resultDataComplete: true,
+      identityMatches: true,
+      actionStructureMatches: true,
+      protectedLineLost: false,
+      declaredMinimumMet: false,
+      stopConditionFulfilled: false,
+    },
+    question: "¿Puedes marcar ya el objetivo como cumplido?",
+    options: [
+      option(
+        "med-revisar-minimo",
+        "review-below-minimum",
+        "No: revisar la pieza",
+        "Coincide la línea, no el mínimo",
+      ),
+      option(
+        "med-aceptar-nombre",
+        "keep-and-stop",
+        "Sí: conservar y terminar",
+        "Apareció el tipo de modificador",
+      ),
+      option(
+        "med-repetir-minimo",
+        "continue-contract",
+        "Gastar otra moneda automáticamente",
+        "El siguiente intento quizá lo mejore",
+      ),
+    ],
+    expectedDecision: "review-below-minimum",
+    explanation:
+      "El resultado se parece al objetivo, pero no alcanza el umbral que declaraste. No lo marques como éxito ni encadenes otra acción: decide si lo aceptas o replanteas el craft.",
+    takeaway: "Afijo correcto y tirada suficiente son dos comprobaciones distintas.",
   },
 ];
 

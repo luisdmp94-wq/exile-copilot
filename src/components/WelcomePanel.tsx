@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Upload,
   UserRoundPlus,
+  Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +18,9 @@ interface WelcomePanelProps {
   onStartItem: () => void;
   onLoadDemo: () => void;
   loadingDemo: boolean;
+  previousCharacterName?: string | null;
+  onRestorePrevious?: () => void;
+  restoringPrevious?: boolean;
 }
 
 const INTENCIONES = [
@@ -30,14 +34,14 @@ const INTENCIONES = [
   {
     icon: UserRoundPlus,
     titulo: "Empezar desde cero",
-    texto: "Crea el expediente y completa solo lo que ya sabes.",
+    texto: "Crea tu expediente.",
     action: "new" as const,
     cta: "Crear personaje",
   },
   {
     icon: Hammer,
     titulo: "Evaluar o craftear",
-    texto: "Pega un objeto de PoE2 y entra directamente al banco.",
+    texto: "Analiza una pieza.",
     action: "item" as const,
     cta: "Pegar un objeto",
   },
@@ -53,6 +57,9 @@ export function WelcomePanel({
   onStartItem,
   onLoadDemo,
   loadingDemo,
+  previousCharacterName = null,
+  onRestorePrevious,
+  restoringPrevious = false,
 }: WelcomePanelProps) {
   const runAction = (action: (typeof INTENCIONES)[number]["action"]) => {
     if (action === "import") onGoToImport();
@@ -67,7 +74,8 @@ export function WelcomePanel({
       aria-labelledby="bienvenida-titulo"
     >
       <div className="relative z-10 flex max-w-5xl flex-col gap-8">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-4">
           <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">
             <ShieldCheck className="size-4" aria-hidden="true" />
             Primera consulta
@@ -81,9 +89,44 @@ export function WelcomePanel({
           <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
             Elige una intención. Exile Copilot te llevará directamente al siguiente paso.
           </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:max-w-64 sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onLoadDemo}
+              disabled={loadingDemo}
+              data-testid="bienvenida-ejemplo"
+            >
+              {loadingDemo ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Sparkles className="size-4" aria-hidden="true" />
+              )}
+              Cargar ejemplo
+            </Button>
+            {previousCharacterName && onRestorePrevious && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRestorePrevious}
+                disabled={restoringPrevious}
+                data-testid="bienvenida-recuperar"
+              >
+                {restoringPrevious ? (
+                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <Undo2 className="size-4" aria-hidden="true" />
+                )}
+                Recuperar {previousCharacterName}
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3" data-testid="intenciones-iniciales">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="intenciones-iniciales">
           {INTENCIONES.map(({ icon: Icon, titulo, texto, action, cta }) => (
             <button
               key={action}
@@ -97,39 +140,30 @@ export function WelcomePanel({
                     : "bienvenida-objeto"
               }
               data-intent={action}
-              className="group flex min-h-44 flex-col items-start gap-3 rounded-md border border-border/80 bg-background/65 p-5 text-left transition-colors hover:border-primary/60 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+              className={`group flex flex-col items-start rounded-md p-5 text-left transition-all hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none motion-reduce:transition-none ${
+                action === "import"
+                  ? "superficie-accion min-h-36 gap-3 border-primary/70 bg-primary/[0.08] sm:col-span-2 sm:min-h-40 sm:flex-row sm:items-center"
+                  : "min-h-24 gap-2 border border-border/80 bg-background/65 hover:border-primary/50 hover:bg-primary/[0.04]"
+              }`}
             >
               <span className="grid size-10 place-items-center rounded-full border border-primary/35 bg-primary/10 text-primary">
                 <Icon className="size-5" aria-hidden="true" />
               </span>
-              <span className="font-serif text-xl font-semibold text-foreground">{titulo}</span>
-              <span className="text-sm leading-relaxed text-muted-foreground">{texto}</span>
-              <span className="mt-auto flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+              <span className={action === "import" ? "flex flex-1 flex-col gap-1" : "flex flex-col gap-0.5"}>
+                <span className="font-serif text-xl font-semibold text-foreground">{titulo}</span>
+                <span className="text-sm leading-relaxed text-muted-foreground">{texto}</span>
+              </span>
+              <span className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] ${
+                action === "import"
+                  ? "mt-auto min-h-11 rounded-md bg-primary px-4 text-primary-foreground sm:mt-0"
+                  : "mt-auto text-primary"
+              }`}>
                 {action === "import" && <Upload className="size-3.5" aria-hidden="true" />}
                 {cta}
                 <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
               </span>
             </button>
           ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-5">
-          <span className="text-xs text-muted-foreground">¿Solo quieres explorar?</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onLoadDemo}
-            disabled={loadingDemo}
-            data-testid="bienvenida-ejemplo"
-          >
-            {loadingDemo ? (
-              <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-            ) : (
-              <Sparkles className="size-4" aria-hidden="true" />
-            )}
-            Cargar ejemplo
-          </Button>
         </div>
       </div>
     </section>

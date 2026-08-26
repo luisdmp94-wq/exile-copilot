@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   chooseNextStep,
+  assessPurposefulCraftBase,
+  assessCoachRollMinimum,
   interpretCoachGoal,
   readCraftResult,
   readPurposefulCraftResult,
@@ -413,6 +415,16 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
     expect(interpretCoachGoal("Quiero más daño").focus).toBeNull();
   });
 
+  it("entiende el elemento aunque el jugador describa la build y no escriba la palabra daño", () => {
+    const result = interpretCoachGoal(
+      "Quiero un arco destinado a mi arquera de hielo nivel 86",
+    );
+
+    expect(result.direction).toBe("damage");
+    expect(result.focus).toBe("cold");
+    expect(result.reason).toContain("daño de hielo");
+  });
+
   it("entiende objetivos defensivos con y sin tildes", () => {
     expect(interpretCoachGoal("Necesito más vida y resistencias").direction).toBe("defence");
     expect(interpretCoachGoal("Quiero mas evasion").direction).toBe("defence");
@@ -466,6 +478,88 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
   });
 });
 
+describe("guía de crafting — evaluación de la base antes de gastar", () => {
+  it("presenta una base sin el objetivo como intento aleatorio y limitado", () => {
+    const item = pieza({
+      name: "Trueno de runa",
+      baseType: "Arco de belicista",
+      slot: "weapon",
+      rarity: "normal",
+      modifiers: [],
+    });
+    const assessment = assessPurposefulCraftBase({
+      item,
+      direction: "damage",
+      focus: "cold",
+      profile: perfil([item]),
+    });
+
+    expect(assessment.status).toBe("controlled-attempt");
+    expect(assessment.title).toContain("intento controlado");
+    expect(assessment.targetLabel).toContain("Aún no contiene");
+    expect(assessment.nextStep).toMatchObject({
+      kind: "use-currency",
+      actionId: "transmutation",
+    });
+  });
+
+  it("detiene el gasto si la pieza ya cumple la parada observable", () => {
+    const item = pieza({
+      name: "Trueno de runa",
+      baseType: "Arco de belicista",
+      slot: "weapon",
+      modifiers: [
+        {
+          ...mod(
+            "hielo",
+            "Agrega de 79(72-81) a 117(110-123) de daño de hielo",
+            "prefix",
+            ["Daño", "Elemental", "Hielo", "Ataque"],
+          ),
+          tier: 1,
+        },
+      ],
+    });
+    const assessment = assessPurposefulCraftBase({
+      item,
+      direction: "damage",
+      focus: "cold",
+      profile: perfil([item]),
+      rollMinimum: "middle",
+    });
+
+    expect(assessment.status).toBe("already-satisfied");
+    expect(assessment.nextStep.kind).toBe("stop");
+    expect(assessment.decisionLabel).toBe("Parar y comparar.");
+  });
+
+  it("manda cambiar una base llena que no contiene el objetivo", () => {
+    const full = pieza({
+      name: "Arco sin hielo",
+      baseType: "Arco de belicista",
+      slot: "weapon",
+      modifiers: [
+        mod("p1", "+10 a la precisión", "prefix", ["Ataque"]),
+        mod("p2", "Daño físico aumentado un 20%", "prefix", ["Daño", "Físico"]),
+        mod("p3", "Agrega de 3 a 8 de daño físico", "prefix", ["Daño", "Físico"]),
+        mod("s1", "+12 a la destreza", "suffix", ["Atributo"]),
+        mod("s2", "Velocidad de ataque aumentada un 5%", "suffix", ["Ataque", "Velocidad"]),
+        mod("s3", "+8 de vida por enemigo asesinado", "suffix", ["Vida"]),
+      ],
+    });
+    const assessment = assessPurposefulCraftBase({
+      item: full,
+      direction: "damage",
+      focus: "cold",
+      profile: perfil([full]),
+    });
+
+    expect(assessment.status).toBe("change-base");
+    expect(assessment.nextStep.kind).toBe("stop");
+    expect(assessment.decisionLabel).toBe("Cambiar de base.");
+  });
+});
+
 describe("guía de crafting — propósito y contexto", () => {
   const original = pieza({
     rarity: "rare",
@@ -496,10 +590,12 @@ describe("guía de crafting — propósito y contexto", () => {
     expect(reading.verdict).toBe("stop");
     expect(reading.nextStep).toBeNull();
     expect(reading.directionNote).toContain("no coincide");
-    expect(reading.verdictText).toContain("Tener huecos libres no basta");
+    expect(reading.decisionKind).toBe("restart");
+    expect(reading.verdictText).toContain("Límite alcanzado");
+    expect(reading.verdictText).toContain("cambia de base");
   });
 
-  it("solo permite continuar cuando el afijo coincide y hay expediente real", () => {
+  it("al coincidir el afijo alcanza la parada del paso y obliga a reevaluar", () => {
     const result = pieza({
       rarity: "rare",
       modifiers: [
@@ -523,7 +619,10 @@ describe("guía de crafting — propósito y contexto", () => {
       profileGoal: "damage",
     });
 
-    expect(reading.verdict).toBe("continue");
+    expect(reading.verdict).toBe("stop");
+    expect(reading.decisionKind).toBe("stop");
+    expect(reading.verdictText).toContain("Punto de parada alcanzado");
+    expect(reading.nextStep).toBeNull();
     expect(reading.directionNote).toContain("coincide con tu objetivo: daño físico");
     expect(reading.observedAffixes[0]).toMatchObject({
       tier: 5,
@@ -557,6 +656,107 @@ describe("guía de crafting — propósito y contexto", () => {
     expect(reading.verdict).toBe("stop");
     expect(reading.nextStep).toBeNull();
     expect(reading.verdictText).toContain("objeto suelto");
+  });
+
+  it("un objetivo escrito permite otro paso limitado sin fingir conocer la build", () => {
+    const result = pieza({
+      rarity: "rare",
+      modifiers: [
+        mod("vida2", "+31 a la vida máxima", "suffix", ["Vida"]),
+        mod("fuego", "Agrega de 10 a 20 de daño de fuego", "prefix", ["Daño", "Fuego"]),
+      ],
+    });
+    const comparison = compareCraftingResult(original, result, "exalted", {
+      protectedModifierIds: [],
+    });
+    const reading = readPurposefulCraftResult({
+      comparison,
+      originalItem: original,
+      resultItem: result,
+      direction: "damage",
+      focus: "physical",
+      profile: perfil([original], false),
+      profileGoal: "damage",
+      attemptNumber: 1,
+      attemptLimit: 2,
+    });
+
+    expect(reading.verdict).toBe("continue");
+    expect(reading.nextStep?.kind).toBe("use-currency");
+    expect(reading.verdictText).toContain("objeto suelto");
+    expect(reading.verdictText).toContain("1 paso más");
+    expect(reading.verdictText).not.toMatch(/conozco tu build|mejora garantizada/i);
+  });
+
+  it("comprueba el mínimo elegido solo contra el rango visible", () => {
+    const low = {
+      ...mod("fisico", "Agrega de 12(10-20) a 22(20-30) de daño físico", "prefix", ["Daño", "Físico", "Ataque"]),
+      tier: 5,
+    };
+    expect(assessCoachRollMinimum("middle", [low], "physical").status).toBe("below");
+    expect(assessCoachRollMinimum("any", [low], "physical").status).toBe("fulfilled");
+    expect(assessCoachRollMinimum("high", [low], "cold").status).toBe("not-applicable");
+  });
+
+  it("permite un paso más solo si el jugador lo dejó dentro de su límite", () => {
+    const result = pieza({
+      rarity: "rare",
+      modifiers: [
+        mod("vida2", "+31 a la vida máxima", "suffix", ["Vida"]),
+        mod("fuego", "Agrega de 10 a 20 de daño de fuego", "prefix", ["Daño", "Fuego"]),
+      ],
+    });
+    const comparison = compareCraftingResult(original, result, "exalted", {
+      protectedModifierIds: [],
+    });
+    const reading = readPurposefulCraftResult({
+      comparison,
+      originalItem: original,
+      resultItem: result,
+      direction: "damage",
+      focus: "physical",
+      profile: perfil([original]),
+      profileGoal: "damage",
+      rollMinimum: "middle",
+      attemptNumber: 1,
+      attemptLimit: 2,
+    });
+
+    expect(reading.verdict).toBe("continue");
+    expect(reading.decisionKind).toBe("continue");
+    expect(reading.nextStep?.kind).toBe("use-currency");
+    expect(reading.verdictText).toContain("queda 1 paso");
+  });
+
+  it("cierra la base cuando el resultado falla al alcanzar el límite", () => {
+    const result = pieza({
+      rarity: "rare",
+      modifiers: [
+        mod("vida2", "+31 a la vida máxima", "suffix", ["Vida"]),
+        mod("fuego", "Agrega de 10 a 20 de daño de fuego", "prefix", ["Daño", "Fuego"]),
+      ],
+    });
+    const comparison = compareCraftingResult(original, result, "exalted", {
+      protectedModifierIds: [],
+    });
+    const reading = readPurposefulCraftResult({
+      comparison,
+      originalItem: original,
+      resultItem: result,
+      direction: "damage",
+      focus: "physical",
+      profile: perfil([original]),
+      profileGoal: "damage",
+      rollMinimum: "middle",
+      attemptNumber: 2,
+      attemptLimit: 2,
+    });
+
+    expect(reading.verdict).toBe("stop");
+    expect(reading.decisionKind).toBe("restart");
+    expect(reading.nextStep).toBeNull();
+    expect(reading.verdictText).toContain("Límite alcanzado");
+    expect(reading.verdictText).toContain("cambia de base");
   });
 });
 

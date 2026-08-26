@@ -62,6 +62,7 @@ import { fileURLToPath } from "node:url";
 import {
   createSmokeTempDir,
   launchBrowser,
+  productionServerCommand,
   removeSmokeTempDir,
   toolCommand,
 } from "./browserLaunch.mjs";
@@ -119,7 +120,7 @@ async function waitForFile(path, attempts = 50) {
 function startServer(mode, port) {
   const { command, args: cmdArgs, shell } =
     mode === "prod"
-      ? toolCommand("tsx", ["server/index.ts"])
+      ? productionServerCommand()
       : toolCommand("vite", ["--port", String(port), "--strictPort"]);
   const proc = spawn(command, cmdArgs, {
     cwd: REPO,
@@ -127,6 +128,7 @@ function startServer(mode, port) {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
       // Aislamiento explícito: nunca la base real.
       DATABASE_PATH: dbPathFor(mode),
@@ -191,20 +193,18 @@ const check = (name, ok) => {
  * importada desde texto avanzado usando las rutas reales de la API. Lo deja
  * restaurable por el frontend vía localStorage.
  */
-async function seedProfile(base) {
-  const demo = await (await fetch(`${base}/api/character/demo`)).json();
+async function seedProfile(request, base) {
+  const demo = await (await request.get(`${base}/api/character/demo`)).json();
   const profile = demo.profile;
   const fuente = [{ kind: "user", label: "Sembrado por la prueba", retrievedAt: new Date().toISOString() }];
   const craftingText = readFileSync(
     join(REPO, "server", "fixtures", "phoenixCoreCrossbowAdvanced.es.txt"),
     "utf8",
   );
-  const imported = await fetch(`${base}/api/import/item-text`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: craftingText }),
+  const imported = await request.post(`${base}/api/import/item-text`, {
+    data: { text: craftingText, patch: "0.5.4f" },
   });
-  if (!imported.ok) throw new Error(`no se pudo importar el objeto de crafting: HTTP ${imported.status}`);
+  if (!imported.ok()) throw new Error(`no se pudo importar el objeto de crafting: HTTP ${imported.status()}`);
   const craftingItem = (await imported.json()).item;
   craftingItem.id = "smoke-crafting-crossbow";
   const craftingResultText = `${craftingText.trim()}\n{ Mod. de sufijo "sintético del smoke" (Grado: 1) — Daño, Ataque }\nModificador sintético de daño añadido por la prueba de navegador`;
@@ -238,12 +238,10 @@ async function seedProfile(base) {
     },
     craftingItem,
   );
-  const res = await fetch(`${base}/api/character`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ profile }),
+  const res = await request.post(`${base}/api/character`, {
+    data: { profile },
   });
-  if (!res.ok) throw new Error(`no se pudo sembrar el perfil: HTTP ${res.status}`);
+  if (!res.ok()) throw new Error(`no se pudo sembrar el perfil: HTTP ${res.status()}`);
   return { profileId: profile.id, craftingItemId: craftingItem.id, craftingResultText };
 }
 
@@ -514,7 +512,10 @@ async function runFlow(mode, port) {
     await dialogo.waitFor({ state: "hidden", timeout: 15000 });
 
     // --- Varios frascos y objeto duplicado (datos reales vía API) ---------
-    const { profileId: seededId, craftingItemId, craftingResultText } = await seedProfile(BASE);
+    const { profileId: seededId, craftingItemId, craftingResultText } = await seedProfile(
+      context.request,
+      BASE,
+    );
     await page.evaluate((id) => localStorage.setItem("exile-copilot:characterId", id), seededId);
     await page.reload({ waitUntil: "networkidle" });
     // El paperdoll vive en el expediente, dentro del área «Expediente y mentor».
@@ -531,6 +532,9 @@ async function runFlow(mode, port) {
 
     // --- Vínculo estructurado recomendación → objeto ----------------------
     await irA(page, "plan");
+    await page.getByTestId("market-context-details").evaluate((element) => {
+      if (element instanceof HTMLDetailsElement) element.open = true;
+    });
     await page.locator("#market-budget").fill("5");
     await irA(page, "expediente");
     await page.getByRole("button", { name: "Generar recomendaciones" }).click();
@@ -1081,7 +1085,8 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el asesor dice parar cuando se cumple la condición elegida`,
       (await siguienteDecision.getAttribute("data-next-decision")) === "stop" &&
-        (await siguienteDecision.innerText()).includes("Objetivo cumplido: para y conserva") &&
+        (await siguienteDecision.innerText()).includes("Punto de parada alcanzado") &&
+        (await siguienteDecision.innerText()).includes("Conserva este resultado") &&
         (await comprobadorResultado.getByTestId("crafting-success-assessment").getAttribute("data-success-status")) === "fulfilled" &&
         !(await siguienteDecision.innerText()).match(/probabilidad de éxito|DPS|precio estimado/i),
     );
@@ -1108,7 +1113,9 @@ async function runFlow(mode, port) {
     });
     await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).click();
     await comprobadorResultado.getByText(/La sesión sigue abierta/).waitFor({ timeout: 20000 });
-    const journalTrasFallo = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
+    const journalTrasFallo = await (
+      await context.request.get(`${BASE}/api/journal/${seededId}`)
+    ).json();
     check(
       `[${mode}] un fallo al guardar no cierra la sesión`,
       ["active", "waiting_result"].includes(journalTrasFallo.session?.status) &&
@@ -1122,8 +1129,8 @@ async function runFlow(mode, port) {
     let cierrePersistido = false;
     for (let intento = 0; intento < 80; intento += 1) {
       const [characterResponse, journalResponse] = await Promise.all([
-        fetch(`${BASE}/api/character/${encodeURIComponent(seededId)}`),
-        fetch(`${BASE}/api/journal/${encodeURIComponent(seededId)}`),
+        context.request.get(`${BASE}/api/character/${encodeURIComponent(seededId)}`),
+        context.request.get(`${BASE}/api/journal/${encodeURIComponent(seededId)}`),
       ]);
       if (characterResponse.ok && journalResponse.ok) {
         const characterState = await characterResponse.json();
@@ -1144,7 +1151,9 @@ async function runFlow(mode, port) {
     }
     check(`[${mode}] el expediente guarda el objeto resultante con el mismo vínculo`, cierrePersistido);
     if (!cierrePersistido) console.log("   estado visible:", await comprobadorResultado.innerText());
-    const journalFinal = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
+    const journalFinal = await (
+      await context.request.get(`${BASE}/api/journal/${seededId}`)
+    ).json();
     const persistenciaCraftingCorrecta =
       journalFinal.session?.craftingExperiment?.originalItem?.id === craftingItemId &&
       journalFinal.session?.craftingExperiment?.variantId === "greater" &&
@@ -1210,7 +1219,9 @@ async function runFlow(mode, port) {
       textoCasoEssence.includes("Essence observada de prueba (Perfecta)") &&
         textoCasoEssence.includes("Efecto exacto copiado del tooltip de prueba"),
     );
-    const journalEssence = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
+    const journalEssence = await (
+      await context.request.get(`${BASE}/api/journal/${seededId}`)
+    ).json();
     check(
       `[${mode}] la sesión persiste el reemplazo aleatorio esperado`,
       journalEssence.session?.craftingExperiment?.actionId === "essence" &&
@@ -1237,7 +1248,9 @@ async function runFlow(mode, port) {
     await crearAlloy.click();
     const casoAlloy = craftingWorkspace.getByTestId("crafting-result-check");
     await casoAlloy.waitFor({ timeout: 20000 });
-    const journalAlloy = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
+    const journalAlloy = await (
+      await context.request.get(`${BASE}/api/journal/${seededId}`)
+    ).json();
     check(
       `[${mode}] un Alloy puede empezar mientras la Essence sigue pausada`,
       journalAlloy.session?.craftingExperiment?.actionId === "alloy" &&
@@ -1247,7 +1260,9 @@ async function runFlow(mode, port) {
     const resumeEssence = craftingWorkspace.getByTestId(`crafting-resume-${essenceSessionId}`);
     await resumeEssence.click();
     await craftingWorkspace.getByTestId("crafting-result-check").waitFor({ timeout: 20000 });
-    const journalResumed = await (await fetch(`${BASE}/api/journal/${seededId}`)).json();
+    const journalResumed = await (
+      await context.request.get(`${BASE}/api/journal/${seededId}`)
+    ).json();
     check(
       `[${mode}] reanudar recupera exactamente la Essence elegida`,
       journalResumed.session?.id === essenceSessionId &&

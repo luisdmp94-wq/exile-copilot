@@ -12,7 +12,7 @@ import {
 } from "../../shared/domain.js";
 import { buildRecommendationMemory } from "../../shared/journalMemory.js";
 import { CraftingKnowledgeResponseSchema } from "../../shared/api.js";
-import { createApiApp } from "../../server/app.js";
+import { closeApiApp, createApiApp } from "../../server/app.js";
 
 let server: Server;
 let base: string;
@@ -67,6 +67,15 @@ const demoItemText = readFileSync(
 );
 
 describe("api (integración, app Express con db :memory:)", () => {
+  it("cierra SQLite una sola vez aunque el lifecycle se invoque repetidamente", () => {
+    const managed = createApiApp({
+      dbPath: ":memory:",
+      config: { poeNinjaOffline: true },
+    });
+    expect(closeApiApp(managed)).toBe(true);
+    expect(closeApiApp(managed)).toBe(false);
+  });
+
   it("conserva la procedencia del nivel al guardar y restaurar un perfil mínimo", async () => {
     const minimal = CharacterProfileSchema.parse({
       id: "nivel-placeholder-api",
@@ -218,18 +227,141 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect((await jsonOf(response)).error).toBe("objeto-de-memoria-desconocido");
   });
 
-  it("GET /health responde ok con patch objeto {content, hotfix, asOf, source}", async () => {
+  it("GET /health responde con el parche completo y su cobertura real", async () => {
     const res = await fetch(`${base}/health`);
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.ok).toBe(true);
     expect(body.patch).toEqual({
+      id: "0.5.4f",
       content: "0.5.4",
       hotfix: "f",
       asOf: "2026-08-12",
       source: expect.stringContaining("0.5.4f Hotfix"),
     });
+    expect(body.services).toEqual({
+      mentor: { mode: "rules-only", provider: null },
+    });
+    expect(body.compatibility).toMatchObject({
+      patchId: "0.5.4f",
+      status: "limited",
+      reviewedAt: "2026-08-22",
+    });
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("GET /health declara la IA externa solo cuando está realmente configurada", async () => {
+    const aiApp = createApiApp({
+      dbPath: ":memory:",
+      config: {
+        poeNinjaOffline: true,
+        mentorAiEnabled: true,
+        mentorAiProvider: "groq",
+        mentorAiApiKey: "secreto-que-no-puede-salir",
+      },
+    });
+    const aiServer = await new Promise<Server>((resolve) => {
+      const candidate = aiApp.listen(0, () => resolve(candidate));
+    });
+    try {
+      const { port } = aiServer.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/health`);
+      const raw = await response.text();
+      const body = JSON.parse(raw);
+      expect(body.services).toEqual({
+        mentor: { mode: "ai-assisted", provider: "groq" },
+      });
+      expect(raw).not.toContain("secreto-que-no-puede-salir");
+      expect(raw).not.toContain("gsk_");
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        aiServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
+  it("importa un .build válido mayor que el límite implícito de Express", async () => {
+    const description = "x".repeat(512 * 1024);
+    const content = JSON.stringify({
+      name: "Build grande de prueba",
+      author: "Exile Copilot",
+      description,
+      passives: ["strength17"],
+    });
+    const response = await postJson("/import/build", { content, patch: "0.5.4f" });
+    expect(response.status).toBe(200);
+    const body = await jsonOf(response);
+    expect(body.detectedFormat).toBe("ggg-build-planner-v1");
+    expect(body.plan.build.description).toHaveLength(description.length);
+  });
+
+  it("distingue JSON roto de un error interno sin devolver el contenido", async () => {
+    const marker = "CONTENIDO_PRIVADO_NO_REPETIR";
+    const response = await fetch(`${base}/import/build`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: `{"content":"${marker}",`,
+    });
+    expect(response.status).toBe(400);
+    const raw = await response.text();
+    expect(JSON.parse(raw)).toMatchObject({ error: "json-no-valido" });
+    expect(raw).not.toContain(marker);
+  });
+
+  it("rechaza una carga excesiva con 413 y un mensaje público", async () => {
+    const limitedApp = createApiApp({
+      dbPath: ":memory:",
+      config: { poeNinjaOffline: true, requestBodyLimitBytes: 1024 },
+    });
+    const limitedServer = await new Promise<Server>((resolve) => {
+      const candidate = limitedApp.listen(0, () => resolve(candidate));
+    });
+    try {
+      const { port } = limitedServer.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/import/build`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "x".repeat(2_000), patch: "0.5.4f" }),
+      });
+      expect(response.status).toBe(413);
+      expect(await jsonOf(response)).toMatchObject({
+        error: "carga-demasiado-grande",
+        detail: expect.stringContaining("tamaño máximo"),
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        limitedServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
+  it("rechaza ids inválidos y expedientes desmesurados antes de persistir", async () => {
+    const demo = await jsonOf(await fetch(`${base}/character/demo`));
+    const blankId = await postJson("/character", {
+      profile: { ...demo.profile, id: "   " },
+    });
+    expect(blankId.status).toBe(400);
+
+    const longId = await postJson("/character", {
+      profile: { ...demo.profile, id: "x".repeat(201) },
+    });
+    expect(longId.status).toBe(400);
+
+    const marker = "NOTA_PRIVADA_DE_TAMAÑO";
+    const oversized = await postJson("/character", {
+      profile: {
+        ...demo.profile,
+        id: "expediente-demasiado-grande-prueba",
+        notes: marker + "x".repeat(600 * 1024),
+      },
+    });
+    expect(oversized.status).toBe(413);
+    const raw = await oversized.text();
+    expect(JSON.parse(raw)).toMatchObject({ error: "expediente-demasiado-grande" });
+    expect(raw).not.toContain(marker);
+    expect(
+      (await fetch(`${base}/character/expediente-demasiado-grande-prueba`)).status,
+    ).toBe(404);
   });
 
   it("GET /meta: ligas desde poe.ninja (fixture offline) y parches versionados", async () => {
@@ -240,12 +372,85 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.patches.map((p: { id: string }) => p.id)).toEqual(["0.5.4f", "0.5.0", "0.3.0"]);
     expect(body.patches[0].asOf).toBe("2026-08-12");
     expect(body.patches[0].source).toContain("pathofexile.com");
+    expect(body.compatibility.targetRelease).toMatchObject({
+      version: "1.0",
+      releaseDate: "2026-12-11",
+      status: "announced",
+    });
+    expect(body.compatibility.patches[0].features).toHaveLength(5);
     expect(body.goals).toContain("survival");
     expect(body.currencies).toEqual(["chaos", "exalted", "divine", "gold"]);
   });
 
+  it("un parche nuevo no hereda la cobertura anterior y exige revisión", async () => {
+    const unknownApp = createApiApp({
+      dbPath: ":memory:",
+      config: { poeNinjaOffline: true, defaultPatch: "1.0" },
+    });
+    const unknownServer = await new Promise<Server>((resolve) => {
+      const candidate = unknownApp.listen(0, () => resolve(candidate));
+    });
+    try {
+      const { port } = unknownServer.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/health`);
+      const body = await jsonOf(response);
+      expect(body.patch.id).toBe("1.0");
+      expect(body.compatibility).toMatchObject({
+        patchId: "1.0",
+        status: "review-required",
+        reviewedAt: null,
+      });
+      expect(body.compatibility.features).toHaveLength(5);
+      expect(
+        body.compatibility.features.every(
+          (feature: { status: string }) => feature.status === "review-required",
+        ),
+      ).toBe(true);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        unknownServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
+  it("recomendaciones y mentor fallan cerrados para un parche sin revisar", async () => {
+    const demo = await jsonOf(await fetch(`${base}/character/demo`));
+    const futureProfile = { ...demo.profile, patch: "1.0" };
+    const common = {
+      profile: futureProfile,
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: futureProfile.league,
+      patch: "1.0",
+    };
+
+    const recommendations = await postJson("/recommendations", common);
+    expect(recommendations.status).toBe(422);
+    expect(await jsonOf(recommendations)).toMatchObject({ error: "parche-sin-revisar" });
+
+    const mentor = await postJson("/mentor/query", {
+      ...common,
+      question: "¿Qué mejoro ahora?",
+    });
+    expect(mentor.status).toBe(422);
+    expect(await jsonOf(mentor)).toMatchObject({ error: "parche-sin-revisar" });
+  });
+
+  it("rechaza mezclar el parche del personaje con otro en la petición", async () => {
+    const demo = await jsonOf(await fetch(`${base}/character/demo`));
+    const response = await postJson("/recommendations", {
+      profile: demo.profile,
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: demo.profile.league,
+      patch: "1.0",
+    });
+    expect(response.status).toBe(400);
+    expect(await jsonOf(response)).toMatchObject({ error: "parche-no-coincide" });
+  });
+
   it("POST /import/build con el ejemplo oficial de GGG devuelve PLAN (nunca perfil)", async () => {
-    const res = await postJson("/import/build", { content: titanBuildContent });
+    const res = await postJson("/import/build", { content: titanBuildContent, patch: "0.5.4f" });
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.detectedFormat).toBe("ggg-build-planner-v1");
@@ -261,7 +466,7 @@ describe("api (integración, app Express con db :memory:)", () => {
   });
 
   it("POST /import/build resuelve ids contra el registro oficial sin tocar el plan crudo", async () => {
-    const res = await postJson("/import/build", { content: titanBuildContent });
+    const res = await postJson("/import/build", { content: titanBuildContent, patch: "0.5.4f" });
     const body = await jsonOf(res);
 
     // Resolución PARALELA al plan: 34/34 pasivas y ascendencia oficial.
@@ -283,8 +488,23 @@ describe("api (integración, app Express con db :memory:)", () => {
     const original = JSON.parse(titanBuildContent);
     expect(body.plan.build).toEqual(original);
   });
+  it("POST /import/build conserva el plan pero no usa pasivas antiguas en 1.0", async () => {
+    const res = await postJson("/import/build", { content: titanBuildContent, patch: "1.0" });
+    expect(res.status).toBe(200);
+    const body = await jsonOf(res);
+    expect(body.plan.build).toEqual(JSON.parse(titanBuildContent));
+    expect(body.resolution).toBeUndefined();
+    expect(body.warnings.join(" ")).toContain("no está verificado para el parche 1.0");
+  });
+
+  it("POST /import/build exige declarar el parche activo", async () => {
+    const res = await postJson("/import/build", { content: titanBuildContent });
+    expect(res.status).toBe(400);
+    expect(await jsonOf(res)).toMatchObject({ error: "validacion-fallida" });
+  });
+
   it("POST /import/build con basura devuelve 400 con ApiError", async () => {
-    const res = await postJson("/import/build", { content: "basura total" });
+    const res = await postJson("/import/build", { content: "basura total", patch: "0.5.4f" });
     expect(res.status).toBe(400);
     const body = await jsonOf(res);
     expect(body.error).toBeTruthy();
@@ -298,11 +518,20 @@ describe("api (integración, app Express con db :memory:)", () => {
   });
 
   it("POST /import/item-text parsea texto del juego", async () => {
-    const res = await postJson("/import/item-text", { text: demoItemText });
+    const res = await postJson("/import/item-text", { text: demoItemText, patch: "0.5.4f" });
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.item.slot).toBe("weapon");
     expect(body.item.baseType).toBe("Varnished Crossbow");
+  });
+
+  it("POST /import/item-text no interpreta objetos con un parche sin revisar", async () => {
+    const missingPatch = await postJson("/import/item-text", { text: demoItemText });
+    expect(missingPatch.status).toBe(400);
+
+    const future = await postJson("/import/item-text", { text: demoItemText, patch: "1.0" });
+    expect(future.status).toBe(422);
+    expect(await jsonOf(future)).toMatchObject({ error: "parche-sin-revisar" });
   });
 
   it("POST /character + GET /character/:id: el personaje se recupera tras guardarlo", async () => {
@@ -340,6 +569,24 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(CharacterProfileSchema.safeParse(body.profile).success).toBe(true);
     expect(body.profile.characterClass).toBe("Mercenary");
     expect(body.profile.resistances.lightning).toBe(40);
+    expect(body.profile.id).toMatch(/^demo-[0-9a-f-]{36}$/);
+    expect(body.profile.items[0]).toMatchObject({
+      id: "demo-item-weapon",
+      craftingState: {
+        corrupted: false,
+        mirrored: false,
+        split: false,
+        unidentified: false,
+      },
+    });
+    expect(body.profile.items[0].modifiers.map((modifier: { affix?: string }) => modifier.affix)).toEqual([
+      "prefix",
+      "prefix",
+      "suffix",
+    ]);
+
+    const second = await jsonOf(await fetch(`${base}/character/demo`));
+    expect(second.profile.id).not.toBe(body.profile.id);
   });
 
   it("Character Journal persiste una única próxima acción y conserva el resultado", async () => {
@@ -540,6 +787,15 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(res.status).toBe(200);
     const body = CraftingKnowledgeResponseSchema.parse(await jsonOf(res));
 
+    expect(body.requestedPatch).toBe("0.5.4f");
+    expect(body.evidencePatch).toBeNull();
+    expect(body.coverage).toMatchObject({
+      id: "basic-crafting",
+      status: "limited",
+    });
+    expect(body.coverage.evidenceIds).toContain(
+      "poe2-observed-currency-actions-2026-08-22",
+    );
     expect(body.completeness).toBe("observed-only");
     expect(body.actions.map((action) => action.id)).toEqual([
       "transmutation",
@@ -553,8 +809,24 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.modPool).not.toHaveProperty("candidates");
   });
 
+  it("GET /crafting/knowledge exige parche y falla cerrado para 1.0", async () => {
+    const withoutPatch = await fetch(
+      `${base}/crafting/knowledge?itemClass=Ballestas&baseType=Ballesta%20barnizada`,
+    );
+    expect(withoutPatch.status).toBe(400);
+    expect(await jsonOf(withoutPatch)).toMatchObject({ error: "parche-requerido" });
+
+    const future = await fetch(
+      `${base}/crafting/knowledge?itemClass=Ballestas&baseType=Ballesta%20barnizada&patch=1.0`,
+    );
+    expect(future.status).toBe(422);
+    expect(await jsonOf(future)).toMatchObject({ error: "parche-sin-revisar" });
+  });
+
   it("GET /market/prices offline: fixtures degradados + primaryCurrency + rates (objeto con origen)", async () => {
-    const res = await fetch(`${base}/market/prices?names=Divine%20Orb,Cosa%20Inventada`);
+    const res = await fetch(
+      `${base}/market/prices?names=Divine%20Orb,Cosa%20Inventada&patch=0.5.4f`,
+    );
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.degraded).toBe(true);
@@ -572,8 +844,18 @@ describe("api (integración, app Express con db :memory:)", () => {
   });
 
   it("GET /market/prices sin names devuelve 400", async () => {
-    const res = await fetch(`${base}/market/prices`);
+    const res = await fetch(`${base}/market/prices?patch=0.5.4f`);
     expect(res.status).toBe(400);
+  });
+
+  it("GET /market/prices no mezcla precios con un parche sin revisar", async () => {
+    const missingPatch = await fetch(`${base}/market/prices?names=Divine%20Orb`);
+    expect(missingPatch.status).toBe(400);
+    expect(await jsonOf(missingPatch)).toMatchObject({ error: "parche-requerido" });
+
+    const future = await fetch(`${base}/market/prices?names=Divine%20Orb&patch=1.0`);
+    expect(future.status).toBe(422);
+    expect(await jsonOf(future)).toMatchObject({ error: "parche-sin-revisar" });
   });
 
   it("POST /recommendations devuelve hasta 3 recomendaciones + inputFingerprint", async () => {

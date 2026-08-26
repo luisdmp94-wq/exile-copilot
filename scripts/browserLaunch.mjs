@@ -71,11 +71,10 @@ export function removeSmokeTempDir(dir) {
 /**
  * Cómo arrancar una herramienta local (`vite`, `tsx`) desde un smoke.
  *
- * Por defecto `npx`, exactamente como hasta ahora. `SMOKE_NODE` permite indicar
- * un ejecutable de Node concreto cuando el entorno no tiene `npx` en el PATH:
- * en ese caso la herramienta se invoca por su ruta DENTRO de `node_modules`,
- * sin instalar ni descargar nada. No cambia el comportamiento del producto ni
- * lo que comprueba el smoke: solo quién lanza el proceso.
+ * Las herramientas se invocan por su ruta DENTRO de `node_modules`, usando el
+ * mismo Node que ejecuta el smoke (o `SMOKE_NODE` cuando se proporciona). Así
+ * la barrera no depende de que `npx` esté instalado o visible en el PATH y
+ * nunca intenta instalar ni descargar nada durante una comprobación.
  */
 const LOCAL_TOOL_ENTRYPOINTS = {
   vite: "node_modules/vite/bin/vite.js",
@@ -83,13 +82,22 @@ const LOCAL_TOOL_ENTRYPOINTS = {
 };
 
 export function toolCommand(tool, args) {
-  const node = process.env.SMOKE_NODE;
   const entry = LOCAL_TOOL_ENTRYPOINTS[tool];
-  if (node && entry) {
+  if (entry) {
+    const node = process.env.SMOKE_NODE ?? process.execPath;
     const abs = fileURLToPath(new URL(`../${entry}`, import.meta.url));
     return { command: node, args: [abs, ...args], shell: false };
   }
-  return { command: "npx", args: [tool, ...args], shell: true };
+  throw new Error(`herramienta local no registrada para smoke: ${tool}`);
+}
+
+/** Arranca exactamente el backend compilado que usa `npm start`. */
+export function productionServerCommand() {
+  return {
+    command: process.env.SMOKE_NODE ?? process.execPath,
+    args: [fileURLToPath(new URL("./start-production.mjs", import.meta.url))],
+    shell: false,
+  };
 }
 
 const HEADLESS_SHELL =

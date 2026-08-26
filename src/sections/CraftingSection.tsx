@@ -27,9 +27,14 @@ import type { JournalState } from "@/hooks/useJournal";
 import { SLOT_LABELS } from "@/lib/format";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
+import {
+  allowsPatchGuidance,
+  type PatchCompatibilityRecord,
+} from "@shared/patchCompatibility.js";
 
 interface CraftingSectionProps {
   profile: CharacterProfile | null;
+  patchCompatibility: PatchCompatibilityRecord | null;
   budget: Budget;
   goal: GoalKind;
   target?: BuildTarget;
@@ -50,11 +55,6 @@ interface CraftingSectionProps {
 
 type CraftingMode = "coach" | "academy" | "laboratory";
 
-/**
- * Elección de entrada al área de Crafting. Vive FUERA de `crafting-workspace`
- * para no añadir texto ni altura a la vista inicial del banco, que tiene sus
- * propios presupuestos medidos.
- */
 function CraftingModeChooser({
   mode,
   onSelect,
@@ -67,24 +67,25 @@ function CraftingModeChooser({
       id: "academy" as const,
       testId: "crafting-mode-academy",
       icon: GraduationCap,
-      title: "Quiero aprender crafting",
-      detail: "Empieza de cero: mira, decide y te corrijo.",
+      title: "Aprender crafting",
+      detail: "Lecciones y desafíos para entender cada etapa.",
     },
     {
       id: "coach" as const,
       testId: "crafting-mode-coach",
       icon: Hammer,
-      title: "Ayúdame con mi objeto",
-      detail: "Te digo qué hacer con una pieza tuya, paso a paso.",
+      title: "Ayuda en vivo",
+      detail: "Importa una pieza y te digo la siguiente acción legal.",
     },
     {
       id: "laboratory" as const,
       testId: "crafting-mode-laboratory",
       icon: FlaskConical,
-      title: "Planear un craft",
-      detail: "Dime el resultado y te guío en cuatro pasos.",
+      title: "Taller avanzado",
+      detail: "Dirige un proyecto con fases, salidas y recuperación.",
     },
   ];
+
   return (
     <div
       className="grid min-w-0 gap-2 md:grid-cols-3"
@@ -104,9 +105,9 @@ function CraftingModeChooser({
             data-active={active ? "true" : "false"}
             aria-pressed={active}
             onClick={() => onSelect(option.id)}
-            className={`flex min-h-16 min-w-0 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
+            className={`crafting-mode-card flex min-h-16 min-w-0 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
               active
-                ? "border-primary/70 bg-primary/[0.11] shadow-[inset_3px_0_0_hsl(var(--primary))]"
+                ? "border-primary/70 bg-primary/[0.11] shadow-[inset_3px_0_0_hsl(var(--primary))] data-[active='true']:ring-2 data-[active='true']:ring-primary/55"
                 : "border-border bg-muted/10 hover:-translate-y-px hover:border-primary/40"
             }`}
           >
@@ -177,6 +178,7 @@ function AdvancedToolsToggle({
 /** Tercera área principal: selección, diagnóstico, decisión y resultado. */
 export function CraftingSection({
   profile,
+  patchCompatibility,
   budget,
   goal,
   target,
@@ -192,11 +194,6 @@ export function CraftingSection({
   onSelectedItemChange,
 }: CraftingSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  /**
-   * Dos recorridos dentro de la MISMA área. El banco es el modo por defecto y
-   * nunca se desmonta: al volver de la Academia siguen intactos la pieza
-   * elegida, la sesión abierta, las protecciones y los crafts pausados.
-   */
   const [mode, setMode] = useState<CraftingMode>("coach");
   /** El banco técnico existe, pero no compite con la recomendación principal. */
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -222,6 +219,7 @@ export function CraftingSection({
     laboratoryFallback ??
     craftableItems[0] ??
     null;
+  const selectedItemState = selectedItem ? diagnoseCraftingItem(selectedItem) : null;
   const selectItem = (itemId: string) => {
     setSelectedItemId(itemId);
     onSelectedItemChange?.(itemId);
@@ -243,10 +241,6 @@ export function CraftingSection({
     });
   };
 
-  const chooser = (
-    <CraftingModeChooser mode={mode} onSelect={setMode} />
-  );
-
   /**
    * Una sesión de craft ya en marcha vive dentro del banco. Si el banco
    * estuviera plegado quedaría inalcanzable, así que se despliega solo en ese
@@ -257,6 +251,7 @@ export function CraftingSection({
   const coach = (
     <CraftingCoach
       profile={profile}
+      patch={patchCompatibility?.patchId ?? profile?.patch ?? "Desconocido"}
       budget={budget}
       goal={goal}
       target={target}
@@ -265,9 +260,39 @@ export function CraftingSection({
       onSelectItem={selectItem}
       onPasteItem={onEditExpediente}
       onOpenAdvanced={() => setAdvancedOpen(true)}
+      showInitialRepairBanner={!advancedVisible}
       onMentorContext={onMentorContext}
     />
   );
+
+  const chooser = <CraftingModeChooser mode={mode} onSelect={setMode} />;
+
+  if (patchCompatibility && !allowsPatchGuidance(patchCompatibility)) {
+    return (
+      <div className="flex min-w-0 flex-col gap-5">
+        {chooser}
+        <section
+          className="superficie-panel border-amber-500/40 p-5 sm:p-6"
+          data-testid="crafting-patch-review-gate"
+          role="status"
+          aria-labelledby="crafting-patch-review-title"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300/85">
+            Crafting detenido por seguridad
+          </p>
+          <h2 id="crafting-patch-review-title" className="dossier-title mt-1 text-2xl font-semibold">
+            El parche {patchCompatibility.patchId} necesita revisión
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            {patchCompatibility.summary} No recomendaré monedas ni rutas hasta contrastar de nuevo las mecánicas y los datos de esta versión.
+          </p>
+          <p className="mt-3 text-xs text-amber-100/85">
+            Puedes seguir importando tu personaje y tus objetos; lo que queda pausado es el consejo dependiente del parche.
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   if (!profile) {
     return (
@@ -277,9 +302,12 @@ export function CraftingSection({
           <CraftingAcademy onPracticeWithMyItem={() => setMode("coach")} />
         ) : mode === "laboratory" ? (
           <section className="superficie-panel p-6" data-testid="crafting-laboratory-needs-profile">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+              Flujo avanzado bloqueado
+            </p>
             <h2 className="dossier-title text-2xl font-semibold">Primero necesito una pieza real</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Pega el texto avanzado del objeto para poder leer sus afijos, grados y huecos sin suponer nada.
+              Pega el texto de una pieza para leer su estructura real y planear con precisión.
             </p>
             <Button className="mt-4" type="button" onClick={onEditExpediente}>
               Pegar un objeto del juego
@@ -322,11 +350,11 @@ export function CraftingSection({
           </span>
           <div>
             <h2 id="crafting-workspace-title" className="dossier-title text-2xl font-semibold">
-              {mode === "laboratory" ? "Plan del craft" : "Banco de crafting"}
+              {mode === "laboratory" ? "Taller avanzado" : "Banco de crafting"}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {mode === "laboratory"
-                ? "Una decisión cada vez, sin perder el control."
+                ? "Objetivo persistente · ruta · recuperación · parada."
                 : "Elige · decide · aplica · compara."}
             </p>
           </div>
@@ -426,7 +454,7 @@ export function CraftingSection({
         <section className="superficie-panel p-6" data-testid="crafting-no-items">
           <h3 className="text-xl font-semibold">No hay piezas analizables</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Pega el texto avanzado de un objeto normal, mágico o raro. Los únicos y las monedas no entran en este flujo básico.
+            Pega un objeto normal, mágico o raro para entrar en modo IA. Luego elige acción y objetivo.
           </p>
           <Button className="mt-4" type="button" variant="outline" onClick={onEditExpediente}>
             Añadir un objeto
@@ -458,7 +486,7 @@ export function CraftingSection({
                       aria-pressed={active}
                       aria-label={`${item.name}, ${item.baseType}, ${SLOT_LABELS[item.slot]}. ${diagnosis.label}`}
                       title={`${item.baseType} · ${diagnosis.label}`}
-                      className={`flex min-h-11 w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-all ${
+                      className={`crafting-mode-card flex min-h-11 w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-all ${
                         active
                           ? "border-primary/70 bg-primary/[0.11] shadow-[inset_3px_0_0_hsl(var(--primary))]"
                           : "border-border bg-muted/10 hover:-translate-y-px hover:border-primary/35 lg:hover:translate-x-0.5 lg:hover:translate-y-0"
@@ -498,30 +526,22 @@ export function CraftingSection({
                   </p>
                   </div>
                 </div>
-                {(() => {
-                  const diagnosis = diagnoseCraftingItem(selectedItem);
-                  const ready = diagnosis.state === "complete";
-                  return (
-                    <Badge
-                      variant="outline"
-                      aria-label={`Estado de la pieza: ${diagnosis.label}`}
-                      className={
-                        ready
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                          : diagnosis.state === "blocked"
-                            ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
-                            : "border-amber-500/40 bg-amber-500/10 text-amber-300"
-                      }
-                    >
-                      <span aria-hidden="true">●</span> {ready ? "Lista para trabajar" : diagnosis.label}
-                    </Badge>
-                  );
-                })()}
+                <div className="flex min-w-0 flex-wrap gap-2">
+                  <span className="gamer-chip gamer-chip--neutral">Ranura: {SLOT_LABELS[selectedItem.slot]}</span>
+                  <span
+                    className={`gamer-chip ${selectedItemState?.state === "complete" ? "gamer-chip--ok" : "gamer-chip--warn"}`}
+                  >
+                    <span aria-hidden="true">●</span> {selectedItemState ? selectedItemState.label : "Sin diagnosticar"}
+                  </span>
+                </div>
               </div>
               <CraftingActionPlanner
-                key={selectedItem.id}
+                key={`${selectedItem.id}:${mode}`}
                 item={selectedItem}
+                profile={profile}
+                target={target}
                 profileGoal={goal}
+                budget={budget}
                 patch={profile.patch}
                 onUpdateItem={onEditExpediente}
                 showStatusLabel={false}
@@ -531,6 +551,9 @@ export function CraftingSection({
                 onStarted={focusStartedCraft}
                 onMentorContext={onMentorContext}
                 experience={mode === "laboratory" ? "laboratory" : "bank"}
+                candidateItems={craftableItems}
+                onSelectCandidate={selectItem}
+                onAddCandidate={onEditExpediente}
               />
             </section>
           )}

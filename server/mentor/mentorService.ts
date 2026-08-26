@@ -17,7 +17,10 @@ import {
   type MentorIntent,
   type MentorNextAction,
 } from "../../shared/mentorQuery.js";
-import { classifyMentorQuestion } from "../../shared/mentorIntent.js";
+import {
+  classifyMentorQuestion,
+  isMentorIdentityQuestion,
+} from "../../shared/mentorIntent.js";
 import {
   computeInputFingerprint,
   generateRecommendations,
@@ -31,7 +34,18 @@ import {
   type MentorAiDecision,
   type MentorDecisionSelector,
 } from "./mentorAi.js";
-import type { ContextEnvelope } from "../../shared/mentorContext.js";
+import type {
+  ContextEnvelope,
+  MentorCraftingState,
+} from "../../shared/mentorContext.js";
+import { COACH_FOCUS_LABELS } from "../../shared/craftingFocus.js";
+import { COACH_ROLL_MINIMUM_LABELS } from "../../shared/craftingCoach.js";
+import { OBSERVED_CRAFTING_ACTIONS } from "../../shared/craftingActions.js";
+import {
+  craftingBuildIntentLabel,
+  deriveCraftingBuildIntent,
+} from "../../shared/craftingBuildIntent.js";
+import { CRAFTING_GOAL_LABELS } from "../../shared/craftingGoal.js";
 
 /**
  * Mentor conversacional.
@@ -161,10 +175,16 @@ function conversationFallback(
   normalizedQuestion: string,
   fallback?: { model: string; reason: string },
 ): MentorAnswer {
+  const identity = isMentorIdentityQuestion(normalizedQuestion);
   const thanks = /\bgracias\b/.test(normalizedQuestion);
-  const answer = thanks
-    ? "De nada. Cuando quieras, dime qué pieza o parte del personaje quieres revisar."
-    : "¡Hola! Puedo revisar tu personaje, explicar tu prioridad actual o ayudarte con la pieza que tengas abierta. ¿Qué quieres trabajar primero?";
+  const answer = identity
+    ? "Soy el Mentor de Exile Copilot, tu copiloto para PoE2. Uso el personaje que has " +
+      "importado, el objeto que estás revisando, tu objetivo, presupuesto y diario para " +
+      "ayudarte a decidir el siguiente paso. No juego ni gasto monedas por ti y, si me " +
+      "faltan datos, te lo digo en vez de inventarlos."
+    : thanks
+      ? "De nada. Cuando quieras, dime qué pieza o parte del personaje quieres revisar."
+      : "¡Hola! Puedo revisar tu personaje, explicar tu prioridad actual o ayudarte con la pieza que tengas abierta. ¿Qué quieres trabajar primero?";
   return MentorAnswerSchema.parse({
     intent: "conversation",
     normalizedQuestion,
@@ -230,6 +250,109 @@ function answerFromRecommendation(
     sources: recommendation.sources,
     confidence: recommendation.confidence,
     unverified: recommendation.unverified.map((text) => publicText(text, [recommendation])),
+    memoryImpact: result.memoryImpact,
+    inputFingerprint: result.inputFingerprint,
+    unsupported: null,
+    generatedAt: result.generatedAt,
+    engineVersion: result.engineVersion,
+    ...answerMetadata,
+  });
+}
+
+function craftingContextAnswer(
+  state: MentorCraftingState,
+  normalizedQuestion: string,
+  result: EngineResult,
+  answerMetadata: AnswerMetadata,
+): MentorAnswer {
+  const canonical = state.mode === "coach"
+    ? (() => {
+        const focus = state.focus === null
+          ? "un objetivo todavía sin clasificar"
+          : COACH_FOCUS_LABELS[state.focus];
+        const roll = COACH_ROLL_MINIMUM_LABELS[state.rollMinimum];
+        const steps = `${state.attemptLimit} ${state.attemptLimit === 1 ? "paso" : "pasos"}`;
+        const progress = state.phase === "planning"
+          ? `Has autorizado como máximo ${steps}.`
+          : `El último resultado corresponde al paso ${state.attemptCurrent} de ${state.attemptLimit}.`;
+        const decision = state.decision === "continue"
+          ? "El contrato todavía permite continuar, pero solo hasta su límite."
+          : state.decision === "stop"
+            ? "El contrato indica detener el gasto."
+            : state.decision === "restart"
+              ? "El contrato indica replantear el objetivo o cambiar de base."
+              : state.decision === "unclear"
+                ? "El resultado aún no es suficientemente claro para decidir otro gasto."
+                : "Todavía no se ha registrado ningún resultado.";
+        const action = state.nextAction === null
+          ? "No hay otra moneda autorizada por el guía en este momento."
+          : `La siguiente acción estructurada del guía es ${
+              OBSERVED_CRAFTING_ACTIONS.find((candidate) => candidate.id === state.nextAction)
+                ?.label ?? "la moneda ya mostrada"
+            }.`;
+        return (
+          `Tu contrato activo busca ${focus} y exige ${roll}. ${progress} ${decision} ${action} ` +
+          "El Mentor puede explicar esta decisión, pero no sustituirla por una receta inventada."
+        );
+      })()
+    : (() => {
+        const goal = CRAFTING_GOAL_LABELS[state.goalCategory];
+        const buildContext = state.buildIntent === null
+          ? "El encaje con el personaje todavía no está comprobado."
+          : state.buildIntent.alignment === "aligned"
+            ? `El objetivo está alineado con ${craftingBuildIntentLabel(state.buildIntent)}, aunque eso no demuestra que esta base pueda recibirlo.`
+            : state.buildIntent.alignment === "choice-required"
+              ? `El contexto del personaje apunta a ${craftingBuildIntentLabel(state.buildIntent)}; elige cuál trabajar antes de gastar.`
+              : state.buildIntent.alignment === "conflict"
+                ? `Revisa el encaje: el contexto apunta a ${craftingBuildIntentLabel(state.buildIntent)}, no al objetivo actual.`
+                : "El expediente no demuestra una prioridad de crafting para esta pieza.";
+        const protection = state.protectedModifierCount === 0
+          ? "No has marcado ninguna línea como intocable."
+          : `Has marcado ${state.protectedModifierCount} ${
+              state.protectedModifierCount === 1 ? "línea intocable" : "líneas intocables"
+            }.`;
+        const stop = state.stopCriteria.length === 0
+          ? "Todavía falta una condición observable de parada."
+          : `La parada contiene ${state.stopCriteria.length} ${
+              state.stopCriteria.length === 1 ? "condición observable" : "condiciones observables"
+            }.`;
+        const action = state.action === null
+          ? state.tool === "currency"
+            ? "Todavía no has elegido una moneda compatible."
+            : `Has abierto ${state.tool === "essence" ? "Essences" : "Alloys"}, pero su preflight todavía se completa dentro de ese panel.`
+          : `La moneda preparada es ${
+              OBSERVED_CRAFTING_ACTIONS.find((candidate) => candidate.id === state.action)?.label ??
+              "la moneda mostrada"
+            } en variante ${
+              state.variant === "greater"
+                ? "superior"
+                : state.variant === "perfect"
+                  ? "perfecta"
+                  : "base"
+            }.`;
+        const status = state.stopAlreadyReached
+          ? "La pieza ya cumple la parada: no autorices otro gasto para perseguir el mismo objetivo."
+          : state.ready
+            ? "Contrato y preflight completos: puedes preparar la sesión, sin asumir que el resultado esté garantizado."
+            : state.preflightConfirmed
+              ? "Has confirmado el riesgo, pero el contrato aún no reúne todo lo necesario para preparar la sesión."
+              : "El gasto sigue bloqueado hasta completar el contrato y confirmar el preflight.";
+        return (
+          `Contrato avanzado para ${goal}. ${buildContext} ${protection} ${stop} ${action} ${status} ` +
+          "El Mentor no añadirá una receta, un peso ni una probabilidad que el banco no haya demostrado."
+        );
+      })();
+
+  return MentorAnswerSchema.parse({
+    intent: "explain_priority",
+    normalizedQuestion,
+    answer: canonical,
+    nextAction: null,
+    usedRecommendationIds: [],
+    relatedItemIds: [],
+    sources: [],
+    confidence: null,
+    unverified: [],
     memoryImpact: result.memoryImpact,
     inputFingerprint: result.inputFingerprint,
     unsupported: null,
@@ -333,6 +456,40 @@ function sanitizeEnvelope(
     }
   }
 
+  const craftingState =
+    envelope.activeArea === "crafting" && envelope.craftingState !== null
+      ? envelope.craftingState.mode === "coach"
+        ? {
+            ...envelope.craftingState,
+            attemptCurrent: Math.min(
+              envelope.craftingState.attemptCurrent,
+              envelope.craftingState.attemptLimit,
+            ),
+            decision:
+              envelope.craftingState.phase === "result"
+                ? envelope.craftingState.decision
+                : null,
+          }
+        : {
+            ...envelope.craftingState,
+            // La relación con la build se vuelve a derivar desde el perfil y
+            // el objetivo canónicos; nunca se confía en el resumen del cliente.
+            buildIntent: deriveCraftingBuildIntent({
+              profile: options.profile,
+              target: options.target,
+              profileGoal: options.goal.kind,
+              goalCategory: envelope.craftingState.goalCategory,
+            }),
+            // La interfaz no puede declarar el contrato listo si la parada no
+            // existe, ya se cumple o falta la confirmación previa.
+            ready:
+              envelope.craftingState.ready &&
+              envelope.craftingState.stopCriteria.length > 0 &&
+              !envelope.craftingState.stopAlreadyReached &&
+              envelope.craftingState.preflightConfirmed,
+          }
+      : null;
+
   return {
     version: "1.0",
     activeArea: envelope.activeArea,
@@ -342,7 +499,9 @@ function sanitizeEnvelope(
     },
     targetBuild: options.target ? options.target.name.slice(0, 200) : null,
     selectedItem,
-    craftingState: null, // No authoritative state available
+    // Preferencias y progreso declarados por el jugador. La forma está
+    // completamente acotada por enums; no se aceptan mecánicas ni texto libre.
+    craftingState,
     activeRecommendationId,
     market: {
       budgetAmount: options.budget.amount,
@@ -456,9 +615,19 @@ function validateDecision(
   recommendations: Recommendation[],
   missingById: Map<string, MissingFact>,
   heuristicIntent: MentorIntent,
+  context: MentorAiContext,
 ): void {
   const groundedRecommendationIds = decision.groundedRecommendationIds ?? [];
   const groundedMissingFactIds = decision.groundedMissingFactIds ?? [];
+  const hasCraftingContract =
+    heuristicIntent === "explain_priority" &&
+    context.envelope?.activeArea === "crafting" &&
+    context.envelope.craftingState !== null;
+  if (hasCraftingContract && decision.kind !== "explain_context") {
+    throw new MentorAiError(
+      "La IA ignoró el contrato de crafting activo; se usaron las reglas.",
+    );
+  }
   if (
     groundedRecommendationIds.some(
       (id) => !recommendations.some((candidate) => candidate.id === id),
@@ -475,6 +644,20 @@ function validateDecision(
       !decision.message
     ) {
       throw new MentorAiError("La conversación de IA no pasó la validación; se usaron las reglas.");
+    }
+    return;
+  }
+  if (decision.kind === "explain_context") {
+    if (
+      !hasCraftingContract ||
+      decision.recommendationId !== null ||
+      decision.missingFactId !== null ||
+      groundedRecommendationIds.length > 0 ||
+      groundedMissingFactIds.length > 0
+    ) {
+      throw new MentorAiError(
+        "La explicación contextual de IA no respetó el contrato; se usaron las reglas.",
+      );
     }
     return;
   }
@@ -549,6 +732,7 @@ function meaningfulContextText(context: MentorAiContext): string {
           character: context.envelope.character,
           targetBuild: context.envelope.targetBuild,
           selectedItem: context.envelope.selectedItem?.name ?? null,
+          craftingState: context.envelope.craftingState,
           market: context.envelope.market,
           sessionActive: context.envelope.sessionActive,
         }
@@ -680,6 +864,13 @@ async function buildAnswer(
   const { normalizedQuestion } = classified;
   const selector = deps.selector ?? null;
 
+  // La identidad del producto es fija y no depende del personaje ni de un
+  // proveedor de IA. Así evitamos que una presentación básica se rechace o
+  // adquiera capacidades inventadas.
+  if (intent === "conversation" && isMentorIdentityQuestion(normalizedQuestion)) {
+    return conversationFallback(options, normalizedQuestion);
+  }
+
   // La conversación social nunca se convierte en una recomendación por
   // ausencia de IA. Con IA sí recibe el contexto canónico para responder.
   if (intent === "conversation" && selector === null) {
@@ -712,10 +903,29 @@ async function buildAnswer(
     return recalledAnswer(options, normalizedQuestion, intent, result);
   }
 
+  const sanitizedEnvelope = sanitizeEnvelope(
+    options.contextEnvelope,
+    options,
+    result.recommendations,
+  );
+  const craftingState =
+    intent === "explain_priority" && sanitizedEnvelope?.activeArea === "crafting"
+      ? sanitizedEnvelope.craftingState
+      : null;
+  if (craftingState !== null && selector === null) {
+    return craftingContextAnswer(
+      craftingState,
+      normalizedQuestion,
+      result,
+      metadata(),
+    );
+  }
+
   const top = result.recommendations[0];
   if (
     top === undefined &&
-    (selector === null || intent === "next_improvement" || intent === "explain_priority")
+    (selector === null || intent === "next_improvement" || intent === "explain_priority") &&
+    !(selector !== null && craftingState !== null)
   ) {
     return MentorAnswerSchema.parse({
       intent: intent === "unsupported" ? "next_improvement" : intent,
@@ -757,7 +967,17 @@ async function buildAnswer(
   const { context, missingById } = buildAiContext(options, intent, result.recommendations);
   try {
     const decision = await selector.select(context, safetyIdentifier(options.profile.id));
-    validateDecision(decision, result.recommendations, missingById, intent);
+    validateDecision(decision, result.recommendations, missingById, intent, context);
+
+    if (decision.kind === "explain_context") {
+      return craftingContextAnswer(
+        context.envelope!.craftingState!,
+        normalizedQuestion,
+        result,
+        metadata("ai", selector.name),
+      );
+    }
+
     const copy = generatedCopy(decision, context);
 
     if (decision.kind === "conversation") {
@@ -835,6 +1055,14 @@ async function buildAnswer(
       error instanceof MentorAiError
         ? error.safeReason
         : "La IA no pudo decidir con seguridad; se usaron las reglas.";
+    if (craftingState !== null) {
+      return craftingContextAnswer(
+        craftingState,
+        normalizedQuestion,
+        result,
+        metadata("rules_fallback", selector.name, reason),
+      );
+    }
     if (intent === "conversation") {
       return conversationFallback(options, normalizedQuestion, { model: selector.name, reason });
     }

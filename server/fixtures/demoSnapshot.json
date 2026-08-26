@@ -23,10 +23,11 @@
       "quality": 0,
       "requirements": { "level": 68, "str": 90, "dex": 210 },
       "modifiers": [
-        { "id": "demo-mod-w1", "text": "28% increased Physical Damage", "kind": "explicit", "values": [28], "verified": false },
-        { "id": "demo-mod-w2", "text": "Adds 12 to 24 Physical Damage", "kind": "explicit", "values": [12, 24], "verified": false },
-        { "id": "demo-mod-w3", "text": "+98 to Accuracy Rating", "kind": "explicit", "values": [98], "verified": false }
+        { "id": "demo-mod-w1", "text": "28% increased Physical Damage", "kind": "explicit", "values": [28], "verified": false, "affix": "prefix", "tags": ["Damage", "Physical", "Attack"] },
+        { "id": "demo-mod-w2", "text": "Adds 12 to 24 Physical Damage", "kind": "explicit", "values": [12, 24], "verified": false, "affix": "prefix", "tags": ["Damage", "Physical", "Attack"] },
+        { "id": "demo-mod-w3", "text": "+98 to Accuracy Rating", "kind": "explicit", "values": [98], "verified": false, "affix": "suffix", "tags": ["Attack"] }
       ],
+      "craftingState": { "corrupted": false, "mirrored": false, "split": false, "unidentified": false },
       "sources": [
         { "kind": "user", "label": "Build de demostración", "retrievedAt": "2026-08-19T09:00:00.000Z" }
       ]

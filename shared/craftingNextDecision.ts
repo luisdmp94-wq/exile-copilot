@@ -89,19 +89,6 @@ export function decideCraftingNextStep(input: {
     };
   }
 
-  if (successAssessment?.status === "fulfilled") {
-    return {
-      kind: "stop",
-      tone: "positive",
-      title: "Objetivo cumplido: para y conserva",
-      summary:
-        "El resultado cumple todas las condiciones observables que elegiste antes de gastar.",
-      nextAction: "Guarda la pieza y pruébala en el personaje antes de arriesgar lo conseguido.",
-      observedOpenSlots,
-      resultGoalSignal,
-    };
-  }
-
   if (addedGoalSignal.status === "direct" && addedRollQuality?.band === "low") {
     return {
       kind: "stop",
@@ -111,6 +98,20 @@ export function decideCraftingNextStep(input: {
         "El afijo apunta al objetivo, pero sus valores están en el tramo bajo del rango que muestra el juego.",
       nextAction:
         "No encadenes otra moneda todavía: decide si esta tirada cumple tu condición de parada.",
+      observedOpenSlots,
+      resultGoalSignal,
+    };
+  }
+
+  if (successAssessment?.status === "fulfilled") {
+    return {
+      kind: "stop",
+      tone: "positive",
+      title: "Punto de parada alcanzado",
+      summary:
+        "El resultado cumple las condiciones observables que elegiste antes de gastar.",
+      nextAction:
+        "Conserva este resultado y reevalúa la pieza en el personaje antes de iniciar otro objetivo.",
       observedOpenSlots,
       resultGoalSignal,
     };

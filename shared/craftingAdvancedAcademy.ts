@@ -7,7 +7,7 @@
  * No contiene recetas, pools, pesos, probabilidades ni precios.
  */
 
-export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-24";
+export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-26";
 
 export const CRAFTING_ADVANCED_ACADEMY_EVIDENCE =
   "Basado en los contratos locales de diagnóstico, rutas y condiciones de salida. Los casos son sintéticos y no representan un drop ni una receta.";
@@ -17,6 +17,7 @@ export type AdvancedAcademyDecision =
   | "define-objective"
   | "define-stop"
   | "stop"
+  | "change-base"
   | "request-tooltip"
   | "transmutation"
   | "augmentation"
@@ -40,6 +41,8 @@ export interface AdvancedAcademyFacts {
   objectiveDefined: boolean;
   stopDefined: boolean;
   stopFulfilled: boolean;
+  /** Límite de pérdida o intentos declarado por el propio jugador. */
+  abandonConditionFulfilled?: boolean;
   protectedLineCount: number;
   routes: AdvancedAcademyRouteFact[];
 }
@@ -81,6 +84,7 @@ export function resolveAdvancedAcademyDecision(
   if (!facts.objectiveDefined) return "define-objective";
   if (!facts.stopDefined) return "define-stop";
   if (facts.stopFulfilled) return "stop";
+  if (facts.abandonConditionFulfilled) return "change-base";
 
   const unverifiedReplacement = facts.routes.some(
     (route) => route.risk === "replacement" && !route.tooltipVerified,
@@ -360,6 +364,62 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     explanation:
       "Con dos rutas compatibles y sin una ventaja demostrable, el mentor debe exponer qué conserva y qué arriesga cada una, no fabricar un ranking.",
     lesson: "Una respuesta avanzada también puede ser: no existe información suficiente para declarar una ruta superior.",
+  },
+  {
+    id: "avanzado-retirar-base",
+    order: 7,
+    title: "Retirar una base a tiempo",
+    skill: "Respetar también la salida de fracaso",
+    situation:
+      "Ya registraste el segundo resultado. La línea objetivo no apareció y has alcanzado el límite de intentos que escribiste antes de empezar.",
+    contract: {
+      objective: "Conseguir la línea objetivo conservando la principal",
+      protect: ["Conservar la línea principal"],
+      stop: "Máximo dos intentos; si ambos fallan, cambiar de base",
+    },
+    facts: {
+      itemDataComplete: true,
+      objectiveDefined: true,
+      stopDefined: true,
+      stopFulfilled: false,
+      abandonConditionFulfilled: true,
+      protectedLineCount: 1,
+      routes: [
+        {
+          id: "essence",
+          label: "Otro intento verificado",
+          legal: true,
+          risk: "replacement",
+          tooltipVerified: true,
+          consequence: "La acción existe, pero quedaría fuera del límite declarado.",
+        },
+      ],
+    },
+    question: "¿Qué decisión respeta tu contrato?",
+    options: [
+      option(
+        "av-cambiar-base",
+        "change-base",
+        "Cerrar este craft y cambiar de base",
+        "El límite acordado ya se alcanzó",
+      ),
+      option(
+        "av-intento-extra",
+        "compare-risks",
+        "Conceder un intento extra",
+        "La acción todavía es compatible",
+      ),
+      option(
+        "av-borrar-limite",
+        "define-stop",
+        "Borrar la condición de parada",
+        "Así el craft puede continuar",
+      ),
+    ],
+    expectedDecision: "change-base",
+    explanation:
+      "Una acción compatible no invalida el límite que elegiste. Cierra este intento y cambia de base; ampliar el límite después de fallar elimina la protección que debía darte.",
+    lesson: "El contrato debe decir cuándo conservar un éxito y cuándo dejar de invertir en una base.",
   },
 ];
 

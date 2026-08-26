@@ -74,8 +74,16 @@ describe("mentor contextual", () => {
       directionLabel: "el daño",
       nextStepTitle: "Orbe exaltado",
       stepKind: "use-currency",
+      focus: "physical",
+      rollMinimum: "middle",
+      rollMinimumLabel: "tirada media o alta",
+      attemptLimit: 2,
+      nextAction: "exalted",
       protectedLineCount: 2,
       unresolvedProtectionCount: 1,
+      baseStatus: "controlled-attempt",
+      baseVerdictTitle: "Solo merece un intento controlado",
+      baseVerdictSummary: "La moneda es legal, pero no dirige el resultado.",
     });
 
     expect(cue.title).toContain("Núcleo de fénix");
@@ -83,8 +91,20 @@ describe("mentor contextual", () => {
     expect(cue.message).toContain("más daño físico");
     expect(cue.message).toContain("2 líneas existentes");
     expect(cue.message).toContain("1 protección sin vincular");
+    expect(cue.message).toContain("tirada media o alta");
+    expect(cue.message).toContain("2 pasos");
     expect(cue.ask?.question).toContain("Núcleo de fénix");
     expect(cue.ask?.question).toContain("Orbe exaltado");
+    expect(cue.ask?.craftingState).toEqual({
+      mode: "coach",
+      focus: "physical",
+      rollMinimum: "middle",
+      attemptCurrent: 0,
+      attemptLimit: 2,
+      phase: "planning",
+      decision: null,
+      nextAction: "exalted",
+    });
   });
 
   it("si faltan datos no habla de gastar ni de aleatoriedad", () => {
@@ -95,11 +115,38 @@ describe("mentor contextual", () => {
       directionLabel: "el daño",
       nextStepTitle: "Me falta ver bien la pieza",
       stepKind: "needs-data",
+      focus: "physical",
+      rollMinimum: "middle",
+      rollMinimumLabel: "tirada media o alta",
+      attemptLimit: 1,
+      nextAction: null,
+      baseStatus: "needs-data",
+      baseVerdictTitle: "Aún no puedo juzgar esta base",
+      baseVerdictSummary: "Falta el texto avanzado completo.",
     });
 
     expect(cue.message).toContain("Antes de gastar");
     expect(cue.message).toContain("Completa ese dato");
     expect(cue.message).not.toMatch(/aleatoriedad|decidir si gastas/i);
+  });
+
+  it("reacciona al cambiar la tirada mínima y el límite de la base", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachContract",
+      itemName: "Núcleo de fénix",
+      playerGoal: "quiero más daño físico",
+      focus: "physical",
+      focusLabel: "daño físico",
+      rollMinimum: "high",
+      rollMinimumLabel: "tirada alta",
+      attemptLimit: 2,
+      nextAction: "regal",
+    });
+
+    expect(cue.title).toBe("daño físico · tirada alta");
+    expect(cue.message).toContain("2 pasos");
+    expect(cue.message).toContain("no como probabilidad");
+    expect(cue.ask?.question).toContain("Núcleo de fénix");
   });
 
   it("tras pegar el resultado conserva el objetivo y la próxima decisión", () => {
@@ -109,13 +156,69 @@ describe("mentor contextual", () => {
       playerGoal: "quiero más daño físico",
       headline: "Ha aparecido un modificador nuevo",
       verdict: "continue",
+      decisionKind: "continue",
+      verdictText: "El paso no cumple el objetivo, pero queda margen.",
       nextStepTitle: "Orbe exaltado",
+      focus: "physical",
+      rollMinimum: "middle",
+      rollMinimumLabel: "tirada media o alta",
+      attemptCurrent: 1,
+      attemptLimit: 2,
+      attemptsRemaining: 1,
+      nextAction: "exalted",
     });
 
     expect(cue.source).toBe("engine");
     expect(cue.message).toContain("Orbe exaltado");
     expect(cue.message).toContain("más daño físico");
-    expect(cue.ask?.question).toContain("continuar o parar");
+    expect(cue.message).toContain("Paso 1 de 2");
+    expect(cue.message).toContain("Queda 1 paso");
+    expect(cue.ask?.question).toContain("continuar, parar o cambiar de base");
+  });
+
+  it("resume el contrato avanzado completo sin transportar el texto libre del afijo", () => {
+    const state = {
+      mode: "advanced" as const,
+      goalCategory: "damage" as const,
+      buildIntent: {
+        source: "target" as const,
+        alignment: "aligned" as const,
+        focuses: ["physical" as const],
+        suggestedCategories: ["damage" as const],
+      },
+      protectedModifierCount: 2,
+      stopCriteria: [
+        { kind: "exact-modifier-text" as const, maximumTier: 6 },
+      ],
+      tool: "currency" as const,
+      action: "exalted" as const,
+      variant: "greater" as const,
+      preflightConfirmed: true,
+      stopAlreadyReached: false,
+      ready: true,
+      projectPhase: "finishing" as const,
+      baseDecision: "continue" as const,
+      attemptCount: 2,
+      latestBranch: "salvage" as const,
+    };
+    const cue = contextualMentorCue({
+      type: "craftingAdvancedPlan",
+      itemName: "Doom Song",
+      state,
+    });
+
+    expect(cue.title).toBe("Daño · Doom Song");
+    expect(cue.message).toContain("encaje alineado con daño físico");
+    expect(cue.message).toContain("2 líneas protegidas");
+    expect(cue.message).toContain("1 condición de parada");
+    expect(cue.message).toContain("Orbe exaltado");
+    expect(cue.message).toContain("preflight están completos");
+    expect(cue.message).toContain("Fase: cierre del craft");
+    expect(cue.message).toContain("2 intentos registrados");
+    expect(cue.message).toContain("resultado aprovechable");
+    expect(cue.message).toContain("la base puede continuar");
+    expect(cue.ask?.craftingState).toEqual(state);
+    expect(JSON.stringify(cue.ask?.craftingState)).not.toContain("Daño físico aumentado");
   });
 
   it("mantiene la honestidad cuando el mercado está degradado", () => {
@@ -164,6 +267,25 @@ describe("mentor contextual", () => {
         directionLabel: "el daño",
         nextStepTitle: "Orbe exaltado",
         stepKind: "use-currency",
+        focus: "physical",
+        rollMinimum: "middle",
+        rollMinimumLabel: "tirada media o alta",
+        attemptLimit: 1,
+        nextAction: "exalted",
+        baseStatus: "controlled-attempt",
+        baseVerdictTitle: "Solo merece un intento controlado",
+        baseVerdictSummary: "La moneda es legal, pero no dirige el resultado.",
+      },
+      {
+        type: "craftingCoachContract",
+        itemName: "Doom Song",
+        playerGoal: "quiero más daño",
+        focus: "physical",
+        focusLabel: "daño físico",
+        rollMinimum: "high",
+        rollMinimumLabel: "tirada alta",
+        attemptLimit: 2,
+        nextAction: "exalted",
       },
       {
         type: "craftingCoachResult",
@@ -171,7 +293,16 @@ describe("mentor contextual", () => {
         playerGoal: "quiero más daño",
         headline: "Ha aparecido un modificador nuevo",
         verdict: "continue",
+        decisionKind: "continue",
+        verdictText: "Queda un paso dentro del límite.",
         nextStepTitle: "Orbe exaltado",
+        focus: "physical",
+        rollMinimum: "middle",
+        rollMinimumLabel: "tirada media o alta",
+        attemptCurrent: 1,
+        attemptLimit: 2,
+        attemptsRemaining: 1,
+        nextAction: "exalted",
       },
       {
         type: "craftingGoal",

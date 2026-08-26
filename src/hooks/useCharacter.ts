@@ -3,12 +3,38 @@ import { toast } from "sonner";
 import { PLACEHOLDER_CHARACTER_LEVEL, type CharacterProfile, type Item } from "@shared/domain.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import type { PlanResolution } from "@shared/passiveRegistry.js";
-import { api, getErrorMessage } from "@/lib/api";
+import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 
 export type CharacterOrigin = "empty" | "demo" | "imported" | "manual";
-export type CharacterBusy = "demo" | "build" | "item" | "save" | null;
+export type CharacterBusy = "demo" | "build" | "item" | "save" | "restore" | null;
 
 const STORAGE_KEY = "exile-copilot:characterId";
+const PREVIOUS_STORAGE_KEY = "exile-copilot:previousCharacter";
+
+interface PreviousCharacter {
+  id: string;
+  name: string;
+}
+
+function readPreviousCharacter(): PreviousCharacter | null {
+  const raw = localStorage.getItem(PREVIOUS_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as unknown;
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      typeof (value as PreviousCharacter).id === "string" &&
+      typeof (value as PreviousCharacter).name === "string"
+    ) {
+      return value as PreviousCharacter;
+    }
+  } catch {
+    // Un valor local corrupto no puede impedir abrir la aplicación.
+  }
+  localStorage.removeItem(PREVIOUS_STORAGE_KEY);
+  return null;
+}
 
 export interface CharacterState {
   profile: CharacterProfile | null;
@@ -21,10 +47,11 @@ export interface CharacterState {
   dirty: boolean;
   /** true solo después de que este perfil exista realmente en el servidor. */
   persisted: boolean;
+  previousCharacter: PreviousCharacter | null;
   loadDemo: () => Promise<void>;
   startManual: (defaults: { league: string; patch: string }) => void;
-  importBuild: (content: string) => Promise<void>;
-  importItemText: (text: string) => Promise<Item | null>;
+  importBuild: (content: string, patch: string) => Promise<void>;
+  importItemText: (text: string, patch: string) => Promise<Item | null>;
   updateProfile: (patch: Partial<CharacterProfile>) => void;
   mutateProfile: (updater: (profile: CharacterProfile) => CharacterProfile) => void;
   /** Sustituye el snapshot de un objeto y persiste el expediente en una sola operación. */
@@ -32,6 +59,8 @@ export interface CharacterState {
   saveCorrections: () => Promise<boolean>;
   /** Limpia el perfil actual y el id guardado en localStorage */
   reset: () => void;
+  /** Recupera el último expediente apartado en este mismo navegador. */
+  restorePrevious: () => Promise<boolean>;
 }
 
 export interface UseCharacterOptions {
@@ -48,7 +77,7 @@ export interface UseCharacterOptions {
   ) => void;
 }
 
-function standaloneItemProfile(item: Item): CharacterProfile {
+function standaloneItemProfile(item: Item, patch: string): CharacterProfile {
   const now = new Date().toISOString();
   return {
     id: `standalone-item-${Date.now()}`,
@@ -60,7 +89,7 @@ function standaloneItemProfile(item: Item): CharacterProfile {
     levelSource: "placeholder",
     archetype: null,
     league: "Desconocida",
-    patch: "Desconocido",
+    patch,
     items: [item],
     skills: [],
     passives: { allocated: [] },
@@ -83,6 +112,9 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
   const [dirty, setDirty] = useState(false);
   const [persisted, setPersisted] = useState(
     () => localStorage.getItem(STORAGE_KEY) !== null,
+  );
+  const [previousCharacter, setPreviousCharacter] = useState<PreviousCharacter | null>(
+    readPreviousCharacter,
   );
 
   // Restaura el último personaje guardado tras recargar la página.
@@ -171,10 +203,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
   }, []);
 
   const importBuild = useCallback(
-    async (content: string) => {
+    async (content: string, patch: string) => {
       setBusy("build");
       try {
-        const res = await api.importBuild({ content });
+        const res = await api.importBuild({ content, patch });
         if (res.plan) {
           // `.build` oficial: es un PLAN de build objetivo, no el personaje.
           options?.onPlanImported?.(res.plan, res.warnings, res.resolution ?? null);
@@ -215,14 +247,14 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
   );
 
   const importItemText = useCallback(
-    async (text: string) => {
+    async (text: string, patch: string) => {
       const importingStandaloneItem = profile === null;
       setBusy("item");
       try {
-        const res = await api.importItemText({ text });
+        const res = await api.importItemText({ text, patch });
         const item: Item = res.item;
         setProfile((prev) => {
-          if (!prev) return standaloneItemProfile(item);
+          if (!prev) return standaloneItemProfile(item, patch);
           const exists = prev.items.some((it) => it.id === item.id);
           const items = exists
             ? prev.items.map((it) => (it.id === item.id ? item : it))
@@ -334,14 +366,52 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
   );
 
   const reset = useCallback(() => {
+    if (profile && persisted) {
+      const previous = { id: profile.id, name: profile.name };
+      localStorage.setItem(PREVIOUS_STORAGE_KEY, JSON.stringify(previous));
+      setPreviousCharacter(previous);
+    }
     localStorage.removeItem(STORAGE_KEY);
     setProfile(null);
     setWarnings([]);
     setOrigin("empty");
     setDirty(false);
     setPersisted(false);
-    toast.info("Personaje descartado. Puedes empezar de nuevo.");
-  }, []);
+    toast.info(
+      profile && persisted
+        ? "Expediente apartado. Puedes recuperarlo desde la bienvenida."
+        : "Borrador descartado. Puedes empezar de nuevo.",
+    );
+  }, [persisted, profile]);
+
+  const restorePrevious = useCallback(async (): Promise<boolean> => {
+    if (!previousCharacter) return false;
+    setBusy("restore");
+    try {
+      const res = await api.getCharacter(previousCharacter.id);
+      setProfile(res.profile);
+      setWarnings([]);
+      setOrigin("imported");
+      setDirty(false);
+      setPersisted(true);
+      persistId(res.profile.id);
+      localStorage.removeItem(PREVIOUS_STORAGE_KEY);
+      setPreviousCharacter(null);
+      toast.success(`Expediente recuperado: ${res.profile.name}`);
+      return true;
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 404) {
+        localStorage.removeItem(PREVIOUS_STORAGE_KEY);
+        setPreviousCharacter(null);
+      }
+      toast.error("No se pudo recuperar el expediente", {
+        description: getErrorMessage(err),
+      });
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }, [persistId, previousCharacter]);
 
   return {
     profile,
@@ -351,6 +421,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     restoring,
     dirty,
     persisted,
+    previousCharacter,
     loadDemo,
     startManual,
     importBuild,
@@ -360,5 +431,6 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     replaceItemAndSave,
     saveCorrections,
     reset,
+    restorePrevious,
   };
 }

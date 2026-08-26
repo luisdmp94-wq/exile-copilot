@@ -123,6 +123,44 @@ describe("compareCraftingResult", () => {
     expect(readItemInPlainWords(result).sentence).toContain("Todavía cabe uno más");
   });
 
+  it("mantiene el mismo arco mágico cuando Aumento inserta un prefijo en su nombre localizado", () => {
+    const original = parseItemText([
+      "Clase de objeto: Arcos",
+      "Rareza: Mágico",
+      "Arco tribal de ira",
+      "------------------",
+      "Daño físico: 12-24",
+      "Ataques por segundo: 1.20",
+      "------------------",
+      "## Nivel de objeto: 64",
+      '{ Mod. de sufijo "de ira" (Grado: 7) — Ataque }',
+      "+120 a la precisión",
+    ].join("\n")).item;
+    const result = parseItemText([
+      "Clase de objeto: Arcos",
+      "Rareza: Mágico",
+      "Arco tribal vibrante de ira",
+      "------------------",
+      "Daño físico: 12-24",
+      "Daño elemental: 1-5 (lightning)",
+      "Ataques por segundo: 1.20",
+      "------------------",
+      "## Nivel de objeto: 64",
+      '{ Mod. de prefijo "vibrante" (Grado: 10) — Daño, Elemental, Rayo, Ataque }',
+      "Agrega de 1 a 5(4-6) de daño de rayo",
+      '{ Mod. de sufijo "de ira" (Grado: 7) — Ataque }',
+      "+120 a la precisión",
+    ].join("\n")).item;
+
+    const comparison = compareCraftingResult(original, result, "augmentation");
+    expect(comparison.status).toBe("confirmed");
+    expect(comparison.identityMatches).toBe(true);
+    expect(comparison.removedModifiers).toEqual([]);
+    expect(comparison.addedModifiers.map((modifier) => modifier.text)).toEqual([
+      "Agrega de 1 a 5(4-6) de daño de rayo",
+    ]);
+  });
+
   it("mantiene la identidad del objeto real durante Regio y el siguiente Exaltado", () => {
     const magic = parseItemText([
       "Clase de objeto: Mazas a una mano",

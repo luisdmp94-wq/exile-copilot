@@ -6,20 +6,22 @@ import type { Modifier } from "./domain.js";
  * daño no demuestra que fuego sirva a una build física, ni «vida» demuestra
  * vida máxima.
  */
-export type CoachFocus =
-  | "physical"
-  | "fire"
-  | "cold"
-  | "lightning"
-  | "chaos"
-  | "attack-speed"
-  | "critical"
-  | "projectile-levels"
-  | "maximum-life"
-  | "resistances"
-  | "armour"
-  | "evasion"
-  | "energy-shield";
+export const COACH_FOCUSES = [
+  "physical",
+  "fire",
+  "cold",
+  "lightning",
+  "chaos",
+  "attack-speed",
+  "critical",
+  "projectile-levels",
+  "maximum-life",
+  "resistances",
+  "armour",
+  "evasion",
+  "energy-shield",
+] as const;
+export type CoachFocus = (typeof COACH_FOCUSES)[number];
 
 export const COACH_FOCUS_LABELS: Record<CoachFocus, string> = {
   physical: "daño físico",

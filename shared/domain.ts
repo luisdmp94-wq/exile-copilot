@@ -310,8 +310,10 @@ export type CharacterLevelReading =
   | { known: true; level: number; provenance: "observed" | "legacy-declared" }
   | { known: false; level: null; provenance: "placeholder" | "legacy-placeholder" };
 
+export const MAX_CHARACTER_ID_LENGTH = 200;
+
 export const CharacterProfileSchema = z.object({
-  id: z.string(),
+  id: z.string().trim().min(1).max(MAX_CHARACTER_ID_LENGTH),
   name: z.string(),
   characterClass: z.string(), // p. ej. "Mercenary"; "Desconocida" si no verificable
   ascendancy: z.string().nullable().default(null), // nombre visible, p. ej. "Gemling Legionnaire"

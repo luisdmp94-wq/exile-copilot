@@ -25,6 +25,7 @@ import type { GggBuildPlannerV1 } from "../../shared/gggBuildPlanner.js";
  * juego): al fijar una revisión nueva se cambia aquí de forma consciente.
  */
 const REGISTRY_FILE = "passiveRegistry.1e9eb2d8.json";
+export const PASSIVE_REGISTRY_EVIDENCE_ID = "passiveRegistry.1e9eb2d8";
 
 let cached: {
   registry: PassiveRegistry;
@@ -81,6 +82,20 @@ export function getRegistrySource(): RegistrySourceSummary {
 /** Procedencia completa (auditoría). */
 export function getRegistryProvenance(): PassiveRegistry["provenance"] {
   return load().registry.provenance;
+}
+
+/**
+ * El artefacto solo puede resolver nombres cuando coinciden tanto el parche
+ * probado dentro del propio registro como su id de evidencia autorizado.
+ */
+export function registrySupportsPatch(
+  patch: string,
+  authorizedEvidenceIds: readonly string[],
+): boolean {
+  return (
+    getRegistryProvenance().testedAgainstPatch === patch &&
+    authorizedEvidenceIds.includes(PASSIVE_REGISTRY_EVIDENCE_ID)
+  );
 }
 
 /**

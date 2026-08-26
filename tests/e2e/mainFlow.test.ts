@@ -87,7 +87,10 @@ describe("e2e: flujo principal (demo → recomendaciones → export → reimport
 
     // 4. Reimportar el .build exportado → vuelve como PLAN (un .build oficial es un plan,
     //    no una captura del personaje): plan presente, profile ausente.
-    const reimportRes = await postJson("/import/build", { content: exportBody.content });
+    const reimportRes = await postJson("/import/build", {
+      content: exportBody.content,
+      patch: "0.5.4f",
+    });
     expect(reimportRes.status).toBe(200);
     const reimportBody = await jsonOf(reimportRes);
     expect(reimportBody.detectedFormat).toBe("ggg-build-planner-v1");

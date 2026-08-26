@@ -186,7 +186,7 @@ describe("decisión siguiente tras observar un craft", () => {
 
     expect(decision.kind).toBe("stop");
     expect(decision.tone).toBe("positive");
-    expect(decision.title).toBe("Objetivo cumplido: para y conserva");
+    expect(decision.title).toBe("Punto de parada alcanzado");
   });
 
   it("no encadena otra moneda si el afijo coincide pero la tirada visible es baja", () => {
@@ -206,9 +206,16 @@ describe("decisión siguiente tras observar un craft", () => {
         label: "Tirada baja · 0% del rango",
         detail: "Posición observada.",
       },
+      successAssessment: {
+        status: "fulfilled",
+        title: "Parada elegida",
+        summary: "La señal apareció.",
+        entries: [],
+      },
     });
 
     expect(decision.kind).toBe("stop");
+    expect(decision.tone).toBe("caution");
     expect(decision.title).toContain("tirada observada es baja");
     expect(decision.nextAction).toContain("condición de parada");
   });

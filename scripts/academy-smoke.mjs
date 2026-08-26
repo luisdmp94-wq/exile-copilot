@@ -35,6 +35,7 @@ import { fileURLToPath } from "node:url";
 import {
   createSmokeTempDir,
   launchBrowser,
+  productionServerCommand,
   removeSmokeTempDir,
   toolCommand,
 } from "./browserLaunch.mjs";
@@ -89,7 +90,7 @@ async function waitForFile(path, attempts = 50) {
 function startServer(mode, port) {
   const { command, args: cmdArgs, shell } =
     mode === "prod"
-      ? toolCommand("tsx", ["server/index.ts"])
+      ? productionServerCommand()
       : toolCommand("vite", ["--port", String(port), "--strictPort"]);
   const proc = spawn(command, cmdArgs, {
     cwd: REPO,
@@ -97,6 +98,7 @@ function startServer(mode, port) {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
       DATABASE_PATH: dbPathFor(mode),
     },
@@ -138,15 +140,13 @@ async function irA(page, area) {
 }
 
 /** Deja un personaje demo guardado y restaurable por el frontend. */
-async function seedProfile(base) {
-  const demo = await (await fetch(`${base}/api/character/demo`)).json();
+async function seedProfile(request, base) {
+  const demo = await (await request.get(`${base}/api/character/demo`)).json();
   const profile = { ...demo.profile, id: "academia-smoke-perfil" };
-  const saved = await fetch(`${base}/api/character`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ profile }),
+  const saved = await request.post(`${base}/api/character`, {
+    data: { profile },
   });
-  if (!saved.ok) throw new Error(`no se pudo sembrar el personaje: HTTP ${saved.status}`);
+  if (!saved.ok()) throw new Error(`no se pudo sembrar el personaje: HTTP ${saved.status()}`);
   return profile;
 }
 
@@ -209,11 +209,17 @@ async function runFlow(mode, port) {
     const standaloneDialog = page.getByRole("dialog");
     await standaloneDialog.waitFor({ timeout: 10000 });
     const standaloneInput = standaloneDialog.locator("#item-text");
+    // `fill` espera a que el control sea realmente editable. En Strict Mode el
+    // diálogo puede hacerse visible unos milisegundos antes de que termine la
+    // transición que habilita el textarea; leer `isEnabled()` inmediatamente
+    // convertía esa transición correcta en un falso negativo intermitente.
+    await standaloneInput.fill(STANDALONE_ITEM);
     check(
       `[${mode}] desde Crafting se puede pegar un objeto sin crear personaje`,
-      (await standaloneInput.isVisible()) && (await standaloneInput.isEnabled()),
+      (await standaloneInput.isVisible()) &&
+        (await standaloneInput.isEnabled()) &&
+        (await standaloneInput.inputValue()) === STANDALONE_ITEM,
     );
-    await standaloneInput.fill(STANDALONE_ITEM);
     await standaloneDialog.getByRole("button", { name: "Analizar objeto" }).click();
     await page.getByTestId("coach-objeto").getByText("Núcleo de prueba").waitFor({ timeout: 15000 });
     check(
@@ -247,10 +253,10 @@ async function runFlow(mode, port) {
     const media = page.getByTestId("academia-media");
     await media.waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el nivel medio presenta seis comparaciones`,
+      `[${mode}] el nivel medio presenta siete comparaciones`,
       (await media.getAttribute("data-stage")) === "intro" &&
-        (await page.getByTestId("academia-media-indice").locator("li").count()) === 6 &&
-        (await media.innerText()).includes("comparar antes y después"),
+        (await page.getByTestId("academia-media-indice").locator("li").count()) === 7 &&
+        (await media.innerText()).includes("tirada mínima"),
     );
     await page.getByTestId("academia-media-empezar").click();
     const respuestasMedias = [
@@ -260,6 +266,7 @@ async function runFlow(mode, port) {
       "med-frenar-protegido",
       "med-conservar-parar",
       "med-continuar-contrato",
+      "med-revisar-minimo",
     ];
     for (const opcion of respuestasMedias) {
       await page.getByTestId(`academia-media-opcion-${opcion}`).click();
@@ -276,7 +283,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el nivel medio termina y permite practicar con una pieza`,
       (await media.getAttribute("data-stage")) === "results" &&
-        (await page.getByTestId("academia-media-resultado").innerText()).includes("6 de 6") &&
+        (await page.getByTestId("academia-media-resultado").innerText()).includes("7 de 7") &&
         (await page.getByTestId("academia-media-practicar").isVisible()),
     );
     await page.getByRole("button", { name: "Volver a niveles" }).click();
@@ -287,9 +294,9 @@ async function runFlow(mode, port) {
     const avanzada = page.getByTestId("academia-avanzada");
     await avanzada.waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el nivel avanzado presenta seis casos y su evidencia`,
+      `[${mode}] el nivel avanzado presenta siete casos y su evidencia`,
       (await avanzada.getAttribute("data-stage")) === "intro" &&
-        (await page.getByTestId("academia-avanzada-indice").locator("li").count()) === 6 &&
+        (await page.getByTestId("academia-avanzada-indice").locator("li").count()) === 7 &&
         (await avanzada.innerText()).includes("casos son sintéticos"),
     );
     await page.getByTestId("academia-avanzada-empezar").click();
@@ -300,6 +307,7 @@ async function runFlow(mode, port) {
       "av-parar",
       "av-recopiar",
       "av-comparar",
+      "av-cambiar-base",
     ];
     for (const opcion of respuestasAvanzadas) {
       await page.getByTestId(`academia-avanzada-opcion-${opcion}`).click();
@@ -316,7 +324,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el nivel avanzado termina y permite llevarlo al laboratorio`,
       (await avanzada.getAttribute("data-stage")) === "results" &&
-        (await page.getByTestId("academia-avanzada-resultado").innerText()).includes("6 de 6") &&
+        (await page.getByTestId("academia-avanzada-resultado").innerText()).includes("7 de 7") &&
         (await page.getByTestId("academia-avanzada-practicar").isVisible()),
     );
     await page.getByRole("button", { name: "Volver a niveles" }).click();
@@ -330,6 +338,16 @@ async function runFlow(mode, port) {
     await page.getByTestId("academia-empezar").click();
     await page.getByTestId("academia-pregunta").waitFor({ timeout: 10000 });
     await page.screenshot({ path: join(SHOT_DIR, `academia-leccion-${mode}.png`), fullPage: false });
+    const progresoVisual = await page.getByRole("progressbar").evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      points: element.children.length,
+    }));
+    check(
+      `[${mode}] el progreso se percibe como recorrido, no como línea decorativa`,
+      progresoVisual.height >= 8 &&
+        progresoVisual.points === 10 &&
+        /^\d+\/\d+$/.test(await page.getByTestId("academia-progreso").innerText()),
+    );
 
     const opcionesPrimera = await page.locator('[data-testid^="academia-opcion-"]').count();
     check(
@@ -361,6 +379,26 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la opción correcta queda señalada aunque hayas fallado`,
       (await page.getByTestId("academia-opcion-rare").getAttribute("data-state")) === "correcta",
+    );
+    await page.waitForTimeout(200);
+    const coloresEstado = await page.evaluate(() => {
+      const leer = (testId) => {
+        const node = document.querySelector(`[data-testid="${testId}"]`);
+        if (!node) return null;
+        const style = getComputedStyle(node);
+        return { border: style.borderColor, background: style.backgroundColor };
+      };
+      return {
+        correcta: leer("academia-opcion-rare"),
+        fallada: leer("academia-opcion-normal"),
+      };
+    });
+    check(
+      `[${mode}] los estados correcto e incorrecto tienen colores calculados distintos`,
+      coloresEstado.correcta !== null &&
+        coloresEstado.fallada !== null &&
+        coloresEstado.correcta.border !== coloresEstado.fallada.border &&
+        coloresEstado.correcta.background !== coloresEstado.fallada.background,
     );
     await page.screenshot({ path: join(SHOT_DIR, `academia-fallo-${mode}.png`), fullPage: false });
     check(
@@ -431,7 +469,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la prueba final arranca tras las lecciones`,
       (await academia.getAttribute("data-stage")) === "exam" &&
-        (await page.getByTestId("academia-progreso").innerText()) === "1 de 6",
+        (await page.getByTestId("academia-progreso").innerText()) === "1/6",
     );
     await page.screenshot({ path: join(SHOT_DIR, `academia-prueba-${mode}.png`), fullPage: false });
 
@@ -488,7 +526,7 @@ async function runFlow(mode, port) {
     await page.getByTestId("academia-pregunta").waitFor({ timeout: 10000 });
     check(
       `[${mode}] el repaso solo pregunta lo pendiente`,
-      (await page.getByTestId("academia-progreso").innerText()) === "1 de 1",
+      (await page.getByTestId("academia-progreso").innerText()) === "1/1",
     );
     await responder(page, "academia-opcion-transmutation");
     await page.getByTestId("academia-continuar").click();
@@ -543,7 +581,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] cancelar la confirmación conserva el progreso`,
       (await page.getByTestId("academia-crafting").getAttribute("data-stage")) === "lesson" &&
-        (await page.getByTestId("academia-progreso").innerText()) === "2 de 10",
+        (await page.getByTestId("academia-progreso").innerText()) === "2/10",
     );
     await page.getByTestId("academia-reiniciar").click();
     await page.getByTestId("academia-reiniciar-dialogo").waitFor({ timeout: 10000 });
@@ -605,7 +643,7 @@ async function runFlow(mode, port) {
     }
 
     // --- 9. Volver al banco conservando el estado ------------------------
-    const profile = await seedProfile(BASE);
+    const profile = await seedProfile(context.request, BASE);
     await page.evaluate((id) => localStorage.setItem("exile-copilot:characterId", id), profile.id);
     await page.reload({ waitUntil: "networkidle" });
     await irA(page, "crafting");
@@ -617,12 +655,9 @@ async function runFlow(mode, port) {
     );
     await page.getByTestId("crafting-avanzado-toggle").click();
     await banco.waitFor({ timeout: 20000 });
-    check(
-      `[${mode}] el banco anterior sigue funcionando igual al desplegarlo`,
-      (await banco.innerText()).includes("Banco de crafting") &&
-        (await page.getByTestId("crafting-route").count()) === 1,
-    );
-    // Elige una pieza distinta de la primera para poder comprobar que se conserva.
+    // Doom Song ya contiene la estructura mínima completa. Usa la segunda
+    // pieza del ejemplo, que conserva modificadores sin clasificar, para
+    // comprobar tanto el bloqueo como la selección persistente.
     const piezas = page.locator('[data-testid^="crafting-item-"]');
     const segundaPieza = piezas.nth(1);
     const idSegunda = await segundaPieza.getAttribute("data-testid");
@@ -631,6 +666,14 @@ async function runFlow(mode, port) {
       (id) => document.querySelector(`[data-testid="${id}"]`)?.getAttribute("data-active") === "true",
       idSegunda,
       { timeout: 10000 },
+    );
+    check(
+      `[${mode}] una pieza parcial bloquea el banco y ofrece repararla`,
+      (await banco.innerText()).includes("Banco de crafting") &&
+        (await page.getByTestId("crafting-planner-blocked").count()) === 1 &&
+        (await page.getByTestId("crafting-planner-blocked").getByTestId("crafting-repair-banner").isVisible()) &&
+        (await page.getByTestId("crafting-repair-banner").count()) === 1 &&
+        (await page.getByTestId("crafting-route").count()) === 0,
     );
 
     await page.getByTestId("crafting-mode-academy").click();
@@ -650,7 +693,7 @@ async function runFlow(mode, port) {
         (await banco.innerText()).includes("Banco de crafting") &&
         perfilTrasVolver === profile.id,
     );
-    const journal = await (await fetch(`${BASE}/api/journal/${profile.id}`)).json();
+    const journal = await (await context.request.get(`${BASE}/api/journal/${profile.id}`)).json();
     check(
       `[${mode}] la Academia no ha tocado el diario ni las sesiones`,
       journal.session === null && (journal.pausedSessions ?? []).length === 0,

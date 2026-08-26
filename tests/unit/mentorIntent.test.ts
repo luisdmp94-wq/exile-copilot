@@ -97,6 +97,19 @@ describe("intención conversation", () => {
       "next_improvement",
     );
   });
+
+  it("reconoce identidad y capacidades básicas con o sin tildes", () => {
+    for (const pregunta of [
+      "¿Quién eres?",
+      "quien eres",
+      "¿Qué eres?",
+      "¿Cómo te llamas?",
+      "¿Qué puedes hacer?",
+      "¿Para qué sirves?",
+    ]) {
+      expect(classifyMentorQuestion(pregunta).intent, pregunta).toBe("conversation");
+    }
+  });
 });
 
 describe("sugerencias de la interfaz", () => {

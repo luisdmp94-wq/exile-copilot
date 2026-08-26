@@ -48,6 +48,7 @@ interface MarketSectionProps {
   metaLoading: boolean;
   profile: CharacterProfile | null;
   league: string;
+  patch: string;
   onLeagueChange: (league: string) => void;
   budget: Budget;
   onBudgetChange: (budget: Budget) => void;
@@ -72,6 +73,7 @@ export function MarketSection({
   metaLoading,
   profile,
   league,
+  patch,
   onLeagueChange,
   budget,
   onBudgetChange,
@@ -85,6 +87,11 @@ export function MarketSection({
   const leagues = meta?.leagues ?? [];
   const leagueOptions =
     league && !leagues.includes(league) ? [league, ...leagues] : leagues;
+  const missingRequirement = !league
+    ? "Falta: elige una liga"
+    : !namesText.trim()
+      ? "Falta: escribe al menos un objeto"
+      : null;
 
   return (
     <Card className="intel-card">
@@ -94,132 +101,73 @@ export function MarketSection({
           Inteligencia de mercado
         </p>
         <CardTitle className="dossier-title text-3xl">Qué puedes permitirte ahora</CardTitle>
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Define el contexto económico de la decisión y consulta referencias de precio.
-          Un dato sin verificar nunca se presenta como una compra segura.
-        </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-6 px-6 py-6">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <div className="intel-field">
-            <Label htmlFor="market-league">Liga</Label>
-            {metaLoading ? (
-              <Skeleton className="h-9 w-full" />
-            ) : (
-              <Select value={league} onValueChange={onLeagueChange}>
-                <SelectTrigger id="market-league">
-                  <SelectValue placeholder="Elige una liga" />
-                </SelectTrigger>
-                <SelectContent>
-                  {leagueOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-          <div className="intel-field">
-            <Label htmlFor="market-goal">Objetivo</Label>
-            <Select value={goal} onValueChange={(v) => onGoalChange(v as GoalKind)}>
-              <SelectTrigger id="market-goal">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GOALS.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {GOAL_LABELS[g]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="intel-field">
-            <Label htmlFor="market-budget" className="flex items-center gap-2">
-              <WalletCards className="size-3.5 text-cyan-300" aria-hidden="true" />
-              Presupuesto
-            </Label>
-            <Input
-              id="market-budget"
-              type="number"
-              min={0}
-              value={budget.amount}
-              onChange={(e) => {
-                const parsed = Number.parseFloat(e.target.value);
-                onBudgetChange({
-                  ...budget,
-                  amount: Number.isNaN(parsed) || parsed < 0 ? 0 : parsed,
-                });
-              }}
-            />
-          </div>
-          <div className="intel-field">
-            <Label htmlFor="market-currency">Moneda</Label>
-            <Select
-              value={budget.currency}
-              onValueChange={(v) =>
-                onBudgetChange({ ...budget, currency: v as CurrencyKind })
-              }
-            >
-              <SelectTrigger id="market-currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((currency) => (
-                  <SelectItem key={currency} value={currency}>
-                    {CURRENCY_LABELS[currency]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
         <div className="market-console flex flex-col gap-3 p-5">
           <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
             <Database className="size-4" aria-hidden="true" />
             Terminal de consulta
           </p>
-          <Label htmlFor="market-names">
-            Objetos a consultar (nombres separados por comas)
-          </Label>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              id="market-names"
-              value={namesText}
-              onChange={(e) => setNamesText(e.target.value)}
-              placeholder="p. ej. Exalted Orb, Chaos Orb"
-              className="min-w-56 flex-1"
-            />
-            {profile && profile.items.length > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setNamesText(
-                    profile.items
-                      .map((item) => item.name || item.baseType)
-                      .filter((name) => name.length > 0)
-                      .join(", "),
-                  )
-                }
-              >
-                <PackageSearch className="size-4" aria-hidden="true" />
-                Usar objetos de mi build
-              </Button>
-            )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(10rem,0.65fr)_minmax(0,1.35fr)]">
+            <div className="intel-field">
+              <Label htmlFor="market-league">Liga</Label>
+              {metaLoading ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select value={league} onValueChange={onLeagueChange}>
+                  <SelectTrigger id="market-league">
+                    <SelectValue placeholder="Elige una liga" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leagueOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="intel-field">
+              <Label htmlFor="market-names">Objetos a consultar</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  id="market-names"
+                  value={namesText}
+                  onChange={(e) => setNamesText(e.target.value)}
+                  placeholder="p. ej. Exalted Orb, Chaos Orb"
+                  className="min-w-56 flex-1"
+                />
+                {profile && profile.items.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setNamesText(
+                        profile.items
+                          .map((item) => item.name || item.baseType)
+                          .filter((name) => name.length > 0)
+                          .join(", "),
+                      )
+                    }
+                  >
+                    <PackageSearch className="size-4" aria-hidden="true" />
+                    Usar mi equipo
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
-          <div>
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
-              variant="secondary"
-              disabled={loading || !league || !namesText.trim()}
+              disabled={loading || missingRequirement !== null}
               onClick={() =>
                 void market.queryPrices(
                   league,
                   namesText.split(",").map((n) => n.trim()),
+                  patch,
                 )
               }
             >
@@ -228,8 +176,13 @@ export function MarketSection({
               ) : (
                 <Coins className="size-4" aria-hidden="true" />
               )}
-              Consultar precios
+              {loading ? "Consultando…" : "Consultar precios"}
             </Button>
+            {missingRequirement && (
+              <p className="text-sm font-medium text-amber-300" role="status" data-testid="market-missing-requirement">
+                {missingRequirement}
+              </p>
+            )}
           </div>
         </div>
 
@@ -383,6 +336,72 @@ export function MarketSection({
             </Table>
           </div>
         )}
+
+        <details className="rounded-md border border-border/80 bg-background/35" data-testid="market-context-details">
+          <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-foreground">
+            Afinar presupuesto y objetivo (opcional)
+          </summary>
+          <div className="grid grid-cols-1 gap-5 border-t border-border/70 p-4 sm:grid-cols-2">
+            <p className="sm:col-span-2 text-sm leading-relaxed text-muted-foreground">
+              Este contexto ayuda a interpretar los resultados, pero no hace falta para consultar precios.
+              Un dato sin verificar nunca se presenta como una compra segura.
+            </p>
+            <div className="intel-field">
+              <Label htmlFor="market-goal">Objetivo</Label>
+              <Select value={goal} onValueChange={(v) => onGoalChange(v as GoalKind)}>
+                <SelectTrigger id="market-goal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GOALS.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {GOAL_LABELS[g]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="intel-field">
+              <Label htmlFor="market-budget" className="flex items-center gap-2">
+                <WalletCards className="size-3.5 text-cyan-300" aria-hidden="true" />
+                Presupuesto
+              </Label>
+              <Input
+                id="market-budget"
+                type="number"
+                min={0}
+                value={budget.amount}
+                onChange={(e) => {
+                  const parsed = Number.parseFloat(e.target.value);
+                  onBudgetChange({
+                    ...budget,
+                    amount: Number.isNaN(parsed) || parsed < 0 ? 0 : parsed,
+                  });
+                }}
+              />
+            </div>
+            <div className="intel-field sm:col-span-2">
+              <Label htmlFor="market-currency">Moneda del presupuesto</Label>
+              <Select
+                value={budget.currency}
+                onValueChange={(v) =>
+                  onBudgetChange({ ...budget, currency: v as CurrencyKind })
+                }
+              >
+                <SelectTrigger id="market-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((currency) => (
+                    <SelectItem key={currency} value={currency}>
+                      {CURRENCY_LABELS[currency]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </details>
       </CardContent>
     </Card>
   );

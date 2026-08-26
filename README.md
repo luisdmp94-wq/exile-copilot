@@ -42,6 +42,10 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm run test:journal` — prueba del flujo persistente del mentor en una base temporal; acepta también `--dev` y `--all` y nunca modifica los datos del usuario.
 - `npm run test:mentor` — prueba de navegador de la conversación con el mentor (Hito 6A) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
 - `npm run test:session` — prueba de navegador del ciclo «Probar y volver» (Hito 6C) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
+- `npm run verify:release` — barrera completa previa a una publicación: compila el servidor que se desplegará y recorre bienvenida, equipo, Crafting, Academia, Mentor, diario, sesiones y memoria en bases temporales.
+
+El procedimiento para publicar, hacer copias y recuperar el servicio está en
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Cómo probar el flujo principal (sin credenciales)
 

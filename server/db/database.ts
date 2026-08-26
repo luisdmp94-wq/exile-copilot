@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS price_cache (
 
 CREATE TABLE IF NOT EXISTS characters (
   id TEXT PRIMARY KEY,
+  owner_id TEXT,
   payload TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -51,6 +52,8 @@ export function createDatabase(dbPath: string): Database {
     mkdirSync(dirname(dbPath), { recursive: true });
   }
   const db = new DatabaseSync(dbPath);
+  db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA synchronous = NORMAL;");
+  if (dbPath !== ":memory:") db.exec("PRAGMA journal_mode = WAL;");
   applySchema(db);
   return db;
 }
@@ -58,6 +61,12 @@ export function createDatabase(dbPath: string): Database {
 /** Creación de esquema idempotente. */
 export function applySchema(db: Database): void {
   db.exec(SCHEMA_SQL);
+  const characterColumns = db.prepare("PRAGMA table_info(characters)").all() as unknown as Array<{
+    name: string;
+  }>;
+  if (!new Set(characterColumns.map((column) => column.name)).has("owner_id")) {
+    db.exec("ALTER TABLE characters ADD COLUMN owner_id TEXT");
+  }
   const columns = db.prepare("PRAGMA table_info(journal_entries)").all() as unknown as Array<{
     name: string;
   }>;

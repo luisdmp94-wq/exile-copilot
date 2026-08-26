@@ -171,6 +171,13 @@ export function mentorInputsKey(request: MentorQueryRequest): string {
     league: request.league,
     patch: request.patch,
     journalRevision: request.journalRevision ?? null,
+    context: request.contextEnvelope
+      ? {
+          activeArea: request.contextEnvelope.activeArea,
+          selectedItemId: request.contextEnvelope.selectedItem?.id ?? null,
+          craftingState: request.contextEnvelope.craftingState,
+        }
+      : null,
   });
 }
 

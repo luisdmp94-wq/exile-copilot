@@ -68,25 +68,48 @@ export function deleteCacheEntry(db: Database, key: string): void {
 
 export interface CharacterRow {
   id: string;
+  owner_id: string | null;
   payload: string;
   updated_at: string;
 }
 
-export function saveCharacter(db: Database, id: string, payload: string): void {
-  db.prepare(
-    `INSERT INTO characters (id, payload, updated_at)
-     VALUES (?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       payload = excluded.payload,
-       updated_at = excluded.updated_at`,
-  ).run(id, payload, new Date().toISOString());
+export function saveCharacter(
+  db: Database,
+  id: string,
+  payload: string,
+  ownerId: string | null = null,
+): boolean {
+  const result = ownerId === null
+    ? db.prepare(
+        `INSERT INTO characters (id, owner_id, payload, updated_at)
+         VALUES (?, NULL, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           payload = excluded.payload,
+           updated_at = excluded.updated_at`,
+      ).run(id, payload, new Date().toISOString())
+    : db.prepare(
+        `INSERT INTO characters (id, owner_id, payload, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           payload = excluded.payload,
+           updated_at = excluded.updated_at
+         WHERE characters.owner_id = excluded.owner_id`,
+      ).run(id, ownerId, payload, new Date().toISOString());
+  return Number(result.changes) > 0;
 }
 
 export function getCharacter(db: Database, id: string): CharacterRow | null {
   const row = db
-    .prepare("SELECT id, payload, updated_at FROM characters WHERE id = ?")
+    .prepare("SELECT id, owner_id, payload, updated_at FROM characters WHERE id = ?")
     .get(id);
   return (row as CharacterRow | undefined) ?? null;
+}
+
+export function claimCharacterOwner(db: Database, id: string, ownerId: string): boolean {
+  const result = db
+    .prepare("UPDATE characters SET owner_id = ? WHERE id = ? AND owner_id IS NULL")
+    .run(ownerId, id);
+  return Number(result.changes) > 0;
 }
 
 export interface BuildMemoryEntryRow {

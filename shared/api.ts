@@ -39,21 +39,47 @@ import {
 } from "./gggBuildPlanner.js";
 import { PlanResolutionSchema } from "./passiveRegistry.js";
 import { ObservedCraftingActionSchema } from "./craftingActions.js";
+import {
+  PatchFeatureCoverageSchema,
+  PatchCompatibilityRecordSchema,
+  PatchCompatibilityRegistrySchema,
+} from "./patchCompatibility.js";
 
 /**
  * Contrato de la API REST v1 (toda bajo /api).
  * Los esquemas validan tanto las peticiones como las respuestas.
  */
 
+/** Un `.build` pegado o leído desde archivo puede ocupar hasta 2 MiB de texto. */
+export const MAX_BUILD_IMPORT_CHARACTERS = 2 * 1024 * 1024;
+/** Un tooltip de objeto real es pequeño; este margen admite localización y metadatos. */
+export const MAX_ITEM_TEXT_CHARACTERS = 100_000;
+/** Tope del snapshot normalizado que puede persistirse en SQLite por personaje. */
+export const MAX_STORED_CHARACTER_BYTES = 512 * 1024;
+
 // GET /api/health — versión de contenido y hotfix por separado, con fuente y fecha.
 export const HealthResponseSchema = z.object({
   ok: z.literal(true),
   patch: z.object({
+    id: z.string(), // id completo, incluido el hotfix
     content: z.string(), // versión de contenido, p. ej. "0.5.0"
     hotfix: z.string().nullable(), // hotfix, p. ej. "f"
     asOf: z.string(), // fecha del dato
     source: z.string(), // fuente del dato
   }),
+  services: z.object({
+    mentor: z.discriminatedUnion("mode", [
+      z.object({
+        mode: z.literal("rules-only"),
+        provider: z.null(),
+      }),
+      z.object({
+        mode: z.literal("ai-assisted"),
+        provider: z.enum(["groq", "openai"]),
+      }),
+    ]),
+  }),
+  compatibility: PatchCompatibilityRecordSchema,
   dataUpdatedAt: z.string(),
 });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
@@ -62,6 +88,7 @@ export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 export const MetaResponseSchema = z.object({
   leagues: z.array(z.string()),
   patches: z.array(PatchVersionSchema),
+  compatibility: PatchCompatibilityRegistrySchema,
   goals: z.array(z.enum(["damage", "survival", "mapping", "bossing", "balanced"])),
   currencies: z.array(z.enum(["chaos", "exalted", "divine", "gold"])),
   archetypes: z.array(z.object({ id: z.string(), label: z.string() })),
@@ -72,7 +99,15 @@ export type MetaResponse = z.infer<typeof MetaResponseSchema>;
 // Un `.build` oficial de GGG es un PLAN (BuildTargetPlan), no una captura del
 // personaje: la respuesta lleva `plan` XOR `profile` según el formato detectado.
 export const ImportBuildRequestSchema = z.object({
-  content: z.string().min(1),
+  content: z
+    .string()
+    .min(1)
+    .max(
+      MAX_BUILD_IMPORT_CHARACTERS,
+      "El build supera el máximo admitido de 2 MB de texto.",
+    ),
+  /** Parche activo: la resolución de ids nunca hereda el registro de otro parche. */
+  patch: z.string().min(1),
 });
 export const ImportBuildResponseSchema = z.object({
   warnings: z.array(z.string()),
@@ -92,7 +127,14 @@ export type ImportBuildResponse = z.infer<typeof ImportBuildResponseSchema>;
 
 // POST /api/import/item-text
 export const ImportItemTextRequestSchema = z.object({
-  text: z.string().min(1),
+  text: z
+    .string()
+    .min(1)
+    .max(
+      MAX_ITEM_TEXT_CHARACTERS,
+      "El texto del objeto supera el máximo admitido de 100.000 caracteres.",
+    ),
+  patch: z.string().min(1),
 });
 export const ImportItemTextResponseSchema = z.object({
   item: ItemSchema,
@@ -103,6 +145,10 @@ export type ImportItemTextResponse = z.infer<typeof ImportItemTextResponseSchema
 
 // GET /api/crafting/knowledge?itemClass=&baseType=&patch=
 export const CraftingKnowledgeResponseSchema = z.object({
+  requestedPatch: z.string(),
+  /** `null` significa que la evidencia observada no declaraba parche. */
+  evidencePatch: z.string().nullable(),
+  coverage: PatchFeatureCoverageSchema,
   asOf: z.string(),
   completeness: z.enum([
     "verified-complete",
@@ -142,7 +188,7 @@ export const GetCharacterResponseSchema = z.object({
 });
 export type GetCharacterResponse = z.infer<typeof GetCharacterResponseSchema>;
 
-// GET /api/market/prices?league=...&names=a,b,c
+// GET /api/market/prices?league=...&names=a,b,c&patch=...
 export const MarketPricesResponseSchema = z.object({
   quotes: z.array(PriceQuoteSchema),
   league: z.string(),
@@ -411,5 +457,6 @@ export type ExportBuildResponse = z.infer<typeof ExportBuildResponseSchema>;
 export const ApiErrorSchema = z.object({
   error: z.string(),
   detail: z.string().optional(),
+  requestId: z.string().regex(/^ec_[a-f0-9]{16}$/).optional(),
 });
 export type ApiError = z.infer<typeof ApiErrorSchema>;

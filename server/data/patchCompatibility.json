@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "targetRelease": {
+    "version": "1.0",
+    "releaseDate": "2026-12-11",
+    "status": "announced",
+    "announcedAt": "2026-08-25",
+    "source": "Anuncio oficial de Path of Exile 2 en Steam durante gamescom 2026",
+    "sourceUrl": "https://steamcommunity.com/app/2694490/announcements/"
+  },
+  "patches": [
+    {
+      "patchId": "0.5.4f",
+      "status": "limited",
+      "reviewedAt": "2026-08-22",
+      "summary": "La estructura principal está contrastada, pero no existen pools, pesos ni probabilidades completos y redistribuibles.",
+      "features": [
+        {
+          "id": "item-import",
+          "label": "Importación de objetos",
+          "status": "covered",
+          "note": "El formato avanzado en español se contrasta con objetos copiados del cliente.",
+          "evidence": "Fixtures locales capturadas el 22/08/2026 y regresiones del importador.",
+          "evidenceIds": ["item-parser-fixtures-2026-08-22"]
+        },
+        {
+          "id": "basic-crafting",
+          "label": "Crafting básico guiado",
+          "status": "limited",
+          "note": "Se cubren legalidad estructural y comparación antes/después; el resultado aleatorio no se predice.",
+          "evidence": "Tooltips observados de Transmutación, Aumento, Regio y Exaltado el 22/08/2026.",
+          "evidenceIds": [
+            "poe2-observed-currency-actions-2026-08-22",
+            "poe2-mod-pools-unavailable-2026-08-22"
+          ]
+        },
+        {
+          "id": "advanced-crafting",
+          "label": "Essences, Alloys y rutas avanzadas",
+          "status": "limited",
+          "note": "Cada operación exige el tooltip real; no hay matriz completa de efectos ni probabilidades.",
+          "evidence": "Fuentes oficiales parciales registradas y comprobación conservadora por tooltip.",
+          "evidenceIds": ["crafting-essences-sources", "crafting-alloys-sources"]
+        },
+        {
+          "id": "passive-tree",
+          "label": "Árbol de pasivas",
+          "status": "covered",
+          "note": "Los ids se resuelven contra el registro probado para este parche.",
+          "evidence": "Registro passiveRegistry.1e9eb2d8 probado contra 0.5.4f.",
+          "evidenceIds": ["passiveRegistry.1e9eb2d8"]
+        },
+        {
+          "id": "market",
+          "label": "Mercado",
+          "status": "limited",
+          "note": "Los precios son consultas temporales de poe.ninja, no valores garantizados.",
+          "evidence": "Respuesta fechada del endpoint de economía y aviso de procedencia visible.",
+          "evidenceIds": ["poe-ninja-economy-endpoint"]
+        }
+      ]
+    }
+  ]
+}

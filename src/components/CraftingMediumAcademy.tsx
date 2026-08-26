@@ -141,7 +141,7 @@ export function CraftingMediumAcademy({ onBack, onPracticeWithMyItem }: Crafting
           </div>
         </div>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          Ya sabes elegir una moneda. Ahora practicarás lo importante: comparar antes y después, detectar pérdidas y saber cuándo parar.
+          Ya sabes elegir una moneda. Ahora compararás el resultado con lo que pediste: identidad, pérdidas, tirada mínima y parada.
         </p>
         <ol className="mt-4 grid gap-2 sm:grid-cols-2" data-testid="academia-media-indice">
           {CRAFTING_MEDIUM_ACADEMY_SCENARIOS.map((entry) => (

@@ -8,9 +8,9 @@ import {
 } from "../../shared/craftingAdvancedAcademy.js";
 
 describe("Academia de crafting — nivel avanzado", () => {
-  it("incluye seis decisiones distintas y todo el contenido coincide con el resolutor", () => {
-    expect(CRAFTING_ADVANCED_ACADEMY_VERSION).toBe("avanzado-2026-08-24");
-    expect(CRAFTING_ADVANCED_ACADEMY_SCENARIOS).toHaveLength(6);
+  it("incluye siete decisiones distintas y todo el contenido coincide con el resolutor", () => {
+    expect(CRAFTING_ADVANCED_ACADEMY_VERSION).toBe("avanzado-2026-08-26");
+    expect(CRAFTING_ADVANCED_ACADEMY_SCENARIOS).toHaveLength(7);
 
     for (const scenario of CRAFTING_ADVANCED_ACADEMY_SCENARIOS) {
       expect(validateAdvancedAcademyScenario(scenario), scenario.id).toBe(true);
@@ -37,6 +37,7 @@ describe("Academia de crafting — nivel avanzado", () => {
       "stop",
       "complete-data",
       "compare-risks",
+      "change-base",
     ]);
   });
 
@@ -88,6 +89,15 @@ describe("Academia de crafting — nivel avanzado", () => {
     expect(replacement).toBeDefined();
     expect(replacement?.facts.routes.every((route) => !route.tooltipVerified)).toBe(true);
     expect(resolveAdvancedAcademyDecision(replacement!.facts)).toBe("request-tooltip");
+  });
+
+  it("retira la base cuando se alcanza el límite declarado aunque exista otra acción", () => {
+    const exhausted = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-retirar-base",
+    );
+    expect(exhausted).toBeDefined();
+    expect(exhausted?.facts.routes.some((route) => route.legal)).toBe(true);
+    expect(resolveAdvancedAcademyDecision(exhausted!.facts)).toBe("change-base");
   });
 
   it("no afirma porcentajes, precios ni DPS en ningún caso", () => {

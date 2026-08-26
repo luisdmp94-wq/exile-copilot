@@ -98,6 +98,8 @@ interface EquipmentPanelProps {
   items: Item[];
   /** Ids señalados por recomendaciones (vínculo estructurado; vacío si no lo hay). */
   highlightedItemIds: Set<string>;
+  /** Pieza que el jugador está usando como contexto actual del Mentor. */
+  activeItemId?: string | null;
   /** Recibe también el elemento pulsado para devolverle el foco al cerrar. */
   onSelectItem: (item: Item, trigger: HTMLElement) => void;
 }
@@ -105,6 +107,7 @@ interface EquipmentPanelProps {
 export function EquipmentPanel({
   items,
   highlightedItemIds,
+  activeItemId = null,
   onSelectItem,
 }: EquipmentPanelProps) {
   const layout = buildEquipmentLayout(items);
@@ -143,6 +146,7 @@ export function EquipmentPanel({
                   slot={cell.slot}
                   item={cell.item}
                   highlighted={cell.item !== null && highlightedItemIds.has(cell.item.id)}
+                  active={cell.item !== null && cell.item.id === activeItemId}
                   onSelect={onSelectItem}
                 />
               </li>
@@ -162,6 +166,7 @@ export function EquipmentPanel({
                       slot="flask"
                       item={flask}
                       highlighted={highlightedItemIds.has(flask.id)}
+                      active={flask.id === activeItemId}
                       onSelect={onSelectItem}
                     />
                   </li>
@@ -226,6 +231,7 @@ export function EquipmentPanel({
                   slot={null}
                   item={item}
                   highlighted={highlightedItemIds.has(item.id)}
+                  active={item.id === activeItemId}
                   onSelect={onSelectItem}
                 />
               </li>
@@ -266,10 +272,11 @@ interface EquipmentCellButtonProps {
   slot: EquipmentSlot | "flask" | null;
   item: Item | null;
   highlighted: boolean;
+  active: boolean;
   onSelect: (item: Item, trigger: HTMLElement) => void;
 }
 
-function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCellButtonProps) {
+function EquipmentCellButton({ slot, item, highlighted, active, onSelect }: EquipmentCellButtonProps) {
   const Icon =
     slot === null ? Package : slot === "flask" ? FlaskConical : SLOT_ICONS[slot];
   const slotLabel = slot === null ? SLOT_LABELS.other : SLOT_LABELS[slot];
@@ -304,6 +311,8 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
       data-slot={slot ?? "other"}
       data-item-id={item.id}
       data-highlighted={highlighted ? "true" : "false"}
+      data-active={active ? "true" : "false"}
+      aria-pressed={active}
       onClick={(event) => onSelect(item, event.currentTarget)}
       aria-label={`${slotLabel}: ${item.name}, ${item.baseType}, ${RARITY_LABELS[item.rarity]}. ${dataState.label}. ${dataState.detail}${
         highlighted ? ". Señalado por una recomendación" : ""
@@ -312,10 +321,11 @@ function EquipmentCellButton({ slot, item, highlighted, onSelect }: EquipmentCel
       className={cn(
         "gear-slot flex h-full min-h-20 w-full flex-col gap-1 border p-2 text-left",
         SURFACE,
-        "transition-colors motion-reduce:transition-none hover:bg-background",
+        "transition-[transform,box-shadow,border-color,background-color] duration-200 motion-reduce:transition-none hover:-translate-y-0.5 hover:bg-background",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         rarity.border,
         highlighted && SELECTED_RING,
+        active && "gear-slot--active border-primary/80 bg-primary/[0.07]",
       )}
     >
       <span className="flex items-center justify-between gap-1">

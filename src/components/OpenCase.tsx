@@ -138,25 +138,29 @@ export function OpenCaseSecondary({
   othersSlot: ReactNode;
 }) {
   return (
-    <Accordion type="multiple" className="superficie-panel px-5">
+    <Accordion
+      type="multiple"
+      className="superficie-panel grid grid-cols-1 gap-px px-3 sm:grid-cols-3"
+      data-testid="utilidades-caso-abierto"
+    >
       {sessionSlot !== null && (
-        <AccordionItem value="decision">
-          <AccordionTrigger data-testid="acordeon-decision">
+        <AccordionItem value="decision" className="border-border/70 px-2 sm:border-b-0 sm:border-r data-[state=open]:sm:col-span-3 data-[state=open]:sm:border-r-0">
+          <AccordionTrigger className="min-h-11 py-2.5 hover:no-underline" data-testid="acordeon-decision">
             Comprobar una decisión
           </AccordionTrigger>
           <AccordionContent forceMount>{sessionSlot}</AccordionContent>
         </AccordionItem>
       )}
 
-      <AccordionItem value="historial">
-        <AccordionTrigger data-testid="acordeon-historial">
+      <AccordionItem value="historial" className="border-border/70 px-2 sm:border-b-0 sm:border-r data-[state=open]:sm:col-span-3 data-[state=open]:sm:border-r-0">
+        <AccordionTrigger className="min-h-11 py-2.5 hover:no-underline" data-testid="acordeon-historial">
           Historial de decisiones
         </AccordionTrigger>
         <AccordionContent forceMount>{historySlot}</AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="otras">
-        <AccordionTrigger data-testid="acordeon-otras">
+      <AccordionItem value="otras" className="border-border/70 px-2 data-[state=open]:sm:col-span-3">
+        <AccordionTrigger className="min-h-11 py-2.5 hover:no-underline" data-testid="acordeon-otras">
           Otras posibilidades
           {selection.otherRecommendations.length > 0 &&
             ` (${selection.otherRecommendations.length})`}

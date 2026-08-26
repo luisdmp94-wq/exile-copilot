@@ -105,15 +105,12 @@ export function BuildMemorySection({
       </div>
 
       {!profilePersisted && (
-        <div className="mt-3 border border-amber-500/30 bg-amber-500/[0.06] p-3 text-xs">
-          <p className="leading-relaxed text-amber-100">
-            Guarda primero este personaje para que su memoria sobreviva al cerrar la página.
-          </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-amber-500/25 pt-3 text-xs">
+          <span className="font-medium text-amber-200">Memoria inactiva</span>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="mt-2"
             disabled={savingProfile}
             onClick={onSaveProfile}
           >

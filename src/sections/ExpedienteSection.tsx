@@ -33,6 +33,8 @@ interface ExpedienteSectionProps {
   savingProfile: boolean;
   onSaveProfile: () => void;
   onOpenCrafting: (itemId: string) => void;
+  /** Identidad del contexto para mantener sincronizada la marca de la paperdoll. */
+  mentorContextId?: string;
 }
 
 /**
@@ -60,6 +62,7 @@ export function ExpedienteSection({
   savingProfile,
   onSaveProfile,
   onOpenCrafting,
+  mentorContextId,
 }: ExpedienteSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
@@ -68,12 +71,19 @@ export function ExpedienteSection({
   // (navegación recomendación → objeto). Se deriva: nada de setState en render.
   const openItemId = selectedItemId ?? focusedItemId;
   const selectedItem: Item | null = items.find((item) => item.id === openItemId) ?? null;
+  const mentorItemId = mentorContextId?.startsWith("item:")
+    ? mentorContextId.slice("item:".length)
+    : null;
+  const activeEquipmentItemId = selectedItemId ?? mentorItemId ?? focusedItemId;
 
   const closeDetail = () => {
     const wasOpen = selectedItemId !== null || focusedItemId !== null;
+    const wasDirectSelection = selectedItemId !== null;
     setSelectedItemId(null);
     if (focusedItemId !== null) onFocusHandled();
-    if (wasOpen) onInspectionEnd?.();
+    // Una elección directa permanece como contexto del Mentor aunque se cierre
+    // el detalle. La navegación desde una recomendación sí vuelve al contexto base.
+    if (wasOpen && !wasDirectSelection) onInspectionEnd?.();
   };
 
   const relatedRecommendations = recommendations.filter(
@@ -125,9 +135,21 @@ export function ExpedienteSection({
               {profile.name}
             </h2>
           </div>
-          <span className="border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
-            Expediente activo
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+              Expediente activo
+            </span>
+            <span
+              className={`border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                profilePersisted
+                  ? "border-cyan-500/35 bg-cyan-500/[0.07] text-cyan-300"
+                  : "border-amber-500/35 bg-amber-500/[0.07] text-amber-300"
+              }`}
+              data-testid="estado-memoria-build"
+            >
+              ● {profilePersisted ? "Memoria activa" : "Memoria inactiva"}
+            </span>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">
           {profile.characterClass}
@@ -151,22 +173,23 @@ export function ExpedienteSection({
         )}
       </div>
 
+      <EquipmentPanel
+        items={profile.items}
+        highlightedItemIds={highlightedItemIds}
+        activeItemId={activeEquipmentItemId}
+        onSelectItem={(item, trigger) => {
+          dialogTriggerRef.current = trigger;
+          setSelectedItemId(item.id);
+          onInspectItem?.(item);
+        }}
+      />
+
       <BuildMemorySection
         profile={profile}
         journal={journal}
         profilePersisted={profilePersisted}
         savingProfile={savingProfile}
         onSaveProfile={onSaveProfile}
-      />
-
-      <EquipmentPanel
-        items={profile.items}
-        highlightedItemIds={highlightedItemIds}
-        onSelectItem={(item, trigger) => {
-          dialogTriggerRef.current = trigger;
-          setSelectedItemId(item.id);
-          onInspectItem?.(item);
-        }}
       />
 
       <div>

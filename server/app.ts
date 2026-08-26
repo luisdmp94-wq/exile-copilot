@@ -22,6 +22,7 @@ import {
   ReconcileSessionRequestSchema,
   CreateBuildMemoryEntryRequestSchema,
   UpdateBuildMemoryEntryRequestSchema,
+  MAX_STORED_CHARACTER_BYTES,
   type ApiError,
   CraftingKnowledgeResponseSchema,
 } from "../shared/api.js";
@@ -40,6 +41,7 @@ import { loadConfig, type ServerConfig } from "./config.js";
 import { createDatabase, withTransaction } from "./db/database.js";
 import {
   getCharacter,
+  claimCharacterOwner,
   getJournalEntry,
   getBuildMemoryEntry,
   getJournalPrimaryEntryId,
@@ -77,13 +79,28 @@ import {
   type MentorDecisionSelector,
 } from "./mentor/mentorAi.js";
 import { ApiHttpError } from "./errors.js";
-import { resolvePlan } from "./registry/passiveRegistry.js";
+import {
+  anonymousSession,
+  anonymousSessionId,
+  fixedWindowRateLimit,
+  publicRequestId,
+  requestIdentity,
+  securityHeaders,
+} from "./security.js";
+import { registrySupportsPatch, resolvePlan } from "./registry/passiveRegistry.js";
 import {
   loadCraftingKnowledge,
   listObservedActions,
   queryModCandidates,
 } from "./crafting/knowledgeRegistry.js";
 import { OBSERVED_CRAFTING_ACTIONS } from "../shared/craftingActions.js";
+import {
+  PatchCompatibilityRegistrySchema,
+  allowsPatchFeature,
+  allowsPatchGuidance,
+  compatibilityForPatch,
+  patchFeatureCoverage,
+} from "../shared/patchCompatibility.js";
 
 /**
  * Crea la app Express de la API. Las rutas se definen SIN prefijo: el caller
@@ -118,6 +135,26 @@ function loadPatches(): PatchVersion[] {
   return parsed.map((p) => PatchVersionSchema.parse(p));
 }
 
+const API_CLOSE_LOCAL = "exileCopilotCloseDatabase";
+
+/**
+ * Libera la conexión SQLite asociada a una app. Devuelve `true` solo en el
+ * primer cierre para que señales repetidas y HMR puedan llamarlo con seguridad.
+ */
+export function closeApiApp(app: Express): boolean {
+  const close = app.locals[API_CLOSE_LOCAL];
+  return typeof close === "function" ? Boolean(close()) : false;
+}
+
+/** Cobertura real por parche; una versión ausente se resuelve siempre en modo revisión. */
+function loadPatchCompatibility() {
+  const raw = readFileSync(
+    fileURLToPath(new URL("./data/patchCompatibility.json", import.meta.url)),
+    "utf8",
+  );
+  return PatchCompatibilityRegistrySchema.parse(JSON.parse(raw) as unknown);
+}
+
 function loadCraftingKnowledgeRegistry() {
   const files = [
     "observedCurrencyActions.2026-08-22.json",
@@ -149,7 +186,20 @@ function readJournal(
 function readRecommendationMemory(
   db: ReturnType<typeof createDatabase>,
   characterId: string,
+  includeStored = true,
 ) {
+  if (!includeStored) {
+    return buildRecommendationMemory(
+      {
+        characterId,
+        primaryEntryId: null,
+        primaryEntry: null,
+        entries: [],
+        buildMemory: [],
+      },
+      null,
+    );
+  }
   const storedPrimaryId = getJournalPrimaryEntryId(db, characterId);
   const primaryRow = storedPrimaryId ? getJournalEntry(db, storedPrimaryId) : null;
   const parsedPrimary =
@@ -207,33 +257,119 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       ? options.mentorSelector
       : createMentorDecisionSelector(config);
   const patches = loadPatches();
+  const patchCompatibility = loadPatchCompatibility();
   const craftingKnowledge = loadCraftingKnowledgeRegistry();
+
+  const assertGuidancePatch = (requestPatch: string, profilePatch: string) => {
+    if (requestPatch !== profilePatch) {
+      throw new ApiHttpError(
+        400,
+        "parche-no-coincide",
+        `La petición usa ${requestPatch}, pero el personaje pertenece a ${profilePatch}.`,
+      );
+    }
+    const coverage = compatibilityForPatch(patchCompatibility, profilePatch);
+    if (!allowsPatchGuidance(coverage)) {
+      throw new ApiHttpError(
+        422,
+        "parche-sin-revisar",
+        `${coverage.summary} Las recomendaciones quedan detenidas hasta completar la revisión.`,
+      );
+    }
+  };
 
   const importDefaults = { league: config.defaultLeague, patch: config.defaultPatch };
 
   const app = express();
-  app.use(express.json({ limit: "2mb" }));
-
-  // Cabeceras mínimas de seguridad (mismo origen vía proxy; CORS no necesario).
-  app.use((_req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Referrer-Policy", "no-referrer");
-    next();
+  let databaseClosed = false;
+  app.locals[API_CLOSE_LOCAL] = () => {
+    if (databaseClosed) return false;
+    db.close();
+    databaseClosed = true;
+    return true;
+  };
+  app.set("trust proxy", config.trustProxy);
+  app.use(requestIdentity());
+  app.use(securityHeaders(config));
+  app.use(anonymousSession(config));
+  const apiLimiter = fixedWindowRateLimit(config, {
+    scope: "api",
+    limit: config.apiRateLimitPerMinute,
   });
+  const guidanceLimiter = fixedWindowRateLimit(config, {
+    scope: "guidance",
+    limit: config.guidanceRateLimitPerMinute,
+  });
+  const mentorLimiter = fixedWindowRateLimit(config, {
+    scope: "mentor",
+    limit: config.mentorRateLimitPerMinute,
+  });
+  const writeLimiter = fixedWindowRateLimit(config, {
+    scope: "write",
+    limit: config.writeRateLimitPerMinute,
+  });
+  app.use((req, res, next) => {
+    if (req.path === "/health") {
+      next();
+      return;
+    }
+    apiLimiter(req, res, next);
+  });
+  app.use((req, res, next) => {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
+      next();
+      return;
+    }
+    writeLimiter(req, res, next);
+  });
+  // El límite por IP corre ANTES de leer y parsear el cuerpo: una ráfaga de
+  // cargas grandes no debe consumir CPU repetidamente antes de ser rechazada.
+  app.use(express.json({ limit: config.requestBodyLimitBytes }));
+
+  const characterForVisitor = (
+    characterId: string,
+    res: Response,
+    options: { allowMissing?: boolean } = {},
+  ) => {
+    const ownerId = anonymousSessionId(res.locals as Record<string, unknown>);
+    const row = getCharacter(db, characterId);
+    if (row === null) {
+      if (options.allowMissing) return null;
+      throw new ApiHttpError(404, "personaje-no-encontrado", "No existe ese personaje.");
+    }
+    // Migración local recuperable: los expedientes anteriores a la separación
+    // por visitante solo se pueden reclamar fuera de producción.
+    if (row.owner_id === null && config.nodeEnv !== "production") {
+      claimCharacterOwner(db, characterId, ownerId);
+      row.owner_id = ownerId;
+    }
+    if (row.owner_id !== ownerId) {
+      // Mismo mensaje que un id inexistente: no revela ids de otros usuarios.
+      throw new ApiHttpError(404, "personaje-no-encontrado", "No existe ese personaje.");
+    }
+    return row;
+  };
 
   // GET /health — patch como objeto {content, hotfix, asOf, source}
   app.get("/health", (_req, res) => {
-    const current =
-      patches.find((p) => p.id === config.defaultPatch) ?? patches[0];
+    const current = patches.find((p) => p.id === config.defaultPatch);
+    const mentorAiConfigured =
+      config.mentorAiEnabled && config.mentorAiApiKey !== null;
     res.json({
       ok: true,
       patch: {
+        id: current?.id ?? config.defaultPatch,
         content: current?.content ?? current?.id ?? config.defaultPatch,
         hotfix: current?.hotfix ?? null,
         asOf: current?.asOf ?? "desconocida",
         source: current?.source ?? "desconocida",
       },
+      services: {
+        mentor: mentorAiConfigured
+          ? { mode: "ai-assisted", provider: config.mentorAiProvider }
+          : { mode: "rules-only", provider: null },
+      },
+      compatibility: compatibilityForPatch(patchCompatibility, config.defaultPatch),
       dataUpdatedAt: new Date().toISOString(),
     });
   });
@@ -248,6 +384,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       res.json({
         leagues: leagueIds,
         patches,
+        compatibility: patchCompatibility,
         goals: ["damage", "survival", "mapping", "bossing", "balanced"],
         currencies: ["chaos", "exalted", "divine", "gold"],
         archetypes: [{ id: "mercenary-crossbow", label: "Mercenario con ballesta (Gemling)" }],
@@ -260,12 +397,27 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /import/build — detecta .build oficial (GGG Build Planner v1) o código PoB
   app.post("/import/build", (req, res, next) => {
     try {
-      const { content } = ImportBuildRequestSchema.parse(req.body);
+      const { content, patch } = ImportBuildRequestSchema.parse(req.body);
       const result = importBuild(content, importDefaults);
       // Un plan oficial viaja con la resolución de sus ids contra el registro
       // de GGG. La resolución es PARALELA: el `.build` crudo no se toca.
       if (result.plan !== undefined) {
-        res.json({ ...result, resolution: resolvePlan(result.plan.build) });
+        const patchRecord = compatibilityForPatch(patchCompatibility, patch);
+        const passiveCoverage = patchFeatureCoverage(patchRecord, "passive-tree");
+        if (
+          allowsPatchFeature(patchRecord, "passive-tree") &&
+          registrySupportsPatch(patch, passiveCoverage.evidenceIds)
+        ) {
+          res.json({ ...result, resolution: resolvePlan(result.plan.build) });
+          return;
+        }
+        res.json({
+          ...result,
+          warnings: [
+            ...result.warnings,
+            `El plan se importó sin resolver nombres de pasivas: el árbol disponible no está verificado para el parche ${patch}. Los ids originales se conservan intactos.`,
+          ],
+        });
         return;
       }
       res.json(result);
@@ -277,7 +429,19 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /import/item-text
   app.post("/import/item-text", (req, res, next) => {
     try {
-      const { text } = ImportItemTextRequestSchema.parse(req.body);
+      const { text, patch } = ImportItemTextRequestSchema.parse(req.body);
+      const patchRecord = compatibilityForPatch(patchCompatibility, patch);
+      const importCoverage = patchFeatureCoverage(patchRecord, "item-import");
+      if (
+        !allowsPatchFeature(patchRecord, "item-import") ||
+        !importCoverage.evidenceIds.includes("item-parser-fixtures-2026-08-22")
+      ) {
+        throw new ApiHttpError(
+          422,
+          "parche-sin-revisar",
+          `${patchRecord.summary} La lectura de objetos permanece cerrada.`,
+        );
+      }
       res.json(parseItemText(text));
     } catch (err) {
       next(err);
@@ -299,20 +463,45 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       const patch =
         typeof req.query.patch === "string" && req.query.patch.trim().length > 0
           ? req.query.patch.trim()
-          : undefined;
-      const pool = queryModCandidates(craftingKnowledge, {
+          : null;
+      if (patch === null) {
+        throw new ApiHttpError(
+          400,
+          "parche-requerido",
+          "Indica el parche para consultar conocimiento de Crafting.",
+        );
+      }
+      const patchRecord = compatibilityForPatch(patchCompatibility, patch);
+      const featureCoverage = patchFeatureCoverage(patchRecord, "basic-crafting");
+      if (!allowsPatchFeature(patchRecord, "basic-crafting")) {
+        throw new ApiHttpError(
+          422,
+          "parche-sin-revisar",
+          `${patchRecord.summary} El conocimiento de Crafting permanece cerrado.`,
+        );
+      }
+      const authorizedEvidence = new Set(featureCoverage.evidenceIds);
+      const authorizedKnowledge = {
+        snapshots: craftingKnowledge.snapshots.filter((snapshot) =>
+          authorizedEvidence.has(snapshot.snapshotId),
+        ),
+      };
+      const pool = queryModCandidates(authorizedKnowledge, {
         itemClass,
         ...(baseType ? { baseType } : {}),
-        ...(patch ? { patch } : {}),
+        patch,
       });
-      const observedIds = new Set(listObservedActions(craftingKnowledge).map((action) => action.id));
+      const observedIds = new Set(listObservedActions(authorizedKnowledge).map((action) => action.id));
       const actions = OBSERVED_CRAFTING_ACTIONS.filter((action) => observedIds.has(action.id));
-      const observedSnapshot = craftingKnowledge.snapshots.find(
+      const observedSnapshot = authorizedKnowledge.snapshots.find(
         (snapshot) => snapshot.observedActions.length > 0,
       );
 
       res.json(
         CraftingKnowledgeResponseSchema.parse({
+          requestedPatch: patch,
+          evidencePatch: observedSnapshot?.patch ?? null,
+          coverage: featureCoverage,
           asOf: observedSnapshot?.asOf ?? "desconocida",
           completeness: observedSnapshot?.completeness ?? "unavailable",
           actions,
@@ -334,7 +523,28 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.post("/character", (req, res, next) => {
     try {
       const { profile } = SaveCharacterRequestSchema.parse(req.body);
-      saveCharacter(db, profile.id, JSON.stringify(profile));
+      const serialized = JSON.stringify(profile);
+      if (Buffer.byteLength(serialized, "utf8") > MAX_STORED_CHARACTER_BYTES) {
+        throw new ApiHttpError(
+          413,
+          "expediente-demasiado-grande",
+          "El expediente supera el máximo de 512 KiB. Reduce notas o elementos importados antes de guardarlo.",
+        );
+      }
+      characterForVisitor(profile.id, res, { allowMissing: true });
+      const saved = saveCharacter(
+        db,
+        profile.id,
+        serialized,
+        anonymousSessionId(res.locals as Record<string, unknown>),
+      );
+      if (!saved) {
+        throw new ApiHttpError(
+          409,
+          "id-personaje-no-disponible",
+          "No se pudo guardar ese identificador de personaje. Crea uno nuevo y vuelve a intentarlo.",
+        );
+      }
       res.json({ profile });
     } catch (err) {
       next(err);
@@ -345,7 +555,15 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.get("/character/demo", (_req, res, next) => {
     try {
       const raw = readFileSync(fileURLToPath(fixtureUrl("demoSnapshot.json")), "utf8");
-      const profile = CharacterProfileSchema.parse(JSON.parse(raw));
+      const fixture = CharacterProfileSchema.parse(JSON.parse(raw));
+      // La demo no puede reutilizar un id global: si un visitante la guarda,
+      // el siguiente recibiría el id de un personaje que pertenece a otra
+      // sesión y el Mentor respondería «No existe ese personaje». Cada carga
+      // empieza como un borrador aislado que el jugador puede guardar después.
+      const profile = CharacterProfileSchema.parse({
+        ...fixture,
+        id: `demo-${randomUUID()}`,
+      });
       res.json({ profile });
     } catch (err) {
       next(err);
@@ -355,9 +573,23 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // GET /character/:id — recupera un perfil guardado
   app.get("/character/:id", (req, res, next) => {
     try {
-      const row = getCharacter(db, req.params.id);
-      if (!row) throw new ApiHttpError(404, "personaje-no-encontrado", `No existe un personaje con id "${req.params.id}".`);
+      const row = characterForVisitor(req.params.id, res)!;
       res.json({ profile: JSON.parse(row.payload) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Todo el diario queda ligado a la sesión anónima propietaria del personaje.
+  app.use("/journal/:characterId", (req, res, next) => {
+    try {
+      const row = characterForVisitor(req.params.characterId, res, { allowMissing: true });
+      // Las suites históricas prueban el contrato del diario con ids efímeros.
+      // La frontera pública se prueba aparte ejecutando la app en producción.
+      if (row === null && config.nodeEnv !== "test") {
+        throw new ApiHttpError(404, "personaje-no-encontrado", "No existe ese personaje.");
+      }
+      next();
     } catch (err) {
       next(err);
     }
@@ -771,9 +1003,32 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // GET /market/prices?league=&names=a,b,c — incluye primaryCurrency y rates
+  // GET /market/prices?league=&names=a,b,c&patch= — incluye primaryCurrency y rates
   app.get("/market/prices", async (req, res, next) => {
     try {
+      const patch =
+        typeof req.query.patch === "string" && req.query.patch.trim().length > 0
+          ? req.query.patch.trim()
+          : null;
+      if (patch === null) {
+        throw new ApiHttpError(
+          400,
+          "parche-requerido",
+          "Indica el parche para consultar precios de mercado.",
+        );
+      }
+      const patchRecord = compatibilityForPatch(patchCompatibility, patch);
+      const marketCoverage = patchFeatureCoverage(patchRecord, "market");
+      if (
+        !allowsPatchFeature(patchRecord, "market") ||
+        !marketCoverage.evidenceIds.includes("poe-ninja-economy-endpoint")
+      ) {
+        throw new ApiHttpError(
+          422,
+          "parche-sin-revisar",
+          `${patchRecord.summary} La consulta de mercado permanece cerrada.`,
+        );
+      }
       const league = typeof req.query.league === "string" && req.query.league.length > 0
         ? req.query.league
         : config.defaultLeague;
@@ -789,10 +1044,13 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   });
 
   // POST /recommendations — incluye inputFingerprint; target opcional influye en las reglas
-  app.post("/recommendations", async (req, res, next) => {
+  app.post("/recommendations", guidanceLimiter, async (req, res, next) => {
     try {
       const body = RecommendationsRequestSchema.parse(req.body);
-      const memory = readRecommendationMemory(db, body.profile.id);
+      assertGuidancePatch(body.patch, body.profile.patch);
+      const storedCharacter = characterForVisitor(body.profile.id, res, { allowMissing: true });
+      const includeStoredMemory = storedCharacter !== null || config.nodeEnv === "test";
+      const memory = readRecommendationMemory(db, body.profile.id, includeStoredMemory);
       if (
         body.journalRevision !== undefined &&
         body.journalRevision !== null &&
@@ -830,7 +1088,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       // Segunda lectura tras cualquier espera asíncrona (precios/explainer):
       // una acción creada en otra pestaña invalida esta respuesta antes de que
       // pueda presentar tareas paralelas.
-      if (readRecommendationMemory(db, body.profile.id).revision !== memory.revision) {
+      if (
+        readRecommendationMemory(db, body.profile.id, includeStoredMemory).revision !==
+        memory.revision
+      ) {
         throw new ApiHttpError(
           409,
           "memoria-diario-obsoleta",
@@ -847,10 +1108,13 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // Mismas protecciones que /recommendations: el servidor carga la memoria
   // autoritativa del diario, rechaza una revisión obsoleta con 409 y vuelve a
   // comprobarla tras cualquier espera asíncrona (carrera entre pestañas).
-  app.post("/mentor/query", async (req, res, next) => {
+  app.post("/mentor/query", mentorLimiter, async (req, res, next) => {
     try {
       const body = MentorQueryRequestSchema.parse(req.body);
-      const memory = readRecommendationMemory(db, body.profile.id);
+      assertGuidancePatch(body.patch, body.profile.patch);
+      const storedCharacter = characterForVisitor(body.profile.id, res, { allowMissing: true });
+      const includeStoredMemory = storedCharacter !== null || config.nodeEnv === "test";
+      const memory = readRecommendationMemory(db, body.profile.id, includeStoredMemory);
       if (
         body.journalRevision !== undefined &&
         body.journalRevision !== null &&
@@ -882,7 +1146,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
 
       // Segunda lectura tras la espera asíncrona: si otra pestaña creó o cerró
       // una acción mientras respondíamos, esta respuesta ya no es válida.
-      if (readRecommendationMemory(db, body.profile.id).revision !== memory.revision) {
+      if (
+        readRecommendationMemory(db, body.profile.id, includeStoredMemory).revision !==
+        memory.revision
+      ) {
         throw new ApiHttpError(
           409,
           "memoria-diario-obsoleta",
@@ -909,28 +1176,60 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
 
   // 404 para rutas no definidas
   app.use((_req, res) => {
-    const body: ApiError = { error: "ruta-no-encontrada", detail: "La ruta solicitada no existe en la API." };
+    const body: ApiError = {
+      error: "ruta-no-encontrada",
+      detail: "La ruta solicitada no existe en la API.",
+      requestId: publicRequestId(res.locals as Record<string, unknown>),
+    };
     res.status(404).json(body);
   });
 
   // Manejador central de errores → ApiError JSON
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const requestId = publicRequestId(res.locals as Record<string, unknown>);
     if (err instanceof ApiHttpError) {
-      const body: ApiError = { error: err.message };
+      const body: ApiError = { error: err.message, requestId };
       if (err.detail !== undefined) body.detail = err.detail;
       res.status(err.statusCode).json(body);
+      return;
+    }
+    if (
+      err instanceof Error &&
+      "type" in err &&
+      typeof err.type === "string" &&
+      (err.type === "entity.too.large" || err.type === "entity.parse.failed")
+    ) {
+      const tooLarge = err.type === "entity.too.large";
+      const body: ApiError = {
+        error: tooLarge ? "carga-demasiado-grande" : "json-no-valido",
+        detail: tooLarge
+          ? "La carga supera el tamaño máximo admitido. Reduce el archivo o el texto e inténtalo de nuevo."
+          : "La petición no contiene JSON válido. Vuelve a copiar el contenido completo e inténtalo de nuevo.",
+        requestId,
+      };
+      res.status(tooLarge ? 413 : 400).json(body);
       return;
     }
     if (err instanceof ZodError) {
       const body: ApiError = {
         error: "validacion-fallida",
         detail: err.issues.map((i) => `${i.path.join(".") || "(raíz)"}: ${i.message}`).join("; "),
+        requestId,
       };
       res.status(400).json(body);
       return;
     }
-    console.error("[api] error inesperado:", err);
-    const body: ApiError = { error: "error-interno", detail: err instanceof Error ? err.message : String(err) };
+    console.error(`[api] error inesperado [${requestId}]:`, err);
+    const body: ApiError = {
+      error: "error-interno",
+      detail:
+        config.nodeEnv === "production"
+          ? "Ocurrió un error interno. Inténtalo de nuevo más tarde."
+          : err instanceof Error
+            ? err.message
+            : String(err),
+      requestId,
+    };
     res.status(500).json(body);
   });
 

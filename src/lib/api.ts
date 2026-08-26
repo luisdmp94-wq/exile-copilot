@@ -63,18 +63,28 @@ type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
 export class ApiRequestError extends Error {
   readonly status: number | null;
   readonly detail: string | undefined;
+  readonly requestId: string | undefined;
 
-  constructor(message: string, status: number | null = null, detail?: string) {
+  constructor(
+    message: string,
+    status: number | null = null,
+    detail?: string,
+    requestId?: string,
+  ) {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
     this.detail = detail;
+    this.requestId = requestId;
   }
 }
 
 export function getErrorMessage(err: unknown): string {
   if (err instanceof ApiRequestError) {
-    return err.detail ? `${err.message}: ${err.detail}` : err.message;
+    const message = err.detail ? `${err.message}: ${err.detail}` : err.message;
+    return err.status !== null && err.status >= 500 && err.requestId
+      ? `${message} · Referencia ${err.requestId}`
+      : message;
   }
   if (err instanceof Error) return err.message;
   return "Error desconocido";
@@ -86,7 +96,12 @@ async function parseJsonSafe(res: Response): Promise<unknown> {
   try {
     return JSON.parse(text) as unknown;
   } catch {
-    throw new ApiRequestError("El servidor devolvió una respuesta no JSON", res.status);
+    throw new ApiRequestError(
+      "El servidor devolvió una respuesta no JSON",
+      res.status,
+      undefined,
+      res.headers.get("x-request-id") ?? undefined,
+    );
   }
 }
 
@@ -109,9 +124,19 @@ async function request<S extends z.ZodTypeAny>(
   if (!res.ok) {
     const apiError = ApiErrorSchema.safeParse(body);
     if (apiError.success) {
-      throw new ApiRequestError(apiError.data.error, res.status, apiError.data.detail);
+      throw new ApiRequestError(
+        apiError.data.error,
+        res.status,
+        apiError.data.detail,
+        apiError.data.requestId ?? res.headers.get("x-request-id") ?? undefined,
+      );
     }
-    throw new ApiRequestError(`Error del servidor (HTTP ${res.status})`, res.status);
+    throw new ApiRequestError(
+      `Error del servidor (HTTP ${res.status})`,
+      res.status,
+      undefined,
+      res.headers.get("x-request-id") ?? undefined,
+    );
   }
 
   const parsed = schema.safeParse(body);
@@ -123,6 +148,8 @@ async function request<S extends z.ZodTypeAny>(
     throw new ApiRequestError(
       `Respuesta inesperada del servidor en ${path} — ${issues}`,
       res.status,
+      undefined,
+      res.headers.get("x-request-id") ?? undefined,
     );
   }
   return parsed.data;
@@ -291,20 +318,24 @@ export const api = {
       jsonInit(payload),
     ),
 
-  marketPrices: (league: string, names: string[]): Promise<MarketPricesResponse> => {
-    const params = new URLSearchParams({ league, names: names.join(",") });
+  marketPrices: (
+    league: string,
+    names: string[],
+    patch: string,
+  ): Promise<MarketPricesResponse> => {
+    const params = new URLSearchParams({ league, names: names.join(","), patch });
     return request(`/api/market/prices?${params.toString()}`, MarketPricesResponseSchema);
   },
 
   craftingKnowledge: (input: {
     itemClass?: string;
     baseType?: string;
-    patch?: string;
+    patch: string;
   }): Promise<CraftingKnowledgeResponse> => {
     const params = new URLSearchParams();
     if (input.itemClass) params.set("itemClass", input.itemClass);
     if (input.baseType) params.set("baseType", input.baseType);
-    if (input.patch) params.set("patch", input.patch);
+    params.set("patch", input.patch);
     const query = params.toString();
     return request(
       `/api/crafting/knowledge${query ? `?${query}` : ""}`,

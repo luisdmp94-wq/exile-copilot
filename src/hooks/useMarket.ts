@@ -7,7 +7,7 @@ export interface MarketState {
   prices: MarketPricesResponse | null;
   loading: boolean;
   error: string | null;
-  queryPrices: (league: string, names: string[]) => Promise<void>;
+  queryPrices: (league: string, names: string[], patch: string) => Promise<void>;
 }
 
 /** Consulta de precios de mercado (poe.ninja vía backend). */
@@ -16,7 +16,7 @@ export function useMarket(): MarketState {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const queryPrices = useCallback(async (league: string, names: string[]) => {
+  const queryPrices = useCallback(async (league: string, names: string[], patch: string) => {
     const cleanNames = names.map((n) => n.trim()).filter((n) => n.length > 0);
     if (cleanNames.length === 0) {
       toast.error("Escribe al menos un nombre de objeto para consultar");
@@ -25,7 +25,7 @@ export function useMarket(): MarketState {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.marketPrices(league, cleanNames);
+      const res = await api.marketPrices(league, cleanNames, patch);
       setPrices(res);
       if (res.degraded) {
         toast.warning("Mercado en modo degradado", {

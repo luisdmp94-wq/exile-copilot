@@ -56,7 +56,14 @@ function OptionButton({
       data-testid={`academia-opcion-${option.id}`}
       data-state={state}
       aria-describedby={option.hint ? `pista-${option.id}` : undefined}
-      className={`flex min-h-14 w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default motion-reduce:transition-none ${
+      style={
+        state === "correcta"
+          ? { borderColor: "rgba(52, 211, 153, 0.72)", backgroundColor: "rgba(31, 142, 92, 0.18)" }
+          : state === "fallada"
+            ? { borderColor: "rgba(251, 113, 133, 0.72)", backgroundColor: "rgba(161, 33, 54, 0.18)" }
+            : undefined
+      }
+      className={`academy-option flex min-h-14 w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default motion-reduce:transition-none ${
         state === "correcta"
           ? "border-emerald-400/60 bg-emerald-500/[0.12] text-emerald-100"
           : state === "fallada"
@@ -402,12 +409,15 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) {
   }
 
   const isExam = academy.stage === "exam";
-  const progressRatio = step.position / step.total;
   const lastOfRun = step.position === step.total;
 
   const header = (
     <div className="min-w-0">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold text-foreground" data-testid="academia-progreso">
+          <span className="text-primary">{step.position}</span>/{step.total}
+        </p>
+        <span className="text-border" aria-hidden="true">·</span>
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
           {isExam
             ? academy.isRetry
@@ -415,22 +425,31 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) {
               : "Desafío final"
             : `Lección ${step.lesson?.order} · ${step.lesson?.title}`}
         </p>
-        <p className="text-xs text-muted-foreground" data-testid="academia-progreso">
-          {step.position} de {step.total}
-        </p>
       </div>
       <div
-        className="mt-2 h-1 w-full overflow-hidden rounded-full bg-border/60"
+        className="mt-2 flex min-h-11 w-full items-center gap-2 overflow-x-auto rounded-md border border-border/70 bg-background/45 px-3"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={step.total}
         aria-valuenow={step.position}
         aria-label={isExam ? "Progreso del desafío" : "Progreso de las lecciones"}
       >
-        <span
-          className="block h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
-          style={{ width: `${Math.round(progressRatio * 100)}%` }}
-        />
+        {academy.stepStatuses.map((entry, index) => (
+          <span
+            key={entry.id}
+            className={`size-2.5 shrink-0 rounded-full border transition-colors duration-200 motion-reduce:transition-none ${
+              entry.status === "correct"
+                ? "border-primary bg-primary"
+                : entry.status === "incorrect"
+                  ? "border-rose-400 bg-transparent ring-2 ring-rose-400/35"
+                  : index === step.position - 1
+                    ? "border-primary bg-primary/20 ring-2 ring-primary/25"
+                    : "border-muted-foreground/45 bg-transparent"
+            }`}
+            title={entry.label}
+            aria-label={`${entry.label}: ${entry.status === "correct" ? "completada" : entry.status === "incorrect" ? "pendiente de repaso" : "pendiente"}`}
+          />
+        ))}
       </div>
     </div>
   );
@@ -478,37 +497,38 @@ export function CraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyProps) 
         className="flex flex-wrap items-center gap-1 rounded-md border border-border/70 bg-background/65 p-1"
         aria-label="Nivel de la Academia"
         data-testid="academia-niveles"
+        title="Cambia de nivel sin tocar tu personaje"
       >
         <button
           type="button"
           onClick={() => setLevel("basic")}
           data-testid="academia-nivel-basico"
           data-active={level === "basic" ? "true" : "false"}
+          aria-current={level === "basic" ? "page" : undefined}
           className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${level === "basic" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"}`}
         >
-          Básico
+          <span aria-hidden="true">{level === "basic" ? "◔" : "○"}</span> Básico
         </button>
         <button
           type="button"
           onClick={() => setLevel("medium")}
           data-testid="academia-nivel-medio"
           data-active={level === "medium" ? "true" : "false"}
+          aria-current={level === "medium" ? "page" : undefined}
           className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${level === "medium" ? "bg-sky-500/15 text-sky-200" : "text-muted-foreground hover:bg-sky-500/[0.08] hover:text-sky-100"}`}
         >
-          Medio
+          <span aria-hidden="true">{level === "medium" ? "◔" : "○"}</span> Medio
         </button>
         <button
           type="button"
           onClick={() => setLevel("advanced")}
           data-testid="academia-nivel-avanzado"
           data-active={level === "advanced" ? "true" : "false"}
+          aria-current={level === "advanced" ? "page" : undefined}
           className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${level === "advanced" ? "bg-cyan-500/15 text-cyan-200" : "text-cyan-300/75 hover:bg-cyan-500/[0.08] hover:text-cyan-100"}`}
         >
-          Avanzado · Nuevo
+          <span aria-hidden="true">{level === "advanced" ? "◔" : "○"}</span> Avanzado · Nuevo
         </button>
-        <span className="ml-auto hidden px-2 text-[11px] text-muted-foreground sm:inline">
-          Cambia de nivel sin tocar tu personaje
-        </span>
       </nav>
 
       {level === "advanced" ? (

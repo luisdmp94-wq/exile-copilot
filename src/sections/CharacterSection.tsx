@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, type Dispatch, type SetStateAction } from "react";
 import {
   Loader2,
   Plus,
@@ -8,7 +8,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import type { MetaResponse } from "@shared/api.js";
+import { MAX_ITEM_TEXT_CHARACTERS, type MetaResponse } from "@shared/api.js";
 import {
   PLACEHOLDER_CHARACTER_LEVEL,
   readCharacterLevel,
@@ -48,6 +48,7 @@ import type { EditorDrafts } from "@/hooks/useEditorDrafts";
 interface CharacterSectionProps {
   character: CharacterState;
   meta: MetaResponse | null;
+  activePatch: string;
   /**
    * Borradores locales del editor. Los guarda `App` para que cerrar y volver a
    * abrir el panel lateral no borre nada de lo escrito.
@@ -61,6 +62,7 @@ interface CharacterSectionProps {
    */
   hideEmptyState: boolean;
   editorMode?: "full" | "new" | "item";
+  initialFocus?: "import" | "character" | "item" | null;
   /** Notifica una persistencia real para actualizar el mentor contextual. */
   onProfileSaved?: () => void;
   /** Continúa directamente al banco de Crafting con el objeto recién leído. */
@@ -126,9 +128,11 @@ const ORIGIN_BADGES = {
 export function CharacterSection({
   character,
   meta,
+  activePatch,
   drafts,
   hideEmptyState,
   editorMode = "full",
+  initialFocus = null,
   onProfileSaved,
   onItemImported,
 }: CharacterSectionProps) {
@@ -136,6 +140,22 @@ export function CharacterSection({
   const { itemText, setItemText } = drafts;
 
   const originBadge = ORIGIN_BADGES[origin];
+
+  useEffect(() => {
+    const id =
+      initialFocus === "import"
+        ? "panel-importacion"
+        : initialFocus === "character"
+          ? "char-name"
+          : initialFocus === "item"
+            ? "item-text"
+            : null;
+    if (id === null) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(id)?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialFocus]);
 
   return (
     <Card>
@@ -172,7 +192,7 @@ export function CharacterSection({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={character.reset}
+                onClick={() => character.reset()}
                 disabled={busy !== null}
                 className="text-muted-foreground"
               >
@@ -201,7 +221,7 @@ export function CharacterSection({
         {editorMode === "full" && (
           <ImportPanel
             busy={busy === "build"}
-            onImport={character.importBuild}
+            onImport={(content) => character.importBuild(content, activePatch)}
             pasted={drafts.pastedBuild}
             onPastedChange={drafts.setPastedBuild}
           />
@@ -276,6 +296,7 @@ export function CharacterSection({
               value={itemText}
               onChange={(e) => setItemText(e.target.value)}
               rows={5}
+              maxLength={MAX_ITEM_TEXT_CHARACTERS}
               disabled={busy !== null}
               placeholder={
                 "Clase de objeto: Ballestas\nRareza: Raro\nNúcleo de fénix\nBallesta barnizada\n…"
@@ -288,7 +309,7 @@ export function CharacterSection({
                 variant="secondary"
                 disabled={busy !== null || !itemText.trim()}
                 onClick={() => {
-                  void character.importItemText(itemText).then((item) => {
+                  void character.importItemText(itemText, activePatch).then((item) => {
                     if (item === null) return;
                     setItemText("");
                     onItemImported?.(item);

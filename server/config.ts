@@ -14,6 +14,14 @@ export interface ServerConfig {
   defaultLeague: string;
   defaultPatch: string;
   databasePath: string;
+  trustProxy: boolean;
+  secureCookies: boolean;
+  apiRateLimitPerMinute: number;
+  writeRateLimitPerMinute: number;
+  guidanceRateLimitPerMinute: number;
+  mentorRateLimitPerMinute: number;
+  /** Límite del JSON completo; deja margen al envoltorio de un `.build` de 2 MiB. */
+  requestBodyLimitBytes: number;
   gggOauthEnabled: boolean;
   explainerLlmEnabled: boolean;
   /** Mentor v3: conversación IA fundamentada. Apagada por defecto. */
@@ -72,6 +80,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     defaultLeague: env.DEFAULT_LEAGUE ?? "Runes of Aldur",
     defaultPatch: env.DEFAULT_PATCH ?? "0.5.4f",
     databasePath: env.DATABASE_PATH ?? "./data/exile-copilot.db",
+    trustProxy: bool(env.TRUST_PROXY, false),
+    secureCookies: bool(env.SECURE_COOKIES, (env.NODE_ENV ?? "development") === "production"),
+    apiRateLimitPerMinute: boundedInt(env.API_RATE_LIMIT_PER_MINUTE, 300, 30, 10_000),
+    writeRateLimitPerMinute: boundedInt(env.WRITE_RATE_LIMIT_PER_MINUTE, 60, 5, 2_000),
+    guidanceRateLimitPerMinute: boundedInt(
+      env.GUIDANCE_RATE_LIMIT_PER_MINUTE,
+      30,
+      5,
+      1_000,
+    ),
+    mentorRateLimitPerMinute: boundedInt(env.MENTOR_RATE_LIMIT_PER_MINUTE, 15, 1, 300),
+    requestBodyLimitBytes: boundedInt(
+      env.REQUEST_BODY_LIMIT_BYTES,
+      4 * 1024 * 1024,
+      256 * 1024,
+      16 * 1024 * 1024,
+    ),
     gggOauthEnabled: bool(env.GGG_OAUTH_ENABLED, false),
     explainerLlmEnabled: bool(env.EXPLAINER_LLM_ENABLED, false),
     mentorAiEnabled: bool(env.MENTOR_AI_ENABLED, false),

@@ -31,7 +31,7 @@ export function useCraftingKnowledge(
       .craftingKnowledge({
         ...(item.itemClass ? { itemClass: item.itemClass } : {}),
         baseType: item.baseType,
-        ...(patch ? { patch } : {}),
+        patch,
       })
       .then((data) => {
         if (!cancelled) setResult({ requestKey, data, error: null });

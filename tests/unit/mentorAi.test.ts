@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../../server/config.js";
 import {
+  createMentorDecisionSelector,
   MentorAiError,
   ResponsesMentorSelector,
   type MentorAiContext,
@@ -59,6 +60,10 @@ function config(
 }
 
 describe("ResponsesMentorSelector", () => {
+  it("no construye un cliente externo si el interruptor está activo pero falta la clave", () => {
+    expect(createMentorDecisionSelector(config(null))).toBeNull();
+  });
+
   it("usa Groq Responses con salida estructurada y sin campos incompatibles", async () => {
     let requestBody: Record<string, unknown> | null = null;
     let authorization = "";
@@ -115,6 +120,56 @@ describe("ResponsesMentorSelector", () => {
     expect(requestBody).not.toHaveProperty("store");
     expect(requestBody).not.toHaveProperty("safety_identifier");
     expect(JSON.stringify(requestBody)).not.toContain("test-key");
+  });
+
+  it("reintenta una sola vez si Groq no consigue validar la salida estructurada", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { code: "json_validate_failed" } }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            output: [
+              {
+                type: "message",
+                content: [
+                  {
+                    type: "output_text",
+                    text: JSON.stringify({
+                      kind: "explain_context",
+                      recommendationId: null,
+                      missingFactId: null,
+                      message: null,
+                      followUpQuestion: null,
+                      groundedRecommendationIds: [],
+                      groundedMissingFactIds: [],
+                    }),
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    try {
+      const selector = new ResponsesMentorSelector(config(), fetchImpl);
+      const decision = await selector.select(context(), "ec_test");
+
+      expect(decision.kind).toBe("explain_context");
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("reintento=si"));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("conserva los campos de seguridad al usar OpenAI", async () => {

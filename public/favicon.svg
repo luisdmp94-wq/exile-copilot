@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Exile Copilot">
+  <rect width="64" height="64" rx="10" fill="#09090d"/>
+  <path d="M32 5 57 32 32 59 7 32Z" fill="#17130b" stroke="#d7a817" stroke-width="3"/>
+  <path d="m21 18 25 28M43 18 18 43" fill="none" stroke="#f3c33c" stroke-width="4" stroke-linecap="round"/>
+  <path d="m17 17 8 2-6 6Zm30 0-8 2 6 6ZM17 47l2-8 6 6Zm30 0-2-8-6 6Z" fill="#f3c33c"/>
+</svg>

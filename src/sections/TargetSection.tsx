@@ -7,7 +7,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,14 +41,17 @@ export function TargetSection({
   onChange,
 }: TargetSectionProps) {
   return (
-    <Card className="briefing-card">
-      <CardHeader className="border-b border-border/70 px-6 py-6">
+    <details
+      className="briefing-card overflow-hidden rounded-xl border border-border/80 bg-card"
+      data-testid="target-context-details"
+    >
+      <summary className="min-h-11 cursor-pointer list-none border-b border-border/70 px-6 py-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/75">
           <Route className="size-4" aria-hidden="true" />
           Briefing de destino
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <CardTitle className="dossier-title text-3xl">La build que quieres alcanzar</CardTitle>
+          <span className="dossier-title text-3xl font-semibold text-foreground">La build que quieres alcanzar</span>
           <Badge
             variant="outline"
             className="border-amber-500/40 bg-amber-500/10 text-amber-300"
@@ -66,14 +68,24 @@ export function TargetSection({
             </Badge>
           )}
         </div>
-        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          Estos datos SÍ se envían al motor y pueden cambiar tus recomendaciones: el
-          nombre, el resumen y los mods deseados orientan las mejoras hacia tu build
-          objetivo. El enlace solo se guarda como referencia: no se descarga ni se
-          verifica su contenido.
-        </p>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6 px-6 py-6">
+        <span className="mt-3 block text-sm font-medium text-primary">
+          Afinar el objetivo de la build (opcional)
+        </span>
+      </summary>
+      <div className="flex flex-col gap-6 px-6 py-6">
+        <details
+          className="rounded-md border border-border/70 bg-muted/10 px-3 py-2 text-sm"
+          data-testid="target-engine-data-details"
+        >
+          <summary className="min-h-11 cursor-pointer content-center font-medium text-foreground">
+            Qué información usa el Copiloto
+          </summary>
+          <p className="border-t border-border/60 pt-3 leading-relaxed text-muted-foreground">
+            El nombre, el resultado buscado y los mods deseados sí se envían al motor y
+            pueden cambiar las recomendaciones. El enlace solo se guarda como referencia:
+            no se descarga ni se verifica su contenido.
+          </p>
+        </details>
         {draft.plan && (
           <Alert className="border-primary/50 bg-primary/10 [&>svg]:text-primary">
             <FileCheck2 className="size-4" aria-hidden="true" />
@@ -167,8 +179,8 @@ export function TargetSection({
             className="font-mono text-xs"
           />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </details>
   );
 }
 

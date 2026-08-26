@@ -178,7 +178,7 @@ export function CraftingAdvancedAcademy({
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Nivel avanzado</p>
           <h2 className="dossier-title mt-1 text-3xl font-semibold">Diseña la decisión antes de gastar</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Seis casos cortos para practicar el contrato que usa el laboratorio experto: destino, líneas intocables, salida y riesgo aceptado.
+            {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} casos cortos para practicar el contrato del laboratorio: destino, líneas intocables, salida y cuándo cambiar de base.
           </p>
         </div>
         <ol className="mt-5 grid gap-2 sm:grid-cols-2" data-testid="academia-avanzada-indice">
@@ -212,7 +212,7 @@ export function CraftingAdvancedAcademy({
         <h2 className="dossier-title mt-1 text-3xl font-semibold">Ya piensas en contratos, no en monedas sueltas</h2>
         <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-avanzada-resultado">Has resuelto {correct} de {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} decisiones. Esto mide el recorrido, no la calidad ni el valor de un objeto real.</p>
         <div className="mt-5 grid gap-2 sm:grid-cols-3">
-          {["Define una salida comprobable", "Protege antes de reemplazar", "Para cuando el contrato se cumple"].map((lesson) => (
+          {["Define una salida comprobable", "Protege antes de reemplazar", "Para cuando se cumple", "Cambia de base al llegar a tu límite"].map((lesson) => (
             <div key={lesson} className="flex items-center gap-2 rounded border border-emerald-500/30 bg-emerald-500/[0.06] p-3 text-sm text-emerald-100">
               <CheckCircle2 className="size-4 shrink-0" /> {lesson}
             </div>

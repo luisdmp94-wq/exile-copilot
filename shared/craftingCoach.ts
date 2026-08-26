@@ -16,12 +16,16 @@ import {
   type CraftingGoalSignal,
 } from "./craftingGoal.js";
 import {
+  COACH_FOCUS_DIRECTION,
   COACH_FOCUS_LABELS,
   evaluateCoachFocus,
   inferCoachFocus,
   type CoachFocus,
 } from "./craftingFocus.js";
-import { decideCraftingNextStep } from "./craftingNextDecision.js";
+import {
+  decideCraftingNextStep,
+  type CraftingNextDecisionKind,
+} from "./craftingNextDecision.js";
 import {
   assessObservedModifierRoll,
   type ObservedRollBand,
@@ -329,8 +333,12 @@ export function interpretCoachGoal(
 
   const damage = DAMAGE_GOAL_WORDS.some((word) => primary.includes(word));
   const defence = DEFENCE_GOAL_WORDS.some((word) => primary.includes(word));
+  const explicitFocus = inferCoachFocus(primary);
+  const explicitDirection = explicitFocus === null ? null : COACH_FOCUS_DIRECTION[explicitFocus];
+  const asksForDamage = damage || explicitDirection === "damage";
+  const asksForDefence = defence || explicitDirection === "defence";
 
-  if (damage && defence) {
+  if (asksForDamage && asksForDefence) {
     return {
       direction: null,
       focus: null,
@@ -338,8 +346,8 @@ export function interpretCoachGoal(
       ...protections,
     };
   }
-  if (damage) {
-    const focus = inferCoachFocus(primary);
+  if (asksForDamage) {
+    const focus = explicitFocus;
     return {
       direction: "damage",
       focus,
@@ -349,8 +357,8 @@ export function interpretCoachGoal(
       ...protections,
     };
   }
-  if (defence) {
-    const focus = inferCoachFocus(primary);
+  if (asksForDefence) {
+    const focus = explicitFocus;
     return {
       direction: "defence",
       focus,
@@ -462,6 +470,79 @@ export type CoachSteering =
   | "undeclared";
 
 export type CoachGoalFit = "confirmed" | "not-confirmed" | "not-evaluable";
+
+/** Umbral elegido por el jugador sobre el rango que imprime el tooltip. */
+export type CoachRollMinimum = "any" | "middle" | "high";
+
+export type CoachRollMinimumStatus =
+  | "fulfilled"
+  | "below"
+  | "unverifiable"
+  | "not-applicable";
+
+export interface CoachRollMinimumAssessment {
+  status: CoachRollMinimumStatus;
+  minimum: CoachRollMinimum;
+  label: string;
+}
+
+export const COACH_ROLL_MINIMUM_LABELS: Record<CoachRollMinimum, string> = {
+  any: "cualquier tirada",
+  middle: "tirada media o alta",
+  high: "tirada alta",
+};
+
+/**
+ * Compara exclusivamente la posición dentro del rango visible del tooltip.
+ * No convierte el porcentaje observado en probabilidad ni lo compara con el
+ * pool global, que la aplicación no conoce.
+ */
+export function assessCoachRollMinimum(
+  minimum: CoachRollMinimum,
+  modifiers: readonly import("./domain.js").Modifier[],
+  focus: CoachFocus | null,
+): CoachRollMinimumAssessment {
+  const matching = modifiers.filter(
+    (modifier) => evaluateCoachFocus(focus, [modifier]).status === "direct",
+  );
+  if (matching.length === 0) {
+    return {
+      status: "not-applicable",
+      minimum,
+      label: "El resultado no contiene un afijo que coincida con el objetivo.",
+    };
+  }
+  if (minimum === "any") {
+    return {
+      status: "fulfilled",
+      minimum,
+      label: "El afijo coincide; aceptaste cualquier tirada observable.",
+    };
+  }
+
+  const bands = matching.map((modifier) => assessObservedModifierRoll(modifier).band);
+  const comparable = bands.filter(
+    (band): band is "low" | "middle" | "high" =>
+      band === "low" || band === "middle" || band === "high",
+  );
+  if (comparable.length === 0) {
+    return {
+      status: "unverifiable",
+      minimum,
+      label: "El tooltip no muestra un rango con el que comprobar tu tirada mínima.",
+    };
+  }
+  const fulfilled = comparable.some(
+    (band) => band === "high" || (minimum === "middle" && band === "middle"),
+  );
+  return {
+    status: fulfilled ? "fulfilled" : "below",
+    minimum,
+    label: fulfilled
+      ? `La tirada alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`
+      : `El afijo coincide, pero no alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`,
+  };
+}
 
 export type CoachNextStep =
   | {
@@ -680,6 +761,189 @@ export function chooseNextStep(
 }
 
 // ---------------------------------------------------------------------------
+// ¿Merece la pena trabajar esta base para ESTE objetivo?
+// ---------------------------------------------------------------------------
+
+export type CoachBaseAssessmentStatus =
+  | "already-satisfied"
+  | "review-current"
+  | "aligned"
+  | "controlled-attempt"
+  | "change-base"
+  | "needs-data";
+
+export interface CoachBaseAssessment {
+  status: CoachBaseAssessmentStatus;
+  title: string;
+  summary: string;
+  /** Relación demostrable entre el expediente y la pieza; no interpreta la build. */
+  characterContext: "linked" | "known-unlinked" | "missing";
+  characterLabel: string;
+  targetLabel: string;
+  decisionLabel: string;
+  nextStep: CoachNextStep;
+}
+
+function stopForSatisfiedGoal(
+  item: Item,
+  focus: CoachFocus,
+  why: string,
+): Extract<CoachNextStep, { kind: "stop" }> {
+  return {
+    kind: "stop",
+    legality: "blocked",
+    headline: "Tu condición de parada ya se cumple",
+    instruction: `No añadas otra moneda a «${item.name || item.baseType}» hasta compararla con tu equipo.`,
+    why,
+    needsAdvancedTools: false,
+    evidence: [`La pieza ya contiene una línea que coincide con ${COACH_FOCUS_LABELS[focus]}.`],
+  };
+}
+
+/**
+ * Añade propósito a la legalidad sin inventar pools ni probabilidades.
+ * `chooseNextStep` sigue siendo la autoridad sobre qué moneda puede usarse;
+ * esta capa decide si el contrato ya obliga a parar o si el gasto solo puede
+ * presentarse como un intento aleatorio y limitado.
+ */
+export function assessPurposefulCraftBase(input: {
+  item: Item;
+  direction: CoachDirection | null;
+  focus: CoachFocus | null;
+  profile: CharacterProfile | null;
+  rollMinimum?: CoachRollMinimum;
+}): CoachBaseAssessment {
+  const {
+    item,
+    direction,
+    focus,
+    profile,
+    rollMinimum = "middle",
+  } = input;
+  const structuralStep = chooseNextStep(item, direction);
+  const hasCharacter = hasCraftingCharacterContext(profile);
+  const linked = Boolean(
+    hasCharacter &&
+      profile &&
+      item.slot !== "other" &&
+      profile.items.some((candidate) => candidate.id === item.id && candidate.slot === item.slot),
+  );
+  const characterContext: CoachBaseAssessment["characterContext"] = linked
+    ? "linked"
+    : hasCharacter
+      ? "known-unlinked"
+      : "missing";
+  const characterLabel = linked
+    ? `Vinculada al expediente de ${profile?.name ?? "tu personaje"}.`
+    : hasCharacter
+      ? `${profile?.name ?? "Tu personaje"} está cargado; esta pieza no está equipada.`
+      : "Sin expediente: usaré solo el objetivo que has escrito.";
+
+  if (focus === null || direction === null) {
+    return {
+      status: "needs-data",
+      title: "Falta concretar el objetivo",
+      summary: "Elige una sola propiedad observable antes de decidir si esta base merece una moneda.",
+      characterContext,
+      characterLabel,
+      targetLabel: "Objetivo todavía sin concretar.",
+      decisionLabel: "No gastar.",
+      nextStep: structuralStep,
+    };
+  }
+
+  const focusLabel = COACH_FOCUS_LABELS[focus];
+  const explicitModifiers = item.modifiers.filter((modifier) => modifier.kind === "explicit");
+  const signal = evaluateCoachFocus(focus, explicitModifiers);
+  const targetLabel = signal.status === "direct"
+    ? `Ya contiene una línea de ${focusLabel}.`
+    : signal.status === "no-direct-signal" || explicitModifiers.length === 0
+      ? `Aún no contiene una línea reconocible de ${focusLabel}.`
+      : `No puedo comprobar todavía si contiene ${focusLabel}.`;
+
+  if (structuralStep.kind === "needs-data") {
+    return {
+      status: "needs-data",
+      title: "Aún no puedo juzgar esta base",
+      summary: "Primero necesito el texto avanzado completo; sin sus afijos y estados cualquier ruta sería inventada.",
+      characterContext,
+      characterLabel,
+      targetLabel,
+      decisionLabel: "Volver a copiar con Ctrl+Alt+C.",
+      nextStep: structuralStep,
+    };
+  }
+
+  const currentRoll = assessCoachRollMinimum(rollMinimum, explicitModifiers, focus);
+  if (signal.status === "direct" && currentRoll.status === "fulfilled") {
+    const why = `La pieza ya aporta ${focusLabel} y alcanza ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]} dentro del rango visible.`;
+    return {
+      status: "already-satisfied",
+      title: "Tu parada ya se cumple",
+      summary: `${why} Antes de arriesgar otro hueco, compárala con lo que llevas equipado.`,
+      characterContext,
+      characterLabel,
+      targetLabel,
+      decisionLabel: "Parar y comparar.",
+      nextStep: stopForSatisfiedGoal(item, focus, why),
+    };
+  }
+
+  if (signal.status === "direct" && currentRoll.status === "unverifiable") {
+    const why = `La pieza ya aporta ${focusLabel}, pero el texto no permite comprobar la tirada mínima elegida.`;
+    return {
+      status: "review-current",
+      title: "Revisa primero lo que ya tienes",
+      summary: `${why} No gastes para buscar una línea que quizá ya aceptarías.`,
+      characterContext,
+      characterLabel,
+      targetLabel,
+      decisionLabel: "Revisar la tirada actual.",
+      nextStep: stopForSatisfiedGoal(item, focus, why),
+    };
+  }
+
+  if (structuralStep.kind === "stop") {
+    return {
+      status: "change-base",
+      title: signal.status === "direct" ? "Esta base no admite otro paso básico" : "No inviertas más en esta base",
+      summary: signal.status === "direct"
+        ? `La pieza apunta a ${focusLabel}, pero las monedas básicas observadas ya no pueden añadir nada.`
+        : `La pieza no muestra ${focusLabel} y las monedas básicas observadas ya no pueden añadir nada. Busca otra base.`,
+      characterContext,
+      characterLabel,
+      targetLabel,
+      decisionLabel: "Cambiar de base.",
+      nextStep: structuralStep,
+    };
+  }
+
+  if (signal.status === "direct") {
+    return {
+      status: "aligned",
+      title: `La base ya apunta a ${focusLabel}`,
+      summary: `La línea existe, pero todavía no cumple tu parada. El siguiente gasto sigue siendo aleatorio y debe respetar tu límite.`,
+      characterContext,
+      characterLabel,
+      targetLabel,
+      decisionLabel: `Como máximo, ${structuralStep.label} dentro del contrato.`,
+      nextStep: structuralStep,
+    };
+  }
+
+  return {
+    status: "controlled-attempt",
+    title: "Solo merece un intento controlado",
+    summary: `La base todavía no demuestra ${focusLabel}. La siguiente moneda es legal, pero no puede dirigirse hacia ese objetivo.`,
+    characterContext,
+    characterLabel,
+    targetLabel,
+    decisionLabel: `${structuralStep.label}: una apuesta limitada, no una receta.`,
+    nextStep: structuralStep,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Qué resultado obtuvo el jugador
 // ---------------------------------------------------------------------------
 
@@ -690,6 +954,8 @@ export interface CoachResultReading {
   kept: string;
   /** Continuar o parar, con su motivo. */
   verdict: "continue" | "stop" | "unclear";
+  /** Decisión de ruta conservada para que la interfaz ofrezca una salida concreta. */
+  decisionKind: CraftingNextDecisionKind | null;
   verdictText: string;
   /** Siguiente acción SOLO si vuelve a poder demostrarse. */
   nextStep: CoachNextStep | null;
@@ -713,6 +979,10 @@ export interface CoachResultReading {
   }>;
   /** Comparación conservadora basada solo en las cifras visibles del tooltip. */
   weaponPerformance: CraftingWeaponPerformance | null;
+  /** Resultado del umbral que el jugador congeló antes de gastar. */
+  rollMinimumAssessment?: CoachRollMinimumAssessment;
+  /** Paso confirmado dentro del límite elegido para esta base. */
+  attemptProgress?: { current: number; limit: number; remaining: number };
 }
 
 export type CoachContextSuggestionSource = "target" | "resistances" | "none";
@@ -820,6 +1090,7 @@ export function readCraftResult(input: {
       changed: [],
       kept: "",
       verdict: "stop",
+      decisionKind: "stop",
       verdictText:
         `${reason} No gastes otra moneda. Revisa el texto pegado y vuelve a comprobarlo.`,
       nextStep: null,
@@ -885,6 +1156,12 @@ export function readCraftResult(input: {
         ? "No se ha perdido nada de lo que ya tenías."
         : `Han desaparecido ${removed} ${plural(removed, "modificador", "modificadores")}. Revísalo antes de seguir.`,
     verdict,
+    decisionKind:
+      protectedLineLost || verdict === "stop"
+        ? "stop"
+        : verdict === "continue"
+          ? "continue"
+          : null,
     verdictText:
       protectedLineLost
         ? "Para: el resultado ha perdido algo que marcaste como intocable. No gastes otra moneda."
@@ -917,6 +1194,9 @@ export function readPurposefulCraftResult(input: {
   focus: CoachFocus | null;
   profile: CharacterProfile | null;
   profileGoal: GoalKind;
+  rollMinimum?: CoachRollMinimum;
+  attemptNumber?: number;
+  attemptLimit?: number;
 }): CoachResultReading {
   const {
     comparison,
@@ -926,6 +1206,9 @@ export function readPurposefulCraftResult(input: {
     focus,
     profile,
     profileGoal,
+    rollMinimum = "middle",
+    attemptNumber = 1,
+    attemptLimit = 1,
   } = input;
   const base = readCraftResult({ comparison, resultItem, direction });
   if (comparison.status !== "confirmed" || comparison.protectionStatus === "lost") {
@@ -958,11 +1241,24 @@ export function readPurposefulCraftResult(input: {
   const observedAffixes = readObservedAffixes(comparison.addedModifiers, (modifier) =>
     evaluateCoachFocus(focus, [modifier]).status,
   );
+  const rollMinimumAssessment = assessCoachRollMinimum(
+    rollMinimum,
+    comparison.addedModifiers,
+    focus,
+  );
+  const safeAttemptLimit = Math.max(1, Math.floor(attemptLimit));
+  const safeAttemptNumber = Math.max(1, Math.min(Math.floor(attemptNumber), safeAttemptLimit));
+  const attemptProgress = {
+    current: safeAttemptNumber,
+    limit: safeAttemptLimit,
+    remaining: Math.max(0, safeAttemptLimit - safeAttemptNumber),
+  };
 
   if (focus === null || direction === null) {
     return {
       ...base,
       verdict: "stop",
+      decisionKind: "stop",
       verdictText: "No gastes otra moneda: concreta primero el objetivo que debe cumplir el siguiente afijo.",
       nextStep: null,
       goalFit,
@@ -970,36 +1266,97 @@ export function readPurposefulCraftResult(input: {
       improvementCaveat,
       observedAffixes,
       weaponPerformance,
-    };
-  }
-
-  if (signal.status !== "direct") {
-    return {
-      ...base,
-      verdict: "stop",
-      verdictText:
-        "Para aquí. Tener huecos libres no basta: este cambio no aporta una señal directa de tu objetivo.",
-      nextStep: null,
-      goalFit,
-      directionNote,
-      improvementCaveat,
-      observedAffixes,
-      weaponPerformance,
+      rollMinimumAssessment,
+      attemptProgress,
     };
   }
 
   if (!hasCraftingCharacterContext(profile)) {
+    if (signal.status === "direct") {
+      if (rollMinimumAssessment.status === "below") {
+        return {
+          ...base,
+          verdict: "stop",
+          decisionKind: attemptProgress.remaining === 0 ? "restart" : "stop",
+          verdictText: attemptProgress.remaining === 0
+            ? `Límite alcanzado: apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Aunque es un objeto suelto, el contrato escrito basta para cerrar este intento; cambia de base o acepta conscientemente la tirada.`
+            : `Apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Como es un objeto suelto no puedo compararlo con tu equipo; decide si aceptas la tirada antes de gastar otra moneda.`,
+          nextStep: null,
+          goalFit,
+          directionNote,
+          improvementCaveat,
+          observedAffixes,
+          weaponPerformance,
+          rollMinimumAssessment,
+          attemptProgress,
+        };
+      }
+      if (rollMinimumAssessment.status === "unverifiable") {
+        return {
+          ...base,
+          verdict: "stop",
+          decisionKind: "stop",
+          verdictText:
+            `El resultado coincide con ${focusLabel}, pero el tooltip no permite comprobar ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Como es un objeto suelto, detente y decide si aceptas el valor antes de gastar otra moneda.`,
+          nextStep: null,
+          goalFit,
+          directionNote,
+          improvementCaveat,
+          observedAffixes,
+          weaponPerformance,
+          rollMinimumAssessment,
+          attemptProgress,
+        };
+      }
+      return {
+        ...base,
+        verdict: "stop",
+        decisionKind: "stop",
+        verdictText:
+          `Punto de parada alcanzado: apareció ${focusLabel} con ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Detén el gasto. Como es un objeto suelto, todavía falta compararlo con tu equipo antes de llamarlo mejora.`,
+        nextStep: null,
+        goalFit,
+        directionNote,
+        improvementCaveat,
+        observedAffixes,
+        weaponPerformance,
+        rollMinimumAssessment,
+        attemptProgress,
+      };
+    }
+
+    if (attemptProgress.remaining > 0 && base.nextStep?.kind === "use-currency") {
+      return {
+        ...base,
+        verdict: "continue",
+        decisionKind: "continue",
+        verdictText:
+          `El resultado no aporta ${focusLabel}. Como es un objeto suelto no puedo juzgar su encaje con la build, pero el contrato escrito permite ${attemptProgress.remaining === 1 ? "1 paso más" : `${attemptProgress.remaining} pasos más`}. Revisa la siguiente acción legal; no la repitas automáticamente.`,
+        nextStep: base.nextStep,
+        goalFit,
+        directionNote,
+        improvementCaveat,
+        observedAffixes,
+        weaponPerformance,
+        rollMinimumAssessment,
+        attemptProgress,
+      };
+    }
+
     return {
       ...base,
       verdict: "stop",
+      decisionKind: "restart",
       verdictText:
-        "Resultado registrado. Como solo tengo un objeto suelto, no voy a recomendar otra moneda como si conociera tu build. Vincula el personaje o úsalo como ejercicio.",
+        `Límite alcanzado: el resultado no aporta ${focusLabel}. Aunque es un objeto suelto, el objetivo escrito basta para cerrar este intento. No gastes otra moneda por inercia: prueba otra base o redefine el contrato.`,
       nextStep: null,
       goalFit,
       directionNote,
       improvementCaveat,
       observedAffixes,
       weaponPerformance,
+      rollMinimumAssessment,
+      attemptProgress,
     };
   }
 
@@ -1020,9 +1377,18 @@ export function readPurposefulCraftResult(input: {
     addedGoalSignal: signal,
     goalCategory: category,
     addedRollQuality:
-      comparison.addedModifiers[0] === undefined
+      rollMinimum === "any" || comparison.addedModifiers[0] === undefined
         ? null
         : assessObservedModifierRoll(comparison.addedModifiers[0]),
+    successAssessment:
+      signal.status === "direct" && rollMinimumAssessment.status === "fulfilled"
+        ? {
+            status: "fulfilled",
+            title: "Objetivo del paso observado",
+            summary: `El modificador nuevo coincide con ${focusLabel}.`,
+            entries: [],
+          }
+        : null,
   });
 
   const focusComparison = weaponPerformance?.focusComparison ?? null;
@@ -1039,11 +1405,98 @@ export function readPurposefulCraftResult(input: {
     focusComparison.outcome !== "higher";
   // Un requisito incumplido o una protección perdida es un bloqueo más fuerte
   // que el rendimiento del arma y debe seguir siendo el motivo principal.
-  const visibleBlocksContinuation = visibleGoalFailed && decision.kind === "continue";
+  const visibleBlocksContinuation =
+    visibleGoalFailed && characterContext.verdict !== "stop";
+
+  const contractBlocked = characterContext.verdict === "stop" || visibleBlocksContinuation;
+  if (!contractBlocked && signal.status === "direct") {
+    if (rollMinimumAssessment.status === "below") {
+      const limitReached = attemptProgress.remaining === 0;
+      return {
+        ...base,
+        verdict: "stop",
+        decisionKind: limitReached ? "restart" : "stop",
+        verdictText: limitReached
+          ? `Límite alcanzado: la línea coincide, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Cierra este intento y cambia de base o redefine el objetivo.`
+          : `La línea coincide, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. No gastes otra moneda automáticamente: decide si aceptas la tirada o cambias de base.`,
+        nextStep: null,
+        goalFit,
+        directionNote,
+        improvementCaveat,
+        observedAffixes,
+        weaponPerformance,
+        rollMinimumAssessment,
+        attemptProgress,
+      };
+    }
+    if (rollMinimumAssessment.status === "unverifiable") {
+      return {
+        ...base,
+        verdict: "stop",
+        decisionKind: "stop",
+        verdictText:
+          "El afijo coincide, pero el tooltip no permite comprobar la tirada mínima que elegiste. No gastes otra moneda hasta decidir si aceptas ese valor sin compararlo.",
+        nextStep: null,
+        goalFit,
+        directionNote,
+        improvementCaveat,
+        observedAffixes,
+        weaponPerformance,
+        rollMinimumAssessment,
+        attemptProgress,
+      };
+    }
+  }
+
+  if (
+    !contractBlocked &&
+    signal.status !== "direct" &&
+    attemptProgress.remaining === 0
+  ) {
+    return {
+      ...base,
+      verdict: "stop",
+      decisionKind: "restart",
+      verdictText:
+        "Límite alcanzado: este resultado no cumple el objetivo. Cierra el intento y cambia de base o redefine el contrato; no añadas otra moneda por inercia.",
+      nextStep: null,
+      goalFit,
+      directionNote,
+      improvementCaveat,
+      observedAffixes,
+      weaponPerformance,
+      rollMinimumAssessment,
+      attemptProgress,
+    };
+  }
+
+  if (
+    !contractBlocked &&
+    signal.status !== "direct" &&
+    attemptProgress.remaining > 0 &&
+    base.nextStep?.kind === "use-currency"
+  ) {
+    return {
+      ...base,
+      verdict: "continue",
+      decisionKind: "continue",
+      verdictText:
+        `El paso no cumple el objetivo. Te ${attemptProgress.remaining === 1 ? "queda 1 paso" : `quedan ${attemptProgress.remaining} pasos`} dentro del límite: vuelve a comprobar la siguiente acción legal y decide; no la repitas automáticamente.`,
+      nextStep: base.nextStep,
+      goalFit,
+      directionNote,
+      improvementCaveat,
+      observedAffixes,
+      weaponPerformance,
+      rollMinimumAssessment,
+      attemptProgress,
+    };
+  }
 
   return {
     ...base,
     verdict: visibleBlocksContinuation ? "stop" : decision.kind === "continue" ? "continue" : "stop",
+    decisionKind: visibleBlocksContinuation ? "stop" : decision.kind,
     verdictText: visibleBlocksContinuation
       ? `Para aquí: no supera ${weaponPerformance.baselineLabel} en ${focusComparison.label}.${visibleComparisonText}`
       : `${decision.title}. ${decision.summary} ${decision.nextAction}${visibleComparisonText}`,
@@ -1054,5 +1507,7 @@ export function readPurposefulCraftResult(input: {
     improvementCaveat,
     observedAffixes,
     weaponPerformance,
+    rollMinimumAssessment,
+    attemptProgress,
   };
 }

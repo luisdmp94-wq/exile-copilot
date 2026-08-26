@@ -133,6 +133,7 @@ export function RecommendationsSection({
           {showGenerate && (
           <Button
             type="button"
+            className={compactGenerate ? "min-h-12 px-5 text-base shadow-[0_0_28px_hsl(var(--primary)/0.12)]" : undefined}
             onClick={() => {
               if (!profile) return;
               void (async () => {
@@ -208,11 +209,7 @@ export function RecommendationsSection({
           </Alert>
         ) : !result ? (
           showGenerate ? (
-            compactGenerate ? (
-              <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-                Recibirás una prioridad clara según tu equipo, objetivo y presupuesto.
-              </p>
-            ) : (
+            compactGenerate ? null : (
               <Empty className="border border-dashed border-border">
                 <EmptyHeader>
                   <EmptyTitle>Sin recomendaciones todavía</EmptyTitle>

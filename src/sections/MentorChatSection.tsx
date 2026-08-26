@@ -20,6 +20,10 @@ import {
 } from "@/lib/format";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
+import {
+  allowsPatchGuidance,
+  type PatchCompatibilityRecord,
+} from "@shared/patchCompatibility.js";
 
 /**
  * «Habla con tu mentor» (Hito 6A).
@@ -47,6 +51,7 @@ const INTENT_LABELS: Record<MentorAnswer["intent"], string> = {
 
 interface MentorChatSectionProps {
   profile: CharacterProfile | null;
+  patchCompatibility: PatchCompatibilityRecord | null;
   mentor: MentorState;
   onAsk: (question: string) => void;
   /** Guarda la próxima acción conversacional en el diario. */
@@ -58,6 +63,7 @@ interface MentorChatSectionProps {
 
 export function MentorChatSection({
   profile,
+  patchCompatibility,
   mentor,
   onAsk,
   onSaveNextAction,
@@ -75,7 +81,9 @@ export function MentorChatSection({
         ? "Respaldo por reglas"
         : "Reglas verificables";
 
-  const canAsk = profile !== null && question.trim().length > 0 && !loading;
+  const patchBlocked =
+    patchCompatibility !== null && !allowsPatchGuidance(patchCompatibility);
+  const canAsk = profile !== null && !patchBlocked && question.trim().length > 0 && !loading;
 
   // Cada pregunta, respuesta o estado de carga deja el ÚLTIMO turno a la vista.
   // Se desplaza el CONTENEDOR del hilo (`scrollTo` sobre el propio elemento),
@@ -94,7 +102,7 @@ export function MentorChatSection({
 
   const submit = (value: string) => {
     const texto = value.trim();
-    if (profile === null || texto.length === 0 || loading) return;
+    if (profile === null || patchBlocked || texto.length === 0 || loading) return;
     onAsk(texto);
     setQuestion("");
   };
@@ -132,6 +140,13 @@ export function MentorChatSection({
             <AlertDescription>
               Carga el ejemplo o importa tu build en «Mi personaje». Sin personaje no puedo
               responder nada con datos tuyos, y no voy a improvisar.
+            </AlertDescription>
+          </Alert>
+        ) : patchBlocked ? (
+          <Alert data-testid="mentor-chat-patch-review-gate">
+            <AlertTitle>El mentor está esperando la revisión de {patchCompatibility.patchId}</AlertTitle>
+            <AlertDescription>
+              {patchCompatibility.summary} No propondrá mejoras ni acciones mecánicas usando datos del parche anterior.
             </AlertDescription>
           </Alert>
         ) : (

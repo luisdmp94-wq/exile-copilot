@@ -51,6 +51,20 @@ function normalized(value: string): string {
   return value.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("es");
 }
 
+function isOrderedTokenExpansion(originalValue: string, resultValue: string): boolean {
+  const originalTokens = originalValue.split(" ").filter(Boolean);
+  const resultTokens = resultValue.split(" ").filter(Boolean);
+  const addedTokenCount = resultTokens.length - originalTokens.length;
+  if (originalTokens.length < 2 || addedTokenCount < 1 || addedTokenCount > 4) return false;
+
+  let originalIndex = 0;
+  for (const token of resultTokens) {
+    if (token === originalTokens[originalIndex]) originalIndex += 1;
+    if (originalIndex === originalTokens.length) return true;
+  }
+  return false;
+}
+
 /**
  * Firma estable de un modificador copiado del juego.
  *
@@ -115,6 +129,15 @@ function baseIdentityMatches(
 
   if (actionId === "regal" && original.rarity === "magic" && result.rarity === "rare") {
     return resultBase.length > 0 && originalBase.includes(resultBase);
+  }
+
+  // En objetos mágicos localizados, el juego puede serializar base y afijos en
+  // una sola línea. Al usar Aumento, el nuevo prefijo puede insertarse en mitad
+  // del nombre: «Arco tribal de ira» → «Arco tribal vibrante de ira». La clase,
+  // el nivel, los mods conservados y el único mod añadido se validan después;
+  // aquí solo reconciliamos esa expansión ordenada del nombre visible.
+  if (actionId === "augmentation" && original.rarity === "magic" && result.rarity === "magic") {
+    return isOrderedTokenExpansion(originalBase, resultBase);
   }
 
   return false;

@@ -15,7 +15,12 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, stopChild } from "./browserLaunch.mjs";
+import {
+  launchBrowser,
+  productionServerCommand,
+  stopChild,
+  toolCommand,
+} from "./browserLaunch.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -45,11 +50,11 @@ async function waitForServer(base) {
 }
 
 function startServer(mode, port) {
-  const command =
+  const launch =
     mode === "prod"
-      ? [join(REPO, "node_modules", "tsx", "dist", "cli.mjs"), "server/index.ts"]
-      : [join(REPO, "node_modules", "vite", "bin", "vite.js"), "--port", String(port), "--strictPort"];
-  const proc = spawn(globalThis.process.execPath, command, {
+      ? productionServerCommand()
+      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+  const proc = spawn(launch.command, launch.args, {
     cwd: REPO,
     env: {
       ...globalThis.process.env,
@@ -57,8 +62,9 @@ function startServer(mode, port) {
       DATABASE_PATH: join(tempRoot, `${mode}.db`),
       NODE_ENV: mode === "prod" ? "production" : "development",
       POE_NINJA_OFFLINE: "true",
+      SECURE_COOKIES: "false",
     },
-    shell: false,
+    shell: launch.shell,
     stdio: ["ignore", "pipe", "pipe"],
   });
   proc.stderr.on("data", () => {});
@@ -90,14 +96,12 @@ function check(label, condition) {
   if (!condition) failures += 1;
 }
 
-async function persistDemo(base) {
-  const demoResponse = await fetch(`${base}/api/character/demo`);
+async function persistDemo(request, base) {
+  const demoResponse = await request.get(`${base}/api/character/demo`);
   if (!demoResponse.ok) throw new Error(`demo no disponible: HTTP ${demoResponse.status}`);
   const { profile } = await demoResponse.json();
-  const saveResponse = await fetch(`${base}/api/character`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ profile }),
+  const saveResponse = await request.post(`${base}/api/character`, {
+    data: { profile },
   });
   if (!saveResponse.ok) throw new Error(`demo no persistido: HTTP ${saveResponse.status}`);
   return profile.id;
@@ -152,7 +156,7 @@ async function runFlow(mode, port) {
     await page.goto(base, { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 20_000 });
-    const persistedId = await persistDemo(base);
+    const persistedId = await persistDemo(context.request, base);
     await page.evaluate(
       (id) => localStorage.setItem("exile-copilot:characterId", id),
       persistedId,
@@ -489,6 +493,9 @@ async function runFlow(mode, port) {
     );
     await verSesion();
     await irA(page, "plan");
+    await page.getByTestId("market-context-details").evaluate((element) => {
+      if (element instanceof HTMLDetailsElement) element.open = true;
+    });
     await page.locator("#market-budget").fill("500");
     await irA(page, "expediente");
     (await verGenerar()).click();

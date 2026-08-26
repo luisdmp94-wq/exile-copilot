@@ -62,12 +62,14 @@ export function CoachItemCard({
         </div>
       </div>
 
-      <p
-        className="border-t border-border/70 px-3 py-2.5 text-sm leading-relaxed sm:px-4"
-        data-testid="coach-objeto-resumen"
-      >
-        {reading.sentence}
-      </p>
+      {(!compact || reading.readable) && (
+        <p
+          className="border-t border-border/70 px-3 py-2.5 text-sm leading-relaxed sm:px-4"
+          data-testid="coach-objeto-resumen"
+        >
+          {reading.sentence}
+        </p>
+      )}
 
       {!compact && explicit.length > 0 && (
         <details className="border-t border-border/70 p-3 sm:p-4">

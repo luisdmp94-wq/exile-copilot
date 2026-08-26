@@ -7,7 +7,7 @@ import {
 
 describe("Academia de crafting · nivel medio", () => {
   it("todos los casos derivan su respuesta de los hechos", () => {
-    expect(CRAFTING_MEDIUM_ACADEMY_SCENARIOS).toHaveLength(6);
+    expect(CRAFTING_MEDIUM_ACADEMY_SCENARIOS).toHaveLength(7);
     for (const scenario of CRAFTING_MEDIUM_ACADEMY_SCENARIOS) {
       expect(validateMediumAcademyScenario(scenario)).toBe(true);
       expect(resolveMediumAcademyDecision(scenario.facts)).toBe(scenario.expectedDecision);
@@ -26,5 +26,15 @@ describe("Academia de crafting · nivel medio", () => {
   it("distingue parar de continuar dentro del contrato", () => {
     expect(resolveMediumAcademyDecision({ resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: false, stopConditionFulfilled: true })).toBe("keep-and-stop");
     expect(resolveMediumAcademyDecision({ resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: false, stopConditionFulfilled: false })).toBe("continue-contract");
+  });
+
+  it("no confunde encontrar el afijo con alcanzar el mínimo declarado", () => {
+    const scenario = CRAFTING_MEDIUM_ACADEMY_SCENARIOS.find(
+      (entry) => entry.id === "medio-minimo-no-cumplido",
+    );
+    expect(scenario).toBeDefined();
+    expect(resolveMediumAcademyDecision(scenario!.facts)).toBe("review-below-minimum");
+    expect(scenario?.before).toContain("+30");
+    expect(scenario?.after).toContain("+24");
   });
 });

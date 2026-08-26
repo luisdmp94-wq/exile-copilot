@@ -43,6 +43,12 @@ export interface CraftingAcademyState {
   /** Escenarios del recorrido de lecciones ya respondidos. */
   lessonsAnswered: number;
   lessonsTotal: number;
+  /** Estado observable de cada situación del tramo actual, en orden. */
+  stepStatuses: Array<{
+    id: string;
+    label: string;
+    status: "correct" | "incorrect" | "pending";
+  }>;
   /** true si el examen en curso es un repaso de conceptos pendientes. */
   isRetry: boolean;
   hasProgress: boolean;
@@ -128,6 +134,15 @@ export function useCraftingAcademy(): CraftingAcademyState {
   const lessonsAnswered = LESSON_ROUTE.filter(
     (entry) => progress.answers[entry.scenario.id] !== undefined,
   ).length;
+  const activeRoute = progress.stage === "lesson" ? LESSON_ROUTE : currentExamSteps;
+  const stepStatuses = activeRoute.map((entry) => {
+    const answer = progress.answers[entry.scenario.id];
+    return {
+      id: entry.scenario.id,
+      label: entry.lesson?.title ?? entry.scenario.question,
+      status: answer === undefined ? "pending" as const : answer.correct ? "correct" as const : "incorrect" as const,
+    };
+  });
 
   const start = useCallback(() => {
     commit({ ...progress, stage: "lesson", cursor: 0 });
@@ -194,6 +209,7 @@ export function useCraftingAcademy(): CraftingAcademyState {
     pendingConcepts,
     lessonsAnswered,
     lessonsTotal: LESSON_ROUTE.length,
+    stepStatuses,
     isRetry: progress.examScenarioIds.length > 0 && progress.examScenarioIds.length < ALL_EXAM_IDS.length,
     hasProgress: restored || Object.keys(progress.answers).length > 0 || progress.stage !== "intro",
     start,

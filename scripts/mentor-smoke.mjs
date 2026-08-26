@@ -55,7 +55,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, toolCommand } from "./browserLaunch.mjs";
+import { launchBrowser, productionServerCommand, toolCommand } from "./browserLaunch.mjs";
 
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -85,7 +85,7 @@ async function waitForServer(base) {
 function startServer(mode, port) {
   const { command, args: cmdArgs, shell } =
     mode === "prod"
-      ? toolCommand("tsx", ["server/index.ts"])
+      ? productionServerCommand()
       : toolCommand("vite", ["--port", String(port), "--strictPort"]);
   const proc = spawn(command, cmdArgs, {
     cwd: REPO,
@@ -93,7 +93,12 @@ function startServer(mode, port) {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
+      // El recorrido concentra en segundos todas las preguntas que una persona
+      // haría durante una sesión; evita que el propio smoke choque con el
+      // límite de producción sin modificar dicho límite en la aplicación.
+      MENTOR_RATE_LIMIT_PER_MINUTE: "300",
       // El smoke ordinario prueba la procedencia por reglas. La variante
       // explícita de fallback activa IA con su propio proveedor simulado.
       MENTOR_AI_ENABLED: EXPECT_AI_FALLBACK ? "true" : "false",
@@ -267,7 +272,9 @@ async function runFlow(mode, port) {
       `[${mode}] el mentor contextual conserva el plegado al cambiar de área`,
       (await contextualToggle.getAttribute("aria-expanded")) === "false",
     );
-    await contextualToggle.click();
+    // Cuando está plegado, el panel y su control interno quedan ocultos por
+    // diseño; la mascota es el único control visible para volver a abrirlo.
+    await page.getByTestId("mentor-mascota").click();
 
     // Una respuesta que llega después de cambiar de contexto puede guardarse
     // en el hilo, pero no sustituir el nuevo panel.
@@ -348,6 +355,9 @@ async function runFlow(mode, port) {
         });
       }
     });
+    await page.getByTestId("market-context-details").evaluate((element) => {
+      if (element instanceof HTMLDetailsElement) element.open = true;
+    });
     const budgetInput = page.locator("#market-budget");
     await budgetInput.fill("");
     await budgetInput.pressSequentially("1500", { delay: 100 });
@@ -387,6 +397,23 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el saludo no filtra ids internos`,
       !/\b(?:rec|fact)(?::|-)/i.test(textoSaludo),
+    );
+
+    // --- Identidad del Mentor ---------------------------------------------
+    await preguntar(page, "¿Quién eres?");
+    const identidad = page.getByTestId("mentor-turno-mentor").last();
+    const textoIdentidad = await identidad.innerText();
+    check(
+      `[${mode}] «¿Quién eres?» recibe una presentación útil y honesta`,
+      textoIdentidad.includes("Mentor de Exile Copilot") &&
+        textoIdentidad.includes("si me faltan datos") &&
+        !textoIdentidad.includes("No puedo responder") &&
+        !textoIdentidad.includes("Todavía no sé responder"),
+    );
+    check(
+      `[${mode}] la identidad no crea una recomendación ni evidencia vacía`,
+      (await page.getByTestId("mentor-proxima-accion").count()) === 0 &&
+        (await identidad.getByTestId("mentor-evidencia").count()) === 0,
     );
 
     // --- next_improvement --------------------------------------------------
@@ -603,6 +630,9 @@ async function runFlow(mode, port) {
       (await page.getByTestId("mentor-turno-mentor").count()) > 0,
     );
     await irA(page, "plan");
+    await page.getByTestId("market-context-details").evaluate((element) => {
+      if (element instanceof HTMLDetailsElement) element.open = true;
+    });
     await page.locator("#market-budget").fill("777");
     await page.locator("#market-budget").blur();
     await irA(page, "expediente");

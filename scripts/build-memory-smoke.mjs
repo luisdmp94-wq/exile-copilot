@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import {
   createSmokeTempDir,
   launchBrowser,
+  productionServerCommand,
   removeSmokeTempDir,
   stopChild,
   toolCommand,
@@ -48,7 +49,7 @@ function check(label, condition) {
 function startServer(mode, port) {
   const command =
     mode === "prod"
-      ? toolCommand("tsx", ["server/index.ts"])
+      ? productionServerCommand()
       : toolCommand("vite", ["--port", String(port), "--strictPort"]);
   const server = spawn(command.command, command.args, {
     cwd: REPO,
@@ -57,6 +58,7 @@ function startServer(mode, port) {
       PORT: String(port),
       DATABASE_PATH: join(TEMP_ROOT, `${mode}.db`),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
     },
     shell: command.shell,
