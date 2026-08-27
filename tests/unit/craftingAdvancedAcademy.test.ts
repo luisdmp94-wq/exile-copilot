@@ -17,6 +17,7 @@ describe("Academia de crafting — nivel avanzado", () => {
       expect(resolveAdvancedAcademyDecision(scenario.facts), scenario.id).toBe(
         scenario.expectedDecision,
       );
+      expect(scenario.item.sources.some((source) => source.kind === "internal"), scenario.id).toBe(true);
       expect(new Set(scenario.options.map((entry) => entry.id)).size, scenario.id).toBe(
         scenario.options.length,
       );
@@ -25,6 +26,7 @@ describe("Academia de crafting — nivel avanzado", () => {
         scenario.id,
       ).toHaveLength(1);
     }
+    expect(new Set(CRAFTING_ADVANCED_ACADEMY_SCENARIOS.map((scenario) => scenario.item.id)).size).toBe(9);
   });
 
   it("cubre contrato, conservación, reemplazo, salida, evidencia y empate honesto", () => {

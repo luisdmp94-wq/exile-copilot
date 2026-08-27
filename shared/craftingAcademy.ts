@@ -160,7 +160,7 @@ const CLEAN_STATE = {
   unidentified: false,
 };
 
-function affix(
+export function createAcademyAffix(
   id: string,
   text: string,
   kindOfAffix: "prefix" | "suffix",
@@ -177,14 +177,14 @@ function affix(
   };
 }
 
-function exerciseItem(input: {
+export function createAcademyExerciseItem(input: {
   id: string;
   name: string;
   baseType: string;
   slot: Item["slot"];
   rarity: ItemRarity;
   itemLevel: number;
-  modifiers?: ReturnType<typeof affix>[];
+  modifiers?: ReturnType<typeof createAcademyAffix>[];
   /** Omitido a propósito en el escenario que enseña a parar por falta de datos. */
   withState?: boolean;
 }): Item {
@@ -200,6 +200,9 @@ function exerciseItem(input: {
     sources: [EXERCISE_SOURCE],
   });
 }
+
+const affix = createAcademyAffix;
+const exerciseItem = createAcademyExerciseItem;
 
 const YELMO_RARO = exerciseItem({
   id: "academia-yelmo-raro",

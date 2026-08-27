@@ -11,7 +11,9 @@ describe("Academia de crafting · nivel medio", () => {
     for (const scenario of CRAFTING_MEDIUM_ACADEMY_SCENARIOS) {
       expect(validateMediumAcademyScenario(scenario)).toBe(true);
       expect(resolveMediumAcademyDecision(scenario.facts)).toBe(scenario.expectedDecision);
+      expect(scenario.item.sources.some((source) => source.kind === "internal")).toBe(true);
     }
+    expect(new Set(CRAFTING_MEDIUM_ACADEMY_SCENARIOS.map((scenario) => scenario.item.id)).size).toBe(7);
   });
 
   it("abandona un inicio mágico inútil y aprovecha uno prometedor", () => {

@@ -7,6 +7,9 @@
  * No contiene recetas, pools, pesos, probabilidades ni precios.
  */
 
+import type { Item } from "./domain.js";
+import { createAcademyAffix, createAcademyExerciseItem } from "./craftingAcademy.js";
+
 export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-28";
 
 export const CRAFTING_ADVANCED_ACADEMY_EVIDENCE =
@@ -72,6 +75,7 @@ export interface AdvancedAcademyScenario {
   title: string;
   skill: string;
   situation: string;
+  item: Item;
   contract: {
     objective: string;
     protect: string[];
@@ -140,6 +144,124 @@ const option = (
   hint: string,
 ): AdvancedAcademyOption => ({ id, decision, label, hint });
 
+const advancedAffix = createAcademyAffix;
+
+const ITEM_CONTRATO_ABIERTO = createAcademyExerciseItem({
+  id: "avanzado-contrato-abierto",
+  name: "Botas del proyecto abierto",
+  baseType: "Botas de paso veloz",
+  slot: "boots",
+  rarity: "rare",
+  itemLevel: 78,
+  modifiers: [
+    advancedAffix("av-c1", "+96 a la vida máxima", "prefix", ["Vida"]),
+    advancedAffix("av-c2", "Velocidad de movimiento aumentada", "suffix", ["Velocidad"]),
+    advancedAffix("av-c3", "+27% a la resistencia al fuego", "suffix", ["Resistencias"]),
+  ],
+});
+
+const ITEM_CONSERVAR_OPCIONES = createAcademyExerciseItem({
+  id: "avanzado-conservar-opciones",
+  name: "Guantes prometedores",
+  baseType: "Guantes de acechador",
+  slot: "gloves",
+  rarity: "magic",
+  itemLevel: 78,
+  modifiers: [advancedAffix("av-o1", "+88 a la vida máxima", "prefix", ["Vida"])],
+});
+
+const ITEM_REEMPLAZO = createAcademyExerciseItem({
+  id: "avanzado-reemplazo",
+  name: "Amuleto con línea protegida",
+  baseType: "Amuleto de lapislázuli",
+  slot: "amulet",
+  rarity: "rare",
+  itemLevel: 80,
+  modifiers: [
+    advancedAffix("av-r1", "+108 a la vida máxima", "prefix", ["Vida"]),
+    advancedAffix("av-r2", "+24 a la destreza", "suffix", ["Atributo"]),
+    advancedAffix("av-r3", "+29% a la resistencia al hielo", "suffix", ["Resistencias"]),
+  ],
+});
+
+const ITEM_SALIDA_CUMPLIDA = createAcademyExerciseItem({
+  id: "avanzado-salida-cumplida",
+  name: "Cinturón del contrato cumplido",
+  baseType: "Cinturón de cuero crudo",
+  slot: "belt",
+  rarity: "rare",
+  itemLevel: 80,
+  modifiers: [
+    advancedAffix("av-s1", "+122 a la vida máxima", "prefix", ["Vida"]),
+    advancedAffix("av-s2", "+31% a la resistencia al fuego", "suffix", ["Resistencias"]),
+    advancedAffix("av-s3", "+28% a la resistencia al hielo", "suffix", ["Resistencias"]),
+    advancedAffix("av-s4", "+25 a la fuerza", "suffix", ["Atributo"]),
+  ],
+});
+
+const ITEM_LECTURA_INCOMPLETA = createAcademyExerciseItem({
+  id: "avanzado-lectura-incompleta",
+  name: "Yelmo copiado a medias",
+  baseType: "Yelmo de cazador",
+  slot: "helmet",
+  rarity: "magic",
+  itemLevel: 76,
+  withState: false,
+  modifiers: [advancedAffix("av-d1", "+74 a la vida máxima", "prefix", ["Vida"])],
+});
+
+const ITEM_RIESGOS_EMPATE = createAcademyExerciseItem({
+  id: "avanzado-riesgos-empate",
+  name: "Anillo en la encrucijada",
+  baseType: "Anillo inconcluso",
+  slot: "ring1",
+  rarity: "rare",
+  itemLevel: 81,
+  modifiers: [
+    advancedAffix("av-e1", "+92 a la vida máxima", "prefix", ["Vida"]),
+    advancedAffix("av-e2", "+32% a la resistencia al rayo", "suffix", ["Resistencias"]),
+    advancedAffix("av-e3", "+20 a la destreza", "suffix", ["Atributo"]),
+  ],
+});
+
+const ITEM_BASE_AGOTADA = createAcademyExerciseItem({
+  id: "avanzado-base-agotada",
+  name: "Botas del último intento",
+  baseType: "Botas de paso veloz",
+  slot: "boots",
+  rarity: "magic",
+  itemLevel: 78,
+  modifiers: [advancedAffix("av-b1", "+19 al maná máximo", "prefix", ["Maná"])],
+});
+
+const ITEM_TRANSFORMACION = createAcademyExerciseItem({
+  id: "avanzado-transformacion",
+  name: "Anillo antes del Flux",
+  baseType: "Anillo de lapislázuli",
+  slot: "ring1",
+  rarity: "rare",
+  itemLevel: 81,
+  modifiers: [
+    advancedAffix("av-f1", "+103 a la vida máxima", "prefix", ["Vida"]),
+    advancedAffix("av-f2", "+27 a la fuerza", "suffix", ["Atributo"]),
+    advancedAffix("av-f3", "+30% a la resistencia al fuego", "suffix", ["Resistencias"]),
+  ],
+});
+
+const ITEM_SUSTITUCION = createAcademyExerciseItem({
+  id: "avanzado-sustitucion",
+  name: "Amuleto candidato",
+  baseType: "Amuleto de lapislázuli",
+  slot: "amulet",
+  rarity: "rare",
+  itemLevel: 82,
+  modifiers: [
+    advancedAffix("av-x1", "Daño de proyectiles aumentado", "prefix", ["Daño", "Proyectil"]),
+    advancedAffix("av-x2", "+91 a la vida máxima", "prefix", ["Vida"]),
+    advancedAffix("av-x3", "+18 a la destreza", "suffix", ["Atributo"]),
+  ],
+});
+
 export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenario[] = [
   {
     id: "avanzado-contrato-sin-salida",
@@ -148,6 +270,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "No empezar sin saber cuándo parar",
     situation:
       "Has descrito la mejora y marcado una línea intocable, pero todavía no existe una condición comprobable de salida.",
+    item: ITEM_CONTRATO_ABIERTO,
     contract: {
       objective: "Añadir otra línea útil de defensa",
       protect: ["Conservar la resistencia ya presente"],
@@ -179,6 +302,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "Ordenar dos acciones legales",
     situation:
       "La pieza es mágica y tiene un solo modificador. Aumento y Regio son legales, pero Regio cambia la etapa del craft.",
+    item: ITEM_CONSERVAR_OPCIONES,
     contract: {
       objective: "Completar la etapa mágica antes de pasar a raro",
       protect: ["Conservar el modificador actual"],
@@ -227,6 +351,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "No arriesgar una línea protegida a ciegas",
     situation:
       "La pieza rara está llena. Essence y Alloy aparecen como herramientas de reemplazo, pero todavía no has pegado el tooltip del recurso real.",
+    item: ITEM_REEMPLAZO,
     contract: {
       objective: "Sustituir una línea prescindible",
       protect: ["Velocidad de ataque", "Nivel de habilidades"],
@@ -275,6 +400,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "No convertir un éxito en otra apuesta",
     situation:
       "Tras registrar el resultado, la línea exacta que pedía tu contrato aparece y las líneas intocables siguen presentes.",
+    item: ITEM_SALIDA_CUMPLIDA,
     contract: {
       objective: "Conseguir la línea exacta definida por el jugador",
       protect: ["Las dos líneas marcadas siguen presentes"],
@@ -315,6 +441,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "Distinguir bloqueo de mala suerte",
     situation:
       "El texto copiado no permite confirmar el estado completo de la pieza. Aun así, la forma visual sugiere que podría quedar un hueco.",
+    item: ITEM_LECTURA_INCOMPLETA,
     contract: {
       objective: "Añadir una línea sin perder las actuales",
       protect: ["Todos los modificadores observados"],
@@ -346,6 +473,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "Comparar riesgos sin inventar una receta",
     situation:
       "Dos rutas de reemplazo tienen tooltip verificado y ambas son compatibles, pero cada una arriesga una consecuencia distinta. No hay pesos ni probabilidades verificadas.",
+    item: ITEM_RIESGOS_EMPATE,
     contract: {
       objective: "Cambiar una línea prescindible",
       protect: ["Conservar la línea principal del objeto"],
@@ -394,6 +522,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "Respetar también la salida de fracaso",
     situation:
       "Ya registraste el segundo resultado. La línea objetivo no apareció y has alcanzado el límite de intentos que escribiste antes de empezar.",
+    item: ITEM_BASE_AGOTADA,
     contract: {
       objective: "Conseguir la línea objetivo conservando la principal",
       protect: ["Conservar la línea principal"],
@@ -450,6 +579,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "Elegir la pieza por el resultado completo",
     situation:
       "Tienes fuego por debajo del límite, frío sobrante y rayo justo. El tooltip real del Flux afecta dos resistencias de la pieza elegida: tus guantes solo aportan frío, pero tus botas aportan frío y rayo.",
+    item: ITEM_TRANSFORMACION,
     contract: {
       objective: "Reequilibrar resistencias sin abrir otra carencia",
       protect: ["Mantener fuego, frío y rayo en su límite"],
@@ -511,6 +641,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     skill: "No romper dependencias por una mejora aislada",
     situation:
       "Una pieza candidata mejora la línea ofensiva que buscas, pero la equipada aporta atributos y resistencias que pueden sostener requisitos de habilidades y límites defensivos. Ambas piezas están leídas, pero todavía no has recalculado el personaje sin la actual.",
+    item: ITEM_SUSTITUCION,
     contract: {
       objective: "Sustituir la pieza sin romper el resto del equipo",
       protect: ["Mantener requisitos de habilidades", "No abrir huecos de resistencias"],

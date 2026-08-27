@@ -260,6 +260,11 @@ async function runFlow(mode, port) {
         !(await media.innerText()).includes("comparador"),
     );
     await page.getByTestId("academia-media-empezar").click();
+    check(
+      `[${mode}] el nivel medio presenta el objeto a la izquierda y la decisión a la derecha`,
+      (await page.getByTestId("academia-objeto").isVisible()) &&
+        (await page.getByTestId("academia-media-pregunta").isVisible()),
+    );
     const respuestasMedias = [
       "med-base-correcta",
       "med-objetivo-concreto",
@@ -301,6 +306,11 @@ async function runFlow(mode, port) {
         (await avanzada.innerText()).includes("casos son sintéticos"),
     );
     await page.getByTestId("academia-avanzada-empezar").click();
+    check(
+      `[${mode}] el nivel avanzado presenta el objeto a la izquierda y la decisión a la derecha`,
+      (await page.getByTestId("academia-objeto").isVisible()) &&
+        (await page.getByTestId("academia-avanzada-pregunta").isVisible()),
+    );
     const respuestasAvanzadas = [
       "av-definir-salida",
       "av-aumento",

@@ -5,6 +5,7 @@ import {
   CRAFTING_MEDIUM_ACADEMY_SCENARIOS,
   type MediumAcademyScenario,
 } from "@shared/craftingMediumAcademy.js";
+import { AcademyItemBoard } from "@/components/AcademyItemBoard";
 import { Button } from "@/components/ui/button";
 
 interface CraftingMediumAcademyProps {
@@ -50,66 +51,84 @@ function MediumCase({
         <span className="block h-full rounded-full bg-sky-400 transition-[width] motion-reduce:transition-none" style={{ width: `${Math.round((scenario.order / CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length) * 100)}%` }} />
       </div>
 
-      <p className="text-sm leading-relaxed text-muted-foreground">{scenario.situation}</p>
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
+        <AcademyItemBoard item={scenario.item} className="lg:sticky lg:top-24" />
 
-      <div className="grid gap-px overflow-hidden rounded-md border border-border/70 bg-border/60 sm:grid-cols-2" aria-label="Situación dentro del juego">
-        <div className="bg-background/70 p-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">En el juego</span>
-          <p className="mt-1 text-sm font-medium">{scenario.gameState}</p>
-        </div>
-        <div className="bg-sky-500/[0.045] p-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-300/80">Lo que buscas</span>
-          <p className="mt-1 text-sm font-medium">{scenario.playerGoal}</p>
+        <div className="min-w-0 space-y-4">
+          <div className="rounded-md border border-sky-400/25 bg-sky-500/[0.055] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-300/80">Antes de decidir</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Lee la base, la rareza, sus modificadores y los huecos. Después compáralos con lo que tu personaje necesita.
+            </p>
+          </div>
+
+          <p className="text-sm leading-relaxed text-muted-foreground">{scenario.situation}</p>
+
+          <div className="grid gap-px overflow-hidden rounded-md border border-border/70 bg-border/60 sm:grid-cols-2" aria-label="Situación dentro del juego">
+            <div className="bg-background/70 p-3">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">En el juego</span>
+              <p className="mt-1 text-sm font-medium">{scenario.gameState}</p>
+            </div>
+            <div className="bg-sky-500/[0.045] p-3">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-300/80">Lo que buscas</span>
+              <p className="mt-1 text-sm font-medium">{scenario.playerGoal}</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-semibold" data-testid="academia-media-pregunta">{scenario.question}</h4>
+            <div className="mt-2 grid gap-2" role="group" aria-label="Decisiones del nivel medio">
+              {scenario.options.map((entry) => {
+                const expected = entry.decision === scenario.expectedDecision;
+                const selected = entry.id === chosenId;
+                const state = !answered ? "open" : expected ? "correct" : selected ? "wrong" : "muted";
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    disabled={answered}
+                    onClick={() => onChoose(entry.id)}
+                    data-testid={`academia-media-opcion-${entry.id}`}
+                    data-state={state}
+                    className={`flex min-h-14 items-center gap-3 rounded border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:cursor-default ${state === "correct" ? "border-emerald-400/55 bg-emerald-500/[0.1]" : state === "wrong" ? "border-rose-400/55 bg-rose-500/[0.1]" : state === "muted" ? "border-border/50 opacity-55" : "border-border bg-muted/[0.04] hover:border-sky-400/45 hover:bg-sky-500/[0.05]"}`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <strong className="block text-sm">{entry.label}</strong>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{entry.hint}</span>
+                    </span>
+                    {answered && expected && <CheckCircle2 className="size-5 shrink-0 text-emerald-300" aria-label="Respuesta correcta" />}
+                    {answered && selected && !expected && <XCircle className="size-5 shrink-0 text-rose-300" aria-label="Tu respuesta, incorrecta" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {answered && (
+            <div
+              ref={feedbackRef}
+              tabIndex={-1}
+              role="status"
+              data-testid="academia-media-feedback"
+              data-result={correct ? "correcto" : "incorrecto"}
+              className={`rounded-md border p-3 outline-none ${correct ? "border-emerald-400/45 bg-emerald-500/[0.08]" : "border-rose-400/45 bg-rose-500/[0.08]"}`}
+            >
+              <p className="text-sm font-semibold">{correct ? "Correcto" : "No era esa"}</p>
+              {!correct && chosen && (
+                <p className="mt-1 text-sm leading-relaxed text-rose-100/85">
+                  <strong>Qué fallaba:</strong> {chosen.hint}
+                </p>
+              )}
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{scenario.explanation}</p>
+              <p className="mt-2 text-xs font-medium text-sky-200">Idea clave: {scenario.takeaway}</p>
+              <Button className="mt-3" type="button" onClick={onNext} data-testid="academia-media-continuar">
+                {scenario.order === CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length ? "Ver resultado" : "Siguiente situación"}
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
-
-      <div>
-        <h4 className="text-lg font-semibold" data-testid="academia-media-pregunta">{scenario.question}</h4>
-        <div className="mt-2 grid gap-2" role="group" aria-label="Decisiones del nivel medio">
-          {scenario.options.map((entry) => {
-            const expected = entry.decision === scenario.expectedDecision;
-            const selected = entry.id === chosenId;
-            const state = !answered ? "open" : expected ? "correct" : selected ? "wrong" : "muted";
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                disabled={answered}
-                onClick={() => onChoose(entry.id)}
-                data-testid={`academia-media-opcion-${entry.id}`}
-                data-state={state}
-                className={`flex min-h-14 items-center gap-3 rounded border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:cursor-default ${state === "correct" ? "border-emerald-400/55 bg-emerald-500/[0.1]" : state === "wrong" ? "border-rose-400/55 bg-rose-500/[0.1]" : state === "muted" ? "border-border/50 opacity-55" : "border-border bg-muted/[0.04] hover:border-sky-400/45 hover:bg-sky-500/[0.05]"}`}
-              >
-                <span className="min-w-0 flex-1">
-                  <strong className="block text-sm">{entry.label}</strong>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">{entry.hint}</span>
-                </span>
-                {answered && expected && <CheckCircle2 className="size-5 shrink-0 text-emerald-300" aria-label="Respuesta correcta" />}
-                {answered && selected && !expected && <XCircle className="size-5 shrink-0 text-rose-300" aria-label="Tu respuesta, incorrecta" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {answered && (
-        <div
-          ref={feedbackRef}
-          tabIndex={-1}
-          role="status"
-          data-testid="academia-media-feedback"
-          data-result={correct ? "correcto" : "incorrecto"}
-          className={`rounded-md border p-3 outline-none ${correct ? "border-emerald-400/45 bg-emerald-500/[0.08]" : "border-rose-400/45 bg-rose-500/[0.08]"}`}
-        >
-          <p className="text-sm font-semibold">{correct ? "Correcto" : "No era esa"}</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{scenario.explanation}</p>
-          <p className="mt-2 text-xs font-medium text-sky-200">Idea clave: {scenario.takeaway}</p>
-          <Button className="mt-3" type="button" onClick={onNext} data-testid="academia-media-continuar">
-            {scenario.order === CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length ? "Ver resultado" : "Siguiente situación"}
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

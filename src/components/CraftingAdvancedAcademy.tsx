@@ -14,6 +14,7 @@ import {
   CRAFTING_ADVANCED_ACADEMY_SCENARIOS,
   type AdvancedAcademyScenario,
 } from "@shared/craftingAdvancedAcademy.js";
+import { AcademyItemBoard } from "@/components/AcademyItemBoard";
 import { Button } from "@/components/ui/button";
 
 function ContractCell({
@@ -78,6 +79,17 @@ function AdvancedScenarioView({
         <span className="block h-full rounded-full bg-cyan-400 transition-[width] motion-reduce:transition-none" style={{ width: `${Math.round((scenario.order / CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length) * 100)}%` }} />
       </div>
 
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
+        <AcademyItemBoard item={scenario.item} className="lg:sticky lg:top-24" />
+
+        <div className="min-w-0 space-y-4">
+      <div className="rounded border border-cyan-400/25 bg-cyan-500/[0.055] p-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-300/80">Cómo leer este caso</p>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          Primero mira la pieza. Después comprueba qué quieres conseguir, qué no puedes sacrificar y qué condición te obliga a parar.
+        </p>
+      </div>
+
       <p className="text-sm leading-relaxed text-muted-foreground">{scenario.situation}</p>
 
       <div className="grid gap-2 sm:grid-cols-3" aria-label="Contrato del caso">
@@ -139,6 +151,11 @@ function AdvancedScenarioView({
           <p className={`font-semibold ${wasRight ? "text-emerald-200" : "text-rose-200"}`}>
             {wasRight ? "Decisión sólida" : "Aquí asumirías demasiado"}
           </p>
+          {!wasRight && chosen && (
+            <p className="mt-1 text-sm leading-relaxed text-rose-100/85">
+              <strong>Qué fallaba:</strong> {chosen.hint}
+            </p>
+          )}
           <p className="mt-1.5 text-sm leading-relaxed">{scenario.explanation}</p>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground"><strong>Idea que te llevas:</strong> {scenario.lesson}</p>
           <Button className="mt-3" type="button" onClick={onNext} data-testid="academia-avanzada-continuar">
@@ -147,6 +164,8 @@ function AdvancedScenarioView({
           </Button>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }
