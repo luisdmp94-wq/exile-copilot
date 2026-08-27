@@ -832,6 +832,26 @@ async function runFlow(mode, port) {
         (await page.getByTestId("mentor-mascota").getAttribute("data-attention")) === "true" &&
         (await page.getByTestId("mentor-contextual").getAttribute("data-collapsed")) === "true",
     );
+    const mascotVoiceMotion = await page.getByTestId("mentor-mascota").evaluate((mascot) => {
+      const previousState = mascot.getAttribute("data-state");
+      mascot.setAttribute("data-state", "ai");
+      const mouth = mascot.querySelector(".mentor-robot__mouth");
+      const bars = mouth ? [...mouth.querySelectorAll(":scope > span")] : [];
+      const result = {
+        animationName: mouth ? getComputedStyle(mouth).animationName : null,
+        barAnimations: bars.map((bar) => getComputedStyle(bar).animationName),
+        barHeights: bars.map((bar) => getComputedStyle(bar).height),
+      };
+      if (previousState === null) mascot.removeAttribute("data-state");
+      else mascot.setAttribute("data-state", previousState);
+      return result;
+    });
+    check(
+      `[${mode}] al hablar solo pulsa la luz cian y la boca no se abre`,
+      mascotVoiceMotion.animationName === "mentor-robot-voice-glow" &&
+        mascotVoiceMotion.barAnimations.every((animation) => animation === "none") &&
+        mascotVoiceMotion.barHeights.every((height) => height === "2px"),
+    );
     await page.getByTestId("mentor-speech-open").click();
     check(
       `[${mode}] pulsar el bocadillo abre la explicación completa`,

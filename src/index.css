@@ -715,12 +715,8 @@
     animation: mentor-orbit-scan 2.2s linear infinite;
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__mouth > span {
-    animation: mentor-robot-talk 0.65s ease-in-out infinite alternate;
-  }
-
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__mouth > span:nth-child(2) {
-    animation-delay: 160ms;
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__mouth {
+    animation: mentor-robot-voice-glow 1.15s ease-in-out infinite alternate;
   }
 
   :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__eyes > span {
@@ -1258,14 +1254,14 @@
   }
 }
 
-@keyframes mentor-robot-talk {
+@keyframes mentor-robot-voice-glow {
   from {
-    height: 2px;
-    opacity: 0.62;
+    opacity: 0.68;
+    filter: drop-shadow(0 0 0.08rem hsl(195 90% 58% / 0.32));
   }
   to {
-    height: 0.42rem;
     opacity: 1;
+    filter: drop-shadow(0 0 0.32rem hsl(195 95% 64% / 0.72));
   }
 }
 
@@ -1307,6 +1303,7 @@
   .mentor-robot__orbit,
   .mentor-robot__antenna > span,
   .mentor-robot__core,
+  .mentor-robot__mouth,
   .mentor-robot__mouth > span,
   .mentor-robot__eyes > span,
   .mentor-floating-mascot__beacon,
