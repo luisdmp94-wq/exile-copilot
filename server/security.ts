@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { RequestHandler } from "express";
+import type { RequestHandler, Response } from "express";
 import type { ServerConfig } from "./config.js";
 
 const SESSION_COOKIE = "exile_copilot_session";
@@ -72,6 +72,15 @@ export function anonymousSessionId(locals: Record<string, unknown>): string {
     throw new Error("Sesión anónima no inicializada.");
   }
   return value;
+}
+
+/** Invalida la capacidad anónima actual después de borrar todos sus datos. */
+export function expireAnonymousSession(res: Response, config: ServerConfig): void {
+  const secure = config.secureCookies ? "; Secure" : "";
+  res.append(
+    "Set-Cookie",
+    `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict${secure}`,
+  );
 }
 
 /** Cabeceras que también puede reutilizar el servidor del frontend estático. */

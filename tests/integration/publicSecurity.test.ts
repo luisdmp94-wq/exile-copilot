@@ -123,6 +123,58 @@ describe("frontera pública", () => {
     expect((ownerCopy.profile as Record<string, unknown>).name).toBe("Solo del visitante A");
   });
 
+  it("el borrado exige confirmación, invalida la sesión y no toca a otro visitante", async () => {
+    const sessionA = cookieFrom(await fetch(`${base}/health`));
+    const sessionB = cookieFrom(await fetch(`${base}/health`));
+    const demo = await json(await fetch(`${base}/character/demo`, { headers: { Cookie: sessionA } }));
+    const profileA = {
+      ...(demo.profile as Record<string, unknown>),
+      id: "borrado-privado-a",
+      name: "Se debe borrar",
+    };
+    const profileB = {
+      ...(demo.profile as Record<string, unknown>),
+      id: "borrado-privado-b",
+      name: "Se debe conservar",
+    };
+    for (const [session, profile] of [
+      [sessionA, profileA],
+      [sessionB, profileB],
+    ] as const) {
+      const saved = await fetch(`${base}/character`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: session },
+        body: JSON.stringify({ profile }),
+      });
+      expect(saved.status).toBe(200);
+    }
+
+    const accidental = await fetch(`${base}/visitor/data`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Cookie: sessionA },
+      body: JSON.stringify({ confirmation: "no" }),
+    });
+    expect(accidental.status).toBe(400);
+    expect(
+      (await fetch(`${base}/character/${profileA.id}`, { headers: { Cookie: sessionA } })).status,
+    ).toBe(200);
+
+    const deleted = await fetch(`${base}/visitor/data`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Cookie: sessionA },
+      body: JSON.stringify({ confirmation: "BORRAR MIS DATOS" }),
+    });
+    expect(deleted.status).toBe(200);
+    expect(await json(deleted)).toMatchObject({ deleted: true, deletedCharacters: 1 });
+    expect(deleted.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(
+      (await fetch(`${base}/character/${profileA.id}`, { headers: { Cookie: sessionA } })).status,
+    ).toBe(404);
+    expect(
+      (await fetch(`${base}/character/${profileB.id}`, { headers: { Cookie: sessionB } })).status,
+    ).toBe(200);
+  });
+
   it("limita el Mentor antes de gastar proveedor externo", async () => {
     const session = cookieFrom(await fetch(`${base}/health`));
     const first = await fetch(`${base}/mentor/query`, {

@@ -1,4 +1,4 @@
-import type { Database } from "./database.js";
+import { withTransaction, type Database } from "./database.js";
 
 /**
  * Repositorios pequeños sobre `price_cache` y `characters`.
@@ -110,6 +110,65 @@ export function claimCharacterOwner(db: Database, id: string, ownerId: string): 
     .prepare("UPDATE characters SET owner_id = ? WHERE id = ? AND owner_id IS NULL")
     .run(ownerId, id);
   return Number(result.changes) > 0;
+}
+
+export interface DeletedVisitorData {
+  characters: number;
+  journalEntries: number;
+  journalStates: number;
+  buildMemoryEntries: number;
+  decisionSessions: number;
+  decisionSessionEvents: number;
+}
+
+/**
+ * Borra en una sola transacción todos los datos privados de un visitante.
+ * La caché económica es global y no contiene datos del jugador, por lo que no
+ * forma parte de esta operación.
+ */
+export function deleteVisitorData(
+  db: Database,
+  ownerId: string,
+): DeletedVisitorData {
+  return withTransaction(db, () => {
+    const ownedCharacter =
+      "character_id IN (SELECT id FROM characters WHERE owner_id = ?)";
+    const decisionSessionEvents = Number(
+      db
+        .prepare(`DELETE FROM decision_session_events WHERE ${ownedCharacter}`)
+        .run(ownerId).changes,
+    );
+    const decisionSessions = Number(
+      db
+        .prepare(`DELETE FROM decision_sessions WHERE ${ownedCharacter}`)
+        .run(ownerId).changes,
+    );
+    const buildMemoryEntries = Number(
+      db
+        .prepare(`DELETE FROM build_memory_entries WHERE ${ownedCharacter}`)
+        .run(ownerId).changes,
+    );
+    const journalStates = Number(
+      db.prepare(`DELETE FROM journal_state WHERE ${ownedCharacter}`).run(ownerId)
+        .changes,
+    );
+    const journalEntries = Number(
+      db
+        .prepare(`DELETE FROM journal_entries WHERE ${ownedCharacter}`)
+        .run(ownerId).changes,
+    );
+    const characters = Number(
+      db.prepare("DELETE FROM characters WHERE owner_id = ?").run(ownerId).changes,
+    );
+    return {
+      characters,
+      journalEntries,
+      journalStates,
+      buildMemoryEntries,
+      decisionSessions,
+      decisionSessionEvents,
+    };
+  });
 }
 
 export interface BuildMemoryEntryRow {

@@ -35,7 +35,8 @@
 - [ ] Decidir el alcance público de música, proveedores externos y costes antes
   de convertir cualquier prototipo local en producto.
 - [x] Bloquear el arranque público con configuración local o insegura; documentar
-  secretos, límites de uso, privacidad, persistencia, copias y recuperación.
+  secretos, límites de uso, privacidad, persistencia, copias y recuperación;
+  ofrecer borrado irreversible y aislado de los datos del visitante.
 - [ ] Conectar el alojamiento real, su gestor de secretos, restaurar una copia de
   ensayo y activar monitorización y alertas antes de admitir usuarios reales.
 

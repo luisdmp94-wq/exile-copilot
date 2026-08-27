@@ -41,6 +41,8 @@ La comprobación de producción también exige que:
 - El HTML se revalide y los assets con hash usen caché inmutable.
 - Ningún paquete JavaScript de producción supere el umbral de 500 kB.
 - «Empezar de nuevo» permita recuperar el último expediente guardado desde la bienvenida.
+- «Borrar todos mis datos» exija confirmación, limpie servidor y navegador,
+  invalide la sesión y conserve los datos de otro visitante.
 - La cabecera no anuncie IA externa cuando el servidor usa solo reglas y el
   diálogo de privacidad describa el almacenamiento y la recuperación reales.
 - Un fallo al descargar un área diferida muestre una recuperación comprensible

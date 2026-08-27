@@ -101,9 +101,11 @@ qué se guarda y si las consultas del Mentor pueden salir hacia Groq u OpenAI.
 
 «Empezar de nuevo» aparta el expediente actual y la bienvenida permite recuperar
 el último personaje guardado en ese mismo navegador. No es un borrado del
-servidor. Antes de abrir registros públicos hay que decidir expresamente entre
-borrado irreversible confirmado o papelera recuperable y añadir una prueba de
-aislamiento para esa operación.
+servidor. «Borrar todos mis datos» usa una segunda confirmación y elimina de forma
+irreversible todos los expedientes, objetos, diario, memoria y sesiones ligados a
+la cookie anónima actual. También limpia las claves locales de Exile Copilot,
+invalida la cookie y abre una sesión nueva. La prueba pública demuestra que esta
+operación no puede borrar ni leer los datos de otro visitante.
 
 No se deben registrar cuerpos de peticiones, textos de objetos, claves ni
 cookies. Cada respuesta de la API incluye un `X-Request-Id` generado por el

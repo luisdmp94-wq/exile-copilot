@@ -188,6 +188,22 @@ export const GetCharacterResponseSchema = z.object({
 });
 export type GetCharacterResponse = z.infer<typeof GetCharacterResponseSchema>;
 
+// DELETE /api/visitor/data — borrado irreversible de todo lo ligado a la sesión anónima.
+export const DELETE_VISITOR_DATA_CONFIRMATION = "BORRAR MIS DATOS" as const;
+export const DeleteVisitorDataRequestSchema = z.object({
+  confirmation: z.literal(DELETE_VISITOR_DATA_CONFIRMATION),
+});
+export const DeleteVisitorDataResponseSchema = z.object({
+  deleted: z.literal(true),
+  deletedCharacters: z.number().int().nonnegative(),
+});
+export type DeleteVisitorDataRequest = z.infer<
+  typeof DeleteVisitorDataRequestSchema
+>;
+export type DeleteVisitorDataResponse = z.infer<
+  typeof DeleteVisitorDataResponseSchema
+>;
+
 // GET /api/market/prices?league=...&names=a,b,c&patch=...
 export const MarketPricesResponseSchema = z.object({
   quotes: z.array(PriceQuoteSchema),

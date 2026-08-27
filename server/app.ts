@@ -8,6 +8,8 @@ import {
   CreateJournalEntryRequestSchema,
   ImportBuildRequestSchema,
   ImportItemTextRequestSchema,
+  DeleteVisitorDataRequestSchema,
+  DeleteVisitorDataResponseSchema,
   RecommendationsRequestSchema,
   SaveCharacterRequestSchema,
   UpdateJournalEntryRequestSchema,
@@ -51,6 +53,7 @@ import {
   saveJournalEntry,
   saveBuildMemoryEntry,
   setJournalPrimaryEntryId,
+  deleteVisitorData,
 } from "./db/repositories.js";
 import {
   addSessionConstraint,
@@ -82,6 +85,7 @@ import { ApiHttpError } from "./errors.js";
 import {
   anonymousSession,
   anonymousSessionId,
+  expireAnonymousSession,
   fixedWindowRateLimit,
   publicRequestId,
   requestIdentity,
@@ -575,6 +579,27 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     try {
       const row = characterForVisitor(req.params.id, res)!;
       res.json({ profile: JSON.parse(row.payload) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Borrado irreversible del visitante completo. No recibe ids de personaje:
+  // la cookie HttpOnly decide el alcance y la transacción elimina solo sus filas.
+  app.delete("/visitor/data", (req, res, next) => {
+    try {
+      DeleteVisitorDataRequestSchema.parse(req.body);
+      const deleted = deleteVisitorData(
+        db,
+        anonymousSessionId(res.locals as Record<string, unknown>),
+      );
+      expireAnonymousSession(res, config);
+      res.json(
+        DeleteVisitorDataResponseSchema.parse({
+          deleted: true,
+          deletedCharacters: deleted.characters,
+        }),
+      );
     } catch (err) {
       next(err);
     }

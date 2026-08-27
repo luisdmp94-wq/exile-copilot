@@ -756,6 +756,63 @@ async function runFlow(mode, port) {
           "active",
     );
     await reconnectContext.close();
+
+    // 8. Privacidad pública: se ejecuta al final y únicamente contra la base
+    // temporal de este smoke. Demuestra confirmación, limpieza local, borrado
+    // del servidor y regreso a una sesión vacía sin tocar datos reales.
+    await page.evaluate(() => {
+      localStorage.setItem("otra-herramienta:preferencia", "conservar");
+    });
+    await page.getByTestId("privacidad-abrir").click();
+    await page.getByTestId("privacidad-borrar-abrir").click();
+    check(
+      `[${mode}] el borrado irreversible exige una segunda confirmación`,
+      await page.getByTestId("privacidad-borrar-confirmacion").isVisible(),
+    );
+    const deleteResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url() === `${BASE}/api/visitor/data` &&
+        response.request().method() === "DELETE",
+      { timeout: 15000 },
+    );
+    await page.getByTestId("privacidad-borrar-confirmar").click();
+    const deleteResponse = await deleteResponsePromise;
+    await page.waitForLoadState("domcontentloaded");
+    await page.getByText("¿Qué quieres hacer hoy?").waitFor({ timeout: 15000 });
+    const localPrivacyState = await page.evaluate(() => ({
+      exileKeys: Object.keys(localStorage).filter((key) =>
+        key.startsWith("exile-copilot:"),
+      ),
+      otherPreference: localStorage.getItem("otra-herramienta:preferencia"),
+    }));
+    const deletedCharacter = await context.request.get(
+      `${BASE}/api/character/${encodeURIComponent(savedBody.profile.id)}`,
+    );
+    const privacyDeletionOk =
+      deleteResponse.status() === 200 &&
+      deletedCharacter.status() === 404 &&
+      localPrivacyState.exileKeys.length === 0;
+    check(
+      `[${mode}] borrar elimina servidor y claves locales de Exile Copilot`,
+      privacyDeletionOk,
+    );
+    if (!privacyDeletionOk) {
+      console.error(
+        `[privacy:${mode}] ${JSON.stringify({
+          deleteStatus: deleteResponse.status(),
+          deletedCharacterStatus: deletedCharacter.status(),
+          exileKeys: localPrivacyState.exileKeys,
+        })}`,
+      );
+    }
+    check(
+      `[${mode}] la limpieza no borra datos locales de otra herramienta`,
+      localPrivacyState.otherPreference === "conservar",
+    );
+    check(
+      `[${mode}] tras borrar se vuelve a una sesión sin personaje`,
+      await page.getByText("¿Qué quieres hacer hoy?").isVisible(),
+    );
     if (runtimeErrors.length > 0) {
       for (const error of runtimeErrors) console.error(`[runtime:${mode}] ${error}`);
     }

@@ -8,6 +8,7 @@ import {
 import {
   ApiErrorSchema,
   DemoCharacterResponseSchema,
+  DeleteVisitorDataResponseSchema,
   ExportBuildResponseSchema,
   GetCharacterResponseSchema,
   HealthResponseSchema,
@@ -22,6 +23,8 @@ import {
   RecommendationsResponseSchema,
   SaveCharacterResponseSchema,
   type DemoCharacterResponse,
+  type DeleteVisitorDataRequest,
+  type DeleteVisitorDataResponse,
   type ExportBuildRequest,
   type ExportBuildResponse,
   type GetCharacterResponse,
@@ -155,7 +158,10 @@ async function request<S extends z.ZodTypeAny>(
   return parsed.data;
 }
 
-function jsonInit(payload: unknown, method: "POST" | "PATCH" = "POST"): RequestInit {
+function jsonInit(
+  payload: unknown,
+  method: "POST" | "PATCH" | "DELETE" = "POST",
+): RequestInit {
   return {
     method,
     headers: { "Content-Type": "application/json" },
@@ -182,6 +188,15 @@ export const api = {
 
   getCharacter: (id: string): Promise<GetCharacterResponse> =>
     request(`/api/character/${encodeURIComponent(id)}`, GetCharacterResponseSchema),
+
+  deleteVisitorData: (
+    payload: DeleteVisitorDataRequest,
+  ): Promise<DeleteVisitorDataResponse> =>
+    request(
+      "/api/visitor/data",
+      DeleteVisitorDataResponseSchema,
+      jsonInit(payload, "DELETE"),
+    ),
 
   journal: (characterId: string): Promise<JournalResponse> =>
     request(`/api/journal/${encodeURIComponent(characterId)}`, JournalResponseSchema),
