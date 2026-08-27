@@ -12,6 +12,7 @@ describe("Academia de crafting · nivel medio", () => {
       expect(validateMediumAcademyScenario(scenario)).toBe(true);
       expect(resolveMediumAcademyDecision(scenario.facts)).toBe(scenario.expectedDecision);
       expect(scenario.item.sources.some((source) => source.kind === "internal")).toBe(true);
+      expect(scenario.gameSteps).toHaveLength(3);
     }
     expect(new Set(CRAFTING_MEDIUM_ACADEMY_SCENARIOS.map((scenario) => scenario.item.id)).size).toBe(7);
   });
@@ -87,5 +88,11 @@ describe("Academia de crafting · nivel medio", () => {
     expect(scenario).toBeDefined();
     expect(scenario?.explanation).toContain("aleatorio");
     expect(scenario?.takeaway).toContain("apuesta");
+  });
+
+  it("termina cada explicación con acciones que el jugador realiza dentro de PoE2", () => {
+    const content = CRAFTING_MEDIUM_ACADEMY_SCENARIOS.flatMap((scenario) => scenario.gameSteps).join(" ");
+    expect(content).toMatch(/juego|inventario|alijo/);
+    expect(content).not.toMatch(/Exile Copilot|pegar|recopiar|laboratorio/i);
   });
 });

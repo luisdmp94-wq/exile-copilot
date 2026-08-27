@@ -1,9 +1,9 @@
 /**
  * ACADEMIA DE CRAFTING — NIVEL AVANZADO.
  *
- * Este contenido entrena decisiones estructurales que ya aplica el laboratorio:
+ * Este contenido entrena decisiones estructurales que el jugador aplica en PoE2:
  * completar datos, definir objetivo y salida, conservar opciones, detenerse al
- * cumplir el contrato y no aceptar reemplazos sin leer su tooltip real.
+ * cumplir su plan y no aceptar reemplazos sin leer la descripción real.
  * No contiene recetas, pools, pesos, probabilidades ni precios.
  */
 
@@ -13,7 +13,7 @@ import { createAcademyAffix, createAcademyExerciseItem } from "./craftingAcademy
 export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-28";
 
 export const CRAFTING_ADVANCED_ACADEMY_EVIDENCE =
-  "Basado en los contratos locales de diagnóstico, rutas y condiciones de salida. Los casos son sintéticos y no representan un drop ni una receta.";
+  "Ejercicios sintéticos para aprender a decidir dentro de PoE2. No representan un drop, una receta, un pool ni una probabilidad.";
 
 export type AdvancedAcademyDecision =
   | "complete-data"
@@ -87,6 +87,7 @@ export interface AdvancedAcademyScenario {
   expectedDecision: AdvancedAcademyDecision;
   explanation: string;
   lesson: string;
+  gameSteps: string[];
 }
 
 /**
@@ -186,7 +187,7 @@ const ITEM_REEMPLAZO = createAcademyExerciseItem({
 
 const ITEM_SALIDA_CUMPLIDA = createAcademyExerciseItem({
   id: "avanzado-salida-cumplida",
-  name: "Cinturón del contrato cumplido",
+  name: "Cinturón de la meta cumplida",
   baseType: "Cinturón de cuero crudo",
   slot: "belt",
   rarity: "rare",
@@ -266,10 +267,10 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
   {
     id: "avanzado-contrato-sin-salida",
     order: 1,
-    title: "Cerrar el contrato",
+    title: "Decidir cuándo vas a parar",
     skill: "No empezar sin saber cuándo parar",
     situation:
-      "Has descrito la mejora y marcado una línea intocable, pero todavía no existe una condición comprobable de salida.",
+      "Has elegido la mejora que buscas y una línea que no quieres perder, pero todavía no has decidido qué resultado considerarás suficiente.",
     item: ITEM_CONTRATO_ABIERTO,
     contract: {
       objective: "Añadir otra línea útil de defensa",
@@ -286,7 +287,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     },
     question: "¿Cuál es el siguiente paso correcto?",
     options: [
-      option("av-definir-salida", "define-stop", "Definir una condición de parada", "Algo que puedas comprobar en el siguiente texto pegado"),
+      option("av-definir-salida", "define-stop", "Definir una condición de parada", "Algo que puedas comprobar al mirar el siguiente resultado en el juego"),
       option("av-gastar-primero", "exalted", "Gastar y decidir después", "La pieza todavía tiene hueco"),
       option("av-quitar-proteccion", "compare-risks", "Quitar la línea intocable", "Así habrá menos restricciones"),
     ],
@@ -294,6 +295,11 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     explanation:
       "Sin salida no hay forma objetiva de declarar el craft terminado. Define primero una condición observable; después compara acciones.",
     lesson: "Un objetivo dice hacia dónde vas. La condición de parada decide cuándo dejas de pagar por seguir.",
+    gameSteps: [
+      "Antes de tocar una moneda, mira la pieza y decide qué mejora concreta buscas.",
+      "Elige qué línea actual no aceptarías perder.",
+      "Fija un resultado o un número máximo de intentos y respétalo mientras juegas.",
+    ],
   },
   {
     id: "avanzado-conservar-etapa",
@@ -343,6 +349,11 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     explanation:
       "Aumento mantiene la etapa mágica y deja Regio como decisión posterior. Usar Regio primero cierra la opción de Aumento.",
     lesson: "Cuando dos rutas son legales, una ruta conservadora mantiene abiertas más decisiones verificadas.",
+    gameSteps: [
+      "Comprueba que la pieza mágica tiene una sola línea y que te resulta útil.",
+      "Usa Aumento sobre la pieza dentro del juego y lee la segunda línea.",
+      "Solo después decide si quieres usar Regio para convertirla en rara.",
+    ],
   },
   {
     id: "avanzado-reemplazo-no-demostrado",
@@ -350,7 +361,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     title: "Frenar un reemplazo",
     skill: "No arriesgar una línea protegida a ciegas",
     situation:
-      "La pieza rara está llena. Essence y Alloy aparecen como herramientas de reemplazo, pero todavía no has pegado el tooltip del recurso real.",
+      "La pieza rara está llena. Tienes una Essence y un Alloy, pero todavía no has leído su descripción completa dentro del juego.",
     item: ITEM_REEMPLAZO,
     contract: {
       objective: "Sustituir una línea prescindible",
@@ -384,14 +395,19 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     },
     question: "¿Qué haces antes de elegir herramienta?",
     options: [
-      option("av-pedir-tooltip", "request-tooltip", "Pegar el tooltip real", "Comprobar efecto, compatibilidad y riesgo"),
+      option("av-pedir-tooltip", "request-tooltip", "Leer ambos recursos dentro del juego", "Comprobar efecto, compatibilidad y riesgo antes de usarlos"),
       option("av-essence", "compare-risks", "Elegir Essence por el nombre", "Parece más específica"),
       option("av-alloy", "compare-risks", "Elegir Alloy por descarte", "La otra no inspira confianza"),
     ],
     expectedDecision: "request-tooltip",
     explanation:
-      "No hay una ruta demostrada sin el tooltip. En una operación de reemplazo, el nombre del recurso no prueba qué línea puede desaparecer.",
+      "No hay una ruta segura sin leer la descripción completa. En una operación de reemplazo, el nombre del recurso no demuestra qué línea puede desaparecer.",
     lesson: "La incertidumbre aceptable para añadir no es la misma que para reemplazar algo que ya quieres conservar.",
+    gameSteps: [
+      "Pon la pieza y los dos recursos juntos en el inventario o alijo.",
+      "Lee la descripción completa de cada recurso y localiza qué añade y qué puede reemplazar.",
+      "No uses ninguno si la descripción no te permite proteger las líneas importantes.",
+    ],
   },
   {
     id: "avanzado-salida-cumplida",
@@ -399,7 +415,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     title: "Reconocer el final",
     skill: "No convertir un éxito en otra apuesta",
     situation:
-      "Tras registrar el resultado, la línea exacta que pedía tu contrato aparece y las líneas intocables siguen presentes.",
+      "Después del último uso, apareció la línea exacta que buscabas y las líneas importantes siguen presentes.",
     item: ITEM_SALIDA_CUMPLIDA,
     contract: {
       objective: "Conseguir la línea exacta definida por el jugador",
@@ -419,20 +435,25 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
           legal: true,
           risk: "adds",
           tooltipVerified: true,
-          consequence: "Ocuparía otro hueco, aunque el contrato ya está cumplido.",
+          consequence: "Ocuparía otro hueco, aunque el objetivo ya está cumplido.",
         },
       ],
     },
     question: "¿Cuál es la decisión avanzada?",
     options: [
-      option("av-parar", "stop", "Parar y conservar el resultado", "El contrato de salida ya se cumple"),
+      option("av-parar", "stop", "Parar y conservar el resultado", "La condición que elegiste ya se cumple"),
       option("av-otro-exaltado", "exalted", "Añadir otra línea", "Todavía queda un hueco"),
       option("av-subir-objetivo", "define-objective", "Cambiar el objetivo ahora", "Buscar un resultado todavía mejor"),
     ],
     expectedDecision: "stop",
     explanation:
-      "El craft definido ya terminó. Que exista otra acción legal no obliga a usarla; hacerlo abriría un riesgo que el contrato no pedía.",
+      "La mejora que planeaste ya está terminada. Que exista otra acción legal no obliga a usarla; hacerlo abriría un riesgo que tu objetivo no necesitaba.",
     lesson: "Una condición de salida solo sirve si se respeta cuando llega el momento de parar.",
+    gameSteps: [
+      "Vuelve a leer la pieza completa después de cada moneda.",
+      "Comprueba que apareció tu objetivo y que las líneas importantes siguen ahí.",
+      "Guarda la pieza o equípala; no uses otra moneda solo porque todavía exista un hueco.",
+    ],
   },
   {
     id: "avanzado-datos-incompletos",
@@ -440,7 +461,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     title: "Recuperar evidencia",
     skill: "Distinguir bloqueo de mala suerte",
     situation:
-      "El texto copiado no permite confirmar el estado completo de la pieza. Aun así, la forma visual sugiere que podría quedar un hueco.",
+      "No estás viendo la descripción completa de la pieza dentro del juego. Su aspecto sugiere que podría quedar un hueco, pero no puedes confirmarlo.",
     item: ITEM_LECTURA_INCOMPLETA,
     contract: {
       objective: "Añadir una línea sin perder las actuales",
@@ -457,14 +478,19 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     },
     question: "¿Qué resuelve primero el bloqueo?",
     options: [
-      option("av-recopiar", "complete-data", "Volver a copiar el objeto completo", "Con Ctrl+Alt+C"),
+      option("av-recopiar", "complete-data", "Revisar la descripción completa en el juego", "Confirmar rareza, modificadores, afijos y estados"),
       option("av-probar-moneda", "exalted", "Probar una moneda barata", "Si no funciona, no pasa nada"),
       option("av-deducir", "compare-risks", "Deducir el hueco por la apariencia", "Parece una pieza incompleta"),
     ],
     expectedDecision: "complete-data",
     explanation:
-      "La siguiente acción es recuperar evidencia, no elegir moneda. El laboratorio no convierte un dato ausente en una restricción descartada.",
+      "La siguiente acción es leer bien la pieza, no elegir una moneda. Si no puedes confirmar su estado, no debes asumir que el hueco existe.",
     lesson: "Un bloqueo por datos protege el objeto. No es una recomendación negativa ni un fallo del craft.",
+    gameSteps: [
+      "Abre la descripción avanzada del objeto dentro de PoE2.",
+      "Confirma su rareza, número de modificadores, prefijos, sufijos y estados especiales.",
+      "Si todavía falta información, no uses ninguna moneda sobre esa pieza.",
+    ],
   },
   {
     id: "avanzado-sin-ganador",
@@ -472,7 +498,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     title: "Aceptar que no hay ganador",
     skill: "Comparar riesgos sin inventar una receta",
     situation:
-      "Dos rutas de reemplazo tienen tooltip verificado y ambas son compatibles, pero cada una arriesga una consecuencia distinta. No hay pesos ni probabilidades verificadas.",
+      "Dos rutas de reemplazo tienen su descripción verificada y ambas son compatibles, pero cada una arriesga una consecuencia distinta. No hay pesos ni probabilidades verificadas.",
     item: ITEM_RIESGOS_EMPATE,
     contract: {
       objective: "Cambiar una línea prescindible",
@@ -512,8 +538,13 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     ],
     expectedDecision: "compare-risks",
     explanation:
-      "Con dos rutas compatibles y sin una ventaja demostrable, el mentor debe exponer qué conserva y qué arriesga cada una, no fabricar un ranking.",
+      "Con dos rutas compatibles y sin una ventaja demostrable, debes comparar qué conserva y qué arriesga cada una, no asumir que existe un ganador.",
     lesson: "Una respuesta avanzada también puede ser: no existe información suficiente para declarar una ruta superior.",
+    gameSteps: [
+      "Coloca la pieza y ambos recursos juntos para poder leerlos sin prisas.",
+      "Para cada recurso, identifica qué conserva, qué añade y qué puede eliminar.",
+      "Elige según la pérdida que aceptarías; si ninguna te compensa, guarda los recursos.",
+    ],
   },
   {
     id: "avanzado-retirar-base",
@@ -546,7 +577,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
         },
       ],
     },
-    question: "¿Qué decisión respeta tu contrato?",
+    question: "¿Qué decisión respeta el límite que elegiste?",
     options: [
       option(
         "av-cambiar-base",
@@ -570,7 +601,12 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     expectedDecision: "change-base",
     explanation:
       "Una acción compatible no invalida el límite que elegiste. Cierra este intento y cambia de base; ampliar el límite después de fallar elimina la protección que debía darte.",
-    lesson: "El contrato debe decir cuándo conservar un éxito y cuándo dejar de invertir en una base.",
+    lesson: "Tu plan debe decir cuándo conservar un éxito y cuándo dejar de invertir en una base.",
+    gameSteps: [
+      "Cuenta los intentos mientras trabajas la pieza dentro del juego.",
+      "Cuando alcances el límite que elegiste, mueve esa pieza fuera de la zona de trabajo.",
+      "Empieza con otra base; no cambies la regla solo porque el intento anterior falló.",
+    ],
   },
   {
     id: "avanzado-simular-flux",
@@ -578,7 +614,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     title: "Simular antes de transformar",
     skill: "Elegir la pieza por el resultado completo",
     situation:
-      "Tienes fuego por debajo del límite, frío sobrante y rayo justo. El tooltip real del Flux afecta dos resistencias de la pieza elegida: tus guantes solo aportan frío, pero tus botas aportan frío y rayo.",
+      "Tienes fuego por debajo del límite, frío sobrante y rayo justo. La descripción del Flux afecta dos resistencias de la pieza elegida: tus guantes solo aportan frío, pero tus botas aportan frío y rayo.",
     item: ITEM_TRANSFORMACION,
     contract: {
       objective: "Reequilibrar resistencias sin abrir otra carencia",
@@ -598,12 +634,12 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
       routes: [
         {
           id: "flux",
-          label: "Flux con tooltip verificado",
+          label: "Flux con descripción comprobada",
           legal: true,
           risk: "transformation",
           tooltipVerified: true,
           consequence:
-            "Transforma todas las líneas que nombra el tooltip en la pieza elegida; no solo la que quieres aprovechar.",
+            "Transforma todas las líneas que nombra su descripción en la pieza elegida; no solo la que quieres aprovechar.",
         },
       ],
     },
@@ -633,6 +669,11 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
       "El excedente aislado no basta para elegir. Primero simula el objeto entero: transformar las botas también puede tocar el rayo que estaba justo; una pieza con solo frío puede conservar más equilibrio.",
     lesson:
       "Una transformación global se evalúa por el estado final del personaje, no por la línea que quieres convertir.",
+    gameSteps: [
+      "Lee el Flux y las dos piezas dentro del juego antes de seleccionar ninguna.",
+      "Calcula cómo quedarían fuego, frío y rayo si lo usas sobre cada candidata.",
+      "Usa el Flux únicamente sobre la pieza cuyo resultado mantenga cubiertas las tres resistencias.",
+    ],
   },
   {
     id: "avanzado-simular-sustitucion",
@@ -685,6 +726,11 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
       "La pieza no se evalúa aislada. Compara el personaje completo antes y después: una ganancia local no compensa perder un requisito de habilidad o abrir una resistencia sin darte cuenta.",
     lesson:
       "Antes de sustituir equipo, protege las dependencias que la pieza actual sostiene aunque no formen parte de tu objetivo principal.",
+    gameSteps: [
+      "Abre la ficha del personaje y anota atributos y resistencias con la pieza actual equipada.",
+      "Equipa la candidata dentro del juego y revisa de nuevo esos valores y tus habilidades.",
+      "Conserva el cambio solo si sigues cumpliendo requisitos y límites defensivos.",
+    ],
   },
 ];
 

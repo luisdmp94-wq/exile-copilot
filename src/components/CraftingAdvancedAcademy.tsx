@@ -92,10 +92,10 @@ function AdvancedScenarioView({
 
       <p className="text-sm leading-relaxed text-muted-foreground">{scenario.situation}</p>
 
-      <div className="grid gap-2 sm:grid-cols-3" aria-label="Contrato del caso">
-        <ContractCell icon={<Target className="size-3.5" />} label="Resultado" value={scenario.contract.objective} />
-        <ContractCell icon={<LockKeyhole className="size-3.5" />} label="No sacrificar" value={scenario.contract.protect.length > 0 ? scenario.contract.protect.join(" · ") : "Nada marcado"} missing={scenario.contract.protect.length === 0} />
-        <ContractCell icon={<ShieldCheck className="size-3.5" />} label="Parar cuando" value={scenario.contract.stop} missing={!scenario.facts.stopDefined} />
+      <div className="grid gap-2 sm:grid-cols-3" aria-label="Plan para hacerlo dentro de PoE2">
+        <ContractCell icon={<Target className="size-3.5" />} label="Quiero conseguir" value={scenario.contract.objective} />
+        <ContractCell icon={<LockKeyhole className="size-3.5" />} label="No quiero perder" value={scenario.contract.protect.length > 0 ? scenario.contract.protect.join(" · ") : "Nada marcado"} missing={scenario.contract.protect.length === 0} />
+        <ContractCell icon={<ShieldCheck className="size-3.5" />} label="Dejo de gastar cuando" value={scenario.contract.stop} missing={!scenario.facts.stopDefined} />
       </div>
 
       {scenario.facts.routes.length > 0 && (
@@ -110,7 +110,7 @@ function AdvancedScenarioView({
               </div>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{route.consequence}</p>
               {!route.tooltipVerified && (
-                <p className="mt-2 text-[11px] font-medium text-amber-200">Tooltip pendiente</p>
+                <p className="mt-2 text-[11px] font-medium text-amber-200">Descripción del recurso pendiente</p>
               )}
             </div>
           ))}
@@ -118,6 +118,7 @@ function AdvancedScenarioView({
       )}
 
       <div>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-300/80">¿Qué harías dentro de PoE2?</p>
         <h4 className="text-lg font-semibold" data-testid="academia-avanzada-pregunta">{scenario.question}</h4>
         <div className="mt-2 grid gap-2" role="group" aria-label="Opciones avanzadas">
           {scenario.options.map((entry) => {
@@ -158,6 +159,12 @@ function AdvancedScenarioView({
           )}
           <p className="mt-1.5 text-sm leading-relaxed">{scenario.explanation}</p>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground"><strong>Idea que te llevas:</strong> {scenario.lesson}</p>
+          <div className="mt-3 rounded border border-cyan-400/25 bg-background/35 p-3" data-testid="academia-avanzada-pasos-juego">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200">Hazlo dentro de PoE2</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
+              {scenario.gameSteps.map((step) => <li key={step}>{step}</li>)}
+            </ol>
+          </div>
           <Button className="mt-3" type="button" onClick={onNext} data-testid="academia-avanzada-continuar">
             {scenario.order === CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length ? "Ver resultado" : "Siguiente caso"}
             <ArrowRight className="size-4" aria-hidden="true" />
@@ -197,7 +204,7 @@ export function CraftingAdvancedAcademy({
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Nivel avanzado</p>
           <h2 className="dossier-title mt-1 text-3xl font-semibold">Diseña la decisión antes de gastar</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} casos cortos para practicar el contrato del laboratorio: destino, líneas intocables, salida y cuándo cambiar de base.
+            {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} casos para aprender qué mirar, qué moneda usar y cuándo parar dentro de Path of Exile 2. La web solo te enseña; el crafting ocurre en el juego.
           </p>
         </div>
         <ol className="mt-5 grid gap-2 sm:grid-cols-2" data-testid="academia-avanzada-indice">
@@ -213,7 +220,7 @@ export function CraftingAdvancedAcademy({
           <Button type="button" onClick={() => setStage("case")} data-testid="academia-avanzada-empezar">
             Empezar nivel avanzado <ArrowRight className="size-4" />
           </Button>
-          <Button type="button" variant="outline" onClick={onPracticeWithMyItem}>Ir a mi laboratorio</Button>
+          <Button type="button" variant="outline" onClick={onPracticeWithMyItem}>Usar una pieza de PoE2 como guía</Button>
         </div>
         <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">{CRAFTING_ADVANCED_ACADEMY_EVIDENCE}</p>
       </section>
@@ -228,7 +235,7 @@ export function CraftingAdvancedAcademy({
     return (
       <section className="superficie-panel min-w-0 p-4 sm:p-6" data-testid="academia-avanzada" data-stage="results">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Nivel avanzado completado</p>
-        <h2 className="dossier-title mt-1 text-3xl font-semibold">Ya piensas en contratos, no en monedas sueltas</h2>
+        <h2 className="dossier-title mt-1 text-3xl font-semibold">Ya sabes planear un craft dentro de PoE2</h2>
         <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-avanzada-resultado">Has resuelto {correct} de {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} decisiones. Esto mide el recorrido, no la calidad ni el valor de un objeto real.</p>
         <div className="mt-5 grid gap-2 sm:grid-cols-3">
           {[
@@ -244,7 +251,7 @@ export function CraftingAdvancedAcademy({
           ))}
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button type="button" onClick={onPracticeWithMyItem} data-testid="academia-avanzada-practicar">Aplicarlo a mi objeto <ArrowRight className="size-4" /></Button>
+          <Button type="button" onClick={onPracticeWithMyItem} data-testid="academia-avanzada-practicar">Usar una pieza de PoE2 como guía <ArrowRight className="size-4" /></Button>
           <Button type="button" variant="outline" onClick={restart}><RotateCcw className="size-4" /> Repetir nivel</Button>
           <Button type="button" variant="ghost" onClick={onBack}><ArrowLeft className="size-4" /> Volver a niveles</Button>
         </div>

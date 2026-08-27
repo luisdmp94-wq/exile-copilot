@@ -76,6 +76,7 @@ function MediumCase({
           </div>
 
           <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-300/80">¿Qué harías dentro de PoE2?</p>
             <h4 className="text-lg font-semibold" data-testid="academia-media-pregunta">{scenario.question}</h4>
             <div className="mt-2 grid gap-2" role="group" aria-label="Decisiones del nivel medio">
               {scenario.options.map((entry) => {
@@ -121,6 +122,12 @@ function MediumCase({
               )}
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{scenario.explanation}</p>
               <p className="mt-2 text-xs font-medium text-sky-200">Idea clave: {scenario.takeaway}</p>
+              <div className="mt-3 rounded border border-sky-400/25 bg-background/35 p-3" data-testid="academia-media-pasos-juego">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-200">Hazlo dentro de PoE2</p>
+                <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
+                  {scenario.gameSteps.map((step) => <li key={step}>{step}</li>)}
+                </ol>
+              </div>
               <Button className="mt-3" type="button" onClick={onNext} data-testid="academia-media-continuar">
                 {scenario.order === CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length ? "Ver resultado" : "Siguiente situación"}
                 <ArrowRight className="size-4" aria-hidden="true" />
@@ -186,7 +193,7 @@ export function CraftingMediumAcademy({ onBack, onPracticeWithMyItem }: Crafting
         <h2 className="dossier-title mt-1 text-2xl font-semibold">Ya sabes dirigir un craft en PoE2</h2>
         <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-media-resultado">Has resuelto {score} de {CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length}. Ya puedes pasar de «tengo una moneda» a «sé por qué la usaría y cuándo parar».</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" onClick={onPracticeWithMyItem} data-testid="academia-media-practicar">Practicar con una pieza del juego <ArrowRight className="size-4" /></Button>
+          <Button type="button" onClick={onPracticeWithMyItem} data-testid="academia-media-practicar">Usar una pieza de PoE2 como guía <ArrowRight className="size-4" /></Button>
           <Button type="button" variant="outline" onClick={restart}><RotateCcw className="size-4" /> Repetir nivel</Button>
           <Button type="button" variant="ghost" onClick={onBack}><ArrowLeft className="size-4" /> Volver a niveles</Button>
         </div>

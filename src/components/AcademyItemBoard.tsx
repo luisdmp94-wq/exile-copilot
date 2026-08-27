@@ -77,7 +77,7 @@ export function AcademyItemBoard({
       data-open-slots={concealCounters || open === null ? "desconocido" : String(open)}
     >
       <p className="border-b border-border/70 bg-primary/[0.06] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/80">
-        Ejercicio de aprendizaje
+        Ejemplo visual · no interactivo
       </p>
 
       <div className="flex min-w-0 items-center gap-3 p-3 sm:p-4">

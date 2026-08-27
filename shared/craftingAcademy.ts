@@ -27,7 +27,7 @@ export const CRAFTING_ACADEMY_EVIDENCE =
   "Evidencia local observada el 22/08/2026 (tooltips del cliente). No incluye pools, pesos ni probabilidades.";
 
 export const CRAFTING_ACADEMY_EXERCISE_NOTICE =
-  "Ejercicio de aprendizaje: objeto sintético creado para practicar la lectura. No es un drop real ni describe resultados posibles.";
+  "Ejemplo visual, no interactivo. Aquí aprendes a leer y decidir; las monedas y el crafting se usan dentro de Path of Exile 2.";
 
 // ---------------------------------------------------------------------------
 // Conceptos

@@ -67,6 +67,7 @@ export interface MediumAcademyScenario {
   expectedDecision: MediumAcademyDecision;
   explanation: string;
   takeaway: string;
+  gameSteps: string[];
 }
 
 /** Cada decisión deriva de algo que el jugador puede comprobar dentro del juego. */
@@ -208,6 +209,11 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "El crafting empieza antes de usar una moneda. Si la base no encaja con tu personaje, incluso una buena tirada puede terminar en una pieza que no quieres equipar.",
     takeaway: "Primero eliges la base; después decides cómo mejorarla.",
+    gameSteps: [
+      "Pon las bases candidatas juntas en tu inventario o alijo.",
+      "Lee el tipo de base y sus requisitos; descarta las que no encajen con tu habilidad o defensa.",
+      "Gasta monedas únicamente en la base que tu personaje podría llegar a equipar.",
+    ],
   },
   {
     id: "medio-definir-objetivo",
@@ -229,6 +235,11 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Una meta concreta te permite juzgar cada resultado. «Mejorar mi resistencia al fuego» o «conseguir más daño físico» se puede comprobar; «hacerla perfecta» no te dice cuándo parar.",
     takeaway: "Una pieza, un problema principal.",
+    gameSteps: [
+      "Abre la ficha de tu personaje y localiza una necesidad concreta.",
+      "Elige una sola prioridad para esta pieza: daño, defensa, atributo o resistencia.",
+      "Usa esa prioridad para decidir si cada resultado del juego te sirve o no.",
+    ],
   },
   {
     id: "medio-primer-mod-inutil",
@@ -250,6 +261,11 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Que quede un hueco no obliga a continuar. Si el primer resultado no aporta nada a tu objetivo, abandonar esa salida y empezar con otra base evita invertir más en una pieza sin una ventaja inicial.",
     takeaway: "Un hueco libre no convierte una mala salida en un proyecto prometedor.",
+    gameSteps: [
+      "Después de Transmutación, vuelve a leer el modificador que apareció.",
+      "Compáralo con la prioridad que elegiste antes de gastar.",
+      "Si no aporta nada, aparta esa pieza y prueba otra base en lugar de subirla de rareza.",
+    ],
   },
   {
     id: "medio-completar-magico",
@@ -271,6 +287,11 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Aumento añade un modificador aleatorio a un objeto mágico. Usarlo aquí te deja ver el segundo modificador antes de decidir si merece la pena convertir la pieza en rara.",
     takeaway: "Si el mágico promete y aún tiene hueco, completa esa etapa primero.",
+    gameSteps: [
+      "Comprueba en el juego que la pieza es mágica, tiene una línea útil y conserva un hueco.",
+      "Haz clic derecho sobre un Orbe de aumento y después clic izquierdo sobre la pieza.",
+      "Lee los dos modificadores antes de decidir si continúas.",
+    ],
   },
   {
     id: "medio-cuando-regio",
@@ -292,6 +313,11 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Regio convierte el mágico en raro, conserva sus modificadores y agrega uno. Estratégicamente merece la pena cuando ya existe algo que quieres mantener, no solo porque la acción sea legal.",
     takeaway: "No subas de rareza una pieza que ya querías abandonar.",
+    gameSteps: [
+      "Confirma que la pieza mágica ya tiene dos modificadores y que al menos uno te sirve.",
+      "Haz clic derecho sobre un Orbe regio y después clic izquierdo sobre la pieza.",
+      "Lee el nuevo resultado raro completo antes de gastar otra moneda.",
+    ],
   },
   {
     id: "medio-cuando-exaltado",
@@ -313,6 +339,11 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "El efecto observado del Exaltado es añadir un modificador aleatorio a un objeto raro. Tener sitio hace posible la acción; no garantiza que el resultado encaje con tu personaje.",
     takeaway: "Antes de Exaltado decides si la pieza merece esa apuesta.",
+    gameSteps: [
+      "Comprueba que la pieza es rara, conserva algo útil y todavía tiene un hueco.",
+      "Acepta que no puedes elegir qué modificador aparecerá.",
+      "Si merece el intento, haz clic derecho sobre Exaltado, úsalo una vez sobre la pieza y vuelve a leerla.",
+    ],
   },
   {
     id: "medio-probar-y-parar",
@@ -334,6 +365,11 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "El propósito del crafting es mejorar lo que juegas, no llenar siempre el objeto. Equípalo, prueba el personaje y solo vuelve al banco si detectas una necesidad nueva.",
     takeaway: "El craft termina en el juego, no cuando desaparece el último hueco.",
+    gameSteps: [
+      "Conserva la pieza equipada anterior para poder volver atrás.",
+      "Equipa la candidata y compara tu ficha de personaje antes y después.",
+      "Prueba la habilidad en combate; si resolvió tu necesidad, deja de gastar aunque queden huecos.",
+    ],
   },
 ];
 

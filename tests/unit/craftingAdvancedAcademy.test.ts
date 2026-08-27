@@ -18,6 +18,7 @@ describe("Academia de crafting — nivel avanzado", () => {
         scenario.expectedDecision,
       );
       expect(scenario.item.sources.some((source) => source.kind === "internal"), scenario.id).toBe(true);
+      expect(scenario.gameSteps, scenario.id).toHaveLength(3);
       expect(new Set(scenario.options.map((entry) => entry.id)).size, scenario.id).toBe(
         scenario.options.length,
       );
@@ -147,6 +148,7 @@ describe("Academia de crafting — nivel avanzado", () => {
         scenario.question,
         scenario.explanation,
         scenario.lesson,
+        ...scenario.gameSteps,
         scenario.contract.objective,
         scenario.contract.stop,
         ...scenario.contract.protect,
@@ -154,6 +156,22 @@ describe("Academia de crafting — nivel avanzado", () => {
         ...scenario.facts.routes.flatMap((route) => [route.label, route.consequence]),
       ].join(" ");
       expect(text, scenario.id).not.toMatch(forbidden);
+    }
+  });
+
+  it("enseña acciones en PoE2 y no operaciones de la web", () => {
+    for (const scenario of CRAFTING_ADVANCED_ACADEMY_SCENARIOS) {
+      const visible = [
+        scenario.title,
+        scenario.situation,
+        scenario.question,
+        scenario.explanation,
+        scenario.lesson,
+        scenario.item.name,
+        ...scenario.gameSteps,
+        ...scenario.options.flatMap((option) => [option.label, option.hint]),
+      ].join(" ");
+      expect(visible, scenario.id).not.toMatch(/Exile Copilot|pegar|recopiar|Ctrl\+Alt\+C|laboratorio|texto copiado|texto pegado|tooltip/i);
     }
   });
 });

@@ -281,7 +281,8 @@ async function runFlow(mode, port) {
       check(
         `[${mode}] situación media ${opcion} se corrige con una idea clave`,
         (await feedback.getAttribute("data-result")) === "correcto" &&
-          (await feedback.innerText()).includes("Idea clave"),
+          (await feedback.innerText()).includes("Idea clave") &&
+          (await page.getByTestId("academia-media-pasos-juego").innerText()).toLowerCase().includes("hazlo dentro de poe2"),
       );
       await page.getByTestId("academia-media-continuar").click();
     }
@@ -303,7 +304,8 @@ async function runFlow(mode, port) {
       `[${mode}] el nivel avanzado presenta nueve casos y su evidencia`,
       (await avanzada.getAttribute("data-stage")) === "intro" &&
         (await page.getByTestId("academia-avanzada-indice").locator("li").count()) === 9 &&
-        (await avanzada.innerText()).includes("casos son sintéticos"),
+        (await avanzada.innerText()).includes("el crafting ocurre en el juego") &&
+        (await avanzada.innerText()).includes("Ejercicios sintéticos"),
     );
     await page.getByTestId("academia-avanzada-empezar").click();
     check(
@@ -329,13 +331,14 @@ async function runFlow(mode, port) {
       check(
         `[${mode}] caso avanzado ${opcion} se corrige con evidencia`,
         (await feedback.getAttribute("data-result")) === "correcto" &&
-          (await feedback.innerText()).includes("Idea que te llevas"),
+          (await feedback.innerText()).includes("Idea que te llevas") &&
+          (await page.getByTestId("academia-avanzada-pasos-juego").innerText()).toLowerCase().includes("hazlo dentro de poe2"),
       );
       await page.getByTestId("academia-avanzada-continuar").click();
     }
     await page.getByTestId("academia-avanzada-resultado").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el nivel avanzado termina y permite llevarlo al laboratorio`,
+      `[${mode}] el nivel avanzado termina y permite usar una pieza de PoE2 como guía`,
       (await avanzada.getAttribute("data-stage")) === "results" &&
         (await page.getByTestId("academia-avanzada-resultado").innerText()).includes("9 de 9") &&
         (await page.getByTestId("academia-avanzada-practicar").isVisible()),
@@ -370,7 +373,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la situación muestra el objeto marcado como ejercicio`,
       (await page.getByTestId("academia-objeto").isVisible()) &&
-        (await page.getByTestId("academia-objeto").innerText()).includes("Ejercicio de aprendizaje"),
+        (await page.getByTestId("academia-objeto").innerText()).toLowerCase().includes("ejemplo visual · no interactivo"),
     );
 
     // 2a. Fallo deliberado en la lección 1: rareza «Normal» sobre un raro.
