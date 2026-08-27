@@ -45,7 +45,7 @@ export type StartAlloyDecision = (
 ) => Promise<boolean>;
 
 export const ALLOY_MECHANIC_SOURCE = {
-  title: "Content Update 0.5.0 — The Runes of Aldur League and Item Changes",
+  title: "Content Update 0.5.0 — Path of Exile 2: Return of the Ancients",
   url: "https://www.pathofexile.com/forum/view-thread/3932540/filter-account-type/staff",
   patch: "0.5.0",
   lastMechanicChange: "0.5.3",

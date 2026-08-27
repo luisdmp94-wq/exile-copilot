@@ -46,6 +46,13 @@ export const RECOMMENDATION_SLOT_HINTS: Record<
   "rec-enlaces-skill": { kind: "skill" },
 };
 
+/**
+ * Umbral provisional usado para detectar una carencia elemental.
+ *
+ * No se presenta como una regla oficial de PoE2: a 2026-08-27 no tenemos una
+ * fuente primaria de GGG incorporada que documente el 75% base. La UI debe
+ * conservar esta limitación visible y pedir comprobar el límite en el juego.
+ */
 export const RESISTANCE_CAP = 75;
 /**
  * Tope de pistas de texto que se recogen de los inventory_slots del plan y
@@ -144,7 +151,7 @@ function dataGapCandidate(args: {
 }
 
 // ---------------------------------------------------------------------------
-// Regla 1: resistencias elementales por debajo del cap (75%) — null-safe
+// Regla 1: resistencias elementales bajo el umbral provisional — null-safe
 // ---------------------------------------------------------------------------
 
 /**
@@ -182,8 +189,8 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
   out.push({
     ruleId: "resistencias-elementales",
     title: "Cubrir resistencias elementales",
-    action: `Sube ${labels} hasta el cap de ${RESISTANCE_CAP}% (p. ej. mods de resistencia en anillos, cinturón o botas).`,
-    reason: `Tienes resistencias conocidas por debajo del cap: ${labels}. Es la fuente más común de muertes evitables.`,
+    action: `Sube ${labels} y vuelve a comprobar el límite que muestra el juego; ${RESISTANCE_CAP}% se usa aquí solo como objetivo provisional.`,
+    reason: `Tienes resistencias elementales conocidas por debajo del umbral provisional: ${labels}. Cubrirlas reduce una debilidad defensiva observable.`,
     impactMetric: "resistencias",
     impactDescription: "Impacto estimado en supervivencia (métrica parcial orientativa).",
     magnitude: worst < 50 ? "high" : "medium",
@@ -193,11 +200,13 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
     irreversible: false,
     priceQueries: [],
     goalWeights: { ...BALANCED, survival: 2, mapping: 1.3, bossing: 1.3, damage: 0.6 },
-    confidenceBase: "high",
-    unverified:
-      unknown.length > 0
+    confidenceBase: "medium",
+    unverified: [
+      `No verificado — ${RESISTANCE_CAP}% es un umbral provisional; confirma el límite actual de cada resistencia dentro de PoE2.`,
+      ...(unknown.length > 0
         ? [`No verificado — resistencias desconocidas no evaluadas: ${listarResistencias(unknown)}.`]
-        : [],
+        : []),
+    ],
     extraSources: [],
   });
   return out;

@@ -8,9 +8,9 @@ import {
 } from "../../shared/craftingAdvancedAcademy.js";
 
 describe("Academia de crafting — nivel avanzado", () => {
-  it("incluye siete decisiones distintas y todo el contenido coincide con el resolutor", () => {
-    expect(CRAFTING_ADVANCED_ACADEMY_VERSION).toBe("avanzado-2026-08-26");
-    expect(CRAFTING_ADVANCED_ACADEMY_SCENARIOS).toHaveLength(7);
+  it("incluye ocho decisiones distintas y todo el contenido coincide con el resolutor", () => {
+    expect(CRAFTING_ADVANCED_ACADEMY_VERSION).toBe("avanzado-2026-08-27");
+    expect(CRAFTING_ADVANCED_ACADEMY_SCENARIOS).toHaveLength(8);
 
     for (const scenario of CRAFTING_ADVANCED_ACADEMY_SCENARIOS) {
       expect(validateAdvancedAcademyScenario(scenario), scenario.id).toBe(true);
@@ -38,6 +38,7 @@ describe("Academia de crafting — nivel avanzado", () => {
       "complete-data",
       "compare-risks",
       "change-base",
+      "simulate-transformation",
     ]);
   });
 
@@ -98,6 +99,16 @@ describe("Academia de crafting — nivel avanzado", () => {
     expect(exhausted).toBeDefined();
     expect(exhausted?.facts.routes.some((route) => route.legal)).toBe(true);
     expect(resolveAdvancedAcademyDecision(exhausted!.facts)).toBe("change-base");
+  });
+
+  it("exige simular una transformación global aunque su tooltip ya esté verificado", () => {
+    const flux = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-simular-flux",
+    );
+    expect(flux).toBeDefined();
+    expect(flux?.facts.transformation?.tooltipVerified).toBe(true);
+    expect(flux?.facts.transformation?.simulated).toBe(false);
+    expect(resolveAdvancedAcademyDecision(flux!.facts)).toBe("simulate-transformation");
   });
 
   it("no afirma porcentajes, precios ni DPS en ningún caso", () => {

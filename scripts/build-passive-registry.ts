@@ -137,19 +137,22 @@ async function main(): Promise<void> {
   nodes.sort((a, b) => a.id.localeCompare(b.id));
 
   const ascendancies: RegistryAscendancy[] = [];
-  const classes = data.classes.map((cls) => {
+  const classes = data.classes.flatMap((cls) => {
     const ids: string[] = [];
     for (const asc of cls.ascendancies ?? []) {
       ids.push(asc.id);
       // name null/ausente se conserva como null: la fuente no lo publica y no se inventa.
       ascendancies.push({ id: asc.id, name: asc.name ?? null, className: cls.name });
     }
-    return { name: cls.name, ascendancyIds: ids };
+    // El export oficial conserva marcadores heredados sin ascendencias. No se
+    // publican como clases PoE2 porque no describen una clase jugable activa.
+    return ids.length > 0 ? [{ name: cls.name, ascendancyIds: ids }] : [];
   });
   ascendancies.sort((a, b) => a.id.localeCompare(b.id));
 
   const registry: PassiveRegistry = {
     registryVersion: 1,
+    game: "poe2",
     provenance: {
       sourceRepository: SOURCE_REPOSITORY,
       sourceUrl: SOURCE_URL,

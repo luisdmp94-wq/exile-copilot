@@ -74,6 +74,38 @@ export const KnowledgeSourceSchema = z.strictObject({
 });
 export type KnowledgeSource = z.infer<typeof KnowledgeSourceSchema>;
 
+/**
+ * URLs que identifican de forma inequívoca un dataset de Path of Exile 1.
+ *
+ * No intenta adivinar por palabras sueltas: solo bloquea orígenes cuyo propio
+ * dominio o ruta separa explícitamente PoE1 de PoE2. Así evitamos tanto la
+ * contaminación silenciosa como falsos positivos con mecánicas compartidas.
+ */
+function knownPoe1OnlySource(url: string | null): string | null {
+  if (url === null) return null;
+
+  const parsed = new URL(url);
+  const host = parsed.hostname.toLowerCase();
+  const path = parsed.pathname.toLowerCase();
+
+  if (host === "poewiki.net" || host === "www.poewiki.net") {
+    return "poewiki.net documenta Path of Exile 1; para PoE2 debe usarse poe2wiki.net";
+  }
+
+  if (
+    (host === "github.com" || host === "raw.githubusercontent.com") &&
+    path.includes("/grindinggear/skilltree-export/")
+  ) {
+    return "grindinggear/skilltree-export es el export de PoE1; PoE2 usa poe2-skilltree-export";
+  }
+
+  if ((host === "poe.ninja" || host === "www.poe.ninja") && path.startsWith("/api/")) {
+    return "la API de economía de PoE2 debe estar bajo /poe2/api/, no /api/";
+  }
+
+  return null;
+}
+
 /** Procedencia de UN campo concreto. Sin esto, el campo no puede tener valor. */
 export const FieldProvenanceSchema = z.strictObject({
   sourceId: z.string().min(1).max(80),
@@ -185,6 +217,16 @@ export const CraftingKnowledgeSnapshotSchema = z
     if (sourceIds.size !== snapshot.sources.length) {
       fail("Hay ids de fuente duplicados.", ["sources"]);
     }
+
+    snapshot.sources.forEach((source, index) => {
+      const poe1Reason = knownPoe1OnlySource(source.url);
+      if (poe1Reason !== null) {
+        fail(
+          `Una fuente de PoE1 no puede entrar en un snapshot declarado como PoE2: ${poe1Reason}.`,
+          ["sources", index, "url"],
+        );
+      }
+    });
 
     const seenCandidateIds = new Set<string>();
     snapshot.modCandidates.forEach((candidate, index) => {

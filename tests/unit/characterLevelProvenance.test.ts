@@ -257,7 +257,7 @@ describe("procedencia del nivel en la importación PoB", () => {
 
   it("marca como observado el nivel que trae el código", () => {
     const result = importBuild(
-      pobCode('<PathOfBuilding><Build level="70" className="Mercenary"/></PathOfBuilding>'),
+      pobCode('<PathOfBuilding2><Build level="70" className="Mercenary"/></PathOfBuilding2>'),
       defaults,
     );
     expect(result.profile?.level).toBe(70);
@@ -267,7 +267,7 @@ describe("procedencia del nivel en la importación PoB", () => {
 
   it("no inventa un nivel observado cuando el código no lo declara", () => {
     const result = importBuild(
-      pobCode('<PathOfBuilding><Build className="Mercenary"/></PathOfBuilding>'),
+      pobCode('<PathOfBuilding2><Build className="Mercenary"/></PathOfBuilding2>'),
       defaults,
     );
     expect(result.profile?.level).toBe(PLACEHOLDER_CHARACTER_LEVEL);

@@ -195,7 +195,7 @@ function PlanResolutionView({ resolution }: { resolution: PlanResolution }) {
     <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">
-          Identificadores resueltos con el árbol oficial de GGG
+          IDs encontrados en el export oficial de PoE2
         </p>
         <Badge
           variant="outline"
@@ -205,7 +205,7 @@ function PlanResolutionView({ resolution }: { resolution: PlanResolution }) {
               : "border-amber-500/40 bg-amber-500/15 text-amber-300"
           }
         >
-          {resolvedCount}/{totalCount} pasivas resueltas
+          {resolvedCount}/{totalCount} IDs con nombre oficial
         </Badge>
       </div>
 
@@ -244,11 +244,15 @@ function PlanResolutionView({ resolution }: { resolution: PlanResolution }) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Fuente: {source.sourceRepository} @{" "}
+        Fuente: {source.game.toUpperCase()} · {source.sourceRepository} @{" "}
         <span className="font-mono">{source.sourceCommit.slice(0, 8)}</span> · datos de{" "}
         {source.dataOwner} · licencia:{" "}
         {source.license ?? "no encontrada"} · compatibilidad probada con el parche{" "}
         {source.testedAgainstPatch} (GGG no afirma esa correspondencia).
+      </p>
+      <p className="text-xs text-amber-200/80">
+        Coincidir con el export confirma el id y su texto; no demuestra por sí solo que el nodo
+        siga asignable o activo en el árbol actual.
       </p>
       <p className="text-xs text-muted-foreground">{GGG_AFFILIATION_NOTICE}</p>
     </div>

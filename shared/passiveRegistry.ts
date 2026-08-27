@@ -76,13 +76,16 @@ export type RegistryAscendancy = z.infer<typeof RegistryAscendancySchema>;
 
 export const RegistryClassSchema = z.strictObject({
   name: z.string().min(1),
-  ascendancyIds: z.array(z.string()),
+  /** Una clase publicable debe tener al menos una ascendencia PoE2 en la fuente. */
+  ascendancyIds: z.array(z.string().min(1)).min(1),
 });
 export type RegistryClass = z.infer<typeof RegistryClassSchema>;
 
 export const PassiveRegistrySchema = z.strictObject({
   /** Versión INTERNA del formato del registro (no la versión del juego). */
   registryVersion: z.literal(1),
+  /** Barrera de producto: este artefacto solo puede declararse como datos de PoE2. */
+  game: z.literal("poe2"),
   provenance: RegistryProvenanceSchema,
   classes: z.array(RegistryClassSchema).min(1),
   ascendancies: z.array(RegistryAscendancySchema).min(1),
@@ -120,6 +123,7 @@ export type ResolvedAscendancy = z.infer<typeof ResolvedAscendancySchema>;
 
 /** Resumen de procedencia que viaja al frontend (sin cargar todo el registro). */
 export const RegistrySourceSummarySchema = z.strictObject({
+  game: z.literal("poe2"),
   sourceRepository: z.string(),
   sourceCommit: z.string(),
   testedAgainstPatch: z.string(),

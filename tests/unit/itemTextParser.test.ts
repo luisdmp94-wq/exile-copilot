@@ -240,6 +240,7 @@ describe("itemTextParser", () => {
       "Daño de hielo: 4-8 (cold)",
       "Daño de rayo: 1-20 (lightning)",
       "Daño de caos: 2-6 (chaos)",
+      "Barrera rúnica: 42",
       "Probabilidad de impacto crítico: 5.00%",
       "Ataques por segundo: 1.40",
       "Tiempo de recarga: 0.71",

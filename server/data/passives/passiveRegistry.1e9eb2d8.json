@@ -1,5 +1,6 @@
 {
   "registryVersion": 1,
+  "game": "poe2",
   "provenance": {
     "sourceRepository": "grindinggear/poe2-skilltree-export",
     "sourceUrl": "https://github.com/grindinggear/poe2-skilltree-export",
@@ -18,10 +19,6 @@
   },
   "classes": [
     {
-      "name": "Marauder",
-      "ascendancyIds": []
-    },
-    {
       "name": "Witch",
       "ascendancyIds": [
         "Witch1",
@@ -37,18 +34,6 @@
         "Ranger2",
         "Ranger3"
       ]
-    },
-    {
-      "name": "Duelist",
-      "ascendancyIds": []
-    },
-    {
-      "name": "Shadow",
-      "ascendancyIds": []
-    },
-    {
-      "name": "Templar",
-      "ascendancyIds": []
     },
     {
       "name": "Warrior",

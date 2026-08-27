@@ -121,8 +121,16 @@ export function decodePobCode(code: string): PobDecodeResult {
       );
       return { ok: false, partial: { mainSkills: [] }, warnings };
     }
-    if (!/<(PathOfBuilding|Build)\b/i.test(xml)) {
-      warnings.push("No verificado — el contenido inflado no parece XML de Path of Building");
+    if (/<PathOfBuilding\b/i.test(xml) && !/<PathOfBuilding2\b/i.test(xml)) {
+      warnings.push(
+        "Rechazado — el código pertenece a Path of Building para PoE1. Exile Copilot solo acepta PathOfBuilding2.",
+      );
+      return { ok: false, xml, partial: { mainSkills: [] }, warnings };
+    }
+    if (!/<PathOfBuilding2\b/i.test(xml)) {
+      warnings.push(
+        "No verificado — el contenido inflado no declara la raíz PathOfBuilding2 de PoE2",
+      );
       return { ok: false, xml, partial: { mainSkills: [] }, warnings };
     }
     const partial = extractXmlFields(xml);

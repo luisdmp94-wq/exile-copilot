@@ -106,6 +106,9 @@ describe("evaluateAlloyPlan", () => {
 
   it("vincula la regla global a las notas oficiales 0.5.0", () => {
     expect(ALLOY_MECHANIC_SOURCE.url).toMatch(/^https:\/\/www\.pathofexile\.com\//);
+    expect(ALLOY_MECHANIC_SOURCE.title).toBe(
+      "Content Update 0.5.0 — Path of Exile 2: Return of the Ancients",
+    );
     expect(ALLOY_MECHANIC_SOURCE.patch).toBe("0.5.0");
     expect(ALLOY_MECHANIC_SOURCE.declaredTotalCount).toBe(13);
     expect(ALLOY_MECHANIC_SOURCE.leagueScope).toBe("Runes of Aldur");

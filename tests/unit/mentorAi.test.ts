@@ -120,6 +120,10 @@ describe("ResponsesMentorSelector", () => {
     expect(requestBody).not.toHaveProperty("store");
     expect(requestBody).not.toHaveProperty("safety_identifier");
     expect(JSON.stringify(requestBody)).not.toContain("test-key");
+    expect(JSON.stringify(requestBody)).toContain(
+      "exclusivamente con Path of Exile 2 (PoE2)",
+    );
+    expect(JSON.stringify(requestBody)).toContain("Path of Exile 1");
   });
 
   it("reintenta una sola vez si Groq no consigue validar la salida estructurada", async () => {

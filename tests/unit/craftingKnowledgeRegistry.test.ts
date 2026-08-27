@@ -239,6 +239,43 @@ describe("registro de conocimiento de crafting — carga", () => {
       CraftingKnowledgeError,
     );
   });
+
+  it("rechaza fuentes inequívocas de PoE1 dentro de snapshots PoE2", () => {
+    const poe1Sources = [
+      "https://www.poewiki.net/wiki/Modifier",
+      "https://github.com/grindinggear/skilltree-export/tree/master",
+      "https://raw.githubusercontent.com/grindinggear/skilltree-export/master/data.json",
+      "https://poe.ninja/api/data/currencyoverview?league=Standard&type=Currency",
+    ];
+
+    for (const url of poe1Sources) {
+      expect(() =>
+        loadCraftingKnowledge([
+          snapshot({
+            sources: [{ ...source, url }],
+          }),
+        ]),
+      ).toThrow(/fuente de PoE1 no puede entrar/i);
+    }
+  });
+
+  it("admite los equivalentes explícitos de PoE2", () => {
+    const poe2Sources = [
+      "https://www.poe2wiki.net/wiki/Modifier",
+      "https://github.com/grindinggear/poe2-skilltree-export/tree/master",
+      "https://poe.ninja/poe2/api/economy/leagues",
+    ];
+
+    for (const url of poe2Sources) {
+      expect(() =>
+        loadCraftingKnowledge([
+          snapshot({
+            sources: [{ ...source, url }],
+          }),
+        ]),
+      ).not.toThrow();
+    }
+  });
 });
 
 describe("registro de conocimiento de crafting — consulta", () => {

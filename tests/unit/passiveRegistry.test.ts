@@ -60,7 +60,10 @@ describe("registro: artefacto y procedencia", () => {
     const parsed = PassiveRegistrySchema.safeParse(JSON.parse(registryRaw));
     expect(parsed.success).toBe(true);
     expect(parsed.data?.registryVersion).toBe(1);
+    expect(parsed.data?.game).toBe("poe2");
     expect(parsed.data?.nodes.length).toBeGreaterThan(1000);
+    expect(parsed.data?.classes).toHaveLength(8);
+    expect(parsed.data?.classes.every((entry) => entry.ascendancyIds.length > 0)).toBe(true);
   });
 
   it("la procedencia fija commit, hash y propietario, sin atribuir el parche a GGG", () => {
@@ -84,6 +87,7 @@ describe("registro: artefacto y procedencia", () => {
 
   it("el resumen para la UI expone origen y licencia sin cargar todo el registro", () => {
     const s = getRegistrySource();
+    expect(s.game).toBe("poe2");
     expect(s.sourceCommit).toBe(PINNED_COMMIT);
     expect(s.testedAgainstPatch).toBe("0.5.4f");
     expect(s.license).toBeNull();
@@ -287,13 +291,10 @@ describe("registro: el proceso offline falla si la estructura oficial cambia", (
   });
 
   it("los invariantes fallan con mensaje claro en lugar de degradarse", () => {
-    const classes = [
-      { name: "A" },
-      { name: "B" },
-      { name: "C" },
-      { name: "D" },
-      { name: "E" },
-    ];
+    const classes = Array.from({ length: 8 }, (_, index) => ({
+      name: `Clase ${index}`,
+      ascendancies: [{ id: `Clase${index}Asc`, name: `Asc ${index}` }],
+    }));
 
     const tooSmall = GggSkillTreeExportSchema.parse({
       classes,

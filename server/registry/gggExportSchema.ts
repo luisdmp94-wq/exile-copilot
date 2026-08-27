@@ -55,6 +55,8 @@ export type GggSkillTreeExport = z.infer<typeof GggSkillTreeExportSchema>;
 /** Mínimos defendibles: si la fuente encoge de golpe, algo ha cambiado de verdad. */
 export const MIN_EXPECTED_NODES = 1000;
 export const MIN_EXPECTED_CLASSES = 5;
+/** Clases jugables del export con al menos una ascendencia PoE2 declarada. */
+export const MIN_EXPECTED_ACTIVE_CLASSES = 8;
 
 /**
  * Invariantes que el export debe cumplir para poder derivar un registro fiable.
@@ -71,6 +73,14 @@ export function assertExportInvariants(data: GggSkillTreeExport): void {
   if (data.classes.length < MIN_EXPECTED_CLASSES) {
     throw new Error(
       `Export inesperado: ${data.classes.length} clases (se esperaban al menos ${MIN_EXPECTED_CLASSES}).`,
+    );
+  }
+  const activeClasses = data.classes.filter((cls) => (cls.ascendancies?.length ?? 0) > 0);
+  if (activeClasses.length < MIN_EXPECTED_ACTIVE_CLASSES) {
+    throw new Error(
+      `Export inesperado: ${activeClasses.length} clases activas con ascendencias ` +
+        `(se esperaban al menos ${MIN_EXPECTED_ACTIVE_CLASSES}). ` +
+        "Los marcadores heredados sin ascendencias no cuentan como clases PoE2 publicables.",
     );
   }
 

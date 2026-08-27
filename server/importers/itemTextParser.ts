@@ -35,7 +35,9 @@ const SECTION_SEPARATOR = /^-{8,}$/;
  * `Daño de fuego aumentado...` (un modificador real) con
  * `Daño de fuego: 31-45 (fire)` (una propiedad resumen del arma).
  */
-const BASE_PROPERTY_RE = /^(?:quality|calidad|physical damage|daño físico|elemental damage|daño elemental|fire damage|daño de fuego|cold damage|daño de hielo|lightning damage|daño de rayo|chaos damage|daño de caos|critical hit chance|probabilidad de impacto crítico|attacks per second|ataques por segundo|reload time|tiempo de recarga|armour|armadura|evasion(?: rating)?|evasión|energy shield|escudo de energía|ward|barrera|spirit|espíritu|block chance|probabilidad de bloqueo|sockets|engarces|limited to|limitado a|grants skill|otorga habilidad)\s*:/i;
+// `ward` / `barrera` se conserva por la Barrera rúnica de PoE2, introducida
+// oficialmente en 0.5.0. No es una dependencia de la mecánica Ward de PoE1.
+const BASE_PROPERTY_RE = /^(?:quality|calidad|physical damage|daño físico|elemental damage|daño elemental|fire damage|daño de fuego|cold damage|daño de hielo|lightning damage|daño de rayo|chaos damage|daño de caos|critical hit chance|probabilidad de impacto crítico|attacks per second|ataques por segundo|reload time|tiempo de recarga|armour|armadura|evasion(?: rating)?|evasión|energy shield|escudo de energía|runic ward|barrera rúnica|ward|barrera|spirit|espíritu|block chance|probabilidad de bloqueo|sockets|engarces|limited to|limitado a|grants skill|otorga habilidad)\s*:/i;
 
 const RARITY_MAP: Record<string, ItemRarity> = {
   normal: "normal",

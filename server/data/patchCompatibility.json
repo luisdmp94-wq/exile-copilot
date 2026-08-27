@@ -45,9 +45,9 @@
         {
           "id": "passive-tree",
           "label": "Árbol de pasivas",
-          "status": "covered",
-          "note": "Los ids se resuelven contra el registro probado para este parche.",
-          "evidence": "Registro passiveRegistry.1e9eb2d8 probado contra 0.5.4f.",
+          "status": "limited",
+          "note": "Los ids y textos se resuelven contra el export oficial de PoE2; la presencia en el export no confirma por sí sola que cada nodo siga activo o asignable.",
+          "evidence": "Registro passiveRegistry.1e9eb2d8 derivado del export oficial de PoE2 y probado contra 0.5.4f.",
           "evidenceIds": ["passiveRegistry.1e9eb2d8"]
         },
         {

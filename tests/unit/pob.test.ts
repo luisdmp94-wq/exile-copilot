@@ -39,11 +39,21 @@ describe("pob adapter — fixture real (PathOfBuilding2)", () => {
 
 describe("pob adapter — robustez", () => {
   it("decodifica un código PoB válido", () => {
-    const xml = `<PathOfBuilding><Build level="70" className="Mercenary"/></PathOfBuilding>`;
+    const xml = `<PathOfBuilding2><Build level="70" className="Mercenary"/></PathOfBuilding2>`;
     const result = decodePobCode(makePobCode(xml));
     expect(result.ok).toBe(true);
     expect(result.partial.characterClass).toBe("Mercenary");
     expect(result.partial.level).toBe(70);
+  });
+
+  it("rechaza explícitamente un código de Path of Building 1", () => {
+    const xml = `<PathOfBuilding><Build level="95" className="Ranger"/></PathOfBuilding>`;
+    const result = decodePobCode(makePobCode(xml));
+
+    expect(result.ok).toBe(false);
+    expect(result.partial).toEqual({ mainSkills: [] });
+    expect(result.warnings.join(" ")).toMatch(/PoE1/);
+    expect(result.warnings.join(" ")).toContain("PathOfBuilding2");
   });
 
   it("rechaza entradas que superan el límite de tamaño sin lanzar ni colgar", () => {
@@ -56,8 +66,8 @@ describe("pob adapter — robustez", () => {
 
   it("rechaza payloads cuya descompresión supera maxOutputLength (zip-bomb guard)", () => {
     // XML repetido que infla a más de POB_MAX_OUTPUT_BYTES
-    const chunk = "<PathOfBuilding><Build level=\"70\"/>".padEnd(1000, " ");
-    const bigXml = `${chunk.repeat(Math.ceil((POB_MAX_OUTPUT_BYTES + 1000) / 1000))}</PathOfBuilding>`;
+    const chunk = "<PathOfBuilding2><Build level=\"70\"/>".padEnd(1000, " ");
+    const bigXml = `${chunk.repeat(Math.ceil((POB_MAX_OUTPUT_BYTES + 1000) / 1000))}</PathOfBuilding2>`;
     const code = makePobCode(bigXml);
     const result = decodePobCode(code);
     expect(result.ok).toBe(false);

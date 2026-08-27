@@ -163,6 +163,11 @@ describe("engine — exactitud y contratos", () => {
       { priceService: offlinePriceService() },
     );
     expect(result.recommendations[0]?.id).toBe("rec-resistencias-elementales");
+    expect(result.recommendations[0]?.confidence).not.toBe("high");
+    expect(result.recommendations[0]?.unverified.join(" ")).toContain(
+      "75% es un umbral provisional",
+    );
+    expect(result.recommendations[0]?.reason).not.toMatch(/fuente más común|causa más común/i);
   });
 
   it("null-safe: resistencias desconocidas → sin afirmaciones ni confidence alta", async () => {

@@ -71,6 +71,7 @@ export function getRegistrySource(): RegistrySourceSummary {
   const { registry } = load();
   const p = registry.provenance;
   return {
+    game: registry.game,
     sourceRepository: p.sourceRepository,
     sourceCommit: p.sourceCommit,
     testedAgainstPatch: p.testedAgainstPatch,

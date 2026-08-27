@@ -15,7 +15,7 @@ import { importGggBuildPlanner, parseGggBuildPlanner } from "./gggBuildImporter.
  *  (a) JSON del formato OFICIAL `.build` (GGG Build Planner v1) → devuelve
  *      `plan` (BuildTargetPlan con el objeto oficial crudo). NUNCA un perfil:
  *      un .build oficial es un plan objetivo, no una captura del personaje.
- *  (b) Código Path of Building (base64url + zlib) → `profile` parcial
+ *  (b) Código Path of Building 2 (base64url + zlib) → `profile` parcial
  *      (adaptador best-effort, todo marcado "No verificado").
  *  (c) Cualquier otra cosa → ApiHttpError(400) claro.
  *
@@ -41,7 +41,7 @@ function importFromPob(content: string, defaults: ImportDefaults): ImportBuildRe
     throw new ApiHttpError(
       400,
       "pob-code-invalido",
-      `No se pudo decodificar el código Path of Building. ${warnings.join(" ")}`,
+      `No se pudo importar el código Path of Building 2. ${warnings.join(" ")}`,
     );
   }
 
@@ -106,6 +106,6 @@ export function importBuild(content: string, _defaults: ImportDefaults): ImportB
   throw new ApiHttpError(
     400,
     "formato-desconocido",
-    "Formato no reconocido. Se acepta: archivo .build oficial (GGG Build Planner v1, JSON) o código de Path of Building.",
+    "Formato no reconocido. Se acepta: archivo .build oficial (GGG Build Planner v1, JSON) o código de Path of Building 2.",
   );
 }

@@ -7,7 +7,7 @@
  * No contiene recetas, pools, pesos, probabilidades ni precios.
  */
 
-export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-26";
+export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-27";
 
 export const CRAFTING_ADVANCED_ACADEMY_EVIDENCE =
   "Basado en los contratos locales de diagnóstico, rutas y condiciones de salida. Los casos son sintéticos y no representan un drop ni una receta.";
@@ -19,16 +19,17 @@ export type AdvancedAcademyDecision =
   | "stop"
   | "change-base"
   | "request-tooltip"
+  | "simulate-transformation"
   | "transmutation"
   | "augmentation"
   | "regal"
   | "exalted"
   | "compare-risks";
 
-export type AdvancedRouteRisk = "adds" | "stage-change" | "replacement";
+export type AdvancedRouteRisk = "adds" | "stage-change" | "replacement" | "transformation";
 
 export interface AdvancedAcademyRouteFact {
-  id: "transmutation" | "augmentation" | "regal" | "exalted" | "essence" | "alloy";
+  id: "transmutation" | "augmentation" | "regal" | "exalted" | "essence" | "alloy" | "flux";
   label: string;
   legal: boolean;
   risk: AdvancedRouteRisk;
@@ -44,6 +45,11 @@ export interface AdvancedAcademyFacts {
   /** Límite de pérdida o intentos declarado por el propio jugador. */
   abandonConditionFulfilled?: boolean;
   protectedLineCount: number;
+  /** Operación cuyo resultado depende de todas las líneas afectadas del objeto elegido. */
+  transformation?: {
+    tooltipVerified: boolean;
+    simulated: boolean;
+  };
   routes: AdvancedAcademyRouteFact[];
 }
 
@@ -90,6 +96,11 @@ export function resolveAdvancedAcademyDecision(
     (route) => route.risk === "replacement" && !route.tooltipVerified,
   );
   if (unverifiedReplacement) return "request-tooltip";
+
+  if (facts.transformation !== undefined) {
+    if (!facts.transformation.tooltipVerified) return "request-tooltip";
+    if (!facts.transformation.simulated) return "simulate-transformation";
+  }
 
   const legal = facts.routes.filter((route) => route.legal);
   const hasAugmentation = legal.some((route) => route.id === "augmentation");
@@ -420,6 +431,67 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     explanation:
       "Una acción compatible no invalida el límite que elegiste. Cierra este intento y cambia de base; ampliar el límite después de fallar elimina la protección que debía darte.",
     lesson: "El contrato debe decir cuándo conservar un éxito y cuándo dejar de invertir en una base.",
+  },
+  {
+    id: "avanzado-simular-flux",
+    order: 8,
+    title: "Simular antes de transformar",
+    skill: "Elegir la pieza por el resultado completo",
+    situation:
+      "Tienes fuego por debajo del límite, frío sobrante y rayo justo. El tooltip real del Flux afecta dos resistencias de la pieza elegida: tus guantes solo aportan frío, pero tus botas aportan frío y rayo.",
+    contract: {
+      objective: "Reequilibrar resistencias sin abrir otra carencia",
+      protect: ["Mantener fuego, frío y rayo en su límite"],
+      stop: "La simulación deja las tres resistencias cubiertas",
+    },
+    facts: {
+      itemDataComplete: true,
+      objectiveDefined: true,
+      stopDefined: true,
+      stopFulfilled: false,
+      protectedLineCount: 3,
+      transformation: {
+        tooltipVerified: true,
+        simulated: false,
+      },
+      routes: [
+        {
+          id: "flux",
+          label: "Flux con tooltip verificado",
+          legal: true,
+          risk: "transformation",
+          tooltipVerified: true,
+          consequence:
+            "Transforma todas las líneas que nombra el tooltip en la pieza elegida; no solo la que quieres aprovechar.",
+        },
+      ],
+    },
+    question: "¿Qué haces antes de consumir el Flux?",
+    options: [
+      option(
+        "av-simular-ambas",
+        "simulate-transformation",
+        "Simular guantes y botas por separado",
+        "Recalcular las tres resistencias tras cada resultado",
+      ),
+      option(
+        "av-elegir-mayor-frio",
+        "compare-risks",
+        "Usarlo donde haya más frío",
+        "Así obtendré la mayor conversión posible",
+      ),
+      option(
+        "av-usar-botas",
+        "compare-risks",
+        "Usarlo directamente en las botas",
+        "Tienen dos resistencias y parecen más aprovechables",
+      ),
+    ],
+    expectedDecision: "simulate-transformation",
+    explanation:
+      "El excedente aislado no basta para elegir. Primero simula el objeto entero: transformar las botas también puede tocar el rayo que estaba justo; una pieza con solo frío puede conservar más equilibrio.",
+    lesson:
+      "Una transformación global se evalúa por el estado final del personaje, no por la línea que quieres convertir.",
   },
 ];
 

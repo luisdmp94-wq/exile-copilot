@@ -93,7 +93,7 @@ function AdvancedScenarioView({
               <div className="flex items-center justify-between gap-2">
                 <strong className="text-sm">{route.label}</strong>
                 <span className={`text-[10px] font-semibold uppercase tracking-wide ${route.risk === "replacement" ? "text-rose-300" : route.risk === "stage-change" ? "text-amber-300" : "text-emerald-300"}`}>
-                  {route.risk === "replacement" ? "Reemplaza" : route.risk === "stage-change" ? "Cambia etapa" : "Añade"}
+                  {route.risk === "replacement" ? "Reemplaza" : route.risk === "stage-change" ? "Cambia etapa" : route.risk === "transformation" ? "Transforma" : "Añade"}
                 </span>
               </div>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{route.consequence}</p>
