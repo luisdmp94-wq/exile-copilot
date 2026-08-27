@@ -1,6 +1,6 @@
 # Roadmap de Exile Copilot
 
-> Estado consolidado: 27 de agosto de 2026. Objetivo público: estar preparado
+> Estado consolidado: 28 de agosto de 2026. Objetivo público: estar preparado
 > para Path of Exile 2 1.0 sin heredar datos ni mecánicas del parche anterior.
 
 ## 1. Base ya construida
@@ -9,10 +9,10 @@
   plan `.build` oficial de GGG.
 - [x] Diario persistente, una única acción activa y sesiones de decisión con
   resultado, pausa, reapertura y reconciliación.
-- [x] Mentor v3: conversación asistida por Groq, validada contra el motor y con
-  respaldo determinista cuando la IA falla o intenta salir del contexto.
-- [x] Mascota v2: estados visuales, avisos ante cambios semánticos y acceso a la
-  explicación sin llamadas automáticas al proveedor de IA.
+- [x] Mentor v4: conversación fundamentada y memoria de ocho turnos durante la
+  sesión, invalidada cuando cambia cualquier dato autoritativo.
+- [x] Mascota v3: estados visuales, avisos semánticos no repetitivos y alertas
+  importantes persistentes hasta que el jugador las atiende.
 - [x] Academia de Crafting básica, media y avanzada; ayuda en vivo y taller
   avanzado con contrato, parada, antes/después y recuperación.
 - [x] Barreras de compatibilidad por parche, procedencia visible y publicación

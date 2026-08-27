@@ -50,7 +50,7 @@ import { CRAFTING_GOAL_LABELS } from "../../shared/craftingGoal.js";
 /**
  * Mentor conversacional.
  *
- * El motor y la memoria siguen siendo la autoridad. Cuando Mentor v3 está
+ * El motor y la memoria siguen siendo la autoridad. Cuando Mentor v4 está
  * activo, la IA recibe un contexto compacto, redacta conversación natural y
  * debe fundamentarla con ids que el motor ya produjo. El servidor valida
  * estructura y texto; ante cualquier fallo vuelve a las reglas.

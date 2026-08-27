@@ -1,4 +1,8 @@
-import type { MentorAnswer } from "@shared/mentorQuery.js";
+import { z } from "zod";
+import {
+  MentorAnswerSchema,
+  type MentorAnswer,
+} from "@shared/mentorQuery.js";
 
 /**
  * Estado del hilo conversacional del mentor (Hito 6A), como reductor PURO.
@@ -8,7 +12,9 @@ import type { MentorAnswer } from "@shared/mentorQuery.js";
  *    memoria del diario obsoleta) se pueden probar sin navegador ni DOM;
  *  - el hook queda como una capa fina sobre este reductor.
  *
- * El hilo NO se persiste: vive en memoria de la interfaz.
+ * Mentor v4 conserva el hilo en `sessionStorage` para sobrevivir a una recarga,
+ * pero nunca entre sesiones del navegador. El `threadInputsKey` permite que
+ * App lo descarte en cuanto cambie cualquier dato autoritativo.
  */
 
 export type MentorTurnRole = "player" | "mentor";
@@ -39,6 +45,53 @@ export const initialMentorThreadState: MentorThreadState = {
   threadInputsKey: null,
   activeRequestId: null,
 };
+
+export const MENTOR_THREAD_STORAGE_KEY = "exile-copilot:mentor-v4:thread";
+export const MAX_PERSISTED_MENTOR_TURNS = 8;
+
+const PersistedMentorTurnSchema = z.strictObject({
+  id: z.string().min(1).max(200),
+  role: z.enum(["player", "mentor"]),
+  text: z.string().min(1).max(8_000),
+  answer: MentorAnswerSchema.nullable(),
+});
+
+const PersistedMentorThreadSchema = z.strictObject({
+  version: z.literal("mentor-v4"),
+  turns: z.array(PersistedMentorTurnSchema).max(MAX_PERSISTED_MENTOR_TURNS),
+  threadInputsKey: z.string().min(1),
+});
+
+/**
+ * Restaura únicamente una conversación completa y validada. Peticiones en
+ * curso, errores y estados parciales nunca sobreviven a la recarga.
+ */
+export function restoreMentorThread(serialized: string | null): MentorThreadState {
+  if (serialized === null) return initialMentorThreadState;
+  try {
+    const parsed = PersistedMentorThreadSchema.safeParse(JSON.parse(serialized));
+    if (!parsed.success || parsed.data.turns.length === 0) return initialMentorThreadState;
+    return {
+      turns: parsed.data.turns,
+      loading: false,
+      error: null,
+      threadInputsKey: parsed.data.threadInputsKey,
+      activeRequestId: null,
+    };
+  } catch {
+    return initialMentorThreadState;
+  }
+}
+
+/** Devuelve null cuando no existe un hilo estable que merezca persistirse. */
+export function serializeMentorThread(state: MentorThreadState): string | null {
+  if (state.loading || state.threadInputsKey === null || state.turns.length === 0) return null;
+  return JSON.stringify({
+    version: "mentor-v4",
+    turns: state.turns.slice(-MAX_PERSISTED_MENTOR_TURNS),
+    threadInputsKey: state.threadInputsKey,
+  });
+}
 
 export type MentorThreadEvent =
   /** El jugador envía una pregunta: se pinta su turno y arranca la espera. */

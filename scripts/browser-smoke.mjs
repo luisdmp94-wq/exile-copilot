@@ -358,9 +358,10 @@ async function runFlow(mode, port) {
     const contextualMentor = page.getByTestId("mentor-contextual");
     const mentorMascot = page.getByTestId("mentor-mascota");
     check(
-      `[${mode}] mentor contextual empieza como Mascota v2 sin panel`,
-      (await contextualMentor.getAttribute("data-version")) === "2" &&
-        (await mentorMascot.getAttribute("data-version")) === "2" &&
+      `[${mode}] Mentor v4 empieza como Mascota v3 sin panel`,
+      (await contextualMentor.getAttribute("data-version")) === "4" &&
+        (await contextualMentor.getAttribute("data-mascot-version")) === "3" &&
+        (await mentorMascot.getAttribute("data-version")) === "3" &&
         (await contextualMentor.getAttribute("data-collapsed")) === "true" &&
         (await mentorMascot.getAttribute("aria-expanded")) === "false" &&
         !(await page.getByTestId("mentor-contextual-mensaje").isVisible()),
@@ -762,6 +763,11 @@ async function runFlow(mode, port) {
     // del servidor y regreso a una sesión vacía sin tocar datos reales.
     await page.evaluate(() => {
       localStorage.setItem("otra-herramienta:preferencia", "conservar");
+      sessionStorage.setItem(
+        "exile-copilot:mentor-v4:thread",
+        JSON.stringify({ version: 4, turns: [] }),
+      );
+      sessionStorage.setItem("otra-herramienta:sesion", "conservar");
     });
     await page.getByTestId("privacidad-abrir").click();
     await page.getByTestId("privacidad-borrar-abrir").click();
@@ -784,6 +790,10 @@ async function runFlow(mode, port) {
         key.startsWith("exile-copilot:"),
       ),
       otherPreference: localStorage.getItem("otra-herramienta:preferencia"),
+      exileSessionKeys: Object.keys(sessionStorage).filter((key) =>
+        key.startsWith("exile-copilot:"),
+      ),
+      otherSession: sessionStorage.getItem("otra-herramienta:sesion"),
     }));
     const deletedCharacter = await context.request.get(
       `${BASE}/api/character/${encodeURIComponent(savedBody.profile.id)}`,
@@ -791,7 +801,8 @@ async function runFlow(mode, port) {
     const privacyDeletionOk =
       deleteResponse.status() === 200 &&
       deletedCharacter.status() === 404 &&
-      localPrivacyState.exileKeys.length === 0;
+      localPrivacyState.exileKeys.length === 0 &&
+      localPrivacyState.exileSessionKeys.length === 0;
     check(
       `[${mode}] borrar elimina servidor y claves locales de Exile Copilot`,
       privacyDeletionOk,
@@ -802,12 +813,14 @@ async function runFlow(mode, port) {
           deleteStatus: deleteResponse.status(),
           deletedCharacterStatus: deletedCharacter.status(),
           exileKeys: localPrivacyState.exileKeys,
+          exileSessionKeys: localPrivacyState.exileSessionKeys,
         })}`,
       );
     }
     check(
       `[${mode}] la limpieza no borra datos locales de otra herramienta`,
-      localPrivacyState.otherPreference === "conservar",
+      localPrivacyState.otherPreference === "conservar" &&
+        localPrivacyState.otherSession === "conservar",
     );
     check(
       `[${mode}] tras borrar se vuelve a una sesión sin personaje`,

@@ -28,7 +28,7 @@ export interface ServerConfig {
   requestBodyLimitBytes: number;
   gggOauthEnabled: boolean;
   explainerLlmEnabled: boolean;
-  /** Mentor v3: conversación IA fundamentada. Apagada por defecto. */
+  /** Mentor v4: conversación IA fundamentada y memoria segura de sesión. */
   mentorAiEnabled: boolean;
   /** Proveedor de inferencia. Groq permite probar el mentor sin facturación. */
   mentorAiProvider: "groq" | "openai";

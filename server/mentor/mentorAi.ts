@@ -3,7 +3,7 @@ import type { ServerConfig } from "../config.js";
 import { ContextEnvelopeSchema } from "../../shared/mentorContext.js";
 
 /**
- * Decisión y redacción fundamentada de Mentor v3. Los campos generativos son
+ * Decisión y redacción fundamentada de Mentor v4. Los campos generativos son
  * opcionales para conservar los selectores de prueba de Hito 6E; el proveedor
  * real siempre recibe un esquema que los exige y el servicio los valida.
  */
@@ -181,7 +181,7 @@ const DECISION_JSON_SCHEMA = {
   ],
 } as const;
 
-const ROUTER_INSTRUCTIONS = `Eres Mentor v3 de Exile Copilot.
+const ROUTER_INSTRUCTIONS = `Eres Mentor v4 de Exile Copilot.
 Conversas en español natural, pero solo puedes afirmar hechos incluidos en CONTEXT.
 
 REGLAS INQUEBRANTABLES:

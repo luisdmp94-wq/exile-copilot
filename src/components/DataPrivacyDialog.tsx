@@ -58,6 +58,7 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
         confirmation: DELETE_VISITOR_DATA_CONFIRMATION,
       });
       clearExileCopilotLocalData(window.localStorage);
+      clearExileCopilotLocalData(window.sessionStorage);
       // El servidor invalida también la cookie. Recargar elimina todo el estado
       // en memoria y abre una sesión anónima nueva, sin expediente anterior.
       window.location.reload();
@@ -106,8 +107,9 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
             <h3 className="font-semibold text-foreground">Qué se guarda</h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               En el servidor: personaje, objetos, decisiones y sesiones. En este
-              navegador: progreso de Academia y proyectos de Crafting. Otro visitante
-              no puede abrir tu expediente.
+              navegador: progreso de Academia, proyectos de Crafting y hasta ocho
+              turnos del Mentor durante esta sesión. Otro visitante no puede abrir tu
+              expediente.
             </p>
           </section>
 
@@ -139,7 +141,8 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
               <h3 className="font-semibold text-foreground">Borrar todos mis datos</h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Elimina de forma irreversible tus expedientes, objetos, diario, memoria,
-                sesiones y proyectos de Crafting. Después empezarás con una sesión nueva.
+                sesiones, conversación temporal del Mentor y proyectos de Crafting.
+                Después empezarás con una sesión nueva.
               </p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>

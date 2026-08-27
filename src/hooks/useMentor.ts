@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import { toast } from "sonner";
 import {
   mentorInputsKey,
@@ -8,7 +8,10 @@ import {
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 import {
   initialMentorThreadState,
+  MENTOR_THREAD_STORAGE_KEY,
   mentorThreadReducer,
+  restoreMentorThread,
+  serializeMentorThread,
   type MentorThreadState,
 } from "@/lib/mentorThread";
 
@@ -20,11 +23,10 @@ export type { MentorTurn, MentorTurnRole } from "@/lib/mentorThread";
  * Capa fina sobre el reductor puro `mentorThreadReducer`: aquí solo vive la
  * llamada HTTP y los avisos; las transiciones del hilo se prueban sin DOM.
  *
- * LIMITACIÓN DELIBERADA: el hilo vive SOLO en memoria de la interfaz. No se
- * persiste. Cada consulta envía como contexto no autoritativo un máximo de ocho
- * turnos visibles; si cambian personaje, build objetivo, presupuesto, objetivo,
- * liga, parche o revisión del diario, el hilo se descarta para no mostrar
- * respuestas obsoletas.
+ * Mentor v4 conserva como máximo ocho turnos en la sesión del navegador. Cada
+ * consulta sigue tratándolos como contexto no autoritativo; si cambian
+ * personaje, build objetivo, presupuesto, objetivo, liga, parche o revisión
+ * del diario, App descarta el hilo para no mostrar respuestas obsoletas.
  */
 
 export type MentorAskOutcome =
@@ -47,9 +49,26 @@ function nextTurnId(prefix: string): string {
 }
 
 export function useMentor(): MentorState {
-  const [state, dispatch] = useReducer(mentorThreadReducer, initialMentorThreadState);
+  const [state, dispatch] = useReducer(
+    mentorThreadReducer,
+    initialMentorThreadState,
+    () => {
+      if (typeof window === "undefined") return initialMentorThreadState;
+      return restoreMentorThread(window.sessionStorage.getItem(MENTOR_THREAD_STORAGE_KEY));
+    },
+  );
+
+  useEffect(() => {
+    const serialized = serializeMentorThread(state);
+    if (serialized === null) {
+      if (!state.loading) window.sessionStorage.removeItem(MENTOR_THREAD_STORAGE_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(MENTOR_THREAD_STORAGE_KEY, serialized);
+  }, [state]);
 
   const clear = useCallback(() => {
+    window.sessionStorage.removeItem(MENTOR_THREAD_STORAGE_KEY);
     dispatch({ type: "clear" });
   }, []);
 

@@ -15,7 +15,7 @@ import { ContextEnvelopeSchema } from "./mentorContext.js";
  * Contrato de la conversación con el mentor (Hito 6A).
  *
  * La autoridad sigue siendo el motor: no se inventa conocimiento de PoE2.
- * Mentor v3 permite que la IA redacte conversación natural, pero obliga a
+ * Mentor v4 permite que la IA redacte conversación natural, pero obliga a
  * fundamentarla con ids canónicos. Acciones, cifras, fuentes y carencias siguen
  * procediendo del perfil, la build objetivo, el presupuesto/objetivo, el
  * Character Journal y las recomendaciones ya calculadas.

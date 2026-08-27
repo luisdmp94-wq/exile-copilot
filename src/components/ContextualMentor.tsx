@@ -24,6 +24,24 @@ interface ContextualMentorProps {
 }
 
 type MascotVisualState = "ready" | "thinking" | "ai" | "warning" | "error";
+type MascotSpeechPriority = "notice" | "important";
+
+const MAX_ACKNOWLEDGED_SPEECHES = 24;
+
+function rememberSpeechKey(current: ReadonlySet<string>, speechKey: string): Set<string> {
+  if (current.has(speechKey)) return new Set(current);
+  return new Set([...current, speechKey].slice(-MAX_ACKNOWLEDGED_SPEECHES));
+}
+
+function mascotSpeechPriority(
+  cue: ContextualMentorCue,
+  error: string | null,
+  blockedReason: string | null,
+): MascotSpeechPriority {
+  return cue.source === "warning" || error !== null || blockedReason !== null
+    ? "important"
+    : "notice";
+}
 
 const SOURCE_STYLES: Record<ContextualMentorCue["source"], string> = {
   guide: "border-primary/45 bg-primary/10 text-primary",
@@ -139,14 +157,17 @@ export function ContextualMentor({
   const shellRef = useRef<HTMLElement>(null);
   const askButtonRef = useRef<HTMLButtonElement | null>(null);
   const [restoreAskFocus, setRestoreAskFocus] = useState(false);
-  const [dismissedSpeechKey, setDismissedSpeechKey] = useState<string | null>(null);
+  const [acknowledgedSpeechKeys, setAcknowledgedSpeechKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const contentCollapsed = placement === "floating" && collapsed;
   const speechKey = `${cue.id}\n${cue.message}\n${error ?? ""}\n${blockedReason ?? ""}`;
+  const speechPriority = mascotSpeechPriority(cue, error, blockedReason);
   const speechVisible =
     placement === "floating" &&
     collapsed &&
     shouldSpeakAutomatically(cue, error, blockedReason) &&
-    dismissedSpeechKey !== speechKey;
+    !acknowledgedSpeechKeys.has(speechKey);
   const visualState = mascotVisualState(cue, answer, loading, error, blockedReason);
   const visualStatus = mascotStatusLabel(visualState);
 
@@ -230,23 +251,27 @@ export function ContextualMentor({
    * existe en pantalla; no dispara una petición de IA por cada interacción.
    */
   useEffect(() => {
-    if (!speechVisible) return;
+    if (!speechVisible || speechPriority === "important") return;
 
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const timeout = window.setTimeout(
-      () => setDismissedSpeechKey(speechKey),
+      () => setAcknowledgedSpeechKeys((current) => rememberSpeechKey(current, speechKey)),
       prefersReducedMotion ? 12_000 : 10_000,
     );
     return () => window.clearTimeout(timeout);
-  }, [speechKey, speechVisible]);
+  }, [speechKey, speechPriority, speechVisible]);
+
+  const acknowledgeSpeech = () => {
+    setAcknowledgedSpeechKeys((current) => rememberSpeechKey(current, speechKey));
+  };
 
   const openFromSpeech = () => {
-    setDismissedSpeechKey(speechKey);
+    acknowledgeSpeech();
     onCollapsedChange(false);
   };
 
   const toggleFloatingMentor = () => {
-    if (collapsed) setDismissedSpeechKey(speechKey);
+    if (collapsed) acknowledgeSpeech();
     onCollapsedChange(!collapsed);
   };
 
@@ -261,7 +286,9 @@ export function ContextualMentor({
       aria-label="Mentor contextual"
       data-testid="mentor-contextual"
       data-placement={placement}
-      data-version="2"
+      data-version="4"
+      data-mentor-version="4"
+      data-mascot-version="3"
       data-collapsed={contentCollapsed ? "true" : "false"}
       data-speaking={speechVisible ? "true" : "false"}
     >
@@ -273,6 +300,8 @@ export function ContextualMentor({
           data-testid="mentor-speech-bubble"
           data-cue-id={cue.id}
           data-source={cue.source}
+          data-priority={speechPriority}
+          data-auto-dismiss={speechPriority === "notice" ? "true" : "false"}
         >
           <button
             type="button"
@@ -281,7 +310,9 @@ export function ContextualMentor({
             aria-label={`Abrir explicación del Copiloto: ${cue.title}`}
             data-testid="mentor-speech-open"
           >
-            <span className="mentor-speech-bubble__speaker">Copiloto</span>
+            <span className="mentor-speech-bubble__speaker">
+              Copiloto · {speechPriority === "important" ? "Atención" : "Novedad"}
+            </span>
             <strong>{cue.title}</strong>
             <span className="mentor-speech-bubble__message">{error ?? blockedReason ?? cue.message}</span>
             <span className="mentor-speech-bubble__action">Ver explicación</span>
@@ -289,7 +320,7 @@ export function ContextualMentor({
           <button
             type="button"
             className="mentor-speech-bubble__dismiss"
-            onClick={() => setDismissedSpeechKey(speechKey)}
+            onClick={acknowledgeSpeech}
             aria-label="Cerrar mensaje del Copiloto"
             data-testid="mentor-speech-dismiss"
           >
@@ -302,7 +333,7 @@ export function ContextualMentor({
         <button
           type="button"
           className="mentor-floating-mascot"
-          data-version="2"
+          data-version="3"
           data-state={visualState}
           data-source={cue.source}
           data-attention={speechVisible ? "true" : "false"}
@@ -341,7 +372,7 @@ export function ContextualMentor({
           <button
             type="button"
             className="mentor-mascot"
-            data-version="2"
+            data-version="3"
             data-state={visualState}
             data-source={cue.source}
             onClick={onOpenMentor}

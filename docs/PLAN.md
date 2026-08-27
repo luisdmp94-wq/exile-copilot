@@ -2,7 +2,7 @@
 
 Aplicación web para jugadores de Path of Exile 2: «Importa tu build, indica tu presupuesto y recibe las próximas mejoras ordenadas por impacto, coste y riesgo».
 
-> Actualizado para Mentor v3 y Mascota v2 (2026-08-26). El formato `.build`
+> Actualizado para Mentor v4 y Mascota v3 (2026-08-28). El formato `.build`
 > propietario inicial fue eliminado: se usa exclusivamente el esquema oficial
 > GGG Build Planner v1. La secuencia vigente de producto se mantiene en
 > [`ROADMAP.md`](ROADMAP.md).

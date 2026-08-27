@@ -335,8 +335,8 @@ export default function App() {
     });
   }, [currentInputsKey, resultInputsKey, clear, announceMentor]);
 
-  // La conversación NO se persiste y se descarta en cuanto cambian los inputs
-  // relevantes: así el hilo nunca muestra respuestas obsoletas.
+  // Mentor v4 conserva el hilo durante la sesión, pero lo descarta en cuanto
+  // cambian los inputs relevantes: nunca restaura respuestas obsoletas.
   const currentMentorContextItemId =
     tab === "crafting" ? craftingRequestedItemId : focusedItemId;
   const currentMentorContextItem = character.profile?.items.find(
@@ -388,11 +388,30 @@ export default function App() {
       )
     : null;
   useEffect(() => {
-    if (mentorThreadKey && mentorThreadKey !== currentMentorInputsKey) {
+    // Durante la restauración inicial el perfil todavía puede ser null durante
+    // un render. Esperamos a disponer de la clave canónica antes de comparar;
+    // de lo contrario borraríamos un hilo válido justo al recargar la página.
+    if (
+      mentorThreadKey &&
+      currentMentorInputsKey !== null &&
+      !character.restoring &&
+      !characterJournalLoading &&
+      league.length > 0 &&
+      patch.length > 0 &&
+      mentorThreadKey !== currentMentorInputsKey
+    ) {
       clearMentor();
       toast.info("Los datos han cambiado — la conversación con el mentor se ha reiniciado");
     }
-  }, [currentMentorInputsKey, mentorThreadKey, clearMentor]);
+  }, [
+    currentMentorInputsKey,
+    mentorThreadKey,
+    character.restoring,
+    characterJournalLoading,
+    league,
+    patch,
+    clearMentor,
+  ]);
 
   useEffect(() => {
     const plan = targetDraft.plan;

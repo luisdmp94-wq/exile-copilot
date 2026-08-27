@@ -371,6 +371,12 @@ async function runFlow(mode, port) {
       budgetTitles.some((title) => title.includes("1500")) &&
         !budgetTitles.some((title) => /^(1|15|150)\s/.test(title)),
     );
+    // El presupuesto del formulario no se persiste. Volver al valor inicial
+    // permite comprobar una recarga con exactamente los mismos inputs; más
+    // adelante este mismo flujo verifica que cambiarlo a 777 borra el hilo.
+    await budgetInput.fill("50");
+    await budgetInput.blur();
+    await wait(750);
     await irA(page, "expediente");
 
     await abrirMentor(page);
@@ -381,7 +387,7 @@ async function runFlow(mode, port) {
       (await page.getByTestId("mentor-sugerencia").count()) >= 3,
     );
 
-    // --- Mentor v3: conversación social -----------------------------------
+    // --- Mentor v4: conversación social y memoria de sesión ---------------
     await preguntar(page, "hola");
     const saludo = page.getByTestId("mentor-turno-mentor").last();
     const textoSaludo = await saludo.innerText();
@@ -414,6 +420,17 @@ async function runFlow(mode, port) {
       `[${mode}] la identidad no crea una recomendación ni evidencia vacía`,
       (await page.getByTestId("mentor-proxima-accion").count()) === 0 &&
         (await identidad.getByTestId("mentor-evidencia").count()) === 0,
+    );
+
+    const turnosAntesDeRecargar = await page.getByTestId("mentor-hilo").locator(":scope > div").count();
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
+    await abrirMentor(page);
+    check(
+      `[${mode}] Mentor v4 conserva el hilo al recargar durante la sesión`,
+      (await page.getByTestId("mentor-version").innerText()).includes("Mentor v4") &&
+        (await page.getByTestId("mentor-hilo").locator(":scope > div").count()) === turnosAntesDeRecargar &&
+        (await page.getByTestId("mentor-turno-mentor").last().innerText()).includes("Mentor de Exile Copilot"),
     );
 
     // --- next_improvement --------------------------------------------------

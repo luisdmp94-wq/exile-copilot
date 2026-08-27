@@ -1,4 +1,4 @@
-# Hito 6E — Mentor IA fundamentado (Mentor v3)
+# Hito 6E — Mentor IA fundamentado (Mentor v4)
 
 ## Objetivo
 
@@ -41,7 +41,7 @@ guía de Crafting. Al elegir una dirección, el mentor contextual muestra esa
 pieza y el siguiente paso legal calculado, sin hacer una llamada automática a
 Groq. Solo «Analizar este contexto» consulta al modelo opcional.
 
-## Mentor v3: conversación con vida, sin perder rigor
+## Mentor v4: conversación con continuidad segura
 
 - Saludos y agradecimientos ya son conversación, no preguntas no soportadas.
 - Los últimos ocho turnos viajan con cada consulta para conservar el hilo. Son
@@ -52,10 +52,16 @@ Groq. Solo «Analizar este contexto» consulta al modelo opcional.
   una segunda decisión mientras la primera siga en curso.
 - Si el validador detecta una cifra, id o afirmación fuera del contexto, desecha
   toda la redacción y responde con el respaldo seguro de reglas.
+- Conserva como máximo ocho turnos al recargar durante la sesión del navegador;
+  una petición incompleta o un error nunca se persisten.
+- El hilo restaurado conserva su huella de inputs. Cambiar personaje, build,
+  presupuesto, objetivo, liga, parche o diario lo elimina antes de reutilizarlo.
+- La conversación no sobrevive al cierre de la sesión del navegador y continúa
+  siendo texto no autoritativo.
 
-## Mascota v2: presencia y avisos sin ruido
+## Mascota v3: avisos recordados y prioridades visibles
 
-- Es la representación visual del mismo Mentor v3; no tiene un segundo motor ni
+- Es la representación visual del mismo Mentor v4; no tiene un segundo motor ni
   realiza consultas automáticas al proveedor de IA.
 - Distingue reposo, análisis, respuesta IA, advertencia y error mediante rostro,
   señal y movimiento, respetando `prefers-reduced-motion`.
@@ -63,6 +69,10 @@ Groq. Solo «Analizar este contexto» consulta al modelo opcional.
   crafting, una prioridad nueva, una sesión, una acción registrada o un bloqueo.
 - Abrir el aviso muestra la explicación canónica ya disponible. Preguntar a la
   IA sigue requiriendo una acción explícita del jugador.
+- Recuerda los avisos atendidos durante la sesión del componente y no vuelve a
+  interrumpir por el mismo cambio semántico.
+- Una novedad normal desaparece sola; una advertencia, bloqueo o error permanece
+  hasta que el jugador la abre o la descarta.
 
 ## Límites de seguridad y coste
 

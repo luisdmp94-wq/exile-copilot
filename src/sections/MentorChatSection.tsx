@@ -37,8 +37,9 @@ import {
  * pero vive en «Ver evidencia y limitaciones»: nunca se muestran identificadores
  * internos (`next_improvement`, `calculation`, `high`…) en el texto visible.
  *
- * El hilo vive solo en memoria (ver `useMentor`). Todo el texto se pinta como
- * TEXTO mediante JSX: React escapa el contenido y nunca se interpreta HTML.
+ * Mentor v4 conserva hasta ocho turnos durante la sesión del navegador y los
+ * invalida al cambiar cualquier input autoritativo. Todo el texto se pinta
+ * como TEXTO mediante JSX: React escapa el contenido y nunca interpreta HTML.
  */
 
 /** Tipo de consulta en español; el id interno nunca se muestra. */
@@ -124,6 +125,9 @@ export function MentorChatSection({
             data-testid="mentor-modo"
           >
             {modeLabel}
+          </Badge>
+          <Badge variant="outline" className="text-muted-foreground" data-testid="mentor-version">
+            Mentor v4 · memoria de sesión
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">

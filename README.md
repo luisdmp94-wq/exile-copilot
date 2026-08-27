@@ -331,14 +331,18 @@ id crudo: el nombre nunca se deduce del texto del id.
 
 > This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
 
-## Habla con tu mentor (Hitos 6A, 6E y Mentor v3)
+## Habla con tu mentor (Hitos 6A, 6E y Mentor v4)
 
 «Habla con tu mentor», dentro de **Expediente y mentor**, permite conversar en
 español. Por defecto responde solo con reglas, sin llamadas externas ni coste.
-Con Mentor v3 activo, Groq redacta respuestas naturales, recuerda los ocho
+Con Mentor v4 activo, Groq redacta respuestas naturales, recuerda los ocho
 últimos turnos visibles y puede hacer una pregunta de seguimiento. No recibe
 autoridad para inventar PoE2: toda afirmación de juego debe citar una
 recomendación o carencia que el motor ya haya producido.
+
+Mentor v4 conserva esos ocho turnos al recargar la página durante la sesión del
+navegador. No los guarda entre sesiones y los elimina inmediatamente si cambia
+el personaje, build objetivo, presupuesto, objetivo, liga, parche o diario.
 
 Preguntas que entiende hoy:
 

@@ -17,8 +17,11 @@ import { RecommendationMemorySchema } from "../../shared/domain.js";
 import {
   initialMentorThreadState,
   lastMentorAnswer,
+  MAX_PERSISTED_MENTOR_TURNS,
   mentorThreadReducer,
+  restoreMentorThread,
   savableNextAction,
+  serializeMentorThread,
   type MentorThreadState,
 } from "../../src/lib/mentorThread.js";
 import { answerMentorQuery } from "../../server/mentor/mentorService.js";
@@ -27,9 +30,9 @@ import { PoeNinjaClient, PriceService } from "../../server/services/poeninja.js"
 import { loadConfig } from "../../server/config.js";
 
 /**
- * Hito 6A — invalidación del hilo conversacional.
- * La conversación NO se persiste: vive en memoria de la interfaz y se descarta
- * cuando cambia cualquier input relevante.
+ * Hito 6A / Mentor v4 — invalidación y memoria segura del hilo.
+ * La conversación solo se conserva durante la sesión del navegador y se
+ * descarta cuando cambia cualquier input relevante.
  */
 
 function demoProfile(): CharacterProfile {
@@ -388,5 +391,63 @@ describe("hilo del mentor — recuperación del 409 de memoria obsoleta", () => 
 
     expect(afterLateAnswer).toEqual(initialMentorThreadState);
     expect(afterLateAnswer.turns).toHaveLength(0);
+  });
+
+  it("Mentor v4 restaura un hilo estable sin revivir carga, error ni petición", async () => {
+    const answer = await respuestaRealGuardable();
+    const stable = mentorThreadReducer(
+      {
+        ...initialMentorThreadState,
+        turns: [{ id: "player-1", role: "player", text: "¿Qué mejoro ahora?", answer: null }],
+      },
+      {
+        type: "answered",
+        turnId: "mentor-1",
+        answer,
+        inputsKey: "inputs-v4",
+      },
+    );
+
+    const restored = restoreMentorThread(serializeMentorThread(stable));
+
+    expect(restored.turns).toEqual(stable.turns);
+    expect(restored.threadInputsKey).toBe("inputs-v4");
+    expect(restored.loading).toBe(false);
+    expect(restored.error).toBeNull();
+    expect(restored.activeRequestId).toBeNull();
+  });
+
+  it("Mentor v4 limita la memoria a ocho turnos y rechaza datos corruptos", async () => {
+    const answer = await respuestaRealGuardable();
+    const turns: MentorThreadState["turns"] = Array.from({ length: 12 }, (_, index) => ({
+      id: `turn-${index}`,
+      role: index % 2 === 0 ? "player" as const : "mentor" as const,
+      text: index % 2 === 0 ? `Pregunta ${index}` : answer.answer,
+      answer: index % 2 === 0 ? null : answer,
+    }));
+    const serialized = serializeMentorThread({
+      turns,
+      loading: false,
+      error: null,
+      threadInputsKey: "inputs-v4",
+      activeRequestId: null,
+    });
+
+    expect(restoreMentorThread(serialized).turns).toHaveLength(MAX_PERSISTED_MENTOR_TURNS);
+    expect(restoreMentorThread("{mal json")).toEqual(initialMentorThreadState);
+    expect(restoreMentorThread(JSON.stringify({ version: "mentor-v3" }))).toEqual(
+      initialMentorThreadState,
+    );
+  });
+
+  it("Mentor v4 no persiste una pregunta todavía sin respuesta", () => {
+    const pending = mentorThreadReducer(initialMentorThreadState, {
+      type: "ask",
+      turnId: "player-pending",
+      question: "¿Qué mejoro ahora?",
+      requestId: "request-pending",
+    });
+
+    expect(serializeMentorThread(pending)).toBeNull();
   });
 });

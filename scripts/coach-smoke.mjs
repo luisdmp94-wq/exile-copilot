@@ -621,8 +621,10 @@ async function runFlow(mode, port) {
     const projectBubble = page.getByTestId("mentor-speech-bubble");
     await projectBubble.waitFor({ state: "visible", timeout: 10000 });
     check(
-      `[${mode}] la mascota anuncia automáticamente que no debe gastar`,
+      `[${mode}] la Mascota v3 mantiene el aviso importante hasta atenderlo`,
       (await projectBubble.getAttribute("data-source")) === "warning" &&
+        (await projectBubble.getAttribute("data-priority")) === "important" &&
+        (await projectBubble.getAttribute("data-auto-dismiss")) === "false" &&
         (await projectBubble.innerText()).includes("No gastes en esta pieza"),
     );
     await page.getByTestId("mentor-speech-dismiss").click();
@@ -821,11 +823,12 @@ async function runFlow(mode, port) {
     const speechBubble = page.getByTestId("mentor-speech-bubble");
     await speechBubble.waitFor({ state: "visible", timeout: 10000 });
     check(
-      `[${mode}] la Mascota v2 anuncia el resultado y marca una novedad sin pedir otra consulta`,
+      `[${mode}] la Mascota v3 anuncia el resultado y marca una novedad sin pedir otra consulta`,
       (await speechBubble.getAttribute("data-cue-id"))?.startsWith("crafting-result:") === true &&
         (await speechBubble.getAttribute("data-source")) === "engine" &&
         (await speechBubble.innerText()).includes("Paso 1 de 2") &&
-        (await page.getByTestId("mentor-mascota").getAttribute("data-version")) === "2" &&
+        (await speechBubble.getAttribute("data-priority")) === "notice" &&
+        (await page.getByTestId("mentor-mascota").getAttribute("data-version")) === "3" &&
         (await page.getByTestId("mentor-mascota").getAttribute("data-attention")) === "true" &&
         (await page.getByTestId("mentor-contextual").getAttribute("data-collapsed")) === "true",
     );
