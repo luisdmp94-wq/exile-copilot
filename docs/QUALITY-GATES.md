@@ -45,6 +45,8 @@ La comprobación de producción también exige que:
   invalide la sesión y conserve los datos de otro visitante.
 - Ayuda en vivo bloquee un Exaltado que supere el límite declarado y no invente
   conversiones para Aumento, Regio o Transmutación.
+- Toda lectura incompleta ofrezca un informe local revisable sin enviarlo, y un
+  resultado parcial nunca pueda confirmarse ni cerrar el ciclo de crafting.
 - La cabecera no anuncie IA externa cuando el servidor usa solo reglas y el
   diálogo de privacidad describa el almacenamiento y la recuperación reales.
 - Un fallo al descargar un área diferida muestre una recuperación comprensible

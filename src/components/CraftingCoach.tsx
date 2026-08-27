@@ -39,6 +39,7 @@ import {
 } from "@shared/craftingBudget.js";
 import {
   compareCraftingResult,
+  requireCompleteCraftingResult,
   type CraftingComparison,
   type CraftingComparisonActionId,
 } from "@shared/craftingComparison.js";
@@ -212,6 +213,8 @@ function Recommendation({
   onOpenAdvanced,
   budgetAssessment,
   onOpenPlanMarket,
+  item,
+  patch,
   headingRef,
 }: {
   step: CoachNextStep;
@@ -225,6 +228,8 @@ function Recommendation({
   onOpenAdvanced: () => void;
   budgetAssessment: CraftingBudgetAssessment | null;
   onOpenPlanMarket: () => void;
+  item: Item;
+  patch: string;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }) {
   if (step.kind === "needs-data") {
@@ -271,6 +276,8 @@ function Recommendation({
         <CraftingRepairBanner
           onRepaste={onRepaste}
           reason={step.missingEvidence[0] ?? step.why}
+          item={item}
+          patch={patch}
         />
         <div className="mt-3 flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
@@ -860,13 +867,16 @@ export function CraftingCoach({
         id: pendingAttempt.before.id,
         slot: pendingAttempt.before.slot,
       };
-      const nextComparison = compareCraftingResult(
-        pendingAttempt.before,
+      const nextComparison = requireCompleteCraftingResult(
         pasted,
-        pendingAttempt.actionId,
-        {
-        protectedModifierIds: protectedModifiers.map((modifier) => modifier.id),
-        },
+        compareCraftingResult(
+          pendingAttempt.before,
+          pasted,
+          pendingAttempt.actionId,
+          {
+            protectedModifierIds: protectedModifiers.map((modifier) => modifier.id),
+          },
+        ),
       );
       const nextReading = readPurposefulCraftResult({
         comparison: nextComparison,
@@ -964,6 +974,8 @@ export function CraftingCoach({
     setPhase("recommend");
   };
 
+  const resultDiagnosis = resultItem ? diagnoseCraftingItem(resultItem) : null;
+  const resultNeedsRepair = resultDiagnosis !== null && resultDiagnosis.state !== "complete";
   const resultReading =
     comparison && resultItem
       ? readPurposefulCraftResult({
@@ -1032,6 +1044,8 @@ export function CraftingCoach({
           <CraftingRepairBanner
             onRepaste={onPasteItem}
             reason={activeDiagnosis.blockers[0] ?? activeDiagnosis.limitations[0] ?? null}
+            item={activeItem}
+            patch={patch}
           />
         </div>
       )}
@@ -1655,6 +1669,8 @@ export function CraftingCoach({
               onOpenAdvanced={onOpenAdvanced}
               budgetAssessment={budgetAssessment}
               onOpenPlanMarket={onOpenPlanMarket}
+              item={activeItem}
+              patch={patch}
             />
           )}
 
@@ -1814,6 +1830,20 @@ export function CraftingCoach({
               <p className="mt-1.5 text-sm font-medium text-foreground sm:mt-2" data-testid="coach-veredicto-resumen">
                 {resultSummary}
               </p>
+              {resultNeedsRepair && resultItem && resultDiagnosis && (
+                <div className="mt-3">
+                  <CraftingRepairBanner
+                    item={resultItem}
+                    patch={patch}
+                    reason={resultDiagnosis.blockers[0] ?? resultDiagnosis.limitations[0] ?? null}
+                    onRepaste={() => {
+                      setComparison(null);
+                      setResultItem(null);
+                      setPhase("await-result");
+                    }}
+                  />
+                </div>
+              )}
               {resultReading.observedAffixes.length > 0 && (
                 <ul className="mt-2 flex flex-col gap-1.5" data-testid="coach-cambios">
                   {resultReading.observedAffixes.map((affix) => (
@@ -2055,7 +2085,7 @@ export function CraftingCoach({
                     >
                       Revisar el texto pegado
                     </Button>
-                    {comparison.identityMatches && comparison.itemLevelMatches && resultItem && (
+                    {!resultNeedsRepair && comparison.identityMatches && comparison.itemLevelMatches && resultItem && (
                       <Button
                         type="button"
                         variant="outline"

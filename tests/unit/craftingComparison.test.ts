@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { compareCraftingResult } from "../../shared/craftingComparison.js";
+import {
+  compareCraftingResult,
+  requireCompleteCraftingResult,
+} from "../../shared/craftingComparison.js";
 import { readItemInPlainWords } from "../../shared/craftingCoach.js";
 import type { Item, Modifier } from "../../shared/domain.js";
 import { parseItemText } from "../../server/importers/itemTextParser.js";
@@ -485,5 +488,36 @@ describe("compareCraftingResult", () => {
     expect(comparison.removedModifiers.map((entry) => entry.text)).toEqual([
       "+49(41-60) a la precisión",
     ]);
+  });
+
+  it("nunca confirma un resultado cuya propia lectura de crafting está incompleta", () => {
+    const original = item();
+    const result = item({
+      modifiers: [
+        { ...original.modifiers[0]!, id: "reimportado" },
+        modifier("Modificador nuevo", "suffix"),
+      ],
+      craftingState: undefined,
+    });
+    const rawComparison = compareCraftingResult(original, result, "exalted");
+
+    expect(rawComparison.status).toBe("confirmed");
+    expect(requireCompleteCraftingResult(result, rawComparison)).toMatchObject({
+      status: "inconclusive",
+      title: "La lectura del resultado está incompleta",
+    });
+  });
+
+  it("conserva sin cambios una comparación cuyo resultado sí está completo", () => {
+    const original = item();
+    const result = item({
+      modifiers: [
+        { ...original.modifiers[0]!, id: "reimportado" },
+        modifier("Modificador nuevo", "suffix"),
+      ],
+    });
+    const comparison = compareCraftingResult(original, result, "exalted");
+
+    expect(requireCompleteCraftingResult(result, comparison)).toBe(comparison);
   });
 });

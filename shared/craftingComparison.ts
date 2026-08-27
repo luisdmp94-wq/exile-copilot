@@ -1,4 +1,5 @@
 import type { CraftingActionId } from "./craftingActions.js";
+import { diagnoseCraftingItem } from "./craftingDiagnosis.js";
 import type { Item, Modifier } from "./domain.js";
 
 export type CraftingComparisonActionId = CraftingActionId | "essence" | "alloy";
@@ -335,6 +336,36 @@ export function compareCraftingResult(
     protectedModifiers,
     lostProtectedModifiers,
     warnings,
+  };
+}
+
+/**
+ * Una diferencia estructural nunca puede quedar confirmada si el propio
+ * resultado no tiene una lectura de crafting completa. Conservamos la
+ * comparación para explicar qué se observó, pero la convertimos en
+ * inconclusa y evitamos que cierre una sesión o autorice otro gasto.
+ */
+export function requireCompleteCraftingResult(
+  result: Item,
+  comparison: CraftingComparison,
+): CraftingComparison {
+  const diagnosis = diagnoseCraftingItem(result);
+  if (diagnosis.state === "complete") return comparison;
+
+  return {
+    ...comparison,
+    status: "inconclusive",
+    title: "La lectura del resultado está incompleta",
+    summary: diagnosis.nextAction,
+    protectionStatus:
+      comparison.protectionStatus === "not-requested" ? "not-requested" : "unverifiable",
+    warnings: [
+      ...new Set([
+        ...comparison.warnings,
+        ...diagnosis.blockers,
+        "El resultado no se confirmará hasta que el importador lea la pieza completa.",
+      ]),
+    ],
   };
 }
 

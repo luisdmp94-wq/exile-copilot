@@ -25,6 +25,9 @@
 - [ ] Probar Crafting junto al juego con recorridos reales de jugador nuevo y
   experto; registrar cada bloqueo, texto confuso y resultado que el importador
   no comprenda.
+  - [x] Preparar un informe local, reproducible y voluntario para cada lectura
+    incompleta, separando copia, parser, cobertura y mecánica no verificada.
+  - [ ] Ejecutar y registrar los recorridos reales junto a PoE2.
 - [ ] Ampliar la evidencia de Crafting sin inventar pools, pesos ni
   probabilidades: bases, afijos observados, monedas, Essences y Alloys.
 - [x] Conseguir que la ayuda en vivo parta del personaje, objetivo, pieza y

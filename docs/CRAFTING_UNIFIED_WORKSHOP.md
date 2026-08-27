@@ -115,6 +115,21 @@ utilidad de display de Tailwind (`flex`, `grid`…): son reglas de autor y ganan
 **enfocable con teclado** estando «oculto». `src/index.css` restituye la
 semántica en toda la aplicación.
 
+## Cuando el importador no entiende una pieza
+
+Una lectura incompleta ya no se reduce a «vuelve a copiar». El aviso distingue
+entre copia incompleta, límite reproducible del parser, mecánica aún no
+verificada, tipo de objeto fuera de cobertura, lectura inconsistente y bloqueo
+explícito del propio tooltip. El jugador puede revisar y copiar un informe
+local que contiene parche, huella estable, estructura interpretada, bloqueos y
+texto original. No incluye personaje, build, presupuesto, ids internos ni
+fechas, y **no se envía automáticamente**.
+
+La misma barrera se aplica al texto pegado después de gastar una moneda: aunque
+el antes/después pareciera encajar, un resultado cuya lectura no esté completa
+se convierte en inconcluso. No puede cerrar la sesión, actualizar el expediente
+ni autorizar el siguiente gasto.
+
 ## Móvil
 
 El mentor contextual publica su altura real en `--mentor-inset` mediante un

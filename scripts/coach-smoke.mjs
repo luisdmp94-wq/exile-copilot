@@ -288,6 +288,15 @@ async function seedProfile(request, base) {
         rarity: "magic",
         itemLevel: 61,
         modifiers: [mod("ti1", "+18% a la velocidad de movimiento", "suffix", ["Velocidad"])],
+        rawText: [
+          "Clase de objeto: Botas",
+          "Rareza: Mágico",
+          "Botas copiadas a medias",
+          "Botas de malla",
+          "----------------",
+          "## Nivel de objeto: 61",
+          "+18% a la velocidad de movimiento",
+        ].join("\n"),
         sources: [],
       },
     ],
@@ -870,9 +879,27 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] datos incompletos → pedir la evidencia que falta, no gastar`,
       (await recomendacion.getAttribute("data-kind")) === "needs-data" &&
+        (await recomendacion.getByTestId("crafting-repair-category").getAttribute("data-kind")) ===
+          "copy-incomplete" &&
         (await recomendacion.innerText()).includes("Ctrl+Alt+C") &&
         (await recomendacion.getByTestId("crafting-repair-repaste").isVisible()) &&
         (await page.getByTestId("coach-otro-camino").isVisible()),
+    );
+    await recomendacion.getByTestId("crafting-repair-show-report").click();
+    const importReport = await recomendacion.getByTestId("crafting-repair-report").inputValue();
+    check(
+      `[${mode}] el fallo produce un informe local reproducible y revisable`,
+      importReport.includes("Formato: EC-CRAFTING-IMPORT-1") &&
+        importReport.includes("Parche declarado: 0.5.4f") &&
+        importReport.includes("Botas copiadas a medias") &&
+        importReport.includes("No se ha enviado nada"),
+    );
+    await recomendacion.getByTestId("crafting-repair-copy-report").click();
+    check(
+      `[${mode}] copiar el informe confirma copia o deja selección manual`,
+      /copiado|selección manual/i.test(
+        await recomendacion.getByTestId("crafting-repair-copy-status").innerText(),
+      ),
     );
 
     // --- 7. Cadena real: un resultado ajeno al objetivo frena ------------

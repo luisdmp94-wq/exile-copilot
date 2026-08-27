@@ -1057,6 +1057,34 @@ async function runFlow(mode, port) {
     );
     const comprobadorResultado = casoCrafting.getByTestId("crafting-result-check");
     await comprobadorResultado.waitFor({ timeout: 15000 });
+    const partialCraftingResultText = craftingResultText.replace(
+      /^Clase de objeto:.*\r?\n/m,
+      "",
+    );
+    await comprobadorResultado
+      .getByLabel("Objeto después de usar la moneda")
+      .fill(partialCraftingResultText);
+    await comprobadorResultado
+      .getByRole("button", { name: "Comparar con el snapshot anterior" })
+      .click();
+    await comprobadorResultado
+      .locator('[data-comparison-status="inconclusive"]')
+      .waitFor({ timeout: 20000 });
+    const reparacionResultado = comprobadorResultado.getByTestId("crafting-repair-banner");
+    check(
+      `[${mode}] un resultado incompleto nunca confirma ni permite cerrar el craft`,
+      (await reparacionResultado.isVisible()) &&
+        (await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).count()) === 0 &&
+        (await comprobadorResultado.getByRole("button", { name: "Guardar y seguir" }).count()) === 0,
+    );
+    await reparacionResultado.getByTestId("crafting-repair-toggle").click();
+    await reparacionResultado.getByTestId("crafting-repair-show-report").click();
+    check(
+      `[${mode}] el resultado incompleto conserva un informe local reproducible`,
+      (await reparacionResultado.getByTestId("crafting-repair-report").inputValue()).includes(
+        "Formato: EC-CRAFTING-IMPORT-1",
+      ),
+    );
     await comprobadorResultado
       .getByLabel("Objeto después de usar la moneda")
       .fill(craftingResultText);

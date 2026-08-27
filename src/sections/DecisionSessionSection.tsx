@@ -15,8 +15,10 @@ import {
   CRAFTING_RESULT_UNKNOWN_LABEL,
   compareCraftingResult,
   craftingComparisonEvidence,
+  requireCompleteCraftingResult,
   type CraftingComparison,
 } from "@shared/craftingComparison.js";
+import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import { evaluateCraftingCharacterContext } from "@shared/craftingCharacterContext.js";
 import { evaluateCraftingGoalSignal } from "@shared/craftingGoal.js";
 import { decideCraftingNextStep } from "@shared/craftingNextDecision.js";
@@ -37,6 +39,7 @@ import {
 } from "@shared/decisionSession.js";
 import type { JournalState } from "@/hooks/useJournal";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CraftingRepairBanner } from "@/components/CraftingRepairBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,6 +133,9 @@ export function DecisionSessionSection({
   const savingCraftingRef = useRef(false);
 
   if (!profile) return null;
+  const craftingResultDiagnosis = craftingResultItem
+    ? diagnoseCraftingItem(craftingResultItem)
+    : null;
 
   /**
    * Una sesión cerrada (completada, descartada) no admite resultado, evidencia
@@ -288,18 +294,21 @@ export function DecisionSessionSection({
         text: craftingResultText,
         patch: profile.patch,
       });
-      const comparison = compareCraftingResult(
-        experiment.originalItem,
+      const comparison = requireCompleteCraftingResult(
         imported.item,
-        experiment.actionId,
-        {
-          expectedRarity: experiment.resultRarity,
-          expectedRemovedModifierCount: experiment.expectedRemovedModifierCount,
-          expectedAddedCrafted: experiment.expectedAddedCrafted,
-          maximumCraftedModifierCount: experiment.maximumCraftedModifierCount,
-          expectedAddedModifierText: experiment.guaranteedModifierText,
-          protectedModifierIds: experiment.protectedModifierIds,
-        },
+        compareCraftingResult(
+          experiment.originalItem,
+          imported.item,
+          experiment.actionId,
+          {
+            expectedRarity: experiment.resultRarity,
+            expectedRemovedModifierCount: experiment.expectedRemovedModifierCount,
+            expectedAddedCrafted: experiment.expectedAddedCrafted,
+            maximumCraftedModifierCount: experiment.maximumCraftedModifierCount,
+            expectedAddedModifierText: experiment.guaranteedModifierText,
+            protectedModifierIds: experiment.protectedModifierIds,
+          },
+        ),
       );
       setCraftingResultItem(imported.item);
       setCraftingComparison(comparison);
@@ -802,6 +811,29 @@ export function DecisionSessionSection({
                     <AlertDescription>{craftingError}</AlertDescription>
                   </Alert>
                 )}
+
+                {craftingResultItem &&
+                  craftingResultDiagnosis &&
+                  craftingResultDiagnosis.state !== "complete" && (
+                    <CraftingRepairBanner
+                      item={craftingResultItem}
+                      patch={profile.patch}
+                      reason={
+                        craftingResultDiagnosis.blockers[0] ??
+                        craftingResultDiagnosis.limitations[0] ??
+                        null
+                      }
+                      onRepaste={() => {
+                        setCraftingComparison(null);
+                        setCraftingResultItem(null);
+                        window.requestAnimationFrame(() => {
+                          document
+                            .getElementById(`${instanceId}-crafting-result-${session.id}`)
+                            ?.focus();
+                        });
+                      }}
+                    />
+                  )}
 
                 {craftingComparison && (
                   <div

@@ -761,6 +761,8 @@ export function CraftingActionPlanner({
         <CraftingRepairBanner
           onRepaste={onUpdateItem}
           reason={crafting.blockers[0] ?? crafting.limitations[0] ?? null}
+          item={item}
+          patch={patch}
         />
         <section className="pointer-events-none rounded-md border border-border/60 bg-background/30 p-4 opacity-55" aria-hidden="true">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/70">Proyecto de craft</p>
@@ -779,6 +781,8 @@ export function CraftingActionPlanner({
         <CraftingRepairBanner
           onRepaste={onUpdateItem}
           reason={crafting.blockers[0] ?? crafting.limitations[0] ?? null}
+          item={item}
+          patch={patch}
         />
       )}
       {experience === "laboratory" && (
