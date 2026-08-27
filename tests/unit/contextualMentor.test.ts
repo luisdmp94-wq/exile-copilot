@@ -122,6 +122,30 @@ describe("mentor contextual", () => {
     expect(cue.ask).toBeNull();
   });
 
+  it("la mascota avisa cuando el contrato supera el presupuesto", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachDirection",
+      itemName: "Doom Song",
+      playerGoal: "quiero más daño físico",
+      directionLabel: "el daño",
+      nextStepTitle: "Orbe exaltado",
+      stepKind: "use-currency",
+      focus: "physical",
+      rollMinimum: "middle",
+      rollMinimumLabel: "tirada media o alta",
+      attemptLimit: 2,
+      nextAction: "exalted",
+      baseStatus: "controlled-attempt",
+      baseVerdictTitle: "Solo merece un intento controlado",
+      baseVerdictSummary: "La moneda es legal, pero no dirige el resultado.",
+      budgetStatus: "over-budget",
+      budgetSummary: "El contrato exige 2 exaltados y el límite es 1.",
+    });
+
+    expect(cue.source).toBe("warning");
+    expect(cue.message).toContain("exige 2 exaltados");
+  });
+
   it("si faltan datos no habla de gastar ni de aleatoriedad", () => {
     const cue = contextualMentorCue({
       type: "craftingCoachDirection",

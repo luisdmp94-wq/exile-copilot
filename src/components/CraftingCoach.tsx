@@ -34,6 +34,10 @@ import {
   type CoachFocus,
 } from "@shared/craftingFocus.js";
 import {
+  assessCraftingBudget,
+  type CraftingBudgetAssessment,
+} from "@shared/craftingBudget.js";
+import {
   compareCraftingResult,
   type CraftingComparison,
   type CraftingComparisonActionId,
@@ -206,6 +210,8 @@ function Recommendation({
   onPractice,
   practiceLoading,
   onOpenAdvanced,
+  budgetAssessment,
+  onOpenPlanMarket,
   headingRef,
 }: {
   step: CoachNextStep;
@@ -217,6 +223,8 @@ function Recommendation({
   onPractice: () => void;
   practiceLoading: boolean;
   onOpenAdvanced: () => void;
+  budgetAssessment: CraftingBudgetAssessment | null;
+  onOpenPlanMarket: () => void;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }) {
   if (step.kind === "needs-data") {
@@ -405,12 +413,49 @@ function Recommendation({
         </ul>
       </details>
 
+      {budgetAssessment && (
+        <section
+          className={`mt-3 rounded border px-2.5 py-2 text-xs leading-relaxed ${
+            budgetAssessment.status === "within-budget"
+              ? "border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-50"
+              : budgetAssessment.status === "over-budget"
+                ? "border-rose-500/45 bg-rose-500/[0.09] text-rose-50"
+                : "border-amber-500/40 bg-amber-500/[0.07] text-amber-50"
+          }`}
+          data-testid="coach-presupuesto"
+          data-status={budgetAssessment.status}
+          role={budgetAssessment.blocksAction ? "alert" : "status"}
+        >
+          <strong className="block">{budgetAssessment.title}</strong>
+          <p className="mt-1 opacity-85">{budgetAssessment.detail}</p>
+          {budgetAssessment.blocksAction && (
+            <Button
+              className="mt-2"
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onOpenPlanMarket}
+              data-testid="coach-presupuesto-cambiar"
+            >
+              Cambiar límite
+            </Button>
+          )}
+        </section>
+      )}
+
       <div
         className="mt-4 flex flex-wrap gap-2 scroll-mb-[var(--mentor-inset,6rem)]"
         data-testid="coach-acciones"
       >
-        <Button type="button" onClick={onDone} data-testid="coach-lo-hare">
-          Aceptar riesgo y usar {step.label.toLocaleLowerCase("es")}
+        <Button
+          type="button"
+          onClick={onDone}
+          disabled={budgetAssessment?.blocksAction === true}
+          data-testid="coach-lo-hare"
+        >
+          {budgetAssessment?.blocksAction
+            ? "Fuera del límite declarado"
+            : `Aceptar riesgo y usar ${step.label.toLocaleLowerCase("es")}`}
           <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
         <Button type="button" variant="outline" onClick={onHold} data-testid="coach-no-gastar">
@@ -609,6 +654,13 @@ export function CraftingCoach({
   const step = directionChosen && focus !== null
     ? baseAssessment.nextStep
     : structuralStep;
+  const budgetAssessment = step.kind === "use-currency"
+    ? assessCraftingBudget({
+        budget,
+        actionId: step.actionId,
+        plannedAttempts: Math.max(1, attemptLimit - confirmedAttemptCount),
+      })
+    : null;
 
   const loadPracticeItem = async () => {
     setPracticeLoading(true);
@@ -659,6 +711,13 @@ export function CraftingCoach({
       goalIntent: nextGoalIntent,
     });
     const nextStep = nextAssessment.nextStep;
+    const nextBudgetAssessment = nextStep.kind === "use-currency"
+      ? assessCraftingBudget({
+          budget,
+          actionId: nextStep.actionId,
+          plannedAttempts: attemptLimit,
+        })
+      : null;
     setDirection(next);
     setFocus(nextFocus);
     setGoalIntent(nextGoalIntent);
@@ -685,6 +744,8 @@ export function CraftingCoach({
       baseStatus: nextAssessment.status,
       baseVerdictTitle: nextAssessment.title,
       baseVerdictSummary: nextAssessment.summary,
+      budgetStatus: nextBudgetAssessment?.status ?? null,
+      budgetSummary: nextBudgetAssessment?.detail ?? null,
     });
   };
 
@@ -1592,6 +1653,8 @@ export function CraftingCoach({
               onPractice={() => void loadPracticeItem()}
               practiceLoading={practiceLoading}
               onOpenAdvanced={onOpenAdvanced}
+              budgetAssessment={budgetAssessment}
+              onOpenPlanMarket={onOpenPlanMarket}
             />
           )}
 

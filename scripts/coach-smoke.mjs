@@ -842,6 +842,15 @@ async function runFlow(mode, port) {
       (await recomendacion.getAttribute("data-action")) === "augmentation",
     );
     check(
+      `[${mode}] una moneda sin conversión verificable no finge caber en el presupuesto`,
+      (await page.getByTestId("coach-presupuesto").getAttribute("data-status")) ===
+        "not-comparable" &&
+        (await page.getByTestId("coach-presupuesto").innerText()).includes(
+          "Sin inventario o conversión verificados",
+        ) &&
+        (await page.getByTestId("coach-lo-hare").isEnabled()),
+    );
+    check(
       `[${mode}] avisa de la consecuencia real de llenarla`,
       (await page.getByTestId("coach-aviso").innerText()).includes("límite observado"),
     );
@@ -1052,6 +1061,39 @@ async function runFlow(mode, port) {
       `[${mode}] la ballesta real recibe una única acción compatible`,
       (await recomendacion.getAttribute("data-action")) === "exalted",
     );
+    check(
+      `[${mode}] Exaltado se contrasta con el límite en la misma moneda`,
+      (await page.getByTestId("coach-presupuesto").getAttribute("data-status")) ===
+        "within-budget" &&
+        (await page.getByTestId("coach-presupuesto").innerText()).includes(
+          "1 exaltado de un límite de 50 exaltados",
+        ) &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "1 exaltado de un límite de 50 exaltados",
+        ),
+    );
+    await irA(page, "plan");
+    const marketContext = page.getByTestId("market-context-details");
+    if ((await marketContext.getAttribute("open")) === null) {
+      await marketContext.locator("summary").click();
+    }
+    await page.locator("#market-budget").fill("0");
+    await irA(page, "crafting");
+    await page.getByTestId("coach-presupuesto").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el guía bloquea un Exaltado que supera el límite declarado`,
+      (await page.getByTestId("coach-presupuesto").getAttribute("data-status")) ===
+        "over-budget" &&
+        !(await page.getByTestId("coach-lo-hare").isEnabled()) &&
+        (await page.getByTestId("coach-presupuesto-cambiar").isVisible()),
+    );
+    await page.getByTestId("coach-presupuesto-cambiar").click();
+    if ((await marketContext.getAttribute("open")) === null) {
+      await marketContext.locator("summary").click();
+    }
+    await page.locator("#market-budget").fill("50");
+    await irA(page, "crafting");
+    await page.getByTestId("coach-presupuesto").waitFor({ timeout: 10000 });
     check(
       `[${mode}] el encabezado dice «Siguiente acción legal», no que sea la mejor`,
       // `innerText` aplica `text-transform`, así que se compara sin distinguir

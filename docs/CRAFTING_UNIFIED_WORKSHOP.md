@@ -131,9 +131,12 @@ interacción**, con el mentor plegado y desplegado, no en una captura.
 - Con un objeto suelto enseña legalidad y lee el resultado, pero se niega a
   recomendar una segunda moneda como si conociera la build. Para esa decisión
   exige un personaje con contexto real.
-- El presupuesto se muestra como contexto declarado; todavía no existe una
-  valoración verificable de cada tirada básica que permita descontarlo o
-  afirmar rentabilidad.
+- El presupuesto participa en la decisión cuando la unidad es directamente
+  comparable: un paso con Exaltado consume un exaltado y queda bloqueado si el
+  contrato supera el límite declarado. Aumento, Regio y Transmutación muestran
+  «coste no comparable» porque no existe inventario ni conversión verificada;
+  nunca se transforman a exaltados por una tasa inventada. Ningún caso afirma
+  rentabilidad.
 - Solo cubre las cuatro monedas observadas. Essences y Alloys siguen en
   herramientas avanzadas porque exigen su propio tooltip verificado.
 - Con el mentor desplegado en móvil, una tarjeta muy alta puede exceder el

@@ -43,6 +43,8 @@ La comprobación de producción también exige que:
 - «Empezar de nuevo» permita recuperar el último expediente guardado desde la bienvenida.
 - «Borrar todos mis datos» exija confirmación, limpie servidor y navegador,
   invalide la sesión y conserve los datos de otro visitante.
+- Ayuda en vivo bloquee un Exaltado que supere el límite declarado y no invente
+  conversiones para Aumento, Regio o Transmutación.
 - La cabecera no anuncie IA externa cuando el servidor usa solo reglas y el
   diálogo de privacidad describa el almacenamiento y la recuperación reales.
 - Un fallo al descargar un área diferida muestre una recuperación comprensible

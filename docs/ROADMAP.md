@@ -27,7 +27,7 @@
   no comprenda.
 - [ ] Ampliar la evidencia de Crafting sin inventar pools, pesos ni
   probabilidades: bases, afijos observados, monedas, Essences y Alloys.
-- [ ] Conseguir que la ayuda en vivo parta del personaje, objetivo, pieza y
+- [x] Conseguir que la ayuda en vivo parta del personaje, objetivo, pieza y
   presupuesto cuando existan, y que declare claramente qué falta cuando no
   puede juzgar el encaje.
 - [ ] Terminar de pulir densidad, navegación, estados interactivos, responsive y

@@ -6,6 +6,7 @@ import {
 import type { MentorIntent } from "@shared/mentorQuery.js";
 import type { MentorCraftingState } from "@shared/mentorContext.js";
 import type { CoachFocus } from "@shared/craftingFocus.js";
+import type { CraftingBudgetStatus } from "@shared/craftingBudget.js";
 import type {
   CoachBaseAssessmentStatus,
   CoachGoalIntent,
@@ -65,6 +66,8 @@ export type ContextualMentorEvent =
       baseStatus: CoachBaseAssessmentStatus;
       baseVerdictTitle: string;
       baseVerdictSummary: string;
+      budgetStatus?: CraftingBudgetStatus | null;
+      budgetSummary?: string | null;
     }
   | {
       type: "craftingCoachContract";
@@ -240,6 +243,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
       const unresolved = (event.unresolvedProtectionCount ?? 0) > 0
         ? ` Quedan ${event.unresolvedProtectionCount} ${event.unresolvedProtectionCount === 1 ? "protección sin vincular" : "protecciones sin vincular"}; no las trataré como hechos.`
         : "";
+      const budget = event.budgetSummary ? ` ${event.budgetSummary}` : "";
       const baseMessage = event.stepKind === "use-currency"
         ? `${event.baseVerdictTitle}. ${event.baseVerdictSummary} Tu objetivo es «${event.playerGoal}». El guía lo ha reducido a «${event.nextStepTitle}». La parada exige ${event.rollMinimumLabel} y permite como máximo ${event.attemptLimit} ${event.attemptLimit === 1 ? "paso" : "pasos"}.`
         : event.stepKind === "needs-data"
@@ -249,14 +253,16 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         ? `Quiero «${event.playerGoal}» con ${event.itemName}. La app propone «${event.nextStepTitle}». ¿Por qué es el siguiente paso legal y qué debo comprobar antes?`
         : `Quiero «${event.playerGoal}» con ${event.itemName}, pero la app indica «${event.nextStepTitle}». Explícame qué falta o por qué debo parar antes de gastar.`;
       return {
-        id: `crafting-coach:${event.itemName}:${event.playerGoal}:${event.nextStepTitle}`,
+        id: `crafting-coach:${event.itemName}:${event.playerGoal}:${event.nextStepTitle}:${event.budgetStatus ?? "sin-presupuesto"}`,
         source:
-          event.baseStatus === "aligned" || event.baseStatus === "already-satisfied"
+          event.budgetStatus === "over-budget"
+            ? "warning"
+            : event.baseStatus === "aligned" || event.baseStatus === "already-satisfied"
             ? "engine"
             : "warning",
         eyebrow: "Base evaluada",
         title: `${directionTitle} · ${event.itemName}`,
-        message: `${baseMessage}${protection}${unresolved}`,
+        message: `${baseMessage}${protection}${unresolved}${budget}`,
         ask: {
           question,
           intent: "explain_priority",
