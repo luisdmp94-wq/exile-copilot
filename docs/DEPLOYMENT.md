@@ -22,6 +22,8 @@ almacenamiento compartido.
 
 ```text
 NODE_ENV=production
+PUBLIC_DEPLOYMENT=true
+HOST=127.0.0.1
 PORT=7177
 DATABASE_PATH=/ruta/persistente/exile-copilot.db
 DEFAULT_PATCH=0.5.4f
@@ -33,6 +35,17 @@ GUIDANCE_RATE_LIMIT_PER_MINUTE=30
 MENTOR_RATE_LIMIT_PER_MINUTE=15
 REQUEST_BODY_LIMIT_BYTES=4194304
 ```
+
+El servidor escucha solo en `127.0.0.1` por defecto. Es la opción correcta si
+el proxy HTTPS vive en la misma máquina. En un contenedor puede necesitar
+`HOST=0.0.0.0`; nunca se debe abrir ese puerto directamente a Internet.
+
+`PUBLIC_DEPLOYMENT=true` activa una barrera de arranque: exige producción,
+cookies seguras, proxy de confianza, una base SQLite persistente con ruta
+absoluta, un User-Agent identificable para poe.ninja y una clave si el Mentor IA
+está habilitado. Si `POE_NINJA_OFFLINE=true`, no exige identidad porque no habrá
+peticiones de mercado. Puede comprobarse antes de arrancar con
+`npm run readiness:deployment`.
 
 `TRUST_PROXY=true` solo es correcto detrás de un proxy controlado que sustituye
 `X-Forwarded-For`. Si Node recibe Internet directamente, debe ser `false`.

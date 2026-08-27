@@ -4,12 +4,17 @@ import express from "express";
 import { config } from "./config.js";
 import { closeApiApp, createApiApp } from "./app.js";
 import { securityHeaders } from "./security.js";
+import { assertPublicDeploymentConfig } from "./deploymentReadiness.js";
 
 /**
  * Servidor standalone: monta la API en /api y sirve el build estático del
  * frontend (dist/) si existe. En desarrollo el frontend se sirve con Vite
  * (proxy a /api), así que aquí basta con la API.
  */
+
+// Si el operador declara una publicación real, cualquier garantía incompleta
+// detiene el proceso antes de abrir el puerto o crear nuevas sesiones.
+assertPublicDeploymentConfig(config);
 
 const app = express();
 app.set("trust proxy", config.trustProxy);
@@ -43,8 +48,11 @@ if (existsSync(distDir)) {
   });
 }
 
-const server = app.listen(config.port, () => {
-  console.log(`[exile-copilot] servidor escuchando en el puerto ${config.port} (env: ${config.nodeEnv})`);
+const server = app.listen(config.port, config.host, () => {
+  console.log(
+    `[exile-copilot] servidor escuchando en ${config.host}:${config.port} ` +
+      `(env: ${config.nodeEnv}; público: ${config.publicDeployment ? "sí" : "no"})`,
+  );
 });
 
 // Cierre limpio con señales (orquestador, despliegue o Ctrl+C). Primero deja

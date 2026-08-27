@@ -7,7 +7,11 @@ import "./env.js";
 
 export interface ServerConfig {
   port: number;
+  /** Interfaz de escucha. Local por defecto para no exponer un arranque accidental. */
+  host: string;
   nodeEnv: string;
+  /** Activa la validación estricta antes de aceptar tráfico de usuarios reales. */
+  publicDeployment: boolean;
   poeNinjaUserAgent: string;
   poeNinjaCacheTtlSeconds: number;
   poeNinjaOffline: boolean;
@@ -72,7 +76,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const provider = mentorAiProvider(env.MENTOR_AI_PROVIDER);
   return {
     port: int(env.PORT, 7177),
+    host: env.HOST?.trim() || "127.0.0.1",
     nodeEnv: env.NODE_ENV ?? "development",
+    publicDeployment: bool(env.PUBLIC_DEPLOYMENT, false),
     poeNinjaUserAgent:
       env.POE_NINJA_USER_AGENT ?? "exile-copilot/0.1.0 (contacto: local-dev)",
     poeNinjaCacheTtlSeconds: int(env.POE_NINJA_CACHE_TTL_SECONDS, 900),

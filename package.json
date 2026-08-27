@@ -12,6 +12,7 @@
     "verify:patch": "tsc --noEmit && vitest run && node scripts/browser-smoke.mjs --dev",
     "verify:release": "npm run build && npm run test && node scripts/browser-smoke.mjs --all && node scripts/equipment-smoke.mjs --all && node scripts/mentor-smoke.mjs --all && node scripts/academy-smoke.mjs --all && node scripts/coach-smoke.mjs --all && node scripts/journal-smoke.mjs --all && node scripts/session-smoke.mjs --all && node scripts/build-memory-smoke.mjs --all",
     "readiness:1.0": "tsx scripts/audit-target-release.ts --target 1.0",
+    "readiness:deployment": "tsx scripts/audit-public-deployment.ts",
     "verify:1.0": "tsx scripts/audit-target-release.ts --target 1.0 --strict && npm run verify:release",
     "test:browser": "node scripts/browser-smoke.mjs",
     "test:watch": "vitest",

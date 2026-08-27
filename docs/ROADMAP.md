@@ -1,6 +1,6 @@
 # Roadmap de Exile Copilot
 
-> Estado consolidado: 26 de agosto de 2026. Objetivo público: estar preparado
+> Estado consolidado: 27 de agosto de 2026. Objetivo público: estar preparado
 > para Path of Exile 2 1.0 sin heredar datos ni mecánicas del parche anterior.
 
 ## 1. Base ya construida
@@ -34,8 +34,10 @@
   accesibilidad pantalla por pantalla.
 - [ ] Decidir el alcance público de música, proveedores externos y costes antes
   de convertir cualquier prototipo local en producto.
-- [ ] Preparar despliegue, secretos, límites de uso, privacidad, recuperación y
-  monitorización de errores para usuarios reales.
+- [x] Bloquear el arranque público con configuración local o insegura; documentar
+  secretos, límites de uso, privacidad, persistencia, copias y recuperación.
+- [ ] Conectar el alojamiento real, su gestor de secretos, restaurar una copia de
+  ensayo y activar monitorización y alertas antes de admitir usuarios reales.
 
 ## 3. Activación específica de PoE2 1.0
 
