@@ -242,7 +242,7 @@ async function runFlow(mode, port) {
         (await page.getByTestId("academia-indice").locator("li").count()) === 5,
     );
 
-    // --- 1b. Nivel medio: cerrar el bucle antes → después ----------------
+    // --- 1b. Nivel medio: decidir dentro del juego ------------------------
     check(
       `[${mode}] el selector ofrece los tres niveles`,
       (await page.getByTestId("academia-nivel-basico").isVisible()) &&
@@ -253,27 +253,28 @@ async function runFlow(mode, port) {
     const media = page.getByTestId("academia-media");
     await media.waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el nivel medio presenta siete comparaciones`,
+      `[${mode}] el nivel medio presenta siete situaciones del juego`,
       (await media.getAttribute("data-stage")) === "intro" &&
         (await page.getByTestId("academia-media-indice").locator("li").count()) === 7 &&
-        (await media.innerText()).includes("tirada mínima"),
+        (await media.innerText()).includes("dentro del juego") &&
+        !(await media.innerText()).includes("comparador"),
     );
     await page.getByTestId("academia-media-empezar").click();
     const respuestasMedias = [
-      "med-recopiar",
-      "med-rechazar-identidad",
-      "med-revisar",
-      "med-frenar-protegido",
-      "med-conservar-parar",
-      "med-continuar-contrato",
-      "med-revisar-minimo",
+      "med-base-correcta",
+      "med-objetivo-concreto",
+      "med-cambiar-base",
+      "med-usar-aumento",
+      "med-regio-prometedor",
+      "med-exaltado-consciente",
+      "med-equipar-probar",
     ];
     for (const opcion of respuestasMedias) {
       await page.getByTestId(`academia-media-opcion-${opcion}`).click();
       const feedback = page.getByTestId("academia-media-feedback");
       await feedback.waitFor({ timeout: 10000 });
       check(
-        `[${mode}] comparación media ${opcion} se corrige con una idea clave`,
+        `[${mode}] situación media ${opcion} se corrige con una idea clave`,
         (await feedback.getAttribute("data-result")) === "correcto" &&
           (await feedback.innerText()).includes("Idea clave"),
       );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, GitCompareArrows, RotateCcw, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Gamepad2, RotateCcw, XCircle } from "lucide-react";
 import {
   CRAFTING_MEDIUM_ACADEMY_EVIDENCE,
   CRAFTING_MEDIUM_ACADEMY_SCENARIOS,
@@ -37,7 +37,7 @@ function MediumCase({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300/80">
-            Comparación {scenario.order}
+            Situación {scenario.order}
           </p>
           <h3 className="dossier-title mt-1 text-2xl font-semibold">{scenario.title}</h3>
         </div>
@@ -52,14 +52,14 @@ function MediumCase({
 
       <p className="text-sm leading-relaxed text-muted-foreground">{scenario.situation}</p>
 
-      <div className="grid gap-px overflow-hidden rounded-md border border-border/70 bg-border/60 sm:grid-cols-2" aria-label="Comparación antes y después">
+      <div className="grid gap-px overflow-hidden rounded-md border border-border/70 bg-border/60 sm:grid-cols-2" aria-label="Situación dentro del juego">
         <div className="bg-background/70 p-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Antes</span>
-          <p className="mt-1 text-sm font-medium">{scenario.before}</p>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">En el juego</span>
+          <p className="mt-1 text-sm font-medium">{scenario.gameState}</p>
         </div>
         <div className="bg-sky-500/[0.045] p-3">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-300/80">Después</span>
-          <p className="mt-1 text-sm font-medium">{scenario.after}</p>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-300/80">Lo que buscas</span>
+          <p className="mt-1 text-sm font-medium">{scenario.playerGoal}</p>
         </div>
       </div>
 
@@ -105,7 +105,7 @@ function MediumCase({
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{scenario.explanation}</p>
           <p className="mt-2 text-xs font-medium text-sky-200">Idea clave: {scenario.takeaway}</p>
           <Button className="mt-3" type="button" onClick={onNext} data-testid="academia-media-continuar">
-            {scenario.order === CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length ? "Ver resultado" : "Siguiente comparación"}
+            {scenario.order === CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length ? "Ver resultado" : "Siguiente situación"}
             <ArrowRight className="size-4" aria-hidden="true" />
           </Button>
         </div>
@@ -134,14 +134,14 @@ export function CraftingMediumAcademy({ onBack, onPracticeWithMyItem }: Crafting
     return (
       <section className="superficie-panel min-w-0 p-4 sm:p-6" data-testid="academia-media" data-stage="intro">
         <div className="flex items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-sky-400/40 bg-sky-500/10 text-sky-200"><GitCompareArrows className="size-5" aria-hidden="true" /></span>
+          <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-sky-400/40 bg-sky-500/10 text-sky-200"><Gamepad2 className="size-5" aria-hidden="true" /></span>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300/80">Nivel medio</p>
-            <h2 className="dossier-title text-2xl font-semibold">Aprende a leer el resultado</h2>
+            <h2 className="dossier-title text-2xl font-semibold">Aprende a decidir dentro del juego</h2>
           </div>
         </div>
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          Ya sabes elegir una moneda. Ahora compararás el resultado con lo que pediste: identidad, pérdidas, tirada mínima y parada.
+          Ya sabes qué hace cada moneda. Ahora aprenderás a elegir una base, detectar una salida prometedora, invertir con intención y parar cuando la pieza ya cumple su función.
         </p>
         <ol className="mt-4 grid gap-2 sm:grid-cols-2" data-testid="academia-media-indice">
           {CRAFTING_MEDIUM_ACADEMY_SCENARIOS.map((entry) => (
@@ -164,10 +164,10 @@ export function CraftingMediumAcademy({ onBack, onPracticeWithMyItem }: Crafting
     return (
       <section className="superficie-panel min-w-0 p-4 sm:p-6" data-testid="academia-media" data-stage="results">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300/80">Nivel medio</p>
-        <h2 className="dossier-title mt-1 text-2xl font-semibold">Ya sabes cerrar el bucle</h2>
-        <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-media-resultado">Has resuelto {score} de {CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length}. Puedes pasar de «gasté una moneda» a una decisión comprobable.</p>
+        <h2 className="dossier-title mt-1 text-2xl font-semibold">Ya sabes dirigir un craft en PoE2</h2>
+        <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-media-resultado">Has resuelto {score} de {CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length}. Ya puedes pasar de «tengo una moneda» a «sé por qué la usaría y cuándo parar».</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" onClick={onPracticeWithMyItem} data-testid="academia-media-practicar">Probar con mi objeto <ArrowRight className="size-4" /></Button>
+          <Button type="button" onClick={onPracticeWithMyItem} data-testid="academia-media-practicar">Practicar con una pieza del juego <ArrowRight className="size-4" /></Button>
           <Button type="button" variant="outline" onClick={restart}><RotateCcw className="size-4" /> Repetir nivel</Button>
           <Button type="button" variant="ghost" onClick={onBack}><ArrowLeft className="size-4" /> Volver a niveles</Button>
         </div>

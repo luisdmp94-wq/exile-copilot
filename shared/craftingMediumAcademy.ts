@@ -1,37 +1,46 @@
 /**
  * ACADEMIA DE CRAFTING — NIVEL MEDIO.
  *
- * El nivel básico enseña a elegir una acción legal y el avanzado a diseñar un
- * contrato. Este puente enseña la parte que ocurre entre ambos: leer el texto
- * DESPUÉS de una acción, compararlo con el snapshot y decidir si conservar,
- * parar, continuar o recuperar datos.
+ * El nivel básico enseña qué hace cada moneda observada. Este nivel enseña
+ * cuándo merece la pena usarla durante una partida: elegir una base útil,
+ * decidir qué necesita el personaje, reconocer una pieza prometedora y parar
+ * cuando el objetivo ya está cumplido.
  *
- * Solo clasifica hechos que ya expone `compareCraftingResult`. No valora mods,
- * no estima probabilidades y no inventa resultados de PoE2.
+ * Las situaciones ocurren dentro de PoE2. No enseñan a manejar el comparador,
+ * pegar tooltips ni operar ninguna pantalla de Exile Copilot.
  */
 
-export const CRAFTING_MEDIUM_ACADEMY_VERSION = "medio-2026-08-26";
+export const CRAFTING_MEDIUM_ACADEMY_VERSION = "medio-juego-2026-08-27";
 
 export const CRAFTING_MEDIUM_ACADEMY_EVIDENCE =
-  "Casos sintéticos basados en los estados del comparador local. No representan drops, pools, pesos ni probabilidades.";
+  "Ejercicios sintéticos apoyados en los efectos de moneda observados en el cliente el 22/08/2026. No representan drops, pools, pesos, probabilidades ni precios.";
 
 export type MediumAcademyDecision =
-  | "recopy-result"
-  | "reject-different-item"
-  | "review-mismatch"
-  | "protect-and-stop"
-  | "review-below-minimum"
-  | "keep-and-stop"
-  | "continue-contract";
+  | "choose-fitting-base"
+  | "define-one-goal"
+  | "change-unhelpful-base"
+  | "use-augmentation"
+  | "use-regal"
+  | "consider-exalted"
+  | "equip-test-stop";
+
+export type MediumAcademySituation =
+  | "base-selection"
+  | "goal-selection"
+  | "first-magic-mod"
+  | "magic-open-slot"
+  | "magic-ready-for-regal"
+  | "rare-open-slot"
+  | "goal-complete";
 
 export interface MediumAcademyFacts {
-  resultDataComplete: boolean;
-  identityMatches: boolean;
-  actionStructureMatches: boolean;
-  protectedLineLost: boolean;
-  /** Solo existe cuando el jugador declaró un mínimo numérico observable. */
-  declaredMinimumMet?: boolean;
-  stopConditionFulfilled: boolean;
+  situation: MediumAcademySituation;
+  baseFitsCharacter?: boolean;
+  goalDefined?: boolean;
+  usefulModifierPresent?: boolean;
+  rarity?: "normal" | "magic" | "rare";
+  openModifierSlots?: number;
+  goalFulfilled?: boolean;
 }
 
 export interface MediumAcademyOption {
@@ -46,8 +55,8 @@ export interface MediumAcademyScenario {
   order: number;
   title: string;
   situation: string;
-  before: string;
-  after: string;
+  gameState: string;
+  playerGoal: string;
   facts: MediumAcademyFacts;
   question: string;
   options: MediumAcademyOption[];
@@ -56,17 +65,32 @@ export interface MediumAcademyScenario {
   takeaway: string;
 }
 
-/** Orden conservador del comparador: primero identidad y estructura, después valor contractual. */
+/** Cada decisión deriva de algo que el jugador puede comprobar dentro del juego. */
 export function resolveMediumAcademyDecision(
   facts: MediumAcademyFacts,
 ): MediumAcademyDecision {
-  if (!facts.resultDataComplete) return "recopy-result";
-  if (!facts.identityMatches) return "reject-different-item";
-  if (!facts.actionStructureMatches) return "review-mismatch";
-  if (facts.protectedLineLost) return "protect-and-stop";
-  if (facts.declaredMinimumMet === false) return "review-below-minimum";
-  if (facts.stopConditionFulfilled) return "keep-and-stop";
-  return "continue-contract";
+  switch (facts.situation) {
+    case "base-selection":
+      return "choose-fitting-base";
+    case "goal-selection":
+      return "define-one-goal";
+    case "first-magic-mod":
+      return facts.usefulModifierPresent ? "use-augmentation" : "change-unhelpful-base";
+    case "magic-open-slot":
+      return facts.rarity === "magic" && facts.usefulModifierPresent && (facts.openModifierSlots ?? 0) > 0
+        ? "use-augmentation"
+        : "change-unhelpful-base";
+    case "magic-ready-for-regal":
+      return facts.rarity === "magic" && facts.usefulModifierPresent && facts.openModifierSlots === 0
+        ? "use-regal"
+        : "change-unhelpful-base";
+    case "rare-open-slot":
+      return facts.rarity === "rare" && facts.usefulModifierPresent && (facts.openModifierSlots ?? 0) > 0
+        ? "consider-exalted"
+        : "equip-test-stop";
+    case "goal-complete":
+      return facts.goalDefined && facts.goalFulfilled ? "equip-test-stop" : "define-one-goal";
+  }
 }
 
 const option = (
@@ -78,154 +102,144 @@ const option = (
 
 export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[] = [
   {
-    id: "medio-resultado-incompleto",
+    id: "medio-elegir-base",
     order: 1,
-    title: "Primero confirma el resultado",
-    situation: "Has usado una acción, pero el texto nuevo no incluye nivel de objeto ni todos los modificadores.",
-    before: "Snapshot completo guardado",
-    after: "Texto parcial; identidad sin confirmar",
-    facts: { resultDataComplete: false, identityMatches: false, actionStructureMatches: false, protectedLineLost: false, stopConditionFulfilled: false },
+    title: "Empieza por una base que te sirva",
+    situation:
+      "Estás en tu alijo y tienes varias piezas del mismo hueco. Una coincide con el tipo de arma o defensa que usa tu personaje; las otras no.",
+    gameState: "Varias bases disponibles",
+    playerGoal: "Mejorar el hueco que realmente usa tu personaje",
+    facts: { situation: "base-selection", baseFitsCharacter: true },
+    question: "¿Con cuál empiezas a gastar monedas?",
+    options: [
+      option("med-base-correcta", "choose-fitting-base", "Con la base que encaja con mi personaje", "Primero debe servirte el objeto"),
+      option("med-base-rara", "consider-exalted", "Con la que tenga el nombre más llamativo", "El nombre no define si te sirve"),
+      option("med-base-cualquiera", "define-one-goal", "Con cualquiera; luego la arreglo", "La moneda no cambia el tipo de base"),
+    ],
+    expectedDecision: "choose-fitting-base",
+    explanation:
+      "El crafting empieza antes de usar una moneda. Si la base no encaja con tu personaje, incluso una buena tirada puede terminar en una pieza que no quieres equipar.",
+    takeaway: "Primero eliges la base; después decides cómo mejorarla.",
+  },
+  {
+    id: "medio-definir-objetivo",
+    order: 2,
+    title: "Decide qué problema quieres resolver",
+    situation:
+      "La base sí te sirve, pero todavía no has decidido qué esperas obtener de ella para tu personaje actual.",
+    gameState: "Base correcta, objetivo todavía abierto",
+    playerGoal: "Salir del alijo con una mejora reconocible",
+    facts: { situation: "goal-selection", baseFitsCharacter: true, goalDefined: false },
+    question: "¿Qué haces antes de usar la primera moneda?",
+    options: [
+      option("med-objetivo-concreto", "define-one-goal", "Elijo una mejora concreta", "Por ejemplo: daño, defensa o una resistencia que me falta"),
+      option("med-objeto-perfecto", "consider-exalted", "Intento crear el objeto perfecto", "No define cuándo una tirada ya te sirve"),
+      option("med-gastar-primero", "use-augmentation", "Empiezo a gastar y decido después", "La moneda aleatoria no conoce tu intención"),
+    ],
+    expectedDecision: "define-one-goal",
+    explanation:
+      "Una meta concreta te permite juzgar cada resultado. «Mejorar mi resistencia al fuego» o «conseguir más daño físico» se puede comprobar; «hacerla perfecta» no te dice cuándo parar.",
+    takeaway: "Una pieza, un problema principal.",
+  },
+  {
+    id: "medio-primer-mod-inutil",
+    order: 3,
+    title: "No persigas una salida mala",
+    situation:
+      "Usaste una Transmutación. La pieza ahora es mágica, pero su primer modificador no ayuda al objetivo que elegiste.",
+    gameState: "Objeto mágico con un modificador que no te sirve",
+    playerGoal: "Conservar monedas para una base prometedora",
+    facts: { situation: "first-magic-mod", usefulModifierPresent: false, rarity: "magic", openModifierSlots: 1 },
+    question: "¿Cuál es la decisión con más sentido?",
+    options: [
+      option("med-cambiar-base", "change-unhelpful-base", "Pruebo otra base", "No tengo nada útil que proteger todavía"),
+      option("med-regio-inutil", "use-regal", "Uso Regio porque puede arreglarla", "Subir la rareza conserva también el mal inicio"),
+      option("med-exaltado-inutil", "consider-exalted", "Uso Exaltado hasta que mejore", "Exaltado requiere un objeto raro"),
+    ],
+    expectedDecision: "change-unhelpful-base",
+    explanation:
+      "Que quede un hueco no obliga a continuar. Si el primer resultado no aporta nada a tu objetivo, abandonar esa salida y empezar con otra base evita invertir más en una pieza sin una ventaja inicial.",
+    takeaway: "Un hueco libre no convierte una mala salida en un proyecto prometedor.",
+  },
+  {
+    id: "medio-completar-magico",
+    order: 4,
+    title: "Completa el mágico antes de subirlo",
+    situation:
+      "Esta vez la Transmutación sí dejó un modificador útil. El objeto es mágico y todavía admite otro modificador.",
+    gameState: "Objeto mágico con una línea útil y un hueco",
+    playerGoal: "Aprovechar el último hueco de la rareza mágica",
+    facts: { situation: "magic-open-slot", usefulModifierPresent: true, rarity: "magic", openModifierSlots: 1 },
+    question: "¿Qué moneda usas ahora?",
+    options: [
+      option("med-usar-aumento", "use-augmentation", "Orbe de aumento", "Añade un modificador al objeto mágico"),
+      option("med-usar-regio-pronto", "use-regal", "Orbe regio", "Lo subiría a raro sin aprovechar primero ese hueco"),
+      option("med-parar-magico", "equip-test-stop", "Paro siempre al primer mod útil", "Todavía existe una acción compatible y limitada"),
+    ],
+    expectedDecision: "use-augmentation",
+    explanation:
+      "Aumento añade un modificador aleatorio a un objeto mágico. Usarlo aquí te deja ver el segundo modificador antes de decidir si merece la pena convertir la pieza en rara.",
+    takeaway: "Si el mágico promete y aún tiene hueco, completa esa etapa primero.",
+  },
+  {
+    id: "medio-cuando-regio",
+    order: 5,
+    title: "Usa Regio sobre algo que quieras conservar",
+    situation:
+      "El objeto mágico ya tiene sus dos modificadores. Al menos uno contribuye al objetivo de tu personaje y quieres seguir trabajando la misma pieza.",
+    gameState: "Objeto mágico completo con una línea útil",
+    playerGoal: "Pasarlo a raro sin perder lo que ya funciona",
+    facts: { situation: "magic-ready-for-regal", usefulModifierPresent: true, rarity: "magic", openModifierSlots: 0 },
+    question: "¿Cuándo tiene sentido usar el Orbe regio?",
+    options: [
+      option("med-regio-prometedor", "use-regal", "Ahora: quiero conservar esta salida", "Regio mantiene los modificadores y añade uno"),
+      option("med-regio-cualquier-magico", "consider-exalted", "En cualquier mágico, aunque nada me sirva", "La rareza no convierte sus líneas en útiles"),
+      option("med-aumento-lleno", "use-augmentation", "Uso otro Aumento primero", "El mágico ya alcanzó su límite observado"),
+    ],
+    expectedDecision: "use-regal",
+    explanation:
+      "Regio convierte el mágico en raro, conserva sus modificadores y agrega uno. Estratégicamente merece la pena cuando ya existe algo que quieres mantener, no solo porque la acción sea legal.",
+    takeaway: "No subas de rareza una pieza que ya querías abandonar.",
+  },
+  {
+    id: "medio-cuando-exaltado",
+    order: 6,
+    title: "Exaltado es una apuesta, no un acabado automático",
+    situation:
+      "La pieza ya es rara, conserva una mejora que te sirve y todavía tiene espacio para otro modificador.",
+    gameState: "Objeto raro útil con al menos un hueco",
+    playerGoal: "Intentar una mejora adicional sin esperar un resultado concreto",
+    facts: { situation: "rare-open-slot", usefulModifierPresent: true, rarity: "rare", openModifierSlots: 1 },
+    question: "¿Qué debes aceptar antes de usar Exaltado?",
+    options: [
+      option("med-exaltado-consciente", "consider-exalted", "Que añadirá algo aleatorio", "Hay hueco, pero no una mejora garantizada"),
+      option("med-exaltado-garantiza", "equip-test-stop", "Que completará exactamente mi objetivo", "El efecto observado no promete un afijo concreto"),
+      option("med-exaltado-repite", "use-regal", "Que puedo repetirlo hasta acertar", "Cada hueco gastado cambia el estado de la pieza"),
+    ],
+    expectedDecision: "consider-exalted",
+    explanation:
+      "El efecto observado del Exaltado es añadir un modificador aleatorio a un objeto raro. Tener sitio hace posible la acción; no garantiza que el resultado encaje con tu personaje.",
+    takeaway: "Antes de Exaltado decides si la pieza merece esa apuesta.",
+  },
+  {
+    id: "medio-probar-y-parar",
+    order: 7,
+    title: "Equipa, prueba y aprende a parar",
+    situation:
+      "La pieza ya aporta la mejora concreta que buscabas. Aún podría quedar espacio, pero tu problema principal está resuelto.",
+    gameState: "El objetivo elegido ya aparece en la pieza",
+    playerGoal: "Comprobar la mejora durante el juego",
+    facts: { situation: "goal-complete", usefulModifierPresent: true, goalDefined: true, goalFulfilled: true, rarity: "rare" },
     question: "¿Qué haces ahora?",
     options: [
-      option("med-recopiar", "recopy-result", "Copiar el resultado completo", "Sin gastar otra moneda"),
-      option("med-continuar-a-ciegas", "continue-contract", "Continuar el craft", "La pieza parece la misma"),
-      option("med-dar-por-bueno", "keep-and-stop", "Dar el resultado por bueno", "No se ve ningún problema"),
+      option("med-equipar-probar", "equip-test-stop", "La equipo y la pruebo", "Compruebo si mejora realmente a mi personaje"),
+      option("med-llenar-siempre", "consider-exalted", "Lleno todos los huecos porque existen", "Espacio libre no significa necesidad"),
+      option("med-cambiar-meta", "define-one-goal", "Cambio el objetivo para seguir gastando", "Mover la meta impide reconocer un éxito"),
     ],
-    expectedDecision: "recopy-result",
-    explanation: "Sin un resultado completo no puedes comparar identidad, líneas añadidas ni pérdidas. Recupera el texto antes de decidir.",
-    takeaway: "Un resultado incompleto es un bloqueo de datos, no una tirada mala.",
-  },
-  {
-    id: "medio-objeto-distinto",
-    order: 2,
-    title: "No compares otra pieza",
-    situation: "El resultado pegado tiene otra base o un nivel de objeto distinto al snapshot.",
-    before: "Ballesta barnizada · ilvl 32",
-    after: "Otra base o ilvl diferente",
-    facts: { resultDataComplete: true, identityMatches: false, actionStructureMatches: false, protectedLineLost: false, stopConditionFulfilled: false },
-    question: "¿Qué significa esta comparación?",
-    options: [
-      option("med-rechazar-identidad", "reject-different-item", "No es una comparación válida", "Vuelve a la pieza original"),
-      option("med-aceptar-base", "continue-contract", "La base no importa", "Solo cuentan los mods"),
-      option("med-parar-identidad", "keep-and-stop", "El craft ha terminado", "El texto cambió mucho"),
-    ],
-    expectedDecision: "reject-different-item",
-    explanation: "La identidad del objeto es el primer control. Si no coincide, el resto de diferencias no demuestra qué hizo la acción.",
-    takeaway: "Antes y después deben pertenecer al mismo objeto.",
-  },
-  {
-    id: "medio-estructura-inesperada",
-    order: 3,
-    title: "Detecta un paso distinto",
-    situation: "Esperabas una sola línea nueva, pero desaparecen dos y aparecen dos.",
-    before: "Una acción preparada sobre el snapshot",
-    after: "La estructura cambia más de lo esperado",
-    facts: { resultDataComplete: true, identityMatches: true, actionStructureMatches: false, protectedLineLost: false, stopConditionFulfilled: false },
-    question: "¿Qué puede afirmar el mentor?",
-    options: [
-      option("med-revisar", "review-mismatch", "El resultado no coincide con el paso", "Revisa moneda y texto"),
-      option("med-mejora-doble", "continue-contract", "Ha sido una mejora doble", "Aparecieron dos líneas"),
-      option("med-terminar-raro", "keep-and-stop", "Es mejor, así que parar", "Tiene más texto"),
-    ],
-    expectedDecision: "review-mismatch",
-    explanation: "El comparador confirma estructura, no calidad. Si cambian más líneas de las previstas, hay que revisar qué ocurrió.",
-    takeaway: "Más cambios no significa automáticamente un mejor resultado.",
-  },
-  {
-    id: "medio-protegido-perdido",
-    order: 4,
-    title: "Respeta lo intocable",
-    situation: "La acción produjo la estructura esperada, pero una línea marcada como intocable ya no aparece.",
-    before: "Velocidad de ataque protegida",
-    after: "La línea protegida desaparece",
-    facts: { resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: true, stopConditionFulfilled: false },
-    question: "¿Cuál es la decisión correcta?",
-    options: [
-      option("med-frenar-protegido", "protect-and-stop", "Frenar y registrar la pérdida", "No encadenes otra acción"),
-      option("med-compensar", "continue-contract", "Intentar compensarla", "Quizá salga otra línea"),
-      option("med-ignorar-protegido", "keep-and-stop", "Aceptar sin anotarlo", "La acción fue legal"),
-    ],
-    expectedDecision: "protect-and-stop",
-    explanation: "La acción puede ser estructuralmente válida y aun incumplir tu contrato. La pérdida protegida debe quedar visible antes de seguir.",
-    takeaway: "Legal no significa aceptable para tu plan.",
-  },
-  {
-    id: "medio-salida-cumplida",
-    order: 5,
-    title: "Reconoce cuándo parar",
-    situation: "El resultado conserva lo protegido y cumple la condición exacta que habías escrito.",
-    before: "Contrato abierto",
-    after: "Condición de parada cumplida",
-    facts: { resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: false, stopConditionFulfilled: true },
-    question: "¿Qué haces aunque aún exista otra acción legal?",
-    options: [
-      option("med-conservar-parar", "keep-and-stop", "Conservar y parar", "El contrato ya terminó"),
-      option("med-una-mas", "continue-contract", "Probar una vez más", "Todavía cabe otro mod"),
-      option("med-cambiar-meta", "review-mismatch", "Cambiar la condición ahora", "Buscar algo todavía mejor"),
-    ],
-    expectedDecision: "keep-and-stop",
-    explanation: "La condición de salida existe para evitar convertir un éxito en otra apuesta. Registra el resultado y termina.",
-    takeaway: "Una acción disponible no es una acción obligatoria.",
-  },
-  {
-    id: "medio-continuar",
-    order: 6,
-    title: "Continúa solo dentro del contrato",
-    situation: "La comparación es válida, no se pierde nada protegido y la salida aún no se cumple.",
-    before: "Snapshot y contrato confirmados",
-    after: "Cambio válido, objetivo todavía pendiente",
-    facts: { resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: false, stopConditionFulfilled: false },
-    question: "¿Qué decisión queda abierta?",
-    options: [
-      option("med-continuar-contrato", "continue-contract", "Volver al plan y elegir el siguiente paso", "Sin inventar una receta"),
-      option("med-fracaso", "review-mismatch", "Declarar que el craft falló", "No salió el objetivo"),
-      option("med-gastar-automatico", "keep-and-stop", "Repetir automáticamente", "La comparación fue válida"),
-    ],
-    expectedDecision: "continue-contract",
-    explanation: "El resultado es compatible, pero no decide por sí solo la siguiente moneda. Vuelve al contrato y compara las rutas todavía legales.",
-    takeaway: "Continuar es una nueva decisión; nunca una repetición automática.",
-  },
-  {
-    id: "medio-minimo-no-cumplido",
-    order: 7,
-    title: "El nombre del afijo no basta",
-    situation:
-      "Antes de gastar escribiste un mínimo observable. El resultado trae la clase de modificador que querías, pero su valor queda por debajo.",
-    before: "Objetivo: al menos +30 a la vida máxima",
-    after: "Resultado: +24 a la vida máxima",
-    facts: {
-      resultDataComplete: true,
-      identityMatches: true,
-      actionStructureMatches: true,
-      protectedLineLost: false,
-      declaredMinimumMet: false,
-      stopConditionFulfilled: false,
-    },
-    question: "¿Puedes marcar ya el objetivo como cumplido?",
-    options: [
-      option(
-        "med-revisar-minimo",
-        "review-below-minimum",
-        "No: revisar la pieza",
-        "Coincide la línea, no el mínimo",
-      ),
-      option(
-        "med-aceptar-nombre",
-        "keep-and-stop",
-        "Sí: conservar y terminar",
-        "Apareció el tipo de modificador",
-      ),
-      option(
-        "med-repetir-minimo",
-        "continue-contract",
-        "Gastar otra moneda automáticamente",
-        "El siguiente intento quizá lo mejore",
-      ),
-    ],
-    expectedDecision: "review-below-minimum",
+    expectedDecision: "equip-test-stop",
     explanation:
-      "El resultado se parece al objetivo, pero no alcanza el umbral que declaraste. No lo marques como éxito ni encadenes otra acción: decide si lo aceptas o replanteas el craft.",
-    takeaway: "Afijo correcto y tirada suficiente son dos comprobaciones distintas.",
+      "El propósito del crafting es mejorar lo que juegas, no llenar siempre el objeto. Equípalo, prueba el personaje y solo vuelve al banco si detectas una necesidad nueva.",
+    takeaway: "El craft termina en el juego, no cuando desaparece el último hueco.",
   },
 ];
 

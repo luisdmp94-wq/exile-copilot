@@ -2,40 +2,47 @@
 
 ## Objetivo
 
-El nivel medio une los dos extremos de la Academia:
+El nivel medio sucede dentro de Path of Exile 2. No enseña a manejar la web,
+copiar tooltips ni confirmar resultados en el comparador.
 
-- Básico: reconocer el estado de la pieza y una acción compatible.
-- **Medio: comparar el resultado con el snapshot y decidir qué hacer después.**
-- Avanzado: definir objetivo, líneas intocables, parada y ruta.
+- Básico: reconocer la rareza, los huecos y el efecto observado de cada moneda.
+- **Medio: decidir qué pieza merece monedas, para qué objetivo y cuándo parar.**
+- Avanzado: planear proyectos con riesgos, salidas y recuperación.
 
-No enseña recetas ni valora si un afijo es bueno. Entrena el bucle que el
-jugador repite después de gastar una moneda: **antes → después → decisión**.
+El recorrido convierte una secuencia mecánica de monedas en una decisión útil
+para el personaje que el jugador está jugando.
 
-## Seis comparaciones
+## Siete situaciones dentro del juego
 
-1. Resultado incompleto → volver a copiarlo.
-2. Identidad distinta → rechazar la comparación.
-3. Estructura inesperada → revisar el paso aplicado.
-4. Línea protegida perdida → frenar y registrar la pérdida.
-5. Condición de salida cumplida → conservar y parar.
-6. Resultado válido pero salida pendiente → volver al contrato.
+1. Elegir una base que encaje con el personaje.
+2. Definir un solo problema principal que resolver.
+3. Abandonar una salida mágica cuyo primer modificador no ayuda.
+4. Completar con Aumento un mágico prometedor antes de subirlo.
+5. Usar Regio cuando ya existe algo que merece conservarse.
+6. Valorar Exaltado como una adición aleatoria, no como un acabado garantizado.
+7. Equipar, probar y parar cuando la pieza ya cumple su función.
 
-`resolveMediumAcademyDecision()` aplica ese orden conservador. Los escenarios
-son sintéticos y su respuesta se recalcula desde hechos estructurados; no hay
-pools, pesos, probabilidades, precios ni resultados supuestos.
+`resolveMediumAcademyDecision()` recalcula las respuestas desde el estado visible
+de cada ejercicio. Los casos son sintéticos y no incluyen drops, pools, pesos,
+probabilidades, precios ni recetas inventadas.
+
+## Barrera de producto
+
+Las instrucciones propias de Exile Copilot —copiar el objeto, reparar una
+lectura, comparar el antes y el después— pertenecen a **Ayuda en vivo**. Una
+prueba impide que ese lenguaje vuelva a introducirse en el contenido del nivel
+medio.
 
 ## Archivos
 
-- Dominio y casos: `shared/craftingMediumAcademy.ts`.
+- Dominio y situaciones: `shared/craftingMediumAcademy.ts`.
 - Interfaz: `src/components/CraftingMediumAcademy.tsx`.
 - Pruebas: `tests/unit/craftingMediumAcademy.test.ts`.
 - Recorrido real: `scripts/academy-smoke.mjs`.
 
-## Verificación
+## Verificación esperada
 
-- TypeScript sin errores.
-- ESLint limpio en los archivos modificados.
-- Suite completa: 557/557.
-- Academia: 120/120 en producción y desarrollo/Strict Mode.
-- Sin desbordamiento horizontal a 375 y 390 px.
-
+- TypeScript y ESLint sin errores.
+- Suite unitaria completa.
+- Recorrido de Academia en producción y desarrollo/Strict Mode.
+- Comprobación visual e interactiva en `localhost:7201`.

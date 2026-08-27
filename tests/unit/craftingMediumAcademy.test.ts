@@ -6,7 +6,7 @@ import {
 } from "../../shared/craftingMediumAcademy.js";
 
 describe("Academia de crafting · nivel medio", () => {
-  it("todos los casos derivan su respuesta de los hechos", () => {
+  it("todas las situaciones derivan su respuesta de hechos del juego", () => {
     expect(CRAFTING_MEDIUM_ACADEMY_SCENARIOS).toHaveLength(7);
     for (const scenario of CRAFTING_MEDIUM_ACADEMY_SCENARIOS) {
       expect(validateMediumAcademyScenario(scenario)).toBe(true);
@@ -14,27 +14,76 @@ describe("Academia de crafting · nivel medio", () => {
     }
   });
 
-  it("prioriza datos e identidad antes de interpretar el resultado", () => {
-    expect(resolveMediumAcademyDecision({ resultDataComplete: false, identityMatches: false, actionStructureMatches: false, protectedLineLost: true, stopConditionFulfilled: true })).toBe("recopy-result");
-    expect(resolveMediumAcademyDecision({ resultDataComplete: true, identityMatches: false, actionStructureMatches: true, protectedLineLost: true, stopConditionFulfilled: true })).toBe("reject-different-item");
+  it("abandona un inicio mágico inútil y aprovecha uno prometedor", () => {
+    expect(resolveMediumAcademyDecision({
+      situation: "first-magic-mod",
+      usefulModifierPresent: false,
+      rarity: "magic",
+      openModifierSlots: 1,
+    })).toBe("change-unhelpful-base");
+
+    expect(resolveMediumAcademyDecision({
+      situation: "first-magic-mod",
+      usefulModifierPresent: true,
+      rarity: "magic",
+      openModifierSlots: 1,
+    })).toBe("use-augmentation");
   });
 
-  it("una pérdida protegida frena incluso si la salida parece cumplida", () => {
-    expect(resolveMediumAcademyDecision({ resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: true, stopConditionFulfilled: true })).toBe("protect-and-stop");
+  it("distingue completar el mágico, subirlo a raro y valorar Exaltado", () => {
+    expect(resolveMediumAcademyDecision({
+      situation: "magic-open-slot",
+      rarity: "magic",
+      usefulModifierPresent: true,
+      openModifierSlots: 1,
+    })).toBe("use-augmentation");
+    expect(resolveMediumAcademyDecision({
+      situation: "magic-ready-for-regal",
+      rarity: "magic",
+      usefulModifierPresent: true,
+      openModifierSlots: 0,
+    })).toBe("use-regal");
+    expect(resolveMediumAcademyDecision({
+      situation: "rare-open-slot",
+      rarity: "rare",
+      usefulModifierPresent: true,
+      openModifierSlots: 1,
+    })).toBe("consider-exalted");
   });
 
-  it("distingue parar de continuar dentro del contrato", () => {
-    expect(resolveMediumAcademyDecision({ resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: false, stopConditionFulfilled: true })).toBe("keep-and-stop");
-    expect(resolveMediumAcademyDecision({ resultDataComplete: true, identityMatches: true, actionStructureMatches: true, protectedLineLost: false, stopConditionFulfilled: false })).toBe("continue-contract");
+  it("termina en el personaje cuando el objetivo ya está cumplido", () => {
+    expect(resolveMediumAcademyDecision({
+      situation: "goal-complete",
+      rarity: "rare",
+      usefulModifierPresent: true,
+      goalDefined: true,
+      goalFulfilled: true,
+    })).toBe("equip-test-stop");
   });
 
-  it("no confunde encontrar el afijo con alcanzar el mínimo declarado", () => {
+  it("habla de decisiones en PoE2 y no de operar Exile Copilot", () => {
+    const content = JSON.stringify(CRAFTING_MEDIUM_ACADEMY_SCENARIOS).toLowerCase();
+    for (const forbidden of [
+      "exile copilot",
+      "comparador",
+      "snapshot",
+      "pegar",
+      "recopiar",
+      "tooltip",
+      "contrato",
+    ]) {
+      expect(content).not.toContain(forbidden);
+    }
+    expect(content).toContain("en tu alijo");
+    expect(content).toContain("la equipo y la pruebo");
+  });
+
+  it("presenta Exaltado como aleatorio, no como resultado garantizado", () => {
     const scenario = CRAFTING_MEDIUM_ACADEMY_SCENARIOS.find(
-      (entry) => entry.id === "medio-minimo-no-cumplido",
+      (entry) => entry.id === "medio-cuando-exaltado",
     );
     expect(scenario).toBeDefined();
-    expect(resolveMediumAcademyDecision(scenario!.facts)).toBe("review-below-minimum");
-    expect(scenario?.before).toContain("+30");
-    expect(scenario?.after).toContain("+24");
+    expect(scenario?.explanation).toContain("aleatorio");
+    expect(scenario?.takeaway).toContain("apuesta");
   });
 });
