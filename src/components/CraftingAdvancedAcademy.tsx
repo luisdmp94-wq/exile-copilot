@@ -212,7 +212,13 @@ export function CraftingAdvancedAcademy({
         <h2 className="dossier-title mt-1 text-3xl font-semibold">Ya piensas en contratos, no en monedas sueltas</h2>
         <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-avanzada-resultado">Has resuelto {correct} de {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} decisiones. Esto mide el recorrido, no la calidad ni el valor de un objeto real.</p>
         <div className="mt-5 grid gap-2 sm:grid-cols-3">
-          {["Define una salida comprobable", "Protege antes de reemplazar", "Para cuando se cumple", "Cambia de base al llegar a tu límite"].map((lesson) => (
+          {[
+            "Define una salida comprobable",
+            "Protege antes de reemplazar",
+            "Para cuando se cumple",
+            "Cambia de base al llegar a tu límite",
+            "Simula el personaje completo antes de sustituir",
+          ].map((lesson) => (
             <div key={lesson} className="flex items-center gap-2 rounded border border-emerald-500/30 bg-emerald-500/[0.06] p-3 text-sm text-emerald-100">
               <CheckCircle2 className="size-4 shrink-0" /> {lesson}
             </div>

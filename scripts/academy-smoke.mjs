@@ -295,9 +295,9 @@ async function runFlow(mode, port) {
     const avanzada = page.getByTestId("academia-avanzada");
     await avanzada.waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el nivel avanzado presenta ocho casos y su evidencia`,
+      `[${mode}] el nivel avanzado presenta nueve casos y su evidencia`,
       (await avanzada.getAttribute("data-stage")) === "intro" &&
-        (await page.getByTestId("academia-avanzada-indice").locator("li").count()) === 8 &&
+        (await page.getByTestId("academia-avanzada-indice").locator("li").count()) === 9 &&
         (await avanzada.innerText()).includes("casos son sintéticos"),
     );
     await page.getByTestId("academia-avanzada-empezar").click();
@@ -309,6 +309,8 @@ async function runFlow(mode, port) {
       "av-recopiar",
       "av-comparar",
       "av-cambiar-base",
+      "av-simular-ambas",
+      "av-simular-cambio",
     ];
     for (const opcion of respuestasAvanzadas) {
       await page.getByTestId(`academia-avanzada-opcion-${opcion}`).click();
@@ -325,7 +327,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el nivel avanzado termina y permite llevarlo al laboratorio`,
       (await avanzada.getAttribute("data-stage")) === "results" &&
-        (await page.getByTestId("academia-avanzada-resultado").innerText()).includes("8 de 8") &&
+        (await page.getByTestId("academia-avanzada-resultado").innerText()).includes("9 de 9") &&
         (await page.getByTestId("academia-avanzada-practicar").isVisible()),
     );
     await page.getByRole("button", { name: "Volver a niveles" }).click();

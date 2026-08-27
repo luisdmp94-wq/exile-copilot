@@ -7,7 +7,7 @@
  * No contiene recetas, pools, pesos, probabilidades ni precios.
  */
 
-export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-27";
+export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-28";
 
 export const CRAFTING_ADVANCED_ACADEMY_EVIDENCE =
   "Basado en los contratos locales de diagnóstico, rutas y condiciones de salida. Los casos son sintéticos y no representan un drop ni una receta.";
@@ -20,6 +20,7 @@ export type AdvancedAcademyDecision =
   | "change-base"
   | "request-tooltip"
   | "simulate-transformation"
+  | "simulate-equipment-swap"
   | "transmutation"
   | "augmentation"
   | "regal"
@@ -48,6 +49,11 @@ export interface AdvancedAcademyFacts {
   /** Operación cuyo resultado depende de todas las líneas afectadas del objeto elegido. */
   transformation?: {
     tooltipVerified: boolean;
+    simulated: boolean;
+  };
+  /** Sustitución de equipo cuyo impacto depende del personaje completo. */
+  equipmentSwap?: {
+    dependenciesKnown: boolean;
     simulated: boolean;
   };
   routes: AdvancedAcademyRouteFact[];
@@ -100,6 +106,11 @@ export function resolveAdvancedAcademyDecision(
   if (facts.transformation !== undefined) {
     if (!facts.transformation.tooltipVerified) return "request-tooltip";
     if (!facts.transformation.simulated) return "simulate-transformation";
+  }
+
+  if (facts.equipmentSwap !== undefined) {
+    if (!facts.equipmentSwap.dependenciesKnown) return "complete-data";
+    if (!facts.equipmentSwap.simulated) return "simulate-equipment-swap";
   }
 
   const legal = facts.routes.filter((route) => route.legal);
@@ -492,6 +503,57 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
       "El excedente aislado no basta para elegir. Primero simula el objeto entero: transformar las botas también puede tocar el rayo que estaba justo; una pieza con solo frío puede conservar más equilibrio.",
     lesson:
       "Una transformación global se evalúa por el estado final del personaje, no por la línea que quieres convertir.",
+  },
+  {
+    id: "avanzado-simular-sustitucion",
+    order: 9,
+    title: "Comprobar la sustitución completa",
+    skill: "No romper dependencias por una mejora aislada",
+    situation:
+      "Una pieza candidata mejora la línea ofensiva que buscas, pero la equipada aporta atributos y resistencias que pueden sostener requisitos de habilidades y límites defensivos. Ambas piezas están leídas, pero todavía no has recalculado el personaje sin la actual.",
+    contract: {
+      objective: "Sustituir la pieza sin romper el resto del equipo",
+      protect: ["Mantener requisitos de habilidades", "No abrir huecos de resistencias"],
+      stop: "El personaje completo sigue cumpliendo sus dependencias",
+    },
+    facts: {
+      itemDataComplete: true,
+      objectiveDefined: true,
+      stopDefined: true,
+      stopFulfilled: false,
+      protectedLineCount: 2,
+      equipmentSwap: {
+        dependenciesKnown: true,
+        simulated: false,
+      },
+      routes: [],
+    },
+    question: "¿Qué haces antes de equipar la candidata?",
+    options: [
+      option(
+        "av-simular-cambio",
+        "simulate-equipment-swap",
+        "Comparar el personaje antes y después",
+        "Recalcular atributos, resistencias y requisitos",
+      ),
+      option(
+        "av-equipar-mejora",
+        "compare-risks",
+        "Equiparla por su mejora principal",
+        "La línea buscada es claramente superior",
+      ),
+      option(
+        "av-descartar-candidata",
+        "stop",
+        "Descartarla sin comprobar",
+        "La pieza actual ya mantiene todo estable",
+      ),
+    ],
+    expectedDecision: "simulate-equipment-swap",
+    explanation:
+      "La pieza no se evalúa aislada. Compara el personaje completo antes y después: una ganancia local no compensa perder un requisito de habilidad o abrir una resistencia sin darte cuenta.",
+    lesson:
+      "Antes de sustituir equipo, protege las dependencias que la pieza actual sostiene aunque no formen parte de tu objetivo principal.",
   },
 ];
 

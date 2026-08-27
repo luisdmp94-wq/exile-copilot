@@ -8,9 +8,9 @@ import {
 } from "../../shared/craftingAdvancedAcademy.js";
 
 describe("Academia de crafting — nivel avanzado", () => {
-  it("incluye ocho decisiones distintas y todo el contenido coincide con el resolutor", () => {
-    expect(CRAFTING_ADVANCED_ACADEMY_VERSION).toBe("avanzado-2026-08-27");
-    expect(CRAFTING_ADVANCED_ACADEMY_SCENARIOS).toHaveLength(8);
+  it("incluye nueve decisiones distintas y todo el contenido coincide con el resolutor", () => {
+    expect(CRAFTING_ADVANCED_ACADEMY_VERSION).toBe("avanzado-2026-08-28");
+    expect(CRAFTING_ADVANCED_ACADEMY_SCENARIOS).toHaveLength(9);
 
     for (const scenario of CRAFTING_ADVANCED_ACADEMY_SCENARIOS) {
       expect(validateAdvancedAcademyScenario(scenario), scenario.id).toBe(true);
@@ -39,6 +39,7 @@ describe("Academia de crafting — nivel avanzado", () => {
       "compare-risks",
       "change-base",
       "simulate-transformation",
+      "simulate-equipment-swap",
     ]);
   });
 
@@ -109,6 +110,29 @@ describe("Academia de crafting — nivel avanzado", () => {
     expect(flux?.facts.transformation?.tooltipVerified).toBe(true);
     expect(flux?.facts.transformation?.simulated).toBe(false);
     expect(resolveAdvancedAcademyDecision(flux!.facts)).toBe("simulate-transformation");
+  });
+
+  it("exige recalcular el personaje antes de sustituir una pieza que sostiene dependencias", () => {
+    const swap = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-simular-sustitucion",
+    );
+    expect(swap).toBeDefined();
+    expect(swap?.facts.equipmentSwap?.dependenciesKnown).toBe(true);
+    expect(swap?.facts.equipmentSwap?.simulated).toBe(false);
+    expect(resolveAdvancedAcademyDecision(swap!.facts)).toBe("simulate-equipment-swap");
+  });
+
+  it("una sustitución sin lectura de dependencias vuelve a pedir datos", () => {
+    const swap = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-simular-sustitucion",
+    );
+    expect(swap).toBeDefined();
+    expect(
+      resolveAdvancedAcademyDecision({
+        ...swap!.facts,
+        equipmentSwap: { dependenciesKnown: false, simulated: false },
+      }),
+    ).toBe("complete-data");
   });
 
   it("no afirma porcentajes, precios ni DPS en ningún caso", () => {

@@ -1,6 +1,6 @@
 # Academia de crafting — Nivel avanzado
 
-> Ocho decisiones cortas para aprender a diseñar un craft antes de gastar.
+> Nueve decisiones cortas para aprender a diseñar un craft antes de gastar.
 
 ## Qué enseña
 
@@ -16,10 +16,12 @@ la jerarquía que ya usa el plano experto del laboratorio:
 7. parar cuando el contrato ya se cumple;
 8. comparar riesgos sin fingir que existe un ganador.
 9. simular el resultado completo antes de consumir un Flux.
+10. comparar el personaje completo antes de sustituir una pieza que sostiene
+    atributos, resistencias o requisitos.
 
 ## Arquitectura
 
-- `shared/craftingAdvancedAcademy.ts` contiene los ocho casos y
+- `shared/craftingAdvancedAcademy.ts` contiene los nueve casos y
   `resolveAdvancedAcademyDecision()`, una función pura con la misma precedencia
   conservadora que `buildExpertCraftingBlueprint()`.
 - `src/components/CraftingAdvancedAcademy.tsx` presenta un contrato de tres
@@ -37,7 +39,7 @@ la jerarquía que ya usa el plano experto del laboratorio:
   si el tooltip está verificado; el nombre nunca basta.
 - Flux se enseña como una transformación que debe simularse con el tooltip real;
   no se codifica una conversión concreta que la fuente oficial no documenta.
-- La puntuación mide las ocho decisiones del recorrido, no la calidad de un
+- La puntuación mide las nueve decisiones del recorrido, no la calidad de un
   objeto real.
 
 ## Verificación
