@@ -121,7 +121,7 @@ export function EquipmentPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
           id="equipo-titulo"
-          className="text-xs font-semibold uppercase tracking-wider text-foreground"
+          className="rotulo-seccion text-foreground"
         >
           Equipo de tu personaje
         </h3>
@@ -155,7 +155,7 @@ export function EquipmentPanel({
 
           {/* Frascos: grupo derivado de los datos reales, sin número fijo. */}
           <div className="mt-2 flex flex-col gap-1.5" data-testid="flask-group">
-            <h4 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <h4 className="rotulo-seccion text-muted-foreground">
               Frascos ({layout.flaskItems.length})
             </h4>
             {layout.flaskItems.length > 0 ? (
@@ -221,7 +221,7 @@ export function EquipmentPanel({
 
       {layout.extraItems.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h4 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <h4 className="rotulo-seccion text-muted-foreground">
             Otros objetos ({layout.extraItems.length})
           </h4>
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">

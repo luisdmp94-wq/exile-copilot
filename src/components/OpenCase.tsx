@@ -75,7 +75,7 @@ export function OpenCase({
           }`}
         >
           <div className="border-b border-primary/25 pb-4 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/70">
+            <p className="rotulo-seccion text-primary/70">
               {isWaitingForDiagnosis ? "Listo para analizar" : "Diagnóstico activo"}
             </p>
             <h2

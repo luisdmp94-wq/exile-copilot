@@ -134,6 +134,27 @@
     @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70;
   }
 
+  /**
+   * Rótulos en mayúsculas: dos roles, no catorce.
+   *
+   * El mismo tipo de etiqueta se escribía con ocho combinaciones distintas de
+   * tamaño y `tracking` (de 0.12em a 0.32em, entre 10 y 12 px), así que dos
+   * secciones contiguas no parecían del mismo producto. Aquí solo se fija la
+   * TIPOGRAFÍA; el color sigue siendo de cada instancia porque es semántico
+   * (oro = sección, ámbar = pendiente, esmeralda = activo).
+   *
+   * `rotulo-seccion` encabeza un bloque. `rotulo-dato` es la píldora que
+   * acompaña a un dato concreto: va un punto mayor porque suele aparecer
+   * aislada y a menudo comunica un estado que conviene leer sin esfuerzo.
+   */
+  .rotulo-seccion {
+    @apply text-[10px] font-semibold uppercase tracking-[0.18em];
+  }
+
+  .rotulo-dato {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em];
+  }
+
   /** Superficie elevada: sombra interior discreta, sin transparencias que resten contraste. */
   .superficie-panel {
     @apply border border-border bg-card/95;

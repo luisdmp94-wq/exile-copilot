@@ -125,7 +125,7 @@ export function ExpedienteSection({
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/70">
+            <p className="rotulo-seccion text-primary/70">
               Sujeto registrado
             </p>
             <h2
@@ -136,11 +136,11 @@ export function ExpedienteSection({
             </h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+            <span className="rotulo-dato border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-emerald-300">
               Expediente activo
             </span>
             <span
-              className={`border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+              className={`rotulo-dato border px-2 py-1 ${
                 profilePersisted
                   ? "border-cyan-500/35 bg-cyan-500/[0.07] text-cyan-300"
                   : "border-amber-500/35 bg-amber-500/[0.07] text-amber-300"

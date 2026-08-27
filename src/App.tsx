@@ -1394,7 +1394,7 @@ export default function App() {
                 }
               >
                 <section className="operations-intro mb-7 px-6 py-7" aria-labelledby="operaciones-titulo">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/75">
+                  <p className="rotulo-seccion text-primary/75">
                     Mesa de operaciones
                   </p>
                   <h2 id="operaciones-titulo" className="dossier-title mt-2 text-4xl font-semibold text-foreground">

@@ -76,7 +76,7 @@ export function WelcomePanel({
       <div className="relative z-10 flex max-w-5xl flex-col gap-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-4">
-          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">
+          <p className="rotulo-seccion flex items-center gap-2 text-primary">
             <ShieldCheck className="size-4" aria-hidden="true" />
             Primera consulta
           </p>

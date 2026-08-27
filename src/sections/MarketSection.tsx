@@ -96,7 +96,7 @@ export function MarketSection({
   return (
     <Card className="intel-card">
       <CardHeader className="border-b border-border/70 px-6 py-6">
-        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-300/75">
+        <p className="rotulo-seccion flex items-center gap-2 text-cyan-300/75">
           <Radar className="size-4" aria-hidden="true" />
           Inteligencia de mercado
         </p>
@@ -104,7 +104,7 @@ export function MarketSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-6 px-6 py-6">
         <div className="market-console flex flex-col gap-3 p-5">
-          <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
+          <p className="rotulo-seccion flex items-center gap-2 text-cyan-300/75">
             <Database className="size-4" aria-hidden="true" />
             Terminal de consulta
           </p>
@@ -250,7 +250,7 @@ export function MarketSection({
               <div className="market-status-grid" aria-label="Estado de verificación del mercado">
                 {prices.degraded && (
                   <div className="market-status-line">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-300">
+                    <p className="rotulo-dato text-amber-300">
                       Precios degradados
                     </p>
                     <p className="text-sm text-muted-foreground">
@@ -259,7 +259,7 @@ export function MarketSection({
                   </div>
                 )}
                 <div className="market-status-line">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-300">
+                  <p className="rotulo-dato text-amber-300">
                     Conversión de divisas
                   </p>
                   <p

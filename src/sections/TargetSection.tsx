@@ -46,7 +46,7 @@ export function TargetSection({
       data-testid="target-context-details"
     >
       <summary className="min-h-11 cursor-pointer list-none border-b border-border/70 px-6 py-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/75">
+        <p className="rotulo-seccion flex items-center gap-2 text-primary/75">
           <Route className="size-4" aria-hidden="true" />
           Briefing de destino
         </p>
