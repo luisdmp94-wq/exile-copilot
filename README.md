@@ -398,7 +398,8 @@ clave real se guarda en el repositorio. Detalles en `docs/HITO_6A.md` y
 - `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente, conversación IA fundamentada opcional con respaldo determinista, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista y exportador `.build` oficial con informe.
 - `src/` — frontend React + Tailwind + shadcn/ui (español, tema oscuro).
 - `tests/` — vitest: unit, integration, e2e. `scripts/browser-smoke.mjs` — prueba de navegador real.
-- `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — memoria persistente.
+- `docs/ROADMAP.md` — prioridades hasta PoE2 1.0 y decisiones futuras.
+  `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — memoria persistente.
   `docs/HITO_5B.md` — memoria como contexto del motor. `HANDOFF.md` — informe
   para el propietario.
 

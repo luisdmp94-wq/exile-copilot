@@ -1,6 +1,7 @@
 import { ArrowLeft, Swords } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ExperimentalMusicPlayer } from "@/components/ExperimentalMusicPlayer";
 import type { HealthResponse } from "@shared/api.js";
 import type { CharacterProfile } from "@shared/domain.js";
 import { formatCharacterLevel, formatDateTime } from "@/lib/format";
@@ -94,6 +95,7 @@ export function AppHeader({ health, loading, profile, onHome, onBack, canGoBack 
         </span>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {import.meta.env.DEV && <ExperimentalMusicPlayer />}
           {profile && (
             <span
               className="border-r border-border/70 pr-3 text-xs text-muted-foreground"

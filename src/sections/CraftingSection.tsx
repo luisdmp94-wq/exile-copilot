@@ -41,6 +41,8 @@ interface CraftingSectionProps {
   journal: JournalState;
   requestedItemId?: string | null;
   onEditExpediente: () => void;
+  onOpenCharacter: () => void;
+  onOpenPlanMarket: () => void;
   onStartCraftingDecision: StartCraftingDecision;
   onStartEssenceDecision: StartEssenceDecision;
   onStartAlloyDecision: StartAlloyDecision;
@@ -185,6 +187,8 @@ export function CraftingSection({
   journal,
   requestedItemId = null,
   onEditExpediente,
+  onOpenCharacter,
+  onOpenPlanMarket,
   onStartCraftingDecision,
   onStartEssenceDecision,
   onStartAlloyDecision,
@@ -195,6 +199,8 @@ export function CraftingSection({
 }: CraftingSectionProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [mode, setMode] = useState<CraftingMode>("coach");
+  /** Objetivo escrito en Ayuda en vivo que inicia un proyecto avanzado nuevo. */
+  const [laboratoryDraftObjective, setLaboratoryDraftObjective] = useState("");
   /** El banco técnico existe, pero no compite con la recomendación principal. */
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const craftableItems = (profile?.items ?? []).filter((item) =>
@@ -248,6 +254,17 @@ export function CraftingSection({
    */
   const advancedVisible = advancedOpen || activeCrafting !== null;
 
+  const selectMode = (nextMode: CraftingMode) => {
+    // Entrar desde el selector es una navegación manual. Solo el CTA del guía
+    // transporta un objetivo nuevo al Taller.
+    if (nextMode === "laboratory") setLaboratoryDraftObjective("");
+    setMode(nextMode);
+  };
+  const openLaboratoryFromCoach = (draftObjective?: string) => {
+    setLaboratoryDraftObjective(draftObjective?.trim() ?? "");
+    setMode("laboratory");
+  };
+
   const coach = (
     <CraftingCoach
       profile={profile}
@@ -260,12 +277,15 @@ export function CraftingSection({
       onSelectItem={selectItem}
       onPasteItem={onEditExpediente}
       onOpenAdvanced={() => setAdvancedOpen(true)}
+      onOpenLaboratory={openLaboratoryFromCoach}
+      onOpenCharacter={onOpenCharacter}
+      onOpenPlanMarket={onOpenPlanMarket}
       showInitialRepairBanner={!advancedVisible}
       onMentorContext={onMentorContext}
     />
   );
 
-  const chooser = <CraftingModeChooser mode={mode} onSelect={setMode} />;
+  const chooser = <CraftingModeChooser mode={mode} onSelect={selectMode} />;
 
   if (patchCompatibility && !allowsPatchGuidance(patchCompatibility)) {
     return (
@@ -551,6 +571,9 @@ export function CraftingSection({
                 onStarted={focusStartedCraft}
                 onMentorContext={onMentorContext}
                 experience={mode === "laboratory" ? "laboratory" : "bank"}
+                initialDesiredOutcome={
+                  mode === "laboratory" ? laboratoryDraftObjective : undefined
+                }
                 candidateItems={craftableItems}
                 onSelectCandidate={selectItem}
                 onAddCandidate={onEditExpediente}

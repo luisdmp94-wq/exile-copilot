@@ -490,6 +490,30 @@
     animation: mentor-robot-hover 3.4s ease-in-out infinite;
   }
 
+  .mentor-robot__orbit {
+    position: absolute;
+    z-index: 0;
+    top: 45%;
+    left: 50%;
+    border: 1px solid hsl(42 80% 58% / 0.14);
+    border-radius: 9999px;
+    pointer-events: none;
+    transform: translate(-50%, -50%) rotate(-12deg);
+  }
+
+  .mentor-robot__orbit--outer {
+    width: 4.85rem;
+    height: 4.15rem;
+    border-style: dashed;
+  }
+
+  .mentor-robot__orbit--inner {
+    width: 3.95rem;
+    height: 3.35rem;
+    border-color: hsl(195 78% 60% / 0.11);
+    transform: translate(-50%, -50%) rotate(18deg);
+  }
+
   .mentor-robot__antenna {
     position: absolute;
     z-index: 3;
@@ -532,6 +556,24 @@
     clip-path: polygon(10% 0, 90% 0, 100% 22%, 100% 78%, 88% 100%, 12% 100%, 0 78%, 0 22%);
   }
 
+  .mentor-robot__temple {
+    position: absolute;
+    top: 1.1rem;
+    width: 0.32rem;
+    height: 0.9rem;
+    border: 1px solid hsl(42 72% 54% / 0.58);
+    background: hsl(235 14% 5%);
+    box-shadow: 0 0 0.45rem hsl(42 85% 52% / 0.18);
+  }
+
+  .mentor-robot__temple--left {
+    left: 0.08rem;
+  }
+
+  .mentor-robot__temple--right {
+    right: 0.08rem;
+  }
+
   .mentor-robot__eyes {
     position: absolute;
     top: 0.95rem;
@@ -553,11 +595,25 @@
   .mentor-robot__mouth {
     position: absolute;
     left: 50%;
-    bottom: 0.72rem;
+    bottom: 0.57rem;
+    display: flex;
     width: 1.45rem;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, hsl(195 88% 65% / 0.9), transparent);
+    height: 0.46rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.16rem;
     transform: translateX(-50%);
+  }
+
+  .mentor-robot__mouth > span {
+    width: 2px;
+    height: 2px;
+    background: hsl(195 88% 65% / 0.9);
+    box-shadow: 0 0 0.45rem hsl(195 90% 58% / 0.48);
+  }
+
+  .mentor-robot__mouth > span:nth-child(2) {
+    width: 0.58rem;
   }
 
   .mentor-robot__body {
@@ -576,6 +632,29 @@
     clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
   }
 
+  .mentor-robot__core {
+    position: absolute;
+    right: 0.28rem;
+    bottom: 0.25rem;
+    width: 0.28rem;
+    height: 0.28rem;
+    border-radius: 9999px;
+    background: hsl(42 92% 58%);
+    box-shadow: 0 0 0.55rem hsl(42 92% 55% / 0.72);
+  }
+
+  .mentor-robot__shadow {
+    position: absolute;
+    z-index: 0;
+    right: 0.55rem;
+    bottom: -0.12rem;
+    left: 0.55rem;
+    height: 0.35rem;
+    border-radius: 50%;
+    background: hsl(240 50% 1% / 0.58);
+    filter: blur(4px);
+  }
+
   .mentor-mascot__status {
     z-index: 1;
     display: inline-flex;
@@ -592,20 +671,49 @@
     text-transform: uppercase;
   }
 
-  .mentor-mascot[data-state="thinking"] .mentor-robot__eyes > span {
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__eyes > span {
     background: hsl(195 95% 68%);
     box-shadow: 0 0 0.8rem hsl(195 95% 58% / 0.85);
     animation: mentor-robot-scan 0.75s ease-in-out infinite alternate;
   }
 
-  .mentor-mascot[data-state="ai"] .mentor-robot__mouth {
-    height: 3px;
-    box-shadow: 0 0 0.6rem hsl(195 90% 58% / 0.55);
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__antenna > span {
+    background: hsl(195 92% 62%);
+    box-shadow: 0 0 0.8rem hsl(195 92% 58% / 0.82);
+    animation: mentor-signal-pulse 0.9s ease-in-out infinite alternate;
   }
 
-  .mentor-mascot[data-state="error"] .mentor-robot__eyes > span {
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__core {
+    background: hsl(195 92% 62%);
+    box-shadow: 0 0 0.8rem hsl(195 92% 58% / 0.82);
+    animation: mentor-core-pulse 0.9s ease-in-out infinite alternate;
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__orbit--outer {
+    border-color: hsl(195 85% 62% / 0.38);
+    animation: mentor-orbit-scan 2.2s linear infinite;
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__mouth > span {
+    animation: mentor-robot-talk 0.65s ease-in-out infinite alternate;
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__mouth > span:nth-child(2) {
+    animation-delay: 160ms;
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__eyes > span {
+    background: hsl(38 100% 63%);
+    box-shadow: 0 0 0.8rem hsl(30 96% 55% / 0.78);
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="error"] .mentor-robot__eyes > span {
     background: hsl(5 86% 66%);
     box-shadow: 0 0 0.7rem hsl(5 86% 58% / 0.78);
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-source="market"] .mentor-robot__orbit--inner {
+    border-color: hsl(190 88% 58% / 0.34);
   }
 
   .mentor-floating-shell {
@@ -642,6 +750,24 @@
       inset 0 0 1.4rem hsl(42 88% 48% / 0.045),
       0 0.8rem 1.8rem hsl(240 40% 2% / 0.55);
     animation: mentor-speech-enter 180ms ease-out both;
+  }
+
+  .mentor-speech-bubble[data-source="engine"] {
+    border-color: hsl(195 72% 52% / 0.52);
+    background:
+      linear-gradient(105deg, hsl(195 64% 34% / 0.13), transparent 44%),
+      hsl(235 15% 6% / 0.98);
+  }
+
+  .mentor-speech-bubble[data-source="market"] {
+    border-color: hsl(185 72% 48% / 0.52);
+  }
+
+  .mentor-speech-bubble[data-source="warning"] {
+    border-color: hsl(28 88% 54% / 0.64);
+    background:
+      linear-gradient(105deg, hsl(18 78% 38% / 0.14), transparent 44%),
+      hsl(235 15% 6% / 0.98);
   }
 
   .mentor-speech-bubble::after {
@@ -804,20 +930,27 @@
     text-transform: uppercase;
   }
 
-  .mentor-floating-mascot[data-state="thinking"] .mentor-robot__eyes > span {
-    background: hsl(195 95% 68%);
-    box-shadow: 0 0 0.8rem hsl(195 95% 58% / 0.85);
-    animation: mentor-robot-scan 0.75s ease-in-out infinite alternate;
+  .mentor-floating-mascot__beacon {
+    position: absolute;
+    z-index: 5;
+    top: 0.48rem;
+    right: 0.5rem;
+    display: none;
+    width: 0.58rem;
+    height: 0.58rem;
+    border: 1px solid hsl(235 14% 5%);
+    border-radius: 9999px;
+    background: hsl(42 94% 57%);
+    box-shadow: 0 0 0 0 hsl(42 92% 55% / 0.55);
   }
 
-  .mentor-floating-mascot[data-state="ai"] .mentor-robot__mouth {
-    height: 3px;
-    box-shadow: 0 0 0.6rem hsl(195 90% 58% / 0.55);
+  .mentor-floating-mascot[data-attention="true"] .mentor-floating-mascot__beacon {
+    display: block;
+    animation: mentor-beacon 1.4s ease-out infinite;
   }
 
-  .mentor-floating-mascot[data-state="error"] .mentor-robot__eyes > span {
-    background: hsl(5 86% 66%);
-    box-shadow: 0 0 0.7rem hsl(5 86% 58% / 0.78);
+  .mentor-floating-mascot[data-attention="true"] .mentor-robot {
+    animation: mentor-robot-notice 0.8s ease-out both, mentor-robot-hover 3.4s 0.8s ease-in-out infinite;
   }
 
   @media (max-width: 480px) {
@@ -1073,6 +1206,69 @@
   }
 }
 
+@keyframes mentor-signal-pulse {
+  from {
+    opacity: 0.58;
+    transform: translateX(-50%) scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.08);
+  }
+}
+
+@keyframes mentor-orbit-scan {
+  from {
+    transform: translate(-50%, -50%) rotate(-12deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(348deg);
+  }
+}
+
+@keyframes mentor-core-pulse {
+  from {
+    opacity: 0.58;
+    transform: scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes mentor-robot-talk {
+  from {
+    height: 2px;
+    opacity: 0.62;
+  }
+  to {
+    height: 0.42rem;
+    opacity: 1;
+  }
+}
+
+@keyframes mentor-beacon {
+  0% {
+    box-shadow: 0 0 0 0 hsl(42 92% 55% / 0.55);
+  }
+  75%, 100% {
+    box-shadow: 0 0 0 0.52rem hsl(42 92% 55% / 0);
+  }
+}
+
+@keyframes mentor-robot-notice {
+  0%, 100% {
+    transform: translateY(0) rotate(0);
+  }
+  28% {
+    transform: translateY(-4px) rotate(-2deg);
+  }
+  58% {
+    transform: translateY(-2px) rotate(2deg);
+  }
+}
+
 @keyframes mentor-speech-enter {
   from {
     opacity: 0;
@@ -1087,7 +1283,12 @@
 @media (prefers-reduced-motion: reduce) {
   .ai-dot,
   .mentor-robot,
+  .mentor-robot__orbit,
+  .mentor-robot__antenna > span,
+  .mentor-robot__core,
+  .mentor-robot__mouth > span,
   .mentor-robot__eyes > span,
+  .mentor-floating-mascot__beacon,
   .mentor-speech-bubble {
     animation: none;
   }

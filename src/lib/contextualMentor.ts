@@ -6,7 +6,11 @@ import {
 import type { MentorIntent } from "@shared/mentorQuery.js";
 import type { MentorCraftingState } from "@shared/mentorContext.js";
 import type { CoachFocus } from "@shared/craftingFocus.js";
-import type { CoachBaseAssessmentStatus, CoachRollMinimum } from "@shared/craftingCoach.js";
+import type {
+  CoachBaseAssessmentStatus,
+  CoachGoalIntent,
+  CoachRollMinimum,
+} from "@shared/craftingCoach.js";
 import { OBSERVED_CRAFTING_ACTIONS } from "@shared/craftingActions.js";
 import { craftingBuildIntentLabel } from "@shared/craftingBuildIntent.js";
 import { CURRENCY_LABELS, GOAL_LABELS, SLOT_LABELS } from "./format.js";
@@ -37,6 +41,13 @@ export type ContextualMentorEvent =
   | { type: "workspace"; workspace: "expediente" | "plan" | "crafting" }
   | { type: "item"; item: Item }
   | { type: "craftingItem"; item: Item }
+  | {
+      type: "craftingCoachProject";
+      itemName: string;
+      playerGoal: string;
+      intent: Exclude<CoachGoalIntent, "incremental">;
+      reason: string;
+    }
   | {
       type: "craftingCoachDirection";
       itemName: string;
@@ -207,6 +218,17 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
           question: `Estoy preparando ${name} para crafting. ¿Por qué está relacionada con mi prioridad y qué debo comprobar antes de gastar?`,
           intent: "explain_priority",
         },
+      };
+    }
+    case "craftingCoachProject": {
+      const unique = event.intent === "unique-acquisition";
+      return {
+        id: `crafting-project-gate:${event.intent}:${event.itemName}:${event.playerGoal}`,
+        source: "warning",
+        eyebrow: unique ? "Objeto único detectado" : "Proyecto endgame detectado",
+        title: unique ? "No gastes en esta pieza todavía" : "Define el proyecto completo",
+        message: event.reason,
+        ask: null,
       };
     }
     case "craftingCoachDirection": {

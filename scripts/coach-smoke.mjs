@@ -591,6 +591,90 @@ async function runFlow(mode, port) {
       palabras <= 90,
     );
 
+    // Regresión del caso real: pedir una única de endgame no puede degradarse
+    // a «elige daño o defensa» ni declarar terminada la pieza por un afijo.
+    await page
+      .getByTestId("coach-objetivo-texto")
+      .fill(
+        "quiero una ballesta única para mi mercenario kalguurano que tenga bonificadores tochisimos para endgame",
+      );
+    await page.getByTestId("coach-interpretar-objetivo").click();
+    const projectIntent = page.getByTestId("coach-intencion-proyecto");
+    await projectIntent.waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] una única de endgame abre búsqueda/comparación y bloquea el gasto incremental`,
+      (await projectIntent.getAttribute("data-intent")) === "unique-acquisition" &&
+        (await projectIntent.innerText()).includes("No gastes en esta pieza") &&
+        (await page.getByTestId("coach-unico-ir-mercado").isVisible()) &&
+        (await page.getByTestId("coach-unico-cambiar-rara").isVisible()) &&
+        (await page.getByTestId("coach-recomendacion").count()) === 0,
+    );
+    const projectBubble = page.getByTestId("mentor-speech-bubble");
+    await projectBubble.waitFor({ state: "visible", timeout: 10000 });
+    check(
+      `[${mode}] la mascota anuncia automáticamente que no debe gastar`,
+      (await projectBubble.getAttribute("data-source")) === "warning" &&
+        (await projectBubble.innerText()).includes("No gastes en esta pieza"),
+    );
+    await page.getByTestId("mentor-speech-dismiss").click();
+    await page.getByTestId("coach-unico-ir-mercado").click();
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="tab-plan"]')?.getAttribute("data-state") === "active",
+      undefined,
+      { timeout: 10000 },
+    );
+    check(
+      `[${mode}] la ruta de objeto único lleva a Plan y mercado`,
+      (await page.getByTestId("tab-plan").getAttribute("data-state")) === "active",
+    );
+    await irA(page, "crafting");
+
+    // El objetivo no puede perderse ni abrir el panel técnico equivocado al
+    // convertir la petición de un único en un proyecto raro de endgame.
+    await page.evaluate((profileId) => {
+      const prefix = `exile-copilot:crafting-project:v1:${profileId}:`;
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith(prefix)) localStorage.removeItem(key);
+      }
+    }, profile.id);
+    await page.getByTestId("coach-unico-cambiar-rara").click();
+    await page.getByTestId("coach-endgame-preparar").click();
+    await page.getByTestId("crafting-laboratory-status").waitFor({ timeout: 10000 });
+    await page.waitForFunction(
+      ({ profileId, objective }) => {
+        const prefix = `exile-copilot:crafting-project:v1:${profileId}:`;
+        const key = Object.keys(localStorage).find((candidate) => candidate.startsWith(prefix));
+        return key ? (localStorage.getItem(key) ?? "").includes(objective) : false;
+      },
+      {
+        profileId: profile.id,
+        objective: "Quiero crear una pieza rara de endgame",
+      },
+      { timeout: 10000 },
+    );
+    const transferredProject = await page.evaluate((profileId) => {
+      const prefix = `exile-copilot:crafting-project:v1:${profileId}:`;
+      const key = Object.keys(localStorage).find((candidate) => candidate.startsWith(prefix));
+      return key ? localStorage.getItem(key) ?? "" : "";
+    }, profile.id);
+    const endgameTransferEvidence = {
+      mode:
+        (await page.getByTestId("crafting-mode-chooser").getAttribute("data-mode")) ===
+        "laboratory",
+      objective: transferredProject.includes("Quiero crear una pieza rara de endgame"),
+      basicToolsHidden:
+        (await page.getByTestId("crafting-avanzado-toggle").isVisible()) === false,
+    };
+    check(
+      `[${mode}] el objetivo endgame abre el Taller y llega escrito al contrato`,
+      Object.values(endgameTransferEvidence).every(Boolean),
+    );
+    if (!Object.values(endgameTransferEvidence).every(Boolean)) {
+      console.error(`[${mode}] evidencia del salto endgame: ${JSON.stringify(endgameTransferEvidence)}`);
+    }
+    await page.getByTestId("crafting-mode-coach").click();
+    await page.getByTestId("crafting-coach").waitFor({ timeout: 10000 });
+
     // El jugador puede describir la build sin conocer la taxonomía interna.
     await page
       .getByTestId("coach-objetivo-texto")
@@ -728,15 +812,19 @@ async function runFlow(mode, port) {
     const speechBubble = page.getByTestId("mentor-speech-bubble");
     await speechBubble.waitFor({ state: "visible", timeout: 10000 });
     check(
-      `[${mode}] la mascota anuncia el resultado automáticamente sin pedir otra consulta`,
+      `[${mode}] la Mascota v2 anuncia el resultado y marca una novedad sin pedir otra consulta`,
       (await speechBubble.getAttribute("data-cue-id"))?.startsWith("crafting-result:") === true &&
+        (await speechBubble.getAttribute("data-source")) === "engine" &&
         (await speechBubble.innerText()).includes("Paso 1 de 2") &&
+        (await page.getByTestId("mentor-mascota").getAttribute("data-version")) === "2" &&
+        (await page.getByTestId("mentor-mascota").getAttribute("data-attention")) === "true" &&
         (await page.getByTestId("mentor-contextual").getAttribute("data-collapsed")) === "true",
     );
     await page.getByTestId("mentor-speech-open").click();
     check(
       `[${mode}] pulsar el bocadillo abre la explicación completa`,
       (await page.getByTestId("mentor-contextual").getAttribute("data-collapsed")) === "false" &&
+        (await page.getByTestId("mentor-mascota").getAttribute("data-attention")) === "false" &&
         (await page.getByTestId("mentor-contextual-mensaje").isVisible()),
     );
     await page.getByTestId("mentor-contextual-plegar").click();

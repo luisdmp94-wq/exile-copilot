@@ -61,6 +61,17 @@ import {
 
 export type CoachDirection = "damage" | "defence";
 
+/**
+ * Alcance real de lo que el jugador está pidiendo. Una mejora incremental se
+ * puede resolver con el recorrido de una moneda cada vez. Un único o una pieza
+ * de endgame son proyectos distintos y nunca deben degradarse silenciosamente
+ * a «elige daño o defensa».
+ */
+export type CoachGoalIntent =
+  | "incremental"
+  | "unique-acquisition"
+  | "endgame-project";
+
 const RARITY_WORD: Partial<Record<ItemRarity, string>> = {
   normal: "normal",
   magic: "mágico",
@@ -159,6 +170,7 @@ export interface CoachDirectionGuess {
 }
 
 export interface CoachGoalInterpretation {
+  intent: CoachGoalIntent;
   direction: CoachDirection | null;
   /** Objetivo observable exacto. null = «daño/defensa» aún es demasiado amplio. */
   focus: CoachFocus | null;
@@ -324,12 +336,35 @@ export function interpretCoachGoal(
   const protections = matchProtectedModifiers(requested, item);
   if (normalized === "") {
     return {
+      intent: "incremental",
       direction: null,
       focus: null,
       reason: "Cuéntame qué te gustaría conseguir con esta pieza.",
       ...protections,
     };
   }
+
+  const asksForUnique = /\b(?:unic[oa]s?|unique)\b/.test(primary);
+  const asksForEndgame =
+    /\b(?:endgame|definitiv[oa]s?|perfect[oa]s?|bis|best in slot|mirror(?: tier)?|god(?: tier)?|toch[a-z]*)\b/.test(
+      primary,
+    );
+
+  // Buscar o evaluar un único no es el mismo problema que mejorar el objeto
+  // abierto. La interfaz debe sacar al jugador del bucle de monedas antes de
+  // preguntarle por una estadística.
+  if (asksForUnique) {
+    return {
+      intent: "unique-acquisition",
+      direction: null,
+      focus: null,
+      reason:
+        "Has pedido un objeto único, no una mejora incremental de esta pieza. Primero necesito saber qué único concreto buscas y compararlo con tu personaje; no gastes monedas en esta pieza por inercia.",
+      ...protections,
+    };
+  }
+
+  const intent: CoachGoalIntent = asksForEndgame ? "endgame-project" : "incremental";
 
   const damage = DAMAGE_GOAL_WORDS.some((word) => primary.includes(word));
   const defence = DEFENCE_GOAL_WORDS.some((word) => primary.includes(word));
@@ -340,6 +375,7 @@ export function interpretCoachGoal(
 
   if (asksForDamage && asksForDefence) {
     return {
+      intent,
       direction: null,
       focus: null,
       reason: "Veo un objetivo de daño y otro de defensa. Elige cuál quieres trabajar primero.",
@@ -349,6 +385,7 @@ export function interpretCoachGoal(
   if (asksForDamage) {
     const focus = explicitFocus;
     return {
+      intent,
       direction: "damage",
       focus,
       reason: focus === null
@@ -360,6 +397,7 @@ export function interpretCoachGoal(
   if (asksForDefence) {
     const focus = explicitFocus;
     return {
+      intent,
       direction: "defence",
       focus,
       reason: focus === null
@@ -369,10 +407,13 @@ export function interpretCoachGoal(
     };
   }
   return {
+    intent,
     direction: null,
     focus: null,
     reason:
-      "Entiendo tus palabras, pero no puedo convertirlas con seguridad en una dirección de crafting. Aclaremos primero si buscas daño o defensa.",
+      intent === "endgame-project"
+        ? "Has pedido un proyecto de endgame. Un afijo que coincida no basta para darlo por terminado: necesito el personaje, la pieza equipada, el presupuesto y la lista completa de requisitos."
+        : "Entiendo tus palabras, pero no puedo convertirlas con seguridad en una dirección de crafting. Aclaremos primero si buscas daño o defensa.",
     ...protections,
   };
 }
@@ -800,6 +841,30 @@ function stopForSatisfiedGoal(
   };
 }
 
+function stopForProjectDefinition(
+  item: Item,
+  intent: Exclude<CoachGoalIntent, "incremental">,
+): Extract<CoachNextStep, { kind: "stop" }> {
+  const unique = intent === "unique-acquisition";
+  return {
+    kind: "stop",
+    legality: "blocked",
+    headline: unique ? "Primero identifica el único" : "Primero define el proyecto completo",
+    instruction: unique
+      ? `No gastes monedas en «${item.name || item.baseType}» para perseguir un único sin identificarlo y compararlo.`
+      : `No declares terminada «${item.name || item.baseType}» por un solo afijo; define antes todos los requisitos de la pieza de endgame.`,
+    why: unique
+      ? "Buscar o evaluar un objeto único no es una mejora incremental de la pieza abierta."
+      : "Una pieza de endgame se juzga como conjunto y contra el personaje, no por compartir una sola etiqueta.",
+    needsAdvancedTools: !unique,
+    evidence: [
+      unique
+        ? "El objetivo escrito pide rareza única."
+        : "El objetivo escrito pide una pieza de endgame o definitiva.",
+    ],
+  };
+}
+
 /**
  * Añade propósito a la legalidad sin inventar pools ni probabilidades.
  * `chooseNextStep` sigue siendo la autoridad sobre qué moneda puede usarse;
@@ -812,6 +877,7 @@ export function assessPurposefulCraftBase(input: {
   focus: CoachFocus | null;
   profile: CharacterProfile | null;
   rollMinimum?: CoachRollMinimum;
+  goalIntent?: CoachGoalIntent;
 }): CoachBaseAssessment {
   const {
     item,
@@ -819,6 +885,7 @@ export function assessPurposefulCraftBase(input: {
     focus,
     profile,
     rollMinimum = "middle",
+    goalIntent = "incremental",
   } = input;
   const structuralStep = chooseNextStep(item, direction);
   const hasCharacter = hasCraftingCharacterContext(profile);
@@ -838,6 +905,24 @@ export function assessPurposefulCraftBase(input: {
     : hasCharacter
       ? `${profile?.name ?? "Tu personaje"} está cargado; esta pieza no está equipada.`
       : "Sin expediente: usaré solo el objetivo que has escrito.";
+
+  if (goalIntent !== "incremental") {
+    const unique = goalIntent === "unique-acquisition";
+    return {
+      status: "needs-data",
+      title: unique ? "Esto no es un craft incremental" : "Esto es un proyecto de endgame",
+      summary: unique
+        ? "Primero identifica el objeto único y compáralo con el personaje. La pieza abierta no demuestra ese destino."
+        : "Un afijo coincidente no demuestra que el arma esté terminada. Hace falta contrastar la pieza completa con el personaje, su arma actual, el presupuesto y todos los requisitos declarados.",
+      characterContext,
+      characterLabel,
+      targetLabel: unique
+        ? "Falta el único concreto y su comparación."
+        : "Falta el contrato completo de la pieza de endgame.",
+      decisionLabel: unique ? "Ir a búsqueda y comparación." : "Abrir el Taller avanzado.",
+      nextStep: stopForProjectDefinition(item, goalIntent),
+    };
+  }
 
   if (focus === null || direction === null) {
     return {

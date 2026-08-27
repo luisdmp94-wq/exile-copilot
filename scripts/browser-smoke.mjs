@@ -223,6 +223,16 @@ async function runFlow(mode, port) {
         (await runtimeBadge.getAttribute("data-mode")) === expectedMentorMode &&
         (await runtimeBadge.innerText()).includes(expectedMentorLabel),
     );
+    const musicToggle = page.getByTestId("experimental-music-toggle");
+    const musicFrame = page.getByTestId("experimental-music-frame");
+    check(
+      `[${mode}] la música experimental no conecta por sí sola y solo existe en desarrollo`,
+      mode === "dev"
+        ? (await musicToggle.count()) === 1 &&
+            (await musicToggle.getAttribute("aria-expanded")) === "false" &&
+            (await musicFrame.count()) === 0
+        : (await musicToggle.count()) === 0 && (await musicFrame.count()) === 0,
+    );
     await page.getByTestId("privacidad-abrir").click();
     const privacyDialog = page.getByTestId("privacidad-dialogo");
     await privacyDialog.waitFor({ timeout: 10000 });
@@ -348,8 +358,10 @@ async function runFlow(mode, port) {
     const contextualMentor = page.getByTestId("mentor-contextual");
     const mentorMascot = page.getByTestId("mentor-mascota");
     check(
-      `[${mode}] mentor contextual empieza como mascota sin panel`,
-      (await contextualMentor.getAttribute("data-collapsed")) === "true" &&
+      `[${mode}] mentor contextual empieza como Mascota v2 sin panel`,
+      (await contextualMentor.getAttribute("data-version")) === "2" &&
+        (await mentorMascot.getAttribute("data-version")) === "2" &&
+        (await contextualMentor.getAttribute("data-collapsed")) === "true" &&
         (await mentorMascot.getAttribute("aria-expanded")) === "false" &&
         !(await page.getByTestId("mentor-contextual-mensaje").isVisible()),
     );

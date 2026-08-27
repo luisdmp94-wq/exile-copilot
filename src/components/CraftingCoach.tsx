@@ -21,6 +21,7 @@ import {
   suggestCraftingFocusFromContext,
   type CoachDirection,
   type CoachGoalInterpretation,
+  type CoachGoalIntent,
   type CoachNextStep,
   type CoachRollMinimum,
 } from "@shared/craftingCoach.js";
@@ -116,8 +117,17 @@ interface CraftingCoachProps {
   onSelectItem: (itemId: string) => void;
   /** Abre el pegado de objeto ya existente; el guía no duplica el formulario. */
   onPasteItem: () => void;
-  /** Lleva al banco avanzado cuando la única vía exige reemplazar. */
+  /** Despliega las herramientas técnicas sin abandonar Ayuda en vivo. */
   onOpenAdvanced: () => void;
+  /**
+   * Abre el Taller avanzado. Si el jugador ya explicó su objetivo, lo entrega
+   * como borrador para no obligarle a escribirlo otra vez.
+   */
+  onOpenLaboratory: (draftObjective?: string) => void;
+  /** Abre el expediente completo cuando falta contexto del personaje. */
+  onOpenCharacter: () => void;
+  /** Lleva a búsqueda y comparación cuando el objetivo real es un único. */
+  onOpenPlanMarket: () => void;
   /** El banco abierto ya muestra este mismo aviso junto a los controles bloqueados. */
   showInitialRepairBanner?: boolean;
   onMentorContext?: (event: ContextualMentorEvent) => void;
@@ -437,12 +447,16 @@ export function CraftingCoach({
   onSelectItem,
   onPasteItem,
   onOpenAdvanced,
+  onOpenLaboratory,
+  onOpenCharacter,
+  onOpenPlanMarket,
   showInitialRepairBanner = true,
   onMentorContext,
 }: CraftingCoachProps) {
   const [direction, setDirection] = useState<CoachDirection | null>(null);
   const [focus, setFocus] = useState<CoachFocus | null>(null);
   const [goalText, setGoalText] = useState("");
+  const [goalIntent, setGoalIntent] = useState<CoachGoalIntent>("incremental");
   const [directionChosen, setDirectionChosen] = useState(false);
   const [directionNote, setDirectionNote] = useState<string | null>(null);
   const [protectedModifiers, setProtectedModifiers] = useState<
@@ -507,6 +521,7 @@ export function CraftingCoach({
     setDirection(null);
     setFocus(null);
     setGoalText("");
+    setGoalIntent("incremental");
     setDirectionChosen(false);
     setDirectionNote(null);
     setProtectedModifiers([]);
@@ -589,6 +604,7 @@ export function CraftingCoach({
     focus,
     profile,
     rollMinimum,
+    goalIntent,
   });
   const step = directionChosen && focus !== null
     ? baseAssessment.nextStep
@@ -632,6 +648,7 @@ export function CraftingCoach({
     playerGoal = goalText.trim(),
     protections = protectedModifiers,
     unresolved = unresolvedProtections,
+    nextGoalIntent: CoachGoalIntent = "incremental",
   ) => {
     const nextAssessment = assessPurposefulCraftBase({
       item: activeItem,
@@ -639,10 +656,12 @@ export function CraftingCoach({
       focus: nextFocus,
       profile,
       rollMinimum,
+      goalIntent: nextGoalIntent,
     });
     const nextStep = nextAssessment.nextStep;
     setDirection(next);
     setFocus(nextFocus);
+    setGoalIntent(nextGoalIntent);
     setDirectionNote(note);
     setProtectedModifiers(protections);
     setUnresolvedProtections(unresolved);
@@ -678,6 +697,23 @@ export function CraftingCoach({
 
   const submitGoal = () => {
     const interpretation = interpretCoachGoal(goalText, activeItem);
+    setGoalIntent(interpretation.intent);
+    if (interpretation.intent !== "incremental") {
+      setDirection(interpretation.direction);
+      setFocus(interpretation.focus);
+      setDirectionNote(interpretation.reason);
+      setProtectedModifiers(interpretation.protectedModifiers);
+      setUnresolvedProtections(interpretation.unresolvedProtections);
+      setNoEvidence(true);
+      onMentorContext?.({
+        type: "craftingCoachProject",
+        itemName: activeItem.name || activeItem.baseType,
+        playerGoal: goalText.trim(),
+        intent: interpretation.intent,
+        reason: interpretation.reason,
+      });
+      return;
+    }
     if (interpretation.direction !== null && interpretation.focus !== null) {
       chooseDirection(
         interpretation.direction,
@@ -699,6 +735,7 @@ export function CraftingCoach({
 
   const requestFocus = (next: CoachDirection, playerGoal: string, note: string) => {
     setGoalText(playerGoal);
+    setGoalIntent("incremental");
     setDirection(next);
     setFocus(null);
     setDirectionNote(note);
@@ -711,12 +748,22 @@ export function CraftingCoach({
       : "defence";
     const playerGoal = `Quiero mejorar ${COACH_FOCUS_LABELS[nextFocus]}`;
     setGoalText(playerGoal);
+    setGoalIntent("incremental");
     chooseDirection(
       nextDirection,
       nextFocus,
       `Objetivo principal: ${COACH_FOCUS_LABELS[nextFocus]}.`,
       playerGoal,
     );
+  };
+
+  const switchToIncremental = () => {
+    setGoalText("Quiero mejorar esta pieza");
+    setGoalIntent("incremental");
+    setDirection(null);
+    setFocus(null);
+    setDirectionNote("Perfecto: ahora elige una sola mejora observable para esta pieza.");
+    setNoEvidence(true);
   };
 
   const updateContract = (
@@ -1011,6 +1058,7 @@ export function CraftingCoach({
                 maxLength={240}
                 onChange={(event) => {
                   setGoalText(event.target.value);
+                  setGoalIntent("incremental");
                   setDirection(null);
                   setFocus(null);
                   setNoEvidence(false);
@@ -1103,7 +1151,101 @@ export function CraftingCoach({
                   }}
                 />
               </div>
-              {noEvidence && (
+              {noEvidence && goalIntent !== "incremental" && (
+                <div
+                  className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/[0.07] p-3"
+                  data-testid="coach-intencion-proyecto"
+                  data-intent={goalIntent}
+                  role="status"
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-300">
+                    {goalIntent === "unique-acquisition" ? "Objetivo detectado · objeto único" : "Objetivo detectado · proyecto endgame"}
+                  </p>
+                  <h4 className="mt-1 text-base font-semibold text-foreground">
+                    {goalIntent === "unique-acquisition"
+                      ? "No gastes en esta pieza todavía"
+                      : "Un afijo no define una pieza de endgame"}
+                  </h4>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {directionNote}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {goalIntent === "unique-acquisition" ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={onOpenPlanMarket}
+                          data-testid="coach-unico-ir-mercado"
+                        >
+                          Ir a Plan y mercado
+                          <ArrowRight className="size-4" aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setGoalText("Quiero crear una pieza rara de endgame");
+                            setGoalIntent("endgame-project");
+                            setDirection(null);
+                            setFocus(null);
+                            setDirectionNote(
+                              "Perfecto: una rara de endgame necesita el personaje, la pieza equipada, presupuesto y requisitos completos antes de elegir monedas.",
+                            );
+                          }}
+                          data-testid="coach-unico-cambiar-rara"
+                        >
+                          Crear una rara de endgame
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            onOpenLaboratory(goalText.trim());
+                          }}
+                          data-testid="coach-endgame-preparar"
+                        >
+                          Abrir Taller avanzado
+                          <ArrowRight className="size-4" aria-hidden="true" />
+                        </Button>
+                        {!hasCraftingCharacterContext(profile) && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={onOpenCharacter}
+                          >
+                            Añadir personaje y equipo
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={hasCraftingCharacterContext(profile) ? "outline" : "ghost"}
+                          onClick={onOpenPlanMarket}
+                          data-testid="coach-endgame-revisar-plan"
+                        >
+                          Revisar plan y mercado
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={switchToIncremental}
+                      data-testid="coach-cambiar-incremental"
+                    >
+                      Solo mejorar esta pieza
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {noEvidence && goalIntent === "incremental" && (
                 <div
                   className="mt-3 rounded-md border border-border bg-muted/[0.06] p-3"
                   data-testid="coach-sin-evidencia"

@@ -53,6 +53,17 @@ Groq. Solo «Analizar este contexto» consulta al modelo opcional.
 - Si el validador detecta una cifra, id o afirmación fuera del contexto, desecha
   toda la redacción y responde con el respaldo seguro de reglas.
 
+## Mascota v2: presencia y avisos sin ruido
+
+- Es la representación visual del mismo Mentor v3; no tiene un segundo motor ni
+  realiza consultas automáticas al proveedor de IA.
+- Distingue reposo, análisis, respuesta IA, advertencia y error mediante rostro,
+  señal y movimiento, respetando `prefers-reduced-motion`.
+- Muestra un aviso breve únicamente ante cambios semánticos: un resultado de
+  crafting, una prioridad nueva, una sesión, una acción registrada o un bloqueo.
+- Abrir el aviso muestra la explicación canónica ya disponible. Preguntar a la
+  IA sigue requiriendo una acción explícita del jugador.
+
 ## Límites de seguridad y coste
 
 - `MENTOR_AI_ENABLED=false` por defecto: cero llamadas y cero coste.

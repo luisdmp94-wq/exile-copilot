@@ -214,6 +214,11 @@ export interface CraftingActionPlannerProps {
   onMentorContext?: (event: ContextualMentorEvent) => void;
   /** Presenta el mismo motor como un recorrido experto explícito. */
   experience?: "bank" | "laboratory";
+  /**
+   * Objetivo procedente de Ayuda en vivo. Solo inicia un proyecto vacío; un
+   * contrato ya guardado para esta pieza siempre tiene prioridad.
+   */
+  initialDesiredOutcome?: string;
   /** Bases importadas que pueden contrastarse sin salir del proyecto avanzado. */
   candidateItems?: readonly Item[];
   onSelectCandidate?: (itemId: string) => void;
@@ -236,6 +241,7 @@ export function CraftingActionPlanner({
   onStarted,
   onMentorContext,
   experience = "bank",
+  initialDesiredOutcome = "",
   candidateItems = [],
   onSelectCandidate,
   onAddCandidate,
@@ -254,7 +260,9 @@ export function CraftingActionPlanner({
   const [preparedActionId, setPreparedActionId] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] =
     useState<CraftingCurrencyVariant["id"]>("base");
-  const [desiredOutcome, setDesiredOutcome] = useState(laboratoryProject.desiredOutcome);
+  const seededDesiredOutcome =
+    laboratoryProject.desiredOutcome.trim() || initialDesiredOutcome.trim();
+  const [desiredOutcome, setDesiredOutcome] = useState(seededDesiredOutcome);
   const [goalCategory, setGoalCategory] = useState<CraftingGoalCategory>(laboratoryProject.goalCategory);
   const [protectedModifierIds, setProtectedModifierIds] = useProtectedModifiers(
     item,
@@ -271,7 +279,7 @@ export function CraftingActionPlanner({
   const [showReplacementRisk, setShowReplacementRisk] = useState(false);
   const [protectionOpen, setProtectionOpen] = useState(false);
   const initialLaboratoryObjective =
-    (laboratoryProject.desiredOutcome.trim() ||
+    (seededDesiredOutcome ||
       (laboratoryProject.goalCategory === "other"
         ? ""
         : CRAFTING_GOAL_LABELS[laboratoryProject.goalCategory])).length >= 3;

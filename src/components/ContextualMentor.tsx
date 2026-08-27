@@ -23,6 +23,8 @@ interface ContextualMentorProps {
   placement?: "floating" | "inline";
 }
 
+type MascotVisualState = "ready" | "thinking" | "ai" | "warning" | "error";
+
 const SOURCE_STYLES: Record<ContextualMentorCue["source"], string> = {
   guide: "border-primary/45 bg-primary/10 text-primary",
   engine: "border-sky-400/40 bg-sky-400/10 text-sky-200",
@@ -38,6 +40,68 @@ function answerLabel(answer: MentorAnswer): string {
   return "Respuesta del motor";
 }
 
+function mascotVisualState(
+  cue: ContextualMentorCue,
+  answer: MentorAnswer | null,
+  loading: boolean,
+  error: string | null,
+  blockedReason: string | null,
+): MascotVisualState {
+  if (loading) return "thinking";
+  if (error !== null || blockedReason !== null) return "error";
+  if (cue.source === "warning") return "warning";
+  if (answer?.responseMode === "ai") return "ai";
+  return "ready";
+}
+
+function mascotStatusLabel(state: MascotVisualState): string {
+  if (state === "thinking") return "Pensando";
+  if (state === "ai") return "IA lista";
+  if (state === "warning" || state === "error") return "Atención";
+  return "Copiloto";
+}
+
+function MentorRobot({
+  state,
+  source,
+}: {
+  state: MascotVisualState;
+  source: ContextualMentorCue["source"];
+}) {
+  return (
+    <span
+      className="mentor-robot"
+      data-state={state}
+      data-source={source}
+      aria-hidden="true"
+    >
+      <span className="mentor-robot__orbit mentor-robot__orbit--outer" />
+      <span className="mentor-robot__orbit mentor-robot__orbit--inner" />
+      <span className="mentor-robot__antenna">
+        <span />
+      </span>
+      <span className="mentor-robot__head">
+        <span className="mentor-robot__temple mentor-robot__temple--left" />
+        <span className="mentor-robot__temple mentor-robot__temple--right" />
+        <span className="mentor-robot__eyes">
+          <span />
+          <span />
+        </span>
+        <span className="mentor-robot__mouth">
+          <span />
+          <span />
+          <span />
+        </span>
+      </span>
+      <span className="mentor-robot__body">
+        <Bot className="size-5" />
+        <span className="mentor-robot__core" />
+      </span>
+      <span className="mentor-robot__shadow" />
+    </span>
+  );
+}
+
 function shouldSpeakAutomatically(
   cue: ContextualMentorCue,
   error: string | null,
@@ -46,6 +110,11 @@ function shouldSpeakAutomatically(
   return (
     cue.id.startsWith("crafting-result:") ||
     cue.id.startsWith("crafting-coach:") ||
+    cue.id.startsWith("recommendations:") ||
+    cue.id.startsWith("tracked:") ||
+    cue.id.startsWith("session:") ||
+    cue.id.startsWith("session-result:") ||
+    cue.id.startsWith("applied:") ||
     cue.source === "warning" ||
     error !== null ||
     blockedReason !== null
@@ -78,6 +147,8 @@ export function ContextualMentor({
     collapsed &&
     shouldSpeakAutomatically(cue, error, blockedReason) &&
     dismissedSpeechKey !== speechKey;
+  const visualState = mascotVisualState(cue, answer, loading, error, blockedReason);
+  const visualStatus = mascotStatusLabel(visualState);
 
   useEffect(() => {
     if (!loading) requestLockedRef.current = false;
@@ -174,6 +245,11 @@ export function ContextualMentor({
     onCollapsedChange(false);
   };
 
+  const toggleFloatingMentor = () => {
+    if (collapsed) setDismissedSpeechKey(speechKey);
+    onCollapsedChange(!collapsed);
+  };
+
   return (
     <aside
       ref={shellRef}
@@ -185,6 +261,7 @@ export function ContextualMentor({
       aria-label="Mentor contextual"
       data-testid="mentor-contextual"
       data-placement={placement}
+      data-version="2"
       data-collapsed={contentCollapsed ? "true" : "false"}
       data-speaking={speechVisible ? "true" : "false"}
     >
@@ -195,6 +272,7 @@ export function ContextualMentor({
           aria-live="polite"
           data-testid="mentor-speech-bubble"
           data-cue-id={cue.id}
+          data-source={cue.source}
         >
           <button
             type="button"
@@ -224,29 +302,27 @@ export function ContextualMentor({
         <button
           type="button"
           className="mentor-floating-mascot"
-          data-state={loading ? "thinking" : error ? "error" : answer?.responseMode === "ai" ? "ai" : "ready"}
-          onClick={() => onCollapsedChange(!collapsed)}
+          data-version="2"
+          data-state={visualState}
+          data-source={cue.source}
+          data-attention={speechVisible ? "true" : "false"}
+          onClick={toggleFloatingMentor}
           aria-label={collapsed ? "Abrir mentor contextual" : "Cerrar mentor contextual"}
           aria-expanded={!collapsed}
-          title={collapsed ? "Abrir mentor" : "Cerrar mentor"}
+          title={
+            collapsed && speechVisible
+              ? `${cue.title}. Abrir explicación`
+              : collapsed
+                ? "Abrir mentor"
+                : "Cerrar mentor"
+          }
           data-testid="mentor-mascota"
         >
-          <span className="mentor-robot" aria-hidden="true">
-            <span className="mentor-robot__antenna">
-              <span />
-            </span>
-            <span className="mentor-robot__head">
-              <span className="mentor-robot__eyes">
-                <span />
-                <span />
-              </span>
-              <span className="mentor-robot__mouth" />
-            </span>
-            <span className="mentor-robot__body">
-              <Bot className="size-5" />
-            </span>
+          <MentorRobot state={visualState} source={cue.source} />
+          <span className="mentor-floating-mascot__beacon" aria-hidden="true" />
+          <span className="mentor-floating-mascot__hint">
+            {speechVisible ? "Nuevo" : loading ? "Pensando" : "Hablar"}
           </span>
-          <span className="mentor-floating-mascot__hint">Hablar</span>
         </button>
       )}
 
@@ -265,30 +341,18 @@ export function ContextualMentor({
           <button
             type="button"
             className="mentor-mascot"
-            data-state={loading ? "thinking" : error ? "error" : answer?.responseMode === "ai" ? "ai" : "ready"}
+            data-version="2"
+            data-state={visualState}
+            data-source={cue.source}
             onClick={onOpenMentor}
             aria-label="Abrir conversación con tu Copiloto"
             title="Hablar con tu Copiloto"
             data-testid="mentor-mascota"
           >
-            <span className="mentor-robot" aria-hidden="true">
-              <span className="mentor-robot__antenna">
-                <span />
-              </span>
-              <span className="mentor-robot__head">
-                <span className="mentor-robot__eyes">
-                  <span />
-                  <span />
-                </span>
-                <span className="mentor-robot__mouth" />
-              </span>
-              <span className="mentor-robot__body">
-                <Bot className="size-5" />
-              </span>
-            </span>
+            <MentorRobot state={visualState} source={cue.source} />
             <span className="mentor-mascot__status">
               <span className="ai-dot" aria-hidden="true" />
-              {loading ? "Pensando" : error ? "Alerta" : "Copiloto"}
+              {visualStatus}
             </span>
           </button>
         )}

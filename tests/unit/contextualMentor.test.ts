@@ -107,6 +107,21 @@ describe("mentor contextual", () => {
     });
   });
 
+  it("la mascota frena automáticamente un objetivo de único antes de recomendar monedas", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachProject",
+      itemName: "Ballesta grabada congelada de la lamprea",
+      playerGoal: "quiero una ballesta única para endgame",
+      intent: "unique-acquisition",
+      reason: "Has pedido un objeto único; no gastes monedas en esta pieza por inercia.",
+    });
+
+    expect(cue.source).toBe("warning");
+    expect(cue.title).toBe("No gastes en esta pieza todavía");
+    expect(cue.message).toContain("objeto único");
+    expect(cue.ask).toBeNull();
+  });
+
   it("si faltan datos no habla de gastar ni de aleatoriedad", () => {
     const cue = contextualMentorCue({
       type: "craftingCoachDirection",

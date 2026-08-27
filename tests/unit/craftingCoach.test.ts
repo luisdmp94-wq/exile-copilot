@@ -405,6 +405,7 @@ describe("guía de crafting — prioridades declaradas del plan", () => {
 describe("guía de crafting — objetivo escrito como jugador", () => {
   it("entiende objetivos habituales de daño sin convertirlos en una receta", () => {
     expect(interpretCoachGoal("Quiero que esta ballesta haga más daño físico")).toEqual({
+      intent: "incremental",
       direction: "damage",
       focus: "physical",
       reason: "He entendido que primero buscas daño físico.",
@@ -436,10 +437,23 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
     expect(result.reason).toContain("cuál quieres trabajar primero");
   });
 
-  it("no inventa una interpretación cuando el objetivo es demasiado abierto", () => {
+  it("separa un proyecto de endgame de una mejora incremental", () => {
     const result = interpretCoachGoal("Quiero crear el arma definitiva");
+    expect(result.intent).toBe("endgame-project");
     expect(result.direction).toBeNull();
-    expect(result.reason).toContain("no puedo convertirlas con seguridad");
+    expect(result.reason).toContain("proyecto de endgame");
+  });
+
+  it("detecta que pedir un único exige búsqueda y comparación, no una cadena de monedas", () => {
+    const result = interpretCoachGoal(
+      "quiero una ballesta única para mi mercenario kalguurano que tenga bonificadores tochisimos para endgame",
+    );
+
+    expect(result.intent).toBe("unique-acquisition");
+    expect(result.direction).toBeNull();
+    expect(result.focus).toBeNull();
+    expect(result.reason).toContain("objeto único");
+    expect(result.reason).toContain("no gastes monedas");
   });
 
   it("separa la prioridad de las líneas que el jugador pide conservar", () => {
@@ -531,6 +545,36 @@ describe("guía de crafting — evaluación de la base antes de gastar", () => {
     expect(assessment.status).toBe("already-satisfied");
     expect(assessment.nextStep.kind).toBe("stop");
     expect(assessment.decisionLabel).toBe("Parar y comparar.");
+  });
+
+  it("no confunde un afijo físico aislado con una pieza de endgame terminada", () => {
+    const item = pieza({
+      name: "Ballesta grabada congelada de la lamprea",
+      baseType: "Ballesta grabada congelada de la lamprea",
+      slot: "weapon",
+      rarity: "magic",
+      modifiers: [
+        mod("fisico", "Daño físico aumentado un 50%", "prefix", ["Daño", "Físico", "Ataque"]),
+        mod("vida", "Ganas 8 de vida por cada enemigo asesinado", "suffix", ["Vida"]),
+      ],
+    });
+    const assessment = assessPurposefulCraftBase({
+      item,
+      direction: "damage",
+      focus: "physical",
+      profile: null,
+      rollMinimum: "middle",
+      goalIntent: "endgame-project",
+    });
+
+    expect(assessment.status).toBe("needs-data");
+    expect(assessment.title).toContain("proyecto de endgame");
+    expect(assessment.decisionLabel).toBe("Abrir el Taller avanzado.");
+    expect(assessment.nextStep.kind).toBe("stop");
+    if (assessment.nextStep.kind !== "stop") {
+      throw new Error("El proyecto de endgame no quedó bloqueado");
+    }
+    expect(assessment.nextStep.headline).not.toContain("parada ya se cumple");
   });
 
   it("manda cambiar una base llena que no contiene el objetivo", () => {

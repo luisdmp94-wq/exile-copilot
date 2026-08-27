@@ -1443,6 +1443,8 @@ export default function App() {
                   requestedItemId={craftingRequestedItemId}
                   onSelectedItemChange={setCraftingRequestedItemId}
                   onEditExpediente={() => openEditor(false, "item")}
+                  onOpenCharacter={() => openEditor()}
+                  onOpenPlanMarket={() => navigateWorkspace("plan")}
                   onStartCraftingDecision={startCraftingDecision}
                   onStartEssenceDecision={startEssenceDecision}
                   onStartAlloyDecision={startAlloyDecision}
