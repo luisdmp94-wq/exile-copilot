@@ -567,56 +567,79 @@
     width: 4.35rem;
     height: 3.25rem;
     border: 1px solid hsl(42 75% 55% / 0.72);
+    border-radius: 0.92rem 0.92rem 0.72rem 0.72rem;
     background:
-      linear-gradient(145deg, hsl(42 70% 30% / 0.34), transparent 42%),
+      radial-gradient(circle at 50% 22%, hsl(42 78% 48% / 0.16), transparent 42%),
+      linear-gradient(145deg, hsl(42 70% 30% / 0.28), transparent 46%),
       hsl(235 14% 9%);
     box-shadow:
       inset 0 0 1rem hsl(42 90% 50% / 0.07),
       0 0 1rem hsl(42 80% 45% / 0.12);
     transform: translateX(-50%);
-    clip-path: polygon(10% 0, 90% 0, 100% 22%, 100% 78%, 88% 100%, 12% 100%, 0 78%, 0 22%);
   }
 
   .mentor-robot__temple {
     position: absolute;
-    top: 1.1rem;
-    width: 0.32rem;
-    height: 0.9rem;
+    top: 1.12rem;
+    width: 0.28rem;
+    height: 0.76rem;
     border: 1px solid hsl(42 72% 54% / 0.58);
+    border-radius: 9999px;
     background: hsl(235 14% 5%);
     box-shadow: 0 0 0.45rem hsl(42 85% 52% / 0.18);
   }
 
   .mentor-robot__temple--left {
-    left: 0.08rem;
+    left: 0.12rem;
   }
 
   .mentor-robot__temple--right {
-    right: 0.08rem;
+    right: 0.12rem;
+  }
+
+  .mentor-robot__visor {
+    position: absolute;
+    top: 0.62rem;
+    left: 50%;
+    width: 2.92rem;
+    height: 1.42rem;
+    border: 1px solid hsl(195 78% 62% / 0.2);
+    border-radius: 0.72rem;
+    background:
+      linear-gradient(180deg, hsl(195 76% 24% / 0.12), transparent 68%),
+      hsl(235 18% 5% / 0.68);
+    box-shadow:
+      inset 0 0 0.75rem hsl(195 84% 56% / 0.08),
+      0 0.16rem 0.4rem hsl(240 40% 2% / 0.34);
+    transform: translateX(-50%);
   }
 
   .mentor-robot__eyes {
     position: absolute;
-    top: 0.95rem;
+    z-index: 1;
+    top: 1.03rem;
     left: 50%;
     display: flex;
-    gap: 0.72rem;
+    gap: 0.82rem;
     transform: translateX(-50%);
   }
 
   .mentor-robot__eyes > span {
-    width: 0.56rem;
-    height: 0.42rem;
-    border-radius: 2px;
+    width: 0.54rem;
+    height: 0.34rem;
+    border-radius: 9999px;
     background: hsl(48 100% 69%);
-    box-shadow: 0 0 0.65rem hsl(42 100% 60% / 0.8);
+    box-shadow:
+      0 0 0.65rem hsl(42 100% 60% / 0.72),
+      0 0 0 1px hsl(48 100% 84% / 0.12);
+    transform-origin: center;
     animation: mentor-robot-blink 5.2s infinite;
   }
 
   .mentor-robot__mouth {
     position: absolute;
     left: 50%;
-    bottom: 0.57rem;
+    bottom: 0.52rem;
     display: flex;
     width: 1.45rem;
     height: 0.46rem;
@@ -647,10 +670,11 @@
     place-items: center;
     border: 1px solid hsl(42 65% 48% / 0.55);
     border-top: 0;
+    border-radius: 0 0 0.52rem 0.52rem;
     color: hsl(42 92% 62% / 0.88);
     background: hsl(235 14% 8%);
     transform: translateX(-50%);
-    clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
+    clip-path: polygon(10% 0, 90% 0, 100% 78%, 88% 100%, 12% 100%, 0 78%);
   }
 
   .mentor-robot__core {

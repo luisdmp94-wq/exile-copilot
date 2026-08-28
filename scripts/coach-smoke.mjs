@@ -852,6 +852,22 @@ async function runFlow(mode, port) {
         mascotVoiceMotion.barAnimations.every((animation) => animation === "none") &&
         mascotVoiceMotion.barHeights.every((height) => height === "2px"),
     );
+    const friendlyFace = await page.getByTestId("mentor-mascota").evaluate((mascot) => {
+      const head = mascot.querySelector(".mentor-robot__head");
+      const visor = mascot.querySelector(".mentor-robot__visor");
+      const eyes = [...mascot.querySelectorAll(".mentor-robot__eyes > span")];
+      return {
+        headRadius: head ? Number.parseFloat(getComputedStyle(head).borderTopLeftRadius) : 0,
+        visorVisible: visor ? getComputedStyle(visor).display !== "none" : false,
+        eyeRadius: eyes.map((eye) => Number.parseFloat(getComputedStyle(eye).borderRadius)),
+      };
+    });
+    check(
+      `[${mode}] la mascota conserva un rostro suave con visor y ojos redondeados`,
+      friendlyFace.headRadius >= 10 &&
+        friendlyFace.visorVisible &&
+        friendlyFace.eyeRadius.every((radius) => radius >= 5),
+    );
     await page.getByTestId("mentor-speech-open").click();
     check(
       `[${mode}] pulsar el bocadillo abre la explicación completa`,
