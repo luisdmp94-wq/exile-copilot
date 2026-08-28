@@ -16,6 +16,27 @@ export interface DeploymentReadinessCheck {
   message: string;
 }
 
+function hasIdentifiablePoeNinjaContact(value: string): boolean {
+  const candidate = value.trim();
+  if (candidate === "" || candidate.toLowerCase().includes("local-dev")) return false;
+
+  const email = /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/i;
+  if (email.test(candidate)) return true;
+
+  const urls = candidate.match(/https?:\/\/[^\s)]+/gi) ?? [];
+  return urls.some((rawUrl) => {
+    try {
+      const parsed = new URL(rawUrl);
+      return (
+        (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+        parsed.hostname.includes(".")
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
 /**
  * Barrera pura de configuración pública. No comprueba el parche ni inventa
  * disponibilidad externa: esas evidencias pertenecen a `readiness:1.0` y al
@@ -30,9 +51,7 @@ export function auditPublicDeploymentConfig(
   const persistentDatabase =
     config.databasePath !== ":memory:" && isAbsolute(config.databasePath);
   const identifiedClient =
-    config.poeNinjaOffline ||
-    (!config.poeNinjaUserAgent.toLowerCase().includes("local-dev") &&
-      /contacto|contact|@|https?:\/\//i.test(config.poeNinjaUserAgent));
+    config.poeNinjaOffline || hasIdentifiablePoeNinjaContact(config.poeNinjaUserAgent);
   const mentorReady = !config.mentorAiEnabled || config.mentorAiApiKey !== null;
 
   return [
@@ -78,7 +97,7 @@ export function auditPublicDeploymentConfig(
         ? config.poeNinjaOffline
           ? "poe.ninja está desactivado; no saldrán peticiones de mercado."
           : "poe.ninja recibirá un User-Agent identificable."
-        : "POE_NINJA_USER_AGENT debe sustituir local-dev por un contacto o URL real.",
+        : "POE_NINJA_USER_AGENT debe sustituir local-dev por un correo o URL de contacto con formato válido.",
     },
     {
       id: "mentor-key",

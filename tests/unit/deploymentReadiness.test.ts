@@ -73,4 +73,45 @@ describe("barrera de configuración pública", () => {
       ),
     ).toMatchObject({ status: "pass" });
   });
+
+  it.each([
+    "exile-copilot/1.0 (contacto: )",
+    "exile-copilot/1.0 (contact: @)",
+    "exile-copilot/1.0 (contact: https://servidor-interno)",
+  ])("bloquea un contacto de poe.ninja que solo parece identificable: %s", (userAgent) => {
+    const config = loadConfig({
+      PUBLIC_DEPLOYMENT: "true",
+      NODE_ENV: "production",
+      SECURE_COOKIES: "true",
+      TRUST_PROXY: "true",
+      DATABASE_PATH: resolve("datos", "exile-copilot.db"),
+      POE_NINJA_USER_AGENT: userAgent,
+      MENTOR_AI_ENABLED: "false",
+    });
+
+    expect(
+      auditPublicDeploymentConfig(config).find(
+        (check) => check.id === "poe-ninja-identity",
+      ),
+    ).toMatchObject({ status: "block" });
+    expect(() => assertPublicDeploymentConfig(config)).toThrow(/formato válido/);
+  });
+
+  it("acepta un correo completo como identidad de poe.ninja", () => {
+    const config = loadConfig({
+      PUBLIC_DEPLOYMENT: "true",
+      NODE_ENV: "production",
+      SECURE_COOKIES: "true",
+      TRUST_PROXY: "true",
+      DATABASE_PATH: resolve("datos", "exile-copilot.db"),
+      POE_NINJA_USER_AGENT: "exile-copilot/1.0 (contacto: equipo@example.invalid)",
+      MENTOR_AI_ENABLED: "false",
+    });
+
+    expect(
+      auditPublicDeploymentConfig(config).find(
+        (check) => check.id === "poe-ninja-identity",
+      ),
+    ).toMatchObject({ status: "pass" });
+  });
 });
