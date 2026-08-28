@@ -137,6 +137,13 @@ La copia más segura de esta etapa es con la aplicación detenida:
 5. Probar periódicamente la restauración en una ruta temporal; una copia que
    nunca se ha restaurado no se considera verificada.
 
+`npm run drill:restore` ejecuta esa comprobación de forma aislada antes de cada
+publicación: crea datos sintéticos mediante la API, cierra SQLite, copia también
+los archivos `-wal`/`-shm` si existen, valida `PRAGMA integrity_check` y recupera
+el expediente y su diario con la misma sesión. Nunca lee `DATABASE_PATH` ni la
+base real. Este simulacro prueba nuestro procedimiento, pero no sustituye la
+restauración periódica de una copia creada por el alojamiento real.
+
 ## Recuperación
 
 1. Detener el servicio.
@@ -144,8 +151,8 @@ La copia más segura de esta etapa es con la aplicación detenida:
 3. Restaurar el conjunto de la última copia en la ruta exacta de
    `DATABASE_PATH` y con permisos de escritura para el proceso.
 4. Arrancar una sola instancia.
-5. Verificar `/api/health`, `/api/ready`, restauración de un personaje de prueba, diario y
-   apertura de Crafting.
+5. Verificar `/api/health`, `/api/ready`, restauración de un personaje de
+   prueba, diario y apertura de Crafting.
 6. Si el problema apareció tras una versión nueva, volver al artefacto anterior
    manteniendo una copia separada de la base más reciente para investigar.
 

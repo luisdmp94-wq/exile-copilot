@@ -42,6 +42,9 @@
   ofrecer borrado irreversible y aislado de los datos del visitante.
 - [ ] Conectar el alojamiento real, su gestor de secretos, restaurar una copia de
   ensayo y activar monitorización y alertas antes de admitir usuarios reales.
+  - [x] Automatizar un simulacro local y aislado que prueba integridad,
+    expediente, sesión anónima y diario después de copiar y restaurar SQLite.
+  - [ ] Ejecutar la restauración con una copia y volumen del alojamiento elegido.
 
 ## 3. Activación específica de PoE2 1.0
 

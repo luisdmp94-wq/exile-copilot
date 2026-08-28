@@ -63,6 +63,8 @@ La comprobación de producción también exige que:
   superior a 512 KiB se rechace antes de escribirlo, sin revelar su contenido.
 - El cierre de la API sea explícito e idempotente para liberar SQLite tanto en
   producción como al recargar el servidor de desarrollo.
+- El simulacro de recuperación restaure una copia íntegra y conserve expediente,
+  sesión anónima y diario sin leer ni escribir la base real.
 - Cada petición reciba una referencia propia no suplantable; un 5xx debe enlazar
   cabecera, respuesta pública y registro interno sin incluir textos importados,
   mientras los errores 4xx no recargan la interfaz con datos de soporte.
