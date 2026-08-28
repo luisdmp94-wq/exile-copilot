@@ -42,8 +42,8 @@ export function auditRuntimeReadiness(
       id: "database",
       status: input.databaseOperational ? "pass" : "block",
       message: input.databaseOperational
-        ? "SQLite acepta lecturas."
-        : "SQLite no responde; la instancia no puede conservar expedientes.",
+        ? "SQLite acepta lecturas y una escritura reversible."
+        : "SQLite no permite leer y conservar datos; la instancia no puede guardar expedientes.",
     },
     {
       id: "patch-metadata",

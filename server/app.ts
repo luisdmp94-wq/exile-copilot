@@ -40,7 +40,11 @@ import {
 } from "../shared/domain.js";
 import { buildRecommendationMemory } from "../shared/journalMemory.js";
 import { loadConfig, type ServerConfig } from "./config.js";
-import { createDatabase, withTransaction } from "./db/database.js";
+import {
+  createDatabase,
+  probeDatabasePersistence,
+  withTransaction,
+} from "./db/database.js";
 import {
   getCharacter,
   claimCharacterOwner,
@@ -383,15 +387,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // GET /ready — señal estricta para el proxy/orquestador. No sustituye a
   // /health: una instancia puede seguir viva y, aun así, no admitir tráfico.
   app.get("/ready", (_req, res) => {
-    let databaseOperational = !databaseClosed;
-    if (databaseOperational) {
-      try {
-        const probe = db.prepare("SELECT 1 AS ok").get() as { ok?: number } | undefined;
-        databaseOperational = probe?.ok === 1;
-      } catch {
-        databaseOperational = false;
-      }
-    }
+    const databaseOperational =
+      !databaseClosed && probeDatabasePersistence(db);
     const compatibility = compatibilityForPatch(
       patchCompatibility,
       config.defaultPatch,

@@ -9,6 +9,9 @@ import { dirname } from "node:path";
 
 export type Database = DatabaseSync;
 
+const READINESS_SAVEPOINT = "exile_copilot_readiness_probe";
+const READINESS_CACHE_KEY = "__exile_copilot_runtime_readiness_probe__";
+
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS price_cache (
   key TEXT PRIMARY KEY,
@@ -129,6 +132,47 @@ export function applySchema(db: Database): void {
   `);
   applyDecisionSessionSchema(db);
   applyBuildMemorySchema(db);
+}
+
+/**
+ * Demuestra que la base principal puede conservar datos, sin dejar una fila de
+ * prueba. Un SELECT no basta: SQLite puede abrir una base existente en modo de
+ * solo lectura y hacer que el orquestador envíe tráfico a una instancia incapaz
+ * de guardar expedientes.
+ */
+export function probeDatabasePersistence(db: Database): boolean {
+  let savepointOpen = false;
+  try {
+    db.exec(`SAVEPOINT ${READINESS_SAVEPOINT}`);
+    savepointOpen = true;
+    db.prepare(`
+      INSERT INTO price_cache (key, league, category, payload, fetched_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        league = excluded.league,
+        category = excluded.category,
+        payload = excluded.payload,
+        fetched_at = excluded.fetched_at
+    `).run(
+      READINESS_CACHE_KEY,
+      "__readiness__",
+      "runtime-probe",
+      "{}",
+      "1970-01-01T00:00:00.000Z",
+    );
+    db.exec(`ROLLBACK TO ${READINESS_SAVEPOINT}; RELEASE ${READINESS_SAVEPOINT}`);
+    savepointOpen = false;
+    return true;
+  } catch {
+    if (savepointOpen) {
+      try {
+        db.exec(`ROLLBACK TO ${READINESS_SAVEPOINT}; RELEASE ${READINESS_SAVEPOINT}`);
+      } catch {
+        // La conexión puede haberse cerrado o SQLite puede haber abortado la transacción.
+      }
+    }
+    return false;
+  }
 }
 
 function applyBuildMemorySchema(db: Database): void {
