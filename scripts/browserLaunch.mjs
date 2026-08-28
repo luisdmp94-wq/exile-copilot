@@ -69,6 +69,23 @@ export function removeSmokeTempDir(dir) {
 }
 
 /**
+ * Acepta una imagen embebida o servida por la misma instancia del smoke.
+ *
+ * La comparación usa el origen que interpreta URL, no un prefijo textual: una
+ * cadena como `http://localhost:7000@externo.invalid/imagen.png` empieza por la
+ * URL local, pero en realidad descarga desde `externo.invalid`.
+ */
+export function isAllowedSmokeImageUrl(value, baseUrl) {
+  if (typeof value !== "string" || typeof baseUrl !== "string") return false;
+  if (value.startsWith("data:")) return true;
+  try {
+    return new URL(value).origin === new URL(baseUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Cómo arrancar una herramienta local (`vite`, `tsx`) desde un smoke.
  *
  * Las herramientas se invocan por su ruta DENTRO de `node_modules`, usando el

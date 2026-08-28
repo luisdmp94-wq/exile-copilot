@@ -61,6 +61,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createSmokeTempDir,
+  isAllowedSmokeImageUrl,
   launchBrowser,
   productionServerCommand,
   removeSmokeTempDir,
@@ -1304,8 +1305,12 @@ async function runFlow(mode, port) {
       Array.from(document.images).map((i) => i.currentSrc || i.src),
     );
     check(
+      `[${mode}] una URL remota con el origen como credencial sigue siendo externa`,
+      !isAllowedSmokeImageUrl(`${new URL(BASE).origin}@example.invalid/imagen.png`, BASE),
+    );
+    check(
       `[${mode}] sin <img> remotas (${imgs.length} imágenes)`,
-      imgs.every((s) => s.startsWith("data:") || s.startsWith(location.origin)),
+      imgs.every((s) => isAllowedSmokeImageUrl(s, BASE)),
     );
     const erroresRelevantes = erroresConsola.filter(
       (e) =>
