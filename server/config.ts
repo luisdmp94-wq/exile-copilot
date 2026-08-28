@@ -81,7 +81,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     publicDeployment: bool(env.PUBLIC_DEPLOYMENT, false),
     poeNinjaUserAgent:
       env.POE_NINJA_USER_AGENT ?? "exile-copilot/0.1.0 (contacto: local-dev)",
-    poeNinjaCacheTtlSeconds: int(env.POE_NINJA_CACHE_TTL_SECONDS, 900),
+    // Cero fuerza revalidación (útil en pruebas). En producción, una errata no
+    // puede convertir una cotización antigua en «fresca» durante días o años.
+    poeNinjaCacheTtlSeconds: boundedInt(
+      env.POE_NINJA_CACHE_TTL_SECONDS,
+      900,
+      0,
+      3_600,
+    ),
     poeNinjaOffline: bool(env.POE_NINJA_OFFLINE, false),
     defaultLeague: env.DEFAULT_LEAGUE ?? "Runes of Aldur",
     defaultPatch: env.DEFAULT_PATCH ?? "0.5.4f",

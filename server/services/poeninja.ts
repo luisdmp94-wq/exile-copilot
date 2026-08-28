@@ -34,6 +34,9 @@ const STASH_ITEM_URL = "https://poe.ninja/poe2/api/economy/stash/current/item/ov
 /** Clave de caché reservada para el listado de ligas. */
 const LEAGUES_CACHE_KEY = "__leagues__";
 
+/** Tolera un desfase breve de reloj, pero nunca fechas futuras arbitrarias. */
+const MAX_CACHE_FUTURE_SKEW_MS = 60_000;
+
 /** Tipos consultados para resolver precios (MVP): divisa + armas únicas. */
 export const CURRENCY_TYPES = ["Currency"] as const;
 export const ITEM_TYPES = ["UniqueWeapons"] as const;
@@ -157,7 +160,10 @@ export class PoeNinjaClient {
   #isFresh(row: PriceCacheRow, now: Date): boolean {
     const fetched = new Date(row.fetched_at).getTime();
     if (!Number.isFinite(fetched)) return false;
-    return now.getTime() - fetched < this.#config.poeNinjaCacheTtlSeconds * 1000;
+    const ttlMs = this.#config.poeNinjaCacheTtlSeconds * 1000;
+    if (ttlMs <= 0) return false;
+    const ageMs = now.getTime() - fetched;
+    return ageMs >= -MAX_CACHE_FUTURE_SKEW_MS && Math.max(0, ageMs) < ttlMs;
   }
 
   #fromFixture(fixtureFile: string, reason: string): OverviewResult | null {
@@ -204,6 +210,24 @@ export class PoeNinjaClient {
         console.warn(`[poeninja] caché corrupta para "${key}" — se borra la fila y se trata como miss.`);
         deleteCacheEntry(this.#db, key);
         cached = null;
+      }
+    }
+
+    // La fecha forma parte de la evidencia del precio. Una fecha inválida o
+    // situada claramente en el futuro no puede ascender una fila a
+    // `cache-fresh`, porque ese origen permite marcar cotizaciones verificadas.
+    if (cached) {
+      const fetchedAt = new Date(cached.fetched_at).getTime();
+      if (
+        !Number.isFinite(fetchedAt) ||
+        fetchedAt - now.getTime() > MAX_CACHE_FUTURE_SKEW_MS
+      ) {
+        console.warn(
+          `[poeninja] fecha de caché inválida para "${key}" — se borra la fila y se trata como miss.`,
+        );
+        deleteCacheEntry(this.#db, key);
+        cached = null;
+        cachedPayload = null;
       }
     }
 

@@ -14,6 +14,16 @@ describe("barrera de configuración pública", () => {
     expect(() => assertPublicDeploymentConfig(config)).not.toThrow();
   });
 
+  it("acota la vigencia de precios para que una errata no verifique datos durante años", () => {
+    expect(
+      loadConfig({ POE_NINJA_CACHE_TTL_SECONDS: "-30" }).poeNinjaCacheTtlSeconds,
+    ).toBe(0);
+    expect(
+      loadConfig({ POE_NINJA_CACHE_TTL_SECONDS: "31536000" })
+        .poeNinjaCacheTtlSeconds,
+    ).toBe(3_600);
+  });
+
   it("bloquea una publicación que reutiliza valores locales o efímeros", () => {
     const config = loadConfig({
       PUBLIC_DEPLOYMENT: "true",

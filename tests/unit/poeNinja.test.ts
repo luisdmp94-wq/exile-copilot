@@ -303,6 +303,41 @@ describe("poe.ninja — caché con ETag (endpoints documentados)", () => {
     expect(offlineResult?.origin).toBe("fixture");
     expect(offlineResult?.degraded).toBe(true);
   });
+
+  it.each([
+    ["inválida", "no-es-una-fecha"],
+    ["futura", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()],
+  ])(
+    "una fecha de caché %s nunca convierte precios antiguos en verificados",
+    async (_case, cachedAt) => {
+      const db = createDatabase(":memory:");
+      db.prepare(
+        "INSERT INTO price_cache (key, league, category, payload, etag, fetched_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).run(
+        `${LEAGUE}:Currency`,
+        LEAGUE,
+        "Currency",
+        currencyFixture,
+        '"etag-sospechoso"',
+        cachedAt,
+      );
+
+      const { fetchImpl, calls } = fetchByUrl({
+        exchange: () => ({ status: 200, body: currencyFixture, etag: '"etag-nuevo"' }),
+      });
+      const client = new PoeNinjaClient({
+        db,
+        config: offlineConfig({ poeNinjaOffline: false, poeNinjaCacheTtlSeconds: 900 }),
+        fetchImpl,
+      });
+
+      const result = await client.getOverview(LEAGUE, "Currency");
+      expect(result?.origin).toBe("live");
+      expect(result?.fetchedAt).not.toBe(cachedAt);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.headers["If-None-Match"]).toBeUndefined();
+    },
+  );
 });
 
 describe("poe.ninja — getLeagues", () => {
