@@ -1130,7 +1130,7 @@ export default function App() {
               <TabsTrigger
                 value="expediente"
                 data-testid="tab-expediente"
-                className="min-w-0 gap-2 rounded-sm border border-border/70 bg-card/55 px-3 py-3 text-xs uppercase tracking-[0.11em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none sm:flex-row sm:gap-2 sm:px-3 sm:py-3 sm:text-xs sm:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate sm:hidden">Expediente</span>
@@ -1139,7 +1139,7 @@ export default function App() {
               <TabsTrigger
                 value="plan"
                 data-testid="tab-plan"
-                className="min-w-0 gap-2 rounded-sm border border-border/70 bg-card/55 px-3 py-3 text-xs uppercase tracking-[0.11em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none sm:flex-row sm:gap-2 sm:px-3 sm:py-3 sm:text-xs sm:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <Compass className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate sm:hidden">Plan</span>
@@ -1148,7 +1148,7 @@ export default function App() {
               <TabsTrigger
                 value="crafting"
                 data-testid="tab-crafting"
-                className="min-w-0 gap-2 rounded-sm border border-border/70 bg-card/55 px-3 py-3 text-xs uppercase tracking-[0.11em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none sm:flex-row sm:gap-2 sm:px-3 sm:py-3 sm:text-xs sm:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <Hammer className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">Crafting</span>

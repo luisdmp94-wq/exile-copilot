@@ -1377,6 +1377,30 @@ async function runFlow(mode, port) {
     );
 
     // --- 12. Móvil: el mentor no tapa nada -------------------------------
+    await page.setViewportSize({ width: 320, height: 720 });
+    await wait(300);
+    const mobileWorkspaceLabels = await page.evaluate(() =>
+      ["tab-expediente", "tab-plan", "tab-crafting"].map((testId) => {
+        const tab = document.querySelector(`[data-testid="${testId}"]`);
+        const visibleLabel = tab
+          ? [...tab.querySelectorAll("span")].find(
+              (span) => getComputedStyle(span).display !== "none",
+            )
+          : null;
+        return {
+          text: visibleLabel?.textContent?.trim() ?? "",
+          clipped: visibleLabel
+            ? visibleLabel.scrollWidth > visibleLabel.clientWidth
+            : true,
+        };
+      }),
+    );
+    check(
+      `[${mode}] la navegación móvil muestra los tres nombres completos`,
+      mobileWorkspaceLabels.map(({ text }) => text).join("|") ===
+        "Expediente|Plan|Crafting" &&
+        mobileWorkspaceLabels.every(({ clipped }) => !clipped),
+    );
     await page.setViewportSize({ width: 390, height: 844 });
     await wait(300);
     const anchoMovil = await page.evaluate(() => ({
