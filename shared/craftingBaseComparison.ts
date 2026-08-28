@@ -26,6 +26,10 @@ export interface CraftingBaseCandidate {
   statusLabel: string;
   structuralLabel: string;
   hasMostDirectSignals: boolean;
+  /** Líneas observadas en la base actual que ya no aparecen literalmente. */
+  missingComparedModifierTexts: string[];
+  /** Líneas observadas en esta base que no estaban literalmente en la actual. */
+  newComparedModifierTexts: string[];
 }
 
 export interface CraftingBaseComparison {
@@ -102,6 +106,30 @@ function structuralLabel(diagnosis: CraftingItemDiagnosis): string {
   return `${diagnosis.observedOpenSlots} hueco${diagnosis.observedOpenSlots === 1 ? "" : "s"} observado${diagnosis.observedOpenSlots === 1 ? "" : "s"}`;
 }
 
+function comparisonKey(modifier: Item["modifiers"][number]): string {
+  return `${modifier.kind}:${normalize(modifier.text)}`;
+}
+
+/**
+ * Contrasta únicamente líneas visibles e idénticas. No interpreta equivalencias,
+ * magnitudes ni el efecto final sobre el personaje.
+ */
+function compareObservedModifierTexts(current: Item, candidate: Item): {
+  missingComparedModifierTexts: string[];
+  newComparedModifierTexts: string[];
+} {
+  const currentKeys = new Set(current.modifiers.map(comparisonKey));
+  const candidateKeys = new Set(candidate.modifiers.map(comparisonKey));
+  return {
+    missingComparedModifierTexts: current.modifiers
+      .filter((modifier) => !candidateKeys.has(comparisonKey(modifier)))
+      .map((modifier) => modifier.text),
+    newComparedModifierTexts: candidate.modifiers
+      .filter((modifier) => !currentKeys.has(comparisonKey(modifier)))
+      .map((modifier) => modifier.text),
+  };
+}
+
 /**
  * Compara únicamente hechos presentes en los objetos y el expediente.
  * No estima pools, pesos, probabilidades, coste ni potencia final de una base.
@@ -136,6 +164,7 @@ export function compareCraftingBases(input: {
           )
           .map((modifier) => modifier.text);
     const requirements = requirementReading(item, profile);
+    const observedComparison = compareObservedModifierTexts(selectedItem, item);
     const status = diagnosis.state !== "complete" || requirements.requirementStatus === "unmet"
       ? "hold"
       : diagnosis.observedOpenSlots === 0 && directGoalModifierTexts.length === 0
@@ -158,6 +187,7 @@ export function compareCraftingBases(input: {
               : "Requisitos no cumplidos",
       structuralLabel: structuralLabel(diagnosis),
       hasMostDirectSignals: false,
+      ...observedComparison,
     } satisfies CraftingBaseCandidate;
   });
 

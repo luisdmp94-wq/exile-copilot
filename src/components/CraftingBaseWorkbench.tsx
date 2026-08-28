@@ -106,6 +106,38 @@ export function CraftingBaseWorkbench({
                     </p>
                   )}
                   {!active && (
+                    <div className="mt-2 grid gap-2 lg:grid-cols-2" data-testid={`crafting-base-delta-${candidate.item.id}`}>
+                      <div className="rounded border border-rose-500/25 bg-rose-500/[0.04] p-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-200">
+                          Dejarías de ver
+                        </p>
+                        {candidate.missingComparedModifierTexts.length > 0 ? (
+                          <ul className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                            {candidate.missingComparedModifierTexts.map((text, index) => (
+                              <li key={`${candidate.item.id}-missing-${index}`}>− {text}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-1 text-[11px] text-muted-foreground">Ninguna línea exacta de la base actual.</p>
+                        )}
+                      </div>
+                      <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.04] p-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+                          Aparece en esta base
+                        </p>
+                        {candidate.newComparedModifierTexts.length > 0 ? (
+                          <ul className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                            {candidate.newComparedModifierTexts.map((text, index) => (
+                              <li key={`${candidate.item.id}-new-${index}`}>+ {text}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-1 text-[11px] text-muted-foreground">Ninguna línea exacta nueva.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {!active && (
                     <Button
                       className="mt-2"
                       type="button"
@@ -129,7 +161,7 @@ export function CraftingBaseWorkbench({
         </p>
       )}
       <p className="mt-2 text-[10px] text-muted-foreground">
-        Compara lectura, huecos, requisitos y etiquetas visibles. No estima pools, probabilidades ni potencia final.
+        “Dejarías de ver” compara texto literal con la base actual del Taller. Confirma el cambio dentro del juego: no recalcula tu build, pools, probabilidades ni potencia final.
       </p>
     </section>
   );

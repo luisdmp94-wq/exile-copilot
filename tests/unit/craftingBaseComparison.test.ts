@@ -67,6 +67,29 @@ describe("compareCraftingBases", () => {
     expect(result.candidates.map((candidate) => candidate.item.id)).toEqual(["selected", "bow"]);
     expect(result.candidates.find((candidate) => candidate.item.id === "bow")?.directGoalModifierCount).toBe(1);
     expect(result.candidates.find((candidate) => candidate.item.id === "bow")?.hasMostDirectSignals).toBe(true);
+    expect(result.candidates.find((candidate) => candidate.item.id === "bow")?.missingComparedModifierTexts).toEqual([
+      "Velocidad aumentada",
+    ]);
+    expect(result.candidates.find((candidate) => candidate.item.id === "bow")?.newComparedModifierTexts).toEqual([
+      "Agrega daño de hielo",
+    ]);
+  });
+
+  it("no interpreta como pérdida una línea visible idéntica", () => {
+    const selected = item("selected");
+    const sameLine = item("same-line", {
+      modifiers: [modifier("another-id", "  VELOCIDAD   AUMENTADA ", ["Velocidad"], "suffix")],
+    });
+    const result = compareCraftingBases({
+      selectedItem: selected,
+      items: [selected, sameLine],
+      profile,
+      goalCategory: "speed",
+    });
+    const candidate = result.candidates.find((entry) => entry.item.id === "same-line");
+
+    expect(candidate?.missingComparedModifierTexts).toEqual([]);
+    expect(candidate?.newComparedModifierTexts).toEqual([]);
   });
 
   it("separa requisitos incumplidos de una recomendación de inversión", () => {
