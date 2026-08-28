@@ -58,6 +58,13 @@ import {
 
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
 
+export const MENTOR_REQUEST_TIMEOUT_MS = 35_000;
+
+type RequestOptions = {
+  timeoutMs?: number;
+  timeoutMessage?: string;
+};
+
 /**
  * Cliente fetch tipado de la API de Exile Copilot.
  * Valida cada respuesta JSON con los esquemas zod compartidos.
@@ -112,50 +119,95 @@ async function request<S extends z.ZodTypeAny>(
   path: string,
   schema: S,
   init?: RequestInit,
+  options: RequestOptions = {},
 ): Promise<z.infer<S>> {
-  let res: Response;
-  try {
-    res = await fetch(path, init);
-  } catch {
-    throw new ApiRequestError(
-      "No se pudo conectar con el servidor. ¿Está el backend en marcha?",
-    );
+  const timeoutController =
+    options.timeoutMs !== undefined ? new AbortController() : null;
+  const sourceSignal = init?.signal;
+  let timedOut = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let deadline: Promise<never> | null = null;
+  const forwardAbort = (): void => timeoutController?.abort();
+
+  if (timeoutController !== null) {
+    if (sourceSignal?.aborted) {
+      timeoutController.abort();
+    } else {
+      sourceSignal?.addEventListener("abort", forwardAbort, { once: true });
+    }
+    deadline = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        timedOut = true;
+        timeoutController.abort();
+        reject(
+          new ApiRequestError(
+            options.timeoutMessage ??
+              "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
+          ),
+        );
+      }, options.timeoutMs);
+    });
   }
 
-  const body = await parseJsonSafe(res);
+  try {
+    const fetchResponse = fetch(path, {
+      ...init,
+      signal: timeoutController?.signal ?? sourceSignal,
+    });
+    const res = await (deadline === null
+      ? fetchResponse
+      : Promise.race([fetchResponse, deadline]));
+    const responseBody = parseJsonSafe(res);
+    const body = await (deadline === null
+      ? responseBody
+      : Promise.race([responseBody, deadline]));
 
-  if (!res.ok) {
-    const apiError = ApiErrorSchema.safeParse(body);
-    if (apiError.success) {
+    if (!res.ok) {
+      const apiError = ApiErrorSchema.safeParse(body);
+      if (apiError.success) {
+        throw new ApiRequestError(
+          apiError.data.error,
+          res.status,
+          apiError.data.detail,
+          apiError.data.requestId ?? res.headers.get("x-request-id") ?? undefined,
+        );
+      }
       throw new ApiRequestError(
-        apiError.data.error,
+        `Error del servidor (HTTP ${res.status})`,
         res.status,
-        apiError.data.detail,
-        apiError.data.requestId ?? res.headers.get("x-request-id") ?? undefined,
+        undefined,
+        res.headers.get("x-request-id") ?? undefined,
+      );
+    }
+
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      const issues = parsed.error.issues
+        .slice(0, 3)
+        .map((issue) => `${issue.path.join(".") || "(raíz)"}: ${issue.message}`)
+        .join("; ");
+      throw new ApiRequestError(
+        `Respuesta inesperada del servidor en ${path} — ${issues}`,
+        res.status,
+        undefined,
+        res.headers.get("x-request-id") ?? undefined,
+      );
+    }
+    return parsed.data;
+  } catch (error) {
+    if (error instanceof ApiRequestError) throw error;
+    if (timedOut) {
+      throw new ApiRequestError(
+        options.timeoutMessage ?? "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
       );
     }
     throw new ApiRequestError(
-      `Error del servidor (HTTP ${res.status})`,
-      res.status,
-      undefined,
-      res.headers.get("x-request-id") ?? undefined,
+      "No se pudo conectar con el servidor. ¿Está el backend en marcha?",
     );
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+    sourceSignal?.removeEventListener("abort", forwardAbort);
   }
-
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .slice(0, 3)
-      .map((issue) => `${issue.path.join(".") || "(raíz)"}: ${issue.message}`)
-      .join("; ");
-    throw new ApiRequestError(
-      `Respuesta inesperada del servidor en ${path} — ${issues}`,
-      res.status,
-      undefined,
-      res.headers.get("x-request-id") ?? undefined,
-    );
-  }
-  return parsed.data;
 }
 
 function jsonInit(
@@ -360,7 +412,11 @@ export const api = {
 
   /** Conversación determinista con el mentor (Hito 6A). */
   mentorQuery: (payload: MentorQueryRequest): Promise<MentorQueryResponse> =>
-    request("/api/mentor/query", MentorQueryResponseSchema, jsonInit(payload)),
+    request("/api/mentor/query", MentorQueryResponseSchema, jsonInit(payload), {
+      timeoutMs: MENTOR_REQUEST_TIMEOUT_MS,
+      timeoutMessage:
+        "El Mentor tardó demasiado en responder. No se aplicó ningún cambio; inténtalo de nuevo.",
+    }),
 
   recommendations: (payload: RecommendationsRequest): Promise<RecommendationsResponse> =>
     request("/api/recommendations", RecommendationsResponseSchema, jsonInit(payload)),

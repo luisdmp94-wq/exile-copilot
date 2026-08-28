@@ -246,4 +246,32 @@ describe("ResponsesMentorSelector", () => {
       MentorAiError,
     );
   });
+
+  it("cumple el plazo aunque la conexión no obedezca la cancelación", async () => {
+    vi.useFakeTimers();
+    const captured: { signal: AbortSignal | null } = { signal: null };
+    const fetchImpl = vi.fn((_input: string | URL | Request, init?: RequestInit) => {
+      captured.signal = init?.signal ?? null;
+      return new Promise<Response>(() => {});
+    });
+
+    try {
+      const selector = new ResponsesMentorSelector(
+        { ...config(), mentorAiTimeoutMs: 1_000 },
+        fetchImpl,
+      );
+      const pending = selector.select(context(), "ec_test");
+      const assertion = expect(pending).rejects.toMatchObject({
+        safeReason: expect.stringContaining("tardó demasiado"),
+      });
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await assertion;
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(captured.signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
