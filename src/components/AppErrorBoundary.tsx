@@ -44,8 +44,9 @@ export class AppErrorBoundary extends Component<
               La interfaz se ha detenido
             </h1>
             <p className="mt-3 leading-relaxed text-muted-foreground">
-              No se ha aplicado ninguna acción de crafting. Los expedientes que ya
-              guardaste permanecen en el servidor y puedes volver a cargarlos.
+              Exile Copilot no puede modificar tu objeto dentro de PoE2. Esta detención
+              solo afecta a la página; los expedientes que ya guardaste permanecen en
+              el servidor y puedes volver a cargarlos.
             </p>
           </div>
 

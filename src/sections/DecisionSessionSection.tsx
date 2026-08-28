@@ -276,7 +276,7 @@ export function DecisionSessionSection({
       journalRevision: revision,
       idempotencyKey: newKey(),
       reason: session.craftingExperiment
-        ? "Craft cerrado sin aplicar un resultado al expediente."
+        ? "Craft cerrado sin actualizar el expediente con el resultado de PoE2."
         : "Comprobación cerrada por decisión del jugador.",
     });
     if (next) onMentorEvent?.({ type: "result", title: session.objective });
@@ -441,14 +441,14 @@ export function DecisionSessionSection({
         <CardTitle className="flex items-center gap-2 text-xl">
           <FlaskConical className="size-5 text-primary" aria-hidden="true" />
           {isCraftingSession && isOpen
-            ? "Craft preparado"
+            ? "Paso preparado para PoE2"
             : isOpen
               ? "Prueba en curso"
               : "Comprobar una decisión"}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           {isCraftingSession && isOpen
-            ? "Haz una sola acción, pega el objeto resultante y decide con la diferencia delante."
+            ? "Exile Copilot no modifica el objeto: haz la acción dentro de PoE2, copia el resultado completo y vuelve para compararlo."
             : isOpen
             ? "Haz una sola prueba, vuelve con lo que ocurrió y el mentor decidirá si cerramos o mantenemos el caso."
             : "El mentor recuerda qué estamos intentando, qué falta por ver y una sola acción."}
@@ -676,23 +676,27 @@ export function DecisionSessionSection({
                 aria-labelledby={`${instanceId}-crafting-resultado-titulo`}
                 data-testid="crafting-result-check"
               >
-                <ol className="grid gap-2 text-xs sm:grid-cols-3" aria-label="Progreso del craft">
+                <ol
+                  className="grid gap-2 text-xs sm:grid-cols-3"
+                  aria-label="Dónde ocurre cada paso del crafting"
+                  data-testid="crafting-location-steps"
+                >
                   <li className="rounded border border-emerald-500/35 bg-emerald-500/[0.07] px-3 py-2 text-emerald-100">
-                    1. Antes de gastar ✓
+                    1. Aquí: paso preparado ✓
                   </li>
                   <li className={`rounded border px-3 py-2 ${
                     craftingComparison?.status === "confirmed"
                       ? "border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-100"
                       : "border-sky-500/45 bg-sky-500/[0.08] text-sky-100"
                   }`}>
-                    2. Pega el resultado{craftingComparison?.status === "confirmed" ? " ✓" : ""}
+                    2. En PoE2: ejecuta y copia{craftingComparison?.status === "confirmed" ? " ✓" : ""}
                   </li>
                   <li className={`rounded border px-3 py-2 ${
                     craftingComparison?.status === "confirmed"
                       ? "border-primary/50 bg-primary/[0.08] text-foreground"
                       : "border-border text-muted-foreground"
                   }`}>
-                    3. Decide
+                    3. Aquí: compara y guarda
                   </li>
                 </ol>
                 {craftingComparison?.status !== "confirmed" && <div>
@@ -703,11 +707,11 @@ export function DecisionSessionSection({
                     id={`${instanceId}-crafting-resultado-titulo`}
                     className="mt-1 text-lg font-semibold"
                   >
-                    Compara el objeto después del crafting
+                    Pega lo que salió en PoE2
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Pega el texto avanzado inmediatamente después de usar {session.craftingExperiment.actionLabel}.
-                    Se comparará con el snapshot guardado; no se valorará si el mod es bueno sin que tú lo confirmes.
+                    Usa {session.craftingExperiment.actionLabel} dentro del juego y copia allí el objeto completo con Ctrl+Alt+C.
+                    Al volver, Exile Copilot solo comparará ese texto con el snapshot guardado; nunca ejecuta la moneda por ti.
                   </p>
                 </div>}
                 {craftingComparison?.status !== "confirmed" && <dl
@@ -771,7 +775,7 @@ export function DecisionSessionSection({
                 </dl>}
                 {craftingComparison?.status !== "confirmed" && <div className="space-y-1">
                   <Label htmlFor={`${instanceId}-crafting-result-${session.id}`}>
-                    Objeto después de usar la moneda
+                    Objeto actual copiado desde PoE2
                   </Label>
                   <Textarea
                     id={`${instanceId}-crafting-result-${session.id}`}
@@ -1070,11 +1074,11 @@ export function DecisionSessionSection({
                             disabled={savingCrafting || journal.saving}
                           >
                             <CircleX className="size-4" aria-hidden="true" />
-                            Cerrar sin aplicar
+                            Cerrar sin actualizar el expediente
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Al confirmar se guarda la comparación, se cierra esta prueba y se actualiza el objeto del expediente.
+                          Al confirmar solo se guarda la comparación y se actualiza tu copia del expediente. El objeto de PoE2 ya cambió dentro del juego.
                         </p>
                       </div>
                     )}

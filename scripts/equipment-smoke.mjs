@@ -1049,10 +1049,11 @@ async function runFlow(mode, port) {
     );
     if (!vinculada) console.log("   sesión visible:", textoCasoCrafting);
     check(
-      `[${mode}] la sesión de crafting muestra solo el recorrido de tres pasos`,
-      textoCasoCrafting.includes("1. Antes de gastar") &&
-        textoCasoCrafting.includes("2. Pega el resultado") &&
-        textoCasoCrafting.includes("3. Decide") &&
+      `[${mode}] la sesión distingue qué ocurre aquí y qué ocurre dentro de PoE2`,
+      textoCasoCrafting.includes("Exile Copilot no modifica el objeto") &&
+        textoCasoCrafting.includes("1. Aquí: paso preparado") &&
+        textoCasoCrafting.includes("2. En PoE2: ejecuta y copia") &&
+        textoCasoCrafting.includes("3. Aquí: compara y guarda") &&
         !textoCasoCrafting.includes("Aún no sabemos") &&
         !textoCasoCrafting.includes("Intocable"),
     );
@@ -1063,7 +1064,7 @@ async function runFlow(mode, port) {
       "",
     );
     await comprobadorResultado
-      .getByLabel("Objeto después de usar la moneda")
+      .getByLabel("Objeto actual copiado desde PoE2")
       .fill(partialCraftingResultText);
     await comprobadorResultado
       .getByRole("button", { name: "Comparar con el snapshot anterior" })
@@ -1087,7 +1088,7 @@ async function runFlow(mode, port) {
       ),
     );
     await comprobadorResultado
-      .getByLabel("Objeto después de usar la moneda")
+      .getByLabel("Objeto actual copiado desde PoE2")
       .fill(craftingResultText);
     await comprobadorResultado
       .getByRole("button", { name: "Comparar con el snapshot anterior" })
@@ -1128,7 +1129,8 @@ async function runFlow(mode, port) {
       textoComparacion.includes("Cierra este paso con la decisión delante") &&
         (await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).isVisible()) &&
         (await comprobadorResultado.getByRole("button", { name: "Parar por ahora" }).isVisible()) &&
-        !textoComparacion.includes("Objeto después de usar la moneda"),
+        !textoComparacion.includes("Objeto actual copiado desde PoE2") &&
+        textoComparacion.includes("El objeto de PoE2 ya cambió dentro del juego"),
     );
     let interceptarGuardado = true;
     await page.route("**/api/character", async (route) => {

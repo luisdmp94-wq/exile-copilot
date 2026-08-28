@@ -77,14 +77,14 @@ function CraftingModeChooser({
       testId: "crafting-mode-coach",
       icon: Hammer,
       title: "Ayuda en vivo",
-      detail: "Importa una pieza y te digo la siguiente acción legal.",
+      detail: "Te digo qué hacer dentro de PoE2; tú ejecutas cada paso.",
     },
     {
       id: "laboratory" as const,
       testId: "crafting-mode-laboratory",
       icon: FlaskConical,
       title: "Taller avanzado",
-      detail: "Dirige un proyecto con fases, salidas y recuperación.",
+      detail: "Planifica aquí un proyecto para ejecutarlo dentro de PoE2.",
     },
   ];
 
@@ -374,8 +374,8 @@ export function CraftingSection({
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {mode === "laboratory"
-                ? "Objetivo persistente · ruta · recuperación · parada."
-                : "Elige · decide · aplica · compara."}
+                ? "Planifica aquí · ejecuta en PoE2 · registra lo que ocurrió."
+                : "Prepara aquí · ejecuta en PoE2 · vuelve y compara."}
             </p>
           </div>
         </div>
