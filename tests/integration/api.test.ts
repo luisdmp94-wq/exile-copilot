@@ -250,6 +250,120 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
+  it("GET /ready solo acepta tráfico cuando SQLite y el parche están disponibles", async () => {
+    const response = await fetch(`${base}/ready`);
+    expect(response.status).toBe(200);
+    expect(await jsonOf(response)).toEqual({
+      ok: true,
+      status: "ready",
+      mode: "local",
+      patchId: "0.5.4f",
+      checks: [
+        expect.objectContaining({ id: "database", status: "pass" }),
+        expect.objectContaining({ id: "patch-metadata", status: "pass" }),
+        expect.objectContaining({ id: "patch-guidance", status: "pass" }),
+        expect.objectContaining({ id: "public-config", status: "pass" }),
+      ],
+    });
+  });
+
+  it("GET /ready falla cerrado si el parche no tiene metadatos ni cobertura", async () => {
+    const unknownApp = createApiApp({
+      dbPath: ":memory:",
+      config: { poeNinjaOffline: true, defaultPatch: "1.0" },
+    });
+    const unknownServer = await new Promise<Server>((resolve) => {
+      const candidate = unknownApp.listen(0, () => resolve(candidate));
+    });
+    try {
+      const { port } = unknownServer.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/ready`);
+      const body = await jsonOf(response);
+      expect(response.status).toBe(503);
+      expect(body).toMatchObject({
+        ok: false,
+        status: "not-ready",
+        patchId: "1.0",
+      });
+      expect(body.checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "patch-metadata", status: "block" }),
+          expect.objectContaining({ id: "patch-guidance", status: "block" }),
+        ]),
+      );
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        unknownServer.close((error) => (error ? reject(error) : resolve())),
+      );
+      closeApiApp(unknownApp);
+    }
+  });
+
+  it("GET /ready detecta una SQLite cerrada aunque /health siga vivo", async () => {
+    const closedApp = createApiApp({
+      dbPath: ":memory:",
+      config: { poeNinjaOffline: true },
+    });
+    const closedServer = await new Promise<Server>((resolve) => {
+      const candidate = closedApp.listen(0, () => resolve(candidate));
+    });
+    try {
+      const { port } = closedServer.address() as AddressInfo;
+      const closedBase = `http://127.0.0.1:${port}`;
+      expect(closeApiApp(closedApp)).toBe(true);
+      expect((await fetch(`${closedBase}/health`)).status).toBe(200);
+      const response = await fetch(`${closedBase}/ready`);
+      expect(response.status).toBe(503);
+      expect(await jsonOf(response)).toMatchObject({
+        ok: false,
+        checks: expect.arrayContaining([
+          expect.objectContaining({ id: "database", status: "block" }),
+        ]),
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        closedServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
+  it("GET /ready expone los bloqueos públicos sin filtrar secretos", async () => {
+    const publicApp = createApiApp({
+      dbPath: ":memory:",
+      config: {
+        publicDeployment: true,
+        nodeEnv: "development",
+        secureCookies: false,
+        trustProxy: false,
+        poeNinjaOffline: true,
+        mentorAiEnabled: true,
+        mentorAiApiKey: "clave-privada-de-prueba",
+      },
+    });
+    const publicServer = await new Promise<Server>((resolve) => {
+      const candidate = publicApp.listen(0, () => resolve(candidate));
+    });
+    try {
+      const { port } = publicServer.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/ready`);
+      const raw = await response.text();
+      const body = JSON.parse(raw) as Record<string, unknown>;
+      expect(response.status).toBe(503);
+      expect(body).toMatchObject({ ok: false, mode: "public" });
+      expect(body.checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "public-config", status: "block" }),
+        ]),
+      );
+      expect(raw).not.toContain("clave-privada-de-prueba");
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        publicServer.close((error) => (error ? reject(error) : resolve())),
+      );
+      closeApiApp(publicApp);
+    }
+  });
+
   it("GET /health declara la IA externa solo cuando está realmente configurada", async () => {
     const aiApp = createApiApp({
       dbPath: ":memory:",

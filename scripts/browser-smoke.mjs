@@ -141,6 +141,14 @@ async function runFlow(mode, port) {
     await waitForServer(`${BASE}/api/health`);
     check(`[${mode}] servidor responde /api/health`, true);
     const publicHealth = await (await fetch(`${BASE}/api/health`)).json();
+    const readinessResponse = await fetch(`${BASE}/api/ready`);
+    const readiness = await readinessResponse.json();
+    check(
+      `[${mode}] instancia disponible para su modo declarado (/api/ready)`,
+      readinessResponse.ok &&
+        readiness.status === "ready" &&
+        readiness.checks?.every((entry) => entry.status === "pass"),
+    );
 
     // Se comprueba de VERDAD que la base en uso es la temporal de esta
     // ejecución, no se da por hecho que la variable se configuró.

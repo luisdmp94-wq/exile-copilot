@@ -81,7 +81,13 @@ durante un máximo de 10 segundos y cierra SQLite explícitamente. El mensaje
 
 Después de arrancar:
 
-- `GET /api/health` debe devolver 200 y el parche esperado.
+- `GET /api/health` debe devolver 200: solo confirma que el proceso HTTP sigue
+  vivo y publica el parche esperado.
+- `GET /api/ready` debe devolver 200 antes de enviar tráfico. Comprueba que
+  SQLite acepta lecturas, que el parche tiene metadatos y cobertura autorizada
+  y, si `PUBLIC_DEPLOYMENT=true`, que la configuración pública sigue siendo
+  segura. Un 503 debe retirar la instancia del balanceador, no reiniciarla a
+  ciegas mientras `/api/health` continúe respondiendo.
 - La portada debe devolver HTML y las cabeceras CSP, `nosniff`, `DENY` y HSTS.
 - Una cookie de sesión debe ser `HttpOnly`, `SameSite=Strict` y `Secure` bajo HTTPS.
 - El recorrido «Evaluar o craftear» debe aceptar una pieza sin crear antes un
@@ -125,7 +131,7 @@ La copia más segura de esta etapa es con la aplicación detenida:
 1. Detener el proceso de Exile Copilot y confirmar que ya no acepta peticiones.
 2. Copiar el archivo indicado por `DATABASE_PATH` a almacenamiento cifrado y
    fechado. Si existen archivos `-wal` o `-shm`, conservarlos junto a la copia.
-3. Reiniciar la aplicación y comprobar `/api/health`.
+3. Reiniciar la aplicación y comprobar `/api/health` y `/api/ready`.
 4. Conservar al menos una copia diaria y una copia previa a cada despliegue o
    migración de datos.
 5. Probar periódicamente la restauración en una ruta temporal; una copia que
@@ -138,7 +144,7 @@ La copia más segura de esta etapa es con la aplicación detenida:
 3. Restaurar el conjunto de la última copia en la ruta exacta de
    `DATABASE_PATH` y con permisos de escritura para el proceso.
 4. Arrancar una sola instancia.
-5. Verificar `/api/health`, restauración de un personaje de prueba, diario y
+5. Verificar `/api/health`, `/api/ready`, restauración de un personaje de prueba, diario y
    apertura de Crafting.
 6. Si el problema apareció tras una versión nueva, volver al artefacto anterior
    manteniendo una copia separada de la base más reciente para investigar.
@@ -154,6 +160,7 @@ como procedimiento de recuperación.
 - Aumento sostenido de 429 en Mentor o recomendaciones.
 - Base sin espacio, errores SQLite, WAL que crece sin estabilizarse.
 - `/api/health` anuncia un parche distinto del esperado.
+- `/api/ready` devuelve 503 o cambia de `ready` a `not-ready`.
 - Un parche nuevo aparece como compatible sin evidencias específicas.
 
 Antes de PoE2 1.0 se hará una activación separada siguiendo

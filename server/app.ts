@@ -105,6 +105,7 @@ import {
   compatibilityForPatch,
   patchFeatureCoverage,
 } from "../shared/patchCompatibility.js";
+import { auditRuntimeReadiness } from "./runtimeReadiness.js";
 
 /**
  * Crea la app Express de la API. Las rutas se definen SIN prefijo: el caller
@@ -252,7 +253,8 @@ function assertKnownBuildMemoryItems(
 
 export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const config: ServerConfig = { ...loadConfig(), ...(options.config ?? {}) };
-  const db = createDatabase(options.dbPath ?? config.databasePath);
+  const databasePath = options.dbPath ?? config.databasePath;
+  const db = createDatabase(databasePath);
   const ninjaClient = new PoeNinjaClient({ db, config, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) });
   const priceService = new PriceService(ninjaClient);
   const explainer = options.explainer ?? getExplainer(config);
@@ -313,7 +315,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     limit: config.writeRateLimitPerMinute,
   });
   app.use((req, res, next) => {
-    if (req.path === "/health") {
+    if (req.path === "/health" || req.path === "/ready") {
       next();
       return;
     }
@@ -375,6 +377,39 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       },
       compatibility: compatibilityForPatch(patchCompatibility, config.defaultPatch),
       dataUpdatedAt: new Date().toISOString(),
+    });
+  });
+
+  // GET /ready — señal estricta para el proxy/orquestador. No sustituye a
+  // /health: una instancia puede seguir viva y, aun así, no admitir tráfico.
+  app.get("/ready", (_req, res) => {
+    let databaseOperational = !databaseClosed;
+    if (databaseOperational) {
+      try {
+        const probe = db.prepare("SELECT 1 AS ok").get() as { ok?: number } | undefined;
+        databaseOperational = probe?.ok === 1;
+      } catch {
+        databaseOperational = false;
+      }
+    }
+    const compatibility = compatibilityForPatch(
+      patchCompatibility,
+      config.defaultPatch,
+    );
+    const checks = auditRuntimeReadiness({
+      config,
+      databasePath,
+      databaseOperational,
+      patchKnown: patches.some((patch) => patch.id === config.defaultPatch),
+      patchGuidanceAllowed: allowsPatchGuidance(compatibility),
+    });
+    const ready = checks.every((check) => check.status === "pass");
+    res.status(ready ? 200 : 503).json({
+      ok: ready,
+      status: ready ? "ready" : "not-ready",
+      mode: config.publicDeployment ? "public" : "local",
+      patchId: config.defaultPatch,
+      checks,
     });
   });
 
