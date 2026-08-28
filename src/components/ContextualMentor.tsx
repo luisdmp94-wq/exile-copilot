@@ -95,7 +95,7 @@ function MentorRobot({
     >
       <img
         className="mentor-robot__art"
-        src="/mascot/exile-copilot-companion-v1.png"
+        src="/mascot/exile-copilot-companion-v2.png"
         alt=""
         draggable="false"
       />

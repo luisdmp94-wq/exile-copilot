@@ -855,7 +855,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la mascota completa carga como recurso local del producto`,
       mascotVoiceMotion.loaded &&
-        mascotVoiceMotion.source.endsWith("/mascot/exile-copilot-companion-v1.png"),
+        mascotVoiceMotion.source.endsWith("/mascot/exile-copilot-companion-v2.png"),
     );
     await page.getByTestId("mentor-speech-open").click();
     check(
