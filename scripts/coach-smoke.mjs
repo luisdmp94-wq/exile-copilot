@@ -835,38 +835,33 @@ async function runFlow(mode, port) {
     const mascotVoiceMotion = await page.getByTestId("mentor-mascota").evaluate((mascot) => {
       const previousState = mascot.getAttribute("data-state");
       mascot.setAttribute("data-state", "ai");
-      const mouth = mascot.querySelector(".mentor-robot__mouth");
-      const bars = mouth ? [...mouth.querySelectorAll(":scope > span")] : [];
+      const faceMark = mascot.querySelector(".mentor-robot__face-mark");
       const result = {
-        animationName: mouth ? getComputedStyle(mouth).animationName : null,
-        barAnimations: bars.map((bar) => getComputedStyle(bar).animationName),
-        barHeights: bars.map((bar) => getComputedStyle(bar).height),
+        animationName: faceMark ? getComputedStyle(faceMark).animationName : null,
+        separateMouth: mascot.querySelector(".mentor-robot__mouth") !== null,
       };
       if (previousState === null) mascot.removeAttribute("data-state");
       else mascot.setAttribute("data-state", previousState);
       return result;
     });
     check(
-      `[${mode}] al hablar solo pulsa la luz cian y la boca no se abre`,
+      `[${mode}] al hablar pulsa el emblema facial sin abrir una boca separada`,
       mascotVoiceMotion.animationName === "mentor-robot-voice-glow" &&
-        mascotVoiceMotion.barAnimations.every((animation) => animation === "none") &&
-        mascotVoiceMotion.barHeights.every((height) => height === "2px"),
+        mascotVoiceMotion.separateMouth === false,
     );
-    const friendlyFace = await page.getByTestId("mentor-mascota").evaluate((mascot) => {
+    const emblemFace = await page.getByTestId("mentor-mascota").evaluate((mascot) => {
       const head = mascot.querySelector(".mentor-robot__head");
-      const visor = mascot.querySelector(".mentor-robot__visor");
-      const eyes = [...mascot.querySelectorAll(".mentor-robot__eyes > span")];
       return {
         headRadius: head ? Number.parseFloat(getComputedStyle(head).borderTopLeftRadius) : 0,
-        visorVisible: visor ? getComputedStyle(visor).display !== "none" : false,
-        eyeRadius: eyes.map((eye) => Number.parseFloat(getComputedStyle(eye).borderRadius)),
+        faceEmblem: mascot.querySelector(".mentor-robot__face-mark") !== null,
+        chestEmblem: mascot.querySelector(".mentor-robot__body svg") !== null,
       };
     });
     check(
-      `[${mode}] la mascota conserva un rostro suave con visor y ojos redondeados`,
-      friendlyFace.headRadius >= 10 &&
-        friendlyFace.visorVisible &&
-        friendlyFace.eyeRadius.every((radius) => radius >= 5),
+      `[${mode}] la cara replica el lenguaje sencillo del emblema del pecho`,
+      emblemFace.headRadius >= 8 &&
+        emblemFace.faceEmblem &&
+        emblemFace.chestEmblem,
     );
     await page.getByTestId("mentor-speech-open").click();
     check(

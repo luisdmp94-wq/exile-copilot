@@ -564,13 +564,12 @@
     z-index: 2;
     top: 0.75rem;
     left: 50%;
-    width: 4.35rem;
-    height: 3.25rem;
+    width: 3.85rem;
+    height: 3.05rem;
     border: 1px solid hsl(42 75% 55% / 0.72);
-    border-radius: 0.92rem 0.92rem 0.72rem 0.72rem;
+    border-radius: 0.72rem;
     background:
-      radial-gradient(circle at 50% 22%, hsl(42 78% 48% / 0.16), transparent 42%),
-      linear-gradient(145deg, hsl(42 70% 30% / 0.28), transparent 46%),
+      linear-gradient(145deg, hsl(42 70% 30% / 0.24), transparent 44%),
       hsl(235 14% 9%);
     box-shadow:
       inset 0 0 1rem hsl(42 90% 50% / 0.07),
@@ -578,86 +577,47 @@
     transform: translateX(-50%);
   }
 
+  .mentor-robot__head::before {
+    position: absolute;
+    inset: 0.46rem 0.4rem 0.42rem;
+    border: 1px solid hsl(195 78% 62% / 0.16);
+    border-radius: 0.5rem;
+    background: hsl(235 18% 5% / 0.42);
+    box-shadow: inset 0 0 0.65rem hsl(195 84% 56% / 0.06);
+    content: "";
+  }
+
   .mentor-robot__temple {
     position: absolute;
-    top: 1.12rem;
-    width: 0.28rem;
-    height: 0.76rem;
+    z-index: -1;
+    top: 1.08rem;
+    width: 0.38rem;
+    height: 0.72rem;
     border: 1px solid hsl(42 72% 54% / 0.58);
-    border-radius: 9999px;
+    border-radius: 0.22rem;
     background: hsl(235 14% 5%);
     box-shadow: 0 0 0.45rem hsl(42 85% 52% / 0.18);
   }
 
   .mentor-robot__temple--left {
-    left: 0.12rem;
+    left: -0.22rem;
   }
 
   .mentor-robot__temple--right {
-    right: 0.12rem;
+    right: -0.22rem;
   }
 
-  .mentor-robot__visor {
-    position: absolute;
-    top: 0.62rem;
-    left: 50%;
-    width: 2.92rem;
-    height: 1.42rem;
-    border: 1px solid hsl(195 78% 62% / 0.2);
-    border-radius: 0.72rem;
-    background:
-      linear-gradient(180deg, hsl(195 76% 24% / 0.12), transparent 68%),
-      hsl(235 18% 5% / 0.68);
-    box-shadow:
-      inset 0 0 0.75rem hsl(195 84% 56% / 0.08),
-      0 0.16rem 0.4rem hsl(240 40% 2% / 0.34);
-    transform: translateX(-50%);
-  }
-
-  .mentor-robot__eyes {
+  .mentor-robot__face-mark {
     position: absolute;
     z-index: 1;
-    top: 1.03rem;
+    top: 0.48rem;
     left: 50%;
-    display: flex;
-    gap: 0.82rem;
+    width: 2.18rem;
+    height: 2.18rem;
+    color: hsl(48 96% 68%);
+    filter: drop-shadow(0 0 0.34rem hsl(42 100% 60% / 0.36));
+    stroke-width: 1.65;
     transform: translateX(-50%);
-  }
-
-  .mentor-robot__eyes > span {
-    width: 0.54rem;
-    height: 0.34rem;
-    border-radius: 9999px;
-    background: hsl(48 100% 69%);
-    box-shadow:
-      0 0 0.65rem hsl(42 100% 60% / 0.72),
-      0 0 0 1px hsl(48 100% 84% / 0.12);
-    transform-origin: center;
-    animation: mentor-robot-blink 5.2s infinite;
-  }
-
-  .mentor-robot__mouth {
-    position: absolute;
-    left: 50%;
-    bottom: 0.52rem;
-    display: flex;
-    width: 1.45rem;
-    height: 0.46rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.16rem;
-    transform: translateX(-50%);
-  }
-
-  .mentor-robot__mouth > span {
-    width: 2px;
-    height: 2px;
-    background: hsl(195 88% 65% / 0.9);
-    box-shadow: 0 0 0.45rem hsl(195 90% 58% / 0.48);
-  }
-
-  .mentor-robot__mouth > span:nth-child(2) {
-    width: 0.58rem;
   }
 
   .mentor-robot__body {
@@ -665,16 +625,16 @@
     bottom: 0;
     left: 50%;
     display: grid;
-    width: 3rem;
+    width: 3.1rem;
     height: 2rem;
     place-items: center;
     border: 1px solid hsl(42 65% 48% / 0.55);
     border-top: 0;
-    border-radius: 0 0 0.52rem 0.52rem;
+    border-radius: 0 0 0.45rem 0.45rem;
     color: hsl(42 92% 62% / 0.88);
     background: hsl(235 14% 8%);
     transform: translateX(-50%);
-    clip-path: polygon(10% 0, 90% 0, 100% 78%, 88% 100%, 12% 100%, 0 78%);
+    clip-path: polygon(8% 0, 92% 0, 100% 82%, 90% 100%, 10% 100%, 0 82%);
   }
 
   .mentor-robot__core {
@@ -716,9 +676,8 @@
     text-transform: uppercase;
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__eyes > span {
-    background: hsl(195 95% 68%);
-    box-shadow: 0 0 0.8rem hsl(195 95% 58% / 0.85);
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__face-mark {
+    color: hsl(195 95% 68%);
     animation: mentor-robot-scan 0.75s ease-in-out infinite alternate;
   }
 
@@ -739,18 +698,18 @@
     animation: mentor-orbit-scan 2.2s linear infinite;
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__mouth {
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__face-mark {
     animation: mentor-robot-voice-glow 1.15s ease-in-out infinite alternate;
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__eyes > span {
-    background: hsl(38 100% 63%);
-    box-shadow: 0 0 0.8rem hsl(30 96% 55% / 0.78);
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__face-mark {
+    color: hsl(38 100% 63%);
+    filter: drop-shadow(0 0 0.48rem hsl(30 96% 55% / 0.62));
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="error"] .mentor-robot__eyes > span {
-    background: hsl(5 86% 66%);
-    box-shadow: 0 0 0.7rem hsl(5 86% 58% / 0.78);
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="error"] .mentor-robot__face-mark {
+    color: hsl(5 86% 66%);
+    filter: drop-shadow(0 0 0.44rem hsl(5 86% 58% / 0.62));
   }
 
   :is(.mentor-mascot, .mentor-floating-mascot)[data-source="market"] .mentor-robot__orbit--inner {
@@ -1327,9 +1286,7 @@
   .mentor-robot__orbit,
   .mentor-robot__antenna > span,
   .mentor-robot__core,
-  .mentor-robot__mouth,
-  .mentor-robot__mouth > span,
-  .mentor-robot__eyes > span,
+  .mentor-robot__face-mark,
   .mentor-floating-mascot__beacon,
   .mentor-speech-bubble {
     animation: none;

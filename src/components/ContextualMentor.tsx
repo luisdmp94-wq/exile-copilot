@@ -101,16 +101,7 @@ function MentorRobot({
       <span className="mentor-robot__head">
         <span className="mentor-robot__temple mentor-robot__temple--left" />
         <span className="mentor-robot__temple mentor-robot__temple--right" />
-        <span className="mentor-robot__visor" />
-        <span className="mentor-robot__eyes">
-          <span />
-          <span />
-        </span>
-        <span className="mentor-robot__mouth">
-          <span />
-          <span />
-          <span />
-        </span>
+        <Bot className="mentor-robot__face-mark" />
       </span>
       <span className="mentor-robot__body">
         <Bot className="size-5" />
