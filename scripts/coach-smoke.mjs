@@ -139,6 +139,25 @@ const CROSSBOW_TEXT = readFileSync(
   "utf8",
 );
 
+/** Segunda ballesta observada para que el Taller demuestre un reemplazo real. */
+const ALTERNATE_CROSSBOW_TEXT = [
+  "Clase de objeto: Ballestas",
+  "Rareza: Raro",
+  "Vigilia de ámbar",
+  "Ballesta barnizada",
+  "------------------------------",
+  "Daño físico: 31-78",
+  "Probabilidad de impacto crítico: 5.00%",
+  "Ataques por segundo: 1.50",
+  "-------------------------",
+  "## Requiere: Nivel 24, 19 Fue, 19 Des",
+  "## Nivel de objeto: 32",
+  '{ Mod. de prefijo "afilado" (Grado: 6) — Daño, Físico, Ataque }',
+  "Daño físico aumentado un 45(40-49)%",
+  '{ Mod. de sufijo "de habilidad" (Grado: 5) — Atributo }',
+  "+30(28-32) a la destreza",
+].join("\n");
+
 const TRANSMUTED_MACE_TEXT = [
   "Clase de objeto: Guantes",
   "Rareza: Mágico",
@@ -226,6 +245,14 @@ async function seedProfile(request, base) {
   if (!importada.ok()) throw new Error(`no se pudo importar la ballesta: HTTP ${importada.status()}`);
   const ballesta = (await importada.json()).item;
   ballesta.id = "taller-ballesta";
+  const alternativaResponse = await request.post(`${base}/api/import/item-text`, {
+    data: { text: ALTERNATE_CROSSBOW_TEXT, patch: "0.5.4f" },
+  });
+  if (!alternativaResponse.ok()) {
+    throw new Error(`no se pudo importar la segunda ballesta: HTTP ${alternativaResponse.status()}`);
+  }
+  const ballestaAlternativa = (await alternativaResponse.json()).item;
+  ballestaAlternativa.id = "taller-ballesta-alternativa";
   const mazaResponse = await request.post(`${base}/api/import/item-text`, {
     data: { text: REAL_MAGIC_MACE_TEXT, patch: "0.5.4f" },
   });
@@ -238,6 +265,7 @@ async function seedProfile(request, base) {
     id: "taller-smoke-perfil",
     items: [
       ballesta,
+      ballestaAlternativa,
       mazaReal,
       {
         id: "taller-normal",
@@ -485,6 +513,25 @@ async function runFlow(mode, port) {
         ["item-class", "slot"].includes(baseComparableBy) &&
         baseWorkbenchText.includes("probabilidades") &&
         baseCandidateCount >= 1,
+    );
+    const observedDelta = page.getByTestId("crafting-base-delta-taller-ballesta-alternativa");
+    const observedDeltaText = await observedDelta.innerText();
+    const observedDeltaNormalized = observedDeltaText.toLocaleLowerCase("es");
+    const observedDeltaEvidence = {
+      dosBases: baseCandidateCount >= 2,
+      visible: await observedDelta.isVisible(),
+      perdida: observedDeltaNormalized.includes("dejarías de ver") &&
+        observedDeltaNormalized.includes("velocidad de ataque aumentada"),
+      ganancia: observedDeltaNormalized.includes("aparece en esta base") &&
+        observedDeltaNormalized.includes("+30(28-32) a la destreza"),
+      limite: baseWorkbenchText.includes("Confirma el cambio dentro del juego") &&
+        baseWorkbenchText.includes("no recalcula tu build"),
+    };
+    const observedDeltaOk = Object.values(observedDeltaEvidence).every(Boolean);
+    if (!observedDeltaOk) console.log("[detalle comparación de bases]", observedDeltaEvidence);
+    check(
+      `[${mode}] comparar dos bases enseña qué se pierde y qué aparece sin recalcular la build`,
+      observedDeltaOk,
     );
     check(
       `[${mode}] el objetivo se contrasta con evidencia local sin fingir un pool`,

@@ -45,6 +45,8 @@ La comprobación de producción también exige que:
   invalide la sesión y conserve los datos de otro visitante.
 - Ayuda en vivo bloquee un Exaltado que supere el límite declarado y no invente
   conversiones para Aumento, Regio o Transmutación.
+- El Taller avanzado compare dos bases importadas y exponga las líneas literales
+  que dejarían de verse y las que aparecerían, sin afirmar que recalcula la build.
 - Toda lectura incompleta ofrezca un informe local revisable sin enviarlo, y un
   resultado parcial nunca pueda confirmarse ni cerrar el ciclo de crafting.
 - La cabecera no anuncie IA externa cuando el servidor usa solo reglas y el
