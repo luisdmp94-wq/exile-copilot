@@ -421,6 +421,8 @@ prefijo `VITE_` para una clave privada. Destacadas:
 
 - `POE_NINJA_OFFLINE=true` — nunca hace red; sirve fixtures (ideal para demos/tests).
 - `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
+- `POE_NINJA_TIMEOUT_MS` — plazo externo antes de degradar a caché o fixture no
+  verificado (8 segundos por defecto; entre 1 y 30 segundos).
 - `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — adaptadores todavía
   incompletos y desactivados por defecto; la barrera pública bloquea el arranque
   si alguien intenta activarlos.

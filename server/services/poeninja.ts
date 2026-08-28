@@ -43,7 +43,7 @@ export const ITEM_TYPES = ["UniqueWeapons"] as const;
 
 export type FetchLike = (
   url: string,
-  init: { headers: Record<string, string> },
+  init: { headers: Record<string, string>; signal?: AbortSignal },
 ) => Promise<{ status: number; headers: { get(name: string): string | null }; text(): Promise<string> }>;
 
 export type OverviewOrigin = "live" | "cache-fresh" | "cache-stale" | "fixture";
@@ -263,8 +263,21 @@ export class PoeNinjaClient {
     };
     if (cached?.etag) headers["If-None-Match"] = cached.etag;
 
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(new Error("poe.ninja superó el plazo de respuesta"));
+      }, this.#config.poeNinjaTimeoutMs);
+    });
+
     try {
-      const res = await this.#fetch(url, { headers });
+      const networkResponse = this.#fetch(url, {
+        headers,
+        signal: controller.signal,
+      });
+      const res = await Promise.race([networkResponse, deadline]);
       const fetchedAt = new Date().toISOString();
 
       if (res.status === 304 && cached) {
@@ -280,7 +293,7 @@ export class PoeNinjaClient {
       }
 
       if (res.status === 200) {
-        const text = await res.text();
+        const text = await Promise.race([res.text(), deadline]);
         const payload: unknown = JSON.parse(text);
         setCacheEntry(this.#db, {
           key,
@@ -299,6 +312,8 @@ export class PoeNinjaClient {
         `[poeninja] error de red para ${url}:`,
         err instanceof Error ? err.message : err,
       );
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
     }
 
     // 4) Fallback: caché antigua aunque esté expirada.
@@ -424,17 +439,18 @@ export class PriceService {
   }
 
   async getQuotes(queries: Array<string | PriceQuery>, league: string): Promise<QuotesResult> {
-    // 1) Exchange de divisas primero: también nos da la moneda primaria de la liga.
-    const currencyOverviews: OverviewResult[] = [];
-    for (const type of CURRENCY_TYPES) {
-      const ov = await this.#client.getOverview(league, type);
-      if (ov) currencyOverviews.push(ov);
-    }
-    const itemOverviews: OverviewResult[] = [];
-    for (const type of ITEM_TYPES) {
-      const ov = await this.#client.getOverview(league, type);
-      if (ov) itemOverviews.push(ov);
-    }
+    // Exchange y stash son independientes: consultarlos en paralelo mantiene el
+    // peor caso dentro de un solo plazo externo, no la suma de ambos.
+    const [currencyResults, itemResults] = await Promise.all([
+      Promise.all(CURRENCY_TYPES.map((type) => this.#client.getOverview(league, type))),
+      Promise.all(ITEM_TYPES.map((type) => this.#client.getOverview(league, type))),
+    ]);
+    const currencyOverviews = currencyResults.filter(
+      (overview): overview is OverviewResult => overview !== null,
+    );
+    const itemOverviews = itemResults.filter(
+      (overview): overview is OverviewResult => overview !== null,
+    );
     const overviews = [...currencyOverviews, ...itemOverviews];
 
     // Moneda primaria de cotización (la misma para items de la liga).

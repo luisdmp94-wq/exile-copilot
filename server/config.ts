@@ -14,6 +14,8 @@ export interface ServerConfig {
   publicDeployment: boolean;
   poeNinjaUserAgent: string;
   poeNinjaCacheTtlSeconds: number;
+  /** Plazo absoluto de cada consulta externa antes de degradar a caché/fixture. */
+  poeNinjaTimeoutMs: number;
   poeNinjaOffline: boolean;
   defaultLeague: string;
   defaultPatch: string;
@@ -89,6 +91,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       0,
       3_600,
     ),
+    poeNinjaTimeoutMs: boundedInt(env.POE_NINJA_TIMEOUT_MS, 8_000, 1_000, 30_000),
     poeNinjaOffline: bool(env.POE_NINJA_OFFLINE, false),
     defaultLeague: env.DEFAULT_LEAGUE ?? "Runes of Aldur",
     defaultPatch: env.DEFAULT_PATCH ?? "0.5.4f",

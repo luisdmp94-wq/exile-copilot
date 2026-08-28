@@ -145,6 +145,93 @@ describe("poe.ninja — endpoints documentados (shapes reales)", () => {
 });
 
 describe("poe.ninja — caché con ETag (endpoints documentados)", () => {
+  it("un socket que nunca responde cumple el plazo y degrada a fixture", async () => {
+    vi.useFakeTimers();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const captured: { signal: AbortSignal | null } = { signal: null };
+    const hangingFetch: FetchLike = (_url, init) => {
+      captured.signal = init.signal ?? null;
+      return new Promise(() => {});
+    };
+
+    try {
+      const db = createDatabase(":memory:");
+      const client = new PoeNinjaClient({
+        db,
+        config: offlineConfig({
+          poeNinjaOffline: false,
+          poeNinjaCacheTtlSeconds: 0,
+          poeNinjaTimeoutMs: 1_000,
+        }),
+        fetchImpl: hangingFetch,
+      });
+      const pending = client.getOverview(LEAGUE, "Currency");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      const result = await pending;
+
+      expect(result).toMatchObject({
+        origin: "fixture",
+        degraded: true,
+        fromCache: false,
+      });
+      expect(captured.signal?.aborted).toBe(true);
+      expect(warning).toHaveBeenCalledWith(
+        expect.stringContaining("error de red"),
+        expect.stringContaining("superó el plazo"),
+      );
+    } finally {
+      warning.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("acota el plazo externo aunque la variable tenga un valor peligroso", () => {
+    expect(loadConfig({ POE_NINJA_TIMEOUT_MS: "0" }).poeNinjaTimeoutMs).toBe(1_000);
+    expect(loadConfig({ POE_NINJA_TIMEOUT_MS: "999999" }).poeNinjaTimeoutMs).toBe(
+      30_000,
+    );
+  });
+
+  it("exchange y objetos degradan juntos dentro de un solo plazo", async () => {
+    vi.useFakeTimers();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const signals: AbortSignal[] = [];
+    const hangingFetch: FetchLike = (_url, init) => {
+      if (init.signal) signals.push(init.signal);
+      return new Promise(() => {});
+    };
+
+    try {
+      const db = createDatabase(":memory:");
+      const service = new PriceService(
+        new PoeNinjaClient({
+          db,
+          config: offlineConfig({
+            poeNinjaOffline: false,
+            poeNinjaCacheTtlSeconds: 0,
+            poeNinjaTimeoutMs: 1_000,
+          }),
+          fetchImpl: hangingFetch,
+        }),
+      );
+      const pending = service.getQuotes(["Divine Orb", "Storm Cantor"], LEAGUE);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      const result = await pending;
+
+      expect(signals).toHaveLength(2);
+      expect(signals.every((signal) => signal.aborted)).toBe(true);
+      expect(result.degraded).toBe(true);
+      expect(result.quotes.every((quote) => quote.verified === false)).toBe(true);
+      expect(result.quotes[0]?.detail).toContain("fixture offline");
+      expect(result.quotes[1]?.detail).toContain("fixture offline");
+    } finally {
+      warning.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("200 con ETag guarda caché; TTL 0 revalida con If-None-Match y sirve 304", async () => {
     const db = createDatabase(":memory:");
     const { fetchImpl, calls } = fetchByUrl({

@@ -34,6 +34,7 @@ WRITE_RATE_LIMIT_PER_MINUTE=60
 GUIDANCE_RATE_LIMIT_PER_MINUTE=30
 MENTOR_RATE_LIMIT_PER_MINUTE=15
 REQUEST_BODY_LIMIT_BYTES=4194304
+POE_NINJA_TIMEOUT_MS=8000
 GGG_OAUTH_ENABLED=false
 EXPLAINER_LLM_ENABLED=false
 ```
@@ -60,6 +61,12 @@ El límite HTTP predeterminado es 4 MiB para dejar margen al envoltorio JSON de
 un `.build` de hasta 2 MiB. El proxy frontal debe permitir al menos ese mismo
 tamaño. Una carga mayor recibe 413 y un JSON público; un JSON roto recibe 400,
 nunca un 500 genérico ni un eco del contenido importado.
+
+Cada petición a poe.ninja tiene además un plazo absoluto de 8 segundos,
+configurable entre 1 y 30 segundos. Al vencer, se cancela la conexión y se sirve
+caché antigua o fixture con procedencia degradada; nunca se presenta ese dato
+como precio verificado. Exchange y objetos se consultan en paralelo para que el
+peor caso no acumule dos plazos consecutivos.
 
 Las operaciones que escriben tienen además un límite separado de 60 por minuto
 y un expediente normalizado no puede superar 512 KiB. Esto evita que el límite
