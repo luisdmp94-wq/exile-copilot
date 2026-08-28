@@ -193,6 +193,42 @@ describe("guía de crafting — la única siguiente acción", () => {
 });
 
 describe("guía de crafting — leer la pieza en palabras", () => {
+  it("explica que las pasivas fijas de una base normal no ocupan afijos", () => {
+    const reading = readItemInPlainWords(
+      pieza({
+        rarity: "normal",
+        modifiers: [
+          {
+            id: "pasiva-1",
+            text: "Asigna Daño de ataques y precisión — Valor fijo",
+            kind: "enchant",
+            values: [],
+            verified: false,
+          },
+          {
+            id: "pasiva-2",
+            text: "Asigna Baile de sombras — Valor fijo",
+            kind: "enchant",
+            values: [],
+            verified: false,
+          },
+          {
+            id: "capacidad",
+            text: "-1 modificador de sufijo permitido",
+            kind: "implicit",
+            values: [-1],
+            verified: false,
+          },
+        ],
+      }),
+    );
+
+    expect(reading.sentence).toContain("no tiene afijos explícitos");
+    expect(reading.sentence).toContain("2 pasivas asignadas");
+    expect(reading.sentence).toContain("1 implícito");
+    expect(reading.sentence).toContain("no ocupan prefijos ni sufijos");
+  });
+
   it("resume rareza, prefijos, sufijos y huecos sin jerga", () => {
     const reading = readItemInPlainWords(
       pieza({

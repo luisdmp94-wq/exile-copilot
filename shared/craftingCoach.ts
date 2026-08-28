@@ -127,7 +127,23 @@ export function readItemInPlainWords(item: Item): CoachItemReading {
 
   let sentence: string;
   if (item.rarity === "normal" && explicitCount === 0) {
-    sentence = "Es una pieza normal: todavía no tiene ningún modificador.";
+    const assignedPassives = item.modifiers.filter(
+      (modifier) =>
+        modifier.kind === "enchant" && /^(?:asigna|allocates?)\s+/iu.test(modifier.text),
+    ).length;
+    const implicitCount = item.modifiers.filter((modifier) => modifier.kind === "implicit").length;
+    const fixedEffects = [
+      assignedPassives > 0
+        ? `${assignedPassives} ${plural(assignedPassives, "pasiva asignada", "pasivas asignadas")}`
+        : null,
+      implicitCount > 0
+        ? `${implicitCount} ${plural(implicitCount, "implícito", "implícitos")}`
+        : null,
+    ].filter((value): value is string => value !== null);
+    sentence = "Es una pieza normal: todavía no tiene afijos explícitos.";
+    if (fixedEffects.length > 0) {
+      sentence += ` Sus efectos fijos (${fixedEffects.join(" y ")}) no ocupan prefijos ni sufijos.`;
+    }
   } else if (unclassifiedExplicitCount > 0) {
     sentence =
       `Es ${rarityWord} y he leído ${explicitCount} ${plural(explicitCount, "modificador", "modificadores")}: ` +

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Item } from "./domain.js";
 import type { CraftingObjective } from "./craftingProtection.js";
+import { observedTotalAffixLimit } from "./craftingDiagnosis.js";
 
 export const CraftingActionIdSchema = z.enum([
   "transmutation",
@@ -211,14 +212,12 @@ export function evaluateObservedCraftingActions(
       );
     }
 
-    if (
-      action.observedTotalLimit !== null &&
-      explicit.length >= action.observedTotalLimit
-    ) {
+    const effectiveTotalLimit = observedTotalAffixLimit(item, action.observedTotalLimit);
+    if (effectiveTotalLimit !== null && explicit.length >= effectiveTotalLimit) {
       return result(
         action,
         "blocked",
-        `Ya tiene ${explicit.length} modificadores explícitos; el límite total observado es ${action.observedTotalLimit}.`,
+        `Ya tiene ${explicit.length} modificadores explícitos; el límite total observado es ${effectiveTotalLimit} para esta pieza.`,
       );
     }
 

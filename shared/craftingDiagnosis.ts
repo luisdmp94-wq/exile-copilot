@@ -28,6 +28,26 @@ const OBSERVED_TOTAL_AFFIX_LIMIT: Partial<Record<Item["rarity"], number>> = {
   rare: 6,
 };
 
+const REDUCED_SUFFIX_CAPACITY_RE =
+  /^-1\s+(?:(?:maximum|max(?:imum)?)\s+)?(?:(?:suffix|sufijo)\s+)?(?:modifier|modificador)(?:es|s)?(?:\s+(?:de\s+)?(?:suffix|sufijo))?\s+(?:allowed|permitidos?)$/iu;
+
+/**
+ * Ajusta el límite total solo cuando el propio tooltip declara la reducción.
+ * En la base observada, perder un sufijo reduce de 2 a 1 el máximo mágico y de
+ * 6 a 5 el máximo raro. No se infiere esta regla por el nombre del objeto.
+ */
+export function observedTotalAffixLimit(
+  item: Item,
+  defaultLimit: number | null,
+): number | null {
+  if (defaultLimit === null) return null;
+  const losesOneSuffix = item.modifiers.some(
+    (modifier) =>
+      modifier.kind === "implicit" && REDUCED_SUFFIX_CAPACITY_RE.test(modifier.text.trim()),
+  );
+  return losesOneSuffix ? Math.max(0, defaultLimit - 1) : defaultLimit;
+}
+
 const SUPPORTED_CRAFTING_RARITIES = new Set<Item["rarity"]>([
   "normal",
   "magic",
@@ -39,7 +59,10 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
   const prefixCount = explicit.filter((modifier) => modifier.affix === "prefix").length;
   const suffixCount = explicit.filter((modifier) => modifier.affix === "suffix").length;
   const unclassifiedExplicitCount = explicit.length - prefixCount - suffixCount;
-  const observedTotalLimit = OBSERVED_TOTAL_AFFIX_LIMIT[item.rarity] ?? null;
+  const observedTotalLimit = observedTotalAffixLimit(
+    item,
+    OBSERVED_TOTAL_AFFIX_LIMIT[item.rarity] ?? null,
+  );
   const observedOpenSlots =
     observedTotalLimit === null ? null : Math.max(0, observedTotalLimit - explicit.length);
   const blockers: string[] = [];

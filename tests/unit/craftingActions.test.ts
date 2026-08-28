@@ -19,6 +19,10 @@ const bowText = readFileSync(
   ),
   "utf8",
 );
+const distortedAmuletText = readFileSync(
+  fileURLToPath(new URL("../../server/fixtures/distortedAmuletAdvanced.es.txt", import.meta.url)),
+  "utf8",
+);
 
 function evaluation(item: Item, id: string) {
   const found = evaluateObservedCraftingActions(item).find((entry) => entry.action.id === id);
@@ -46,6 +50,24 @@ describe("evaluateObservedCraftingActions", () => {
     const exalted = evaluation(item, "exalted");
     expect(exalted.status).toBe("blocked");
     expect(exalted.reason).toContain("límite total observado es 6");
+  });
+
+  it("bloquea exaltado con cinco afijos si la base pierde un sufijo permitido", () => {
+    const item = parseItemText(distortedAmuletText).item;
+    item.rarity = "rare";
+    item.modifiers.push(
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `explicit-${index}`,
+        text: `Afijo ${index + 1}`,
+        kind: "explicit" as const,
+        affix: (index < 3 ? "prefix" : "suffix") as "prefix" | "suffix",
+        values: [],
+        verified: false,
+      })),
+    );
+
+    expect(evaluation(item, "exalted")).toMatchObject({ status: "blocked" });
+    expect(evaluation(item, "exalted").reason).toContain("es 5");
   });
 
   it("permite estructuralmente aumento y regio en un mágico con un afijo", () => {

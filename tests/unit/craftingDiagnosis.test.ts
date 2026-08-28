@@ -15,6 +15,10 @@ const bowText = readFileSync(
   ),
   "utf8",
 );
+const distortedAmuletText = readFileSync(
+  fileURLToPath(new URL("../../server/fixtures/distortedAmuletAdvanced.es.txt", import.meta.url)),
+  "utf8",
+);
 
 describe("diagnoseCraftingItem", () => {
   it("resume la ballesta real sin deducir un hueco de prefijo o sufijo", () => {
@@ -78,6 +82,39 @@ describe("diagnoseCraftingItem", () => {
     });
     expect(diagnosis.summary).toContain("Objeto normal");
     expect(diagnosis.nextAction).toContain("Transmutación");
+  });
+
+  it("no cuenta las pasivas asignadas como afijos del Amuleto distorsionado", () => {
+    const diagnosis = diagnoseCraftingItem(parseItemText(distortedAmuletText).item);
+
+    expect(diagnosis).toMatchObject({
+      state: "complete",
+      explicitCount: 0,
+      auxiliaryCount: 3,
+      blockers: [],
+    });
+    expect(diagnosis.nextAction).toContain("Transmutación");
+  });
+
+  it("reduce a cinco el límite raro si el tooltip resta un sufijo permitido", () => {
+    const item = parseItemText(distortedAmuletText).item;
+    item.rarity = "rare";
+    item.modifiers.push(
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `explicit-${index}`,
+        text: `Afijo ${index + 1}`,
+        kind: "explicit" as const,
+        affix: (index < 3 ? "prefix" : "suffix") as "prefix" | "suffix",
+        values: [],
+        verified: false,
+      })),
+    );
+
+    expect(diagnoseCraftingItem(item)).toMatchObject({
+      state: "complete",
+      observedTotalLimit: 5,
+      observedOpenSlots: 0,
+    });
   });
 
   it("no declara una pieza lista si faltan sus estados especiales", () => {

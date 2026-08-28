@@ -1,0 +1,11 @@
+Clase de objeto: Amuletos
+Rareza: Normal
+Amuleto distorsionado
+------------------
+Nivel de objeto: 79
+------------------
+Asigna Daño de ataques y precisión — Valor fijo
+Asigna Baile de sombras — Valor fijo
+------------------
+{ Mod. implícito }
+-1 modificador de sufijo permitido

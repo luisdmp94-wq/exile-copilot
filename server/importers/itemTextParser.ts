@@ -39,6 +39,14 @@ const SECTION_SEPARATOR = /^-{8,}$/;
 // oficialmente en 0.5.0. No es una dependencia de la mecánica Ward de PoE1.
 const BASE_PROPERTY_RE = /^(?:quality|calidad|physical damage|daño físico|elemental damage|daño elemental|fire damage|daño de fuego|cold damage|daño de hielo|lightning damage|daño de rayo|chaos damage|daño de caos|critical hit chance|probabilidad de impacto crítico|attacks per second|ataques por segundo|reload time|tiempo de recarga|armour|armadura|evasion(?: rating)?|evasión|energy shield|escudo de energía|runic ward|barrera rúnica|ward|barrera|spirit|espíritu|block chance|probabilidad de bloqueo|sockets|engarces|limited to|limitado a|grants skill|otorga habilidad)\s*:/i;
 
+/**
+ * Pasivas asignadas que forman parte fija de una base especial. El cliente las
+ * muestra como `Asigna … — Valor fijo`: se conservan para explicarlas, pero no
+ * ocupan un prefijo ni un sufijo y por tanto nunca deben volver inconsistente a
+ * un objeto normal.
+ */
+const FIXED_ASSIGNMENT_RE = /^(?:asigna|allocates?)\s+.+?\s+(?:—|–|-)\s*(?:valor fijo|fixed)\s*$/iu;
+
 const RARITY_MAP: Record<string, ItemRarity> = {
   normal: "normal",
   magic: "magic",
@@ -237,7 +245,8 @@ function isStructuralBoundary(line: string): boolean {
     DESECRATED_RE.test(line) ||
     ITEM_LEVEL_RE.test(line) ||
     REQUIREMENTS_RE.test(line) ||
-    BASE_PROPERTY_RE.test(line)
+    BASE_PROPERTY_RE.test(line) ||
+    FIXED_ASSIGNMENT_RE.test(line)
   );
 }
 
@@ -529,6 +538,17 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
       if (DESECRATED_RE.test(structuralLine)) {
         result.craftingState.desecrated = true;
         positiveStateMark = true;
+        continue;
+      }
+
+      if (FIXED_ASSIGNMENT_RE.test(structuralLine)) {
+        result.modifiers.push({
+          id: randomUUID(),
+          text: structuralLine,
+          kind: "enchant",
+          values: extractNumbers(structuralLine),
+          verified: false,
+        });
         continue;
       }
 

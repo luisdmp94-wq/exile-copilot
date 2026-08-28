@@ -18,6 +18,10 @@ const spanishAdvancedBow = readFileSync(
   ),
   "utf8",
 );
+const distortedAmulet = readFileSync(
+  fileURLToPath(new URL("../../server/fixtures/distortedAmuletAdvanced.es.txt", import.meta.url)),
+  "utf8",
+);
 
 describe("itemTextParser", () => {
   it("parsea el fixture de ballesta rare del juego", () => {
@@ -110,6 +114,33 @@ describe("itemTextParser", () => {
     const text = ["Item Class: Crossbows", "Rarity: Raro", "Canción Funesta", "Ballesta"].join("\n");
     const { item } = parseItemText(text);
     expect(item.rarity).toBe("rare");
+  });
+
+  it("separa las pasivas fijas del Amuleto distorsionado de sus afijos", () => {
+    const { item, warnings } = parseItemText(distortedAmulet);
+
+    expect(item).toMatchObject({
+      name: "Amuleto distorsionado",
+      baseType: "Amuleto distorsionado",
+      slot: "amulet",
+      rarity: "normal",
+      itemLevel: 79,
+      craftingState: {
+        corrupted: false,
+        mirrored: false,
+        split: false,
+        unidentified: false,
+      },
+    });
+    expect(item.modifiers.filter((modifier) => modifier.kind === "explicit")).toHaveLength(0);
+    expect(item.modifiers.filter((modifier) => modifier.kind === "enchant")).toHaveLength(2);
+    expect(item.modifiers.filter((modifier) => modifier.kind === "implicit")).toHaveLength(1);
+    expect(warnings).toEqual([]);
+
+    const transmutation = evaluateObservedCraftingActions(item).find(
+      (entry) => entry.action.id === "transmutation",
+    );
+    expect(transmutation?.status).toBe("compatible");
   });
 
   it("soporta requisitos en formato combinado de una línea", () => {
