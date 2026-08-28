@@ -57,13 +57,38 @@ describe("frontera pública", () => {
     const setCookie = response.headers.get("set-cookie") ?? "";
 
     expect(response.status).toBe(200);
-    expect(setCookie).toContain("exile_copilot_session=");
+    expect(setCookie).toContain("__Host-exile_copilot_session=");
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("SameSite=Strict");
     expect(setCookie).toContain("Secure");
     expect(response.headers.get("content-security-policy")).toContain("default-src 'self'");
     expect(response.headers.get("permissions-policy")).toContain("camera=()");
     expect(response.headers.get("x-request-id")).toMatch(/^ec_[a-f0-9]{16}$/);
+
+    const existing = cookieFrom(response);
+    const repeated = await fetch(`${base}/health`, { headers: { Cookie: existing } });
+    expect(repeated.status).toBe(200);
+    expect(repeated.headers.get("set-cookie")).toBeNull();
+  });
+
+  it.each([
+    ["débil", "__Host-exile_copilot_session=weak1234"],
+    ["malformada", "__Host-exile_copilot_session=%E0%A4%A"],
+    [
+      "legacy sin prefijo protegido",
+      "exile_copilot_session=123e4567-e89b-42d3-a456-426614174000",
+    ],
+  ])("reemplaza una cookie de sesión %s sin derribar la API", async (_case, cookie) => {
+    const response = await fetch(`${base}/health`, { headers: { Cookie: cookie } });
+    const issued = cookieFrom(response);
+    const value = issued.split("=", 2)[1] ?? "";
+
+    expect(response.status).toBe(200);
+    expect(issued).toMatch(/^__Host-exile_copilot_session=/);
+    expect(value).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(issued).not.toBe(cookie);
   });
 
   it("crea referencias propias distintas y no acepta una referencia suplantada", async () => {

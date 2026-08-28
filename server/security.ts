@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { RequestHandler, Response } from "express";
 import type { ServerConfig } from "./config.js";
 
-const SESSION_COOKIE = "exile_copilot_session";
+const LOCAL_SESSION_COOKIE = "exile_copilot_session";
+const SECURE_SESSION_COOKIE = "__Host-exile_copilot_session";
 const SESSION_ID = /^[A-Za-z0-9_-]{8,128}$/;
+const GENERATED_SESSION_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PUBLIC_REQUEST_ID = /^ec_[a-f0-9]{16}$/;
 
 /** Correlación propia: nunca acepta un id aportado por Internet. */
@@ -24,14 +27,29 @@ export function publicRequestId(locals: Record<string, unknown>): string {
   return value;
 }
 
-function cookieValue(header: string | undefined, name: string): string | null {
+function sessionCookieName(config: ServerConfig): string {
+  // `__Host-` impide que otro subdominio inyecte una cookie de sesión: el
+  // navegador exige Secure, Path=/ y ausencia de Domain.
+  return config.secureCookies ? SECURE_SESSION_COOKIE : LOCAL_SESSION_COOKIE;
+}
+
+function cookieValue(
+  header: string | undefined,
+  name: string,
+  accepted: RegExp,
+): string | null {
   if (!header) return null;
   for (const part of header.split(";")) {
     const separator = part.indexOf("=");
     if (separator < 0) continue;
     if (part.slice(0, separator).trim() !== name) continue;
-    const value = decodeURIComponent(part.slice(separator + 1).trim());
-    return SESSION_ID.test(value) ? value : null;
+    try {
+      const value = decodeURIComponent(part.slice(separator + 1).trim());
+      return accepted.test(value) ? value : null;
+    } catch {
+      // Una cabecera aportada por Internet nunca debe derribar el middleware.
+      return null;
+    }
   }
   return null;
 }
@@ -51,7 +69,10 @@ export function anonymousSession(config: ServerConfig): RequestHandler {
           : null;
     const developmentId =
       config.nodeEnv === "development" ? "local-development-session" : null;
-    const existing = cookieValue(req.headers.cookie, SESSION_COOKIE);
+    const cookieName = sessionCookieName(config);
+    const acceptedCookieId =
+      config.nodeEnv === "production" ? GENERATED_SESSION_ID : SESSION_ID;
+    const existing = cookieValue(req.headers.cookie, cookieName, acceptedCookieId);
     const sessionId = testingId ?? existing ?? developmentId ?? randomUUID();
     res.locals.anonymousSessionId = sessionId;
 
@@ -59,7 +80,7 @@ export function anonymousSession(config: ServerConfig): RequestHandler {
       const secure = config.secureCookies ? "; Secure" : "";
       res.append(
         "Set-Cookie",
-        `${SESSION_COOKIE}=${encodeURIComponent(sessionId)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict${secure}`,
+        `${cookieName}=${encodeURIComponent(sessionId)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict${secure}`,
       );
     }
     next();
@@ -77,9 +98,10 @@ export function anonymousSessionId(locals: Record<string, unknown>): string {
 /** Invalida la capacidad anónima actual después de borrar todos sus datos. */
 export function expireAnonymousSession(res: Response, config: ServerConfig): void {
   const secure = config.secureCookies ? "; Secure" : "";
+  const cookieName = sessionCookieName(config);
   res.append(
     "Set-Cookie",
-    `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict${secure}`,
+    `${cookieName}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict${secure}`,
   );
 }
 

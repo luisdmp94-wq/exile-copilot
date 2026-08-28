@@ -16,7 +16,8 @@ La barrera solo pasa si demuestra conjuntamente que:
 - Todas las pruebas unitarias pasan.
 - La aplicación arranca con frontend y API en el mismo servidor.
 - `/api/health` responde.
-- `/api/ready` confirma SQLite, metadatos del parche y orientación autorizada
+- `/api/ready` confirma lectura y escritura reversible de SQLite, metadatos del
+  parche y orientación autorizada
   para el modo declarado.
 - La bienvenida ofrece sus tres recorridos sin duplicados.
 - Se puede crear un personaje, pegar un objeto y cargar el ejemplo.

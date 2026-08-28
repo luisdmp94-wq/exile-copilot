@@ -84,12 +84,16 @@ Después de arrancar:
 - `GET /api/health` debe devolver 200: solo confirma que el proceso HTTP sigue
   vivo y publica el parche esperado.
 - `GET /api/ready` debe devolver 200 antes de enviar tráfico. Comprueba que
-  SQLite acepta lecturas, que el parche tiene metadatos y cobertura autorizada
+  SQLite acepta lecturas y una escritura reversible, que el parche tiene
+  metadatos y cobertura autorizada
   y, si `PUBLIC_DEPLOYMENT=true`, que la configuración pública sigue siendo
   segura. Un 503 debe retirar la instancia del balanceador, no reiniciarla a
   ciegas mientras `/api/health` continúe respondiendo.
 - La portada debe devolver HTML y las cabeceras CSP, `nosniff`, `DENY` y HSTS.
-- Una cookie de sesión debe ser `HttpOnly`, `SameSite=Strict` y `Secure` bajo HTTPS.
+- Una cookie de sesión pública debe llamarse `__Host-exile_copilot_session`, usar
+  un UUID v4 generado por el servidor y llevar `HttpOnly`, `SameSite=Strict`,
+  `Secure` y `Path=/`. El prefijo `__Host-` evita que otro subdominio fije la
+  sesión.
 - El recorrido «Evaluar o craftear» debe aceptar una pieza sin crear antes un
   personaje y debe conservar el parche activo.
 - La cabecera debe decir «Mentor por reglas» cuando no hay proveedor externo
