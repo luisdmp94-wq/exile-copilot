@@ -421,7 +421,9 @@ prefijo `VITE_` para una clave privada. Destacadas:
 
 - `POE_NINJA_OFFLINE=true` — nunca hace red; sirve fixtures (ideal para demos/tests).
 - `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
-- `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — flags desactivadas por defecto.
+- `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — adaptadores todavía
+  incompletos y desactivados por defecto; la barrera pública bloquea el arranque
+  si alguien intenta activarlos.
 - `MENTOR_AI_ENABLED=true` + `MENTOR_AI_PROVIDER=groq` + `GROQ_API_KEY` — activa
   la conversación fundamentada sujeta a la cuota de Groq. El valor por defecto de la
   flag es `false`, así que sin activarlo hay cero llamadas.

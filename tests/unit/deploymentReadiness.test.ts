@@ -124,4 +124,34 @@ describe("barrera de configuración pública", () => {
       ),
     ).toMatchObject({ status: "pass" });
   });
+
+  it("bloquea capacidades incompletas aunque el resto de producción sea seguro", () => {
+    const config = loadConfig({
+      PUBLIC_DEPLOYMENT: "true",
+      NODE_ENV: "production",
+      SECURE_COOKIES: "true",
+      TRUST_PROXY: "true",
+      DATABASE_PATH: resolve("datos", "exile-copilot.db"),
+      POE_NINJA_OFFLINE: "true",
+      GGG_OAUTH_ENABLED: "true",
+      EXPLAINER_LLM_ENABLED: "true",
+      MENTOR_AI_ENABLED: "false",
+    });
+    const blocked = auditPublicDeploymentConfig(config).filter(
+      (check) => check.status === "block",
+    );
+
+    expect(blocked).toEqual([
+      expect.objectContaining({
+        id: "ggg-oauth-disabled",
+        message: expect.stringContaining("todavía no está implementado"),
+      }),
+      expect.objectContaining({
+        id: "explainer-llm-disabled",
+        message: expect.stringContaining("no existe un proveedor operativo"),
+      }),
+    ]);
+    expect(() => assertPublicDeploymentConfig(config)).toThrow(/GGG_OAUTH_ENABLED/);
+    expect(() => assertPublicDeploymentConfig(config)).toThrow(/EXPLAINER_LLM_ENABLED/);
+  });
 });

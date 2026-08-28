@@ -34,6 +34,8 @@ WRITE_RATE_LIMIT_PER_MINUTE=60
 GUIDANCE_RATE_LIMIT_PER_MINUTE=30
 MENTOR_RATE_LIMIT_PER_MINUTE=15
 REQUEST_BODY_LIMIT_BYTES=4194304
+GGG_OAUTH_ENABLED=false
+EXPLAINER_LLM_ENABLED=false
 ```
 
 El servidor escucha solo en `127.0.0.1` por defecto. Es la opción correcta si
@@ -43,7 +45,10 @@ el proxy HTTPS vive en la misma máquina. En un contenedor puede necesitar
 `PUBLIC_DEPLOYMENT=true` activa una barrera de arranque: exige producción,
 cookies seguras, proxy de confianza, una base SQLite persistente con ruta
 absoluta, un User-Agent identificable para poe.ninja y una clave si el Mentor IA
-está habilitado. Si `POE_NINJA_OFFLINE=true`, no exige identidad porque no habrá
+está habilitado. También exige que `GGG_OAUTH_ENABLED` y
+`EXPLAINER_LLM_ENABLED` sigan desactivados: sus adaptadores todavía no son
+capacidades operativas y no se pueden habilitar por accidente delante de
+usuarios. Si `POE_NINJA_OFFLINE=true`, no exige identidad porque no habrá
 peticiones de mercado. Puede comprobarse antes de arrancar con
 `npm run readiness:deployment`.
 

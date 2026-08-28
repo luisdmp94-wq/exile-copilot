@@ -11,6 +11,8 @@ export interface DeploymentReadinessCheck {
     | "trusted-proxy"
     | "persistent-database"
     | "poe-ninja-identity"
+    | "ggg-oauth-disabled"
+    | "explainer-llm-disabled"
     | "mentor-key";
   status: DeploymentReadinessStatus;
   message: string;
@@ -98,6 +100,20 @@ export function auditPublicDeploymentConfig(
           ? "poe.ninja está desactivado; no saldrán peticiones de mercado."
           : "poe.ninja recibirá un User-Agent identificable."
         : "POE_NINJA_USER_AGENT debe sustituir local-dev por un correo o URL de contacto con formato válido.",
+    },
+    {
+      id: "ggg-oauth-disabled",
+      status: config.gggOauthEnabled ? "block" : "pass",
+      message: config.gggOauthEnabled
+        ? "GGG_OAUTH_ENABLED no puede activarse públicamente: el flujo OAuth todavía no está implementado."
+        : "El adaptador OAuth incompleto de GGG permanece desactivado.",
+    },
+    {
+      id: "explainer-llm-disabled",
+      status: config.explainerLlmEnabled ? "block" : "pass",
+      message: config.explainerLlmEnabled
+        ? "EXPLAINER_LLM_ENABLED no puede activarse públicamente: todavía no existe un proveedor operativo."
+        : "El explicador LLM incompleto permanece desactivado; se usa el explicador determinista.",
     },
     {
       id: "mentor-key",
