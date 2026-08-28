@@ -835,33 +835,27 @@ async function runFlow(mode, port) {
     const mascotVoiceMotion = await page.getByTestId("mentor-mascota").evaluate((mascot) => {
       const previousState = mascot.getAttribute("data-state");
       mascot.setAttribute("data-state", "ai");
-      const faceMark = mascot.querySelector(".mentor-robot__face-mark");
+      const art = mascot.querySelector(".mentor-robot__art");
       const result = {
-        animationName: faceMark ? getComputedStyle(faceMark).animationName : null,
+        animationName: art ? getComputedStyle(art).animationName : null,
         separateMouth: mascot.querySelector(".mentor-robot__mouth") !== null,
+        source: art?.getAttribute("src") ?? "",
+        loaded:
+          art instanceof HTMLImageElement && art.complete && art.naturalWidth > 0,
       };
       if (previousState === null) mascot.removeAttribute("data-state");
       else mascot.setAttribute("data-state", previousState);
       return result;
     });
     check(
-      `[${mode}] al hablar pulsa el emblema facial sin abrir una boca separada`,
+      `[${mode}] al hablar pulsa la ilustración sin animar una boca separada`,
       mascotVoiceMotion.animationName === "mentor-robot-voice-glow" &&
         mascotVoiceMotion.separateMouth === false,
     );
-    const emblemFace = await page.getByTestId("mentor-mascota").evaluate((mascot) => {
-      const head = mascot.querySelector(".mentor-robot__head");
-      return {
-        headRadius: head ? Number.parseFloat(getComputedStyle(head).borderTopLeftRadius) : 0,
-        faceEmblem: mascot.querySelector(".mentor-robot__face-mark") !== null,
-        chestEmblem: mascot.querySelector(".mentor-robot__body svg") !== null,
-      };
-    });
     check(
-      `[${mode}] la cara replica el lenguaje sencillo del emblema del pecho`,
-      emblemFace.headRadius >= 8 &&
-        emblemFace.faceEmblem &&
-        emblemFace.chestEmblem,
+      `[${mode}] la mascota completa carga como recurso local del producto`,
+      mascotVoiceMotion.loaded &&
+        mascotVoiceMotion.source.endsWith("/mascot/exile-copilot-companion-v1.png"),
     );
     await page.getByTestId("mentor-speech-open").click();
     check(

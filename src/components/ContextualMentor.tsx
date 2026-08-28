@@ -93,20 +93,12 @@ function MentorRobot({
       data-source={source}
       aria-hidden="true"
     >
-      <span className="mentor-robot__orbit mentor-robot__orbit--outer" />
-      <span className="mentor-robot__orbit mentor-robot__orbit--inner" />
-      <span className="mentor-robot__antenna">
-        <span />
-      </span>
-      <span className="mentor-robot__head">
-        <span className="mentor-robot__temple mentor-robot__temple--left" />
-        <span className="mentor-robot__temple mentor-robot__temple--right" />
-        <Bot className="mentor-robot__face-mark" />
-      </span>
-      <span className="mentor-robot__body">
-        <Bot className="size-5" />
-        <span className="mentor-robot__core" />
-      </span>
+      <img
+        className="mentor-robot__art"
+        src="/mascot/exile-copilot-companion-v1.png"
+        alt=""
+        draggable="false"
+      />
       <span className="mentor-robot__shadow" />
     </span>
   );
@@ -343,9 +335,6 @@ export function ContextualMentor({
         >
           <MentorRobot state={visualState} source={cue.source} />
           <span className="mentor-floating-mascot__beacon" aria-hidden="true" />
-          <span className="mentor-floating-mascot__hint">
-            {speechVisible ? "Nuevo" : loading ? "Pensando" : "Hablar"}
-          </span>
         </button>
       )}
 
@@ -382,8 +371,8 @@ export function ContextualMentor({
 
         <div
           className={cn(
-            "flex items-center gap-3 border-b border-border/70 px-4 py-3",
-            placement === "inline" && "mentor-companion__header",
+            "flex items-center gap-3 border-b border-border/70 py-3",
+            placement === "inline" && "mentor-companion__header px-4",
             placement === "floating" && "mentor-floating-header",
           )}
         >

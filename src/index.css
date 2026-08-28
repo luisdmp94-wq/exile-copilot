@@ -504,157 +504,32 @@
   .mentor-robot {
     position: relative;
     display: block;
-    width: 4.65rem;
-    height: 5.8rem;
+    width: 7rem;
+    height: 7.7rem;
     filter: drop-shadow(0 0.5rem 0.7rem hsl(240 30% 2% / 0.55));
     transition: transform 180ms ease, filter 180ms ease;
     animation: mentor-robot-hover 3.4s ease-in-out infinite;
   }
 
-  .mentor-robot__orbit {
-    position: absolute;
-    z-index: 0;
-    top: 45%;
-    left: 50%;
-    border: 1px solid hsl(42 80% 58% / 0.14);
-    border-radius: 9999px;
-    pointer-events: none;
-    transform: translate(-50%, -50%) rotate(-12deg);
-  }
-
-  .mentor-robot__orbit--outer {
-    width: 4.85rem;
-    height: 4.15rem;
-    border-style: dashed;
-  }
-
-  .mentor-robot__orbit--inner {
-    width: 3.95rem;
-    height: 3.35rem;
-    border-color: hsl(195 78% 60% / 0.11);
-    transform: translate(-50%, -50%) rotate(18deg);
-  }
-
-  .mentor-robot__antenna {
-    position: absolute;
-    z-index: 3;
-    top: 0;
-    left: 50%;
-    width: 2px;
-    height: 0.9rem;
-    background: hsl(42 65% 42%);
-    transform: translateX(-50%);
-  }
-
-  .mentor-robot__antenna > span {
-    position: absolute;
-    top: -0.2rem;
-    left: 50%;
-    width: 0.48rem;
-    height: 0.48rem;
-    border: 1px solid hsl(42 92% 65% / 0.8);
-    border-radius: 9999px;
-    background: hsl(42 90% 52%);
-    box-shadow: 0 0 0.7rem hsl(42 92% 55% / 0.72);
-    transform: translateX(-50%);
-  }
-
-  .mentor-robot__head {
-    position: absolute;
-    z-index: 2;
-    top: 0.75rem;
-    left: 50%;
-    width: 3.85rem;
-    height: 3.05rem;
-    border: 1px solid hsl(42 75% 55% / 0.72);
-    border-radius: 0.72rem;
-    background:
-      linear-gradient(145deg, hsl(42 70% 30% / 0.24), transparent 44%),
-      hsl(235 14% 9%);
-    box-shadow:
-      inset 0 0 1rem hsl(42 90% 50% / 0.07),
-      0 0 1rem hsl(42 80% 45% / 0.12);
-    transform: translateX(-50%);
-  }
-
-  .mentor-robot__head::before {
-    position: absolute;
-    inset: 0.46rem 0.4rem 0.42rem;
-    border: 1px solid hsl(195 78% 62% / 0.16);
-    border-radius: 0.5rem;
-    background: hsl(235 18% 5% / 0.42);
-    box-shadow: inset 0 0 0.65rem hsl(195 84% 56% / 0.06);
-    content: "";
-  }
-
-  .mentor-robot__temple {
-    position: absolute;
-    z-index: -1;
-    top: 1.08rem;
-    width: 0.38rem;
-    height: 0.72rem;
-    border: 1px solid hsl(42 72% 54% / 0.58);
-    border-radius: 0.22rem;
-    background: hsl(235 14% 5%);
-    box-shadow: 0 0 0.45rem hsl(42 85% 52% / 0.18);
-  }
-
-  .mentor-robot__temple--left {
-    left: -0.22rem;
-  }
-
-  .mentor-robot__temple--right {
-    right: -0.22rem;
-  }
-
-  .mentor-robot__face-mark {
+  .mentor-robot__art {
     position: absolute;
     z-index: 1;
-    top: 0.48rem;
-    left: 50%;
-    width: 2.18rem;
-    height: 2.18rem;
-    color: hsl(48 96% 68%);
-    filter: drop-shadow(0 0 0.34rem hsl(42 100% 60% / 0.36));
-    stroke-width: 1.65;
-    transform: translateX(-50%);
-  }
-
-  .mentor-robot__body {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    display: grid;
-    width: 3.1rem;
-    height: 2rem;
-    place-items: center;
-    border: 1px solid hsl(42 65% 48% / 0.55);
-    border-top: 0;
-    border-radius: 0 0 0.45rem 0.45rem;
-    color: hsl(42 92% 62% / 0.88);
-    background: hsl(235 14% 8%);
-    transform: translateX(-50%);
-    clip-path: polygon(8% 0, 92% 0, 100% 82%, 90% 100%, 10% 100%, 0 82%);
-  }
-
-  .mentor-robot__core {
-    position: absolute;
-    right: 0.28rem;
-    bottom: 0.25rem;
-    width: 0.28rem;
-    height: 0.28rem;
-    border-radius: 9999px;
-    background: hsl(42 92% 58%);
-    box-shadow: 0 0 0.55rem hsl(42 92% 55% / 0.72);
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    transition: filter 180ms ease, opacity 180ms ease;
   }
 
   .mentor-robot__shadow {
     position: absolute;
     z-index: 0;
-    right: 0.55rem;
-    bottom: -0.12rem;
-    left: 0.55rem;
-    height: 0.35rem;
+    right: 1.25rem;
+    bottom: 0.48rem;
+    left: 1.25rem;
+    height: 0.42rem;
     border-radius: 50%;
     background: hsl(240 50% 1% / 0.58);
     filter: blur(4px);
@@ -676,44 +551,24 @@
     text-transform: uppercase;
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__face-mark {
-    color: hsl(195 95% 68%);
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__art {
     animation: mentor-robot-scan 0.75s ease-in-out infinite alternate;
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__antenna > span {
-    background: hsl(195 92% 62%);
-    box-shadow: 0 0 0.8rem hsl(195 92% 58% / 0.82);
-    animation: mentor-signal-pulse 0.9s ease-in-out infinite alternate;
-  }
-
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__core {
-    background: hsl(195 92% 62%);
-    box-shadow: 0 0 0.8rem hsl(195 92% 58% / 0.82);
-    animation: mentor-core-pulse 0.9s ease-in-out infinite alternate;
-  }
-
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__orbit--outer {
-    border-color: hsl(195 85% 62% / 0.38);
-    animation: mentor-orbit-scan 2.2s linear infinite;
-  }
-
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__face-mark {
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__art {
     animation: mentor-robot-voice-glow 1.15s ease-in-out infinite alternate;
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__face-mark {
-    color: hsl(38 100% 63%);
-    filter: drop-shadow(0 0 0.48rem hsl(30 96% 55% / 0.62));
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__art {
+    filter: drop-shadow(0 0 0.7rem hsl(30 96% 55% / 0.52));
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="error"] .mentor-robot__face-mark {
-    color: hsl(5 86% 66%);
-    filter: drop-shadow(0 0 0.44rem hsl(5 86% 58% / 0.62));
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="error"] .mentor-robot__art {
+    filter: drop-shadow(0 0 0.7rem hsl(5 86% 58% / 0.58));
   }
 
-  :is(.mentor-mascot, .mentor-floating-mascot)[data-source="market"] .mentor-robot__orbit--inner {
-    border-color: hsl(190 88% 58% / 0.34);
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-source="market"] .mentor-robot__art {
+    filter: drop-shadow(0 0 0.55rem hsl(190 88% 58% / 0.28));
   }
 
   .mentor-floating-shell {
@@ -724,15 +579,15 @@
   }
 
   .mentor-floating-shell[data-collapsed="true"] {
-    width: 5.35rem;
-    height: 6.3rem;
+    width: 7.4rem;
+    height: 8.2rem;
   }
 
   .mentor-floating-shell[data-collapsed="true"][data-speaking="true"] {
     display: flex;
     width: min(29rem, calc(100vw - 1.5rem));
     height: auto;
-    min-height: 6.3rem;
+    min-height: 8.2rem;
     align-items: flex-end;
     gap: 0.65rem;
   }
@@ -852,8 +707,9 @@
   }
 
   .mentor-floating-header {
-    min-height: 4.4rem;
-    padding-left: 6.65rem;
+    min-height: 5.6rem;
+    padding-left: 7.6rem;
+    padding-right: 1rem;
     background:
       linear-gradient(100deg, hsl(42 82% 40% / 0.11), transparent 45%),
       hsl(235 14% 6% / 0.94);
@@ -862,22 +718,16 @@
   .mentor-floating-mascot {
     position: absolute;
     z-index: 3;
-    top: -3.75rem;
-    left: 0.75rem;
+    top: -1.8rem;
+    left: 0.2rem;
     display: grid;
-    width: 5.35rem;
-    height: 6.3rem;
+    width: 7.4rem;
+    height: 8.2rem;
     place-items: center;
-    border: 1px solid hsl(42 78% 50% / 0.52);
+    border: 0;
     color: hsl(var(--primary));
-    background:
-      radial-gradient(circle at 50% 36%, hsl(42 94% 58% / 0.2), transparent 43%),
-      linear-gradient(165deg, hsl(42 38% 13% / 0.96), hsl(235 16% 5% / 0.98));
-    box-shadow:
-      inset 0 0 1.4rem hsl(42 88% 48% / 0.08),
-      0 0.8rem 1.8rem hsl(240 40% 2% / 0.58),
-      0 0 1.2rem hsl(42 84% 48% / 0.12);
-    clip-path: polygon(13% 0, 87% 0, 100% 12%, 100% 88%, 88% 100%, 12% 100%, 0 88%, 0 12%);
+    background: transparent;
+    box-shadow: none;
     cursor: pointer;
   }
 
@@ -888,16 +738,7 @@
   }
 
   .mentor-floating-mascot::after {
-    content: "";
-    position: absolute;
-    right: 0.75rem;
-    bottom: -0.46rem;
-    width: 0.85rem;
-    height: 0.85rem;
-    border-right: 1px solid hsl(42 78% 50% / 0.52);
-    border-bottom: 1px solid hsl(42 78% 50% / 0.52);
-    background: hsl(235 16% 6%);
-    transform: rotate(45deg);
+    display: none;
   }
 
   .mentor-floating-mascot .mentor-robot {
@@ -915,19 +756,6 @@
   .mentor-floating-mascot:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 3px;
-  }
-
-  .mentor-floating-mascot__hint {
-    position: absolute;
-    right: 0.35rem;
-    bottom: 0.24rem;
-    left: 0.35rem;
-    color: hsl(42 88% 72% / 0.9);
-    font-size: 0.54rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    line-height: 1;
-    text-transform: uppercase;
   }
 
   .mentor-floating-mascot__beacon {
@@ -963,8 +791,8 @@
     .mentor-floating-shell[data-collapsed="true"] {
       right: 0.35rem;
       left: auto;
-      width: 3.5rem;
-      height: 4.2rem;
+      width: 4.75rem;
+      height: 5.4rem;
     }
 
     .mentor-floating-shell[data-collapsed="true"][data-speaking="true"] {
@@ -999,15 +827,15 @@
     }
 
     .mentor-floating-header {
-      min-height: 4rem;
-      padding-left: 5.7rem;
+      min-height: 4.8rem;
+      padding-left: 5.2rem;
     }
 
     .mentor-floating-mascot {
-      top: -2.45rem;
-      left: 0.55rem;
-      width: 3.5rem;
-      height: 4.2rem;
+      top: -1.15rem;
+      left: 0.05rem;
+      width: 4.75rem;
+      height: 5.4rem;
     }
 
     .mentor-floating-shell[data-collapsed="true"] .mentor-floating-mascot {
@@ -1016,16 +844,12 @@
     }
 
     .mentor-floating-mascot .mentor-robot {
-      transform: scale(0.62);
+      transform: scale(0.68);
     }
 
     .mentor-floating-mascot:hover .mentor-robot,
     .mentor-floating-mascot:focus-visible .mentor-robot {
-      transform: translateY(-2px) scale(0.66);
-    }
-
-    .mentor-floating-mascot__hint {
-      display: none;
+      transform: translateY(-2px) scale(0.72);
     }
   }
 
@@ -1283,10 +1107,7 @@
 @media (prefers-reduced-motion: reduce) {
   .ai-dot,
   .mentor-robot,
-  .mentor-robot__orbit,
-  .mentor-robot__antenna > span,
-  .mentor-robot__core,
-  .mentor-robot__face-mark,
+  .mentor-robot__art,
   .mentor-floating-mascot__beacon,
   .mentor-speech-bubble {
     animation: none;
