@@ -10,6 +10,12 @@ Un parche nuevo nunca hereda la compatibilidad del anterior. Si su id no tiene u
 
 Cada área declara `evidenceIds` concretos. No basta con marcar una capacidad como cubierta: la API solo puede usar los snapshots o registros enumerados expresamente para ese parche.
 
+Cada id debe existir además en `server/data/releaseEvidence.json`. El catálogo
+liga la evidencia a una única área, declara el parche que el propio artefacto
+demuestra y fija la ruta local mediante SHA-256. Una observación con
+`patch: null`, un fichero ausente o una huella modificada no desbloquea ninguna
+versión, aunque su id aparezca escrito en el registro de compatibilidad.
+
 `covered` significa que el alcance descrito fue contrastado. No significa que la aplicación conozca todos los afijos, resultados o probabilidades. `limited` permite una función conservadora con sus límites visibles. `review-required` la detiene.
 
 ## Activación de un parche nuevo
@@ -28,20 +34,25 @@ solo después permite ejecutar la suite completa de publicación.
 
 1. Añadir el parche a `server/data/patches.json` con fecha y fuente oficial.
 2. Añadir una cobertura a `server/data/patchCompatibility.json`. Debe incluir exactamente las cinco áreas del contrato y los ids exactos de sus evidencias.
-3. Mantener el estado global en `review-required` mientras alguna capacidad esencial no haya sido contrastada.
-4. Validar textos de objetos copiados desde el cliente, incluidos prefijos, sufijos, rareza, nivel de objeto y estados especiales.
-5. Volver a observar las monedas básicas y comprobar sus transiciones normal → mágico → raro.
-6. Revisar Essences y Alloys con sus tooltips reales; no inferir efectos a partir del nombre.
-7. Actualizar el registro de pasivas, su `testedAgainstPatch` y el `evidenceId` autorizado. La importación del `.build` seguirá funcionando si falta, pero no resolverá nombres antiguos.
-8. Confirmar ligas y mercado sin convertir una cotización temporal en un precio garantizado.
-9. Ejecutar `verify:release` y comprobar manualmente el recorrido de un jugador nuevo y uno avanzado.
-10. Cambiar `DEFAULT_PATCH` al nuevo id únicamente cuando los puntos anteriores
+3. Registrar cada evidencia nueva en `server/data/releaseEvidence.json` con su
+   área, parche explícito, fecha, ruta y SHA-256. No atribuir un parche que no
+   aparezca en el propio artefacto.
+4. Mantener el estado global en `review-required` mientras alguna capacidad esencial no haya sido contrastada.
+5. Validar textos de objetos copiados desde el cliente, incluidos prefijos, sufijos, rareza, nivel de objeto y estados especiales.
+6. Volver a observar las monedas básicas y comprobar sus transiciones normal → mágico → raro.
+7. Revisar Essences y Alloys con sus tooltips reales; no inferir efectos a partir del nombre.
+8. Actualizar el registro de pasivas, su `testedAgainstPatch` y el `evidenceId` autorizado. La importación del `.build` seguirá funcionando si falta, pero no resolverá nombres antiguos.
+9. Confirmar ligas y mercado sin convertir una cotización temporal en un precio garantizado.
+10. Ejecutar `verify:release` y comprobar manualmente el recorrido de un jugador nuevo y uno avanzado.
+11. Cambiar `DEFAULT_PATCH` al nuevo id únicamente cuando los puntos anteriores
     estén cerrados y ejecutar `npm run verify:1.0` como comprobación final.
 
 ## Criterios mínimos para 1.0
 
 - `/api/health` identifica exactamente `1.0`, no una versión anterior ni un valor sin hotfix.
 - Las cinco áreas de cobertura aparecen una sola vez y llevan evidencia concreta.
+- Cada evidencia resuelve a un artefacto local íntegro, pertenece al área
+  declarada y afirma exactamente `patch: "1.0"`.
 - Un personaje de un parche sin revisar ve el bloqueo comprensible de Crafting.
 - El importador no pierde información del nuevo formato de tooltip.
 - El lector de objetos exige el parche activo y permanece cerrado hasta que `item-import` autorice sus fixtures.

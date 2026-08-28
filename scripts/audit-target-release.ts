@@ -9,6 +9,7 @@ import {
   PASSIVE_REGISTRY_EVIDENCE_ID,
   getRegistryProvenance,
 } from "../server/registry/passiveRegistry.js";
+import { loadReleaseEvidenceCatalog } from "../server/releaseEvidenceCatalog.js";
 
 function argument(name: string): string | null {
   const index = process.argv.indexOf(name);
@@ -36,6 +37,7 @@ const report = evaluateReleaseReadiness({
     testedAgainstPatch: passiveProvenance.testedAgainstPatch,
     evidenceId: PASSIVE_REGISTRY_EVIDENCE_ID,
   },
+  evidenceCatalog: loadReleaseEvidenceCatalog(),
 });
 
 console.log(`\nPreparación PoE2 ${targetPatch}: ${report.ready ? "APROBABLE" : "BLOQUEADA"}\n`);

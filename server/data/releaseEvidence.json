@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "evidenceId": "item-parser-fixtures-2026-08-22",
+      "featureId": "item-import",
+      "patch": null,
+      "asOf": "2026-08-22",
+      "method": "parser-regression",
+      "artifactPath": "docs/evidence/crafting/2026-08-22/README.md",
+      "artifactSha256": "98970499ce3547ec1dcb6faad8c8141d80027f6bf4ea6524476364836f8ca634",
+      "note": "Prueba el formato avanzado en español observado, pero las capturas no muestran el parche; por eso no puede desbloquear una versión futura."
+    },
+    {
+      "evidenceId": "poe2-observed-currency-actions-2026-08-22",
+      "featureId": "basic-crafting",
+      "patch": null,
+      "asOf": "2026-08-22",
+      "method": "in-game-observation",
+      "artifactPath": "server/data/crafting/observedCurrencyActions.2026-08-22.json",
+      "artifactSha256": "9fa74be143a09c5c14bb387049859647ecdf763182bbdba377b99008d3af308d",
+      "note": "El snapshot declara patch null: conserva una observación, no demuestra compatibilidad con 0.5.4f ni con 1.0."
+    },
+    {
+      "evidenceId": "poe2-mod-pools-unavailable-2026-08-22",
+      "featureId": "basic-crafting",
+      "patch": null,
+      "asOf": "2026-08-22",
+      "method": "official-source-review",
+      "artifactPath": "server/data/crafting/modPools.unavailable.2026-08-22.json",
+      "artifactSha256": "13a681f80c918db902a9d28ea6d1ab27840482b1707d56dc34f604e9cc5dcc11",
+      "note": "Documenta la ausencia de pools redistribuibles; debe revisarse de nuevo para cada lanzamiento."
+    },
+    {
+      "evidenceId": "crafting-essences-sources",
+      "featureId": "advanced-crafting",
+      "patch": "0.5.0",
+      "asOf": "2026-08-23",
+      "method": "official-source-review",
+      "artifactPath": "docs/CRAFTING_ESSENCES.md",
+      "artifactSha256": "f59b2235b1d4a9ddee4799cb14e74d3b90d897001274f98ba2c3dda67d92352d",
+      "note": "La revisión llega hasta fuentes oficiales 0.5.0; no demuestra por sí sola un parche posterior."
+    },
+    {
+      "evidenceId": "crafting-alloys-sources",
+      "featureId": "advanced-crafting",
+      "patch": "0.5.3",
+      "asOf": "2026-08-23",
+      "method": "official-source-review",
+      "artifactPath": "docs/CRAFTING_ALLOYS.md",
+      "artifactSha256": "6f325220d3fe19e74ec5d87e23ba3f81135bfd7298a618bbe6a9f62d36299566",
+      "note": "La revisión llega hasta fuentes oficiales 0.5.3; no se hereda como evidencia de 1.0."
+    },
+    {
+      "evidenceId": "passiveRegistry.1e9eb2d8",
+      "featureId": "passive-tree",
+      "patch": "0.5.4f",
+      "asOf": "2026-08-20",
+      "method": "official-export",
+      "artifactPath": "server/data/passives/passiveRegistry.1e9eb2d8.json",
+      "artifactSha256": "dc317e0457f262292acec8d9fed3c1b88d9bae18bd7e3849585c307493f5246a",
+      "note": "Export oficial fijado por commit y probado explícitamente contra 0.5.4f."
+    },
+    {
+      "evidenceId": "poe-ninja-economy-endpoint",
+      "featureId": "market",
+      "patch": null,
+      "asOf": "2026-08-28",
+      "method": "live-service-contract",
+      "artifactPath": "docs/PLAN.md",
+      "artifactSha256": "af73f7cf39adf3a7ea10556b6802227312bfc73bd4ba38ce13f4153538d411c6",
+      "note": "Describe el contrato y sus límites, pero una fuente viva sin captura del lanzamiento no demuestra un parche concreto."
+    }
+  ]
+}

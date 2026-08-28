@@ -45,6 +45,10 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm run verify:release` — barrera completa previa a una publicación: compila el servidor que se desplegará y recorre bienvenida, equipo, Crafting, Academia, Mentor, diario, sesiones y memoria en bases temporales.
 - `npm run drill:restore` — crea una SQLite temporal, guarda un expediente y su diario, copia y restaura el conjunto, ejecuta `integrity_check` y demuestra que la misma sesión puede recuperarlos; nunca usa la base real.
 - `npm run readiness:deployment` — bloquea una publicación si conserva configuración local, cookies inseguras, almacenamiento efímero, proxy sin declarar o credenciales externas incompletas.
+- `server/data/releaseEvidence.json` — catálogo auditable que liga cada id de
+  compatibilidad a un área, un parche explícito y un artefacto local fijado por
+  SHA-256; un nombre inventado o una observación sin parche no desbloquean un
+  lanzamiento.
 
 El procedimiento para publicar, hacer copias y recuperar el servicio está en
 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).

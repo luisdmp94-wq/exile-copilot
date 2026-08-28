@@ -4,6 +4,7 @@ import {
   type PatchCompatibilityRegistry,
   type PatchFeatureCoverage,
 } from "./patchCompatibility.js";
+import type { AuditedReleaseEvidence } from "./releaseEvidence.js";
 
 export type ReleaseCheckStatus = "pass" | "fail";
 
@@ -23,6 +24,7 @@ export interface ReleaseReadinessInput {
     testedAgainstPatch: string;
     evidenceId: string;
   };
+  evidenceCatalog: AuditedReleaseEvidence[];
 }
 
 export interface ReleaseReadinessReport {
@@ -113,20 +115,58 @@ export function evaluateReleaseReadiness(
     const fresh = feature
       ? freshEvidenceIds(feature, input.targetPatch, input.compatibility)
       : [];
+    const catalogRecords = (feature?.evidenceIds ?? []).map((evidenceId) =>
+      input.evidenceCatalog.find((candidate) => candidate.evidenceId === evidenceId),
+    );
+    const missing = (feature?.evidenceIds ?? []).filter(
+      (_evidenceId, index) => catalogRecords[index] === undefined,
+    );
+    const wrongFeature = catalogRecords.filter(
+      (candidate) => candidate !== undefined && candidate.featureId !== featureId,
+    );
+    const damaged = catalogRecords.filter(
+      (candidate) => candidate !== undefined && !candidate.artifactVerified,
+    );
+    const targetEvidence = catalogRecords.filter(
+      (candidate) =>
+        candidate !== undefined &&
+        candidate.featureId === featureId &&
+        candidate.patch === input.targetPatch &&
+        candidate.artifactVerified &&
+        fresh.includes(candidate.evidenceId),
+    );
     const ok = Boolean(
       feature &&
         feature.status !== "review-required" &&
         feature.evidenceIds.length > 0 &&
-        fresh.length > 0,
+        fresh.length > 0 &&
+        missing.length === 0 &&
+        wrongFeature.length === 0 &&
+        damaged.length === 0 &&
+        targetEvidence.length > 0,
     );
+    const problems = [
+      missing.length > 0 ? `ids sin catálogo: ${missing.join(", ")}` : null,
+      wrongFeature.length > 0
+        ? `ids de otra área: ${wrongFeature.map((entry) => entry?.evidenceId).join(", ")}`
+        : null,
+      damaged.length > 0
+        ? `artefactos no verificables: ${damaged.map((entry) => entry?.evidenceId).join(", ")}`
+        : null,
+      targetEvidence.length === 0
+        ? `ningún artefacto íntegro declara el parche ${input.targetPatch}`
+        : null,
+    ].filter((problem): problem is string => problem !== null);
     checks.push(
       check(
         `feature-${featureId}`,
         `Cobertura propia: ${featureId}`,
         ok,
-        `${feature?.status}; evidencia nueva: ${fresh.join(", ")}.`,
+        `${feature?.status}; evidencia propia, íntegra y del parche: ${targetEvidence
+          .map((entry) => entry?.evidenceId)
+          .join(", ")}.`,
         feature
-          ? `${feature.status}; necesita al menos una evidencia que no sea heredada de otro parche.`
+          ? `${feature.status}; ${problems.join("; ") || "necesita evidencia propia del parche"}.`
           : `El registro de ${input.targetPatch} no contiene esta área.`,
       ),
     );
