@@ -19,9 +19,21 @@ import {
   type EssenceEvaluation,
   type EssencePlanInput,
 } from "@shared/craftingEssences.js";
-import type { Budget, GoalKind, Item, Recommendation } from "@shared/domain.js";
+import type {
+  Budget,
+  CharacterProfile,
+  GoalKind,
+  Item,
+  Recommendation,
+} from "@shared/domain.js";
+import {
+  assessCharacterReadiness,
+  assessMentorReadiness,
+} from "@shared/characterReadiness.js";
+import { hasCraftingCharacterContext } from "@shared/craftingCharacterContext.js";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
+import type { FeaturedBuild } from "@shared/featuredBuilds.js";
 import {
   GGG_AFFILIATION_NOTICE,
   type PlanResolution,
@@ -41,7 +53,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { ContextualMentor } from "@/components/ContextualMentor";
 import { DataPrivacyDialog } from "@/components/DataPrivacyDialog";
 import { WelcomePanel } from "@/components/WelcomePanel";
-import { OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
+import { MentorBriefing, OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
 import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
 import { OpenCaseRecommendation } from "@/components/OpenCaseRecommendation";
 import { ExpedienteSection } from "@/sections/ExpedienteSection";
@@ -50,9 +62,11 @@ import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
 import { useMarket } from "@/hooks/useMarket";
+import { useFeaturedBuilds } from "@/hooks/useFeaturedBuilds";
 import { useMeta } from "@/hooks/useMeta";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
+import { journalNowTracksVisibleRecommendation } from "@shared/recommendationInvalidation.js";
 import {
   compactRecommendationReason,
   journalEntryFromRecommendation,
@@ -63,6 +77,10 @@ import { MentorChatSection } from "@/sections/MentorChatSection";
 import { useMentor } from "@/hooks/useMentor";
 import { buildMentorRequest } from "@/lib/mentorRequest";
 import { buildTargetFromDraft } from "@/lib/buildTarget";
+import {
+  loadPlanningWorkspaceProgress,
+  savePlanningWorkspaceProgress,
+} from "@/lib/planningWorkspaceProgress";
 import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
@@ -86,6 +104,11 @@ const TargetSection = lazy(() =>
 const MarketSection = lazy(() =>
   import("@/sections/MarketSection").then((module) => ({
     default: module.MarketSection,
+  })),
+);
+const FeaturedBuildsSection = lazy(() =>
+  import("@/sections/FeaturedBuildsSection").then((module) => ({
+    default: module.FeaturedBuildsSection,
   })),
 );
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
@@ -144,31 +167,61 @@ export default function App() {
     reload: reloadMeta,
   } = useMeta();
 
+  // Plan, objetivo y presupuesto pertenecen al espacio de trabajo del jugador,
+  // no a un render concreto. Se restauran de forma síncrona para que una
+  // recarga nunca pinte primero un plan vacío y lo sobrescriba después.
+  const initialPlanningWorkspace = useMemo(
+    () => loadPlanningWorkspaceProgress(),
+    [],
+  );
+
   const [league, setLeague] = useState("");
   const [patch, setPatch] = useState("");
-  const [budget, setBudget] = useState<Budget>({ amount: 50, currency: "exalted" });
-  const [goal, setGoal] = useState<GoalKind>("balanced");
-  const [targetDraft, setTargetDraft] = useState<TargetDraft>(EMPTY_TARGET);
-  const [targetWarnings, setTargetWarnings] = useState<string[]>([]);
+  const [budget, setBudget] = useState<Budget | null>(
+    initialPlanningWorkspace?.budget ?? null,
+  );
+  const [goal, setGoal] = useState<GoalKind>(
+    initialPlanningWorkspace?.goal ?? "balanced",
+  );
+  const [targetDraft, setTargetDraft] = useState<TargetDraft>(
+    initialPlanningWorkspace?.targetDraft ?? EMPTY_TARGET,
+  );
+  const [targetWarnings, setTargetWarnings] = useState<string[]>(
+    initialPlanningWorkspace?.targetWarnings ?? [],
+  );
   // Resolución de ids del plan contra el registro oficial: se guarda APARTE del
   // plan para no alterar nunca el `.build` crudo que se reexporta.
-  const [targetResolution, setTargetResolution] = useState<PlanResolution | null>(null);
+  const [targetResolution, setTargetResolution] = useState<PlanResolution | null>(
+    initialPlanningWorkspace?.targetResolution ?? null,
+  );
   // Navegación caso → objeto (solo con vínculo estructurado del motor).
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   // Elemento que abrió el detalle: puede ser un hueco del paperdoll o el botón
   // «Ver el objeto evaluado» del caso. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
-  const [tab, setTab] = useState<WorkspaceTab>("expediente");
+  const [tab, setTab] = useState<WorkspaceTab>(
+    initialPlanningWorkspace?.activeWorkspace ?? "expediente",
+  );
   // Las áreas pesadas se descargan al visitarlas por primera vez y después
   // permanecen montadas para no perder formularios, selección ni sesiones.
   const [mountedWorkspaces, setMountedWorkspaces] = useState<Set<WorkspaceTab>>(
-    () => new Set(["expediente"]),
+    () =>
+      new Set([
+        "expediente",
+        initialPlanningWorkspace?.activeWorkspace ?? "expediente",
+      ]),
   );
-  const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceTab[]>([]);
+  const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceTab[]>(
+    initialPlanningWorkspace?.activeWorkspace &&
+      initialPlanningWorkspace.activeWorkspace !== "expediente"
+      ? ["expediente"]
+      : [],
+  );
   const [craftingRequestedItemId, setCraftingRequestedItemId] = useState<string | null>(null);
   // Panel lateral con el editor completo del personaje.
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPrompt, setEditorPrompt] = useState<EditorPrompt>(null);
+  const [mentorBriefingOpen, setMentorBriefingOpen] = useState(false);
   const [contextualCue, setContextualCue] = useState(() =>
     contextualMentorCue({ type: "welcome" }),
   );
@@ -182,8 +235,24 @@ export default function App() {
   const contextualSeqRef = useRef(0);
   const budgetCueTimerRef = useRef<number | null>(null);
   const announcedPlanRef = useRef<BuildTargetPlan | null>(null);
+  const pendingMemoryActionRef = useRef<{
+    kind: "track" | "session";
+    recommendation: Recommendation;
+  } | null>(null);
   // Borradores del editor: viven fuera del panel para sobrevivir a su cierre.
   const editorDrafts = useEditorDrafts();
+
+  useEffect(() => {
+    savePlanningWorkspaceProgress({
+      schemaVersion: 1,
+      targetDraft,
+      targetWarnings,
+      targetResolution,
+      budget,
+      goal,
+      activeWorkspace: tab,
+    });
+  }, [targetDraft, targetWarnings, targetResolution, budget, goal, tab]);
 
   // Un `.build` oficial importado es un PLAN: rellena la sección Build objetivo.
   const characterOptions = useMemo(
@@ -202,6 +271,12 @@ export default function App() {
         });
         setTargetWarnings(warns);
         setTargetResolution(resolution);
+        // Un `.build` termina siempre en su mesa correcta y deja intacto el
+        // personaje actual. Si llegó desde el alta, cerramos ese panel.
+        setEditorOpen(false);
+        setEditorPrompt(null);
+        setMountedWorkspaces((current) => new Set(current).add("plan"));
+        setTab("plan");
       },
     }),
     [],
@@ -223,7 +298,11 @@ export default function App() {
   const market = useMarket();
   const recommendations = useRecommendations();
   const { resultInputsKey, clear } = recommendations;
-  const { threadInputsKey: mentorThreadKey, clear: clearMentor } = mentor;
+  const {
+    threadInputsKey: mentorThreadKey,
+    clear: clearMentor,
+    hydrate: hydrateMentor,
+  } = mentor;
 
   const announceMentor = useCallback((event: ContextualMentorEvent) => {
     contextualSeqRef.current += 1;
@@ -268,6 +347,7 @@ export default function App() {
 
   const hasProfile = character.profile !== null;
   const activePatchId = character.profile?.patch || patch || health?.patch.id || "";
+  const featuredBuilds = useFeaturedBuilds(league, activePatchId);
   const activePatchCompatibility = useMemo<PatchCompatibilityRecord | null>(() => {
     if (meta && activePatchId) {
       return compatibilityForPatch(meta.compatibility, activePatchId);
@@ -278,6 +358,22 @@ export default function App() {
   const patchGuidanceBlocked =
     activePatchCompatibility !== null && !allowsPatchGuidance(activePatchCompatibility);
 
+  const useFeaturedBuildAsTarget = useCallback((build: FeaturedBuild) => {
+    setTargetDraft({
+      name: build.title,
+      sourceUrl: build.source.url,
+      summary: `${build.summary}\n\nMotivo de la selección: ${build.whyFeatured}\nLímite principal: ${build.caveats[0]}`,
+      desiredModsText: build.desiredMods.join("\n"),
+      plan: null,
+    });
+    setTargetWarnings([]);
+    setTargetResolution(null);
+    announceMentor({ type: "planImported", name: build.title });
+    toast.success("Build añadida como objetivo", {
+      description: "Tu personaje actual no se ha modificado.",
+    });
+  }, [announceMentor]);
+
   // Valores por defecto en cuanto llegan /api/meta y /api/health.
   useEffect(() => {
     return deferEffect(() => {
@@ -285,10 +381,16 @@ export default function App() {
         setLeague(meta.leagues[0]);
       }
       if (!patch) {
-        if (meta && meta.patches.length > 0) {
-          setPatch(meta.patches[0].id);
-        } else if (health) {
+        // /health identifica el parche operativo configurado. El orden de
+        // patches.json también contiene versiones anunciadas y nunca debe
+        // adelantar el producto a una versión todavía bloqueada.
+        if (health) {
           setPatch(health.patch.id);
+        } else if (meta && meta.patches.length > 0) {
+          setPatch(
+            meta.patches.find((candidate) => candidate.status !== "announced")?.id ??
+              meta.patches[0].id,
+          );
         }
       }
     });
@@ -328,12 +430,32 @@ export default function App() {
           window.clearTimeout(budgetCueTimerRef.current);
           budgetCueTimerRef.current = null;
         }
+        if (
+          journalNowTracksVisibleRecommendation(
+            recommendations.result,
+            characterJournal,
+          )
+        ) {
+          // El propio consejo acaba de convertirse en el paso activo. El lote
+          // anterior ya no debe seguir accionable, pero no ha cambiado ningún
+          // dato del personaje: retirar en silencio evita un falso aviso de
+          // invalidación justo después de confirmar el guardado.
+          clear();
+          return;
+        }
         clear();
         toast.info("Los datos han cambiado — vuelve a generar las recomendaciones");
         announceMentor({ type: "invalidated" });
       }
     });
-  }, [currentInputsKey, resultInputsKey, clear, announceMentor]);
+  }, [
+    currentInputsKey,
+    resultInputsKey,
+    recommendations.result,
+    characterJournal,
+    clear,
+    announceMentor,
+  ]);
 
   // Mentor v4 conserva el hilo durante la sesión, pero lo descarta en cuanto
   // cambian los inputs relevantes: nunca restaura respuestas obsoletas.
@@ -362,8 +484,8 @@ export default function App() {
             tab === "crafting" ? (contextualCue.ask?.craftingState ?? null) : null,
           activeRecommendationId: null,
           market: {
-            budgetAmount: budget.amount,
-            budgetCurrency: budget.currency,
+            budgetAmount: budget?.amount ?? null,
+            budgetCurrency: budget?.currency ?? null,
             league: league || "Desconocida",
           },
           sessionActive:
@@ -402,6 +524,18 @@ export default function App() {
     ) {
       clearMentor();
       toast.info("Los datos han cambiado — la conversación con el mentor se ha reiniciado");
+      return;
+    }
+    if (
+      character.persisted &&
+      character.profile !== null &&
+      currentMentorInputsKey !== null &&
+      !character.restoring &&
+      !characterJournalLoading &&
+      league.length > 0 &&
+      patch.length > 0
+    ) {
+      void hydrateMentor(character.profile.id, currentMentorInputsKey);
     }
   }, [
     currentMentorInputsKey,
@@ -410,7 +544,10 @@ export default function App() {
     characterJournalLoading,
     league,
     patch,
+    character.persisted,
+    character.profile,
     clearMentor,
+    hydrateMentor,
   ]);
 
   useEffect(() => {
@@ -445,6 +582,15 @@ export default function App() {
         recommendations: resultRecommendations,
       }),
     [hasProfile, characterJournal, resultRecommendations],
+  );
+  const savedNextAction = characterJournal?.primaryEntry ?? null;
+  const profileReadiness = useMemo(
+    () => assessCharacterReadiness(character.profile),
+    [character.profile],
+  );
+  const mentorReadiness = useMemo(
+    () => assessMentorReadiness(character.profile),
+    [character.profile],
   );
   /**
    * Ids del paperdoll: SOLO los del contenido dominante. Al cambiar de caso se
@@ -482,7 +628,14 @@ export default function App() {
 
   const goBackWorkspace = () => {
     const previous = workspaceHistory.at(-1);
-    if (!previous) return;
+    if (!previous) {
+      if (!character.profile) return;
+      character.reset();
+      setWorkspaceHistory([]);
+      setTab("expediente");
+      announceMentor({ type: "welcome" });
+      return;
+    }
     setWorkspaceHistory((history) => history.slice(0, -1));
     setTab(previous);
     announceMentor({ type: "workspace", workspace: previous });
@@ -504,6 +657,14 @@ export default function App() {
   const restoreMentorBaseContext = () => {
     if (!character.profile) {
       announceMentor({ type: "welcome" });
+    } else if (tab === "crafting" && !hasCraftingCharacterContext(character.profile)) {
+      announceMentor({ type: "workspace", workspace: "crafting" });
+    } else if (!mentorReadiness.ready) {
+      announceMentor({
+        type: "profileIncomplete",
+        profileName: character.profile.name,
+        missing: mentorReadiness.issues.map((issue) => issue.label.toLowerCase()),
+      });
     } else if (tab === "plan") {
       announceMentor({ type: "workspace", workspace: "plan" });
     } else {
@@ -544,10 +705,15 @@ export default function App() {
     return characterJournal ?? journal.reload();
   };
 
-  const updateBudgetWithMentor = (nextBudget: Budget) => {
-    const currencyChanged = nextBudget.currency !== budget.currency;
+  const updateBudgetWithMentor = (nextBudget: Budget | null) => {
+    const currencyChanged =
+      nextBudget !== null && nextBudget.currency !== budget?.currency;
     setBudget(nextBudget);
     if (budgetCueTimerRef.current !== null) window.clearTimeout(budgetCueTimerRef.current);
+    if (nextBudget === null) {
+      restoreMentorBaseContext();
+      return;
+    }
     if (currencyChanged) {
       announceMentor({
         type: "budget",
@@ -604,7 +770,17 @@ export default function App() {
 
   const trackRecommendation = (recommendation: Recommendation) => {
     if (!character.profile) return;
+    if (!profileReadiness.ready) {
+      toast.warning("Completa el expediente antes de guardar esta acción", {
+        description: `Faltan ${profileReadiness.issues
+          .map((issue) => issue.label.toLowerCase())
+          .join(", ")}.`,
+      });
+      openEditor();
+      return;
+    }
     if (!character.persisted || !characterJournal) {
+      pendingMemoryActionRef.current = { kind: "track", recommendation };
       openEditor(false, "memory");
       return;
     }
@@ -620,7 +796,17 @@ export default function App() {
 
   const startSession = (recommendation: Recommendation) => {
     if (!character.profile) return;
+    if (!profileReadiness.ready) {
+      toast.warning("Completa el expediente antes de comprobar esta mejora", {
+        description: `Faltan ${profileReadiness.issues
+          .map((issue) => issue.label.toLowerCase())
+          .join(", ")}.`,
+      });
+      openEditor();
+      return;
+    }
     if (!character.persisted || !characterJournal) {
+      pendingMemoryActionRef.current = { kind: "session", recommendation };
       openEditor(false, "memory");
       return;
     }
@@ -651,6 +837,56 @@ export default function App() {
           document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
         }
       });
+  };
+
+  // Guardar el personaje es un prerrequisito, no el final del gesto. Esta
+  // continuación recibe el perfil que realmente devolvió el servidor, carga
+  // su diario y retoma exactamente la acción elegida antes de abrir el editor.
+  const resumePendingMemoryAction = async (savedProfile: CharacterProfile) => {
+    const pending = pendingMemoryActionRef.current;
+    pendingMemoryActionRef.current = null;
+    if (pending === null) return;
+    const currentJournal = await journal.reload();
+    if (currentJournal === null) {
+      toast.error("El personaje se guardó, pero no pude abrir su memoria", {
+        description: "La acción elegida no se ha ejecutado. Vuelve a intentarlo desde el caso abierto.",
+      });
+      return;
+    }
+    if (pending.kind === "track") {
+      const entry = await journal.createEntry({
+        ...journalEntryFromRecommendation(
+          pending.recommendation,
+          savedProfile,
+          budget,
+          goal,
+        ),
+        journalRevision: buildRecommendationMemory(currentJournal).revision,
+      });
+      if (entry) announceMentor({ type: "tracked", title: pending.recommendation.title });
+      return;
+    }
+    const next = await journal.startSession({
+      journalRevision: buildRecommendationMemory(currentJournal).revision,
+      idempotencyKey: crypto.randomUUID(),
+      kind: "guided_decision",
+      objective: pending.recommendation.title,
+      hypothesis: compactRecommendationReason(pending.recommendation.reason),
+      expectedResult: pending.recommendation.impact.description,
+      observationMethod: observationMethodForRecommendation(pending.recommendation),
+      unknowns: [],
+      constraints: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      recommendation: pending.recommendation,
+      profile: savedProfile,
+      budget,
+      goal,
+    });
+    if (next) {
+      announceMentor({ type: "session", title: pending.recommendation.title });
+      document.getElementById("caso-abierto")?.scrollIntoView({ block: "start" });
+    }
   };
 
   const startCraftingDecision = async (
@@ -924,8 +1160,8 @@ export default function App() {
           : null,
       activeRecommendationId: dominantRecommendation?.id ?? null,
       market: {
-        budgetAmount: budget.amount,
-        budgetCurrency: budget.currency,
+        budgetAmount: budget?.amount ?? null,
+        budgetCurrency: budget?.currency ?? null,
         league: league || "Desconocida",
       },
       sessionActive: characterJournal?.session !== null && characterJournal?.session !== undefined,
@@ -949,6 +1185,7 @@ export default function App() {
           text: turn.text.slice(0, 800),
         })),
       ),
+      { persist: character.persisted },
     );
     if (outcome.status === "journal-stale") void journal.reload();
     return outcome;
@@ -972,29 +1209,53 @@ export default function App() {
   };
 
   const openMentorConversation = () => {
+    setMentorBriefingOpen(true);
     navigateWorkspace("expediente");
-    window.requestAnimationFrame(() => {
-      const trigger = document.querySelector<HTMLElement>("[data-testid='acordeon-mentor']");
-      if (trigger?.getAttribute("aria-expanded") !== "true") trigger?.click();
-      window.setTimeout(() => {
-        trigger?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 0);
-    });
   };
+
+  useEffect(() => {
+    if (tab !== "expediente" || !mentorBriefingOpen) return;
+    const timeout = window.setTimeout(() => {
+      const briefing = document.querySelector<HTMLDetailsElement>(
+        "[data-testid='mentor-briefing']",
+      );
+      briefing?.scrollIntoView({ behavior: "smooth", block: "start" });
+      briefing?.querySelector<HTMLElement>("#mentor-pregunta")?.focus({ preventScroll: true });
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [tab, mentorBriefingOpen]);
 
   const contextualProfileId = character.profile?.id ?? null;
   const contextualProfileName = character.profile?.name ?? null;
+  const contextualReadinessKey = mentorReadiness.issues
+    .map((issue) => issue.id)
+    .join("|");
   useEffect(() => {
     return deferEffect(() => {
       if (contextualProfileId && contextualProfileName) {
-        announceMentor({ type: "ready", profileName: contextualProfileName });
+        if (mentorReadiness.ready) {
+          announceMentor({ type: "ready", profileName: contextualProfileName });
+        } else if (tab === "crafting" && !hasCraftingCharacterContext(character.profile)) {
+          announceMentor({ type: "workspace", workspace: "crafting" });
+        } else {
+          announceMentor({
+            type: "profileIncomplete",
+            profileName: contextualProfileName,
+            missing: mentorReadiness.issues.map((issue) => issue.label.toLowerCase()),
+          });
+        }
       } else if (!character.restoring) {
         announceMentor({ type: "welcome" });
       }
     });
     // Solo anuncia una carga real de perfil; renombrarlo no equivale a cargarlo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextualProfileId, character.restoring, announceMentor]);
+  }, [
+    contextualProfileId,
+    contextualReadinessKey,
+    character.restoring,
+    announceMentor,
+  ]);
 
   useEffect(() => {
     return deferEffect(() => {
@@ -1058,7 +1319,8 @@ export default function App() {
 
   // La bienvenida sustituye a los paneles vacíos, pero no debe aparecer mientras
   // se restaura un personaje guardado (si no, parpadearía antes de cargarlo).
-  const showWelcome = !hasProfile && !character.restoring;
+  const showWelcome =
+    !hasProfile && !character.restoring && character.restorationError === null;
 
   const evidenceSlot =
     selection.kind === "recommendation" || selection.kind === "journal" ? (
@@ -1076,7 +1338,14 @@ export default function App() {
         profile={character.profile}
         onHome={goHome}
         onBack={goBackWorkspace}
-        canGoBack={workspaceHistory.length > 0}
+        canGoBack={workspaceHistory.length > 0 || hasProfile}
+        backLabel={
+          workspaceHistory.length > 0
+            ? "Volver al área anterior"
+            : "Volver a personajes"
+        }
+        onAddCharacter={() => openEditor(true)}
+        onOpenMentor={openMentorConversation}
       />
 
       <main
@@ -1120,45 +1389,72 @@ export default function App() {
           }}
           className="gap-0"
         >
-          {/* Navegación segmentada: se queda a la vista al desplazarse, pero
-              ocupa poco. El propio Radix aporta teclado (flechas, Home/End). */}
-          <div className="workspace-nav sticky top-0 z-30 -mx-4 mb-8 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:-mx-6 sm:px-6">
-            <TabsList
-              aria-label="Áreas de Exile Copilot"
-              className="grid h-auto w-full grid-cols-3 gap-2 bg-transparent p-0 sm:flex sm:w-auto"
-            >
+          {/* La navegación conserva su propia jerarquía. Música vive en la
+              cabecera principal para no parecer una cuarta área de trabajo. */}
+          <div className="workspace-nav sticky top-16 z-30 -mx-4 mb-8 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:-mx-6 sm:px-6">
+            <div className="mx-auto flex max-w-[92rem] items-center justify-center">
+              <TabsList
+                aria-label="Áreas de Exile Copilot"
+                className="grid h-auto min-w-0 flex-1 grid-cols-3 gap-1.5 bg-transparent p-0 lg:flex lg:w-auto lg:flex-none lg:gap-2"
+              >
               <TabsTrigger
                 value="expediente"
                 data-testid="tab-expediente"
-                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none sm:flex-row sm:gap-2 sm:px-3 sm:py-3 sm:text-xs sm:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card lg:flex-none lg:flex-row lg:gap-2 lg:px-3 lg:py-3 lg:text-xs lg:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
-                <span className="truncate sm:hidden">Expediente</span>
-                <span className="hidden truncate sm:inline">Expediente y mentor</span>
+                <span className="truncate lg:hidden">Expediente</span>
+                <span className="hidden truncate lg:inline">Expediente y mentor</span>
               </TabsTrigger>
               <TabsTrigger
                 value="plan"
                 data-testid="tab-plan"
-                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none sm:flex-row sm:gap-2 sm:px-3 sm:py-3 sm:text-xs sm:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card lg:flex-none lg:flex-row lg:gap-2 lg:px-3 lg:py-3 lg:text-xs lg:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <Compass className="size-4 shrink-0" aria-hidden="true" />
-                <span className="truncate sm:hidden">Plan</span>
-                <span className="hidden truncate sm:inline">Plan y mercado</span>
+                <span className="truncate lg:hidden">Plan</span>
+                <span className="hidden truncate lg:inline">Plan y mercado</span>
               </TabsTrigger>
               <TabsTrigger
                 value="crafting"
                 data-testid="tab-crafting"
-                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card sm:flex-none sm:flex-row sm:gap-2 sm:px-3 sm:py-3 sm:text-xs sm:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card lg:flex-none lg:flex-row lg:gap-2 lg:px-3 lg:py-3 lg:text-xs lg:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
               >
                 <Hammer className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">Crafting</span>
               </TabsTrigger>
-            </TabsList>
+              </TabsList>
+            </div>
           </div>
 
           {/* --- Área 1: Expediente y mentor -------------------------------- */}
           <TabsContent value="expediente" forceMount className={PANEL_CLASSES}>
-            {showWelcome ? (
+            {character.restorationError !== null ? (
+              <Alert variant="destructive" data-testid="character-restore-error">
+                <AlertTitle>No pudimos abrir tu expediente guardado</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    {character.restorationError} No crees otro personaje todavía: tus
+                    datos no se han descartado.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={character.retryRestore}
+                    disabled={character.restoring}
+                    data-testid="character-restore-retry"
+                  >
+                    <RefreshCw
+                      className={`size-4 ${character.restoring ? "animate-spin" : ""}`}
+                      aria-hidden="true"
+                    />
+                    {character.restoring ? "Recuperando…" : "Reintentar recuperación"}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : showWelcome ? (
               // Sin personaje: solo la bienvenida. Ni expediente ni caso vacíos.
               <WelcomePanel
                 loadingDemo={character.busy === "demo"}
@@ -1169,6 +1465,15 @@ export default function App() {
                 previousCharacterName={character.previousCharacter?.name ?? null}
                 onRestorePrevious={() => void character.restorePrevious()}
                 restoringPrevious={character.busy === "restore"}
+                savedCharacters={character.savedCharacters}
+                savedCharactersTotal={character.savedCharactersTotal}
+                loadingSavedCharacters={character.loadingSavedCharacters}
+                onRestoreCharacter={(characterId) =>
+                  void character.restoreCharacter(characterId)
+                }
+                onLoadMoreSavedCharacters={() =>
+                  void character.loadMoreSavedCharacters()
+                }
               />
             ) : !hasProfile ? (
               // Restaurando el personaje guardado: ni bienvenida ni caso vacíos.
@@ -1195,9 +1500,10 @@ export default function App() {
               <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(28rem,32rem)_minmax(0,1fr)] lg:items-start">
                 {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
                     contexto antes de inspeccionar la pieza (§8). */}
-                <div className="order-1 flex flex-col gap-6 lg:order-2 lg:col-start-2">
+                <div className="order-1 flex flex-col gap-6 lg:order-2 lg:col-start-2 lg:row-start-1">
                   <OpenCase
                     selection={selection}
+                    profileReadiness={profileReadiness}
                     sessionSlot={
                       activeCraftingExperiment ? (
                         <div className="space-y-3" data-testid="crafting-session-redirect">
@@ -1252,6 +1558,7 @@ export default function App() {
                     }
                     generateSlot={
                       <RecommendationsSection
+                        sectionId="seccion-recomendaciones"
                         profile={character.profile}
                         targetDraft={targetDraft}
                         budget={budget}
@@ -1265,6 +1572,7 @@ export default function App() {
                         }}
                         recommendations={recommendations}
                         onLoadDemo={character.loadDemo}
+                        onEditProfile={() => openEditor()}
                         onFocusItem={focusItem}
                         onTrackRecommendation={trackRecommendation}
                         trackingRecommendation={journal.saving}
@@ -1276,26 +1584,11 @@ export default function App() {
                       />
                     }
                     evidenceSlot={evidenceSlot}
-                    mentorSlot={
-                      <MentorChatSection
-                        profile={character.profile}
-                        patchCompatibility={activePatchCompatibility}
-                        mentor={mentor}
-                        savingNextAction={journal.saving}
-                        onAsk={askMentor}
-                        onSaveNextAction={(answer) => {
-                          const recommendation = answer.nextAction?.recommendation ?? null;
-                          if (recommendation === null) return;
-                          trackRecommendation(recommendation);
-                        }}
-                        onFocusItem={focusItem}
-                      />
-                    }
                   />
                 </div>
 
                 {/* Expediente: identidad, paperdoll y acceso al editor. */}
-                <div className="order-2 lg:order-1 lg:col-start-1 lg:row-start-1">
+                <div className="order-2 lg:order-1 lg:col-start-1 lg:row-span-3 lg:row-start-1">
                   <ExpedienteSection
                     profile={character.profile}
                     restoring={character.restoring}
@@ -1318,8 +1611,33 @@ export default function App() {
                   />
                 </div>
 
-                {/* Memoria y alternativas: tras el equipo en móvil (§8). */}
+                {/* La cabecera ya ofrece el acceso global al Mentor. La
+                    conversación completa aparece después del equipo para no
+                    duplicar la misma decisión en la primera pantalla. */}
                 <div className="order-3 lg:col-start-2 lg:row-start-2">
+                  <MentorBriefing
+                    open={mentorBriefingOpen}
+                    onOpenChange={setMentorBriefingOpen}
+                  >
+                    <MentorChatSection
+                      profile={character.profile}
+                      patchCompatibility={activePatchCompatibility}
+                      mentor={mentor}
+                      savingNextAction={journal.saving}
+                      onAsk={askMentor}
+                      onSaveNextAction={(answer) => {
+                        const recommendation = answer.nextAction?.recommendation ?? null;
+                        if (recommendation === null) return;
+                        trackRecommendation(recommendation);
+                      }}
+                      onFocusItem={focusItem}
+                      onEditProfile={() => openEditor()}
+                    />
+                  </MentorBriefing>
+                </div>
+
+                {/* Memoria y alternativas: tras el equipo y Mentor en móvil. */}
+                <div className="order-4 lg:col-start-2 lg:row-start-3">
                   <OpenCaseSecondary
                     selection={selection}
                     sessionSlot={
@@ -1347,6 +1665,7 @@ export default function App() {
                     }
                     othersSlot={
                       <RecommendationsSection
+                        sectionId="seccion-recomendaciones-otras"
                         profile={character.profile}
                         targetDraft={targetDraft}
                         budget={budget}
@@ -1360,6 +1679,7 @@ export default function App() {
                         }}
                         recommendations={recommendations}
                         onLoadDemo={character.loadDemo}
+                        onEditProfile={() => openEditor()}
                         onFocusItem={focusItem}
                         onTrackRecommendation={trackRecommendation}
                         trackingRecommendation={journal.saving}
@@ -1393,14 +1713,54 @@ export default function App() {
                   </section>
                 }
               >
-                <section className="operations-intro mb-7 px-6 py-7" aria-labelledby="operaciones-titulo">
-                  <p className="rotulo-seccion text-primary/75">
-                    Mesa de operaciones
-                  </p>
-                  <h2 id="operaciones-titulo" className="dossier-title mt-2 text-4xl font-semibold text-foreground">
+                {/* Encabezado del área, no una caja aparte: antes era un panel
+                    de 85 px de alto que solo contenía su propio título. */}
+                <header className="mb-6" aria-labelledby="operaciones-titulo">
+                  <p className="rotulo-seccion text-primary/70">Mesa de operaciones</p>
+                  <h2
+                    id="operaciones-titulo"
+                    className="dossier-title mt-1 text-3xl font-semibold text-foreground"
+                  >
                     Decide el rumbo antes de gastar
                   </h2>
-                </section>
+                </header>
+                {savedNextAction && (
+                  <section
+                    className="mb-6 flex flex-col gap-3 rounded-md border border-primary/35 bg-primary/[0.04] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    aria-labelledby="plan-siguiente-paso-titulo"
+                    data-testid="plan-siguiente-paso"
+                  >
+                    <div className="min-w-0">
+                      <p className="rotulo-seccion text-primary/75">Siguiente paso guardado</p>
+                      <h3
+                        id="plan-siguiente-paso-titulo"
+                        className="mt-1 text-lg font-semibold text-foreground"
+                      >
+                        {savedNextAction.title}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        {savedNextAction.nextAction ?? savedNextAction.summary}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => navigateWorkspace("expediente")}
+                    >
+                      Abrir seguimiento
+                    </Button>
+                  </section>
+                )}
+                <div className="mb-7">
+                  <FeaturedBuildsSection
+                    result={featuredBuilds.result}
+                    loading={featuredBuilds.loading}
+                    error={featuredBuilds.error}
+                    onReload={featuredBuilds.reload}
+                    onUseAsTarget={useFeaturedBuildAsTarget}
+                  />
+                </div>
                 <div className="grid grid-cols-1 items-start gap-7 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
                   <MarketSection
                     meta={meta}
@@ -1432,6 +1792,10 @@ export default function App() {
                         setTargetResolution(null);
                       }
                     }}
+                    importBusy={character.busy === "build"}
+                    importText={editorDrafts.pastedBuild}
+                    onImportTextChange={editorDrafts.setPastedBuild}
+                    onImportPlan={(content) => character.importBuild(content, activePatchId || "Desconocido", "target")}
                   />
                 </div>
               </Suspense>
@@ -1463,6 +1827,17 @@ export default function App() {
                   onSelectedItemChange={setCraftingRequestedItemId}
                   onEditExpediente={() => openEditor(false, "item")}
                   onOpenCharacter={() => openEditor()}
+                  onOpenEquipmentItem={(itemId) => {
+                    const item = character.profile?.items.find(
+                      (candidate) => candidate.id === itemId,
+                    );
+                    dialogTriggerRef.current = null;
+                    navigateWorkspace("expediente");
+                    window.requestAnimationFrame(() => {
+                      setFocusedItemId(itemId);
+                      if (item) announceMentor({ type: "item", item });
+                    });
+                  }}
                   onOpenPlanMarket={() => navigateWorkspace("plan")}
                   onStartCraftingDecision={startCraftingDecision}
                   onStartEssenceDecision={startEssenceDecision}
@@ -1491,7 +1866,11 @@ export default function App() {
           onOpenChange={(open) => {
             setEditorOpen(open);
             if (!open) {
-              setEditorPrompt(null);
+              pendingMemoryActionRef.current = null;
+              // Conservamos el contenido durante la animación de salida. Si
+              // se borra aquí, el panel de «Evaluar un objeto» se transforma
+              // durante unos instantes en el editor del personaje que acaba
+              // de crear, aunque el destino ya sea Crafting.
               if (contextualCue.id !== "profile:saved") restoreMentorBaseContext();
             }
           }}
@@ -1515,10 +1894,14 @@ export default function App() {
           >
             <SheetHeader>
               <SheetTitle>
-                {editorPrompt === "item"
+                {editorPrompt === "memory"
+                  ? "Guardar y continuar"
+                  : editorPrompt === "item"
                   ? "Evaluar un objeto"
                   : editorPrompt === "new"
                     ? "Crear personaje"
+                    : editorPrompt === "import"
+                      ? "Añadir tu personaje"
                     : "Editar expediente"}
               </SheetTitle>
               <SheetDescription>
@@ -1528,7 +1911,9 @@ export default function App() {
                     ? "Pega el texto del objeto copiado en PoE2. Al analizarlo pasarás directamente al banco de Crafting."
                     : editorPrompt === "new"
                       ? "Completa únicamente lo que sabes. Los datos desconocidos pueden quedarse vacíos."
-                  : "Importa, corrige o completa los datos de tu personaje. Los cambios se guardan con «Guardar correcciones»."}
+                    : editorPrompt === "import"
+                      ? "Trae tu personaje actual desde Path of Building 2. Los archivos .build de objetivo se importan en Plan y mercado."
+                  : "Corrige o completa los datos de tu personaje. Los cambios se guardan con «Guardar correcciones»."}
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-8">
@@ -1549,6 +1934,10 @@ export default function App() {
                       ? "item"
                       : editorPrompt === "new"
                         ? "new"
+                        : editorPrompt === "import"
+                          ? "import"
+                          : editorPrompt === "memory"
+                            ? "memory"
                         : "full"
                   }
                   // La bienvenida ya ofrece importar y cargar el ejemplo: la
@@ -1563,13 +1952,53 @@ export default function App() {
                           ? "import"
                           : null
                   }
-                  onProfileSaved={() => {
+                  onProfileSaved={(savedProfile) => {
                     announceMentor({ type: "profileSaved" });
-                    if (editorPrompt === "new") setEditorOpen(false);
+                    const hasPendingAction = pendingMemoryActionRef.current !== null;
+                    if (editorPrompt === "new" || hasPendingAction) {
+                      setEditorOpen(false);
+                      setEditorPrompt(null);
+                    }
+                    if (hasPendingAction) void resumePendingMemoryAction(savedProfile);
+                  }}
+                  onStartOver={() => {
+                    setEditorOpen(false);
+                    setEditorPrompt(null);
+                    restoreMentorBaseContext();
                   }}
                   onItemImported={(item) => {
+                    // "Analizar un objeto" desde la portada sí es una entrada
+                    // directa a Crafting. Dentro de "Editar expediente", en
+                    // cambio, el jugador está completando su personaje: debe
+                    // poder añadir varias piezas y guardar las correcciones sin
+                    // que la aplicación lo expulse del formulario.
+                    if (editorPrompt === "item") {
+                      setEditorOpen(false);
+                      openCraftingForItem(item.id);
+                    }
+                  }}
+                  onProfileImported={() => {
                     setEditorOpen(false);
-                    openCraftingForItem(item.id);
+                    setEditorPrompt(null);
+                    navigateWorkspace("expediente");
+                  }}
+                  onIncompleteProfileImported={() => {
+                    // Un .build oficial es un plan y puede carecer de clase,
+                    // nivel y equipo. No cerramos el panel fingiendo que el
+                    // alta terminó: lo convertimos en el editor completo para
+                    // que el siguiente paso esté delante del jugador.
+                    setEditorPrompt(null);
+                    window.requestAnimationFrame(() => {
+                      document.getElementById("char-class")?.focus();
+                    });
+                  }}
+                  onGoToTargetImport={() => {
+                    setEditorOpen(false);
+                    setEditorPrompt(null);
+                    navigateWorkspace("plan");
+                    window.requestAnimationFrame(() => {
+                      document.getElementById("panel-importacion-objetivo")?.focus();
+                    });
                   }}
                 />
               </Suspense>
@@ -1595,11 +2024,22 @@ export default function App() {
         answer={contextualAnswer}
         error={contextualError}
         loading={contextualLoadingSeq !== null}
-        canAsk={character.profile !== null && !patchGuidanceBlocked}
+        canAsk={
+          character.profile !== null &&
+          !patchGuidanceBlocked &&
+          (mentorReadiness.ready || contextualCue.ask?.craftingState !== undefined)
+        }
         blockedReason={
           patchGuidanceBlocked
             ? `El parche ${activePatchCompatibility?.patchId} aún no está revisado. No analizaré mejoras ni acciones mecánicas con datos anteriores.`
-            : null
+            : character.profile !== null &&
+                !mentorReadiness.ready &&
+                contextualCue.ask !== null &&
+                contextualCue.ask.craftingState === undefined
+              ? `Completa ${mentorReadiness.issues
+                  .map((issue) => issue.label.toLowerCase())
+                  .join(", ")} antes de pedirme una prioridad del personaje.`
+              : null
         }
         collapsed={contextualCollapsed}
         onCollapsedChange={setContextualCollapsed}

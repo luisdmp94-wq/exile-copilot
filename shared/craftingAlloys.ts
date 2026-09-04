@@ -118,7 +118,7 @@ export function evaluateAlloyPlan(item: Item, input: AlloyPlanInput): AlloyEvalu
         : "El objeto declara que no puede modificarse.",
     );
   }
-  if (state.mutated || state.desecrated || state.split || state.unidentified) {
+  if (state.mutated || state.desecrated || state.fractured || state.split || state.unidentified) {
     return result(
       item,
       "needs-data",

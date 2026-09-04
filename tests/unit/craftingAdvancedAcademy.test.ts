@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CRAFTING_ADVANCED_ACADEMY_SCENARIOS,
   CRAFTING_ADVANCED_ACADEMY_VERSION,
+  concealAdvancedAcademyItemReading,
   resolveAdvancedAcademyDecision,
   validateAdvancedAcademyScenario,
   type AdvancedAcademyFacts,
@@ -19,6 +20,8 @@ describe("Academia de crafting — nivel avanzado", () => {
       );
       expect(scenario.item.sources.some((source) => source.kind === "internal"), scenario.id).toBe(true);
       expect(scenario.gameSteps, scenario.id).toHaveLength(3);
+      expect(scenario.contract.objective.trim().length, scenario.id).toBeGreaterThan(0);
+      expect(scenario.contract.stop.trim().length, scenario.id).toBeGreaterThan(0);
       expect(new Set(scenario.options.map((entry) => entry.id)).size, scenario.id).toBe(
         scenario.options.length,
       );
@@ -96,6 +99,33 @@ describe("Academia de crafting — nivel avanzado", () => {
     expect(resolveAdvancedAcademyDecision(replacement!.facts)).toBe("request-tooltip");
   });
 
+  it("oculta los contadores que el caso declara imposibles de confirmar", () => {
+    const incomplete = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-datos-incompletos",
+    );
+    const complete = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-conservar-etapa",
+    );
+
+    expect(incomplete).toBeDefined();
+    expect(complete).toBeDefined();
+    expect(concealAdvancedAcademyItemReading(incomplete!)).toBe(true);
+    expect(concealAdvancedAcademyItemReading(complete!)).toBe(false);
+  });
+
+  it("el caso de reemplazo no contradice la pieza que el jugador está viendo", () => {
+    const replacement = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-reemplazo-no-demostrado",
+    );
+    expect(replacement).toBeDefined();
+    expect(replacement?.item.modifiers).toHaveLength(3);
+    expect(replacement?.situation).not.toMatch(/(?:está|pieza) llena/i);
+    expect(replacement?.contract.protect).toEqual([
+      "+108 a la vida máxima",
+      "+24 a la destreza",
+    ]);
+  });
+
   it("retira la base cuando se alcanza el límite declarado aunque exista otra acción", () => {
     const exhausted = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
       (scenario) => scenario.id === "avanzado-retirar-base",
@@ -113,6 +143,24 @@ describe("Academia de crafting — nivel avanzado", () => {
     expect(flux?.facts.transformation?.tooltipVerified).toBe(true);
     expect(flux?.facts.transformation?.simulated).toBe(false);
     expect(resolveAdvancedAcademyDecision(flux!.facts)).toBe("simulate-transformation");
+  });
+
+  it("el caso de transformación permite decidir con la pieza que muestra", () => {
+    const flux = CRAFTING_ADVANCED_ACADEMY_SCENARIOS.find(
+      (scenario) => scenario.id === "avanzado-simular-flux",
+    );
+    expect(flux).toBeDefined();
+    expect(flux?.item.slot).toBe("ring1");
+
+    const decisionText = [
+      flux!.situation,
+      flux!.question,
+      flux!.explanation,
+      ...flux!.gameSteps,
+      ...flux!.options.flatMap((entry) => [entry.label, entry.hint]),
+    ].join(" ");
+    expect(decisionText).toMatch(/anillo/i);
+    expect(decisionText).not.toMatch(/guantes|botas/i);
   });
 
   it("exige recalcular el personaje antes de sustituir una pieza que sostiene dependencias", () => {

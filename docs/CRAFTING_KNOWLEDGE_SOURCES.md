@@ -122,6 +122,39 @@ crafting en este repositorio.** No es una limitación de implementación; es
 ausencia de dato utilizable. El snapshot existe para que esa ausencia quede
 registrada y auditable en lugar de rellenarse con ejemplos plausibles.
 
+## Cómo incorporar evidencia nueva por lotes
+
+El registro activo se declara en
+`server/data/crafting/manifest.json`; el servidor no escanea el directorio ni
+mantiene nombres de archivo escritos en código. Una recogida puede incorporar
+entre uno y cien snapshots en una sola operación:
+
+```text
+npm run record:crafting-knowledge -- --input <lote.json>
+```
+
+Antes de escribir puede ensayarse el mismo lote completo:
+
+```text
+npm run record:crafting-knowledge -- --check --input <lote.json>
+```
+
+El ensayo ejecuta la misma validación contra el registro activo y devuelve los
+nombres de archivo que se prepararían, pero no crea snapshots ni modifica el
+manifiesto. Para registrar un lote aprobado basta con retirar `--check`.
+
+El lote usa la forma `{ "schemaVersion": 1, "snapshots": [...] }`. Cada
+snapshot conserva sus propias fuentes, parche, fecha, alcance, procedencia y
+limitaciones. La operación valida primero el lote completo junto con todo el
+registro existente y solo después escribe los archivos y actualiza el
+manifiesto. Si una entrada falla, no se incorpora ninguna.
+
+Esta vía no convierte observaciones en pools. Una captura o texto del cliente
+entra como `observed-only`; un conjunto parcial sigue sin ofrecer
+probabilidades. `verified-complete` continúa exigiendo alcance exhaustivo,
+pesos para todos los candidatos y permiso de redistribución en cada fuente.
+Las URLs inequívocas de PoE1 se rechazan antes de escribir.
+
 ## Qué haría falta para desbloquearlo
 
 En orden de preferencia, y ninguna de estas vías se ha ejecutado:

@@ -24,7 +24,7 @@ export function buildMentorRequest(
   question: string,
   profile: CharacterProfile,
   targetDraft: TargetDraft,
-  budget: Budget,
+  budget: Budget | null,
   goal: GoalKind,
   league: string,
   patch: string,

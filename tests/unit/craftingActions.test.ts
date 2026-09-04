@@ -47,9 +47,19 @@ describe("evaluateObservedCraftingActions", () => {
 
   it("bloquea exaltado si el objeto raro ya tiene seis afijos", () => {
     const item = parseItemText(bowText).item;
+    item.modifiers = item.modifiers.map((modifier) => ({
+      ...modifier,
+      desecrated: undefined,
+    }));
     const exalted = evaluation(item, "exalted");
     expect(exalted.status).toBe("blocked");
     expect(exalted.reason).toContain("límite total observado es 6");
+  });
+
+  it("pide evidencia para el modificador profanado del arco observado", () => {
+    const item = parseItemText(bowText).item;
+
+    expect(evaluation(item, "exalted")).toMatchObject({ status: "needs-data" });
   });
 
   it("bloquea exaltado con cinco afijos si la base pierde un sufijo permitido", () => {
@@ -136,6 +146,13 @@ describe("evaluateObservedCraftingActions", () => {
       expect(evaluation(item, "exalted")).toMatchObject({ status: "needs-data" });
     },
   );
+
+  it("no autoriza moneda básica sobre un modificador especial sin evidencia", () => {
+    const item = parseItemText(crossbowText).item;
+    item.modifiers[0] = { ...item.modifiers[0]!, fractured: true };
+
+    expect(evaluation(item, "exalted")).toMatchObject({ status: "needs-data" });
+  });
 
   it("no inventa variantes perfectas de regio o exaltado", () => {
     const regal = OBSERVED_CRAFTING_ACTIONS.find((action) => action.id === "regal");

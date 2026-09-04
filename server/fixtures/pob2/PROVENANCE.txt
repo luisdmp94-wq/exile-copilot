@@ -1,1 +1,6 @@
 https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/issues/2412
+
+richCharacter.synthetic.xml es un fixture sintético propio. Cubre el contrato
+documentado del XML exportado por Path of Building 2: Build/PlayerStat, Tree,
+Items/ItemSet y Skills/SkillSet. No representa datos oficiales de GGG ni se usa
+como evidencia de balance.

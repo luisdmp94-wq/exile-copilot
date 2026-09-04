@@ -20,7 +20,8 @@ export interface ServerConfig {
   defaultLeague: string;
   defaultPatch: string;
   databasePath: string;
-  trustProxy: boolean;
+  /** Proxy HTTPS autorizado. `true` solo se conserva para detectar configuración legacy insegura. */
+  trustProxy: boolean | string;
   secureCookies: boolean;
   apiRateLimitPerMinute: number;
   writeRateLimitPerMinute: number;
@@ -45,6 +46,15 @@ export interface ServerConfig {
 function bool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
   return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+function trustedProxy(value: string | undefined): boolean | string {
+  if (value === undefined) return false;
+  const normalized = value.trim();
+  const lower = normalized.toLowerCase();
+  if (["1", "true", "yes", "on"].includes(lower)) return true;
+  if (["0", "false", "no", "off", ""].includes(lower)) return false;
+  return normalized;
 }
 
 function int(value: string | undefined, fallback: number): number {
@@ -96,7 +106,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     defaultLeague: env.DEFAULT_LEAGUE ?? "Runes of Aldur",
     defaultPatch: env.DEFAULT_PATCH ?? "0.5.4f",
     databasePath: env.DATABASE_PATH ?? "./data/exile-copilot.db",
-    trustProxy: bool(env.TRUST_PROXY, false),
+    trustProxy: trustedProxy(env.TRUST_PROXY),
     secureCookies: bool(env.SECURE_COOKIES, (env.NODE_ENV ?? "development") === "production"),
     apiRateLimitPerMinute: boundedInt(env.API_RATE_LIMIT_PER_MINUTE, 300, 30, 10_000),
     writeRateLimitPerMinute: boundedInt(env.WRITE_RATE_LIMIT_PER_MINUTE, 60, 5, 2_000),

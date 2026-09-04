@@ -156,6 +156,27 @@ describe("reapertura y huella", () => {
     expect(sessionFingerprintHash("a")).toBe(sessionFingerprintHash("a"));
   });
 
+  it("renombrar un expediente provisional no invalida un craft antiguo", () => {
+    const legacy = CharacterProfileSchema.parse({
+      id: "standalone-item-123",
+      name: "Objeto suelto",
+      characterClass: "Desconocida",
+      level: 1,
+      league: "Desconocida",
+      patch: "0.5.4f",
+      items: [{ id: "weapon", name: "Ballesta", baseType: "Ballesta barnizada" }],
+      importedAt: "2026-08-20T10:00:00.000Z",
+    });
+    const renamed = CharacterProfileSchema.parse({
+      ...legacy,
+      name: "Expediente provisional",
+    });
+
+    expect(characterSessionFingerprint(renamed)).toBe(
+      characterSessionFingerprint(legacy),
+    );
+  });
+
   it("la huella cambia si el objeto pasa a estar corrupto", () => {
     const base = CharacterProfileSchema.parse({
       id: "char-crafting-state",
@@ -197,6 +218,7 @@ describe("reapertura y huella", () => {
     const digest = sessionMemoryDigest({
       id: "s1",
       characterId: "c1",
+      sourcePatch: null,
       kind: "guided_decision",
       status: "active",
       objective: "obj",

@@ -54,9 +54,9 @@ describe("barrera de configuración pública", () => {
       PUBLIC_DEPLOYMENT: "true",
       NODE_ENV: "production",
       SECURE_COOKIES: "true",
-      TRUST_PROXY: "true",
+      TRUST_PROXY: "loopback",
       DATABASE_PATH: resolve("datos", "exile-copilot.db"),
-      POE_NINJA_USER_AGENT: "exile-copilot/1.0 (contacto: https://example.invalid)",
+      POE_NINJA_USER_AGENT: "exile-copilot/1.0 (contacto: https://exilecopilot.app/contacto)",
       MENTOR_AI_ENABLED: "false",
     });
 
@@ -71,7 +71,7 @@ describe("barrera de configuración pública", () => {
       PUBLIC_DEPLOYMENT: "true",
       NODE_ENV: "production",
       SECURE_COOKIES: "true",
-      TRUST_PROXY: "true",
+      TRUST_PROXY: "loopback",
       DATABASE_PATH: resolve("datos", "exile-copilot.db"),
       POE_NINJA_OFFLINE: "true",
       MENTOR_AI_ENABLED: "false",
@@ -88,12 +88,15 @@ describe("barrera de configuración pública", () => {
     "exile-copilot/1.0 (contacto: )",
     "exile-copilot/1.0 (contact: @)",
     "exile-copilot/1.0 (contact: https://servidor-interno)",
+    "exile-copilot/1.0 (contact: https://example.invalid/contacto)",
+    "exile-copilot/1.0 (contact: https://example.com/contacto)",
+    "exile-copilot/1.0 (contact: equipo@example.invalid)",
   ])("bloquea un contacto de poe.ninja que solo parece identificable: %s", (userAgent) => {
     const config = loadConfig({
       PUBLIC_DEPLOYMENT: "true",
       NODE_ENV: "production",
       SECURE_COOKIES: "true",
-      TRUST_PROXY: "true",
+      TRUST_PROXY: "loopback",
       DATABASE_PATH: resolve("datos", "exile-copilot.db"),
       POE_NINJA_USER_AGENT: userAgent,
       MENTOR_AI_ENABLED: "false",
@@ -104,7 +107,7 @@ describe("barrera de configuración pública", () => {
         (check) => check.id === "poe-ninja-identity",
       ),
     ).toMatchObject({ status: "block" });
-    expect(() => assertPublicDeploymentConfig(config)).toThrow(/formato válido/);
+    expect(() => assertPublicDeploymentConfig(config)).toThrow(/contacto real/);
   });
 
   it("acepta un correo completo como identidad de poe.ninja", () => {
@@ -112,9 +115,9 @@ describe("barrera de configuración pública", () => {
       PUBLIC_DEPLOYMENT: "true",
       NODE_ENV: "production",
       SECURE_COOKIES: "true",
-      TRUST_PROXY: "true",
+      TRUST_PROXY: "loopback",
       DATABASE_PATH: resolve("datos", "exile-copilot.db"),
-      POE_NINJA_USER_AGENT: "exile-copilot/1.0 (contacto: equipo@example.invalid)",
+      POE_NINJA_USER_AGENT: "exile-copilot/1.0 (contacto: equipo@exilecopilot.app)",
       MENTOR_AI_ENABLED: "false",
     });
 
@@ -130,7 +133,7 @@ describe("barrera de configuración pública", () => {
       PUBLIC_DEPLOYMENT: "true",
       NODE_ENV: "production",
       SECURE_COOKIES: "true",
-      TRUST_PROXY: "true",
+      TRUST_PROXY: "loopback",
       DATABASE_PATH: resolve("datos", "exile-copilot.db"),
       POE_NINJA_OFFLINE: "true",
       GGG_OAUTH_ENABLED: "true",
@@ -153,5 +156,45 @@ describe("barrera de configuración pública", () => {
     ]);
     expect(() => assertPublicDeploymentConfig(config)).toThrow(/GGG_OAUTH_ENABLED/);
     expect(() => assertPublicDeploymentConfig(config)).toThrow(/EXPLAINER_LLM_ENABLED/);
+  });
+
+  it("bloquea TRUST_PROXY=true porque permite confiar en cualquier salto", () => {
+    const config = loadConfig({
+      PUBLIC_DEPLOYMENT: "true",
+      NODE_ENV: "production",
+      SECURE_COOKIES: "true",
+      TRUST_PROXY: "true",
+      DATABASE_PATH: resolve("datos", "exile-copilot.db"),
+      POE_NINJA_OFFLINE: "true",
+      MENTOR_AI_ENABLED: "false",
+    });
+
+    const proxyCheck = auditPublicDeploymentConfig(config).find(
+      (check) => check.id === "trusted-proxy",
+    );
+    expect(proxyCheck).toMatchObject({ status: "block" });
+    expect(proxyCheck?.message).toContain("no es seguro en público");
+  });
+
+  it("acepta una IP o CIDR explícita y rechaza una red universal", () => {
+    const baseEnv = {
+      PUBLIC_DEPLOYMENT: "true",
+      NODE_ENV: "production",
+      SECURE_COOKIES: "true",
+      DATABASE_PATH: resolve("datos", "exile-copilot.db"),
+      POE_NINJA_OFFLINE: "true",
+      MENTOR_AI_ENABLED: "false",
+    };
+
+    expect(
+      auditPublicDeploymentConfig(
+        loadConfig({ ...baseEnv, TRUST_PROXY: "10.20.0.0/24" }),
+      ).find((check) => check.id === "trusted-proxy"),
+    ).toMatchObject({ status: "pass" });
+    expect(
+      auditPublicDeploymentConfig(
+        loadConfig({ ...baseEnv, TRUST_PROXY: "0.0.0.0/0" }),
+      ).find((check) => check.id === "trusted-proxy"),
+    ).toMatchObject({ status: "block" });
   });
 });

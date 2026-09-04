@@ -72,6 +72,14 @@ export interface JournalBundle {
   memoryRevision: string;
 }
 
+type CraftingExperimentActionId = NonNullable<
+  DecisionSession["craftingExperiment"]
+>["actionId"];
+type CraftingPatchValidator = (
+  profilePatch: string,
+  actionId: CraftingExperimentActionId,
+) => void;
+
 function parseSession(payload: string): DecisionSession {
   return DecisionSessionSchema.parse(JSON.parse(payload));
 }
@@ -427,6 +435,22 @@ function requireMutableSession(
 }
 
 function assertCompatible(session: DecisionSession, profile: CharacterProfile): void {
+  if (session.craftingExperiment) {
+    if (session.sourcePatch === null) {
+      throw new ApiHttpError(
+        409,
+        "sesion-crafting-sin-parche",
+        "Esta sesión de crafting es anterior al control de versiones. Empieza una nueva para no mezclar reglas de parches distintos.",
+      );
+    }
+    if (session.sourcePatch !== profile.patch) {
+      throw new ApiHttpError(
+        409,
+        "sesion-crafting-de-otro-parche",
+        `La sesión se creó para ${session.sourcePatch}, pero el personaje está en ${profile.patch}. Empieza una sesión nueva con las reglas del parche actual.`,
+      );
+    }
+  }
   const fingerprint = characterSessionFingerprint(profile);
   if (fingerprint !== session.characterFingerprint) {
     throw new ApiHttpError(
@@ -473,7 +497,7 @@ function closePreviousPrimary(db: Database, characterId: string, now: string): v
 function buildActionFromRecommendation(
   session: DecisionSession,
   recommendation: Recommendation,
-  budget: { amount: number; currency: "divine" | "exalted" | "chaos" | "gold" },
+  budget: { amount: number; currency: "divine" | "exalted" | "chaos" | "gold" } | null,
 ): {
   action: NonNullable<DecisionSession["activeAction"]>;
   gateReason: string | null;
@@ -624,10 +648,11 @@ export function startDecisionSession(
     craftingExperiment?: DecisionSession["craftingExperiment"];
     recommendation: Recommendation | null;
     profile: CharacterProfile;
-    budget: { amount: number; currency: "divine" | "exalted" | "chaos" | "gold" };
+    budget: { amount: number; currency: "divine" | "exalted" | "chaos" | "gold" } | null;
     /** Objetivo del jugador; se conserva en la sesión y en sus entradas. */
     goal: GoalKind;
   },
+  validateCraftingPatch?: CraftingPatchValidator,
 ): JournalBundle {
   return runIdempotent(
     db,
@@ -639,6 +664,9 @@ export function startDecisionSession(
     // El perfil AUTORITATIVO es el guardado en SQLite, leído dentro de esta
     // transacción. El `profile` del cliente no decide nada.
     const profile = loadAuthoritativeProfile(db, characterId);
+    if (input.craftingExperiment) {
+      validateCraftingPatch?.(profile.patch, input.craftingExperiment.actionId);
+    }
     assertRevision(db, characterId, input.journalRevision, profile);
     const existingOpen = listDecisionSessions(db, characterId, MAX_SESSIONS_PER_CHARACTER).filter(
       (row) => sessionOccupiesActiveSlot(parseSession(row.payload).status),
@@ -655,6 +683,7 @@ export function startDecisionSession(
     let session = DecisionSessionSchema.parse({
       id: randomUUID(),
       characterId,
+      sourcePatch: profile.patch,
       kind: input.kind,
       status: "active",
       objective: input.objective,
@@ -1494,6 +1523,7 @@ export function reopenSession(
     note: string;
     profile: CharacterProfile;
   },
+  validateCraftingPatch?: CraftingPatchValidator,
 ): JournalBundle {
   return runIdempotent(
     db,
@@ -1523,6 +1553,9 @@ export function reopenSession(
       throw new ApiHttpError(404, "sesion-no-encontrada", "No hay una decisión que reabrir.");
     }
     assertCompatible(current, profile);
+    if (current.craftingExperiment) {
+      validateCraftingPatch?.(profile.patch, current.craftingExperiment.actionId);
+    }
     const from = current.status;
     const now = new Date().toISOString();
     closePreviousPrimary(db, characterId, now);
@@ -1576,6 +1609,7 @@ export function reconcileSession(
     idempotencyKey: string;
     profile: CharacterProfile;
   },
+  validateCraftingPatch?: CraftingPatchValidator,
 ): JournalBundle {
   return runIdempotent(
     db,
@@ -1591,6 +1625,12 @@ export function reconcileSession(
     const current = bundle.journal.session;
     if (current === null) {
       throw new ApiHttpError(404, "sesion-no-encontrada", "No hay una decisión que reconciliar.");
+    }
+    if (current.craftingExperiment) {
+      if (current.sourcePatch === null || current.sourcePatch !== profile.patch) {
+        assertCompatible(current, profile);
+      }
+      validateCraftingPatch?.(profile.patch, current.craftingExperiment.actionId);
     }
     const from = current.status;
     const session: DecisionSession = {

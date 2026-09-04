@@ -62,7 +62,7 @@ export type JournalView = "accion" | "historial" | "completo";
 
 interface JournalSectionProps {
   profile: CharacterProfile | null;
-  budget: Budget;
+  budget: Budget | null;
   goal: GoalKind;
   journal: JournalState;
   view?: JournalView;

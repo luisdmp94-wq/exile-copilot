@@ -250,7 +250,7 @@ export function buildExpertCraftingBlueprint(input: {
       id: "failure",
       label: "Si falla",
       trigger: protectedLines.length > 0
-        ? "Pierde una línea protegida, agota la ruta o el resultado deja de justificar la base."
+        ? "El resultado pegado ya no conserva una línea protegida, agota la ruta o deja de justificar la base."
         : "Agota la ruta o el resultado deja de justificar la base.",
       response: "Parar. Evaluar recuperación con el tooltip real o cambiar de base; nunca encadenar otra moneda por inercia.",
     },

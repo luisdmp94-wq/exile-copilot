@@ -44,6 +44,10 @@ import {
   PatchCompatibilityRecordSchema,
   PatchCompatibilityRegistrySchema,
 } from "./patchCompatibility.js";
+export {
+  FeaturedBuildsResponseSchema,
+  type FeaturedBuildsResponse,
+} from "./featuredBuilds.js";
 
 /**
  * Contrato de la API REST v1 (toda bajo /api).
@@ -80,6 +84,7 @@ export const HealthResponseSchema = z.object({
     ]),
   }),
   compatibility: PatchCompatibilityRecordSchema,
+  /** Evidencia más reciente usada por parche/compatibilidad; nunca la hora de respuesta. */
   dataUpdatedAt: z.string(),
 });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
@@ -96,8 +101,8 @@ export const MetaResponseSchema = z.object({
 export type MetaResponse = z.infer<typeof MetaResponseSchema>;
 
 // POST /api/import/build
-// Un `.build` oficial de GGG es un PLAN (BuildTargetPlan), no una captura del
-// personaje: la respuesta lleva `plan` XOR `profile` según el formato detectado.
+// El mismo `.build` puede usarse como objetivo o como borrador parcial del
+// personaje. La intención procede de la pantalla donde el jugador lo importa.
 export const ImportBuildRequestSchema = z.object({
   content: z
     .string()
@@ -108,18 +113,20 @@ export const ImportBuildRequestSchema = z.object({
     ),
   /** Parche activo: la resolución de ids nunca hereda el registro de otro parche. */
   patch: z.string().min(1),
+  /** Destino explícito: nunca se deduce silenciosamente del formato. */
+  intent: z.enum(["character", "target"]).default("target"),
 });
 export const ImportBuildResponseSchema = z.object({
   warnings: z.array(z.string()),
   detectedFormat: z.enum(["ggg-build-planner-v1", "pob-code", "unknown"]),
-  /** Presente cuando se importa un `.build` oficial: va a la sección Build objetivo. */
+  /** Presente cuando un `.build` se importa deliberadamente como objetivo. */
   plan: BuildTargetPlanSchema.optional(),
   /**
    * Resolución de los ids del plan contra el registro oficial de GGG.
    * Va en PARALELO al plan: el `.build` crudo nunca se modifica.
    */
   resolution: PlanResolutionSchema.optional(),
-  /** Presente solo para importaciones parciales de personaje (p. ej. código PoB). */
+  /** Presente para importaciones parciales de personaje (PoB o `.build`). */
   profile: CharacterProfileSchema.optional(),
 });
 export type ImportBuildRequest = z.infer<typeof ImportBuildRequestSchema>;
@@ -188,6 +195,46 @@ export const GetCharacterResponseSchema = z.object({
 });
 export type GetCharacterResponse = z.infer<typeof GetCharacterResponseSchema>;
 
+// GET /api/visitor/character/recent — recuperación privada cuando el navegador
+// conserva su cookie anónima pero perdió el pequeño id de localStorage.
+export const RecentCharacterResponseSchema = z.object({
+  profile: CharacterProfileSchema.nullable(),
+});
+export type RecentCharacterResponse = z.infer<
+  typeof RecentCharacterResponseSchema
+>;
+
+export const SAVED_CHARACTERS_PAGE_SIZE = 10;
+export const MAX_SAVED_CHARACTERS_PAGE_SIZE = 25;
+export const SavedCharactersQuerySchema = z.object({
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_SAVED_CHARACTERS_PAGE_SIZE)
+    .default(SAVED_CHARACTERS_PAGE_SIZE),
+});
+export const SavedCharacterSummarySchema = z.object({
+  id: z.string().min(1).max(200),
+  name: z.string().max(120),
+  characterClass: z.string().max(80),
+  ascendancy: z.string().max(120).nullable(),
+  level: z.number().int().min(1).max(100).nullable(),
+  league: z.string().max(120),
+  patch: z.string().max(40),
+  updatedAt: z.string(),
+});
+export const SavedCharactersResponseSchema = z.object({
+  characters: z.array(SavedCharacterSummarySchema).max(MAX_SAVED_CHARACTERS_PAGE_SIZE),
+  offset: z.number().int().nonnegative(),
+  limit: z.number().int().positive().max(MAX_SAVED_CHARACTERS_PAGE_SIZE),
+  total: z.number().int().nonnegative(),
+});
+export type SavedCharactersQuery = z.infer<typeof SavedCharactersQuerySchema>;
+export type SavedCharacterSummary = z.infer<typeof SavedCharacterSummarySchema>;
+export type SavedCharactersResponse = z.infer<typeof SavedCharactersResponseSchema>;
+
 // DELETE /api/visitor/data — borrado irreversible de todo lo ligado a la sesión anónima.
 export const DELETE_VISITOR_DATA_CONFIRMATION = "BORRAR MIS DATOS" as const;
 export const DeleteVisitorDataRequestSchema = z.object({
@@ -235,7 +282,8 @@ export type MarketRates = NonNullable<MarketPricesResponse["rates"]>;
 export const RecommendationsRequestSchema = z.object({
   profile: CharacterProfileSchema,
   target: BuildTargetSchema.optional(),
-  budget: BudgetSchema,
+  /** null = el jugador todavía no ha declarado ningún límite. */
+  budget: BudgetSchema.nullable(),
   goal: GoalSchema,
   league: z.string(),
   patch: z.string(),
@@ -382,7 +430,7 @@ export const StartDecisionSessionRequestSchema = RevisionGuardSchema.extend({
   craftingExperiment: CraftingExperimentSchema.nullable().optional(),
   recommendation: RecommendationSchema.nullable().default(null),
   profile: CharacterProfileSchema,
-  budget: BudgetSchema,
+  budget: BudgetSchema.nullable(),
   // Objetivo real del jugador, del enum del dominio. Antes era un string libre
   // que además el servidor descartaba: el cliente enviaba un dato que se perdía.
   goal: GoalKind,

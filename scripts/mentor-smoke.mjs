@@ -93,6 +93,7 @@ function startServer(mode, port) {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      PUBLIC_DEPLOYMENT: "false",
       SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
       // El recorrido concentra en segundos todas las preguntas que una persona
@@ -148,14 +149,12 @@ const check = (name, ok) => {
   if (!ok) failures += 1;
 };
 
-/**
- * La conversación vive plegada en «Preguntar al mentor», bajo el caso abierto.
- * Se despliega antes de escribir en lugar de suponer que está a la vista.
- */
 async function abrirMentor(page) {
-  const trigger = page.getByTestId("acordeon-mentor");
-  if ((await trigger.getAttribute("aria-expanded")) === "true") return;
-  await trigger.click();
+  await page.getByTestId("mentor-briefing").waitFor({ state: "visible", timeout: 15000 });
+  const briefing = page.getByTestId("mentor-briefing");
+  if ((await briefing.getAttribute("open")) === null) {
+    await page.getByTestId("mentor-briefing-toggle").click();
+  }
   await page.locator("#seccion-mentor-chat").waitFor({ state: "visible", timeout: 15000 });
 }
 
@@ -384,7 +383,7 @@ async function runFlow(mode, port) {
 
     check(
       `[${mode}] la sección ofrece sugerencias reconocidas`,
-      (await page.getByTestId("mentor-sugerencia").count()) >= 3,
+      (await page.getByTestId("mentor-sugerencia").count()) === 2,
     );
 
     // --- Mentor v4: conversación social y memoria de sesión ---------------
@@ -428,10 +427,34 @@ async function runFlow(mode, port) {
     await abrirMentor(page);
     check(
       `[${mode}] Mentor v4 conserva el hilo al recargar durante la sesión`,
-      (await page.getByTestId("mentor-version").innerText()).includes("Mentor v4") &&
+      (await page.getByTestId("mentor-contextual").getAttribute("data-version")) === "4" &&
         (await page.getByTestId("mentor-hilo").locator(":scope > div").count()) === turnosAntesDeRecargar &&
         (await page.getByTestId("mentor-turno-mentor").last().innerText()).includes("Mentor de Exile Copilot"),
     );
+
+    // Una pestaña nueva comparte cookie y localStorage, pero empieza con
+    // sessionStorage vacío. Por tanto esta recuperación solo puede venir de la
+    // memoria privada del servidor, no del antiguo respaldo de la pestaña.
+    await page.waitForTimeout(300);
+    const freshTab = await context.newPage();
+    await freshTab.goto(BASE, { waitUntil: "networkidle" });
+    await freshTab.getByText("Demo Gemling").first().waitFor({ timeout: 20000 });
+    await abrirMentor(freshTab);
+    await freshTab.waitForFunction(
+      (expected) =>
+        document.querySelector('[data-testid="mentor-hilo"]')?.children.length === expected,
+      turnosAntesDeRecargar,
+      { timeout: 20000 },
+    );
+    check(
+      `[${mode}] una pestaña nueva recupera el hilo desde el servidor`,
+      (await freshTab.getByTestId("mentor-hilo").locator(":scope > div").count()) ===
+        turnosAntesDeRecargar &&
+        (await freshTab.getByTestId("mentor-turno-mentor").last().innerText()).includes(
+          "Mentor de Exile Copilot",
+        ),
+    );
+    await freshTab.close();
 
     // --- next_improvement --------------------------------------------------
     await preguntar(page, "¿Qué mejoro ahora?");

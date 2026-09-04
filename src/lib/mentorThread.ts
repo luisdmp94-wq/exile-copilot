@@ -1,8 +1,14 @@
 import { z } from "zod";
 import {
-  MentorAnswerSchema,
   type MentorAnswer,
 } from "@shared/mentorQuery.js";
+import {
+  MAX_PERSISTED_MENTOR_TURNS,
+  PersistedMentorTurnSchema,
+  type PersistedMentorTurn,
+} from "@shared/mentorThreadPersistence.js";
+
+export { MAX_PERSISTED_MENTOR_TURNS } from "@shared/mentorThreadPersistence.js";
 
 /**
  * Estado del hilo conversacional del mentor (Hito 6A), como reductor PURO.
@@ -12,21 +18,14 @@ import {
  *    memoria del diario obsoleta) se pueden probar sin navegador ni DOM;
  *  - el hook queda como una capa fina sobre este reductor.
  *
- * Mentor v4 conserva el hilo en `sessionStorage` para sobrevivir a una recarga,
- * pero nunca entre sesiones del navegador. El `threadInputsKey` permite que
- * App lo descarte en cuanto cambie cualquier dato autoritativo.
+ * Mentor v4 conserva el hilo en `sessionStorage` para una recuperación rápida y
+ * en el servidor para la misma sesión anónima y personaje. El
+ * `threadInputsKey` permite que App lo descarte en cuanto cambie cualquier dato
+ * autoritativo.
  */
 
-export type MentorTurnRole = "player" | "mentor";
-
-export interface MentorTurn {
-  id: string;
-  role: MentorTurnRole;
-  /** Texto tal cual: la interfaz lo pinta como TEXTO, nunca como HTML. */
-  text: string;
-  /** Respuesta estructurada del mentor; null en los turnos del jugador. */
-  answer: MentorAnswer | null;
-}
+export type MentorTurnRole = PersistedMentorTurn["role"];
+export type MentorTurn = PersistedMentorTurn;
 
 export interface MentorThreadState {
   turns: MentorTurn[];
@@ -47,14 +46,6 @@ export const initialMentorThreadState: MentorThreadState = {
 };
 
 export const MENTOR_THREAD_STORAGE_KEY = "exile-copilot:mentor-v4:thread";
-export const MAX_PERSISTED_MENTOR_TURNS = 8;
-
-const PersistedMentorTurnSchema = z.strictObject({
-  id: z.string().min(1).max(200),
-  role: z.enum(["player", "mentor"]),
-  text: z.string().min(1).max(8_000),
-  answer: MentorAnswerSchema.nullable(),
-});
 
 const PersistedMentorThreadSchema = z.strictObject({
   version: z.literal("mentor-v4"),
@@ -102,6 +93,8 @@ export type MentorThreadEvent =
   | { type: "journal-stale"; message: string; requestId?: string }
   /** Cualquier otro fallo: la pregunta que acaba de fallar no se conserva. */
   | { type: "failed"; message: string; requestId?: string }
+  /** Recuperación estable del servidor para esta sesión y estos inputs. */
+  | { type: "hydrate"; turns: MentorTurn[]; inputsKey: string }
   /** Invalidación por cambio de inputs relevantes. */
   | { type: "clear" };
 
@@ -177,6 +170,16 @@ export function mentorThreadReducer(
         error: event.message,
         activeRequestId: null,
         turns: dropTrailingPlayerTurn(state.turns),
+      };
+
+    case "hydrate":
+      if (state.loading || state.activeRequestId !== null) return state;
+      return {
+        turns: event.turns.slice(-MAX_PERSISTED_MENTOR_TURNS),
+        loading: false,
+        error: null,
+        threadInputsKey: event.inputsKey,
+        activeRequestId: null,
       };
 
     case "clear":

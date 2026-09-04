@@ -68,7 +68,7 @@
       "asOf": "2026-08-28",
       "method": "live-service-contract",
       "artifactPath": "docs/PLAN.md",
-      "artifactSha256": "af73f7cf39adf3a7ea10556b6802227312bfc73bd4ba38ce13f4153538d411c6",
+      "artifactSha256": "7e953591e66c02d05cc63e1b244cce037df2bc8d3355ed0d709c696b00bbc675",
       "note": "Describe el contrato y sus límites, pero una fuente viva sin captura del lanzamiento no demuestra un parche concreto."
     }
   ]

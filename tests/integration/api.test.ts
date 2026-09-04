@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { deflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GggBuildPlannerV1Schema } from "../../shared/gggBuildPlanner.js";
 import {
@@ -65,8 +66,51 @@ const demoItemText = readFileSync(
   fileURLToPath(new URL("../../server/fixtures/demoItemText.txt", import.meta.url)),
   "utf8",
 );
+const richPobXml = readFileSync(
+  fileURLToPath(new URL("../../server/fixtures/pob2/richCharacter.synthetic.xml", import.meta.url)),
+  "utf8",
+);
+const richPobCode = deflateSync(Buffer.from(richPobXml, "utf8"))
+  .toString("base64")
+  .replace(/\+/g, "-")
+  .replace(/\//g, "_")
+  .replace(/=+$/, "");
+const distortedAmuletText = readFileSync(
+  fileURLToPath(
+    new URL("../../server/fixtures/distortedAmuletAdvanced.es.txt", import.meta.url),
+  ),
+  "utf8",
+);
+const englishFracturedAmuletText = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../../server/fixtures/itemText/observedFocusedAmuletAdvanced.en.txt",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
 
 describe("api (integración, app Express con db :memory:)", () => {
+  it("sirve solo la selección editorial de la liga y parche solicitados", async () => {
+    const missing = await fetch(`${base}/featured-builds`);
+    expect(missing.status).toBe(400);
+
+    const response = await fetch(
+      `${base}/featured-builds?league=${encodeURIComponent("Runes of Aldur")}&patch=0.5.4f`,
+    );
+    expect(response.status).toBe(200);
+    const payload = await jsonOf(response);
+    expect(payload).toMatchObject({
+      league: "Runes of Aldur",
+      patch: "0.5.4f",
+      slots: 10,
+      builds: [],
+      pendingReview: 0,
+    });
+    expect(payload.methodology.length).toBeGreaterThan(0);
+  });
+
   it("cierra SQLite una sola vez aunque el lifecycle se invoque repetidamente", () => {
     const managed = createApiApp({
       dbPath: ":memory:",
@@ -113,6 +157,98 @@ describe("api (integración, app Express con db :memory:)", () => {
       level: null,
       provenance: "legacy-placeholder",
     });
+  });
+
+  it("redescubre el último expediente solo dentro de la misma sesión anónima", async () => {
+    const sessionA = "recovery-session-a";
+    const sessionB = "recovery-session-b";
+    const makeProfile = (id: string, name: string) =>
+      CharacterProfileSchema.parse({
+        id,
+        name,
+        characterClass: "Ranger",
+        level: 90,
+        levelSource: "observed",
+        league: "Runes of Aldur",
+        patch: "0.5.4f",
+        importedAt: "2026-08-31T00:00:00.000Z",
+      });
+    const saveFor = (session: string, profile: unknown) =>
+      fetch(`${base}/character`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-exile-copilot-test-session": session,
+        },
+        body: JSON.stringify({ profile }),
+      });
+
+    expect((await saveFor(sessionA, makeProfile("recent-a-1", "Primero"))).status).toBe(200);
+    expect((await saveFor(sessionA, makeProfile("recent-a-2", "Último"))).status).toBe(200);
+    expect((await saveFor(sessionB, makeProfile("recent-b-1", "Ajeno"))).status).toBe(200);
+
+    const recentA = await fetch(`${base}/visitor/character/recent`, {
+      headers: { "x-exile-copilot-test-session": sessionA },
+    });
+    expect(recentA.status).toBe(200);
+    expect(recentA.headers.get("cache-control")).toContain("no-store");
+    expect((await jsonOf(recentA)).profile).toMatchObject({
+      id: "recent-a-2",
+      name: "Último",
+    });
+
+    const firstPage = await fetch(`${base}/visitor/characters?offset=0&limit=1`, {
+      headers: { "x-exile-copilot-test-session": sessionA },
+    });
+    expect(firstPage.status).toBe(200);
+    const firstPageBody = await jsonOf(firstPage);
+    expect(firstPageBody).toMatchObject({ offset: 0, limit: 1, total: 2 });
+    expect(firstPageBody.characters).toEqual([
+      expect.objectContaining({ id: "recent-a-2", name: "Último", level: 90 }),
+    ]);
+    expect(firstPageBody.characters[0]).not.toHaveProperty("items");
+    expect(firstPageBody.characters[0]).not.toHaveProperty("notes");
+
+    const secondPage = await fetch(`${base}/visitor/characters?offset=1&limit=1`, {
+      headers: { "x-exile-copilot-test-session": sessionA },
+    });
+    expect((await jsonOf(secondPage)).characters).toEqual([
+      expect.objectContaining({ id: "recent-a-1", name: "Primero" }),
+    ]);
+
+    const foreignPage = await fetch(`${base}/visitor/characters`, {
+      headers: { "x-exile-copilot-test-session": sessionB },
+    });
+    const foreignBody = await jsonOf(foreignPage);
+    expect(foreignBody.total).toBe(1);
+    expect(foreignBody.characters.map((entry: { id: string }) => entry.id)).toEqual([
+      "recent-b-1",
+    ]);
+
+    const oversizedPage = await fetch(`${base}/visitor/characters?limit=100`, {
+      headers: { "x-exile-copilot-test-session": sessionA },
+    });
+    expect(oversizedPage.status).toBe(400);
+
+    const recentUnknown = await fetch(`${base}/visitor/character/recent`, {
+      headers: { "x-exile-copilot-test-session": "recovery-session-empty" },
+    });
+    expect(recentUnknown.status).toBe(200);
+    expect(await jsonOf(recentUnknown)).toEqual({ profile: null });
+
+    const deleted = await fetch(`${base}/visitor/data`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "x-exile-copilot-test-session": sessionA,
+      },
+      body: JSON.stringify({ confirmation: "BORRAR MIS DATOS" }),
+    });
+    expect(deleted.status).toBe(200);
+    const afterDelete = await fetch(`${base}/visitor/character/recent`, {
+      headers: { "x-exile-copilot-test-session": sessionA },
+    });
+    expect(await jsonOf(afterDelete)).toEqual({ profile: null });
   });
 
   it("persiste la identidad de build y la incluye en la revisión del mentor", async () => {
@@ -245,8 +381,24 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.compatibility).toMatchObject({
       patchId: "0.5.4f",
       status: "limited",
-      reviewedAt: "2026-08-22",
+      reviewedAt: "2026-08-30",
     });
+    expect(
+      body.compatibility.features.find(
+        (feature: { id: string }) => feature.id === "item-import",
+      ),
+    ).toMatchObject({ status: "limited" });
+    expect(
+      body.compatibility.features.find(
+        (feature: { id: string }) => feature.id === "basic-crafting",
+      ),
+    ).toMatchObject({ status: "limited" });
+    expect(
+      body.compatibility.features.find(
+        (feature: { id: string }) => feature.id === "advanced-crafting",
+      ),
+    ).toMatchObject({ status: "review-required" });
+    expect(body.dataUpdatedAt).toBe("2026-08-30T00:00:00.000Z");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
@@ -280,6 +432,8 @@ describe("api (integración, app Express con db :memory:)", () => {
       const response = await fetch(`http://127.0.0.1:${port}/ready`);
       const body = await jsonOf(response);
       expect(response.status).toBe(503);
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(response.headers.get("pragma")).toBe("no-cache");
       expect(body).toMatchObject({
         ok: false,
         status: "not-ready",
@@ -483,20 +637,97 @@ describe("api (integración, app Express con db :memory:)", () => {
     const body = await jsonOf(res);
     expect(body.leagues).toContain("Runes of Aldur");
     expect(body.leagues).toContain("Standard");
-    expect(body.patches.map((p: { id: string }) => p.id)).toEqual(["0.5.4f", "0.5.0", "0.3.0"]);
+    expect(body.patches.map((p: { id: string }) => p.id)).toEqual([
+      "0.5.4f",
+      "0.5.5",
+      "1.0",
+      "0.5.0",
+      "0.3.0",
+    ]);
     expect(body.patches[0].asOf).toBe("2026-08-12");
     expect(body.patches[0].source).toContain("pathofexile.com");
+    expect(body.patches[1]).toMatchObject({
+      id: "0.5.5",
+      status: "announced",
+      releaseDate: "2026-09-04",
+      asOf: "2026-08-27",
+      source: expect.stringContaining("lanzamiento anunciado"),
+    });
+    expect(body.patches[2]).toMatchObject({
+      id: "1.0",
+      status: "announced",
+      releaseDate: "2026-12-11",
+      asOf: "2026-08-25",
+      source: expect.stringContaining("lanzamiento completo sigue pendiente"),
+    });
     expect(body.compatibility.targetRelease).toMatchObject({
       version: "1.0",
       releaseDate: "2026-12-11",
       status: "announced",
     });
     expect(body.compatibility.patches[0].features).toHaveLength(5);
+    expect(
+      body.compatibility.patches.find(
+        (candidate: { patchId: string }) => candidate.patchId === "0.5.5",
+      ),
+    ).toMatchObject({
+      status: "review-required",
+      reviewedAt: null,
+      features: expect.arrayContaining([
+        expect.objectContaining({ id: "item-import", status: "review-required" }),
+        expect.objectContaining({ id: "basic-crafting", status: "review-required" }),
+        expect.objectContaining({ id: "advanced-crafting", status: "review-required" }),
+        expect.objectContaining({ id: "passive-tree", status: "review-required" }),
+        expect.objectContaining({ id: "market", status: "review-required" }),
+      ]),
+    });
     expect(body.goals).toContain("survival");
     expect(body.currencies).toEqual(["chaos", "exalted", "divine", "gold"]);
   });
 
-  it("un parche nuevo no hereda la cobertura anterior y exige revisión", async () => {
+  it("0.5.5 es conocido, pero no admite tráfico ni orientación antes de su revisión", async () => {
+    const announcedApp = createApiApp({
+      dbPath: ":memory:",
+      config: { poeNinjaOffline: true, defaultPatch: "0.5.5" },
+    });
+    const announcedServer = await new Promise<Server>((resolve) => {
+      const candidate = announcedApp.listen(0, () => resolve(candidate));
+    });
+    try {
+      const { port } = announcedServer.address() as AddressInfo;
+      const origin = `http://127.0.0.1:${port}`;
+      const health = await jsonOf(await fetch(`${origin}/health`));
+      expect(health.patch).toMatchObject({ id: "0.5.5", asOf: "2026-08-27" });
+      expect(health.compatibility).toMatchObject({
+        patchId: "0.5.5",
+        status: "review-required",
+        reviewedAt: null,
+      });
+      expect(
+        health.compatibility.features.every(
+          (feature: { status: string; evidenceIds: string[] }) =>
+            feature.status === "review-required" && feature.evidenceIds.length === 0,
+        ),
+      ).toBe(true);
+
+      const ready = await fetch(`${origin}/ready`);
+      expect(ready.status).toBe(503);
+      expect(await jsonOf(ready)).toMatchObject({
+        ok: false,
+        patchId: "0.5.5",
+        checks: expect.arrayContaining([
+          expect.objectContaining({ id: "patch-metadata", status: "block" }),
+          expect.objectContaining({ id: "patch-guidance", status: "block" }),
+        ]),
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        announcedServer.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
+  it("1.0 anunciado no hereda la cobertura anterior y exige revisión", async () => {
     const unknownApp = createApiApp({
       dbPath: ":memory:",
       config: { poeNinjaOffline: true, defaultPatch: "1.0" },
@@ -514,6 +745,7 @@ describe("api (integración, app Express con db :memory:)", () => {
         status: "review-required",
         reviewedAt: null,
       });
+      expect(body.dataUpdatedAt).toBe("2026-08-25T00:00:00.000Z");
       expect(body.compatibility.features).toHaveLength(5);
       expect(
         body.compatibility.features.every(
@@ -602,6 +834,52 @@ describe("api (integración, app Express con db :memory:)", () => {
     const original = JSON.parse(titanBuildContent);
     expect(body.plan.build).toEqual(original);
   });
+
+  it("POST /import/build usa un .build como personaje parcial cuando esa es la intención", async () => {
+    const res = await postJson("/import/build", {
+      content: titanBuildContent,
+      patch: "0.5.4f",
+      intent: "character",
+    });
+    expect(res.status).toBe(200);
+    const body = await jsonOf(res);
+    expect(body.plan).toBeUndefined();
+    expect(body.profile).toMatchObject({
+      name: "Titan Warrior",
+      ascendancyId: "Warrior1",
+      levelSource: "placeholder",
+      items: [],
+    });
+    expect(body.profile.passives.allocated).not.toHaveLength(0);
+    expect(body.profile.skills).not.toHaveLength(0);
+  });
+
+  it("POST /import/build reconstruye la instantánea rica de un código PoB2", async () => {
+    const res = await postJson("/import/build", {
+      content: richPobCode,
+      patch: "0.5.4f",
+      intent: "character",
+    });
+    expect(res.status).toBe(200);
+    const body = await jsonOf(res);
+    expect(body.detectedFormat).toBe("pob-code");
+    expect(CharacterProfileSchema.parse(body.profile)).toMatchObject({
+      characterClass: "Ranger",
+      ascendancy: "Ritualist",
+      level: 90,
+      levelSource: "observed",
+      attributes: { str: 138, dex: 196, int: 64 },
+      resistances: { fire: 75, cold: 75, lightning: 75, chaos: 36 },
+      life: 2687,
+      energyShield: 437,
+      evasion: 5251,
+      armour: 1019,
+    });
+    expect(body.profile.items).toHaveLength(2);
+    expect(body.profile.skills).toHaveLength(1);
+    expect(body.profile.passives.allocated).toHaveLength(2);
+    expect(body.warnings.join(" ")).not.toContain("adaptador PoB básico");
+  });
   it("POST /import/build conserva el plan pero no usa pasivas antiguas en 1.0", async () => {
     const res = await postJson("/import/build", { content: titanBuildContent, patch: "1.0" });
     expect(res.status).toBe(200);
@@ -637,6 +915,68 @@ describe("api (integración, app Express con db :memory:)", () => {
     const body = await jsonOf(res);
     expect(body.item.slot).toBe("weapon");
     expect(body.item.baseType).toBe("Varnished Crossbow");
+  });
+
+  it("POST /import/item-text rechaza texto arbitrario en vez de crear un objeto de relleno", async () => {
+    const res = await postJson("/import/item-text", {
+      text: "esto no es un tooltip copiado desde el juego",
+      patch: "0.5.4f",
+    });
+
+    expect(res.status).toBe(400);
+    expect(await jsonOf(res)).toMatchObject({
+      error: "texto-de-objeto-no-reconocido",
+    });
+  });
+
+  it("POST /import/item-text no convierte las pasivas fijas del Amuleto distorsionado en afijos", async () => {
+    const res = await postJson("/import/item-text", {
+      text: distortedAmuletText,
+      patch: "0.5.4f",
+    });
+    expect(res.status).toBe(200);
+    const body = await jsonOf(res);
+
+    expect(body.warnings).toEqual([]);
+    expect(body.item).toMatchObject({
+      name: "Amuleto distorsionado",
+      baseType: "Amuleto distorsionado",
+      slot: "amulet",
+      rarity: "normal",
+      itemLevel: 79,
+    });
+    expect(
+      body.item.modifiers.filter((modifier: { kind: string }) => modifier.kind === "explicit"),
+    ).toHaveLength(0);
+    expect(
+      body.item.modifiers.filter((modifier: { kind: string }) => modifier.kind === "enchant"),
+    ).toHaveLength(2);
+    expect(
+      body.item.modifiers.filter((modifier: { kind: string }) => modifier.kind === "implicit"),
+    ).toHaveLength(1);
+  });
+
+  it("POST /import/item-text conserva la estructura avanzada inglesa y su bloqueo especial", async () => {
+    const res = await postJson("/import/item-text", {
+      text: englishFracturedAmuletText,
+      patch: "0.5.4f",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await jsonOf(res);
+    expect(body.warnings).toEqual([]);
+    expect(body.item).toMatchObject({
+      slot: "amulet",
+      quality: 20,
+      requirements: { level: 65 },
+      craftingState: { fractured: true },
+    });
+    expect(body.item.modifiers).toEqual([
+      expect.objectContaining({ kind: "enchant" }),
+      expect.objectContaining({ kind: "implicit", tags: ["Special"] }),
+      expect.objectContaining({ affix: "prefix", tags: ["Gem"] }),
+      expect.objectContaining({ affix: "suffix", fractured: true }),
+    ]);
   });
 
   it("POST /import/item-text no interpreta objetos con un parche sin revisar", async () => {
@@ -993,6 +1333,75 @@ describe("api (integración, app Express con db :memory:)", () => {
       expect(rec.impact.isPartialMetric).toBe(true);
       expect(rec.sources.some((s: { kind: string }) => s.kind === "calculation")).toBe(true);
     }
+  });
+
+  it("POST /recommendations rechaza un borrador sin clase, nivel ni equipo", async () => {
+    const demoRes = await fetch(`${base}/character/demo`);
+    const { profile } = await jsonOf(demoRes);
+    const response = await postJson("/recommendations", {
+      profile: {
+        ...profile,
+        characterClass: "Desconocida",
+        level: PLACEHOLDER_CHARACTER_LEVEL,
+        levelSource: "placeholder",
+        items: [],
+      },
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: profile.league,
+      patch: profile.patch,
+    });
+
+    expect(response.status).toBe(422);
+    expect(await jsonOf(response)).toMatchObject({
+      error: "personaje-incompleto",
+      detail: expect.stringContaining("clase, nivel, equipo"),
+    });
+  });
+
+  it("POST /recommendations no acepta un nivel de relleno aunque clase y equipo parezcan válidos", async () => {
+    const demoRes = await fetch(`${base}/character/demo`);
+    const { profile } = await jsonOf(demoRes);
+    const response = await postJson("/recommendations", {
+      profile: {
+        ...profile,
+        characterClass: "Warrior",
+        level: PLACEHOLDER_CHARACTER_LEVEL,
+        levelSource: "placeholder",
+        items: [profile.items[0]],
+      },
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: profile.league,
+      patch: profile.patch,
+    });
+
+    expect(response.status).toBe(422);
+    expect(await jsonOf(response)).toMatchObject({
+      error: "personaje-incompleto",
+      detail: expect.stringContaining("nivel"),
+    });
+  });
+
+  it("POST /recommendations bloquea un árbol PoB2 de otra familia de parche", async () => {
+    const demoRes = await fetch(`${base}/character/demo`);
+    const { profile } = await jsonOf(demoRes);
+    const response = await postJson("/recommendations", {
+      profile: {
+        ...profile,
+        pobImport: { targetVersion: "0_1", passiveTreeVersion: "0_4" },
+      },
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: profile.league,
+      patch: profile.patch,
+    });
+
+    expect(response.status).toBe(422);
+    expect(await jsonOf(response)).toMatchObject({
+      error: "personaje-incompleto",
+      detail: expect.stringContaining("versión de árbol"),
+    });
   });
 
   it("POST /recommendations se detiene con acción activa y reconcilia un resultado previo", async () => {

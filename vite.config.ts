@@ -1,6 +1,9 @@
 import path from "path"
+import { fileURLToPath } from "node:url"
 import react from "@vitejs/plugin-react"
 import { defineConfig, type Plugin } from "vite"
+
+const CONFIG_DIR = path.dirname(fileURLToPath(import.meta.url))
 
 // Mounts the Express API inside the Vite dev server so `npm run dev`
 // serves frontend and backend on the same port (7177 in standalone mode).
@@ -70,8 +73,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "./shared"),
+      "@": path.resolve(CONFIG_DIR, "./src"),
+      "@shared": path.resolve(CONFIG_DIR, "./shared"),
     },
   },
 });

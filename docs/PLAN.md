@@ -75,7 +75,9 @@ exile-copilot/
 
 ## Contrato API (v1, bajo /api)
 
-- `GET  /health` → `{ ok, patch: {content, hotfix, asOf, source}, dataUpdatedAt }`
+- `GET  /health` → `{ ok, patch: {content, hotfix, asOf, source}, dataUpdatedAt }`;
+  `dataUpdatedAt` procede de la evidencia/revisión más reciente y nunca de la
+  hora en que se solicita la ruta.
 - `GET  /meta` → ligas (poe.ninja, con fallback), parches versionados, goals, currencies, arquetipos.
 - `POST /import/build` → `{ warnings, detectedFormat, plan? | profile? }` (plan XOR profile).
 - `POST /import/item-text` → `{ item, warnings }`.

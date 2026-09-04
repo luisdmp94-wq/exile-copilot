@@ -1,5 +1,7 @@
-import { Download, Lightbulb, Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Download, Lightbulb, Loader2, PencilLine, Sparkles } from "lucide-react";
 import type { ExportBuildResponse } from "@shared/api.js";
+import { assessCharacterReadiness } from "@shared/characterReadiness.js";
 import type {
   Budget,
   CharacterJournal,
@@ -27,9 +29,11 @@ import { selectAppliedRecommendationIds } from "@/lib/appliedRecommendations";
 import { formatDateTime } from "@/lib/format";
 
 interface RecommendationsSectionProps {
+  /** Identificador único del bloque; permite convivir a las vistas generar y otras. */
+  sectionId?: string;
   profile: CharacterProfile | null;
   targetDraft: TargetDraft;
-  budget: Budget;
+  budget: Budget | null;
   goal: GoalKind;
   league: string;
   patch: string;
@@ -38,6 +42,8 @@ interface RecommendationsSectionProps {
   onJournalStale: () => Promise<void>;
   recommendations: RecommendationsState;
   onLoadDemo: () => Promise<void>;
+  /** Abre el editor completo cuando el perfil todavía es solo un borrador. */
+  onEditProfile: () => void;
   /** Navegación recomendación → objeto; solo se usa con vínculo estructurado. */
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
   onTrackRecommendation: (recommendation: Recommendation) => void;
@@ -76,6 +82,7 @@ interface RecommendationsSectionProps {
 }
 
 export function RecommendationsSection({
+  sectionId = "seccion-recomendaciones",
   profile,
   targetDraft,
   budget,
@@ -87,6 +94,7 @@ export function RecommendationsSection({
   onJournalStale,
   recommendations,
   onLoadDemo,
+  onEditProfile,
   onFocusItem,
   onTrackRecommendation,
   trackingRecommendation,
@@ -101,8 +109,11 @@ export function RecommendationsSection({
   const { result, exportResult, loading, exporting, error } = recommendations;
 
   const activeJournalEntry = journal?.primaryEntry ?? null;
+  const readiness = assessCharacterReadiness(profile);
+  const versionIssue = readiness.issues.find((issue) => issue.id === "version") ?? null;
   const canGenerate =
     !!profile &&
+    readiness.ready &&
     !!league &&
     !!patch &&
     !loading &&
@@ -116,15 +127,18 @@ export function RecommendationsSection({
   const listed = (result?.recommendations ?? []).filter(
     (rec) => rec.id !== excludeRecommendationId,
   );
+  const [expandedAlternativeId, setExpandedAlternativeId] = useState<string | null>(
+    null,
+  );
 
   return (
     // tabIndex={-1}: destino programático de la navegación objeto →
     // recomendaciones (patrón «skip link»); no entra en el orden de tabulación.
     <Card
-      id="seccion-recomendaciones"
+      id={sectionId}
       tabIndex={-1}
       className={`scroll-mt-16 outline-none ${
-        compactGenerate ? "border-0 bg-transparent shadow-none" : ""
+        compactGenerate ? "gap-0 border-0 bg-transparent py-0 shadow-none" : ""
       }`}
     >
       <CardHeader className={compactGenerate ? "px-0 pb-3 pt-0" : undefined}>
@@ -171,6 +185,37 @@ export function RecommendationsSection({
               Termina «{activeJournalEntry.title}» e informa del resultado antes de
               generar tareas nuevas. Así evitamos recomendaciones paralelas o crafts
               encadenados a ciegas.
+            </AlertDescription>
+          </Alert>
+        )}
+        {showGenerate && profile && !readiness.ready && (
+          <Alert
+            className="border-amber-500/45 bg-amber-500/8"
+            data-testid="recommendations-readiness"
+          >
+            <AlertTitle>
+              {versionIssue
+                ? "La build pertenece a otra versión"
+                : `Expediente incompleto: faltan ${readiness.issues.length} dato(s)`}
+            </AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>
+                {versionIssue
+                  ? "No generaremos recomendaciones hasta que el árbol pasivo coincida con el parche del expediente."
+                  : "El archivo ha servido como borrador, pero todavía no permite comparar tu personaje real sin inventar información."}
+              </p>
+              <ul className="space-y-1 text-sm">
+                {readiness.issues.map((issue) => (
+                  <li key={issue.id}>
+                    <span className="font-medium text-foreground">{issue.label}:</span>{" "}
+                    {issue.detail}
+                  </li>
+                ))}
+              </ul>
+              <Button type="button" variant="secondary" onClick={onEditProfile}>
+                <PencilLine className="size-4" aria-hidden="true" />
+                Completar expediente
+              </Button>
             </AlertDescription>
           </Alert>
         )}
@@ -228,7 +273,7 @@ export function RecommendationsSection({
               {result.engineVersion}
             </p>
             {result.memoryImpact.usedEntryIds.length > 0 && (
-              <Alert className="border-sky-500/40 bg-sky-500/5 text-sky-100">
+              <Alert className="border-primary/40 bg-primary/5">
                 <AlertTitle>El diario influyó en esta decisión</AlertTitle>
                 <AlertDescription>
                   Se usaron {result.memoryImpact.usedEntryIds.length} entrada(s) del
@@ -256,6 +301,11 @@ export function RecommendationsSection({
                   tracking={trackingRecommendation}
                   onStartSession={onStartSession}
                   startingSession={startingSession}
+                  presentation="alternative"
+                  expanded={expandedAlternativeId === rec.id}
+                  onExpandedChange={(expanded) =>
+                    setExpandedAlternativeId(expanded ? rec.id : null)
+                  }
                 />
               ))
             )}

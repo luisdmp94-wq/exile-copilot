@@ -31,7 +31,7 @@ import { loadConfig } from "../../server/config.js";
 
 /**
  * Hito 6A / Mentor v4 — invalidación y memoria segura del hilo.
- * La conversación solo se conserva durante la sesión del navegador y se
+ * La conversación se conserva de forma privada para la sesión anónima y se
  * descarta cuando cambia cualquier input relevante.
  */
 

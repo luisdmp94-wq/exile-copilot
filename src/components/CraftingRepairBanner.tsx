@@ -3,6 +3,7 @@ import { ClipboardCopy, ClipboardPaste, FileSearch, TriangleAlert } from "lucide
 import {
   assessCraftingImportIssue,
   buildCraftingImportReport,
+  summarizeCraftingImportEvidence,
 } from "@shared/craftingImportReport.js";
 import type { Item } from "@shared/domain.js";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export function CraftingRepairBanner({
   } | null>(null);
   const issue = useMemo(() => assessCraftingImportIssue(item), [item]);
   const report = useMemo(() => buildCraftingImportReport({ item, patch }), [item, patch]);
+  const evidence = useMemo(() => summarizeCraftingImportEvidence(item), [item]);
   const copyState = copyResult?.report === report ? copyResult.state : "idle";
 
   const copyReport = async () => {
@@ -74,6 +76,33 @@ export function CraftingRepairBanner({
       {open && (
         <div className="mt-3 border-t border-amber-500/25 pt-3 text-sm" data-testid="crafting-repair-instructions">
           <p className="text-amber-100/85">{issue.summary}</p>
+          <div
+            className="mt-3 grid gap-2 sm:grid-cols-2"
+            data-testid="crafting-repair-evidence-summary"
+          >
+            <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.06] p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                Sí he leído
+              </p>
+              <ul className="mt-2 space-y-1 text-xs leading-relaxed text-emerald-50/80">
+                {evidence.recognized.map((fact) => <li key={fact}>✓ {fact}</li>)}
+              </ul>
+            </div>
+            <div className="rounded border border-amber-500/25 bg-background/25 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
+                Todavía necesito
+              </p>
+              {evidence.missing.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-xs leading-relaxed text-amber-50/80">
+                  {evidence.missing.map((fact) => <li key={fact}>• {fact}</li>)}
+                </ul>
+              ) : (
+                <p className="mt-2 text-xs text-amber-50/75">
+                  Revisar por qué el diagnóstico sigue bloqueado.
+                </p>
+              )}
+            </div>
+          </div>
           {issue.retryCopy && (
             <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-amber-100/85">
               <li>Pasa el ratón por la pieza dentro de PoE2.</li>

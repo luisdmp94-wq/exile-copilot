@@ -6,3 +6,8 @@ dist-server
 .env
 *.tsbuildinfo
 .claude/
+*.db
+*.db-shm
+*.db-wal
+server-*.log
+.tmp/

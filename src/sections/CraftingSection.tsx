@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -25,23 +25,35 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { JournalState } from "@/hooks/useJournal";
 import { SLOT_LABELS } from "@/lib/format";
+import {
+  loadCraftingSelection,
+  saveCraftingSelection,
+} from "@/lib/craftingSelection";
+import {
+  loadCraftingWorkspaceMode,
+  saveCraftingWorkspaceMode,
+  type CraftingWorkspaceMode,
+} from "@/lib/craftingWorkspaceProgress";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 import {
+  allowsPatchFeature,
   allowsPatchGuidance,
+  patchFeatureCoverage,
   type PatchCompatibilityRecord,
 } from "@shared/patchCompatibility.js";
 
 interface CraftingSectionProps {
   profile: CharacterProfile | null;
   patchCompatibility: PatchCompatibilityRecord | null;
-  budget: Budget;
+  budget: Budget | null;
   goal: GoalKind;
   target?: BuildTarget;
   journal: JournalState;
   requestedItemId?: string | null;
   onEditExpediente: () => void;
   onOpenCharacter: () => void;
+  onOpenEquipmentItem: (itemId: string) => void;
   onOpenPlanMarket: () => void;
   onStartCraftingDecision: StartCraftingDecision;
   onStartEssenceDecision: StartEssenceDecision;
@@ -55,7 +67,7 @@ interface CraftingSectionProps {
   onSelectedItemChange?: (itemId: string) => void;
 }
 
-type CraftingMode = "coach" | "academy" | "laboratory";
+type CraftingMode = CraftingWorkspaceMode;
 
 function CraftingModeChooser({
   mode,
@@ -70,6 +82,7 @@ function CraftingModeChooser({
       testId: "crafting-mode-academy",
       icon: GraduationCap,
       title: "Aprender crafting",
+      compactTitle: "Aprender",
       detail: "Lecciones y desafíos para entender cada etapa.",
     },
     {
@@ -77,6 +90,7 @@ function CraftingModeChooser({
       testId: "crafting-mode-coach",
       icon: Hammer,
       title: "Ayuda en vivo",
+      compactTitle: "En vivo",
       detail: "Te digo qué hacer dentro de PoE2; tú ejecutas cada paso.",
     },
     {
@@ -84,13 +98,14 @@ function CraftingModeChooser({
       testId: "crafting-mode-laboratory",
       icon: FlaskConical,
       title: "Taller avanzado",
+      compactTitle: "Avanzado",
       detail: "Planifica aquí un proyecto para ejecutarlo dentro de PoE2.",
     },
   ];
 
   return (
     <div
-      className="grid min-w-0 gap-2 md:grid-cols-3"
+      className="grid min-w-0 grid-cols-3 gap-2"
       role="group"
       aria-label="Cómo quieres usar Crafting"
       data-testid="crafting-mode-chooser"
@@ -106,8 +121,9 @@ function CraftingModeChooser({
             data-testid={option.testId}
             data-active={active ? "true" : "false"}
             aria-pressed={active}
+            aria-label={`${option.title}. ${option.detail}`}
             onClick={() => onSelect(option.id)}
-            className={`crafting-mode-card flex min-h-16 min-w-0 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-[transform,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
+            className={`crafting-mode-card flex min-h-16 min-w-0 flex-col items-start gap-2 rounded-md border px-2 py-2 text-left transition-[transform,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none sm:flex-row sm:items-center sm:px-3 ${
               active
                 ? "border-primary/70 bg-primary/[0.11] shadow-[inset_3px_0_0_hsl(var(--primary))] data-[active='true']:ring-2 data-[active='true']:ring-primary/55"
                 : "border-border bg-muted/10 hover:-translate-y-px hover:border-primary/40"
@@ -121,8 +137,9 @@ function CraftingModeChooser({
               <Icon className="size-4.5" aria-hidden="true" />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold">{option.title}</span>
-              <span className="block text-xs text-muted-foreground">{option.detail}</span>
+              <span className="block text-sm font-semibold lg:hidden">{option.compactTitle}</span>
+              <span className="hidden text-sm font-semibold lg:block">{option.title}</span>
+              <span className="hidden text-xs text-muted-foreground lg:block">{option.detail}</span>
             </span>
           </button>
         );
@@ -141,14 +158,15 @@ function CraftingModeChooser({
  */
 function AdvancedToolsToggle({
   open,
-  locked,
+  sessionState,
   onToggle,
 }: {
   open: boolean;
-  /** Hay un craft en marcha: el banco no puede plegarse o se perdería de vista. */
-  locked: boolean;
+  /** Un craft activo o pausado debe seguir localizable desde Ayuda en vivo. */
+  sessionState: "active" | "paused" | null;
   onToggle: () => void;
 }) {
+  const locked = sessionState !== null;
   return (
     <button
       type="button"
@@ -165,7 +183,9 @@ function AdvancedToolsToggle({
         <span className="block text-sm font-medium">Herramientas avanzadas</span>
         <span className="block text-xs text-muted-foreground">
           {locked
-            ? "Tienes un craft en marcha aquí abajo."
+            ? sessionState === "active"
+              ? "Tienes un craft en marcha aquí abajo."
+              : "Tienes un craft guardado aquí abajo."
             : "Control manual de objetivos, protecciones y monedas."}
         </span>
       </span>
@@ -188,6 +208,7 @@ export function CraftingSection({
   requestedItemId = null,
   onEditExpediente,
   onOpenCharacter,
+  onOpenEquipmentItem,
   onOpenPlanMarket,
   onStartCraftingDecision,
   onStartEssenceDecision,
@@ -197,14 +218,31 @@ export function CraftingSection({
   onMentorContext,
   onSelectedItemChange,
 }: CraftingSectionProps) {
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [mode, setMode] = useState<CraftingMode>("coach");
+  const [selectedItemSelection, setSelectedItemSelection] = useState<{
+    profileId: string;
+    itemId: string;
+  } | null>(null);
+  const craftingScope = profile?.id ?? null;
+  const [modeSelection, setModeSelection] = useState<{
+    profileId: string | null;
+    mode: CraftingMode;
+  }>(() => ({
+    profileId: craftingScope,
+    mode: loadCraftingWorkspaceMode(craftingScope),
+  }));
+  const mode = modeSelection.profileId === craftingScope
+    ? modeSelection.mode
+    : loadCraftingWorkspaceMode(craftingScope);
   /** Objetivo escrito en Ayuda en vivo que inicia un proyecto avanzado nuevo. */
   const [laboratoryDraftObjective, setLaboratoryDraftObjective] = useState("");
   /** El banco técnico existe, pero no compite con la recomendación principal. */
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const craftableItems = (profile?.items ?? []).filter((item) =>
-    ["normal", "magic", "rare"].includes(item.rarity),
+  const craftableItems = useMemo(
+    () =>
+      (profile?.items ?? []).filter((item) =>
+        ["normal", "magic", "rare"].includes(item.rarity),
+      ),
+    [profile?.items],
   );
   const activeSession = journal.journal?.session ?? null;
   const hasOpenSession =
@@ -215,7 +253,14 @@ export function CraftingSection({
   const activeCrafting = hasOpenSession && activeSession.craftingExperiment
     ? activeSession.craftingExperiment
     : null;
-  const preferredId = activeCrafting?.originalItem.id ?? selectedItemId ?? requestedItemId;
+
+  const selectedItemId =
+    selectedItemSelection !== null && selectedItemSelection.profileId === profile?.id
+      ? selectedItemSelection.itemId
+      : profile
+        ? loadCraftingSelection(profile.id)
+        : null;
+  const preferredId = activeCrafting?.originalItem.id ?? requestedItemId ?? selectedItemId;
   const laboratoryFallback =
     mode === "laboratory"
       ? craftableItems.find((item) => diagnoseCraftingItem(item).state === "complete")
@@ -227,7 +272,10 @@ export function CraftingSection({
     null;
   const selectedItemState = selectedItem ? diagnoseCraftingItem(selectedItem) : null;
   const selectItem = (itemId: string) => {
-    setSelectedItemId(itemId);
+    if (profile) {
+      setSelectedItemSelection({ profileId: profile.id, itemId });
+      saveCraftingSelection(profile.id, itemId);
+    }
     onSelectedItemChange?.(itemId);
     const item = craftableItems.find((candidate) => candidate.id === itemId);
     if (item) onMentorContext?.({ type: "craftingItem", item });
@@ -252,21 +300,52 @@ export function CraftingSection({
    * estuviera plegado quedaría inalcanzable, así que se despliega solo en ese
    * caso concreto: no al pegar una pieza.
    */
-  const advancedVisible = advancedOpen || activeCrafting !== null;
+  const advancedVisible =
+    advancedOpen || activeCrafting !== null || pausedCrafts.length > 0;
+  const advancedCraftingAvailable = patchCompatibility !== null &&
+    allowsPatchFeature(patchCompatibility, "advanced-crafting");
+  const advancedCraftingNote = patchCompatibility
+    ? patchFeatureCoverage(patchCompatibility, "advanced-crafting").note
+    : "La cobertura del parche todavía no se ha cargado.";
 
   const selectMode = (nextMode: CraftingMode) => {
     // Entrar desde el selector es una navegación manual. Solo el CTA del guía
     // transporta un objetivo nuevo al Taller.
     if (nextMode === "laboratory") setLaboratoryDraftObjective("");
-    setMode(nextMode);
+    setModeSelection({ profileId: craftingScope, mode: nextMode });
+    saveCraftingWorkspaceMode(craftingScope, nextMode);
   };
   const openLaboratoryFromCoach = (draftObjective?: string) => {
     setLaboratoryDraftObjective(draftObjective?.trim() ?? "");
-    setMode("laboratory");
+    setModeSelection({ profileId: craftingScope, mode: "laboratory" });
+    saveCraftingWorkspaceMode(craftingScope, "laboratory");
+  };
+  const openCoach = () => {
+    setModeSelection({ profileId: craftingScope, mode: "coach" });
+    saveCraftingWorkspaceMode(craftingScope, "coach");
+  };
+  const handleCraftingSessionEvent = (event: {
+    type: "started" | "result" | "paused" | "reopened" | "reconciled";
+    title: string;
+  }) => {
+    onMentorEvent?.(event);
+    if (event.type !== "paused") return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const paused = document.querySelector<HTMLElement>(
+          '[data-testid="crafting-paused-sessions"]',
+        );
+        if (!paused) return;
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        paused.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+        paused.focus({ preventScroll: true });
+      });
+    });
   };
 
   const coach = (
     <CraftingCoach
+      key={selectedItem ? `${profile?.id ?? "sin-personaje"}:${selectedItem.id}:${selectedItem.baseType}` : "sin-pieza"}
       profile={profile}
       patch={patchCompatibility?.patchId ?? profile?.patch ?? "Desconocido"}
       budget={budget}
@@ -279,6 +358,7 @@ export function CraftingSection({
       onOpenAdvanced={() => setAdvancedOpen(true)}
       onOpenLaboratory={openLaboratoryFromCoach}
       onOpenCharacter={onOpenCharacter}
+      onOpenEquipmentItem={onOpenEquipmentItem}
       onOpenPlanMarket={onOpenPlanMarket}
       showInitialRepairBanner={!advancedVisible}
       onMentorContext={onMentorContext}
@@ -319,7 +399,11 @@ export function CraftingSection({
       <div className="flex min-w-0 flex-col gap-5">
         {chooser}
         {mode === "academy" ? (
-          <CraftingAcademy onPracticeWithMyItem={() => setMode("coach")} />
+          <CraftingAcademy
+            key={`academy:${craftingScope ?? "sin-personaje"}`}
+            profileId={craftingScope}
+            onPracticeWithMyItem={openCoach}
+          />
         ) : mode === "laboratory" ? (
           <section className="superficie-panel p-6" data-testid="crafting-laboratory-needs-profile">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
@@ -344,13 +428,19 @@ export function CraftingSection({
     <div className="flex min-w-0 flex-col gap-5">
       {chooser}
       {mode === "academy" && (
-        <CraftingAcademy onPracticeWithMyItem={() => setMode("coach")} />
+        <CraftingAcademy
+          key={`academy:${craftingScope}`}
+          profileId={craftingScope}
+          onPracticeWithMyItem={openCoach}
+        />
       )}
       <div hidden={mode !== "coach"} className="flex min-w-0 flex-col gap-5">
         {coach}
         <AdvancedToolsToggle
           open={advancedVisible}
-          locked={activeCrafting !== null}
+          sessionState={
+            activeCrafting !== null ? "active" : pausedCrafts.length > 0 ? "paused" : null
+          }
           onToggle={() => setAdvancedOpen((current) => !current)}
         />
       </div>
@@ -398,6 +488,7 @@ export function CraftingSection({
           className="rounded-md border border-amber-500/30 bg-amber-500/[0.05] p-3"
           data-testid="crafting-paused-sessions"
           aria-labelledby="crafting-paused-title"
+          tabIndex={-1}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -464,7 +555,7 @@ export function CraftingSection({
           journal={journal}
           pendingRecommendation={null}
           onEditExpediente={onEditExpediente}
-          onMentorEvent={onMentorEvent}
+          onMentorEvent={handleCraftingSessionEvent}
           onApplyCraftingResult={onApplyCraftingResult}
         />
       )}
@@ -561,8 +652,10 @@ export function CraftingSection({
                 profile={profile}
                 target={target}
                 profileGoal={goal}
-                budget={budget}
+                budget={budget ?? undefined}
                 patch={profile.patch}
+                advancedCraftingAvailable={advancedCraftingAvailable}
+                advancedCraftingNote={advancedCraftingNote}
                 onUpdateItem={onEditExpediente}
                 showStatusLabel={false}
                 onStartCraftingDecision={hasOpenSession ? undefined : onStartCraftingDecision}

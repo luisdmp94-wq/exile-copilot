@@ -54,6 +54,17 @@ const SUPPORTED_CRAFTING_RARITIES = new Set<Item["rarity"]>([
   "rare",
 ]);
 
+/** Detecta snapshots imposibles sin deducir ningún afijo ausente. */
+export function hasContradictoryAffixStructure(item: Item): boolean {
+  const explicitCount = item.modifiers.filter(
+    (modifier) => modifier.kind === "explicit",
+  ).length;
+  return (
+    (item.rarity === "normal" && explicitCount > 0) ||
+    ((item.rarity === "magic" || item.rarity === "rare") && explicitCount === 0)
+  );
+}
+
 export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const prefixCount = explicit.filter((modifier) => modifier.affix === "prefix").length;
@@ -86,7 +97,10 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
         : "El objeto declara que no puede modificarse.",
     );
   }
-  if (itemState?.mutated || itemState?.desecrated) {
+  const hasSpecialModifier = explicit.some(
+    (modifier) => modifier.fractured || modifier.mutated || modifier.desecrated,
+  );
+  if (itemState?.mutated || itemState?.desecrated || itemState?.fractured || hasSpecialModifier) {
     blockers.push("El objeto tiene un estado especial cuya interacción todavía no está verificada.");
   }
   if (itemState?.split || itemState?.unidentified) {
@@ -133,7 +147,9 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
       itemState.split ||
       itemState.unidentified ||
       itemState.mutated ||
-      itemState.desecrated,
+      itemState.desecrated ||
+      itemState.fractured ||
+      hasSpecialModifier,
   );
   const structureInconsistent =
     (item.rarity === "normal" && explicit.length > 0) ||

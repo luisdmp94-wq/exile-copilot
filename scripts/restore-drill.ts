@@ -13,10 +13,9 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Express } from "express";
-import {
-  CharacterJournalSchema,
-  CharacterProfileSchema,
-} from "../shared/domain.js";
+import { JournalResponseSchema } from "../shared/api.js";
+import { CharacterProfileSchema } from "../shared/domain.js";
+import { buildRecommendationMemory } from "../shared/journalMemory.js";
 import { closeApiApp, createApiApp } from "../server/app.js";
 
 const TEMP_PREFIX = "exile-copilot-restore-drill-";
@@ -27,6 +26,7 @@ const restoredPath = join(tempRoot, "restored.db");
 const characterId = "restore-drill-character";
 const characterName = "Expediente restaurado";
 const journalTitle = "Decisión conservada tras la copia";
+const sessionObjective = "Comprobar que la memoria del Mentor sobrevive";
 
 const runtimeConfig = {
   nodeEnv: "production",
@@ -123,10 +123,18 @@ async function run(): Promise<void> {
   try {
     const healthResponse = await fetch(`${source.base}/health`);
     await expectJson(healthResponse, "Salud de la instancia origen");
-    cookie = cookieFrom(healthResponse);
+    assert(
+      healthResponse.headers.get("set-cookie") === null,
+      "El sondeo de salud no debe crear una sesión de visitante.",
+    );
 
+    // La sesión nace en la primera ruta funcional, igual que para un jugador
+    // real. `/health` y `/ready` pertenecen al orquestador y deben permanecer
+    // sin cookies para no llenar la base ni consumir límites de visitante.
+    const demoResponse = await fetch(`${source.base}/character/demo`);
+    cookie = cookieFrom(demoResponse);
     const demo = (await expectJson(
-      await fetch(`${source.base}/character/demo`, { headers: { Cookie: cookie } }),
+      demoResponse,
       "Lectura del personaje de prueba",
     )) as { profile?: unknown };
     const profile = CharacterProfileSchema.parse({
@@ -166,6 +174,42 @@ async function run(): Promise<void> {
       }),
       "Guardado del diario de prueba",
     );
+    const journalBeforeSession = JournalResponseSchema.parse(
+      await expectJson(
+        await fetch(`${source.base}/journal/${characterId}`, {
+          headers: { Cookie: cookie },
+        }),
+        "Lectura del diario antes de iniciar la sesión",
+      ),
+    );
+    const startedSession = JournalResponseSchema.parse(
+      await expectJson(
+        await fetch(`${source.base}/journal/${characterId}/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: cookie },
+          body: JSON.stringify({
+            journalRevision: buildRecommendationMemory(journalBeforeSession).revision,
+            idempotencyKey: "restore-drill-session",
+            kind: "guided_decision",
+            objective: sessionObjective,
+            hypothesis: "Una sesión persistida debe conservar su contexto tras restaurar SQLite.",
+            expectedResult: "La sesión reaparece esperando el resultado del jugador.",
+            observationMethod: "Abrir el expediente restaurado y leer la sesión activa.",
+            unknowns: [],
+            constraints: [],
+            soonReplacedItemIds: [],
+            protectedResources: [],
+            recommendation: null,
+            profile,
+            budget: { amount: 0, currency: "exalted" },
+            goal: "balanced",
+          }),
+        }),
+        "Inicio de la sesión de decisión",
+      ),
+    );
+    assert(startedSession.session?.objective === sessionObjective, "La sesión no se guardó.");
+    assert(startedSession.sessionEvents.length === 1, "El inicio no dejó historial de sesión.");
   } finally {
     await stop(source.server, sourceApp);
   }
@@ -198,7 +242,7 @@ async function run(): Promise<void> {
     const restoredProfile = CharacterProfileSchema.parse(characterBody.profile);
     assert(restoredProfile.name === characterName, "El expediente restaurado no coincide.");
 
-    const journal = CharacterJournalSchema.parse(
+    const journal = JournalResponseSchema.parse(
       await expectJson(
         await fetch(`${restored.base}/journal/${characterId}`, {
           headers: { Cookie: cookie },
@@ -206,12 +250,21 @@ async function run(): Promise<void> {
         "Recuperación del diario",
       ),
     );
-    assert(journal.primaryEntry?.title === journalTitle, "El diario restaurado no coincide.");
+    assert(
+      journal.entries.some((entry) => entry.title === journalTitle),
+      "El diario restaurado no coincide.",
+    );
+    assert(journal.session?.objective === sessionObjective, "La sesión restaurada no coincide.");
+    assert(
+      journal.session?.status === "waiting_result",
+      "La sesión restaurada perdió su estado de espera.",
+    );
+    assert(journal.sessionEvents.length === 1, "El historial de la sesión no se restauró.");
   } finally {
     await stop(restored.server, restoredApp);
   }
 
-  console.log("✅ SQLite restaurada con integridad, expediente, sesión y diario verificables.");
+  console.log("✅ SQLite restaurada con integridad, expediente, diario y sesión del Mentor verificables.");
   console.log(`✅ Simulacro aislado: ${backupFiles.length} archivo(s) copiado(s), sin usar datos reales.`);
 }
 

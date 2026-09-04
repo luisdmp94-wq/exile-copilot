@@ -1,0 +1,23 @@
+Item Class: Amulets
+Rarity: Rare
+Observed Pendant
+Focused Amulet
+------------------
+Quality (Prefix Modifiers): +20% (augmented)
+------------------
+Requires:
+Level: 65
+------------------
+Item Level: 86
+------------------
+Allocates Observed Passive (enchant)
+------------------
+{ Implicit Modifier — Special }
+-1 Prefix Modifier allowed
+------------------
+{ Prefix Modifier "Observed" (Tier: 1) — Gem — 120% Increased }
++1 to Level of all Skill Gems
+{ Fractured Suffix Modifier "of Shelter" (Tier: 2) — Elemental, Cold, Resistance }
++37(36-40)% to Cold Resistance
+------------------
+Fractured Item

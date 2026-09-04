@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 interface OpenCaseRecommendationProps {
   recommendation: Recommendation;
-  budget: Budget;
+  budget: Budget | null;
   applied: boolean;
   onAppliedChange: (applied: boolean) => void;
   onTrack: (recommendation: Recommendation) => void;
@@ -40,6 +40,9 @@ interface OpenCaseRecommendationProps {
   /** Única vía visible para corregir el perfil (acciones `profile_sync`). */
   onEditExpediente: () => void;
 }
+
+/** Pie de datos del caso: legible, pero sin el peso de un control. */
+const CASE_DATA_BADGE = "px-1.5 py-0 text-[10px] font-normal";
 
 /**
  * Recomendación como contenido dominante del Caso Abierto.
@@ -69,6 +72,7 @@ export function OpenCaseRecommendation({
   onEditExpediente,
 }: OpenCaseRecommendationProps) {
   const overBudget =
+    budget !== null &&
     rec.cost.currency === budget.currency &&
     ((rec.cost.min !== null && rec.cost.min > budget.amount) ||
       (rec.cost.max !== null && rec.cost.max > budget.amount));
@@ -80,6 +84,8 @@ export function OpenCaseRecommendation({
   const visibleReason = compactRecommendationReason(rec.reason);
   const compactAction = compactCaseAction(rec.action);
   const compactReason = compactCaseText(visibleReason);
+  const observationMethod = observationMethodForRecommendation(rec);
+  const compactObservationMethod = compactCaseText(observationMethod, 150);
 
   return (
     <div className="flex flex-col gap-5">
@@ -117,19 +123,27 @@ export function OpenCaseRecommendation({
         </p>
       </div>
 
+      {/* Esta es la salida de la web hacia PoE2, no evidencia técnica. Empieza
+          visible para que el jugador sepa qué observar antes de guardar o
+          probar la acción; puede plegarla si ya la ha leído. */}
       <details
-        className="group rounded-md border border-sky-500/30 bg-sky-500/[0.06] px-4 py-3"
+        open
+        className="group rounded-md border border-border/70 bg-background/40 px-4 py-2.5"
         data-testid="caso-que-observar"
       >
-        <summary className="flex cursor-pointer list-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-200 marker:content-none">
-          <FlaskConical className="size-4" aria-hidden="true" />
+        <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 rotulo-seccion text-muted-foreground marker:content-none hover:text-foreground">
+          <FlaskConical className="size-4 shrink-0 text-primary/70" aria-hidden="true" />
           Qué comprobar después
           <span className="ml-auto text-base leading-none transition-transform group-open:rotate-45 motion-reduce:transition-none" aria-hidden="true">
             +
           </span>
         </summary>
-        <p className="mt-3 border-t border-sky-500/20 pt-3 text-sm leading-relaxed text-foreground">
-          {observationMethodForRecommendation(rec)}
+        <p
+          className="mt-3 border-t border-border/60 pt-3 text-sm leading-relaxed text-foreground"
+          aria-label={observationMethod}
+          title={observationMethod}
+        >
+          {compactObservationMethod}
         </p>
       </details>
 
@@ -243,25 +257,32 @@ export function OpenCaseRecommendation({
         >
           {compactReason}
         </p>
-        <div className="flex flex-wrap items-center gap-2" data-testid="caso-datos-clave">
+        {/* Estas cinco insignias NO pueden plegarse: `equipment-smoke` exige que
+            coste, riesgo, confianza, impacto y procedencia sigan fuera de un
+            `<details>`. Lo que sí se reduce es su peso visual: eran cinco
+            contornos del mismo tamaño que los botones, y ahora leen como el
+            pie de datos que son. */}
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="caso-datos-clave">
+          <span className="rotulo-seccion mr-0.5 text-muted-foreground/70">Datos</span>
           <Badge
             variant="outline"
             className={cn(
-              "text-muted-foreground",
+              CASE_DATA_BADGE,
+              "border-border/60 text-muted-foreground",
               overBudget && "border-amber-500/50 bg-amber-500/10 text-amber-200",
             )}
           >
             Coste {formatCost(rec.cost.min, rec.cost.max, rec.cost.currency, rec.cost.known)}
           </Badge>
-          <Badge variant="outline" className={RISK_BADGE_CLASSES[rec.risk.level]}>
+          <Badge variant="outline" className={cn(CASE_DATA_BADGE, RISK_BADGE_CLASSES[rec.risk.level])}>
             Riesgo {RISK_LABELS[rec.risk.level]}
           </Badge>
-          <Badge variant="outline" className={CONFIDENCE_BADGE_CLASSES[rec.confidence]}>
+          <Badge variant="outline" className={cn(CASE_DATA_BADGE, CONFIDENCE_BADGE_CLASSES[rec.confidence])}>
             Confianza {CONFIDENCE_LABELS[rec.confidence]}
           </Badge>
           <Badge
             variant="outline"
-            className="text-muted-foreground"
+            className={cn(CASE_DATA_BADGE, "border-border/60 text-muted-foreground")}
             title={`${rec.impact.description} (${rec.impact.metric})${
               rec.impact.isPartialMetric
                 ? ". Métrica parcial: no es una estimación de DPS completa."
@@ -270,7 +291,7 @@ export function OpenCaseRecommendation({
           >
             Impacto {MAGNITUDE_LABELS[rec.impact.magnitude]}
           </Badge>
-          <Badge variant="outline" className="text-muted-foreground">
+          <Badge variant="outline" className={cn(CASE_DATA_BADGE, "border-border/60 text-muted-foreground")}>
             {rec.sources.length === 0
               ? "Sin fuentes declaradas"
               : `Procedencia: ${sourceKinds

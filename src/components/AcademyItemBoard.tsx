@@ -17,7 +17,15 @@ const RARITY_CLASS: Partial<Record<ItemRarity, string>> = {
 };
 
 /** Casilla de un afijo: ocupada (con su texto) o libre (hueco disponible). */
-function AffixSlot({ text, family }: { text: string | null; family: "Prefijo" | "Sufijo" }) {
+function AffixSlot({
+  text,
+  family,
+  unknown = false,
+}: {
+  text: string | null;
+  family: "Prefijo" | "Sufijo";
+  unknown?: boolean;
+}) {
   const filled = text !== null;
   return (
     <li
@@ -33,7 +41,9 @@ function AffixSlot({ text, family }: { text: string | null; family: "Prefijo" | 
         className={`mt-1.5 size-1.5 shrink-0 rounded-full ${filled ? "bg-primary" : "bg-muted-foreground/45"}`}
       />
       <span className="sr-only">{family}: </span>
-      <span className="min-w-0 flex-1 break-words">{filled ? text : "Hueco disponible"}</span>
+      <span className="min-w-0 flex-1 break-words">
+        {filled ? text : unknown ? "No confirmado" : "Hueco disponible"}
+      </span>
     </li>
   );
 }
@@ -140,7 +150,9 @@ export function AcademyItemBoard({
               {prefixes.map((modifier) => (
                 <AffixSlot key={modifier.id} text={modifier.text} family="Prefijo" />
               ))}
-              {prefixes.length === 0 && <AffixSlot text={null} family="Prefijo" />}
+              {prefixes.length === 0 && (
+                <AffixSlot text={null} family="Prefijo" unknown={concealCounters} />
+              )}
             </ul>
           </section>
           <section className="min-w-0" aria-labelledby={`sufijos-${item.id}`}>
@@ -154,7 +166,9 @@ export function AcademyItemBoard({
               {suffixes.map((modifier) => (
                 <AffixSlot key={modifier.id} text={modifier.text} family="Sufijo" />
               ))}
-              {suffixes.length === 0 && <AffixSlot text={null} family="Sufijo" />}
+              {suffixes.length === 0 && (
+                <AffixSlot text={null} family="Sufijo" unknown={concealCounters} />
+              )}
             </ul>
           </section>
           {!concealCounters && freeSlots > 0 && (

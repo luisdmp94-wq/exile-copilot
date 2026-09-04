@@ -11,12 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -50,8 +44,8 @@ interface MarketSectionProps {
   league: string;
   patch: string;
   onLeagueChange: (league: string) => void;
-  budget: Budget;
-  onBudgetChange: (budget: Budget) => void;
+  budget: Budget | null;
+  onBudgetChange: (budget: Budget | null) => void;
   goal: GoalKind;
   onGoalChange: (goal: GoalKind) => void;
   market: MarketState;
@@ -82,7 +76,21 @@ export function MarketSection({
   market,
 }: MarketSectionProps) {
   const [namesText, setNamesText] = useState("");
+  const [undeclaredCurrency, setUndeclaredCurrency] =
+    useState<CurrencyKind>(budget?.currency ?? "exalted");
+  // El aviso de «falta algo» no puede aparecer antes de que el jugador toque
+  // nada: al abrir el área no ha cometido ningún error todavía. El botón ya
+  // está deshabilitado, que es la señal honesta de partida.
+  const [touched, setTouched] = useState(false);
   const { prices, loading, error } = market;
+  const uniqueEquipmentNames = Array.from(
+    new Set(
+      (profile?.items ?? [])
+        .filter((item) => item.rarity === "unique")
+        .map((item) => item.name.trim())
+        .filter(Boolean),
+    ),
+  );
 
   const leagues = meta?.leagues ?? [];
   const leagueOptions =
@@ -96,7 +104,7 @@ export function MarketSection({
   return (
     <Card className="intel-card">
       <CardHeader className="border-b border-border/70 px-6 py-6">
-        <p className="rotulo-seccion flex items-center gap-2 text-cyan-300/75">
+        <p className="rotulo-seccion flex items-center gap-2 text-primary/70">
           <Radar className="size-4" aria-hidden="true" />
           Inteligencia de mercado
         </p>
@@ -104,7 +112,7 @@ export function MarketSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-6 px-6 py-6">
         <div className="market-console flex flex-col gap-3 p-5">
-          <p className="rotulo-seccion flex items-center gap-2 text-cyan-300/75">
+          <p className="rotulo-seccion flex items-center gap-2 text-primary/70">
             <Database className="size-4" aria-hidden="true" />
             Terminal de consulta
           </p>
@@ -135,25 +143,21 @@ export function MarketSection({
                   id="market-names"
                   value={namesText}
                   onChange={(e) => setNamesText(e.target.value)}
+                  onBlur={() => setTouched(true)}
                   placeholder="p. ej. Exalted Orb, Chaos Orb"
                   className="min-w-56 flex-1"
                 />
-                {profile && profile.items.length > 0 && (
+                {uniqueEquipmentNames.length > 0 && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      setNamesText(
-                        profile.items
-                          .map((item) => item.name || item.baseType)
-                          .filter((name) => name.length > 0)
-                          .join(", "),
-                      )
+                      setNamesText(uniqueEquipmentNames.join(", "))
                     }
                   >
                     <PackageSearch className="size-4" aria-hidden="true" />
-                    Usar mi equipo
+                    Usar mis únicos
                   </Button>
                 )}
               </div>
@@ -178,7 +182,7 @@ export function MarketSection({
               )}
               {loading ? "Consultando…" : "Consultar precios"}
             </Button>
-            {missingRequirement && (
+            {touched && missingRequirement && (
               <p className="text-sm font-medium text-amber-300" role="status" data-testid="market-missing-requirement">
                 {missingRequirement}
               </p>
@@ -198,18 +202,6 @@ export function MarketSection({
             <AlertTitle>Error al consultar el mercado</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-        )}
-
-        {!loading && !error && !prices && (
-          <Empty className="border border-dashed border-border">
-            <EmptyHeader>
-              <EmptyTitle>Sin consultas todavía</EmptyTitle>
-              <EmptyDescription>
-                Elige una liga, escribe los nombres de los objetos y pulsa «Consultar
-                precios». Los datos proceden de poe.ninja.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
         )}
 
         {!loading && prices && (
@@ -232,7 +224,7 @@ export function MarketSection({
               {prices.fromCache && (
                 <Badge
                   variant="outline"
-                  className="border-sky-500/40 bg-sky-500/10 text-sky-300"
+                  className="border-border/60 text-muted-foreground"
                 >
                   desde caché
                 </Badge>
@@ -296,7 +288,7 @@ export function MarketSection({
                           {quote.fromCache && (
                             <Badge
                               variant="outline"
-                              className="w-fit border-sky-500/40 bg-sky-500/10 text-sky-300"
+                              className="w-fit border-border/60 text-muted-foreground"
                             >
                               desde caché
                             </Badge>
@@ -363,30 +355,42 @@ export function MarketSection({
             </div>
             <div className="intel-field">
               <Label htmlFor="market-budget" className="flex items-center gap-2">
-                <WalletCards className="size-3.5 text-cyan-300" aria-hidden="true" />
-                Presupuesto
+                <WalletCards className="size-3.5 text-primary" aria-hidden="true" />
+                Presupuesto (opcional)
               </Label>
               <Input
                 id="market-budget"
                 type="number"
                 min={0}
-                value={budget.amount}
+                value={budget?.amount ?? ""}
+                placeholder="Sin declarar"
                 onChange={(e) => {
+                  if (e.target.value.trim() === "") {
+                    onBudgetChange(null);
+                    return;
+                  }
                   const parsed = Number.parseFloat(e.target.value);
                   onBudgetChange({
-                    ...budget,
+                    currency: budget?.currency ?? undeclaredCurrency,
                     amount: Number.isNaN(parsed) || parsed < 0 ? 0 : parsed,
                   });
                 }}
               />
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                {budget === null
+                  ? "No has declarado un límite. El Copiloto no usará una cifra de ejemplo para decidir por ti."
+                  : `Límite declarado: ${budget.amount} ${CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.`}
+              </p>
             </div>
             <div className="intel-field sm:col-span-2">
               <Label htmlFor="market-currency">Moneda del presupuesto</Label>
               <Select
-                value={budget.currency}
-                onValueChange={(v) =>
-                  onBudgetChange({ ...budget, currency: v as CurrencyKind })
-                }
+                value={budget?.currency ?? undeclaredCurrency}
+                onValueChange={(v) => {
+                  const currency = v as CurrencyKind;
+                  setUndeclaredCurrency(currency);
+                  if (budget !== null) onBudgetChange({ ...budget, currency });
+                }}
               >
                 <SelectTrigger id="market-currency">
                   <SelectValue />

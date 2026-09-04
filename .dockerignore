@@ -1,0 +1,17 @@
+.git
+.gitignore
+.claude
+.pnpm-store
+node_modules
+dist
+dist-server
+data
+coverage
+*.tsbuildinfo
+*.db
+*.db-shm
+*.db-wal
+*.log
+.env
+.env.*
+!.env.example

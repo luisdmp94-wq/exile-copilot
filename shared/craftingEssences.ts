@@ -129,7 +129,17 @@ export function evaluateEssencePlan(item: Item, input: EssencePlanInput): Essenc
         : "El objeto declara que no puede modificarse.",
     );
   }
-  if (state.mutated || state.desecrated || state.split || state.unidentified) {
+  const hasSpecialModifier = item.modifiers.some(
+    (modifier) => modifier.fractured || modifier.mutated || modifier.desecrated,
+  );
+  if (
+    state.mutated ||
+    state.desecrated ||
+    state.fractured ||
+    state.split ||
+    state.unidentified ||
+    hasSpecialModifier
+  ) {
     return result(
       plan,
       "needs-data",

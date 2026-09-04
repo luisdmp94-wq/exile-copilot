@@ -98,6 +98,12 @@ describe("evaluateEssencePlan", () => {
         plan(),
       ).status,
     ).toBe("needs-data");
+    expect(
+      evaluateEssencePlan(
+        item({ modifiers: [{ ...modifier("Fracturado"), fractured: true }] }),
+        plan(),
+      ).status,
+    ).toBe("needs-data");
   });
 
   it("mantiene la regla vinculada a una fuente oficial y una versión", () => {

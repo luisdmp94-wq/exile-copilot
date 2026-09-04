@@ -24,6 +24,12 @@ import { extractObservedModifierRolls } from "../../shared/craftingRollQuality.j
 export interface ParsedItemText {
   item: Item;
   warnings: string[];
+  /**
+   * `false` solo cuando ni siquiera existe una cabecera de objeto reconocible.
+   * El parser conserva el texto para diagnóstico interno, pero la API pública
+   * no debe convertirlo en un objeto equipable de relleno.
+   */
+  recognized: boolean;
 }
 
 const SECTION_SEPARATOR = /^-{8,}$/;
@@ -37,7 +43,7 @@ const SECTION_SEPARATOR = /^-{8,}$/;
  */
 // `ward` / `barrera` se conserva por la Barrera rúnica de PoE2, introducida
 // oficialmente en 0.5.0. No es una dependencia de la mecánica Ward de PoE1.
-const BASE_PROPERTY_RE = /^(?:quality|calidad|physical damage|daño físico|elemental damage|daño elemental|fire damage|daño de fuego|cold damage|daño de hielo|lightning damage|daño de rayo|chaos damage|daño de caos|critical hit chance|probabilidad de impacto crítico|attacks per second|ataques por segundo|reload time|tiempo de recarga|armour|armadura|evasion(?: rating)?|evasión|energy shield|escudo de energía|runic ward|barrera rúnica|ward|barrera|spirit|espíritu|block chance|probabilidad de bloqueo|sockets|engarces|limited to|limitado a|grants skill|otorga habilidad)\s*:/i;
+const BASE_PROPERTY_RE = /^(?:quality|calidad)(?:\s*\([^)]*\))?\s*:|^(?:physical damage|daño físico|elemental damage|daño elemental|fire damage|daño de fuego|cold damage|daño de hielo|lightning damage|daño de rayo|chaos damage|daño de caos|critical (?:hit|strike) chance|probabilidad de impacto crítico|attacks per second|ataques por segundo|reload time|tiempo de recarga|armour|armadura|evasion(?: rating)?|evasión|energy shield|escudo de energía|runic ward|barrera rúnica|ward|barrera|spirit|espíritu|block chance|chance to block|probabilidad de bloqueo|sockets|engarces|limited to|limitado a|grants skill|otorga habilidad)\s*:/i;
 
 /**
  * Pasivas asignadas que forman parte fija de una base especial. El cliente las
@@ -67,7 +73,7 @@ function guessSlot(itemClass: string, baseType: string): ItemSlot {
   const haystack = `${itemClass} ${baseType}`.toLowerCase();
   const tests: Array<[RegExp, ItemSlot]> = [
     [/crossbow|ballesta|bow|arco|wand|vara|sceptre|cetro|staff|bast[oó]n|mace|maza|axe|hacha|sword|espada|dagger|daga|claw|garra|spear|lanza|flail/, "weapon"],
-    [/shield|escudo|quiver|carcaj|focus/, "offhand"],
+    [/shield|escudo|quiver|carcaj|\bfocus\b/, "offhand"],
     [/helmet|yelmo|casco/, "helmet"],
     [/body armour|armadura|body armor/, "body"],
     [/gloves|guantes/, "gloves"],
@@ -170,6 +176,7 @@ function parseWeaponBaseProperty(line: string, stats: WeaponCombatStats): boolea
 }
 
 interface ParsedSections {
+  recognized: boolean;
   itemClass: string;
   rarity: ItemRarity;
   name: string;
@@ -206,8 +213,9 @@ const UNMODIFIABLE_EXCEPT_CHAOS_RE = /^(?:unmodifiable except by chaos|no modifi
 const UNMODIFIABLE_RE = /^(?:unmodifiable|no modificable)$/i;
 const MUTATED_RE = /^(?:mutated|mutado)$/i;
 const DESECRATED_RE = /^(?:desecrated|profanado)$/i;
+const FRACTURED_ITEM_RE = /^(?:fractured item|objeto fracturado)$/i;
 const ITEM_LEVEL_RE = /^(?:item level|nivel de objeto)\s*:\s*(\d+)/i;
-const REQUIREMENTS_RE = /^(?:requirements|requiere)\s*:?/i;
+const REQUIREMENTS_RE = /^(?:requirements|requires|requiere)\s*:?/i;
 
 /**
  * Prefijo Markdown que el importador ya aceptaba (`## Nivel de objeto: 32`).
@@ -243,6 +251,7 @@ function isStructuralBoundary(line: string): boolean {
     UNMODIFIABLE_RE.test(line) ||
     MUTATED_RE.test(line) ||
     DESECRATED_RE.test(line) ||
+    FRACTURED_ITEM_RE.test(line) ||
     ITEM_LEVEL_RE.test(line) ||
     REQUIREMENTS_RE.test(line) ||
     BASE_PROPERTY_RE.test(line) ||
@@ -263,29 +272,42 @@ interface AdvancedModifierHeader {
 }
 
 function parseAdvancedModifierHeader(line: string): AdvancedModifierHeader | null {
-  if (/^\{\s*(?:mod\.|modifier)\s+(?:implícito|implicit)\s*\}$/i.test(line)) {
-    return { kind: "implicit" };
+  const implicit = /^\{\s*(?:(?:corruption|corrupci[oó]n)\s+)?(?:implicit\s+modifier|(?:mod\.|modifier)\s+(?:implícito|implicito|implicit))([\s\S]*?)\}$/i.exec(
+    line,
+  );
+  if (implicit) {
+    const tagsMatch = /—\s*([^—]+?)(?:\s*—|$)/u.exec(implicit[1] ?? "");
+    const tags = tagsMatch?.[1]
+      ?.split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    return {
+      kind: "implicit",
+      ...(tags && tags.length > 0 ? { tags } : {}),
+    };
   }
 
   // Algunos afijos no tienen nombre localizado y el cliente los serializa
   // literalmente como `Mod. de prefijo ""`. Las comillas vacías siguen siendo
   // una cabecera estructural válida: el tipo, el grado y las etiquetas sí
   // están presentes y no debemos convertir la cabecera en un tercer mod.
-  const match = /^\{\s*(?:mod\.|modifier)\s+(?:de\s+)?(prefijo|sufijo|prefix|suffix)\s+"([^"]*)"([\s\S]*?)\}$/i.exec(
-    line,
-  );
-  if (!match) return null;
+  const localized = /^\{\s*(?:mod\.|modifier)\s+(?:de\s+)?(prefijo|sufijo|prefix|suffix)\s+"([^"]*)"([\s\S]*?)\}$/i.exec(line);
+  const english = /^\{\s*((?:(?:fractured|desecrated|mutated|crafted|master\s+crafted)\s+)*)(prefix|suffix)\s+modifier\s+"([^"]*)"([\s\S]*?)\}$/i.exec(line);
+  if (!localized && !english) return null;
 
-  const localizedAffix = (match[1] ?? "").toLowerCase();
-  const details = match[3] ?? "";
+  const localizedAffix = (localized?.[1] ?? english?.[2] ?? "").toLowerCase();
+  const localizedName = (localized?.[2] ?? english?.[3] ?? "").trim();
+  const descriptors = english?.[1] ?? "";
+  const details = localized?.[3] ?? english?.[4] ?? "";
+  const searchableDetails = `${descriptors} ${details}`;
   const tierMatch = /\((?:grado|tier)\s*:\s*(\d+)\)/i.exec(details);
-  const tagsMatch = /—\s*(.+?)\s*$/u.exec(details);
+  // Un segundo guion largo introduce magnitudes como `120% Increased`; no es
+  // otra etiqueta del modificador.
+  const tagsMatch = /—\s*([^—]+?)(?:\s*—|$)/u.exec(details);
   const tags = tagsMatch?.[1]
     ?.split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
-
-  const localizedName = (match[2] ?? "").trim();
 
   return {
     kind: "explicit",
@@ -293,10 +315,10 @@ function parseAdvancedModifierHeader(line: string): AdvancedModifierHeader | nul
     ...(localizedName.length > 0 ? { name: localizedName } : {}),
     ...(tierMatch ? { tier: Number.parseInt(tierMatch[1] ?? "0", 10) } : {}),
     ...(tags && tags.length > 0 ? { tags } : {}),
-    ...(/\bde fabricación\b|\bcrafted\b/i.test(details) ? { crafted: true } : {}),
-    ...(/\bprofanado\b|\bdesecrated\b/i.test(details) ? { desecrated: true } : {}),
-    ...(/\bfracturad[oa]\b|\bfractured\b/i.test(details) ? { fractured: true } : {}),
-    ...(/\bmutad[oa]\b|\bmutated\b/i.test(details) ? { mutated: true } : {}),
+    ...(/\bde fabricación\b|\bcrafted\b/i.test(searchableDetails) ? { crafted: true } : {}),
+    ...(/\bprofanado\b|\bdesecrated\b/i.test(searchableDetails) ? { desecrated: true } : {}),
+    ...(/\bfracturad[oa]\b|\bfractured\b/i.test(searchableDetails) ? { fractured: true } : {}),
+    ...(/\bmutad[oa]\b|\bmutated\b/i.test(searchableDetails) ? { mutated: true } : {}),
   };
 }
 
@@ -338,6 +360,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
 
   let itemClass = "";
   let rarity: ItemRarity | null = null;
+  let rarityDeclared = false;
   const nameLines: string[] = [];
 
   for (const line of head) {
@@ -348,8 +371,11 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
     }
     const rarityMatch = /^(?:rarity|rareza)\s*:\s*(.+)$/i.exec(line);
     if (rarityMatch) {
-      rarity = parseRarity(rarityMatch[1] ?? "");
-      if (!rarity) {
+      const parsedRarity = parseRarity(rarityMatch[1] ?? "");
+      if (parsedRarity) {
+        rarity = parsedRarity;
+        rarityDeclared = true;
+      } else {
         warnings.push(`No verificado — rareza no reconocida: "${(rarityMatch[1] ?? "").trim()}"`);
         rarity = "other";
       }
@@ -358,9 +384,6 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
     // Líneas sueltas de la cabecera: nombre (+ base en rare/unique).
     if (line.trim().length > 0) nameLines.push(line.trim());
   }
-
-  // Declarada de verdad: una rareza ilegible NO cuenta como cabecera completa.
-  const rarityDeclared = rarity !== null;
 
   if (!itemClass) warnings.push("No verificado — falta 'Item Class'/'Clase de objeto' en la cabecera.");
   if (!rarity) {
@@ -377,6 +400,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
   const baseType = hasSeparateBase ? (nameLines[1] ?? name) : (nameLines[1] ?? name);
 
   const result: ParsedSections = {
+    recognized: itemClass.length > 0 || rarityDeclared,
     itemClass,
     rarity,
     name,
@@ -448,7 +472,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
         continue;
       }
 
-      if (/^(?:requirements|requiere)\s*:?$/i.test(structuralLine)) {
+      if (/^(?:requirements|requires|requiere)\s*:?$/i.test(structuralLine)) {
         inRequirements = true;
         continue;
       }
@@ -460,13 +484,13 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
         inRequirements = false;
       }
       // Formato combinado en una sola línea: "Requirements: Level: 68, Str: 100"
-      const combinedReq = /^(?:requirements|requiere)\s*:\s*(.+)$/i.exec(structuralLine);
+      const combinedReq = /^(?:requirements|requires|requiere)\s*:\s*(.+)$/i.exec(structuralLine);
       if (combinedReq) {
         parseRequirementsLine(combinedReq[1] ?? "", reqAcc);
         continue;
       }
 
-      const qualityMatch = /^(?:quality|calidad)\s*:\s*\+?(\d+)%/i.exec(structuralLine);
+      const qualityMatch = /^(?:quality|calidad)(?:\s*\([^)]*\))?\s*:\s*\+?(\d+)%/i.exec(structuralLine);
       if (qualityMatch) {
         result.quality = Number.parseInt(qualityMatch[1] ?? "0", 10);
         continue;
@@ -537,6 +561,11 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
       }
       if (DESECRATED_RE.test(structuralLine)) {
         result.craftingState.desecrated = true;
+        positiveStateMark = true;
+        continue;
+      }
+      if (FRACTURED_ITEM_RE.test(structuralLine)) {
+        result.craftingState.fractured = true;
         positiveStateMark = true;
         continue;
       }
@@ -639,7 +668,7 @@ export function parseItemText(input: string): ParsedItemText {
   }
 
   const parsed = parseSections(sections, warnings);
-  if (!parsed) {
+  if (!parsed || !parsed.recognized) {
     // Fallback mínimo: conservar el texto crudo.
     return {
       item: {
@@ -652,7 +681,11 @@ export function parseItemText(input: string): ParsedItemText {
         rawText: input,
         sources: [],
       },
-      warnings,
+      warnings: [
+        ...warnings,
+        "No se reconoció una cabecera de objeto de PoE2 en el texto pegado.",
+      ],
+      recognized: false,
     };
   }
 
@@ -688,5 +721,5 @@ export function parseItemText(input: string): ParsedItemText {
   if (parsed.requirements !== undefined) item.requirements = parsed.requirements;
   if (Object.keys(parsed.weaponStats).length > 0) item.weaponStats = parsed.weaponStats;
 
-  return { item, warnings };
+  return { item, warnings, recognized: true };
 }

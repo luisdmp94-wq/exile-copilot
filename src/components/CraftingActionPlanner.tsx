@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CraftingActionIdSchema,
   craftingCurrencyLabel,
@@ -52,6 +52,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCraftingKnowledge } from "@/hooks/useCraftingKnowledge";
 import { buildCraftingMentorReading } from "@/lib/craftingMentorReading";
+import { isCraftingExampleItem } from "@/lib/craftingSimulation";
 import {
   CRAFTING_PROJECT_UPDATED_EVENT,
   craftingProjectStorageKey,
@@ -59,6 +60,7 @@ import {
   readCraftingProject,
   saveCraftingProjectContract,
 } from "@/lib/craftingProject";
+import { craftingLaboratoryRouteLabel } from "@shared/craftingProjectRoute.js";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 import type { MentorCraftingState } from "@shared/mentorContext.js";
 import { buildCraftingTargetEvidence } from "@shared/craftingTargetEvidence.js";
@@ -154,20 +156,31 @@ function useProtectedModifiers(item: Item, initialIds: string[] = []) {
     itemId: item.id,
     ids: initialIds,
   });
-  const currentIds = new Set(
-    item.modifiers
-      .filter((modifier) => modifier.kind === "explicit")
-      .map((modifier) => modifier.id),
+  const currentIds = useMemo(
+    () =>
+      new Set(
+        item.modifiers
+          .filter((modifier) => modifier.kind === "explicit")
+          .map((modifier) => modifier.id),
+      ),
+    [item.modifiers],
   );
-  const value =
-    selection.itemId === item.id
-      ? selection.ids.filter((id) => currentIds.has(id))
-      : [];
-
-  return [
-    value,
+  // Esta lista alimenta efectos que persisten el contrato del Taller. Si se
+  // recrea en cada render, una actualización del historial puede volver a
+  // guardar el mismo contrato y encadenar renders indefinidamente.
+  const value = useMemo(
+    () =>
+      selection.itemId === item.id
+        ? selection.ids.filter((id) => currentIds.has(id))
+        : [],
+    [currentIds, item.id, selection],
+  );
+  const update = useCallback(
     (ids: string[]) => setSelection({ itemId: item.id, ids }),
-  ] as const;
+    [item.id],
+  );
+
+  return [value, update] as const;
 }
 
 const CRAFTING_TOOLS: Array<{
@@ -204,6 +217,9 @@ export interface CraftingActionPlannerProps {
   profileGoal: GoalKind;
   budget?: Budget;
   patch?: string;
+  /** Essences y Alloys solo se habilitan con cobertura explícita del parche. */
+  advancedCraftingAvailable: boolean;
+  advancedCraftingNote: string;
   onStartCraftingDecision?: StartCraftingDecision;
   onStartEssenceDecision?: StartEssenceDecision;
   onStartAlloyDecision?: StartAlloyDecision;
@@ -233,6 +249,8 @@ export function CraftingActionPlanner({
   profileGoal,
   budget,
   patch = "",
+  advancedCraftingAvailable,
+  advancedCraftingNote,
   onStartCraftingDecision,
   onStartEssenceDecision,
   onStartAlloyDecision,
@@ -252,6 +270,7 @@ export function CraftingActionPlanner({
     [experience, laboratoryStorageKey],
   );
   const crafting = diagnoseCraftingItem(item);
+  const isExampleItem = isCraftingExampleItem(item);
   const knowledge = useCraftingKnowledge(item, patch);
   const craftingActions = evaluateObservedCraftingActions(
     item,
@@ -275,6 +294,7 @@ export function CraftingActionPlanner({
   const [preflightConfirmed, setPreflightConfirmed] = useState(false);
   const [startingDecision, setStartingDecision] = useState(false);
   const [activeTool, setActiveTool] = useState<CraftingTool>("currency");
+  const availableActiveTool: CraftingTool = advancedCraftingAvailable ? activeTool : "currency";
   const [showUnavailableActions, setShowUnavailableActions] = useState(false);
   const [showReplacementRisk, setShowReplacementRisk] = useState(false);
   const [protectionOpen, setProtectionOpen] = useState(false);
@@ -388,6 +408,9 @@ export function CraftingActionPlanner({
     if (!reveal()) window.requestAnimationFrame(reveal);
   };
   const prepareCurrencyAction = (action: CraftingRouteAction) => {
+    // El personaje de ejemplo sirve para estudiar una ruta, nunca para crear
+    // una sesión de gasto sobre un objeto que el jugador no posee.
+    if (isExampleItem) return;
     const evaluation = craftingActions.find((entry) => entry.action.id === action.id);
     if (!evaluation || evaluation.status !== "compatible") return;
     setActiveTool("currency");
@@ -442,6 +465,7 @@ export function CraftingActionPlanner({
     budget,
   });
   const confirmationReady =
+    !isExampleItem &&
     resolvedDesiredOutcome.length >= 3 &&
     successCriteriaReady &&
     !stopAlreadyReached &&
@@ -498,7 +522,7 @@ export function CraftingActionPlanner({
               }
             : criterion,
         ),
-        tool: activeTool,
+        tool: availableActiveTool,
         action,
         variant: action === null ? null : selectedVariantId,
         preflightConfirmed,
@@ -514,7 +538,7 @@ export function CraftingActionPlanner({
       };
     },
     [
-      activeTool,
+      availableActiveTool,
       buildIntent,
       confirmationReady,
       baseDecisionKind,
@@ -532,8 +556,15 @@ export function CraftingActionPlanner({
       targetEvidence.status,
     ],
   );
+  const publishedAdvancedMentorStateRef = useRef("");
   useEffect(() => {
     if (experience !== "laboratory") return;
+    const signature = JSON.stringify({
+      itemName: item.name || item.baseType,
+      state: advancedMentorState,
+    });
+    if (publishedAdvancedMentorStateRef.current === signature) return;
+    publishedAdvancedMentorStateRef.current = signature;
     onMentorContext?.({
       type: "craftingAdvancedPlan",
       itemName: item.name || item.baseType,
@@ -612,11 +643,16 @@ export function CraftingActionPlanner({
       };
     }
     if (goalCategory === "other") {
+      const declaredOutcome = desiredOutcome.trim();
       return {
         tone: "neutral" as const,
         eyebrow: "Decisión sobre la base",
-        title: "Primero dime qué quieres conseguir",
-        detail: "Sin un objetivo observable no puedo separar una mejora de un mod que solo ocupa espacio.",
+        title: declaredOutcome
+          ? "Objetivo declarado, todavía sin evidencia observable"
+          : "Primero dime qué quieres conseguir",
+        detail: declaredOutcome
+          ? `Has definido «${declaredOutcome}», pero los datos disponibles no permiten comprobar qué afijos de esta base lo cumplen. No gastes hasta aportar una señal observable o una fuente de modificadores compatible.`
+          : "Sin un objetivo observable no puedo separar una mejora de un mod que solo ocupa espacio.",
       };
     }
     if (stopAlreadyReached) {
@@ -734,11 +770,12 @@ export function CraftingActionPlanner({
     {
       id: "route",
       label: "Ruta",
-      value: stopAlreadyReached
-        ? "Parar"
-        : objectiveReady && successCriteriaReady
-          ? "Lista"
-          : "Después",
+      value: craftingLaboratoryRouteLabel({
+        diagnosisState: crafting.state,
+        objectiveReady,
+        successCriteriaReady,
+        stopAlreadyReached,
+      }),
       reason:
         crafting.state !== "complete"
           ? "Completa la lectura de la pieza"
@@ -1160,6 +1197,7 @@ export function CraftingActionPlanner({
                 type="button"
                 size="sm"
                 variant={route.currencyActions.length === 1 ? "default" : "outline"}
+                disabled={isExampleItem}
                 onClick={() => {
                   if (resolvedDesiredOutcome.length < 3) {
                     revealRouteTarget(`crafting-intention-${item.id}`);
@@ -1176,7 +1214,9 @@ export function CraftingActionPlanner({
                   prepareCurrencyAction(action);
                 }}
               >
-                {resolvedDesiredOutcome.length < 3
+                {isExampleItem
+                  ? "Solo demostración"
+                  : resolvedDesiredOutcome.length < 3
                   ? "Define tu objetivo"
                   : !successCriteriaReady
                     ? "Elige cuándo parar"
@@ -1195,13 +1235,13 @@ export function CraftingActionPlanner({
                 Revisar opciones con riesgo
               </Button>
             )}
-            {route.toolSuggestions.includes("essence") &&
+            {!isExampleItem && advancedCraftingAvailable && route.toolSuggestions.includes("essence") &&
               (!replacementNeedsConsent || showReplacementRisk) && (
               <Button type="button" size="sm" variant="outline" onClick={() => openTool("essence")}>
                 Revisar una Essence
               </Button>
             )}
-            {route.toolSuggestions.includes("alloy") &&
+            {!isExampleItem && advancedCraftingAvailable && route.toolSuggestions.includes("alloy") &&
               (!replacementNeedsConsent || showReplacementRisk) && (
               <Button type="button" size="sm" variant="outline" onClick={() => openTool("alloy")}>
                 Revisar un Alloy
@@ -1216,11 +1256,30 @@ export function CraftingActionPlanner({
           </div>
         )}
         {experience === "laboratory" && laboratoryActiveStep === "route" && crafting.state === "complete" && objectiveReady && successCriteriaReady && (
-          <div id={`crafting-blueprint-${item.id}`} tabIndex={-1} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+          <div id={`crafting-blueprint-${item.id}`} tabIndex={-1} className="space-y-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+            {isExampleItem && (
+              <section
+                className="rounded-md border border-cyan-500/35 bg-cyan-500/[0.07] p-3 text-cyan-50"
+                data-testid="crafting-example-simulation-gate"
+                role="status"
+              >
+                <p className="text-sm font-semibold">Proyecto de demostración: sin gasto real</p>
+                <p className="mt-1 text-xs leading-relaxed text-cyan-100/80">
+                  Puedes estudiar la base, la parada y las rutas, pero esta pieza no existe en tu cuenta. El Taller no preparará monedas ni pedirá un resultado.
+                </p>
+                {onUpdateItem && (
+                  <Button className="mt-3" type="button" size="sm" variant="outline" onClick={onUpdateItem}>
+                    Pegar mi propia pieza
+                  </Button>
+                )}
+              </section>
+            )}
             <CraftingExpertBlueprint
             blueprint={expertBlueprint}
             attempts={projectAttempts}
             disabled={stopAlreadyReached}
+            simulation={isExampleItem}
+            unavailableRouteIds={advancedCraftingAvailable ? [] : ["essence", "alloy"]}
             showContract={false}
             onChooseRoute={(selectedRoute) => {
               if (selectedRoute.id === "essence" || selectedRoute.id === "alloy") {
@@ -1341,15 +1400,18 @@ export function CraftingActionPlanner({
           aria-label="Herramientas de crafting"
         >
           {CRAFTING_TOOLS.map((tool) => {
-            const selected = activeTool === tool.id;
-            const locked =
-              tool.id !== "currency" && replacementNeedsConsent && !showReplacementRisk;
+            const selected = availableActiveTool === tool.id;
+            const isAdvanced = tool.id !== "currency";
+            const locked = isExampleItem || (isAdvanced && (
+              !advancedCraftingAvailable || (replacementNeedsConsent && !showReplacementRisk)
+            ));
             return (
               <button
                 key={tool.id}
                 type="button"
                 role="tab"
                 aria-selected={selected}
+                title={isAdvanced && !advancedCraftingAvailable ? advancedCraftingNote : undefined}
                 disabled={locked}
                 data-testid={`crafting-tool-${tool.id}`}
                 className={`group min-h-16 rounded-md border px-3 py-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -1367,12 +1429,21 @@ export function CraftingActionPlanner({
             );
           })}
         </div>
+        {!advancedCraftingAvailable && (
+          <p
+            className="mt-2 rounded-sm border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-100/85"
+            data-testid="crafting-advanced-patch-gate"
+            role="status"
+          >
+            Essences y Alloys en revisión para este parche. Las monedas básicas siguen disponibles.
+          </p>
+        )}
       </section>}
 
       <div
-        hidden={activeTool !== "currency" || route.state === "replacement-tools" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
+        hidden={isExampleItem || availableActiveTool !== "currency" || route.state === "replacement-tools" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
         style={
-          activeTool !== "currency" || route.state === "replacement-tools" || (experience === "laboratory" && laboratoryActiveStep !== "route")
+          isExampleItem || availableActiveTool !== "currency" || route.state === "replacement-tools" || (experience === "laboratory" && laboratoryActiveStep !== "route")
             ? { display: "none" }
             : undefined
         }
@@ -1461,7 +1532,7 @@ export function CraftingActionPlanner({
                     ))}
                   </div>
                   <p className="text-[11px]">{entry.action.evidence}</p>
-                  {entry.status === "compatible" && onStartCraftingDecision &&
+                  {entry.status === "compatible" && onStartCraftingDecision && !isExampleItem &&
                     (preparedActionId === entry.action.id ? (
                       <form
                         className="mt-1 flex flex-col gap-3 rounded border border-primary/30 bg-primary/5 p-3"
@@ -1581,13 +1652,13 @@ export function CraftingActionPlanner({
       <div
         id={`crafting-tool-content-${item.id}-essence`}
         tabIndex={-1}
-        hidden={activeTool !== "essence" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
-        style={activeTool !== "essence" || (experience === "laboratory" && laboratoryActiveStep !== "route") ? { display: "none" } : undefined}
+        hidden={isExampleItem || availableActiveTool !== "essence" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
+        style={isExampleItem || availableActiveTool !== "essence" || (experience === "laboratory" && laboratoryActiveStep !== "route") ? { display: "none" } : undefined}
         data-testid="crafting-tool-panel-essence"
       >
         <EssencePlanner
           item={item}
-          onStart={onStartEssenceDecision}
+          onStart={isExampleItem ? undefined : onStartEssenceDecision}
           onStarted={onStarted}
           goalCategory={goalCategory}
           desiredOutcome={resolvedDesiredOutcome}
@@ -1599,13 +1670,13 @@ export function CraftingActionPlanner({
       <div
         id={`crafting-tool-content-${item.id}-alloy`}
         tabIndex={-1}
-        hidden={activeTool !== "alloy" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
-        style={activeTool !== "alloy" || (experience === "laboratory" && laboratoryActiveStep !== "route") ? { display: "none" } : undefined}
+        hidden={isExampleItem || availableActiveTool !== "alloy" || (experience === "laboratory" && laboratoryActiveStep !== "route")}
+        style={isExampleItem || availableActiveTool !== "alloy" || (experience === "laboratory" && laboratoryActiveStep !== "route") ? { display: "none" } : undefined}
         data-testid="crafting-tool-panel-alloy"
       >
         <AlloyPlanner
           item={item}
-          onStart={onStartAlloyDecision}
+          onStart={isExampleItem ? undefined : onStartAlloyDecision}
           onStarted={onStarted}
           goalCategory={goalCategory}
           desiredOutcome={resolvedDesiredOutcome}

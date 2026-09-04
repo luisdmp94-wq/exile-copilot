@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   ClipboardCheck,
@@ -35,10 +35,21 @@ import {
   SESSION_STATUS_LABELS,
   characterSessionFingerprint,
   sessionIsOpen,
+  type CraftingExperiment,
   type DecisionOutcome,
 } from "@shared/decisionSession.js";
 import type { JournalState } from "@/hooks/useJournal";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CraftingRepairBanner } from "@/components/CraftingRepairBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,6 +66,11 @@ import {
   craftingProjectStorageKey,
 } from "@/lib/craftingProject";
 import {
+  clearCraftingSessionDraft,
+  loadCraftingSessionDraft,
+  saveCraftingSessionDraft,
+} from "@/lib/craftingSessionDraft";
+import {
   DECISION_OUTCOME_OPTIONS,
   observationMethodForRecommendation,
   outcomeResultText,
@@ -64,7 +80,7 @@ interface DecisionSessionSectionProps {
   /** Identificador único cuando la sesión se presenta en más de un workspace montado. */
   instanceId?: string;
   profile: CharacterProfile | null;
-  budget: Budget;
+  budget: Budget | null;
   /**
    * Objetivo REAL elegido por el jugador en «Plan y mercado». La sesión debe
    * abrirse con él: antes se enviaba «balanced» fijo y además el servidor lo
@@ -83,6 +99,42 @@ interface DecisionSessionSectionProps {
 
 function newKey(): string {
   return crypto.randomUUID();
+}
+
+async function inspectCraftingResult(
+  resultText: string,
+  patch: string,
+  experiment: CraftingExperiment,
+): Promise<{
+  item: Item;
+  comparison: CraftingComparison;
+  warning: string | null;
+}> {
+  const imported = await api.importItemText({ text: resultText, patch });
+  const comparison = requireCompleteCraftingResult(
+    imported.item,
+    compareCraftingResult(
+      experiment.originalItem,
+      imported.item,
+      experiment.actionId,
+      {
+        expectedRarity: experiment.resultRarity,
+        expectedRemovedModifierCount: experiment.expectedRemovedModifierCount,
+        expectedAddedCrafted: experiment.expectedAddedCrafted,
+        maximumCraftedModifierCount: experiment.maximumCraftedModifierCount,
+        expectedAddedModifierText: experiment.guaranteedModifierText,
+        protectedModifierIds: experiment.protectedModifierIds,
+      },
+    ),
+  );
+  return {
+    item: imported.item,
+    comparison,
+    warning:
+      imported.warnings.length > 0
+        ? `Importación con avisos: ${imported.warnings.join(" ")}`
+        : null,
+  };
 }
 
 export function DecisionSessionSection({
@@ -110,6 +162,7 @@ export function DecisionSessionSection({
 
   const [objective, setObjective] = useState("");
   const [hypothesis, setHypothesis] = useState("");
+  const [manualObservationMethod, setManualObservationMethod] = useState("");
   const [unknown, setUnknown] = useState("");
   const [constraint, setConstraint] = useState("");
   const [soonReplaced, setSoonReplaced] = useState("");
@@ -130,7 +183,86 @@ export function DecisionSessionSection({
   const [craftingError, setCraftingError] = useState<string | null>(null);
   const [comparingCrafting, setComparingCrafting] = useState(false);
   const [savingCrafting, setSavingCrafting] = useState(false);
+  const [confirmingCraftingDiscard, setConfirmingCraftingDiscard] = useState(false);
   const savingCraftingRef = useRef(false);
+
+  /** Una sesión cerrada ya no admite resultados ni borradores pendientes. */
+  const isOpen = session !== null && sessionIsOpen(session.status);
+  const craftingDraftProfileId = profile?.id ?? null;
+  const craftingDraftPatch = profile?.patch ?? null;
+  const craftingDraftSessionId = session?.id ?? null;
+  // El diario sustituye el objeto `session` cada vez que añade evidencia. Una
+  // representación estable del experimento evita confundir esas actualizaciones
+  // con la apertura de otra sesión y borrar errores que el jugador aún debe ver.
+  const craftingDraftExperimentJson = session?.craftingExperiment
+    ? JSON.stringify(session.craftingExperiment)
+    : null;
+
+  // El contrato de la sesión ya sobrevive en el diario; el texto observado
+  // también debe sobrevivir. Al restaurarlo recalculamos el veredicto contra
+  // el snapshot autoritativo, en vez de guardar una conclusión derivada como
+  // si el jugador ya la hubiese confirmado.
+  useEffect(() => {
+    const experiment = craftingDraftExperimentJson
+      ? (JSON.parse(craftingDraftExperimentJson) as CraftingExperiment)
+      : null;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      if (
+        !craftingDraftProfileId ||
+        !craftingDraftPatch ||
+        !craftingDraftSessionId ||
+        !experiment ||
+        !isOpen
+      ) {
+        setCraftingResultText("");
+        setCraftingComparison(null);
+        setCraftingResultItem(null);
+        setCraftingError(null);
+        setComparingCrafting(false);
+        return;
+      }
+
+      const restoredText = loadCraftingSessionDraft({
+        profileId: craftingDraftProfileId,
+        sessionId: craftingDraftSessionId,
+      });
+      setCraftingResultText(restoredText);
+      setCraftingComparison(null);
+      setCraftingResultItem(null);
+      setCraftingError(null);
+      if (restoredText.trim() === "") {
+        setComparingCrafting(false);
+        return;
+      }
+
+      setComparingCrafting(true);
+      void inspectCraftingResult(restoredText, craftingDraftPatch, experiment)
+        .then((inspected) => {
+          if (cancelled) return;
+          setCraftingResultItem(inspected.item);
+          setCraftingComparison(inspected.comparison);
+          setCraftingError(inspected.warning);
+        })
+        .catch((error) => {
+          if (!cancelled) setCraftingError(getErrorMessage(error));
+        })
+        .finally(() => {
+          if (!cancelled) setComparingCrafting(false);
+        });
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    craftingDraftExperimentJson,
+    craftingDraftPatch,
+    craftingDraftProfileId,
+    craftingDraftSessionId,
+    isOpen,
+  ]);
 
   if (!profile) return null;
   const craftingResultDiagnosis = craftingResultItem
@@ -142,7 +274,6 @@ export function DecisionSessionSection({
    * ni pausa: el servidor los rechaza. La interfaz deja de ofrecerlos y expone
    * en su lugar una vía clara para empezar otra decisión.
    */
-  const isOpen = session !== null && sessionIsOpen(session.status);
   const isCraftingSession = session?.craftingExperiment != null;
   const craftingGoalSignal =
     session?.craftingExperiment?.goalCategory !== undefined &&
@@ -231,7 +362,12 @@ export function DecisionSessionSection({
 
   const startManual = async (event: FormEvent) => {
     event.preventDefault();
-    if (!revision || objective.trim() === "" || hypothesis.trim() === "") return;
+    if (
+      !revision ||
+      objective.trim() === "" ||
+      hypothesis.trim() === "" ||
+      manualObservationMethod.trim() === ""
+    ) return;
     const next = await journal.startSession({
       ...guard,
       journalRevision: revision,
@@ -240,7 +376,10 @@ export function DecisionSessionSection({
       objective: objective.trim(),
       hypothesis: hypothesis.trim(),
       expectedResult: "El cambio que quieres comprobar.",
-      observationMethod: "Juega un encuentro representativo y anótalo.",
+      // Una decisión manual puede tratar de crafting, mercado, equipo o
+      // combate. El jugador declara la comprobación concreta; la app no la
+      // sustituye por el consejo genérico de «juega un encuentro».
+      observationMethod: manualObservationMethod.trim(),
       unknowns: unknown.trim()
         ? [{ label: unknown.trim(), blockingIrreversible: true }]
         : [],
@@ -256,6 +395,7 @@ export function DecisionSessionSection({
     if (next) onMentorEvent?.({ type: "started", title: objective.trim() });
     setObjective("");
     setHypothesis("");
+    setManualObservationMethod("");
   };
 
   const pauseCurrentSession = async () => {
@@ -279,6 +419,9 @@ export function DecisionSessionSection({
         ? "Craft cerrado sin actualizar el expediente con el resultado de PoE2."
         : "Comprobación cerrada por decisión del jugador.",
     });
+    if (next && session.craftingExperiment) {
+      clearCraftingSessionDraft({ profileId: profile.id, sessionId: session.id });
+    }
     if (next) onMentorEvent?.({ type: "result", title: session.objective });
   };
 
@@ -290,31 +433,14 @@ export function DecisionSessionSection({
     setCraftingComparison(null);
     setCraftingResultItem(null);
     try {
-      const imported = await api.importItemText({
-        text: craftingResultText,
-        patch: profile.patch,
-      });
-      const comparison = requireCompleteCraftingResult(
-        imported.item,
-        compareCraftingResult(
-          experiment.originalItem,
-          imported.item,
-          experiment.actionId,
-          {
-            expectedRarity: experiment.resultRarity,
-            expectedRemovedModifierCount: experiment.expectedRemovedModifierCount,
-            expectedAddedCrafted: experiment.expectedAddedCrafted,
-            maximumCraftedModifierCount: experiment.maximumCraftedModifierCount,
-            expectedAddedModifierText: experiment.guaranteedModifierText,
-            protectedModifierIds: experiment.protectedModifierIds,
-          },
-        ),
+      const inspected = await inspectCraftingResult(
+        craftingResultText,
+        profile.patch,
+        experiment,
       );
-      setCraftingResultItem(imported.item);
-      setCraftingComparison(comparison);
-      if (imported.warnings.length > 0) {
-        setCraftingError(`Importación con avisos: ${imported.warnings.join(" ")}`);
-      }
+      setCraftingResultItem(inspected.item);
+      setCraftingComparison(inspected.comparison);
+      setCraftingError(inspected.warning);
     } catch (error) {
       setCraftingError(getErrorMessage(error));
     } finally {
@@ -397,6 +523,7 @@ export function DecisionSessionSection({
         reopenWhen: null,
         profile,
       });
+      clearCraftingSessionDraft({ profileId: profile.id, sessionId: session.id });
       const successStatus = craftingSuccessAssessment?.status ?? "not-defined";
       const decisionKind = craftingNextDecision?.kind ?? "stop";
       appendCraftingProjectAttempt(
@@ -432,6 +559,7 @@ export function DecisionSessionSection({
   };
 
   return (
+    <>
     <Card
       id={instanceId}
       tabIndex={-1}
@@ -550,6 +678,21 @@ export function DecisionSessionSection({
               />
             </div>
             <div className="space-y-1">
+              <Label htmlFor="decision-metodo">Cómo lo comprobarás en PoE2</Label>
+              <Textarea
+                id="decision-metodo"
+                value={manualObservationMethod}
+                onChange={(event) => setManualObservationMethod(event.target.value)}
+                maxLength={1000}
+                rows={2}
+                required
+                placeholder="Ej.: compara el objeto antes y después; o anota cuántos golpes sobrevives al mismo ataque."
+              />
+              <p className="text-xs text-muted-foreground">
+                Describe una observación que responda a esta decisión. El Copiloto no asumirá que siempre debes jugar un mapa.
+              </p>
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="decision-incognita">Dato que aún no tenemos (opcional)</Label>
               <Input
                 id="decision-incognita"
@@ -586,7 +729,17 @@ export function DecisionSessionSection({
               </select>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={journal.saving || journal.stale || !revision}>
+              <Button
+                type="submit"
+                disabled={
+                  journal.saving ||
+                  journal.stale ||
+                  !revision ||
+                  objective.trim() === "" ||
+                  hypothesis.trim() === "" ||
+                  manualObservationMethod.trim() === ""
+                }
+              >
                 {journal.saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
                 Empezar a comprobar
               </Button>
@@ -781,7 +934,12 @@ export function DecisionSessionSection({
                     id={`${instanceId}-crafting-result-${session.id}`}
                     value={craftingResultText}
                     onChange={(event) => {
-                      setCraftingResultText(event.target.value);
+                      const nextText = event.target.value;
+                      setCraftingResultText(nextText);
+                      saveCraftingSessionDraft(
+                        { profileId: profile.id, sessionId: session.id },
+                        nextText,
+                      );
                       setCraftingComparison(null);
                       setCraftingResultItem(null);
                       setCraftingError(null);
@@ -1065,16 +1223,16 @@ export function DecisionSessionSection({
                             onClick={() => void pauseCurrentSession()}
                             disabled={savingCrafting || journal.saving}
                           >
-                            Parar por ahora
+                            Guardar para seguir más tarde
                           </Button>
                           <Button
                             type="button"
                             variant="ghost"
-                            onClick={() => void abandonCurrentSession()}
+                            onClick={() => setConfirmingCraftingDiscard(true)}
                             disabled={savingCrafting || journal.saving}
                           >
                             <CircleX className="size-4" aria-hidden="true" />
-                            Cerrar sin actualizar el expediente
+                            Descartar sin actualizar el expediente
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -1094,17 +1252,17 @@ export function DecisionSessionSection({
                       disabled={journal.saving || journal.stale || !revision}
                     >
                       <CirclePause className="size-4" aria-hidden="true" />
-                      Parar por ahora
+                      Guardar para seguir más tarde
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => void abandonCurrentSession()}
+                      onClick={() => setConfirmingCraftingDiscard(true)}
                       disabled={journal.saving || journal.stale || !revision}
                     >
                       <CircleX className="size-4" aria-hidden="true" />
-                      Cerrar comprobación
+                      Descartar esta comprobación
                     </Button>
                   </div>
                 )}
@@ -1541,5 +1699,29 @@ export function DecisionSessionSection({
         )}
       </CardContent>
     </Card>
+    <AlertDialog open={confirmingCraftingDiscard} onOpenChange={setConfirmingCraftingDiscard}>
+      <AlertDialogContent data-testid="crafting-discard-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Descartar esta comprobación?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Se cerrará el proyecto sin actualizar tu expediente con el resultado de PoE2. Si solo
+            quieres continuar otro día, vuelve y elige «Guardar para seguir más tarde».
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="crafting-discard-cancel">
+            Seguir con la comprobación
+          </AlertDialogCancel>
+          <AlertDialogAction
+            data-testid="crafting-discard-confirm"
+            disabled={journal.saving || journal.stale || !revision}
+            onClick={() => void abandonCurrentSession()}
+          >
+            Sí, descartar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

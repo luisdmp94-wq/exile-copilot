@@ -18,6 +18,9 @@ export const CRAFTING_MEDIUM_ACADEMY_VERSION = "medio-juego-2026-08-27";
 export const CRAFTING_MEDIUM_ACADEMY_EVIDENCE =
   "Ejercicios sintéticos apoyados en los efectos de moneda observados en el cliente el 22/08/2026. No representan drops, pools, pesos, probabilidades ni precios.";
 
+export const CRAFTING_MEDIUM_BASE_READING_HELP =
+  "La base es el tipo que aparece debajo del nombre del objeto. No necesitas conocer la base ideal de tu build para empezar: usa la pieza que llevas equipada en ese hueco como referencia observable. Si todavía no puedes confirmar que la candidata sirve a tu personaje, no gastes.";
+
 export type MediumAcademyDecision =
   | "choose-fitting-base"
   | "define-one-goal"
@@ -67,6 +70,8 @@ export interface MediumAcademyScenario {
   expectedDecision: MediumAcademyDecision;
   explanation: string;
   takeaway: string;
+  /** Límite observable que evita seguir gastando sin una razón. */
+  stopCondition: string;
   gameSteps: string[];
 }
 
@@ -192,27 +197,28 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
   {
     id: "medio-elegir-base",
     order: 1,
-    title: "Empieza por una base que te sirva",
+    title: "Primero aprende a reconocer la base",
     situation:
-      "Estás en tu alijo y tienes varias piezas del mismo hueco. Una coincide con el tipo de arma o defensa que usa tu personaje; las otras no.",
-    gameState: "Varias bases disponibles",
-    playerGoal: "Mejorar el hueco que realmente usa tu personaje",
+      "Estás en tu alijo, tienes varias piezas del mismo hueco y todavía no conoces las bases de tu build. Antes de gastar, abres el equipo y lees la pieza que ya usas en ese hueco como primera referencia.",
+    gameState: "Varias bases y una pieza equipada como referencia",
+    playerGoal: "Confirmar una candidata sin adivinar la base ideal",
     item: BASE_ADECUADA,
     facts: { situation: "base-selection", baseFitsCharacter: true },
-    question: "¿Con cuál empiezas a gastar monedas?",
+    question: "Si todavía no conoces las bases de tu build, ¿qué haces antes de gastar?",
     options: [
-      option("med-base-correcta", "choose-fitting-base", "Con la base que encaja con mi personaje", "Primero debe servirte el objeto"),
+      option("med-base-correcta", "choose-fitting-base", "Comparo su tipo con la pieza que llevo equipada", "Es una referencia observable; si no basta, todavía no gasto"),
       option("med-base-rara", "consider-exalted", "Con la que tenga el nombre más llamativo", "El nombre no define si te sirve"),
       option("med-base-cualquiera", "define-one-goal", "Con cualquiera; luego la arreglo", "La moneda no cambia el tipo de base"),
     ],
     expectedDecision: "choose-fitting-base",
     explanation:
-      "El crafting empieza antes de usar una moneda. Si la base no encaja con tu personaje, incluso una buena tirada puede terminar en una pieza que no quieres equipar.",
-    takeaway: "Primero eliges la base; después decides cómo mejorarla.",
+      "No necesitas memorizar la base ideal de tu build. Empieza leyendo el tipo que aparece bajo el nombre de la pieza equipada y úsalo como referencia, no como prueba de que la candidata sea mejor. Si no puedes confirmar que la candidata te sirve, conserva las monedas.",
+    takeaway: "Primero reconoces y confirmas la base; después decides si merece monedas.",
+    stopCondition: "No gastes mientras no puedas confirmar que la candidata sirve al hueco que quieres mejorar.",
     gameSteps: [
-      "Pon las bases candidatas juntas en tu inventario o alijo.",
-      "Lee el tipo de base y sus requisitos; descarta las que no encajen con tu habilidad o defensa.",
-      "Gasta monedas únicamente en la base que tu personaje podría llegar a equipar.",
+      "Abre tu equipo y lee el tipo que aparece bajo el nombre de la pieza que llevas en ese hueco.",
+      "Pon las candidatas juntas y compara su hueco, su tipo y sus requisitos con esa referencia observable.",
+      "Si la comparación no confirma que una candidata te sirve, no gastes todavía.",
     ],
   },
   {
@@ -235,6 +241,7 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Una meta concreta te permite juzgar cada resultado. «Mejorar mi resistencia al fuego» o «conseguir más daño físico» se puede comprobar; «hacerla perfecta» no te dice cuándo parar.",
     takeaway: "Una pieza, un problema principal.",
+    stopCondition: "No uses la primera moneda hasta poder decir en una frase qué problema debe resolver la pieza.",
     gameSteps: [
       "Abre la ficha de tu personaje y localiza una necesidad concreta.",
       "Elige una sola prioridad para esta pieza: daño, defensa, atributo o resistencia.",
@@ -261,6 +268,7 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Que quede un hueco no obliga a continuar. Si el primer resultado no aporta nada a tu objetivo, abandonar esa salida y empezar con otra base evita invertir más en una pieza sin una ventaja inicial.",
     takeaway: "Un hueco libre no convierte una mala salida en un proyecto prometedor.",
+    stopCondition: "Aparta la pieza si el primer modificador no aporta nada al objetivo que elegiste.",
     gameSteps: [
       "Después de Transmutación, vuelve a leer el modificador que apareció.",
       "Compáralo con la prioridad que elegiste antes de gastar.",
@@ -287,6 +295,7 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Aumento añade un modificador aleatorio a un objeto mágico. Usarlo aquí te deja ver el segundo modificador antes de decidir si merece la pena convertir la pieza en rara.",
     takeaway: "Si el mágico promete y aún tiene hueco, completa esa etapa primero.",
+    stopCondition: "Después de Aumento, relee las dos líneas y no subas la rareza si la salida dejó de servirte.",
     gameSteps: [
       "Comprueba en el juego que la pieza es mágica, tiene una línea útil y conserva un hueco.",
       "Haz clic derecho sobre un Orbe de aumento y después clic izquierdo sobre la pieza.",
@@ -313,6 +322,7 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "Regio convierte el mágico en raro, conserva sus modificadores y agrega uno. Estratégicamente merece la pena cuando ya existe algo que quieres mantener, no solo porque la acción sea legal.",
     takeaway: "No subas de rareza una pieza que ya querías abandonar.",
+    stopCondition: "Después de Regio, relee el objeto raro completo antes de decidir cualquier gasto nuevo.",
     gameSteps: [
       "Confirma que la pieza mágica ya tiene dos modificadores y que al menos uno te sirve.",
       "Haz clic derecho sobre un Orbe regio y después clic izquierdo sobre la pieza.",
@@ -339,6 +349,7 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "El efecto observado del Exaltado es añadir un modificador aleatorio a un objeto raro. Tener sitio hace posible la acción; no garantiza que el resultado encaje con tu personaje.",
     takeaway: "Antes de Exaltado decides si la pieza merece esa apuesta.",
+    stopCondition: "No uses Exaltado si no aceptarías un resultado aleatorio o si la pieza ya resolvió tu objetivo.",
     gameSteps: [
       "Comprueba que la pieza es rara, conserva algo útil y todavía tiene un hueco.",
       "Acepta que no puedes elegir qué modificador aparecerá.",
@@ -365,6 +376,7 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
     explanation:
       "El propósito del crafting es mejorar lo que juegas, no llenar siempre el objeto. Equípalo, prueba el personaje y solo vuelve al banco si detectas una necesidad nueva.",
     takeaway: "El craft termina en el juego, no cuando desaparece el último hueco.",
+    stopCondition: "Deja de gastar cuando la prueba dentro del juego confirme que la necesidad principal está resuelta.",
     gameSteps: [
       "Conserva la pieza equipada anterior para poder volver atrás.",
       "Equipa la candidata y compara tu ficha de personaje antes y después.",
@@ -374,8 +386,30 @@ export const CRAFTING_MEDIUM_ACADEMY_SCENARIOS: readonly MediumAcademyScenario[]
 ];
 
 export function validateMediumAcademyScenario(scenario: MediumAcademyScenario): boolean {
+  const decisions = scenario.options.map((entry) => entry.decision);
+  const optionIds = scenario.options.map((entry) => entry.id);
+  const requiredText = [
+    scenario.title,
+    scenario.situation,
+    scenario.gameState,
+    scenario.playerGoal,
+    scenario.question,
+    scenario.explanation,
+    scenario.takeaway,
+    scenario.stopCondition,
+    ...scenario.gameSteps,
+    ...scenario.options.flatMap((entry) => [entry.label, entry.hint]),
+  ];
+
   return (
     resolveMediumAcademyDecision(scenario.facts) === scenario.expectedDecision &&
-    scenario.options.some((entry) => entry.decision === scenario.expectedDecision)
+    scenario.options.length >= 2 &&
+    scenario.options.length <= 4 &&
+    new Set(optionIds).size === optionIds.length &&
+    decisions.filter((decision) => decision === scenario.expectedDecision).length === 1 &&
+    scenario.gameSteps.length >= 2 &&
+    scenario.gameSteps.length <= 4 &&
+    requiredText.every((value) => value.trim().length > 0) &&
+    scenario.item.sources.some((source) => source.kind === "internal")
   );
 }

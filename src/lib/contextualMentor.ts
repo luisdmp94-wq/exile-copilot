@@ -34,11 +34,17 @@ export interface ContextualMentorCue {
   message: string;
   /** Consulta contextual lista para el mentor supervisado. */
   ask: ContextualMentorAsk | null;
+  /**
+   * `false` cuando el Copiloto NO debe anunciarse solo con este aviso porque la
+   * pantalla ya lo dice entera. Ausente equivale a `true`.
+   */
+  announce?: boolean;
 }
 
 export type ContextualMentorEvent =
   | { type: "welcome" }
   | { type: "ready"; profileName: string }
+  | { type: "profileIncomplete"; profileName: string; missing: string[] }
   | { type: "workspace"; workspace: "expediente" | "plan" | "crafting" }
   | { type: "item"; item: Item }
   | { type: "craftingItem"; item: Item }
@@ -68,6 +74,11 @@ export type ContextualMentorEvent =
       baseVerdictSummary: string;
       budgetStatus?: CraftingBudgetStatus | null;
       budgetSummary?: string | null;
+    }
+  | {
+      type: "craftingCoachExample";
+      itemName: string;
+      origin?: "example" | "practice";
     }
   | {
       type: "craftingCoachContract";
@@ -152,6 +163,18 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
           intent: "next_improvement",
         },
       };
+    case "profileIncomplete":
+      return {
+        id: `profile-incomplete:${event.profileName}:${event.missing.join("|")}`,
+        source: "warning",
+        eyebrow: "Expediente parcial",
+        title: `${event.profileName} todavía no está listo`,
+        message:
+          event.missing.length > 0
+            ? `Faltan ${event.missing.join(", ")}. Completa esos datos observados antes de pedirme una prioridad del personaje.`
+            : "Completa los datos observados del personaje antes de pedirme una prioridad.",
+        ask: null,
+      };
     case "workspace":
       return event.workspace === "crafting"
         ? {
@@ -234,6 +257,18 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         ask: null,
       };
     }
+    case "craftingCoachExample":
+      return {
+        id: `crafting-${event.origin ?? "example"}:${event.itemName}`,
+        source: "guide",
+        eyebrow: "Simulación de Crafting",
+        title: event.itemName,
+        message:
+          event.origin === "practice"
+            ? "Esta pieza de práctica tampoco existe en tu cuenta. Úsala para entender la recomendación, pero no gastes moneda ni pegues un resultado real. Vuelve a tu pieza o pega un objeto real de PoE2."
+            : "Esta pieza pertenece al personaje de ejemplo y no existe en tu cuenta. No gastes ninguna moneda: usa una pieza de práctica o pega un objeto real de PoE2.",
+        ask: null,
+      };
     case "craftingCoachDirection": {
       const directionTitle = event.directionLabel.charAt(0).toLocaleUpperCase("es") +
         event.directionLabel.slice(1);
@@ -254,6 +289,10 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         : `Quiero «${event.playerGoal}» con ${event.itemName}, pero la app indica «${event.nextStepTitle}». Explícame qué falta o por qué debo parar antes de gastar.`;
       return {
         id: `crafting-coach:${event.itemName}:${event.playerGoal}:${event.nextStepTitle}:${event.budgetStatus ?? "sin-presupuesto"}`,
+        // Con la lectura bloqueada, el bloqueo ES la pantalla: titular, aviso y
+        // acciones hablan solo de eso. El bocadillo repetía el mismo hecho con
+        // unas terceras palabras. El Copiloto sigue disponible al pulsarlo.
+        announce: event.baseStatus !== "needs-data",
         source:
           event.budgetStatus === "over-budget"
             ? "warning"
@@ -306,15 +345,27 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
       };
     }
     case "craftingCoachResult": {
+      // Progreso antiguo o una restauración interrumpida nunca deben producir
+      // mensajes imposibles como «Paso 2 de 1». El límite visible es el
+      // contrato del jugador y esta frontera lo normaliza antes de explicarlo.
+      const attemptLimit = Math.max(1, Math.floor(event.attemptLimit));
+      const attemptCurrent = Math.max(
+        1,
+        Math.min(Math.floor(event.attemptCurrent), attemptLimit),
+      );
+      const attemptsRemaining = Math.max(
+        0,
+        Math.min(Math.floor(event.attemptsRemaining), attemptLimit - attemptCurrent),
+      );
       const next = event.nextStepTitle === null
         ? "El guía no propone otro gasto todavía."
         : `La siguiente decisión comprobable es «${event.nextStepTitle}».`;
-      const progress = `Paso ${event.attemptCurrent} de ${event.attemptLimit}.`;
-      const remaining = event.attemptsRemaining === 0
+      const progress = `Paso ${attemptCurrent} de ${attemptLimit}.`;
+      const remaining = attemptsRemaining === 0
         ? "No queda ningún paso dentro del límite."
-        : event.attemptsRemaining === 1
+        : attemptsRemaining === 1
           ? "Queda 1 paso dentro del límite."
-          : `Quedan ${event.attemptsRemaining} pasos dentro del límite.`;
+          : `Quedan ${attemptsRemaining} pasos dentro del límite.`;
       return {
         id: `crafting-result:${event.itemName}:${event.headline}:${event.verdict}`,
         source: event.verdict === "continue" && event.decisionKind !== "restart" ? "engine" : "warning",
@@ -322,14 +373,14 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         title: event.headline,
         message: `${progress} ${remaining} Objetivo: «${event.playerGoal}». ${event.verdictText} ${next}`,
         ask: {
-          question: `Tras el paso ${event.attemptCurrent} de ${event.attemptLimit} al craftear ${event.itemName}, el resultado dice «${event.headline}» y buscaba «${event.playerGoal}» con ${event.rollMinimumLabel}. ${event.verdictText} Explícame por qué debo continuar, parar o cambiar de base.`,
+          question: `Tras el paso ${attemptCurrent} de ${attemptLimit} al craftear ${event.itemName}, el resultado dice «${event.headline}» y buscaba «${event.playerGoal}» con ${event.rollMinimumLabel}. ${event.verdictText} Explícame por qué debo continuar, parar o cambiar de base.`,
           intent: "explain_priority",
           craftingState: {
             mode: "coach",
             focus: event.focus,
             rollMinimum: event.rollMinimum,
-            attemptCurrent: event.attemptCurrent,
-            attemptLimit: event.attemptLimit,
+            attemptCurrent,
+            attemptLimit,
             phase: "result",
             decision: event.decisionKind ?? (event.verdict === "unclear" ? "unclear" : event.verdict),
             nextAction: event.nextAction,

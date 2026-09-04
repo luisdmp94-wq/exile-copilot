@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
+  CRAFTING_MEDIUM_BASE_READING_HELP,
   CRAFTING_MEDIUM_ACADEMY_SCENARIOS,
   resolveMediumAcademyDecision,
   validateMediumAcademyScenario,
 } from "../../shared/craftingMediumAcademy.js";
 
 describe("Academia de crafting · nivel medio", () => {
+  it("explica la base sin exigir que el jugador conozca la base ideal de su build", () => {
+    const scenario = CRAFTING_MEDIUM_ACADEMY_SCENARIOS.find(
+      (entry) => entry.id === "medio-elegir-base",
+    );
+
+    expect(CRAFTING_MEDIUM_BASE_READING_HELP).toMatch(/debajo del nombre/i);
+    expect(CRAFTING_MEDIUM_BASE_READING_HELP).toMatch(/no necesitas conocer la base ideal/i);
+    expect(scenario?.question).toMatch(/si todavía no conoces/i);
+    expect(scenario?.options.find(
+      (entry) => entry.decision === scenario.expectedDecision,
+    )?.label).toMatch(/llevo equipad/i);
+    expect(scenario?.stopCondition).toMatch(/no gastes/i);
+  });
+
   it("todas las situaciones derivan su respuesta de hechos del juego", () => {
     expect(CRAFTING_MEDIUM_ACADEMY_SCENARIOS).toHaveLength(7);
     for (const scenario of CRAFTING_MEDIUM_ACADEMY_SCENARIOS) {
@@ -13,6 +28,12 @@ describe("Academia de crafting · nivel medio", () => {
       expect(resolveMediumAcademyDecision(scenario.facts)).toBe(scenario.expectedDecision);
       expect(scenario.item.sources.some((source) => source.kind === "internal")).toBe(true);
       expect(scenario.gameSteps).toHaveLength(3);
+      expect(scenario.stopCondition.trim().length, scenario.id).toBeGreaterThan(0);
+      expect(scenario.options, scenario.id).toHaveLength(3);
+      expect(
+        scenario.options.filter((entry) => entry.decision === scenario.expectedDecision),
+        scenario.id,
+      ).toHaveLength(1);
     }
     expect(new Set(CRAFTING_MEDIUM_ACADEMY_SCENARIOS.map((scenario) => scenario.item.id)).size).toBe(7);
   });
@@ -94,5 +115,14 @@ describe("Academia de crafting · nivel medio", () => {
     const content = CRAFTING_MEDIUM_ACADEMY_SCENARIOS.flatMap((scenario) => scenario.gameSteps).join(" ");
     expect(content).toMatch(/juego|inventario|alijo/);
     expect(content).not.toMatch(/Exile Copilot|pegar|recopiar|laboratorio/i);
+  });
+
+  it("declara cuándo dejar de gastar en cada situación", () => {
+    const stopConditions = CRAFTING_MEDIUM_ACADEMY_SCENARIOS.map(
+      (scenario) => scenario.stopCondition,
+    );
+    expect(stopConditions).toHaveLength(7);
+    expect(stopConditions.every((condition) => condition.trim().length > 20)).toBe(true);
+    expect(stopConditions.join(" ")).toMatch(/no gastes|no uses|aparta|deja de gastar|relee/i);
   });
 });

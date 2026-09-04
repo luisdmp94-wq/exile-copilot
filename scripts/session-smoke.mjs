@@ -61,6 +61,7 @@ function startServer(mode, port) {
       PORT: String(port),
       DATABASE_PATH: join(tempRoot, `${mode}.db`),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      PUBLIC_DEPLOYMENT: "false",
       POE_NINJA_OFFLINE: "true",
       SECURE_COOKIES: "false",
     },
@@ -76,9 +77,9 @@ let total = 0;
 let failures = 0;
 
 /**
- * Navegación por áreas (Expediente y mentor / Plan y mercado). Ambos paneles
- * siguen montados para no perder estado, así que hay que ACTIVAR el área antes
- * de interactuar con sus controles.
+ * Navegación por áreas (Expediente y mentor / Plan y mercado / Crafting). Los
+ * paneles siguen montados para no perder estado, así que hay que ACTIVAR el
+ * área antes de interactuar con sus controles.
  */
 async function irA(page, area) {
   await page.getByTestId(`tab-${area}`).click();
@@ -236,9 +237,10 @@ async function runFlow(mode, port) {
       numeradas.join(" · "),
     );
     check(
-      `[${mode}] las dos áreas siguen presentes y no reaparece una tercera`,
+      `[${mode}] las tres áreas actuales siguen presentes sin recuperar pestañas legacy`,
       (await page.getByTestId("tab-expediente").count()) === 1 &&
         (await page.getByTestId("tab-plan").count()) === 1 &&
+        (await page.getByTestId("tab-crafting").count()) === 1 &&
         (await page.getByTestId("tab-personaje").count()) === 0 &&
         (await page.getByTestId("tab-mentor").count()) === 0,
     );
@@ -254,6 +256,7 @@ async function runFlow(mode, port) {
 
     await page.locator("#decision-objetivo").fill("Subir supervivencia sin tocar mi habilidad core");
     await page.locator("#decision-hipotesis").fill("Un anillo con más vida me deja aguantar un mapa");
+    await page.locator("#decision-metodo").fill("Jugar el mismo mapa y anotar si sobrevivo al mismo tipo de golpe");
     await page.locator("#decision-incognita").fill("tooltip exacto de la herramienta");
     await page.locator("#decision-core").fill("Barrera voltaica");
     await page.getByRole("button", { name: "Empezar a comprobar" }).click();
@@ -451,6 +454,7 @@ async function runFlow(mode, port) {
     await page.getByTestId("decision-form-inicio").waitFor({ timeout: 10_000 });
     await page.locator("#decision-objetivo").fill("Otra decisión manual desde cero");
     await page.locator("#decision-hipotesis").fill("Comprobar que se puede volver a empezar");
+    await page.locator("#decision-metodo").fill("Revisar que el nuevo caso conserva este método al recargar");
     await page.getByRole("button", { name: "Empezar a comprobar" }).click();
     await page.waitForFunction(
       () =>

@@ -1,10 +1,13 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CharacterProfile } from "../../shared/domain.js";
 import type { MentorAnswer } from "../../shared/mentorQuery.js";
 import { createApiApp } from "../../server/app.js";
-import type { MentorDecisionSelector } from "../../server/mentor/mentorAi.js";
+import {
+  MentorAiError,
+  type MentorDecisionSelector,
+} from "../../server/mentor/mentorAi.js";
 
 async function withServer<T>(
   selector: MentorDecisionSelector,
@@ -12,7 +15,7 @@ async function withServer<T>(
 ): Promise<T> {
   const app = createApiApp({
     dbPath: ":memory:",
-    config: { poeNinjaOffline: true },
+    config: { poeNinjaOffline: true, mentorAiProvider: "groq" },
     mentorSelector: selector,
   });
   let server: Server | undefined;
@@ -56,12 +59,119 @@ async function request(base: string, question: string) {
 }
 
 describe("POST /mentor/query — Hito 6E", () => {
-  it("envía null a la IA cuando el nivel del perfil es solo un placeholder", async () => {
-    let receivedLevel: number | null | undefined;
+  it("no consulta la IA para una mecánica avanzada no revisada", async () => {
+    const select = vi.fn();
+    const selector: MentorDecisionSelector = {
+      name: "modelo-no-debe-usarse",
+      select,
+    };
+
+    await withServer(selector, async (base) => {
+      const response = await post(
+        base,
+        "/mentor/query",
+        await request(base, "¿Cómo uso un Alloy en este objeto?"),
+      );
+      expect(response.status).toBe(200);
+      const { answer } = await json<{ answer: MentorAnswer }>(response);
+
+      expect(select).not.toHaveBeenCalled();
+      expect(answer.responseMode).toBe("rules");
+      expect(answer.nextAction).toBeNull();
+      expect(answer.answer).toContain("todavía no está revisada para 0.5.4f");
+    });
+  });
+
+  it("no permite que una pista de conversación eluda una mecánica no revisada", async () => {
+    const select = vi.fn();
+    const selector: MentorDecisionSelector = {
+      name: "modelo-no-debe-usarse",
+      select,
+    };
+
+    await withServer(selector, async (base) => {
+      const body = await request(base, "Cuéntame cómo funcionan los Alloys");
+      const response = await post(base, "/mentor/query", {
+        ...body,
+        intentHint: "conversation",
+      });
+      expect(response.status).toBe(200);
+      const { answer } = await json<{ answer: MentorAnswer }>(response);
+
+      expect(select).not.toHaveBeenCalled();
+      expect(answer.responseMode).toBe("rules");
+      expect(answer.nextAction).toBeNull();
+      expect(answer.answer).toContain("todavía no está revisada para 0.5.4f");
+    });
+  });
+
+  it("no consulta la IA cuando el parche completo todavía no está operativo", async () => {
+    const select = vi.fn();
+    const selector: MentorDecisionSelector = {
+      name: "modelo-no-debe-usarse",
+      select,
+    };
+
+    await withServer(selector, async (base) => {
+      const body = await request(base, "¿Qué mejoro ahora?");
+      body.profile.patch = "0.5.5";
+      body.patch = "0.5.5";
+
+      const response = await post(base, "/mentor/query", body);
+      expect(response.status).toBe(422);
+      expect((await json<{ error: string }>(response)).error).toBe(
+        "parche-sin-revisar",
+      );
+      expect(select).not.toHaveBeenCalled();
+    });
+  });
+
+  it("registra un respaldo del proveedor sin copiar la pregunta ni el motivo", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const selector: MentorDecisionSelector = {
+      name: "modelo-no-disponible",
+      select: async () => {
+        throw new MentorAiError(
+          "Proveedor no disponible; DETALLE_INTERNO que no debe registrarse.",
+        );
+      },
+    };
+
+    try {
+      await withServer(selector, async (base) => {
+        const privateQuestion = "Pregunta privada sobre el arco de Luis";
+        const response = await post(
+          base,
+          "/mentor/query",
+          await request(base, privateQuestion),
+        );
+        expect(response.status).toBe(200);
+        const { answer } = await json<{ answer: MentorAnswer }>(response);
+        expect(answer.responseMode).toBe("rules_fallback");
+
+        const eventLine = warning.mock.calls
+          .map((call) => String(call[0]))
+          .find((line) => line.includes("mentor_provider_fallback"));
+        expect(eventLine).toBeDefined();
+        expect(JSON.parse(eventLine!)).toMatchObject({
+          event: "mentor_provider_fallback",
+          provider: "groq",
+          category: "provider_unavailable",
+        });
+        expect(eventLine).not.toContain(privateQuestion);
+        expect(eventLine).not.toContain("DETALLE_INTERNO");
+      });
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("no consulta la IA cuando el nivel del perfil es solo un placeholder", async () => {
+    let selectorCalls = 0;
     const selector: MentorDecisionSelector = {
       name: "modelo-contexto",
-      select: async (context) => {
-        receivedLevel = context.character.level;
+      select: async () => {
+        selectorCalls += 1;
         return {
           kind: "no_safe_action",
           recommendationId: null,
@@ -76,7 +186,11 @@ describe("POST /mentor/query — Hito 6E", () => {
       body.profile.levelSource = "placeholder";
       const response = await post(base, "/mentor/query", body);
       expect(response.status).toBe(200);
-      expect(receivedLevel).toBeNull();
+      const { answer } = await json<{ answer: MentorAnswer }>(response);
+      expect(selectorCalls).toBe(0);
+      expect(answer.responseMode).toBe("rules");
+      expect(answer.nextAction).toBeNull();
+      expect(answer.answer).toContain("Faltan: nivel");
     });
   });
 
@@ -162,5 +276,35 @@ describe("POST /mentor/query — Hito 6E", () => {
         "memoria-diario-obsoleta",
       );
     });
+  });
+
+  it("usa la identidad anónima del navegador para antiabuso, no el id del personaje", async () => {
+    const safetyIdentifiers: string[] = [];
+    const selector: MentorDecisionSelector = {
+      name: "modelo-privacidad",
+      select: async (context, safetyIdentifier) => {
+        safetyIdentifiers.push(safetyIdentifier);
+        return {
+          kind: "choose_recommendation",
+          recommendationId: context.candidates[0]!.id,
+          missingFactId: null,
+        };
+      },
+    };
+
+    await withServer(selector, async (base) => {
+      const first = await request(base, "¿Qué mejoro ahora?");
+      first.profile.id = "personaje-privado-uno";
+      const second = await request(base, "¿Qué mejoro después?");
+      second.profile.id = "personaje-privado-dos";
+
+      expect((await post(base, "/mentor/query", first)).status).toBe(200);
+      expect((await post(base, "/mentor/query", second)).status).toBe(200);
+    });
+
+    expect(safetyIdentifiers).toHaveLength(2);
+    expect(safetyIdentifiers[0]).toMatch(/^ec_[a-f0-9]{32}$/);
+    expect(safetyIdentifiers[1]).toBe(safetyIdentifiers[0]);
+    expect(safetyIdentifiers.join(" ")).not.toContain("personaje-privado");
   });
 });

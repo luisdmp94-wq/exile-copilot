@@ -19,6 +19,11 @@ export interface CraftingImportIssue {
   retryCopy: boolean;
 }
 
+export interface CraftingImportEvidenceSummary {
+  recognized: string[];
+  missing: string[];
+}
+
 const ADVANCED_AFFIX_HEADER =
   /\{\s*(?:mod\.|modifier)[^}\n]*(?:prefijo|sufijo|prefix|suffix)[^}\n]*\}/i;
 
@@ -40,7 +45,11 @@ function hasUnverifiedSpecialState(item: Item): boolean {
     state?.split ||
       state?.unidentified ||
       state?.mutated ||
-      state?.desecrated,
+      state?.desecrated ||
+      state?.fractured ||
+      item.modifiers.some(
+        (modifier) => modifier.fractured || modifier.mutated || modifier.desecrated,
+      ),
   );
 }
 
@@ -140,6 +149,48 @@ export function assessCraftingImportIssue(
   };
 }
 
+/**
+ * Explica la lectura parcial sin confundir «conozco la base» con «puedo
+ * recomendar un craft». Solo enumera campos presentes; no consulta una tabla
+ * externa ni completa el tooltip por el nombre del objeto.
+ */
+export function summarizeCraftingImportEvidence(
+  item: Item,
+  diagnosis: CraftingItemDiagnosis = diagnoseCraftingItem(item),
+): CraftingImportEvidenceSummary {
+  const recognized: string[] = [];
+  const missing: string[] = [];
+
+  if (item.baseType && !/^desconocid[oa]$/i.test(item.baseType)) {
+    recognized.push(`Base: ${item.baseType}`);
+  } else {
+    missing.push("Tipo base");
+  }
+
+  if (item.itemClass) recognized.push(`Clase: ${item.itemClass}`);
+  else missing.push("Clase de objeto");
+
+  recognized.push(`Rareza leída: ${item.rarity}`);
+
+  if (item.itemLevel !== undefined) recognized.push(`Nivel de objeto: ${item.itemLevel}`);
+  else missing.push("Nivel de objeto");
+
+  if (item.craftingState !== undefined) recognized.push("Estados especiales comprobados");
+  else missing.push("Estados especiales del tooltip");
+
+  if (diagnosis.unclassifiedExplicitCount > 0) {
+    missing.push(
+      `Posición de ${diagnosis.unclassifiedExplicitCount} modificador(es)`,
+    );
+  } else if (item.modifiers.some((modifier) => modifier.kind === "explicit")) {
+    recognized.push(
+      `Afijos clasificados: ${diagnosis.prefixCount} prefijo(s) · ${diagnosis.suffixCount} sufijo(s)`,
+    );
+  }
+
+  return { recognized, missing };
+}
+
 function normalizeTooltip(value: string | undefined): string {
   return (value ?? "")
     .replace(/\r\n?/g, "\n")
@@ -169,6 +220,7 @@ export function buildCraftingImportReport(input: {
 }): string {
   const diagnosis = diagnoseCraftingItem(input.item);
   const issue = assessCraftingImportIssue(input.item, diagnosis);
+  const evidence = summarizeCraftingImportEvidence(input.item, diagnosis);
   const rawText = normalizeTooltip(input.item.rawText);
   const modifiers = input.item.modifiers.length > 0
     ? input.item.modifiers.map((modifier, index) =>
@@ -197,6 +249,12 @@ export function buildCraftingImportReport(input: {
     `Ranura: ${input.item.slot}`,
     `Nivel de objeto: ${input.item.itemLevel ?? "Desconocido"}`,
     `Estructura: ${diagnosis.prefixCount} prefijos · ${diagnosis.suffixCount} sufijos · ${diagnosis.unclassifiedExplicitCount} sin clasificar`,
+    "",
+    "LECTURA PARCIAL",
+    ...evidence.recognized.map((fact) => `- Reconocido: ${fact}`),
+    ...(evidence.missing.length > 0
+      ? evidence.missing.map((fact) => `- Falta: ${fact}`)
+      : ["- Falta: revisión del bloqueo sin campo ausente reconocible"]),
     "",
     "BLOQUEOS OBSERVADOS",
     ...blockers,

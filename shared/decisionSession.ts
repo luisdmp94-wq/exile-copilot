@@ -170,6 +170,12 @@ export type CraftingExperiment = z.infer<typeof CraftingExperimentSchema>;
 export const DecisionSessionSchema = z.object({
   id: z.string().min(1),
   characterId: z.string().min(1),
+  /**
+   * Parche autoritativo del personaje al abrir la decisión. `null` identifica
+   * sesiones antiguas: en crafting no se pueden reconciliar a ciegas porque
+   * sus monedas y reglas podrían pertenecer a otra versión del juego.
+   */
+  sourcePatch: z.string().trim().min(1).max(40).nullable().default(null),
   kind: DecisionSessionKind,
   status: DecisionSessionStatus,
   objective: z.string().trim().min(1).max(500),
@@ -345,6 +351,13 @@ export function characterSessionFingerprint(
           mirrored: item.craftingState.mirrored,
           split: item.craftingState.split,
           unidentified: item.craftingState.unidentified,
+          doubleCorrupted: item.craftingState.doubleCorrupted ?? false,
+          sanctified: item.craftingState.sanctified ?? false,
+          unmodifiable: item.craftingState.unmodifiable ?? false,
+          unmodifiableExceptChaos: item.craftingState.unmodifiableExceptChaos ?? false,
+          mutated: item.craftingState.mutated ?? false,
+          desecrated: item.craftingState.desecrated ?? false,
+          fractured: item.craftingState.fractured ?? false,
         }
       : null,
     // El texto del mod es lo que el jugador ve; el id puede regenerarse.
@@ -359,6 +372,8 @@ export function characterSessionFingerprint(
         tags: modifier.tags ? [...modifier.tags].sort() : [],
         crafted: modifier.crafted ?? false,
         desecrated: modifier.desecrated ?? false,
+        fractured: modifier.fractured ?? false,
+        mutated: modifier.mutated ?? false,
       })),
       (modifier) => `${modifier.kind}|${modifier.text}`,
     ),
@@ -386,10 +401,18 @@ export function characterSessionFingerprint(
     (node) => node.ref,
   );
 
+  // Los expedientes creados al pegar una sola pieza se mostraban antes como
+  // «Objeto suelto». El cambio de copy a «Expediente provisional» no modifica
+  // el personaje ni debe invalidar una decisión ya guardada. Conservamos una
+  // representación canónica estable en la huella para ambas generaciones.
+  const stableProfileName = profile.id.startsWith("standalone-item-")
+    ? "Objeto suelto"
+    : profile.name;
+
   return sessionFingerprintHash(
     JSON.stringify({
       id: profile.id,
-      name: profile.name,
+      name: stableProfileName,
       characterClass: profile.characterClass,
       ascendancy: profile.ascendancy,
       ascendancyId: profile.ascendancyId,

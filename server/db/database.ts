@@ -48,6 +48,17 @@ CREATE TABLE IF NOT EXISTS journal_state (
   primary_entry_id TEXT,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS mentor_threads (
+  character_id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  inputs_hash TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS mentor_threads_owner_updated
+  ON mentor_threads(owner_id, updated_at DESC);
 `;
 
 export function createDatabase(dbPath: string): Database {
@@ -70,6 +81,10 @@ export function applySchema(db: Database): void {
   if (!new Set(characterColumns.map((column) => column.name)).has("owner_id")) {
     db.exec("ALTER TABLE characters ADD COLUMN owner_id TEXT");
   }
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS characters_owner_updated
+      ON characters(owner_id, updated_at DESC, id DESC)
+  `);
   const columns = db.prepare("PRAGMA table_info(journal_entries)").all() as unknown as Array<{
     name: string;
   }>;

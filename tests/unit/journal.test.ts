@@ -379,6 +379,7 @@ describe("Character Journal", () => {
       session: {
         id: "ses-1",
         characterId: profile.id,
+        sourcePatch: null,
         kind: "guided_decision",
         status: "active",
         objective: "Probar",

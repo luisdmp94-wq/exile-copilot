@@ -22,6 +22,7 @@ import {
   type CoachDirection,
   type CoachGoalInterpretation,
   type CoachGoalIntent,
+  type CoachGoalSource,
   type CoachNextStep,
   type CoachRollMinimum,
 } from "@shared/craftingCoach.js";
@@ -52,6 +53,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { api, getErrorMessage } from "@/lib/api";
 import { rarityStyle } from "@/lib/equipment";
 import { CURRENCY_LABELS, RARITY_LABELS } from "@/lib/format";
+import { isCraftingExampleItem } from "@/lib/craftingSimulation";
+import {
+  CRAFTING_COACH_PROGRESS_VERSION,
+  discardCraftingCoachProgress,
+  emptyCraftingCoachProgress,
+  loadCraftingCoachProgress,
+  phaseAfterObservedResult,
+  protectSimulatedCraftingProgress,
+  saveCraftingCoachProgress,
+} from "@/lib/craftingCoachProgress";
 import { cn } from "@/lib/utils";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 
@@ -113,7 +124,7 @@ interface CraftingCoachProps {
   /** Único origen de evidencia sobre el personaje. `null` = todavía no hay. */
   profile: CharacterProfile | null;
   patch: string;
-  budget: Budget;
+  budget: Budget | null;
   goal: GoalKind;
   /** Plan declarado por el jugador; es referencia, nunca una verdad de la build. */
   target?: BuildTarget;
@@ -131,6 +142,8 @@ interface CraftingCoachProps {
   onOpenLaboratory: (draftObjective?: string) => void;
   /** Abre el expediente completo cuando falta contexto del personaje. */
   onOpenCharacter: () => void;
+  /** Abre en el expediente el detalle de la pieza que el guía pide comparar. */
+  onOpenEquipmentItem: (itemId: string) => void;
   /** Lleva a búsqueda y comparación cuando el objetivo real es un único. */
   onOpenPlanMarket: () => void;
   /** El banco abierto ya muestra este mismo aviso junto a los controles bloqueados. */
@@ -203,10 +216,12 @@ function DirectionButton({
 
 function Recommendation({
   step,
-  exampleSummary,
+  simulationMode,
   onDone,
   onHold,
   onOther,
+  onReturnToItem,
+  onReviewInExpediente,
   onRepaste,
   onPractice,
   practiceLoading,
@@ -218,10 +233,12 @@ function Recommendation({
   headingRef,
 }: {
   step: CoachNextStep;
-  exampleSummary: boolean;
+  simulationMode: "example" | "practice" | null;
   onDone: () => void;
   onHold: () => void;
   onOther: () => void;
+  onReturnToItem: () => void;
+  onReviewInExpediente: (() => void) | null;
   onRepaste: () => void;
   onPractice: () => void;
   practiceLoading: boolean;
@@ -232,47 +249,70 @@ function Recommendation({
   patch: string;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }) {
-  if (step.kind === "needs-data") {
-    if (exampleSummary) {
-      return (
-        <div
-          className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)]"
-          data-testid="coach-recomendacion"
-          data-kind="needs-data"
+  if (simulationMode !== null) {
+    const practice = simulationMode === "practice";
+    return (
+      <div
+        className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)]"
+        data-testid="coach-recomendacion"
+        data-kind={simulationMode}
+      >
+        <section
+          className="rounded-md border border-cyan-500/35 bg-cyan-500/[0.07] p-3 text-cyan-50"
+          data-testid={practice ? "coach-practice-summary" : "coach-example-summary"}
+          role="status"
         >
-          <section
-            className="rounded-md border border-cyan-500/35 bg-cyan-500/[0.07] p-3 text-cyan-50"
-            data-testid="coach-example-summary"
-            role="status"
-          >
-            <p className="text-sm font-semibold">Esta pieza pertenece al personaje de ejemplo.</p>
-            <p className="mt-1 text-xs leading-relaxed text-cyan-100/75">
-              Resume su equipo, pero no conserva el tooltip avanzado necesario para decidir un craft.
-            </p>
-          </section>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" onClick={onPractice} disabled={practiceLoading} data-testid="coach-probar-practica">
-              {practiceLoading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
-              Abrir una pieza de práctica
+          <p className="text-sm font-semibold">
+            {practice
+              ? "Esta es una pieza de práctica."
+              : "Esta pieza pertenece al personaje de ejemplo."}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-cyan-100/75">
+            {practice
+              ? "Puedes aprender qué recomendaría el guía, pero esta pieza tampoco existe en tu cuenta. No gastes moneda ni pegues un resultado real."
+              : "Es una simulación: no existe en tu cuenta. Aquí nunca te pediré gastar una moneda ni pegar un resultado real."}
+          </p>
+        </section>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {practice && (
+            <Button type="button" onClick={onReturnToItem} data-testid="coach-practice-return">
+              Volver a mi pieza
             </Button>
-            <Button type="button" variant="outline" onClick={onRepaste}>
-              <ClipboardPaste className="size-4" aria-hidden="true" />
-              Pegar mi propia pieza
-            </Button>
+          )}
+          <Button type="button" onClick={onPractice} disabled={practiceLoading} data-testid="coach-probar-practica">
+            {practiceLoading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
+            {practice ? "Probar otra pieza de práctica" : "Abrir una pieza de práctica"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onRepaste}>
+            <ClipboardPaste className="size-4" aria-hidden="true" />
+            Pegar mi propia pieza
+          </Button>
+          {!practice && (
             <Button type="button" variant="ghost" onClick={onOther} data-testid="coach-otro-camino">
               Cambiar objetivo
             </Button>
-          </div>
+          )}
         </div>
-      );
-    }
+      </div>
+    );
+  }
+
+  if (step.kind === "needs-data") {
     return (
       <div
         className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)]"
         data-testid="coach-recomendacion"
         data-kind="needs-data"
       >
-        <h3 ref={headingRef} tabIndex={-1} className="sr-only outline-none">{step.headline}</h3>
+        {/* Visible, no `sr-only`: con la lectura bloqueada este es el ÚNICO
+            titular del bloque, y además es el destino del foco. */}
+        <h3
+          ref={headingRef}
+          tabIndex={-1}
+          className="mb-2 text-base font-semibold text-foreground outline-none"
+        >
+          {step.headline}
+        </h3>
         <CraftingRepairBanner
           onRepaste={onRepaste}
           reason={step.missingEvidence[0] ?? step.why}
@@ -329,8 +369,22 @@ function Recommendation({
           </ul>
         </details>
         <div className="mt-3 flex flex-wrap gap-2">
+          {onReviewInExpediente !== null && (
+            <Button
+              type="button"
+              onClick={onReviewInExpediente}
+              data-testid="coach-revisar-expediente"
+            >
+              Ver la pieza en mi expediente
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
-            Elegir otra pieza
+            Cambiar objetivo
+          </Button>
+          <Button type="button" variant="ghost" onClick={onRepaste} data-testid="coach-otra-pieza">
+            <ClipboardPaste className="size-4" aria-hidden="true" />
+            Pegar otra pieza
           </Button>
           {step.needsAdvancedTools && (
             <Button
@@ -370,7 +424,7 @@ function Recommendation({
         className="mt-2 scroll-mb-[var(--mentor-inset,6rem)] text-sm leading-relaxed"
         data-testid="coach-instruccion"
       >
-        {step.instruction}
+        <strong>Dentro de PoE2:</strong> {step.instruction}
       </p>
 
       {/* Aleatoriedad y límite de dirección: SIEMPRE a la vista, nunca plegados. */}
@@ -398,7 +452,7 @@ function Recommendation({
       )}
 
       <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
-        <summary className="cursor-pointer font-medium">Por qué y qué puede ocurrir</summary>
+        <summary className="cursor-pointer font-medium">Qué puede ocurrir</summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
           <li>{step.why}</li>
           {step.whatCanHappen.map((line) => (
@@ -459,10 +513,15 @@ function Recommendation({
           onClick={onDone}
           disabled={budgetAssessment?.blocksAction === true}
           data-testid="coach-lo-hare"
+          aria-label={
+            budgetAssessment?.blocksAction
+              ? "No puedes confirmar este paso porque supera el límite declarado"
+              : `Confirmar que ya hiciste este paso en PoE2: ${step.label}`
+          }
         >
           {budgetAssessment?.blocksAction
             ? "Fuera del límite declarado"
-            : `Aceptar riesgo y usar ${step.label.toLocaleLowerCase("es")}`}
+            : "Ya lo hice en PoE2"}
           <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
         <Button type="button" variant="outline" onClick={onHold} data-testid="coach-no-gastar">
@@ -501,32 +560,74 @@ export function CraftingCoach({
   onOpenAdvanced,
   onOpenLaboratory,
   onOpenCharacter,
+  onOpenEquipmentItem,
   onOpenPlanMarket,
   showInitialRepairBanner = true,
   onMentorContext,
 }: CraftingCoachProps) {
-  const [direction, setDirection] = useState<CoachDirection | null>(null);
-  const [focus, setFocus] = useState<CoachFocus | null>(null);
-  const [goalText, setGoalText] = useState("");
-  const [goalIntent, setGoalIntent] = useState<CoachGoalIntent>("incremental");
-  const [directionChosen, setDirectionChosen] = useState(false);
-  const [directionNote, setDirectionNote] = useState<string | null>(null);
+  const selectedItemSimulationMode = selectedItem && isCraftingExampleItem(selectedItem)
+    ? "example" as const
+    : null;
+  const [initialProgress] = useState(() => {
+    if (!selectedItem) return null;
+    const identity = {
+      profileId: profile?.id ?? null,
+      itemId: selectedItem.id,
+      baseType: selectedItem.baseType,
+    };
+    const restored = loadCraftingCoachProgress(identity) ?? emptyCraftingCoachProgress(identity);
+    return protectSimulatedCraftingProgress(restored, selectedItemSimulationMode);
+  });
+  const [direction, setDirection] = useState<CoachDirection | null>(initialProgress?.direction ?? null);
+  const [focus, setFocus] = useState<CoachFocus | null>(initialProgress?.focus ?? null);
+  const [goalText, setGoalText] = useState(initialProgress?.goalText ?? "");
+  const [goalIntent, setGoalIntent] = useState<CoachGoalIntent>(initialProgress?.goalIntent ?? "incremental");
+  const [goalSource, setGoalSource] = useState<CoachGoalSource>(initialProgress?.goalSource ?? "player");
+  const [directionChosen, setDirectionChosen] = useState(initialProgress?.directionChosen ?? false);
+  const [directionNote, setDirectionNote] = useState<string | null>(initialProgress?.directionNote ?? null);
   const [protectedModifiers, setProtectedModifiers] = useState<
     CoachGoalInterpretation["protectedModifiers"]
-  >([]);
-  const [unresolvedProtections, setUnresolvedProtections] = useState<string[]>([]);
-  const [rollMinimum, setRollMinimum] = useState<CoachRollMinimum>("middle");
-  const [attemptLimit, setAttemptLimit] = useState<1 | 2 | 3>(1);
-  const [confirmedAttemptCount, setConfirmedAttemptCount] = useState(0);
+  >(initialProgress?.protectedModifiers ?? []);
+  const [unresolvedProtections, setUnresolvedProtections] = useState<string[]>(initialProgress?.unresolvedProtections ?? []);
+  const [rollMinimum, setRollMinimum] = useState<CoachRollMinimum>(initialProgress?.rollMinimum ?? "middle");
+  const [attemptLimit, setAttemptLimit] = useState<1 | 2 | 3>(initialProgress?.attemptLimit ?? 1);
+  const [confirmedAttemptCount, setConfirmedAttemptCount] = useState(initialProgress?.confirmedAttemptCount ?? 0);
   /** El jugador pidió que decidiera yo y no hay evidencia con la que hacerlo. */
-  const [noEvidence, setNoEvidence] = useState(false);
-  const [phase, setPhase] = useState<CoachPhase>("choose");
-  const [resultText, setResultText] = useState("");
+  const [noEvidence, setNoEvidence] = useState(initialProgress?.noEvidence ?? false);
+  const [phase, setPhase] = useState<CoachPhase>(
+    initialProgress?.phase ?? (initialProgress?.directionChosen ? "recommend" : "choose"),
+  );
+  const [resultText, setResultText] = useState(initialProgress?.resultText ?? "");
   const [comparing, setComparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [comparison, setComparison] = useState<CraftingComparison | null>(null);
-  const [resultItem, setResultItem] = useState<Item | null>(null);
-  const [practiceActive, setPracticeActive] = useState(false);
+  const [comparison, setComparison] = useState<CraftingComparison | null>(() => {
+    if (
+      initialProgress?.phase !== "result" ||
+      initialProgress.pendingAttempt === null ||
+      initialProgress.resultItem === null
+    ) {
+      return null;
+    }
+    return requireCompleteCraftingResult(
+      initialProgress.resultItem,
+      compareCraftingResult(
+        initialProgress.pendingAttempt.before,
+        initialProgress.resultItem,
+        initialProgress.pendingAttempt.actionId,
+        {
+          protectedModifierIds: initialProgress.protectedModifiers.map(
+            (modifier) => modifier.id,
+          ),
+        },
+      ),
+    );
+  });
+  const [resultItem, setResultItem] = useState<Item | null>(
+    initialProgress?.phase === "result" ? initialProgress.resultItem : null,
+  );
+  const [practiceActive, setPracticeActive] = useState(
+    initialProgress?.simulationMode === "practice",
+  );
   const [practiceLoading, setPracticeLoading] = useState(false);
   const [practiceError, setPracticeError] = useState<string | null>(null);
   /**
@@ -534,17 +635,105 @@ export function CraftingCoach({
    * confirmar un resultado, pasa a ser el objeto que el jugador acaba de pegar.
    * No escribe en el expediente: eso sigue siendo decisión del banco.
    */
-  const [workingItem, setWorkingItem] = useState<Item | null>(null);
+  const [workingItem, setWorkingItem] = useState<Item | null>(() => {
+    if (initialProgress?.workingItem) return snapshotItem(initialProgress.workingItem);
+    return initialProgress?.phase === "result" &&
+      initialProgress.resultItem !== null &&
+      comparison?.status === "confirmed"
+      ? snapshotItem(initialProgress.resultItem)
+      : null;
+  });
   /**
    * Snapshot inmutable del paso en curso. Mientras existe, ni un cambio de
    * selección ni un rerender puede sustituir el «antes» que se compara.
    */
-  const [pendingAttempt, setPendingAttempt] = useState<PendingCraftAttempt | null>(null);
+  const [pendingAttempt, setPendingAttempt] = useState<PendingCraftAttempt | null>(
+    initialProgress?.pendingAttempt ?? null,
+  );
 
   const recommendationRef = useRef<HTMLHeadingElement>(null);
   const resultTextRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const holdRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    const identity = {
+      profileId: profile?.id ?? null,
+      itemId: selectedItem.id,
+      baseType: selectedItem.baseType,
+    };
+    const hasContract =
+      goalText.trim() !== "" ||
+      directionChosen ||
+      noEvidence ||
+      protectedModifiers.length > 0 ||
+      unresolvedProtections.length > 0;
+    if (!hasContract) {
+      discardCraftingCoachProgress(identity);
+      return;
+    }
+    saveCraftingCoachProgress({
+      schemaVersion: 1,
+      contentVersion: CRAFTING_COACH_PROGRESS_VERSION,
+      identity,
+      direction,
+      focus,
+      goalText,
+      goalIntent,
+      goalSource,
+      directionChosen,
+      directionNote,
+      protectedModifiers,
+      unresolvedProtections,
+      rollMinimum,
+      attemptLimit,
+      confirmedAttemptCount,
+      noEvidence,
+      simulationMode: practiceActive ? "practice" : selectedItemSimulationMode,
+      phase:
+        phase === "result" && pendingAttempt !== null && resultItem !== null
+          ? "result"
+          : phase === "await-result" && pendingAttempt !== null
+          ? "await-result"
+          : phase === "hold"
+            ? "hold"
+            : directionChosen
+              ? "recommend"
+              : "choose",
+      pendingAttempt:
+        (phase === "await-result" || phase === "result") && pendingAttempt !== null
+          ? pendingAttempt
+          : null,
+      workingItem,
+      resultItem: phase === "result" ? resultItem : null,
+      resultText:
+        phase === "await-result" || phase === "result" ? resultText : "",
+    });
+  }, [
+    attemptLimit,
+    confirmedAttemptCount,
+    direction,
+    directionChosen,
+    directionNote,
+    focus,
+    goalIntent,
+    goalSource,
+    goalText,
+    noEvidence,
+    pendingAttempt,
+    phase,
+    practiceActive,
+    protectedModifiers,
+    resultItem,
+    resultText,
+    rollMinimum,
+    profile?.id,
+    selectedItem,
+    selectedItemSimulationMode,
+    unresolvedProtections,
+    workingItem,
+  ]);
 
   /**
    * Sincronización de foco con el DOM (no de estado): cada fase lleva el foco a
@@ -570,10 +759,18 @@ export function CraftingCoach({
   }, [phase]);
 
   const resetFlow = () => {
+    if (selectedItem) {
+      discardCraftingCoachProgress({
+        profileId: profile?.id ?? null,
+        itemId: selectedItem.id,
+        baseType: selectedItem.baseType,
+      });
+    }
     setDirection(null);
     setFocus(null);
     setGoalText("");
     setGoalIntent("incremental");
+    setGoalSource("player");
     setDirectionChosen(false);
     setDirectionNote(null);
     setProtectedModifiers([]);
@@ -646,9 +843,12 @@ export function CraftingCoach({
     workingItem !== null && workingItem.id === selectedItem.id ? workingItem : selectedItem;
   const activeDiagnosis = diagnoseCraftingItem(activeItem);
   const activeNeedsRepair = activeDiagnosis.state !== "complete";
-  const activeIsExampleSummary =
-    activeNeedsRepair &&
-    activeItem.sources.some((source) => source.label.toLocaleLowerCase("es").includes("demostración"));
+  const activeIsExampleSummary = isCraftingExampleItem(activeItem);
+  const simulationMode = practiceActive
+    ? "practice" as const
+    : activeIsExampleSummary
+      ? "example" as const
+      : null;
   const structuralStep = chooseNextStep(activeItem, direction);
   const baseAssessment = assessPurposefulCraftBase({
     item: activeItem,
@@ -657,11 +857,12 @@ export function CraftingCoach({
     profile,
     rollMinimum,
     goalIntent,
+    goalSource,
   });
   const step = directionChosen && focus !== null
     ? baseAssessment.nextStep
     : structuralStep;
-  const budgetAssessment = step.kind === "use-currency"
+  const budgetAssessment = step.kind === "use-currency" && budget !== null
     ? assessCraftingBudget({
         budget,
         actionId: step.actionId,
@@ -686,6 +887,11 @@ export function CraftingCoach({
       setResultItem(null);
       setResultText("");
       setPhase("recommend");
+      onMentorContext?.({
+        type: "craftingCoachExample",
+        itemName: imported.item.name || imported.item.baseType,
+        origin: "practice",
+      });
     } catch (err) {
       setPracticeError(getErrorMessage(err));
     } finally {
@@ -708,6 +914,7 @@ export function CraftingCoach({
     protections = protectedModifiers,
     unresolved = unresolvedProtections,
     nextGoalIntent: CoachGoalIntent = "incremental",
+    nextGoalSource: CoachGoalSource = goalSource,
   ) => {
     const nextAssessment = assessPurposefulCraftBase({
       item: activeItem,
@@ -716,9 +923,10 @@ export function CraftingCoach({
       profile,
       rollMinimum,
       goalIntent: nextGoalIntent,
+      goalSource: nextGoalSource,
     });
     const nextStep = nextAssessment.nextStep;
-    const nextBudgetAssessment = nextStep.kind === "use-currency"
+    const nextBudgetAssessment = nextStep.kind === "use-currency" && budget !== null
       ? assessCraftingBudget({
           budget,
           actionId: nextStep.actionId,
@@ -728,12 +936,21 @@ export function CraftingCoach({
     setDirection(next);
     setFocus(nextFocus);
     setGoalIntent(nextGoalIntent);
+    setGoalSource(nextGoalSource);
     setDirectionNote(note);
     setProtectedModifiers(protections);
     setUnresolvedProtections(unresolved);
     setNoEvidence(false);
     setDirectionChosen(true);
     setPhase("recommend");
+    if (simulationMode !== null) {
+      onMentorContext?.({
+        type: "craftingCoachExample",
+        itemName: activeItem.name || activeItem.baseType,
+        origin: simulationMode,
+      });
+      return;
+    }
     onMentorContext?.({
       type: "craftingCoachDirection",
       itemName: activeItem.name || activeItem.baseType,
@@ -764,6 +981,7 @@ export function CraftingCoach({
     contextSuggestion.source === "target" ? contextSuggestion.focuses : [];
 
   const submitGoal = () => {
+    setGoalSource("player");
     const interpretation = interpretCoachGoal(goalText, activeItem);
     setGoalIntent(interpretation.intent);
     if (interpretation.intent !== "incremental") {
@@ -790,6 +1008,8 @@ export function CraftingCoach({
         goalText.trim(),
         interpretation.protectedModifiers,
         interpretation.unresolvedProtections,
+        "incremental",
+        "player",
       );
       return;
     }
@@ -804,30 +1024,37 @@ export function CraftingCoach({
   const requestFocus = (next: CoachDirection, playerGoal: string, note: string) => {
     setGoalText(playerGoal);
     setGoalIntent("incremental");
+    setGoalSource("player");
     setDirection(next);
     setFocus(null);
     setDirectionNote(note);
     setNoEvidence(true);
   };
 
-  const chooseFocus = (nextFocus: CoachFocus) => {
+  const chooseFocus = (nextFocus: CoachFocus, source: CoachGoalSource = "player") => {
     const nextDirection: CoachDirection = DAMAGE_COACH_FOCUSES.includes(nextFocus)
       ? "damage"
       : "defence";
     const playerGoal = `Quiero mejorar ${COACH_FOCUS_LABELS[nextFocus]}`;
     setGoalText(playerGoal);
     setGoalIntent("incremental");
+    setGoalSource(source);
     chooseDirection(
       nextDirection,
       nextFocus,
       `Objetivo principal: ${COACH_FOCUS_LABELS[nextFocus]}.`,
       playerGoal,
+      protectedModifiers,
+      unresolvedProtections,
+      "incremental",
+      source,
     );
   };
 
   const switchToIncremental = () => {
     setGoalText("Quiero mejorar esta pieza");
     setGoalIntent("incremental");
+    setGoalSource("player");
     setDirection(null);
     setFocus(null);
     setDirectionNote("Perfecto: ahora elige una sola mejora observable para esta pieza.");
@@ -944,11 +1171,18 @@ export function CraftingCoach({
 
   const beginAttempt = () => {
     if (step.kind !== "use-currency") return;
+    // Defensa en profundidad: una regresión visual no puede convertir una
+    // pieza didáctica en un intento que espere un resultado real.
+    if (simulationMode !== null) return;
+    if (confirmedAttemptCount >= attemptLimit) {
+      setPhase("hold");
+      return;
+    }
     setPendingAttempt({
       before: snapshotItem(activeItem),
       actionId: step.actionId,
       rollMinimum,
-      attemptNumber: confirmedAttemptCount + 1,
+      attemptNumber: Math.min(confirmedAttemptCount + 1, attemptLimit),
       attemptLimit,
     });
     setResultText("");
@@ -964,14 +1198,21 @@ export function CraftingCoach({
    * qué moneda produjo la diferencia.
    */
   const continueFromObservedResult = () => {
-    if (!resultItem) return;
+    if (!resultItem || !pendingAttempt) return;
+    const nextPhase = phaseAfterObservedResult(
+      pendingAttempt.attemptNumber,
+      pendingAttempt.attemptLimit,
+    );
     setWorkingItem(snapshotItem(resultItem));
+    setConfirmedAttemptCount((current) =>
+      Math.max(current, pendingAttempt.attemptNumber),
+    );
     setPendingAttempt(null);
     setComparison(null);
     setResultItem(null);
     setResultText("");
     setError(null);
-    setPhase("recommend");
+    setPhase(nextPhase);
   };
 
   const resultDiagnosis = resultItem ? diagnoseCraftingItem(resultItem) : null;
@@ -1093,21 +1334,6 @@ export function CraftingCoach({
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
-          {practiceActive && (
-            <div
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-cyan-400/35 bg-cyan-500/[0.07] px-3 py-2 text-xs text-cyan-50"
-              data-testid="coach-practica-activa"
-              role="status"
-            >
-              <p>
-                <span className="font-semibold">Modo práctica:</span> esta pieza sirve para aprender el recorrido y no se guardará en tu expediente.
-              </p>
-              <Button type="button" size="sm" variant="ghost" onClick={returnToMyItem}>
-                Volver a mi pieza
-              </Button>
-            </div>
-          )}
-
           {practiceError && (
             <p
               className="rounded-md border border-destructive/45 bg-destructive/10 px-3 py-2 text-xs text-destructive-foreground"
@@ -1207,6 +1433,7 @@ export function CraftingCoach({
                   onChoose={() => {
                     const goal = "No sé qué necesita esta pieza";
                     setGoalText(goal);
+                    setGoalSource("context");
                     if (contextSuggestion.focuses.length === 0) {
                       setDirection(null);
                       setFocus(null);
@@ -1367,7 +1594,7 @@ export function CraftingCoach({
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => chooseFocus(option)}
+                          onClick={() => chooseFocus(option, "context")}
                           data-testid={`coach-context-focus-${option}`}
                         >
                           Buscar {COACH_FOCUS_LABELS[option]} en esta pieza
@@ -1511,7 +1738,10 @@ export function CraftingCoach({
               {hasCraftingCharacterContext(profile) ? (
                 <p>
                   <span className="font-semibold">Personaje:</span> {profile?.name} · expediente activo
-                  {target ? ` · plan ${target.name}` : ""} · límite {budget.amount} {CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.
+                  {target ? ` · plan ${target.name}` : ""}
+                  {budget === null
+                    ? " · presupuesto sin declarar."
+                    : ` · límite ${budget.amount} ${CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.`}
                 </p>
               ) : (
                 <p>
@@ -1521,7 +1751,19 @@ export function CraftingCoach({
             </div>
           )}
 
-          {directionChosen && focus !== null && (
+          {/*
+            * UN SOLO BLOQUE POR BLOQUEO.
+            *
+            * Con `needs-data` esta caja decía «Aún no puedo juzgar esta base ·
+            * Volver a copiar con Ctrl+Alt+C» justo encima del aviso del
+            * importador, que nombra la causa concreta y ofrece el arreglo. Eran
+            * dos cajas para un mismo hecho y, según el caso, con consejos que se
+            * contradecían. El aviso, más específico, se queda solo.
+            */}
+          {directionChosen &&
+            focus !== null &&
+            simulationMode === null &&
+            baseAssessment.status !== "needs-data" && (
             <section
               className={`rounded-md border px-3 py-3 ${
                 baseAssessment.status === "already-satisfied" || baseAssessment.status === "aligned"
@@ -1575,7 +1817,10 @@ export function CraftingCoach({
             </p>
           )}
 
-          {directionChosen && focus !== null && step.kind === "use-currency" && (
+          {directionChosen &&
+            focus !== null &&
+            simulationMode === null &&
+            step.kind === "use-currency" && (
             <div
               className="rounded-md border border-primary/30 bg-primary/[0.05] px-3 py-2.5 text-xs leading-relaxed"
               data-testid="coach-condicion-parada"
@@ -1658,11 +1903,20 @@ export function CraftingCoach({
           {directionChosen && phase === "recommend" && (
             <Recommendation
               step={step}
-              exampleSummary={activeIsExampleSummary}
+              simulationMode={simulationMode}
               headingRef={recommendationRef}
               onDone={beginAttempt}
               onHold={() => setPhase("hold")}
               onOther={resetFlow}
+              onReturnToItem={returnToMyItem}
+              onReviewInExpediente={
+                step.kind === "stop" &&
+                step.reviewInExpediente &&
+                !practiceActive &&
+                profile?.items.some((candidate) => candidate.id === activeItem.id)
+                  ? () => onOpenEquipmentItem(activeItem.id)
+                  : null
+              }
               onRepaste={onPasteItem}
               onPractice={() => void loadPracticeItem()}
               practiceLoading={practiceLoading}
@@ -1687,14 +1941,24 @@ export function CraftingCoach({
               <p className="mt-1.5 text-sm text-muted-foreground">
                 La pieza sigue como está. Puedes volver cuando quieras.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  onClick={() => setPhase("recommend")}
-                  data-testid="coach-volver-accion"
+              {confirmedAttemptCount >= attemptLimit && (
+                <p
+                  className="mt-2 rounded border border-amber-500/35 bg-amber-500/[0.07] px-2.5 py-2 text-xs text-amber-100"
+                  data-testid="coach-limite-agotado"
                 >
-                  Ver otra vez la acción
-                </Button>
+                  Has agotado el límite de {attemptLimit} {attemptLimit === 1 ? "paso" : "pasos"}. Este contrato ya no autoriza otra moneda.
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {confirmedAttemptCount < attemptLimit && (
+                  <Button
+                    type="button"
+                    onClick={() => setPhase("recommend")}
+                    data-testid="coach-volver-accion"
+                  >
+                    Ver otra vez la acción
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1703,6 +1967,17 @@ export function CraftingCoach({
                 >
                   Elegir otro camino
                 </Button>
+                {confirmedAttemptCount >= attemptLimit && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={onPasteItem}
+                    data-testid="coach-otra-pieza"
+                  >
+                    <ClipboardPaste className="size-4" aria-hidden="true" />
+                    Pegar otra pieza
+                  </Button>
+                )}
               </div>
             </div>
           )}

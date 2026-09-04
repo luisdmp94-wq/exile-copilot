@@ -136,7 +136,8 @@ export const MentorQueryRequestSchema = z.object({
   intentHint: MentorIntent.exclude(["unsupported"]).optional(),
   profile: CharacterProfileSchema,
   target: BuildTargetSchema.optional(),
-  budget: BudgetSchema,
+  /** null = el jugador todavía no ha declarado ningún límite. */
+  budget: BudgetSchema.nullable(),
   goal: GoalSchema,
   league: z.string(),
   patch: z.string(),

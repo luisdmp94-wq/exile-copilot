@@ -10,6 +10,9 @@ import {
   ImportItemTextRequestSchema,
   DeleteVisitorDataRequestSchema,
   DeleteVisitorDataResponseSchema,
+  RecentCharacterResponseSchema,
+  SavedCharactersQuerySchema,
+  SavedCharactersResponseSchema,
   RecommendationsRequestSchema,
   SaveCharacterRequestSchema,
   UpdateJournalEntryRequestSchema,
@@ -33,12 +36,14 @@ import {
   BuildMemoryEntrySchema,
   JournalEntrySchema,
   PatchVersionSchema,
+  readCharacterLevel,
   type JournalEntry,
   type BuildMemoryEntry,
   type CharacterProfile,
   type PatchVersion,
 } from "../shared/domain.js";
 import { buildRecommendationMemory } from "../shared/journalMemory.js";
+import { assessCharacterReadiness } from "../shared/characterReadiness.js";
 import { loadConfig, type ServerConfig } from "./config.js";
 import {
   createDatabase,
@@ -47,7 +52,12 @@ import {
 } from "./db/database.js";
 import {
   getCharacter,
+  getMostRecentCharacterForOwner,
+  listCharactersForOwner,
+  countCharactersForOwner,
   claimCharacterOwner,
+  deleteMentorThread,
+  getMatchingMentorThread,
   getJournalEntry,
   getBuildMemoryEntry,
   getJournalPrimaryEntryId,
@@ -57,6 +67,7 @@ import {
   saveJournalEntry,
   saveBuildMemoryEntry,
   setJournalPrimaryEntryId,
+  saveMentorThread,
   deleteVisitorData,
 } from "./db/repositories.js";
 import {
@@ -75,11 +86,24 @@ import {
 import { sessionIsOpen } from "../shared/decisionSession.js";
 import { importBuild } from "./importers/buildImporter.js";
 import { parseItemText } from "./importers/itemTextParser.js";
+import { repairStoredItemImports } from "./importers/storedItemMigration.js";
 import { PoeNinjaClient, PriceService } from "./services/poeninja.js";
 import { generateRecommendations } from "./engine/engine.js";
 import { getExplainer, type ExplainerProvider } from "./explainers/index.js";
 import { exportGggBuild } from "./exporters/gggBuildExporter.js";
-import { MentorQueryRequestSchema } from "../shared/mentorQuery.js";
+import {
+  MentorQueryRequestSchema,
+  type MentorQueryRequest,
+} from "../shared/mentorQuery.js";
+import {
+  DeleteMentorThreadResponseSchema,
+  MAX_MENTOR_THREAD_PAYLOAD_BYTES,
+  MentorStoredThreadSchema,
+  RestoreMentorThreadRequestSchema,
+  RestoreMentorThreadResponseSchema,
+  SaveMentorThreadRequestSchema,
+  SaveMentorThreadResponseSchema,
+} from "../shared/mentorThreadPersistence.js";
 import { answerMentorQuery } from "./mentor/mentorService.js";
 import {
   createMentorDecisionSelector,
@@ -91,12 +115,14 @@ import {
   anonymousSessionId,
   expireAnonymousSession,
   fixedWindowRateLimit,
+  privateSessionResponse,
   publicRequestId,
   requestIdentity,
   securityHeaders,
 } from "./security.js";
 import { registrySupportsPatch, resolvePlan } from "./registry/passiveRegistry.js";
 import {
+  CraftingKnowledgeManifestSchema,
   loadCraftingKnowledge,
   listObservedActions,
   queryModCandidates,
@@ -107,9 +133,17 @@ import {
   allowsPatchFeature,
   allowsPatchGuidance,
   compatibilityForPatch,
+  gatePatchCompatibilityByEvidence,
   patchFeatureCoverage,
+  type PatchFeatureId,
 } from "../shared/patchCompatibility.js";
 import { auditRuntimeReadiness } from "./runtimeReadiness.js";
+import { loadReleaseEvidenceCatalog } from "./releaseEvidenceCatalog.js";
+import { FeaturedBuildCatalogSchema } from "../shared/featuredBuilds.js";
+import {
+  logMentorProviderFallback,
+  logUnexpectedApiError,
+} from "./operationalLog.js";
 
 /**
  * Crea la app Express de la API. Las rutas se definen SIN prefijo: el caller
@@ -165,11 +199,15 @@ function loadPatchCompatibility() {
 }
 
 function loadCraftingKnowledgeRegistry() {
-  const files = [
-    "observedCurrencyActions.2026-08-22.json",
-    "modPools.unavailable.2026-08-22.json",
-  ];
-  const raw = files.map((file) =>
+  const manifest = CraftingKnowledgeManifestSchema.parse(
+    JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL("./data/crafting/manifest.json", import.meta.url)),
+        "utf8",
+      ),
+    ) as unknown,
+  );
+  const raw = manifest.files.map((file) =>
     JSON.parse(
       readFileSync(
         fileURLToPath(new URL(`./data/crafting/${file}`, import.meta.url)),
@@ -178,6 +216,15 @@ function loadCraftingKnowledgeRegistry() {
     ) as unknown,
   );
   return loadCraftingKnowledge(raw);
+}
+
+/** Selección editorial propia. Nunca carga endpoints internos de terceros. */
+function loadFeaturedBuildCatalog() {
+  const raw = readFileSync(
+    fileURLToPath(new URL("./data/featuredBuilds.json", import.meta.url)),
+    "utf8",
+  );
+  return FeaturedBuildCatalogSchema.parse(JSON.parse(raw) as unknown);
 }
 
 function readJournal(
@@ -255,6 +302,37 @@ function assertKnownBuildMemoryItems(
   }
 }
 
+function mentorRequestedPatchFeature(
+  question: string,
+  contextEnvelope: MentorQueryRequest["contextEnvelope"],
+): PatchFeatureId | null {
+  const normalizedQuestion = question
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es");
+
+  // La pregunta explícita manda sobre el estado de pantalla: así un cliente
+  // antiguo tampoco puede preguntar por una Essence desde el modo básico.
+  if (/\b(?:essence|essences|esencia|esencias|alloy|alloys|aleacion|aleaciones)\b/.test(normalizedQuestion)) {
+    return "advanced-crafting";
+  }
+
+  const craftingState =
+    contextEnvelope?.activeArea === "crafting"
+      ? contextEnvelope.craftingState
+      : null;
+  if (craftingState?.mode === "advanced") return "advanced-crafting";
+
+  if (
+    /\b(?:transmutation|transmutacion|augmentation|aumento|regal|regio|exalted|exaltado)\b/.test(normalizedQuestion) ||
+    craftingState?.mode === "coach"
+  ) {
+    return "basic-crafting";
+  }
+
+  return null;
+}
+
 export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const config: ServerConfig = { ...loadConfig(), ...(options.config ?? {}) };
   const databasePath = options.dbPath ?? config.databasePath;
@@ -267,8 +345,13 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       ? options.mentorSelector
       : createMentorDecisionSelector(config);
   const patches = loadPatches();
-  const patchCompatibility = loadPatchCompatibility();
+  const releaseEvidenceCatalog = loadReleaseEvidenceCatalog();
+  const patchCompatibility = gatePatchCompatibilityByEvidence(
+    loadPatchCompatibility(),
+    releaseEvidenceCatalog,
+  );
   const craftingKnowledge = loadCraftingKnowledgeRegistry();
+  const featuredBuildCatalog = loadFeaturedBuildCatalog();
 
   const assertGuidancePatch = (requestPatch: string, profilePatch: string) => {
     if (requestPatch !== profilePatch) {
@@ -288,6 +371,31 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   };
 
+  const assertCraftingExperimentPatch = (
+    profilePatch: string,
+    actionId: "transmutation" | "augmentation" | "regal" | "exalted" | "essence" | "alloy",
+  ) => {
+    const coverage = compatibilityForPatch(patchCompatibility, profilePatch);
+    if (!allowsPatchGuidance(coverage)) {
+      throw new ApiHttpError(
+        422,
+        "parche-sin-revisar",
+        `${coverage.summary} La sesión de crafting no puede iniciarse todavía.`,
+      );
+    }
+    const featureId = actionId === "essence" || actionId === "alloy"
+      ? "advanced-crafting"
+      : "basic-crafting";
+    if (!allowsPatchFeature(coverage, featureId)) {
+      const feature = patchFeatureCoverage(coverage, featureId);
+      throw new ApiHttpError(
+        422,
+        "area-parche-sin-revisar",
+        `${feature.label} no está autorizado para ${profilePatch}. ${feature.note}`,
+      );
+    }
+  };
+
   const importDefaults = { league: config.defaultLeague, patch: config.defaultPatch };
 
   const app = express();
@@ -301,7 +409,40 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.set("trust proxy", config.trustProxy);
   app.use(requestIdentity());
   app.use(securityHeaders(config));
-  app.use(anonymousSession(config));
+  const isOperationalProbe = (path: string) => path === "/health" || path === "/ready";
+  const sessionMiddleware = anonymousSession(config);
+  const privateResponseMiddleware = privateSessionResponse();
+  app.use((req, res, next) => {
+    // Liveness y readiness pertenecen al orquestador, no a un visitante. Deben
+    // conservar identidad de petición y cabeceras de seguridad, pero nunca
+    // crear una cookie ni hacer depender la señal de la lógica de sesión.
+    if (isOperationalProbe(req.path)) {
+      // Un 200 o 503 antiguo de readiness es más peligroso que no tener señal:
+      // podría mantener tráfico sobre una instancia degradada. Prohibimos su
+      // almacenamiento tanto en navegador como en proxies intermedios.
+      res.setHeader("Cache-Control", "no-store, max-age=0");
+      res.setHeader("Pragma", "no-cache");
+      next();
+      return;
+    }
+    // La configuración de arranque demuestra que existe un proxy HTTPS, pero
+    // no que esta petición haya pasado realmente por él. En modo público una
+    // conexión directa por HTTP haría que el navegador descartase la cookie
+    // Secure y dejaría al jugador sin sesión; se corta antes de crearla o de
+    // consumir sus límites. Express solo honra X-Forwarded-Proto desde el
+    // proxy acotado por TRUST_PROXY.
+    if (config.publicDeployment && !req.secure) {
+      res.setHeader("Cache-Control", "no-store, max-age=0");
+      res.setHeader("Pragma", "no-cache");
+      res.status(426).json({
+        error: "https-requerido",
+        detail: "La versión pública de Exile Copilot solo acepta conexiones HTTPS.",
+        requestId: publicRequestId(res.locals as Record<string, unknown>),
+      });
+      return;
+    }
+    sessionMiddleware(req, res, () => privateResponseMiddleware(req, res, next));
+  });
   const apiLimiter = fixedWindowRateLimit(config, {
     scope: "api",
     limit: config.apiRateLimitPerMinute,
@@ -319,7 +460,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     limit: config.writeRateLimitPerMinute,
   });
   app.use((req, res, next) => {
-    if (req.path === "/health" || req.path === "/ready") {
+    if (isOperationalProbe(req.path)) {
       next();
       return;
     }
@@ -363,6 +504,15 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // GET /health — patch como objeto {content, hotfix, asOf, source}
   app.get("/health", (_req, res) => {
     const current = patches.find((p) => p.id === config.defaultPatch);
+    const compatibility = compatibilityForPatch(
+      patchCompatibility,
+      config.defaultPatch,
+    );
+    const latestEvidenceDate = [current?.asOf, compatibility.reviewedAt]
+      .filter((value): value is string =>
+        typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value),
+      )
+      .reduce((latest, candidate) => (candidate > latest ? candidate : latest), "");
     const mentorAiConfigured =
       config.mentorAiEnabled && config.mentorAiApiKey !== null;
     res.json({
@@ -379,8 +529,11 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           ? { mode: "ai-assisted", provider: config.mentorAiProvider }
           : { mode: "rules-only", provider: null },
       },
-      compatibility: compatibilityForPatch(patchCompatibility, config.defaultPatch),
-      dataUpdatedAt: new Date().toISOString(),
+      compatibility,
+      // Fecha de la evidencia usada, no la hora en que alguien pidió /health.
+      dataUpdatedAt: latestEvidenceDate
+        ? `${latestEvidenceDate}T00:00:00.000Z`
+        : "desconocida",
     });
   });
 
@@ -397,7 +550,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       config,
       databasePath,
       databaseOperational,
-      patchKnown: patches.some((patch) => patch.id === config.defaultPatch),
+      patchKnown: patches.some(
+        (patch) => patch.id === config.defaultPatch && patch.status !== "announced",
+      ),
       patchGuidanceAllowed: allowsPatchGuidance(compatibility),
     });
     const ready = checks.every((check) => check.status === "pass");
@@ -433,8 +588,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /import/build — detecta .build oficial (GGG Build Planner v1) o código PoB
   app.post("/import/build", (req, res, next) => {
     try {
-      const { content, patch } = ImportBuildRequestSchema.parse(req.body);
-      const result = importBuild(content, importDefaults);
+      const { content, patch, intent } = ImportBuildRequestSchema.parse(req.body);
+      const result = importBuild(content, importDefaults, intent);
       // Un plan oficial viaja con la resolución de sus ids contra el registro
       // de GGG. La resolución es PARALELA: el `.build` crudo no se toca.
       if (result.plan !== undefined) {
@@ -478,7 +633,15 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           `${patchRecord.summary} La lectura de objetos permanece cerrada.`,
         );
       }
-      res.json(parseItemText(text));
+      const parsed = parseItemText(text);
+      if (!parsed.recognized) {
+        throw new ApiHttpError(
+          400,
+          "texto-de-objeto-no-reconocido",
+          "No parece un objeto copiado desde PoE2. Coloca el cursor sobre la pieza dentro del juego, pulsa Ctrl+Alt+C y pega aquí el texto completo.",
+        );
+      }
+      res.json({ item: parsed.item, warnings: parsed.warnings });
     } catch (err) {
       next(err);
     }
@@ -558,7 +721,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /character — persiste el perfil normalizado
   app.post("/character", (req, res, next) => {
     try {
-      const { profile } = SaveCharacterRequestSchema.parse(req.body);
+      const input = SaveCharacterRequestSchema.parse(req.body);
+      const { profile } = repairStoredItemImports(input.profile);
       const serialized = JSON.stringify(profile);
       if (Buffer.byteLength(serialized, "utf8") > MAX_STORED_CHARACTER_BYTES) {
         throw new ApiHttpError(
@@ -610,7 +774,73 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.get("/character/:id", (req, res, next) => {
     try {
       const row = characterForVisitor(req.params.id, res)!;
-      res.json({ profile: JSON.parse(row.payload) });
+      const storedProfile = CharacterProfileSchema.parse(JSON.parse(row.payload));
+      const migration = repairStoredItemImports(storedProfile);
+      if (migration.repairedItemIds.length > 0) {
+        saveCharacter(
+          db,
+          migration.profile.id,
+          JSON.stringify(migration.profile),
+          anonymousSessionId(res.locals as Record<string, unknown>),
+        );
+      }
+      res.json({ profile: migration.profile });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Recuperación privada y acotada: si localStorage se pierde pero la cookie
+  // HttpOnly sigue viva, el navegador puede redescubrir su último expediente.
+  // No acepta ids ni devuelve listados de otros visitantes.
+  app.get("/visitor/character/recent", (_req, res, next) => {
+    try {
+      const ownerId = anonymousSessionId(res.locals as Record<string, unknown>);
+      const row = getMostRecentCharacterForOwner(db, ownerId);
+      if (row === null) {
+        res.json(RecentCharacterResponseSchema.parse({ profile: null }));
+        return;
+      }
+      const storedProfile = CharacterProfileSchema.parse(JSON.parse(row.payload));
+      const migration = repairStoredItemImports(storedProfile);
+      if (migration.repairedItemIds.length > 0) {
+        saveCharacter(db, migration.profile.id, JSON.stringify(migration.profile), ownerId);
+      }
+      res.json(RecentCharacterResponseSchema.parse({ profile: migration.profile }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Índice privado y paginado de expedientes. Solo expone los datos necesarios
+  // para elegir uno; equipo, notas, fuentes, diario y Mentor no salen aquí.
+  app.get("/visitor/characters", (req, res, next) => {
+    try {
+      const { offset, limit } = SavedCharactersQuerySchema.parse(req.query);
+      const ownerId = anonymousSessionId(res.locals as Record<string, unknown>);
+      const rows = listCharactersForOwner(db, ownerId, { offset, limit });
+      const characters = rows.map((row) => {
+        const profile = CharacterProfileSchema.parse(JSON.parse(row.payload));
+        const level = readCharacterLevel(profile);
+        return {
+          id: profile.id,
+          name: profile.name.trim().slice(0, 120) || "Personaje sin nombre",
+          characterClass: profile.characterClass.trim().slice(0, 80) || "Desconocida",
+          ascendancy: profile.ascendancy?.trim().slice(0, 120) || null,
+          level: level.known ? level.level : null,
+          league: profile.league.trim().slice(0, 120) || "Desconocida",
+          patch: profile.patch.trim().slice(0, 40) || "Desconocido",
+          updatedAt: row.updated_at,
+        };
+      });
+      res.json(
+        SavedCharactersResponseSchema.parse({
+          characters,
+          offset,
+          limit,
+          total: countCharactersForOwner(db, ownerId),
+        }),
+      );
     } catch (err) {
       next(err);
     }
@@ -921,6 +1151,19 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       if (input.profile.id !== characterId) {
         throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
       }
+      if (input.craftingExperiment) {
+        assertCraftingExperimentPatch(input.profile.patch, input.craftingExperiment.actionId);
+      }
+      const readiness = assessCharacterReadiness(input.profile);
+      if (input.recommendation !== null && !readiness.ready) {
+        throw new ApiHttpError(
+          422,
+          "personaje-incompleto",
+          `Completa el expediente antes de iniciar una decisión recomendada: ${readiness.issues
+            .map((issue) => issue.label.toLocaleLowerCase("es"))
+            .join(", ")}.`,
+        );
+      }
       const journal = startDecisionSession(db, characterId, {
         journalRevision: input.journalRevision,
         idempotencyKey: input.idempotencyKey,
@@ -938,7 +1181,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         profile: input.profile,
         budget: input.budget,
         goal: input.goal,
-      });
+      }, assertCraftingExperimentPatch);
       res.status(201).json(journal.journal);
     } catch (err) {
       next(err);
@@ -1039,7 +1282,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       if (input.profile.id !== characterId) {
         throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
       }
-      const journal = reopenSession(db, characterId, input);
+      const journal = reopenSession(db, characterId, input, assertCraftingExperimentPatch);
       res.json(journal.journal);
     } catch (err) {
       next(err);
@@ -1053,8 +1296,45 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       if (input.profile.id !== characterId) {
         throw new ApiHttpError(400, "personaje-no-coincide", "El personaje de la sesión no coincide con la ruta.");
       }
-      const journal = reconcileSession(db, characterId, input);
+      const journal = reconcileSession(db, characterId, input, assertCraftingExperimentPatch);
       res.json(journal.journal);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /featured-builds?league=&patch= — selección editorial, no una ladder.
+  app.get("/featured-builds", (req, res, next) => {
+    try {
+      const league = typeof req.query.league === "string" ? req.query.league.trim() : "";
+      const patch = typeof req.query.patch === "string" ? req.query.patch.trim() : "";
+      if (!league || !patch) {
+        throw new ApiHttpError(
+          400,
+          "liga-y-parche-requeridos",
+          "Indica la liga y el parche para consultar las builds destacadas.",
+        );
+      }
+
+      const sameLeague = featuredBuildCatalog.entries.filter(
+        (entry) => entry.league === league && entry.status !== "retired",
+      );
+      const builds = sameLeague.filter(
+        (entry) => entry.patch === patch && entry.status === "verified",
+      );
+      const pendingReview = sameLeague.filter(
+        (entry) => entry.patch !== patch || entry.status === "needs-review",
+      ).length;
+
+      res.json({
+        league,
+        patch,
+        slots: featuredBuildCatalog.slots,
+        selectionAsOf: featuredBuildCatalog.selectionAsOf,
+        methodology: featuredBuildCatalog.methodology,
+        builds,
+        pendingReview,
+      });
     } catch (err) {
       next(err);
     }
@@ -1105,6 +1385,16 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     try {
       const body = RecommendationsRequestSchema.parse(req.body);
       assertGuidancePatch(body.patch, body.profile.patch);
+      const readiness = assessCharacterReadiness(body.profile);
+      if (!readiness.ready) {
+        throw new ApiHttpError(
+          422,
+          "personaje-incompleto",
+          `Completa el expediente antes de generar recomendaciones: ${readiness.issues
+            .map((issue) => issue.label.toLocaleLowerCase("es"))
+            .join(", ")}.`,
+        );
+      }
       const storedCharacter = characterForVisitor(body.profile.id, res, { allowMissing: true });
       const includeStoredMemory = storedCharacter !== null || config.nodeEnv === "test";
       const memory = readRecommendationMemory(db, body.profile.id, includeStoredMemory);
@@ -1137,7 +1427,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         result.recommendations.map(async (rec) => ({
           ...rec,
           reason: await explainer.explain(rec, {
-            budgetText: `${body.budget.amount} ${body.budget.currency}`,
+            budgetText:
+              body.budget === null
+                ? "sin presupuesto declarado"
+                : `${body.budget.amount} ${body.budget.currency}`,
             goalKind: body.goal.kind,
           }),
         })),
@@ -1169,6 +1462,16 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     try {
       const body = MentorQueryRequestSchema.parse(req.body);
       assertGuidancePatch(body.patch, body.profile.patch);
+      const patchRecord = compatibilityForPatch(patchCompatibility, body.patch);
+      const requestedFeatureId = mentorRequestedPatchFeature(
+        body.question,
+        body.contextEnvelope,
+      );
+      const blockedFeature =
+        requestedFeatureId !== null &&
+        !allowsPatchFeature(patchRecord, requestedFeatureId)
+          ? patchFeatureCoverage(patchRecord, requestedFeatureId)
+          : null;
       const storedCharacter = characterForVisitor(body.profile.id, res, { allowMissing: true });
       const includeStoredMemory = storedCharacter !== null || config.nodeEnv === "test";
       const memory = readRecommendationMemory(db, body.profile.id, includeStoredMemory);
@@ -1194,9 +1497,22 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           league: body.league,
           patch: body.patch,
           memory,
+          safetyIdentifierSeed: anonymousSessionId(
+            res.locals as Record<string, unknown>,
+          ),
           ...(body.target !== undefined ? { target: body.target } : {}),
           ...(body.contextEnvelope !== undefined ? { contextEnvelope: body.contextEnvelope } : {}),
           ...(body.conversation !== undefined ? { conversation: body.conversation } : {}),
+          ...(blockedFeature !== null
+            ? {
+                patchFeatureBlock: {
+                  featureId: blockedFeature.id,
+                  label: blockedFeature.label,
+                  patch: body.patch,
+                  note: blockedFeature.note,
+                },
+              }
+            : {}),
         },
         { priceService, selector: mentorSelector },
       );
@@ -1214,7 +1530,100 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         );
       }
 
+      if (answer.responseMode === "rules_fallback") {
+        logMentorProviderFallback({
+          requestId: publicRequestId(res.locals as Record<string, unknown>),
+          provider: config.mentorAiProvider,
+          reason: answer.fallbackReason,
+        });
+      }
+
       res.json({ answer });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Memoria conversacional breve del Mentor. El perfil y el diario continúan
+  // siendo la única autoridad: esta fila solo permite recuperar hasta ocho
+  // turnos de texto para la misma sesión anónima, personaje e inputs.
+  app.post("/mentor/thread/:characterId/restore", (req, res, next) => {
+    try {
+      characterForVisitor(req.params.characterId, res);
+      const body = RestoreMentorThreadRequestSchema.parse(req.body);
+      const ownerId = anonymousSessionId(res.locals as Record<string, unknown>);
+      const row = getMatchingMentorThread(
+        db,
+        req.params.characterId,
+        ownerId,
+        body.threadInputsKey,
+      );
+      if (row === null) {
+        res.json(RestoreMentorThreadResponseSchema.parse({ thread: null }));
+        return;
+      }
+      let storedPayload: unknown;
+      try {
+        storedPayload = JSON.parse(row.payload);
+      } catch {
+        deleteMentorThread(db, req.params.characterId, ownerId);
+        res.json(RestoreMentorThreadResponseSchema.parse({ thread: null }));
+        return;
+      }
+      const thread = MentorStoredThreadSchema.safeParse(storedPayload);
+      if (!thread.success) {
+        deleteMentorThread(db, req.params.characterId, ownerId);
+        res.json(RestoreMentorThreadResponseSchema.parse({ thread: null }));
+        return;
+      }
+      res.json(RestoreMentorThreadResponseSchema.parse({ thread: thread.data }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put("/mentor/thread/:characterId", (req, res, next) => {
+    try {
+      characterForVisitor(req.params.characterId, res);
+      const body = SaveMentorThreadRequestSchema.parse(req.body);
+      const thread = MentorStoredThreadSchema.parse({
+        version: "mentor-v4",
+        turns: body.turns,
+        updatedAt: new Date().toISOString(),
+      });
+      const payload = JSON.stringify(thread);
+      if (Buffer.byteLength(payload, "utf8") > MAX_MENTOR_THREAD_PAYLOAD_BYTES) {
+        throw new ApiHttpError(
+          413,
+          "hilo-mentor-demasiado-grande",
+          "La conversación del Mentor supera el tamaño seguro permitido.",
+        );
+      }
+      const saved = saveMentorThread(db, {
+        characterId: req.params.characterId,
+        ownerId: anonymousSessionId(res.locals as Record<string, unknown>),
+        threadInputsKey: body.threadInputsKey,
+        payload,
+        updatedAt: thread.updatedAt,
+      });
+      if (!saved) {
+        throw new ApiHttpError(404, "personaje-no-encontrado", "No existe ese personaje.");
+      }
+      res.json(SaveMentorThreadResponseSchema.parse({ thread }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete("/mentor/thread/:characterId", (req, res, next) => {
+    try {
+      characterForVisitor(req.params.characterId, res);
+      const deleted = deleteMentorThread(
+        db,
+        req.params.characterId,
+        anonymousSessionId(res.locals as Record<string, unknown>),
+      );
+      res.json(DeleteMentorThreadResponseSchema.parse({ deleted }));
     } catch (err) {
       next(err);
     }
@@ -1276,7 +1685,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       res.status(400).json(body);
       return;
     }
-    console.error(`[api] error inesperado [${requestId}]:`, err);
+    logUnexpectedApiError({ requestId, error: err });
     const body: ApiError = {
       error: "error-interno",
       detail:

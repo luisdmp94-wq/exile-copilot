@@ -3,7 +3,12 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CharacterJournalSchema } from "../../shared/domain.js";
 import { buildRecommendationMemory } from "../../shared/journalMemory.js";
-import { MentorAnswerSchema } from "../../shared/mentorQuery.js";
+import {
+  MentorAnswerSchema,
+  MentorQueryRequestSchema,
+  mentorInputsKey,
+} from "../../shared/mentorQuery.js";
+import { RestoreMentorThreadResponseSchema } from "../../shared/mentorThreadPersistence.js";
 import { createApiApp } from "../../server/app.js";
 import type { FetchLike } from "../../server/services/poeninja.js";
 
@@ -103,6 +108,82 @@ describe("POST /mentor/query", () => {
     expect(answer.intent).toBe("unsupported");
     expect(answer.nextAction).toBeNull();
     expect(answer.unsupported?.examples.length).toBeGreaterThan(0);
+  });
+
+  it("no reabre Essences ni Alloys mediante una pregunta libre del Mentor", async () => {
+    const res = await postJson(
+      "/mentor/query",
+      await demoRequest("¿Cómo debería usar una Essence perfecta?"),
+    );
+    expect(res.status).toBe(200);
+    const answer = MentorAnswerSchema.parse((await jsonOf(res)).answer);
+
+    expect(answer.intent).toBe("explain_priority");
+    expect(answer.nextAction).toBeNull();
+    expect(answer.usedRecommendationIds).toEqual([]);
+    expect(answer.sources).toEqual([]);
+    expect(answer.answer).toContain("todavía no está revisada para 0.5.4f");
+    expect(answer.answer).toContain("No te recomendaré esa mecánica");
+  });
+
+  it("frena también un contexto avanzado enviado por un cliente antiguo", async () => {
+    const request = await demoRequest("¿Por qué debo respetar este contrato?");
+    const res = await postJson("/mentor/query", {
+      ...request,
+      intentHint: "explain_priority",
+      contextEnvelope: {
+        version: "1.0",
+        activeArea: "crafting",
+        character: {
+          level: request.profile.level,
+          characterClass: request.profile.characterClass,
+        },
+        targetBuild: null,
+        selectedItem: null,
+        craftingState: {
+          mode: "advanced",
+          goalCategory: "defence",
+          buildIntent: null,
+          protectedModifierCount: 0,
+          stopCriteria: [],
+          tool: "currency",
+          action: "regal",
+          variant: null,
+          preflightConfirmed: false,
+          stopAlreadyReached: false,
+          ready: false,
+          projectPhase: "blocked",
+          baseDecision: "hold",
+          attemptCount: 0,
+          latestBranch: null,
+        },
+        activeRecommendationId: null,
+        market: {
+          budgetAmount: 50,
+          budgetCurrency: "chaos",
+          league: request.profile.league,
+        },
+        sessionActive: false,
+        lastAction: null,
+      },
+    });
+    expect(res.status).toBe(200);
+    const answer = MentorAnswerSchema.parse((await jsonOf(res)).answer);
+
+    expect(answer.nextAction).toBeNull();
+    expect(answer.answer).toContain("rutas avanzadas");
+    expect(answer.answer).toContain("todavía no está revisada para 0.5.4f");
+  });
+
+  it("mantiene disponible el crafting básico revisado", async () => {
+    const res = await postJson(
+      "/mentor/query",
+      await demoRequest("¿Cómo debería usar un Orbe Regio?"),
+    );
+    expect(res.status).toBe(200);
+    const answer = MentorAnswerSchema.parse((await jsonOf(res)).answer);
+
+    expect(answer.answer).not.toContain("todavía no está revisada para 0.5.4f");
   });
 
   it("rechaza una pregunta vacía o demasiado larga", async () => {
@@ -270,5 +351,110 @@ describe("POST /mentor/query", () => {
         raceServer!.close((error) => (error ? reject(error) : resolve())),
       );
     }
+  });
+});
+
+describe("memoria persistente del Mentor", () => {
+  it("recupera el hilo solo para su sesión, personaje e inputs y lo borra con los datos", async () => {
+    const sessionA = "mentor-session-a";
+    const sessionB = "mentor-session-b";
+    const demo = await fetch(`${base}/character/demo`, {
+      headers: { "X-Exile-Copilot-Test-Session": sessionA },
+    });
+    const { profile } = await jsonOf(demo);
+
+    const saveCharacter = await fetch(`${base}/character`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionA,
+      },
+      body: JSON.stringify({ profile }),
+    });
+    expect(saveCharacter.status).toBe(200);
+
+    const request = MentorQueryRequestSchema.parse({
+      question: "¿Qué mejoro ahora?",
+      profile,
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: profile.league,
+      patch: profile.patch,
+    });
+    const mentorResponse = await fetch(`${base}/mentor/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionA,
+      },
+      body: JSON.stringify(request),
+    });
+    const answer = MentorAnswerSchema.parse((await jsonOf(mentorResponse)).answer);
+    const threadInputsKey = mentorInputsKey(request);
+    const turns = [
+      { id: "player-1", role: "player", text: request.question, answer: null },
+      { id: "mentor-1", role: "mentor", text: answer.answer, answer },
+    ];
+
+    const saved = await fetch(`${base}/mentor/thread/${profile.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionA,
+      },
+      body: JSON.stringify({ threadInputsKey, turns }),
+    });
+    expect(saved.status).toBe(200);
+
+    const restored = await fetch(`${base}/mentor/thread/${profile.id}/restore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionA,
+      },
+      body: JSON.stringify({ threadInputsKey }),
+    });
+    expect(restored.status).toBe(200);
+    expect(RestoreMentorThreadResponseSchema.parse(await jsonOf(restored)).thread?.turns)
+      .toEqual(turns);
+
+    const isolated = await fetch(`${base}/mentor/thread/${profile.id}/restore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionB,
+      },
+      body: JSON.stringify({ threadInputsKey }),
+    });
+    expect(isolated.status).toBe(404);
+
+    const obsolete = await fetch(`${base}/mentor/thread/${profile.id}/restore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionA,
+      },
+      body: JSON.stringify({ threadInputsKey: `${threadInputsKey}:changed` }),
+    });
+    expect(RestoreMentorThreadResponseSchema.parse(await jsonOf(obsolete)).thread).toBeNull();
+
+    const deleted = await fetch(`${base}/visitor/data`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionA,
+      },
+      body: JSON.stringify({ confirmation: "BORRAR MIS DATOS" }),
+    });
+    expect(deleted.status).toBe(200);
+    const afterDeletion = await fetch(`${base}/mentor/thread/${profile.id}/restore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Exile-Copilot-Test-Session": sessionA,
+      },
+      body: JSON.stringify({ threadInputsKey }),
+    });
+    expect(afterDeletion.status).toBe(404);
   });
 });

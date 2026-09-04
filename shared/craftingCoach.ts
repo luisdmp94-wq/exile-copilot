@@ -10,6 +10,7 @@ import {
 } from "./craftingCharacterContext.js";
 import { EXPECTED_RESULT_RARITY, type CraftingComparison } from "./craftingComparison.js";
 import { diagnoseCraftingItem, type CraftingItemDiagnosis } from "./craftingDiagnosis.js";
+import { assessCraftingImportIssue } from "./craftingImportReport.js";
 import {
   evaluateCraftingGoalSignal,
   type CraftingGoalCategory,
@@ -638,6 +639,8 @@ export type CoachNextStep =
       headline: string;
       instruction: string;
       why: string;
+      /** La parada pide revisar esta pieza real en el expediente antes de gastar. */
+      reviewInExpediente: boolean;
       /** Herramientas que exigen reemplazar; viven en el banco avanzado. */
       needsAdvancedTools: boolean;
       evidence: string[];
@@ -738,14 +741,13 @@ export function chooseNextStep(
     .map((entry) => entry.action.id);
 
   if (diagnosis.state !== "complete") {
+    const importIssue = assessCraftingImportIssue(item, diagnosis);
     return {
       kind: "needs-data",
       legality: "needs-data",
-      headline: "Me falta ver bien la pieza",
+      headline: importIssue.title,
       instruction: diagnosis.nextAction,
-      why:
-        diagnosis.blockers[0] ??
-        "Con lo que hay copiado no puedo afirmar que ninguna moneda sea legal sobre este objeto.",
+      why: importIssue.summary,
       missingEvidence: diagnosis.blockers,
     };
   }
@@ -763,6 +765,7 @@ export function chooseNextStep(
         ? `Tiene los ${diagnosis.observedTotalLimit} modificadores del límite observado. Añadir otro exigiría reemplazar uno, que es otra operación y tiene riesgo.`
         : evaluations.find((entry) => entry.status !== "compatible")?.reason ??
           "Ninguna de las monedas observadas encaja con el estado actual del objeto.",
+      reviewInExpediente: false,
       needsAdvancedTools: full,
       evidence: evaluations.map((entry) => `${entry.action.label}: ${entry.reason}`),
     };
@@ -829,6 +832,8 @@ export type CoachBaseAssessmentStatus =
   | "change-base"
   | "needs-data";
 
+export type CoachGoalSource = "player" | "context";
+
 export interface CoachBaseAssessment {
   status: CoachBaseAssessmentStatus;
   title: string;
@@ -849,9 +854,10 @@ function stopForSatisfiedGoal(
   return {
     kind: "stop",
     legality: "blocked",
-    headline: "Tu condición de parada ya se cumple",
-    instruction: `No añadas otra moneda a «${item.name || item.baseType}» hasta compararla con tu equipo.`,
+    headline: "Detente: la pieza ya contiene el objetivo",
+    instruction: `No añadas otra moneda a «${item.name || item.baseType}» hasta revisar la tirada actual y decidir si ya la aceptas.`,
     why,
+    reviewInExpediente: true,
     needsAdvancedTools: false,
     evidence: [`La pieza ya contiene una línea que coincide con ${COACH_FOCUS_LABELS[focus]}.`],
   };
@@ -872,11 +878,33 @@ function stopForProjectDefinition(
     why: unique
       ? "Buscar o evaluar un objeto único no es una mejora incremental de la pieza abierta."
       : "Una pieza de endgame se juzga como conjunto y contra el personaje, no por compartir una sola etiqueta.",
+    reviewInExpediente: false,
     needsAdvancedTools: !unique,
     evidence: [
       unique
         ? "El objetivo escrito pide rareza única."
         : "El objetivo escrito pide una pieza de endgame o definitiva.",
+    ],
+  };
+}
+
+function stopForUnverifiedContextGoal(
+  item: Item,
+  focus: CoachFocus,
+): Extract<CoachNextStep, { kind: "stop" }> {
+  const focusLabel = COACH_FOCUS_LABELS[focus];
+  return {
+    kind: "stop",
+    legality: "blocked",
+    headline: "No gastes a ciegas en esta pieza",
+    instruction: `El expediente señala que tu personaje necesita ${focusLabel}, pero «${item.name || item.baseType}» no muestra una línea reconocible de ese objetivo. Cambia de pieza o comprueba dentro de PoE2 una base adecuada antes de usar moneda.`,
+    why: "Una carencia del personaje no demuestra que esta pieza pueda resolverla. Sin pools ni probabilidades verificadas, recomendar una moneda convertiría una sugerencia contextual en una apuesta no solicitada.",
+    reviewInExpediente: false,
+    needsAdvancedTools: false,
+    evidence: [
+      `El contexto del personaje señala ${focusLabel}.`,
+      `La pieza copiada no contiene una línea reconocible de ${focusLabel}.`,
+      "No hay pools ni probabilidades verificadas que permitan dirigir el siguiente resultado.",
     ],
   };
 }
@@ -894,6 +922,12 @@ export function assessPurposefulCraftBase(input: {
   profile: CharacterProfile | null;
   rollMinimum?: CoachRollMinimum;
   goalIntent?: CoachGoalIntent;
+  /**
+   * `context` significa que la aplicación propuso el objetivo a partir del
+   * expediente o del plan. Esa sugerencia nunca autoriza por sí sola una
+   * apuesta aleatoria sobre la pieza abierta.
+   */
+  goalSource?: CoachGoalSource;
 }): CoachBaseAssessment {
   const {
     item,
@@ -902,6 +936,7 @@ export function assessPurposefulCraftBase(input: {
     profile,
     rollMinimum = "middle",
     goalIntent = "incremental",
+    goalSource = "player",
   } = input;
   const structuralStep = chooseNextStep(item, direction);
   const hasCharacter = hasCraftingCharacterContext(profile);
@@ -963,14 +998,17 @@ export function assessPurposefulCraftBase(input: {
       : `No puedo comprobar todavía si contiene ${focusLabel}.`;
 
   if (structuralStep.kind === "needs-data") {
+    const importIssue = assessCraftingImportIssue(item);
     return {
       status: "needs-data",
-      title: "Aún no puedo juzgar esta base",
-      summary: "Primero necesito el texto avanzado completo; sin sus afijos y estados cualquier ruta sería inventada.",
+      title: importIssue.title,
+      summary: importIssue.summary,
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: "Volver a copiar con Ctrl+Alt+C.",
+      decisionLabel: importIssue.retryCopy
+        ? "Volver a copiar con Ctrl+Alt+C."
+        : "No gastar moneda sobre esta pieza.",
       nextStep: structuralStep,
     };
   }
@@ -981,11 +1019,11 @@ export function assessPurposefulCraftBase(input: {
     return {
       status: "already-satisfied",
       title: "Tu parada ya se cumple",
-      summary: `${why} Antes de arriesgar otro hueco, compárala con lo que llevas equipado.`,
+      summary: `${why} Antes de arriesgar otro hueco, revisa la tirada actual en tu expediente.`,
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: "Parar y comparar.",
+      decisionLabel: "Parar y revisar.",
       nextStep: stopForSatisfiedGoal(item, focus, why),
     };
   }
@@ -1016,6 +1054,19 @@ export function assessPurposefulCraftBase(input: {
       targetLabel,
       decisionLabel: "Cambiar de base.",
       nextStep: structuralStep,
+    };
+  }
+
+  if (goalSource === "context" && signal.status !== "direct") {
+    return {
+      status: "change-base",
+      title: "Esta necesidad no valida esta pieza",
+      summary: `El personaje necesita ${focusLabel}, pero la pieza no demuestra ese objetivo. No conviertas una carencia global en un gasto aleatorio.`,
+      characterContext,
+      characterLabel,
+      targetLabel,
+      decisionLabel: "Cambiar de pieza sin gastar.",
+      nextStep: stopForUnverifiedContextGoal(item, focus),
     };
   }
 

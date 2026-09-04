@@ -10,6 +10,8 @@ import {
   getRegistryProvenance,
 } from "../server/registry/passiveRegistry.js";
 import { loadReleaseEvidenceCatalog } from "../server/releaseEvidenceCatalog.js";
+import { loadItemTextCorpusAudit } from "../server/importers/itemTextCorpus.js";
+import { loadPlayerWalkthroughAudit } from "../server/playerWalkthroughCatalog.js";
 
 function argument(name: string): string | null {
   const index = process.argv.indexOf(name);
@@ -27,10 +29,28 @@ const patches = z.array(PatchVersionSchema).parse(json("server/data/patches.json
 const compatibility = PatchCompatibilityRegistrySchema.parse(
   json("server/data/patchCompatibility.json"),
 );
+const declaredTarget = compatibility.targetRelease;
+const targetMetadata = patches.find((candidate) => candidate.id === targetPatch);
+const releaseTarget = targetPatch === declaredTarget.version
+  ? declaredTarget
+  : (() => {
+      if (!targetMetadata?.releaseDate || !targetMetadata.status) {
+        throw new Error(
+          `El parche ${targetPatch} necesita status y releaseDate en server/data/patches.json antes de auditarse.`,
+        );
+      }
+      return {
+        version: targetMetadata.id,
+        releaseDate: targetMetadata.releaseDate,
+        status: targetMetadata.status,
+      };
+    })();
 const passiveProvenance = getRegistryProvenance();
 const report = evaluateReleaseReadiness({
   targetPatch,
   defaultPatch: loadConfig().defaultPatch,
+  auditDate: new Date().toISOString().slice(0, 10),
+  releaseTarget,
   patches,
   compatibility,
   passiveRegistry: {
@@ -38,6 +58,8 @@ const report = evaluateReleaseReadiness({
     evidenceId: PASSIVE_REGISTRY_EVIDENCE_ID,
   },
   evidenceCatalog: loadReleaseEvidenceCatalog(),
+  itemTextCorpus: loadItemTextCorpusAudit(),
+  playerWalkthroughs: loadPlayerWalkthroughAudit(),
 });
 
 console.log(`\nPreparación PoE2 ${targetPatch}: ${report.ready ? "APROBABLE" : "BLOQUEADA"}\n`);

@@ -16,7 +16,7 @@ import { buildTargetFromDraft } from "@/lib/buildTarget";
 export function buildRecommendationsRequest(
   profile: CharacterProfile,
   targetDraft: TargetDraft,
-  budget: Budget,
+  budget: Budget | null,
   goal: GoalKind,
   league: string,
   patch: string,

@@ -122,13 +122,20 @@ function startServer(mode, port) {
   const { command, args: cmdArgs, shell } =
     mode === "prod"
       ? productionServerCommand()
-      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+      : toolCommand("vite", [
+          "--configLoader",
+          "runner",
+          "--port",
+          String(port),
+          "--strictPort",
+        ]);
   const proc = spawn(command, cmdArgs, {
     cwd: REPO,
     env: {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      PUBLIC_DEPLOYMENT: "false",
       SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
       // Aislamiento explícito: nunca la base real.
@@ -137,6 +144,10 @@ function startServer(mode, port) {
     shell,
     stdio: ["ignore", "pipe", "pipe"],
   });
+  // Vite y el servidor de producción escriben bastante durante este recorrido.
+  // Si nadie drena stdout, Windows puede llenar la tubería y bloquear el
+  // proceso hijo aunque la aplicación esté sana.
+  proc.stdout.on("data", () => {});
   proc.stderr.on("data", () => {});
   return proc;
 }
@@ -243,14 +254,19 @@ async function seedProfile(request, base) {
     data: { profile },
   });
   if (!res.ok()) throw new Error(`no se pudo sembrar el perfil: HTTP ${res.status()}`);
-  return { profileId: profile.id, craftingItemId: craftingItem.id, craftingResultText };
+  return {
+    profileId: profile.id,
+    craftingItemId: craftingItem.id,
+    craftingText,
+    craftingResultText,
+  };
 }
 
 /**
- * Reproduce la entrada más corta del producto con un perfil que todavía no
- * existe en SQLite. La primera persistencia falla de forma controlada: el
- * objeto y el preflight deben seguir intactos y el mismo botón debe permitir
- * reintentar, sin abrir el editor ni pedir que se repita ninguna entrada.
+ * Reproduce la entrada más corta del producto. El objeto suelto se persiste al
+ * importarlo para sobrevivir a una recarga; después se fuerza un fallo al
+ * crear la decisión. El objeto y el preflight deben seguir intactos y el mismo
+ * botón debe permitir reintentar, sin abrir el editor ni pedir otra entrada.
  */
 async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -294,14 +310,17 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
     const preflight = workspace.getByTestId("crafting-preflight-exalted");
     await checkBox(preflight.getByLabel(/El objeto sigue igual/));
 
-    let failFirstSave = true;
-    await page.route("**/api/character", async (route) => {
-      if (failFirstSave && route.request().method() === "POST") {
-        failFirstSave = false;
+    const persistedStandaloneId = await page.evaluate(() =>
+      localStorage.getItem("exile-copilot:characterId"),
+    );
+    let failFirstDecision = true;
+    await page.route("**/api/journal/*/session", async (route) => {
+      if (failFirstDecision && route.request().method() === "POST") {
+        failFirstDecision = false;
         await route.fulfill({
           status: 503,
           contentType: "application/json",
-          body: JSON.stringify({ error: "fallo-controlado-de-persistencia" }),
+          body: JSON.stringify({ error: "fallo-controlado-al-crear-decision" }),
         });
         return;
       }
@@ -310,22 +329,24 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
 
     const prepare = preflight.getByRole("button", { name: "Preparar este craft" });
     await click(prepare);
-    await page.getByText("No se pudieron guardar las correcciones").waitFor({
+    await page.getByText("No se pudo actualizar la decisión").waitFor({
       timeout: 15000,
     });
 
     const confirmationsPreserved = [await preflight.getByLabel(/El objeto sigue igual/).isChecked()];
     check(
-      `[${mode}] un fallo del autoguardado conserva objeto, objetivo y confirmaciones`,
+      `[${mode}] un fallo al crear la decisión conserva objeto, objetivo y confirmaciones`,
       (await workspace.getByText("Núcleo de fénix").first().isVisible()) &&
         (await outcome.inputValue()) === expectedOutcome &&
         confirmationsPreserved.every(Boolean),
     );
     check(
-      `[${mode}] el fallo no abre el editor ni crea una sesión fantasma`,
+      `[${mode}] el objeto ya estaba guardado y el fallo no crea una sesión fantasma`,
       (await page.getByRole("dialog").count()) === 0 &&
         (await page.locator("#seccion-decision-crafting").count()) === 0 &&
-        (await page.evaluate(() => localStorage.getItem("exile-copilot:characterId"))) === null,
+        persistedStandaloneId !== null &&
+        (await page.evaluate(() => localStorage.getItem("exile-copilot:characterId"))) ===
+          persistedStandaloneId,
     );
 
     await click(prepare);
@@ -337,10 +358,48 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
         (await session.innerText()).includes(expectedOutcome) &&
         (await page.evaluate(() => localStorage.getItem("exile-copilot:characterId"))) !== null,
     );
+    const resultCheck = session.getByTestId("crafting-result-check");
+    await resultCheck.getByLabel("Objeto actual copiado desde PoE2").fill(craftingText);
+    await click(resultCheck.getByRole("button", { name: "Comparar con el snapshot anterior" }));
+    await resultCheck
+      .locator('[data-comparison-status="inconclusive"]')
+      .waitFor({ timeout: 20000 });
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.locator("#seccion-decision-crafting").waitFor({ timeout: 20000 });
+    await resultCheck
+      .locator('[data-comparison-status="inconclusive"]')
+      .waitFor({ timeout: 20000 });
+    check(
+      `[${mode}] la sesión mínima conserva un resultado inconcluso al recargar`,
+      (await resultCheck.getByLabel("Objeto actual copiado desde PoE2").inputValue()) ===
+        craftingText &&
+        (await resultCheck.innerText()).includes(
+          "Se esperaba 1 modificador explícito nuevo y se detectaron 0",
+        ) &&
+        (await resultCheck.getByRole("button", { name: "Guardar y parar" }).count()) === 0 &&
+        (await resultCheck.getByRole("button", { name: "Guardar y seguir" }).count()) === 0,
+    );
     check(
       `[${mode}] la ruta mínima queda en nueve interacciones o menos (${interactions})`,
       interactions <= 9,
     );
+
+    // En desarrollo todos los contextos de navegador comparten a propósito la
+    // sesión local. Este escenario crea un personaje standalone; si no lo
+    // borra, el escenario principal deja de empezar en la bienvenida y la
+    // prueba se contamina a sí misma. La base es temporal y aislada.
+    const cleanupStatus = await page.evaluate(async () => {
+      const response = await fetch("/api/visitor/data", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "BORRAR MIS DATOS" }),
+      });
+      return response.status;
+    });
+    if (cleanupStatus !== 200) {
+      throw new Error(`no se pudo limpiar el escenario de reintento: HTTP ${cleanupStatus}`);
+    }
   } finally {
     await context.close();
   }
@@ -513,7 +572,12 @@ async function runFlow(mode, port) {
     await dialogo.waitFor({ state: "hidden", timeout: 15000 });
 
     // --- Varios frascos y objeto duplicado (datos reales vía API) ---------
-    const { profileId: seededId, craftingItemId, craftingResultText } = await seedProfile(
+    const {
+      profileId: seededId,
+      craftingItemId,
+      craftingText,
+      craftingResultText,
+    } = await seedProfile(
       context.request,
       BASE,
     );
@@ -552,8 +616,8 @@ async function runFlow(mode, port) {
       pillsOutsideDetails: Array.from(
         caso.querySelectorAll('[data-testid="caso-datos-clave"] [data-slot="badge"]'),
       ).every((badge) => badge.closest("details") === null),
-      observationCollapsed:
-        !caso.querySelector('[data-testid="caso-que-observar"]')?.hasAttribute("open"),
+      observationVisible:
+        caso.querySelector('[data-testid="caso-que-observar"]')?.hasAttribute("open") === true,
     }));
     check(`[${mode}] caso principal compacto (${densidadCaso.height}px)`, densidadCaso.height <= 650);
     check(
@@ -565,21 +629,49 @@ async function runFlow(mode, port) {
       densidadCaso.pillsOutsideDetails,
     );
     check(
-      `[${mode}] comprobación posterior plegada por defecto`,
-      densidadCaso.observationCollapsed,
+      `[${mode}] la comprobación dentro de PoE2 empieza visible`,
+      densidadCaso.observationVisible,
     );
 
-    // El paperdoll SOLO recibe los ids del contenido dominante. La
-    // recomendación que domina este perfil no señala ninguna pieza, así que de
-    // partida no puede haber ningún hueco marcado.
+    // El paperdoll SOLO recibe los ids del contenido dominante. El orden de
+    // recomendaciones puede cambiar cuando se ajustan reglas legítimas, por lo
+    // que no se presupone si la principal tendrá o no vínculo: se comprueba que
+    // cualquier resalte corresponda siempre a un objeto real, nunca a un hueco.
+    const resalteInicial = await page.evaluate(() => {
+      const marcados = [...document.querySelectorAll('[data-highlighted="true"]')];
+      return {
+        total: marcados.length,
+        conObjeto: marcados.filter((el) => el.getAttribute("data-item-id")).length,
+        vacios: document.querySelectorAll('[data-slot-state="empty"][data-highlighted="true"]')
+          .length,
+      };
+    });
     check(
-      `[${mode}] sin vínculo en el caso dominante no se resalta ningún hueco`,
-      (await page.locator('[data-highlighted="true"]').count()) === 0,
+      `[${mode}] el caso dominante solo puede resaltar objetos reales`,
+      resalteInicial.conObjeto === resalteInicial.total && resalteInicial.vacios === 0,
     );
 
-    // Las recomendaciones que NO dominan viven plegadas en «Otras posibilidades».
+    // Las recomendaciones que NO dominan viven plegadas en «Otras posibilidades»
+    // y, desde la reducción de densidad, cada alternativa empieza además
+    // resumida. El acceso al objeto debe seguir existiendo al pedir sus detalles;
+    // no se exige volver a cargar de texto la pantalla para mantenerlo visible.
     await page.getByTestId("acordeon-otras").click();
-    const botones = page.locator('[data-testid^="ver-objeto-"]:visible');
+    const alternativas = page.locator('[data-testid^="alternativa-"]:visible');
+    for (let index = 0; index < (await alternativas.count()); index += 1) {
+      const verDetalles = alternativas.nth(index).getByRole("button", { name: "Ver detalles" });
+      if ((await verDetalles.count()) > 0) await verDetalles.click();
+    }
+    // Se elige expresamente una alternativa: la recomendación principal puede
+    // tener ahora su propio vínculo y usa una presentación distinta.
+    const botonesAlternativos = alternativas.locator('[data-testid^="ver-objeto-"]:visible');
+    const usaAlternativaVinculada = (await botonesAlternativos.count()) > 0;
+    let botones = botonesAlternativos;
+    if (!usaAlternativaVinculada) {
+      // Si ninguna alternativa está vinculada a equipo, la recomendación
+      // principal puede ser la única evidencia estructurada. El producto no
+      // debe inventar una alternativa solo para satisfacer la prueba.
+      botones = page.locator('[data-testid^="ver-objeto-"]:visible');
+    }
     await botones.first().waitFor({ timeout: 15000 });
     const nBotones = await botones.count();
     check(`[${mode}] «Ver el objeto evaluado» solo con vínculo estructurado (${nBotones})`, nBotones >= 1);
@@ -659,13 +751,13 @@ async function runFlow(mode, port) {
     // llegan al paperdoll.
     // `.last()`: la lista entera también es una tarjeta; la que interesa es la
     // más interna, la de esta recomendación.
-    const tarjetaRec = page
-      .locator('[data-slot="card"]', { has: page.locator(`[data-testid="${testIdBoton}"]`) })
-      .last();
-    await tarjetaRec.getByRole("button", { name: "Guardar como próximo paso" }).click();
-    await page.waitForSelector('[data-testid="caso-abierto"][data-caso="journal"]', {
-      timeout: 20000,
-    });
+    if (usaAlternativaVinculada) {
+      const tarjetaRec = botonRec.locator('xpath=ancestor::*[@data-slot="card"][1]');
+      await tarjetaRec.getByRole("button", { name: "Guardar como próximo paso" }).click();
+      await page.waitForSelector('[data-testid="caso-abierto"][data-caso="journal"]', {
+        timeout: 20000,
+      });
+    }
     const resaltados = await page.evaluate(() => {
       const marcados = [...document.querySelectorAll('[data-highlighted="true"]')];
       return {
@@ -686,13 +778,20 @@ async function runFlow(mode, port) {
     );
 
     // Limpieza: al cerrar el caso, el paperdoll se queda sin ids.
-    await page.getByRole("button", { name: "Cancelar seguimiento" }).click();
-    await page.waitForFunction(
-      () => document.querySelectorAll('[data-highlighted="true"]').length === 0,
-      undefined,
-      { timeout: 20000 },
-    );
-    check(`[${mode}] al cambiar de caso el resalte se limpia`, true);
+    if (usaAlternativaVinculada) {
+      await page.getByRole("button", { name: "Cancelar seguimiento" }).click();
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-highlighted="true"]').length === 0,
+        undefined,
+        { timeout: 20000 },
+      );
+      check(`[${mode}] al cambiar de caso el resalte se limpia`, true);
+    } else {
+      check(
+        `[${mode}] sin alternativa vinculada no se crea un seguimiento ficticio`,
+        (await page.getByRole("button", { name: "Cancelar seguimiento" }).count()) === 0,
+      );
+    }
 
     // --- prefers-reduced-motion ------------------------------------------
     await irA(page, "expediente");
@@ -747,8 +846,26 @@ async function runFlow(mode, port) {
     // La moneda no se «recomienda» con un clic: el jugador declara el objetivo,
     // confirma el snapshot y entiende la aleatoriedad antes de abrir una
     // decisión persistente vinculada al objeto real importado.
-    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.setViewportSize({ width: 390, height: 844 });
     await irA(page, "crafting");
+    await page.getByTestId("crafting-mode-chooser").waitFor({ timeout: 15000 });
+    const entradaCraftingMovil = await page.evaluate(() => {
+      const chooser = document.querySelector('[data-testid="crafting-mode-chooser"]');
+      const goal = Array.from(document.querySelectorAll("h3")).find((heading) =>
+        heading.textContent?.includes("Qué quieres conseguir con esta pieza"),
+      );
+      return {
+        chooserHeight: Math.round(chooser?.getBoundingClientRect().height ?? 9999),
+        goalTop: Math.round(goal?.getBoundingClientRect().top ?? 9999),
+        viewportHeight: window.innerHeight,
+      };
+    });
+    check(
+      `[${mode}] la entrada móvil llega a la pregunta del objeto (${entradaCraftingMovil.chooserHeight}px)`,
+      entradaCraftingMovil.chooserHeight <= 100 &&
+        entradaCraftingMovil.goalTop < entradaCraftingMovil.viewportHeight,
+    );
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await abrirBancoAvanzado(page);
     const craftingWorkspace = page.getByTestId("crafting-workspace");
     check(
@@ -885,90 +1002,17 @@ async function runFlow(mode, port) {
         (await tituloMentorContextual.innerText()) === "Al menos 4 afijos de daño",
     );
 
-    // --- Essences P1: contrato real, riesgo y preflight -------------------
-    await craftingWorkspace.getByTestId("crafting-tool-essence").click();
-    const essences = craftingWorkspace.getByTestId("crafting-essences");
-    await essences.waitFor({ timeout: 15000 });
+    // La cobertura registrada llega a 0.5.0/0.5.3, no al parche activo. La UI
+    // conserva las monedas básicas y falla cerrada antes de abrir los flujos.
+    const advancedPatchGate = craftingWorkspace.getByTestId("crafting-advanced-patch-gate");
     check(
-      `[${mode}] Essences aparece como flujo guiado propio`,
-      (await essences.innerText()).includes("Essences") &&
-        (await essences.innerText()).includes("Introduce la Essence real"),
+      `[${mode}] Crafting avanzado explica el freno sin ocultar las monedas básicas`,
+      (await advancedPatchGate.isVisible()) &&
+        (await advancedPatchGate.innerText()).includes("en revisión para este parche") &&
+        (await craftingWorkspace.getByTestId("crafting-tool-essence").isDisabled()) &&
+        (await craftingWorkspace.getByTestId("crafting-tool-alloy").isDisabled()) &&
+        !(await craftingWorkspace.getByTestId("crafting-tool-currency").isDisabled()),
     );
-    await essences.getByLabel("Nombre exacto").fill("Essence observada de prueba");
-    await essences
-      .getByLabel("Efecto garantizado exacto del tooltip")
-      .fill("Efecto exacto copiado del tooltip de prueba");
-    const crearEssence = essences.getByRole("button", {
-      name: "Crear comprobación de Essence",
-    });
-    check(
-      `[${mode}] una Essence Perfecta advierte del reemplazo aleatorio`,
-      (await essences.innerText()).includes("reemplazando 1 modificador al azar") &&
-        (await essences.innerText()).includes("cualquiera de los explícitos actuales está en riesgo") &&
-        (await essences.locator('[data-protection-risk="possible"]').isVisible()) &&
-        (await essences.innerText()).includes("Plan: Daño · 1 intocable"),
-    );
-    check(
-      `[${mode}] la Essence sigue bloqueada antes de confirmar sus evidencias`,
-      await crearEssence.isDisabled(),
-    );
-    await essences.getByLabel(/objeto sigue igual que el snapshot/).check();
-    await essences.getByLabel(/He copiado el nombre y el efecto/).check();
-    await essences.getByLabel(/Acepto que se retirará al azar/).check();
-    await essences.getByLabel(/todavía no he aplicado la Essence/).check();
-    check(
-      `[${mode}] el preflight completo habilita la sesión de Essence`,
-      !(await crearEssence.isDisabled()),
-    );
-
-    // --- Alloys P2: el tooltip gobierna la compatibilidad ----------------
-    await craftingWorkspace.getByTestId("crafting-tool-alloy").click();
-    const alloys = craftingWorkspace.getByTestId("crafting-alloys");
-    await alloys.waitFor({ timeout: 15000 });
-    check(
-      `[${mode}] Alloys aparece como flujo guiado y no como tabla inventada`,
-      (await alloys.innerText()).includes("Alloys") &&
-        (await alloys.innerText()).includes("no deduce el efecto por el nombre"),
-    );
-    await alloys.getByLabel("Nombre exacto del Alloy").fill("Alloy observado de prueba");
-    await alloys
-      .getByLabel("Clases de objeto admitidas por el tooltip")
-      .fill("Ballestas");
-    await alloys
-      .getByLabel("Tooltip completo del Alloy")
-      .fill("El tooltip observado reemplaza un modificador y añade un fabricado.");
-    await alloys
-      .getByLabel("Modificador fabricado garantizado")
-      .fill("Modificador fabricado exacto del tooltip");
-    const crearAlloy = alloys.getByRole("button", {
-      name: "Crear comprobación de Alloy",
-    });
-    check(
-      `[${mode}] el Alloy permanece bloqueado antes del consentimiento irreversible`,
-      (await crearAlloy.isDisabled()) &&
-        (await alloys.innerText()).includes("Plan: Daño · 1 intocable"),
-    );
-    await alloys.getByLabel(/tooltip del Alloy nombra la clase/).check();
-    await alloys.getByLabel(/objeto sigue igual que el snapshot/).check();
-    await alloys.getByLabel(/copiado estos datos desde el Alloy real/).check();
-    await alloys.getByLabel(/reemplazará exactamente un modificador explícito/).check();
-    await alloys.getByLabel(/solo puede contener un modificador fabricado/).check();
-    await alloys.getByLabel(/todavía no he aplicado el Alloy/).check();
-    check(
-      `[${mode}] no promete protección si el tooltip no aclara la retirada`,
-      (await crearAlloy.isDisabled()) &&
-        (await alloys.locator('[data-protection-risk="unknown"]').isVisible()),
-    );
-    await alloys
-      .getByLabel("Cómo se elige el modificador reemplazado")
-      .selectOption("random");
-    check(
-      `[${mode}] una retirada aleatoria declarada permite continuar con advertencia`,
-      !(await crearAlloy.isDisabled()) &&
-        (await alloys.locator('[data-protection-risk="possible"]').isVisible()),
-    );
-
-    await craftingWorkspace.getByTestId("crafting-tool-currency").click();
     await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).click();
     check(
       `[${mode}] abrir el preflight actualiza el mentor sin gastar ni llamar a la IA`,
@@ -1059,6 +1103,117 @@ async function runFlow(mode, port) {
     );
     const comprobadorResultado = casoCrafting.getByTestId("crafting-result-check");
     await comprobadorResultado.waitFor({ timeout: 15000 });
+    const descartarComprobacion = comprobadorResultado.getByRole("button", {
+      name: "Descartar esta comprobación",
+    });
+    check(
+      `[${mode}] pausa y descarte son decisiones distintas antes de volver de PoE2`,
+      (await comprobadorResultado
+        .getByRole("button", { name: "Guardar para seguir más tarde" })
+        .isVisible()) &&
+        (await descartarComprobacion.isVisible()) &&
+        !(await comprobadorResultado.innerText()).includes("Cerrar comprobación"),
+    );
+    await descartarComprobacion.click();
+    const confirmarDescarte = page.getByTestId("crafting-discard-dialog");
+    await confirmarDescarte.waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] descartar el craft exige confirmar la pérdida antes de cerrar`,
+      (await confirmarDescarte.innerText()).includes("sin actualizar tu expediente") &&
+        (await confirmarDescarte.getByRole("button", { name: "Sí, descartar" }).isVisible()),
+    );
+    await confirmarDescarte.getByRole("button", { name: "Seguir con la comprobación" }).click();
+    await confirmarDescarte.waitFor({ state: "hidden", timeout: 10000 });
+    await comprobadorResultado.waitFor({ state: "visible", timeout: 10000 });
+    check(
+      `[${mode}] cancelar el descarte conserva el craft preparado`,
+      (await comprobadorResultado.isVisible()) &&
+        (await comprobadorResultado
+          .getByRole("button", { name: "Comparar con el snapshot anterior" })
+          .isVisible()),
+    );
+    await page.getByTestId("crafting-mode-coach").click();
+    await comprobadorResultado
+      .getByRole("button", { name: "Guardar para seguir más tarde" })
+      .click();
+    const craftPausado = page.getByTestId("crafting-paused-sessions");
+    await craftPausado.waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute("data-testid") === "crafting-paused-sessions",
+      undefined,
+      { timeout: 10000 },
+    );
+    check(
+      `[${mode}] guardar mantiene visible el acceso al craft desde Ayuda en vivo`,
+      (await page.getByTestId("crafting-mode-coach").getAttribute("data-active")) === "true" &&
+        (await craftPausado.innerText()).includes("Núcleo de fénix") &&
+        (await craftPausado.innerText()).includes("Orbe exaltado superior") &&
+        (await page.getByTestId("crafting-avanzado-toggle").innerText()).includes(
+          "Tienes un craft guardado aquí abajo",
+        ),
+    );
+    check(
+      `[${mode}] la pausa lleva el foco al proyecto guardado`,
+      await craftPausado.evaluate((element) => document.activeElement === element),
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    const craftPausadoTrasRecarga = page.getByTestId("crafting-paused-sessions");
+    await craftPausadoTrasRecarga.waitFor({ state: "visible", timeout: 20000 });
+    check(
+      `[${mode}] el craft pausado sigue localizable tras recargar`,
+      (await page.getByTestId("crafting-mode-coach").getAttribute("data-active")) === "true" &&
+        (await craftPausadoTrasRecarga.getByRole("button", { name: "Reanudar" }).isVisible()),
+    );
+    await craftPausadoTrasRecarga.getByRole("button", { name: "Reanudar" }).click();
+    await comprobadorResultado.waitFor({ state: "visible", timeout: 20000 });
+    check(
+      `[${mode}] reanudar vuelve al mismo objeto, moneda y comparación`,
+      (await comprobadorResultado.innerText()).includes("Núcleo de fénix") &&
+        (await comprobadorResultado.innerText()).includes("Orbe exaltado superior") &&
+        (await comprobadorResultado
+          .getByRole("button", { name: "Comparar con el snapshot anterior" })
+          .isVisible()),
+    );
+    await comprobadorResultado
+      .getByLabel("Objeto actual copiado desde PoE2")
+      .fill(craftingText);
+    await comprobadorResultado
+      .getByRole("button", { name: "Comparar con el snapshot anterior" })
+      .click();
+    await comprobadorResultado
+      .locator('[data-comparison-status="inconclusive"]')
+      .waitFor({ timeout: 20000 });
+    check(
+      `[${mode}] pegar el mismo snapshot no confirma un Exaltado inexistente`,
+      (await comprobadorResultado.innerText()).includes(
+        "Se esperaba 1 modificador explícito nuevo y se detectaron 0",
+      ) &&
+        (await comprobadorResultado.innerText()).includes(
+          "Los 1 modificadores protegidos siguen presentes",
+        ) &&
+        (await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).count()) === 0 &&
+        (await comprobadorResultado.getByRole("button", { name: "Guardar y seguir" }).count()) === 0,
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.locator("#seccion-decision-crafting").waitFor({ timeout: 20000 });
+    await comprobadorResultado
+      .locator('[data-comparison-status="inconclusive"]')
+      .waitFor({ timeout: 20000 });
+    check(
+      `[${mode}] recargar conserva texto, veredicto y protecciones del resultado inconcluso`,
+      (await comprobadorResultado
+        .getByLabel("Objeto actual copiado desde PoE2")
+        .inputValue()) === craftingText &&
+        (await comprobadorResultado.innerText()).includes(
+          "Se esperaba 1 modificador explícito nuevo y se detectaron 0",
+        ) &&
+        (await comprobadorResultado.innerText()).includes(
+          "Los 1 modificadores protegidos siguen presentes",
+        ) &&
+        (await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).count()) === 0 &&
+        (await comprobadorResultado.getByRole("button", { name: "Guardar y seguir" }).count()) === 0,
+    );
     const partialCraftingResultText = craftingResultText.replace(
       /^Clase de objeto:.*\r?\n/m,
       "",
@@ -1128,7 +1283,9 @@ async function runFlow(mode, port) {
       `[${mode}] la decisión recomendada gobierna el cierre del paso`,
       textoComparacion.includes("Cierra este paso con la decisión delante") &&
         (await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).isVisible()) &&
-        (await comprobadorResultado.getByRole("button", { name: "Parar por ahora" }).isVisible()) &&
+        (await comprobadorResultado
+          .getByRole("button", { name: "Guardar para seguir más tarde" })
+          .isVisible()) &&
         !textoComparacion.includes("Objeto actual copiado desde PoE2") &&
         textoComparacion.includes("El objeto de PoE2 ya cambió dentro del juego"),
     );
@@ -1149,7 +1306,7 @@ async function runFlow(mode, port) {
     ).json();
     check(
       `[${mode}] un fallo al guardar no cierra la sesión`,
-      ["active", "waiting_result"].includes(journalTrasFallo.session?.status) &&
+      ["active", "waiting_result", "reopening"].includes(journalTrasFallo.session?.status) &&
         journalTrasFallo.session?.evidence?.some(
           (entry) =>
             entry.kind === "confirmed" && entry.text.includes("Cambio estructural confirmado"),
@@ -1224,81 +1381,36 @@ async function runFlow(mode, port) {
     });
     const reemplazoProtegido = await revisarRiesgo.isVisible();
     if (reemplazoProtegido) await revisarRiesgo.click();
-    check(
-      `[${mode}] una pieza llena exige reconocer el riesgo antes de mostrar reemplazos`,
-      (await rutaTrasResultado.getAttribute("data-route-state")) === "replacement-tools" &&
-        reemplazoProtegido &&
-        (await rutaTrasResultado.getByRole("button", { name: "Revisar una Essence" }).isVisible()) &&
-        (await rutaTrasResultado.getByRole("button", { name: "Revisar un Alloy" }).isVisible()),
+    const estadoRutaLlena = await rutaTrasResultado.getAttribute("data-route-state");
+    const essenceNoRevisada =
+      (await rutaTrasResultado.getByRole("button", { name: "Revisar una Essence" }).count()) === 0;
+    const alloyNoRevisado =
+      (await rutaTrasResultado.getByRole("button", { name: "Revisar un Alloy" }).count()) === 0;
+    const gateAvanzadoVisible = await craftingWorkspace
+      .getByTestId("crafting-advanced-patch-gate")
+      .isVisible();
+    const rutaLlenaExplicaRevision = /tooltip|reemplazar|riesgo/i.test(
+      await rutaTrasResultado.innerText(),
     );
-
-    // Una vez cerrado el caso básico, la Essence preparada puede abrir su
-    // propia sesión y conserva explícitamente la semántica de reemplazo.
-    await craftingWorkspace.getByTestId("crafting-tool-essence").click();
-    await craftingWorkspace
-      .getByTestId("crafting-intention")
-      .getByTestId("crafting-protection-picker")
-      .getByRole("checkbox")
-      .first()
-      .check();
-    await crearEssence.click();
-    const casoEssence = craftingWorkspace.getByTestId("crafting-result-check");
-    await casoEssence.waitFor({ timeout: 20000 });
-    const textoCasoEssence = await casoEssence.innerText();
+    const piezaLlenaSegura =
+      estadoRutaLlena === "replacement-tools" &&
+      essenceNoRevisada &&
+      alloyNoRevisado &&
+      rutaLlenaExplicaRevision;
     check(
-      `[${mode}] la sesión muestra la Essence y su efecto garantizado`,
-      textoCasoEssence.includes("Essence observada de prueba (Perfecta)") &&
-        textoCasoEssence.includes("Efecto exacto copiado del tooltip de prueba"),
+      `[${mode}] una pieza llena reconoce el riesgo sin ofrecer rutas no revisadas`,
+      piezaLlenaSegura,
     );
-    const journalEssence = await (
-      await context.request.get(`${BASE}/api/journal/${seededId}`)
-    ).json();
-    check(
-      `[${mode}] la sesión persiste el reemplazo aleatorio esperado`,
-      journalEssence.session?.craftingExperiment?.actionId === "essence" &&
-      journalEssence.session?.craftingExperiment?.variantId === "perfect" &&
-      journalEssence.session?.craftingExperiment?.expectedRemovedModifierCount === 1 &&
-        journalEssence.session?.craftingExperiment?.resultRarity === "rare" &&
-        journalEssence.session?.craftingExperiment?.protectedModifierIds?.length === 1,
-    );
-
-    // Pausar deja el craft guardado, libera el banco y permite preparar otra
-    // herramienta. Después se reanuda por el id exacto, no por «la última».
-    const essenceSessionId = journalEssence.session?.id;
-    await casoEssence.getByRole("button", { name: "Parar por ahora" }).click();
-    const pausadas = craftingWorkspace.getByTestId("crafting-paused-sessions");
-    await pausadas.waitFor({ timeout: 20000 });
-    check(
-      `[${mode}] pausar Essence libera el banco sin perder la sesión`,
-      Boolean(essenceSessionId) &&
-        (await craftingWorkspace.locator('[aria-labelledby="crafting-items-title"]').isVisible()) &&
-        (await pausadas.innerText()).includes("Essence observada de prueba"),
-    );
-
-    await craftingWorkspace.getByTestId("crafting-tool-alloy").click();
-    await crearAlloy.click();
-    const casoAlloy = craftingWorkspace.getByTestId("crafting-result-check");
-    await casoAlloy.waitFor({ timeout: 20000 });
-    const journalAlloy = await (
-      await context.request.get(`${BASE}/api/journal/${seededId}`)
-    ).json();
-    check(
-      `[${mode}] un Alloy puede empezar mientras la Essence sigue pausada`,
-      journalAlloy.session?.craftingExperiment?.actionId === "alloy" &&
-        journalAlloy.pausedSessions?.some((entry) => entry.id === essenceSessionId),
-    );
-    await casoAlloy.getByRole("button", { name: "Parar por ahora" }).click();
-    const resumeEssence = craftingWorkspace.getByTestId(`crafting-resume-${essenceSessionId}`);
-    await resumeEssence.click();
-    await craftingWorkspace.getByTestId("crafting-result-check").waitFor({ timeout: 20000 });
-    const journalResumed = await (
-      await context.request.get(`${BASE}/api/journal/${seededId}`)
-    ).json();
-    check(
-      `[${mode}] reanudar recupera exactamente la Essence elegida`,
-      journalResumed.session?.id === essenceSessionId &&
-        journalResumed.session?.craftingExperiment?.actionId === "essence",
-    );
+    if (!piezaLlenaSegura) {
+      console.log("   ruta llena:", {
+        estadoRutaLlena,
+        reemplazoProtegido,
+        essenceNoRevisada,
+        alloyNoRevisado,
+        gateAvanzadoVisible,
+        rutaLlenaExplicaRevision,
+      });
+    }
 
     // --- Recursos externos y consola --------------------------------------
     check(`[${mode}] sin peticiones a hosts externos (${externas.length})`, externas.length === 0);

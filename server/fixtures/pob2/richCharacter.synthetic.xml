@@ -1,0 +1,62 @@
+<PathOfBuilding2>
+  <Build level="90" className="Ranger" ascendClassName="Ritualist" targetVersion="0_1">
+    <PlayerStat stat="Str" value="138"/>
+    <PlayerStat stat="Dex" value="196"/>
+    <PlayerStat stat="Int" value="64"/>
+    <PlayerStat stat="Life" value="2687"/>
+    <PlayerStat stat="EnergyShield" value="437"/>
+    <PlayerStat stat="Evasion" value="5251"/>
+    <PlayerStat stat="Armour" value="1019"/>
+    <PlayerStat stat="FireResist" value="75"/>
+    <PlayerStat stat="ColdResist" value="75"/>
+    <PlayerStat stat="LightningResist" value="75"/>
+    <PlayerStat stat="ChaosResist" value="36"/>
+  </Build>
+  <Notes>Instantánea sintética para verificar el contrato de importación &amp; sus entidades.</Notes>
+  <Tree activeSpec="2">
+    <Spec id="1" nodes="1"/>
+    <Spec id="2" nodes="50459,12345,50459" treeVersion="0_5"/>
+  </Tree>
+  <Items activeItemSet="2">
+    <Item id="10">Rarity: RARE
+Oblivion Paw
+Runeforged Vaal Wraps
+Quality: 20
+Evasion: 137
+Energy Shield: 42
+Item Level: 81
+LevelReq: 75
+Implicits: 1
++18% to Fire Resistance
+Adds 10 to 19 Physical Damage to Attacks
++87 to maximum Life
++33% to Cold Resistance</Item>
+    <Item id="11">Rarity: RARE
+Golem Tread
+Runeforged Quickslip Shoes
+Evasion: 182
+Energy Shield: 55
+Item Level: 81
+LevelReq: 75
+Implicits: 0
++149 to maximum Life
+30% increased Movement Speed
++40% to Lightning Resistance</Item>
+    <ItemSet id="1"><Slot name="Ring 1" itemId="0"/></ItemSet>
+    <ItemSet id="2">
+      <Slot name="Gloves" itemId="10"/>
+      <Slot name="Boots" itemId="11"/>
+      <Slot name="Weapon 1 Swap" itemId="10"/>
+    </ItemSet>
+  </Items>
+  <Skills activeSkillSet="2">
+    <SkillSet id="1"/>
+    <SkillSet id="2">
+      <Skill label="Poisonburst principal" enabled="true">
+        <Gem nameSpec="Poisonburst Arrow" gemId="Metadata/Items/Gems/SkillGemPoisonburstArrow" enabled="true"/>
+        <Gem nameSpec="Deadly Poison" gemId="Metadata/Items/Gems/SupportGemDeadlyPoison" enabled="true"/>
+        <Gem nameSpec="Disabled Support" enabled="false"/>
+      </Skill>
+    </SkillSet>
+  </Skills>
+</PathOfBuilding2>

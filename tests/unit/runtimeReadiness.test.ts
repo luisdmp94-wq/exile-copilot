@@ -10,7 +10,7 @@ describe("disponibilidad de la instancia", () => {
       PUBLIC_DEPLOYMENT: "true",
       NODE_ENV: "production",
       SECURE_COOKIES: "true",
-      TRUST_PROXY: "true",
+      TRUST_PROXY: "loopback",
       DATABASE_PATH: databasePath,
       POE_NINJA_OFFLINE: "true",
       MENTOR_AI_ENABLED: "false",
@@ -38,7 +38,7 @@ describe("disponibilidad de la instancia", () => {
       PUBLIC_DEPLOYMENT: "true",
       NODE_ENV: "production",
       SECURE_COOKIES: "true",
-      TRUST_PROXY: "true",
+      TRUST_PROXY: "loopback",
       DATABASE_PATH: resolve("datos", "exile-copilot.db"),
       POE_NINJA_OFFLINE: "true",
       MENTOR_AI_ENABLED: "false",
@@ -53,5 +53,28 @@ describe("disponibilidad de la instancia", () => {
         patchGuidanceAllowed: true,
       }).find((check) => check.id === "public-config"),
     ).toMatchObject({ status: "block" });
+  });
+
+  it("bloquea un parche anunciado aunque su id ya tenga una ficha visible", () => {
+    const config = loadConfig({
+      DEFAULT_PATCH: "0.5.5",
+      POE_NINJA_OFFLINE: "true",
+      MENTOR_AI_ENABLED: "false",
+    });
+
+    const checks = auditRuntimeReadiness({
+      config,
+      databasePath: ":memory:",
+      databaseOperational: true,
+      patchKnown: false,
+      patchGuidanceAllowed: false,
+    });
+
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "patch-metadata", status: "block" }),
+        expect.objectContaining({ id: "patch-guidance", status: "block" }),
+      ]),
+    );
   });
 });

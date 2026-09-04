@@ -104,8 +104,8 @@ export const ContextEnvelopeSchema = z.strictObject({
   craftingState: MentorCraftingStateSchema.nullable(),
   activeRecommendationId: z.string().max(200).nullable(),
   market: z.strictObject({
-    budgetAmount: z.number().nonnegative(),
-    budgetCurrency: z.string().max(50),
+    budgetAmount: z.number().nonnegative().nullable(),
+    budgetCurrency: z.string().max(50).nullable(),
     league: z.string().max(100),
   }),
   sessionActive: z.boolean(),

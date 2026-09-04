@@ -14,7 +14,11 @@ import {
   generateRecommendations,
   type PriceLookup,
 } from "../../server/engine/engine.js";
-import { attributeRequirementsRule, lifeRule } from "../../server/engine/rules.js";
+import {
+  attributeRequirementsRule,
+  lifeRule,
+  skillLinksRule,
+} from "../../server/engine/rules.js";
 import { createDatabase } from "../../server/db/database.js";
 import { PoeNinjaClient, PriceService, type QuotesResult } from "../../server/services/poeninja.js";
 import { loadConfig } from "../../server/config.js";
@@ -81,6 +85,24 @@ function profileWithUniqueWeapon(): CharacterProfile {
 }
 
 describe("engine — exactitud y contratos", () => {
+  it("presenta la carencia de supports como heurística sin afirmar precio ni multiplicador", () => {
+    const profile = demoProfile();
+    const main = profile.skills[0];
+    expect(main).toBeDefined();
+    main!.supports = [];
+
+    const [candidate] = skillLinksRule({
+      profile,
+      league: BASE_OPTIONS.league,
+      patch: BASE_OPTIONS.patch,
+    });
+
+    expect(candidate?.reason).toContain("umbral heurístico");
+    expect(candidate?.riskDescription).toContain("coste todavía no están verificados");
+    expect(candidate?.reason).not.toContain("más barato");
+    expect(candidate?.confidenceBase).toBe("low");
+  });
+
   it("una pieza Core persistente frena la prioridad que intenta modificarla", async () => {
     const profile = demoProfile();
     profile.resistances = { fire: 75, cold: 75, lightning: 75, chaos: 0 };
@@ -167,7 +189,14 @@ describe("engine — exactitud y contratos", () => {
     expect(result.recommendations[0]?.unverified.join(" ")).toContain(
       "75% es un umbral provisional",
     );
+    expect(result.recommendations[0]?.action).toContain(
+      "Eleva hacia 75% las resistencias que ahora están así: frío 61%, rayo 40%",
+    );
     expect(result.recommendations[0]?.reason).not.toMatch(/fuente más común|causa más común/i);
+    expect(result.recommendations[0]?.mayLoseValuableMods).toBe(true);
+    expect(result.recommendations[0]?.risk.level).toBe("medium");
+    expect(result.recommendations[0]?.risk.description).toContain("perder otros mods valiosos");
+    expect(result.recommendations[0]?.risk.description).not.toContain("sin riesgo relevante");
   });
 
   it("null-safe: resistencias desconocidas → sin afirmaciones ni confidence alta", async () => {
@@ -647,6 +676,27 @@ describe("engine — vínculo estructurado recomendación → objeto", () => {
   });
 });
 describe("engine — conversión de presupuesto entre monedas", () => {
+  it("sin presupuesto declarado conserva el precio pero no decide si entra", async () => {
+    const profile = profileWithUniqueWeapon();
+    const result = await generateRecommendations(
+      profile,
+      {
+        league: BASE_OPTIONS.league,
+        patch: BASE_OPTIONS.patch,
+        goal: { kind: "damage" },
+        budget: null,
+      },
+      { priceService: fakePriceLookup({ value: 2, rates: liveRates({ exalted: 1_000 }) }) },
+    );
+    const rec = result.recommendations.find((entry) => entry.id === "rec-mejora-arma");
+    expect(rec?.cost).toEqual(
+      expect.objectContaining({ known: true, min: 2, currency: "divine" }),
+    );
+    expect(rec?.unverified).toContain(
+      "No verificado si entra en el presupuesto: el jugador todavía no ha declarado ningún límite.",
+    );
+  });
+
   it("convertBudget: misma moneda, tasas verificadas y casos no verificables", () => {
     expect(convertBudget({ amount: 50, currency: "chaos" }, "chaos", null)).toBe(50);
     // rates.values.exalted = 1000 → 1 divine = 1000 exalted

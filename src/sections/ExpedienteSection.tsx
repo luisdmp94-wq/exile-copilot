@@ -135,14 +135,14 @@ export function ExpedienteSection({
               {profile.name}
             </h2>
           </div>
+          {/* «Expediente activo» decía lo que ya se ve: estás mirando el
+              expediente y tiene datos. La memoria sí es un estado real, porque
+              decide si el Mentor recuerda entre sesiones. */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rotulo-dato border border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-emerald-300">
-              Expediente activo
-            </span>
             <span
               className={`rotulo-dato border px-2 py-1 ${
                 profilePersisted
-                  ? "border-cyan-500/35 bg-cyan-500/[0.07] text-cyan-300"
+                  ? "border-primary/35 bg-primary/[0.07] text-primary"
                   : "border-amber-500/35 bg-amber-500/[0.07] text-amber-300"
               }`}
               data-testid="estado-memoria-build"

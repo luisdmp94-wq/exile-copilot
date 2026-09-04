@@ -41,6 +41,10 @@ describe("diagnoseCraftingItem", () => {
 
   it("bloquea acciones de adición cuando el arco observado ya tiene seis afijos", () => {
     const item = parseItemText(bowText).item;
+    item.modifiers = item.modifiers.map((modifier) => ({
+      ...modifier,
+      desecrated: undefined,
+    }));
     const diagnosis = diagnoseCraftingItem(item);
 
     expect(diagnosis).toMatchObject({
@@ -52,6 +56,15 @@ describe("diagnoseCraftingItem", () => {
       observedOpenSlots: 0,
     });
     expect(diagnosis.nextAction).toContain("bloquear acciones");
+  });
+
+  it("mantiene parcial una pieza real con un modificador profanado", () => {
+    const diagnosis = diagnoseCraftingItem(parseItemText(bowText).item);
+
+    expect(diagnosis.state).toBe("partial");
+    expect(diagnosis.blockers).toContain(
+      "El objeto tiene un estado especial cuya interacción todavía no está verificada.",
+    );
   });
 
   it("considera completo un objeto normal bien identificado y lo dirige a Transmutación", () => {

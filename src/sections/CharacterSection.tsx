@@ -19,6 +19,15 @@ import {
   type SkillSetup,
 } from "@shared/domain.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,12 +70,20 @@ interface CharacterSectionProps {
    * lógica de personaje: solo qué se pinta sin personaje.
    */
   hideEmptyState: boolean;
-  editorMode?: "full" | "new" | "item";
+  editorMode?: "full" | "import" | "new" | "item" | "memory";
   initialFocus?: "import" | "character" | "item" | null;
   /** Notifica una persistencia real para actualizar el mentor contextual. */
-  onProfileSaved?: () => void;
+  onProfileSaved?: (profile: CharacterProfile) => void;
   /** Continúa directamente al banco de Crafting con el objeto recién leído. */
   onItemImported?: (item: Item) => void;
+  /** Cierra el alta y abre el expediente cuando PoB produjo un personaje. */
+  onProfileImported?: () => void;
+  /** Convierte el alta en editor sin cerrar el panel cuando faltan datos observables. */
+  onIncompleteProfileImported?: () => void;
+  /** Cierra el editor cuando el expediente se aparta para empezar de nuevo. */
+  onStartOver?: () => void;
+  /** Lleva un `.build` a su lugar correcto: Plan y mercado. */
+  onGoToTargetImport?: () => void;
 }
 
 const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
@@ -135,6 +152,10 @@ export function CharacterSection({
   initialFocus = null,
   onProfileSaved,
   onItemImported,
+  onProfileImported,
+  onIncompleteProfileImported,
+  onStartOver,
+  onGoToTargetImport,
 }: CharacterSectionProps) {
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const { itemText, setItemText } = drafts;
@@ -158,6 +179,7 @@ export function CharacterSection({
   }, [initialFocus]);
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -167,11 +189,17 @@ export function CharacterSection({
                 ? "Analizar un objeto"
                 : editorMode === "new"
                   ? "Crear personaje"
+                  : editorMode === "import"
+                    ? "Añadir personaje"
+                    : editorMode === "memory"
+                      ? "Guardar personaje"
                   : "Mi personaje"}
             </CardTitle>
-            <Badge variant="outline" className={originBadge.className}>
-              {originBadge.label}
-            </Badge>
+            {editorMode !== "item" && (
+              <Badge variant="outline" className={originBadge.className}>
+                {originBadge.label}
+              </Badge>
+            )}
             {warnings.length > 0 && (
               <Badge
                 variant="outline"
@@ -187,20 +215,23 @@ export function CharacterSection({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {profile && (
+            {profile && editorMode !== "memory" && editorMode !== "item" && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => character.reset()}
+                onClick={() => {
+                  character.reset();
+                  onStartOver?.();
+                }}
                 disabled={busy !== null}
                 className="text-muted-foreground"
               >
                 <RotateCcw className="size-4" aria-hidden="true" />
-                Empezar de nuevo
+                Cambiar o empezar de nuevo
               </Button>
             )}
-            {!hideEmptyState && (
+            {!hideEmptyState && editorMode !== "memory" && editorMode !== "item" && (
               <Button
                 type="button"
                 onClick={() => void character.loadDemo()}
@@ -218,18 +249,28 @@ export function CharacterSection({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        {editorMode === "full" && (
+        {editorMode === "import" && (
           <ImportPanel
             busy={busy === "build"}
-            onImport={(content) => character.importBuild(content, activePatch)}
+            kind="character"
+            onImport={async (content) => {
+              const outcome = await character.importBuild(content, activePatch, "character");
+              if (outcome === "profile-ready") onProfileImported?.();
+              if (outcome === "profile-incomplete") onIncompleteProfileImported?.();
+              return outcome;
+            }}
             pasted={drafts.pastedBuild}
             onPastedChange={drafts.setPastedBuild}
+            onGoToTarget={onGoToTargetImport}
           />
         )}
 
         {warnings.length > 0 && (
-          <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
-            <AlertTitle>Avisos de importación</AlertTitle>
+          <Alert
+            data-testid="import-warnings"
+            className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300"
+          >
+            <AlertTitle>Avisos de la importación</AlertTitle>
             <AlertDescription>
               <ul className="list-inside list-disc">
                 {warnings.map((warning, i) => (
@@ -273,7 +314,35 @@ export function CharacterSection({
               </EmptyContent>
             </Empty>
           )
-        ) : editorMode !== "item" ? (
+        ) : editorMode === "memory" && profile ? (
+          <div className="flex flex-col gap-4 rounded-md border border-primary/35 bg-primary/5 p-4">
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Activa la memoria para continuar</p>
+              <p className="text-sm text-muted-foreground">
+                Guardaremos «{profile.name}» y después abriremos la comprobación que acabas de elegir.
+                No tienes que volver a rellenar el personaje.
+              </p>
+            </div>
+            <Button
+              type="button"
+              data-testid="guardar-y-continuar"
+              className="w-fit"
+              onClick={() => {
+                void character.saveCorrections().then((savedProfile) => {
+                  if (savedProfile) onProfileSaved?.(savedProfile);
+                });
+              }}
+              disabled={busy !== null}
+            >
+              {busy === "save" ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Save className="size-4" aria-hidden="true" />
+              )}
+              Guardar y continuar
+            </Button>
+          </div>
+        ) : editorMode !== "item" && editorMode !== "import" ? (
           // El paperdoll ya NO vive aquí: es la vista de solo lectura del
           // expediente. Esta sección es exclusivamente el editor completo.
           <ProfileEditor
@@ -286,7 +355,7 @@ export function CharacterSection({
           />
         ) : null}
 
-        {!restoring && editorMode !== "new" && (profile || editorMode === "item") && (
+        {!restoring && editorMode !== "new" && editorMode !== "import" && editorMode !== "memory" && (profile || editorMode === "item") && (
           <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
             <Label htmlFor="item-text">
               Analizar objeto copiado del juego (Ctrl+Alt+C sobre el objeto en PoE2)
@@ -309,7 +378,9 @@ export function CharacterSection({
                 variant="secondary"
                 disabled={busy !== null || !itemText.trim()}
                 onClick={() => {
-                  void character.importItemText(itemText, activePatch).then((item) => {
+                  void character.importItemText(itemText, activePatch, {
+                    persistImmediately: editorMode === "item",
+                  }).then((item) => {
                     if (item === null) return;
                     setItemText("");
                     onItemImported?.(item);
@@ -327,14 +398,14 @@ export function CharacterSection({
           </div>
         )}
 
-        {profile && !restoring && editorMode !== "item" && (
+        {profile && !restoring && editorMode !== "item" && editorMode !== "import" && editorMode !== "memory" && (
           <div className="flex justify-end">
             <Button
               type="button"
               data-testid="guardar-correcciones"
               onClick={() => {
-                void character.saveCorrections().then((saved) => {
-                  if (saved) onProfileSaved?.();
+                void character.saveCorrections().then((savedProfile) => {
+                  if (savedProfile) onProfileSaved?.(savedProfile);
                 });
               }}
               disabled={busy !== null || !dirty}
@@ -351,6 +422,63 @@ export function CharacterSection({
 
       </CardContent>
     </Card>
+    <AlertDialog
+      open={character.pendingItemImport !== null}
+      onOpenChange={(open) => {
+        if (!open) character.cancelPendingItemImport();
+      }}
+    >
+      <AlertDialogContent data-testid="item-slot-collision-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Ese hueco ya está ocupado</AlertDialogTitle>
+          <AlertDialogDescription>
+            <strong className="text-foreground">
+              {character.pendingItemImport?.item.name}
+            </strong>{" "}
+            no se añadirá ni sustituirá nada hasta que elijas qué hacer.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="flex flex-col gap-2">
+          {character.pendingItemImport?.candidates.map((candidate) => (
+            <Button
+              key={candidate.id}
+              type="button"
+              disabled={busy !== null}
+              onClick={() => {
+                void character.resolvePendingItemImport({
+                  mode: "replace",
+                  targetItemId: candidate.id,
+                }).then((item) => {
+                  if (!item) return;
+                  setItemText("");
+                  onItemImported?.(item);
+                });
+              }}
+            >
+              Sustituir {candidate.name}
+            </Button>
+          ))}
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy !== null}
+            onClick={() => {
+              void character.resolvePendingItemImport({ mode: "extra" }).then((item) => {
+                if (!item) return;
+                setItemText("");
+                onItemImported?.(item);
+              });
+            }}
+          >
+            Conservar ambos · guardar como extra
+          </Button>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar y revisar</AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
@@ -504,7 +632,11 @@ function ProfileEditor({
               </SelectTrigger>
               <SelectContent>
                 {meta.patches.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
+                  <SelectItem
+                    key={p.id}
+                    value={p.id}
+                    disabled={p.status === "announced" && p.id !== profile.patch}
+                  >
                     {p.label}
                   </SelectItem>
                 ))}

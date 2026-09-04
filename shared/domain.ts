@@ -32,6 +32,11 @@ export type SourceEvidence = z.infer<typeof SourceEvidenceSchema>;
 export const PatchVersionSchema = z.object({
   id: z.string(), // p. ej. "0.5.0"
   label: z.string(),
+  /** Un anuncio puede mostrarse como próximo destino, pero no operar todavía. */
+  // Ausente en registros históricos equivale a publicado. Solo `announced`
+  // bloquea explícitamente el uso operativo.
+  status: z.enum(["announced", "released"]).optional(),
+  releaseDate: z.string().optional(),
   /** Versión de contenido (p. ej. "0.5.0") y hotfix (p. ej. "f") por separado. */
   content: z.string().optional(),
   hotfix: z.string().nullable().optional(),
@@ -132,6 +137,7 @@ export const CraftingItemStateSchema = z.object({
   unmodifiableExceptChaos: z.boolean().optional(),
   mutated: z.boolean().optional(),
   desecrated: z.boolean().optional(),
+  fractured: z.boolean().optional(),
 });
 export type CraftingItemState = z.infer<typeof CraftingItemStateSchema>;
 
@@ -312,6 +318,15 @@ export type CharacterLevelReading =
 
 export const MAX_CHARACTER_ID_LENGTH = 200;
 
+/** Procedencia técnica conservada al importar una instantánea de PoB2. */
+export const PobImportProvenanceSchema = z.object({
+  /** Versión interna de compatibilidad de PoB2; no equivale al parche del juego. */
+  targetVersion: z.string().trim().min(1).max(40).optional(),
+  /** Versión del árbol pasivo activo, comparable con la familia del parche. */
+  passiveTreeVersion: z.string().trim().min(1).max(40).optional(),
+});
+export type PobImportProvenance = z.infer<typeof PobImportProvenanceSchema>;
+
 export const CharacterProfileSchema = z.object({
   id: z.string().trim().min(1).max(MAX_CHARACTER_ID_LENGTH),
   name: z.string(),
@@ -348,6 +363,8 @@ export const CharacterProfileSchema = z.object({
   evasion: z.number().int().optional(),
   armour: z.number().int().optional(),
   notes: z.string().optional(),
+  /** Ausente para perfiles manuales, .build oficiales y expedientes legacy. */
+  pobImport: PobImportProvenanceSchema.optional(),
   sources: z.array(SourceEvidenceSchema).default([]),
   importedAt: z.string(), // ISO 8601
 });

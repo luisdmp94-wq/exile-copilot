@@ -164,10 +164,15 @@ export function evaluateObservedCraftingActions(
           : "El texto copiado declara que el objeto no puede modificarse.",
       );
     }
-    if (state.mutated || state.desecrated) {
+    const specialModifiers = explicit.filter(
+      (modifier) => modifier.fractured || modifier.mutated || modifier.desecrated,
+    );
+    if (state.mutated || state.desecrated || state.fractured || specialModifiers.length > 0) {
       const specialStates = [
         state.mutated ? "mutado" : null,
         state.desecrated ? "profanado" : null,
+        state.fractured ? "fracturado" : null,
+        specialModifiers.length > 0 ? "con modificadores especiales" : null,
       ].filter((value): value is string => value !== null);
       return result(
         action,

@@ -42,9 +42,11 @@ npm run dev            # frontend + API en http://localhost:7100
 - `npm run test:journal` — prueba del flujo persistente del mentor en una base temporal; acepta también `--dev` y `--all` y nunca modifica los datos del usuario.
 - `npm run test:mentor` — prueba de navegador de la conversación con el mentor (Hito 6A) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
 - `npm run test:session` — prueba de navegador del ciclo «Probar y volver» (Hito 6C) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
-- `npm run verify:release` — barrera completa previa a una publicación: compila el servidor que se desplegará y recorre bienvenida, equipo, Crafting, Academia, Mentor, diario, sesiones y memoria en bases temporales.
-- `npm run drill:restore` — crea una SQLite temporal, guarda un expediente y su diario, copia y restaura el conjunto, ejecuta `integrity_check` y demuestra que la misma sesión puede recuperarlos; nunca usa la base real.
+- `npm run verify:release` — barrera completa de la versión: ejecuta ESLint, compila el servidor que se desplegará y recorre bienvenida, equipo, Crafting, Academia, Mentor, diario, sesiones y memoria en bases temporales.
+- `npm run drill:restore` — crea una SQLite temporal, guarda un expediente, su diario y una sesión activa del Mentor, copia y restaura el conjunto, ejecuta `integrity_check` y demuestra que la misma sesión anónima puede recuperarlos; nunca usa la base real.
 - `npm run readiness:deployment` — bloquea una publicación si conserva configuración local, cookies inseguras, almacenamiento efímero, proxy sin declarar o credenciales externas incompletas.
+- `npm run verify:public` — barrera final para abrir una versión a usuarios reales: primero valida exactamente la configuración pública y después ejecuta `verify:release` en un entorno local aislado, sin heredar la base ni los secretos reales.
+- `npm run verify:public:1.0` — añade a la barrera pública la evidencia estricta y exclusiva de PoE2 1.0; no acepta cobertura heredada de otro parche.
 - `server/data/releaseEvidence.json` — catálogo auditable que liga cada id de
   compatibilidad a un área, un parche explícito y un artefacto local fijado por
   SHA-256; un nombre inventado o una observación sin parche no desbloquean un
@@ -59,8 +61,8 @@ El procedimiento para publicar, hacer copias y recuperar el servicio está en
    abre el importador, **«Empezar desde cero»** crea un perfil editable y
    **«Evaluar o craftear»** permite pegar un objeto y entrar directamente al
    banco de Crafting. **«Cargar ejemplo»** sigue disponible como recorrido demo.
-2. Revisa/corrige campos en **Mi personaje** (atributos, resistencias, vida y defensas; «Desconocido» = sin dato, nunca 0) y pulsa **Guardar correcciones**. El personaje se recupera automáticamente al recargar la página (el id solo se guarda tras persistir de verdad en el servidor).
-3. Al importar un **`.build` oficial** de GGG se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building** sí rellena un personaje parcial.
+2. Revisa/corrige campos en **Mi personaje** (atributos, resistencias, vida y defensas; «Desconocido» = sin dato, nunca 0) y pulsa **Guardar correcciones**. El personaje se recupera automáticamente al recargar la página. Si falta solo el id local, la cookie anónima redescubre el expediente reciente; una caída temporal conserva la referencia y ofrece reintentar. **Cambiar o empezar de nuevo** suspende esa recuperación automática y muestra, de forma compacta, todos los personajes guardados de esa sesión para elegir uno sin mezclar su diario ni su Mentor.
+3. Al importar un **`.build` oficial** de GGG se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building 2** reconstruye los datos de personaje que contenga su instantánea y declara los campos ausentes.
 4. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; tasas de conversión con origen y verificación visibles).
 5. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza. Si cambias cualquier dato, las tarjetas se invalidan.
 6. Guarda una recomendación como **próximo paso**, o pulsa **Probar y volver**.
@@ -345,9 +347,11 @@ Con Mentor v4 activo, Groq redacta respuestas naturales, recuerda los ocho
 autoridad para inventar PoE2: toda afirmación de juego debe citar una
 recomendación o carencia que el motor ya haya producido.
 
-Mentor v4 conserva esos ocho turnos al recargar la página durante la sesión del
-navegador. No los guarda entre sesiones y los elimina inmediatamente si cambia
-el personaje, build objetivo, presupuesto, objetivo, liga, parche o diario.
+Mentor v4 conserva esos ocho turnos en el servidor para la misma sesión anónima
+y personaje. Sobreviven a una recarga, a cerrar y volver a abrir el navegador y
+a reiniciar el servidor con su SQLite. Se eliminan inmediatamente si cambia el
+personaje, build objetivo, presupuesto, objetivo, liga, parche o diario. No hay
+recuperación entre dispositivos: perder o borrar la cookie rompe el vínculo.
 
 Preguntas que entiende hoy:
 
@@ -393,10 +397,10 @@ una decisión muestra diagnóstico, una única próxima acción y confianza; las
 fuentes, la fecha, la versión del motor y lo que falta por verificar quedan
 dentro de «Ver evidencia y limitaciones». Un saludo no fabrica esos bloques.
 
-**Limitación:** el hilo vive solo en memoria de la interfaz. Los ocho últimos
-turnos se envían como contexto conversacional no autoritativo, pero no se
-persisten; se pierden al recargar y se descartan cuando cambian los datos
-relevantes para no mostrar respuestas obsoletas. Groq es el proveedor predeterminado para la
+**Limitación:** los ocho últimos turnos se guardan como contexto conversacional
+no autoritativo. El servidor conserva una huella irreversible de los inputs, no
+otra copia de la ficha, y descarta el hilo cuando cambian los datos relevantes.
+No existe cuenta ni recuperación sin la cookie anónima. Groq es el proveedor predeterminado para la
 prueba gratuita; su cuota no está garantizada para producción. OpenAI sigue
 disponible como alternativa, con facturación API separada de ChatGPT. Ninguna
 clave real se guarda en el repositorio. Detalles en `docs/HITO_6A.md` y

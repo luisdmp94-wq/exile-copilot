@@ -24,7 +24,7 @@ export function compactRecommendationReason(reason: string): string {
 export function journalEntryFromRecommendation(
   recommendation: Recommendation,
   profile: CharacterProfile,
-  budget: Budget,
+  budget: Budget | null,
   goal: GoalKind,
 ): CreateJournalEntryRequest {
   const levelReading = readCharacterLevel(profile);

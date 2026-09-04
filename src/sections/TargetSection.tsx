@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BookOpen, Crosshair, FileCheck2, Route, X } from "lucide-react";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import {
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/format";
 import { describeAscendancy } from "@/lib/ascendancyDisplay";
+import { ImportPanel } from "@/components/ImportPanel";
 
 export interface TargetDraft {
   name: string;
@@ -31,6 +33,10 @@ interface TargetSectionProps {
    */
   resolution: PlanResolution | null;
   onChange: (draft: TargetDraft) => void;
+  importBusy: boolean;
+  importText: string;
+  onImportTextChange: (value: string) => void;
+  onImportPlan: (content: string) => Promise<unknown>;
 }
 
 /** Build objetivo opcional: solo una referencia, nunca verdad absoluta. */
@@ -39,19 +45,27 @@ export function TargetSection({
   warnings,
   resolution,
   onChange,
+  importBusy,
+  importText,
+  onImportTextChange,
+  onImportPlan,
 }: TargetSectionProps) {
+  const [open, setOpen] = useState(draft.plan !== null || warnings.length > 0);
+
   return (
     <details
       className="briefing-card overflow-hidden rounded-xl border border-border/80 bg-card"
       data-testid="target-context-details"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="min-h-11 cursor-pointer list-none border-b border-border/70 px-6 py-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+      <summary className="min-h-11 cursor-pointer list-none px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden sm:px-6">
         <p className="rotulo-seccion flex items-center gap-2 text-primary/75">
           <Route className="size-4" aria-hidden="true" />
           Briefing de destino
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="dossier-title text-3xl font-semibold text-foreground">La build que quieres alcanzar</span>
+          <span className="dossier-title text-xl font-semibold text-foreground">La build que quieres alcanzar</span>
           <Badge
             variant="outline"
             className="border-amber-500/40 bg-amber-500/10 text-amber-300"
@@ -68,11 +82,18 @@ export function TargetSection({
             </Badge>
           )}
         </div>
-        <span className="mt-3 block text-sm font-medium text-primary">
-          Afinar el objetivo de la build (opcional)
+        <span className="mt-1.5 block text-xs text-muted-foreground">
+          Abrir importación y objetivo opcional
         </span>
       </summary>
-      <div className="flex flex-col gap-6 px-6 py-6">
+      <div className="flex flex-col gap-6 border-t border-border/70 px-6 py-6">
+        <ImportPanel
+          kind="target"
+          busy={importBusy}
+          pasted={importText}
+          onPastedChange={onImportTextChange}
+          onImport={onImportPlan}
+        />
         <details
           className="rounded-md border border-border/70 bg-muted/10 px-3 py-2 text-sm"
           data-testid="target-engine-data-details"

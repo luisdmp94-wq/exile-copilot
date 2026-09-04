@@ -10,6 +10,10 @@ import {
   type RecommendationMemoryImpact,
 } from "../../shared/domain.js";
 import {
+  assessMentorReadiness,
+  type CharacterReadiness,
+} from "../../shared/characterReadiness.js";
+import {
   MentorAnswerSchema,
   MENTOR_SUGGESTIONS,
   type MentorAnswer,
@@ -46,6 +50,7 @@ import {
   deriveCraftingBuildIntent,
 } from "../../shared/craftingBuildIntent.js";
 import { CRAFTING_GOAL_LABELS } from "../../shared/craftingGoal.js";
+import type { PatchFeatureId } from "../../shared/patchCompatibility.js";
 
 /**
  * Mentor conversacional.
@@ -62,7 +67,7 @@ export interface MentorQueryOptions {
   intentHint?: Exclude<MentorIntent, "unsupported">;
   profile: CharacterProfile;
   target?: BuildTarget;
-  budget: Budget;
+  budget: Budget | null;
   goal: Goal;
   league: string;
   patch: string;
@@ -71,6 +76,18 @@ export interface MentorQueryOptions {
   contextEnvelope?: ContextEnvelope;
   /** Historial visible, compacto y NO autoritativo. */
   conversation?: MentorConversationTurn[];
+  /** Semilla anónima de servidor para antiabuso del proveedor; nunca procede del personaje. */
+  safetyIdentifierSeed?: string;
+  /**
+   * Barrera AUTORITATIVA calculada por el servidor cuando la consulta pide
+   * conocimiento de un área que aún no está revisada para este parche.
+   */
+  patchFeatureBlock?: {
+    featureId: PatchFeatureId;
+    label: string;
+    patch: string;
+    note: string;
+  };
 }
 
 export interface MentorQueryDependencies {
@@ -256,6 +273,61 @@ function answerFromRecommendation(
     generatedAt: result.generatedAt,
     engineVersion: result.engineVersion,
     ...answerMetadata,
+  });
+}
+
+function patchFeatureReviewAnswer(
+  options: MentorQueryOptions,
+  normalizedQuestion: string,
+  block: NonNullable<MentorQueryOptions["patchFeatureBlock"]>,
+): MentorAnswer {
+  const missingEvidence = `El área «${block.label}» todavía no está revisada para ${block.patch}.`;
+  return MentorAnswerSchema.parse({
+    intent: "explain_priority",
+    normalizedQuestion,
+    answer:
+      `${missingEvidence} ${block.note} ` +
+      "No te recomendaré esa mecánica hasta que exista evidencia compatible con este parche.",
+    nextAction: null,
+    usedRecommendationIds: [],
+    relatedItemIds: [],
+    sources: [],
+    confidence: null,
+    unverified: [missingEvidence],
+    memoryImpact: memoryImpactWithoutEngine(options.memory),
+    inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
+    unsupported: null,
+    generatedAt: new Date().toISOString(),
+    engineVersion: ENGINE_VERSION,
+    ...metadata(),
+  });
+}
+
+function incompleteProfileAnswer(
+  options: MentorQueryOptions,
+  normalizedQuestion: string,
+  intent: "next_improvement" | "explain_priority",
+  readiness: CharacterReadiness,
+): MentorAnswer {
+  const missing = readiness.issues.map((issue) => issue.label.toLowerCase()).join(", ");
+  return MentorAnswerSchema.parse({
+    intent,
+    normalizedQuestion,
+    answer:
+      `Antes de elegir una mejora necesito completar tu personaje real. Faltan: ${missing}. ` +
+      "Abre «Completar expediente» y copia esos datos desde PoE2; no convertiré un plan parcial en estadísticas observadas.",
+    nextAction: null,
+    usedRecommendationIds: [],
+    relatedItemIds: [],
+    sources: [],
+    confidence: null,
+    unverified: readiness.issues.map((issue) => issue.detail),
+    memoryImpact: memoryImpactWithoutEngine(options.memory),
+    inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
+    unsupported: null,
+    generatedAt: new Date().toISOString(),
+    engineVersion: ENGINE_VERSION,
+    ...metadata(),
   });
 }
 
@@ -504,8 +576,8 @@ function sanitizeEnvelope(
     craftingState,
     activeRecommendationId,
     market: {
-      budgetAmount: options.budget.amount,
-      budgetCurrency: options.budget.currency.slice(0, 50),
+      budgetAmount: options.budget?.amount ?? null,
+      budgetCurrency: options.budget?.currency.slice(0, 50) ?? null,
       league: options.league.slice(0, 100),
     },
     sessionActive: envelope.sessionActive,
@@ -563,7 +635,7 @@ function buildAiContext(
       kind: options.goal.kind,
       note: compact(options.goal.note, 300),
     },
-    budget: { ...options.budget },
+    budget: options.budget === null ? null : { ...options.budget },
     activeAction:
       options.memory.primaryEntry === null
         ? null
@@ -606,8 +678,11 @@ function buildAiContext(
   return { context, missingById };
 }
 
-function safetyIdentifier(characterId: string): string {
-  return `ec_${createHash("sha256").update(characterId).digest("hex").slice(0, 32)}`;
+function safetyIdentifier(seed: string | undefined): string {
+  return `ec_${createHash("sha256")
+    .update(seed ?? "server-internal")
+    .digest("hex")
+    .slice(0, 32)}`;
 }
 
 function validateDecision(
@@ -863,6 +938,12 @@ async function buildAnswer(
   const intent = options.intentHint ?? classified.intent;
   const { normalizedQuestion } = classified;
   const selector = deps.selector ?? null;
+  const readiness = assessMentorReadiness(options.profile);
+  const hasStructuredCraftingContext =
+    intent === "explain_priority" &&
+    options.contextEnvelope?.activeArea === "crafting" &&
+    options.contextEnvelope.craftingState !== null &&
+    options.contextEnvelope.craftingState !== undefined;
 
   // La identidad del producto es fija y no depende del personaje ni de un
   // proveedor de IA. Así evitamos que una presentación básica se rechace o
@@ -877,9 +958,34 @@ async function buildAnswer(
     return conversationFallback(options, normalizedQuestion);
   }
 
+  // La compatibilidad por área se decide fuera de la IA y antes de ejecutar el
+  // motor. Una pregunta libre o un cliente antiguo no pueden reabrir mediante
+  // el Mentor una ruta que Crafting ya mantiene en revisión.
+  if (options.patchFeatureBlock !== undefined) {
+    return patchFeatureReviewAnswer(
+      options,
+      normalizedQuestion,
+      options.patchFeatureBlock,
+    );
+  }
+
   // Sin IA se conserva la salida honesta original y no se ejecuta el motor.
   if (intent === "unsupported" && selector === null) {
     return unsupportedAnswer(options, normalizedQuestion);
+  }
+
+  // Un borrador de plan puede servir para completar el expediente, pero no es
+  // evidencia suficiente para elegir una prioridad del personaje. Las
+  // explicaciones de un contrato de Crafting sí siguen disponibles: descansan
+  // en su estado estructurado y no necesitan fingir nivel, clase ni equipo.
+  if (!readiness.ready && !hasStructuredCraftingContext) {
+    if (intent === "conversation") {
+      return conversationFallback(options, normalizedQuestion);
+    }
+    if (intent === "unsupported") {
+      return unsupportedAnswer(options, normalizedQuestion);
+    }
+    return incompleteProfileAnswer(options, normalizedQuestion, intent, readiness);
   }
 
   const result = await generateRecommendations(
@@ -966,7 +1072,10 @@ async function buildAnswer(
 
   const { context, missingById } = buildAiContext(options, intent, result.recommendations);
   try {
-    const decision = await selector.select(context, safetyIdentifier(options.profile.id));
+    const decision = await selector.select(
+      context,
+      safetyIdentifier(options.safetyIdentifierSeed),
+    );
     validateDecision(decision, result.recommendations, missingById, intent, context);
 
     if (decision.kind === "explain_context") {

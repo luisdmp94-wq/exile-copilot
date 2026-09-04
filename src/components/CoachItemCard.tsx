@@ -40,7 +40,9 @@ export function CoachItemCard({
   return (
     <div
       className={cn("superficie-panel min-w-0 overflow-hidden", className)}
+      style={{ scrollMarginBottom: "var(--mentor-inset, 6rem)" }}
       data-testid="coach-objeto"
+      data-slot={item.slot}
       data-rarity={item.rarity}
       data-open-slots={reading.openSlots === null ? "desconocido" : String(reading.openSlots)}
     >
@@ -50,7 +52,11 @@ export function CoachItemCard({
           <h3 className="dossier-title text-lg font-semibold leading-tight sm:text-xl">
             {item.name}
           </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">{item.baseType}</p>
+          {/* En muchas piezas mágicas el nombre YA es la base: repetir la misma
+              cadena dos veces seguidas no añade nada. */}
+          {item.baseType && item.baseType !== item.name && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{item.baseType}</p>
+          )}
           <span
             className={cn(
               "mt-1.5 inline-block rounded-sm border px-2 py-0.5 text-[11px] font-semibold",

@@ -46,7 +46,7 @@ export interface PriceLookup {
 }
 
 export interface EngineOptions {
-  budget: Budget;
+  budget: Budget | null;
   goal: Goal;
   league: string;
   patch: string;
@@ -89,7 +89,7 @@ function stableStringify(value: unknown): string {
 export function computeInputFingerprint(input: {
   profile: CharacterProfile;
   target?: BuildTarget;
-  budget: Budget;
+  budget: Budget | null;
   goal: Goal;
   league: string;
   patch: string;
@@ -198,7 +198,12 @@ async function resolveCost(
   unverified: string[],
 ): Promise<{ cost: CostEstimate; quote: PriceQuote | null; overBudget: boolean }> {
   const unknownCost = {
-    cost: { min: null, max: null, currency: options.budget.currency, known: false } satisfies CostEstimate,
+    cost: {
+      min: null,
+      max: null,
+      currency: options.budget?.currency ?? "exalted",
+      known: false,
+    } satisfies CostEstimate,
     quote: null,
     overBudget: false,
   };
@@ -225,6 +230,13 @@ async function resolveCost(
 
   // Coste puntual verificado: NUNCA un rango inventado (max queda null).
   const cost: CostEstimate = { min: usable.value, max: null, currency: usable.currency, known: true };
+
+  if (options.budget === null) {
+    unverified.push(
+      "No verificado si entra en el presupuesto: el jugador todavía no ha declarado ningún límite.",
+    );
+    return { cost, quote: usable, overBudget: false };
+  }
 
   // Comparación con el presupuesto SOLO si la conversión es verificable.
   const budgetConverted = convertBudget(options.budget, usable.currency, rates);
@@ -471,7 +483,7 @@ function sessionGateRecommendation(
 function applySessionGates(
   recommendations: Recommendation[],
   memory: RecommendationMemory | undefined,
-  budget: Budget,
+  budget: Budget | null,
   generatedAt: string,
 ): Recommendation[] {
   if (recommendations.length === 0) return recommendations;

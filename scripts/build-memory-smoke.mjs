@@ -58,6 +58,7 @@ function startServer(mode, port) {
       PORT: String(port),
       DATABASE_PATH: join(TEMP_ROOT, `${mode}.db`),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      PUBLIC_DEPLOYMENT: "false",
       SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
     },

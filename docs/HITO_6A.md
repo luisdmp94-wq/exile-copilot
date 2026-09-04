@@ -139,20 +139,25 @@ Un fallo que **no** sea 409 (por ejemplo, red caída) es distinto: la memoria de
 servidor no ha cambiado, así que el hilo válido anterior se conserva y solo se
 retira la pregunta que no llegó a responderse.
 
-## Limitación: la conversación no se persiste
+## Persistencia privada y acotada
 
-El hilo vive **solo en memoria de la interfaz** (`src/hooks/useMentor.ts`):
+Mentor v4 conserva como máximo ocho turnos completos:
 
-- no se guarda en la base de datos ni en `localStorage`;
-- se pierde al recargar la página;
+- `sessionStorage` permite una recuperación inmediata en la misma pestaña;
+- SQLite conserva el mismo hilo para la sesión anónima propietaria y el mismo
+  personaje, incluso tras cerrar el navegador o reiniciar el servidor;
+- la base guarda una huella SHA-256 de los inputs, no otra copia del perfil;
+- otra sesión recibe el mismo 404 que si el personaje no existiera;
 - **se descarta automáticamente** cuando cambia cualquier input relevante
   (personaje, build objetivo, presupuesto, objetivo, liga, parche o revisión del
   diario), para no mostrar respuestas obsoletas — cambiar de pregunta no lo
   descarta;
-- el historial **no** se envía al servidor: cada consulta es independiente y el
-  contexto son los datos, no los turnos anteriores.
+- los últimos ocho turnos visibles acompañan a cada consulta como texto no
+  autoritativo. Ayudan a mantener el hilo, pero nunca crean datos de PoE2 ni
+  sustituyen el perfil, el motor o el Character Journal que carga el servidor.
 
-Persistir el historial es trabajo de un hito posterior.
+«Borrar todos mis datos» elimina también el hilo. No existe recuperación entre
+dispositivos ni después de perder la cookie anónima.
 
 ## Uso futuro (opcional) de un LLM
 

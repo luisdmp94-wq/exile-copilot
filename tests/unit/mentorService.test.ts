@@ -111,6 +111,119 @@ describe("mentor — intención next_improvement", () => {
   });
 });
 
+describe("mentor — expediente parcial", () => {
+  const partialProfile = CharacterProfileSchema.parse({
+    ...BASE.profile,
+    id: "mentor-partial-profile",
+    characterClass: "Desconocida",
+    level: 1,
+    levelSource: "placeholder",
+    items: [],
+  });
+
+  it("no consulta la IA ni convierte el plan parcial en una mejora", async () => {
+    const select = vi.fn();
+    const answer = await answerMentorQuery(
+      {
+        ...BASE,
+        profile: partialProfile,
+        question: "¿Qué mejoro ahora?",
+        memory: emptyMemory(),
+      },
+      {
+        priceService: offlinePriceService(),
+        selector: { name: "modelo-no-debe-usarse", select },
+      },
+    );
+
+    expect(select).not.toHaveBeenCalled();
+    expect(answer.intent).toBe("next_improvement");
+    expect(answer.nextAction).toBeNull();
+    expect(answer.usedRecommendationIds).toEqual([]);
+    expect(answer.answer).toContain("Faltan: clase, nivel, equipo");
+    expect(answer.answer).toContain("no convertiré un plan parcial");
+  });
+
+  it("mantiene disponible una explicación de Crafting con contrato estructurado", async () => {
+    const contextEnvelope: ContextEnvelope = {
+      version: "1.0",
+      activeArea: "crafting",
+      character: { level: null, characterClass: null },
+      targetBuild: null,
+      selectedItem: null,
+      craftingState: {
+        mode: "coach",
+        focus: "physical",
+        rollMinimum: "high",
+        attemptCurrent: 0,
+        attemptLimit: 2,
+        phase: "planning",
+        decision: null,
+        nextAction: "regal",
+      },
+      activeRecommendationId: null,
+      market: {
+        budgetAmount: 50,
+        budgetCurrency: "chaos",
+        league: "Runes of Aldur",
+      },
+      sessionActive: false,
+      lastAction: null,
+    };
+    const answer = await answerMentorQuery(
+      {
+        ...BASE,
+        profile: partialProfile,
+        question: "¿Por qué debo respetar este contrato antes de gastar?",
+        intentHint: "explain_priority",
+        contextEnvelope,
+        memory: emptyMemory(),
+      },
+      { priceService: offlinePriceService() },
+    );
+
+    expect(answer.intent).toBe("explain_priority");
+    expect(answer.nextAction).toBeNull();
+    expect(answer.answer).toContain("tirada alta");
+    expect(answer.answer).toContain("2 pasos");
+    expect(answer.answer).not.toContain("Faltan: clase");
+  });
+});
+
+describe("mentor — compatibilidad por área", () => {
+  it("explica la revisión pendiente sin ejecutar motor ni proveedor", async () => {
+    const select = vi.fn();
+    const answer = await answerMentorQuery(
+      {
+        ...BASE,
+        question: "¿Cómo uso una Essence perfecta?",
+        memory: emptyMemory(),
+        patchFeatureBlock: {
+          featureId: "advanced-crafting",
+          label: "Essences, Alloys y rutas avanzadas",
+          patch: "0.5.4f",
+          note: "La evidencia disponible pertenece a versiones anteriores.",
+        },
+      },
+      {
+        priceService: offlinePriceService(),
+        selector: { name: "modelo-no-debe-usarse", select },
+      },
+    );
+
+    expect(select).not.toHaveBeenCalled();
+    expect(answer.intent).toBe("explain_priority");
+    expect(answer.responseMode).toBe("rules");
+    expect(answer.nextAction).toBeNull();
+    expect(answer.usedRecommendationIds).toEqual([]);
+    expect(answer.answer).toContain("todavía no está revisada para 0.5.4f");
+    expect(answer.answer).toContain("No te recomendaré esa mecánica");
+    expect(answer.unverified).toEqual([
+      "El área «Essences, Alloys y rutas avanzadas» todavía no está revisada para 0.5.4f.",
+    ]);
+  });
+});
+
 describe("Mentor v3 — conversación fundamentada", () => {
   function v3Selector(
     decide: (context: MentorAiContext) => MentorAiDecision | Promise<MentorAiDecision>,
@@ -630,6 +743,65 @@ describe("mentor v2 — contexto supervisado", () => {
       latestBranch: "salvage",
     },
   };
+
+  it("minimiza el contexto externo y excluye identidad, afijos y resultados libres", async () => {
+    const profile = CharacterProfileSchema.parse({
+      ...BASE.profile,
+      id: "ID_DE_EXPEDIENTE_PRIVADO",
+      name: "NOMBRE_DE_PERSONAJE_PRIVADO",
+      items: BASE.profile.items.map((item, itemIndex) =>
+        itemIndex === 0
+          ? {
+              ...item,
+              modifiers: item.modifiers.map((modifier, modifierIndex) =>
+                modifierIndex === 0
+                  ? { ...modifier, text: "TOOLTIP_COMPLETO_PRIVADO" }
+                  : modifier,
+              ),
+            }
+          : item,
+      ),
+    });
+    const memory = RecommendationMemorySchema.parse({
+      revision: "journal-memory-v1:privacy000000000",
+      primaryEntry: null,
+      recentCompleted: [
+        {
+          entryId: "entrada-privada",
+          status: "completed",
+          title: "Prueba anterior",
+          nextAction: "Comprobar dentro del juego.",
+          result: "RESULTADO_LIBRE_PRIVADO",
+          recommendationId: "rec-resistencias-elementales",
+          relatedItemIds: [],
+          updatedAt: "2026-08-30T00:00:00.000Z",
+          patch: "0.5.4f",
+        },
+      ],
+    });
+    const { selector, contexts } = recordingSelector((context) => ({
+      kind: "choose_recommendation",
+      recommendationId: context.candidates[0]?.id ?? null,
+      missingFactId: null,
+    }));
+
+    await answerMentorQuery(
+      {
+        ...BASE,
+        profile,
+        question: "¿Qué mejoro ahora?",
+        memory,
+        safetyIdentifierSeed: "sesion-anonima-privada",
+      },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    const serialized = JSON.stringify(contexts[0]);
+    expect(serialized).not.toContain("ID_DE_EXPEDIENTE_PRIVADO");
+    expect(serialized).not.toContain("NOMBRE_DE_PERSONAJE_PRIVADO");
+    expect(serialized).not.toContain("TOOLTIP_COMPLETO_PRIVADO");
+    expect(serialized).not.toContain("RESULTADO_LIBRE_PRIVADO");
+  });
 
   it("descarta identidad e instrucciones inyectadas, pero conserva el contrato acotado", async () => {
     const { selector, contexts } = recordingSelector((context) => ({

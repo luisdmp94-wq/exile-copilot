@@ -61,10 +61,12 @@ const MentorAiContextSchema = z.strictObject({
     kind: z.string().max(50),
     note: z.string().max(300).nullable(),
   }),
-  budget: z.strictObject({
-    amount: z.number().nonnegative(),
-    currency: z.string().max(30),
-  }),
+  budget: z
+    .strictObject({
+      amount: z.number().nonnegative(),
+      currency: z.string().max(30),
+    })
+    .nullable(),
   activeAction: z
     .strictObject({
       title: z.string().max(200),

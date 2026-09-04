@@ -51,7 +51,7 @@ function emptyProfile(overrides: Record<string, unknown> = {}): CharacterProfile
   });
 }
 
-describe("importador oficial GGG (.build → plan, nunca perfil)", () => {
+describe("importador oficial GGG (.build con destino explícito)", () => {
   it("importa un .build válido como plan crudo (profile ausente)", () => {
     const result = importBuild(titanRaw, IMPORT_DEFAULTS);
     expect(result.detectedFormat).toBe("ggg-build-planner-v1");
@@ -64,6 +64,25 @@ describe("importador oficial GGG (.build → plan, nunca perfil)", () => {
     // Nunca se fabrican stats: el plan crudo no lleva vida/resistencias verificables.
     expect(JSON.stringify(result.plan)).not.toContain("\"life\"");
     expect(JSON.stringify(result.plan)).not.toContain("resistances");
+  });
+
+  it("crea un borrador parcial cuando el jugador lo sube como su personaje", () => {
+    const result = importBuild(titanRaw, IMPORT_DEFAULTS, "character");
+    expect(result.detectedFormat).toBe("ggg-build-planner-v1");
+    expect(result.plan).toBeUndefined();
+    expect(result.profile).toMatchObject({
+      name: "Titan Warrior",
+      ascendancy: "Warrior1",
+      ascendancyId: "Warrior1",
+      levelSource: "placeholder",
+      items: [],
+      attributes: { str: null, dex: null, int: null },
+      resistances: { fire: null, cold: null, lightning: null, chaos: null },
+    });
+    expect(result.profile?.passives.allocated.length).toBeGreaterThan(0);
+    expect(result.profile?.skills.length).toBeGreaterThan(0);
+    expect(result.warnings.join(" ")).toContain("borrador parcial");
+    expect(result.warnings.join(" ")).toContain("equipo");
   });
 
   it("conserva additional_text del plan oficial (import crudo, markup incluido)", () => {

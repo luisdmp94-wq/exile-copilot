@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Database, KeyRound, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { Bot, Database, KeyRound, Loader2, Music2, RotateCcw, Trash2 } from "lucide-react";
 import {
   DELETE_VISITOR_DATA_CONFIRMATION,
   type HealthResponse,
@@ -42,7 +42,7 @@ function mentorDisclosure(health: HealthResponse | null): string {
     return "Ahora usa solo las reglas verificables de Exile Copilot. Tus consultas no se envían a un proveedor de IA externo.";
   }
   const provider = mentor.provider === "groq" ? "Groq" : "OpenAI";
-  return `Cuando envías una consulta al Mentor, la pregunta y el contexto necesario pueden enviarse a ${provider}. Si el proveedor falla, responden las reglas.`;
+  return `Al preguntar se envían a ${provider} tu pregunta, hasta ocho turnos y un resumen de clase, defensas, objetivo, presupuesto, equipo y decisión activa. No se envían tu nombre de personaje, cookie, id de expediente, tooltips completos ni resultados libres del diario. Si falla, responden las reglas.`;
 }
 
 /** Explicación pública y breve del modelo de datos actual, sin prometer cuentas. */
@@ -106,10 +106,11 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
             <Database className="mb-3 size-5 text-primary" aria-hidden="true" />
             <h3 className="font-semibold text-foreground">Qué se guarda</h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              En el servidor: personaje, objetos, decisiones y sesiones. En este
-              navegador: progreso de Academia, proyectos de Crafting y hasta ocho
-              turnos del Mentor durante esta sesión. Otro visitante no puede abrir tu
-              expediente.
+              En el servidor: tus personajes, objetos, decisiones, sesiones y hasta
+              ocho turnos completos del Mentor ligados a tu sesión anónima y a cada
+              personaje. En este navegador: progreso de Academia y proyectos de
+              Crafting. Otro visitante no puede abrir tus expedientes ni sus
+              conversaciones.
             </p>
           </section>
 
@@ -128,8 +129,25 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
             <RotateCcw className="mb-3 size-5 text-primary" aria-hidden="true" />
             <h3 className="font-semibold text-foreground">Recuperación actual</h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              “Empezar de nuevo” aparta el expediente y permite recuperar el último.
-              No hay recuperación entre dispositivos; borrar la cookie rompe ese vínculo.
+              Si se pierde la referencia local, la cookie privada permite redescubrir el
+              expediente reciente. Al cambiar, puedes elegir cualquiera de los
+              personajes guardados en esa sesión mediante resúmenes que no incluyen
+              equipo ni notas. No hay recuperación entre dispositivos; borrar la cookie
+              rompe ese vínculo.
+            </p>
+          </section>
+
+          <section className="rounded-lg border border-border bg-card/50 p-4 sm:col-span-2">
+            <Music2 className="mb-3 size-5 text-primary" aria-hidden="true" />
+            <h3 className="font-semibold text-foreground">Música mediante YouTube</h3>
+            <p
+              className="mt-1 text-sm leading-relaxed text-muted-foreground"
+              data-testid="privacidad-musica"
+            >
+              Abrir el reproductor no contacta con terceros. Solo si pulsas
+              “Reproducir con YouTube” se crea el reproductor externo; YouTube puede
+              recibir tu dirección IP y datos técnicos del navegador. Exile Copilot
+              no envía tu personaje ni tu expediente con esa petición.
             </p>
           </section>
         </div>
@@ -141,7 +159,7 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
               <h3 className="font-semibold text-foreground">Borrar todos mis datos</h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Elimina de forma irreversible tus expedientes, objetos, diario, memoria,
-                sesiones, conversación temporal del Mentor y proyectos de Crafting.
+                sesiones, conversación guardada del Mentor y proyectos de Crafting.
                 Después empezarás con una sesión nueva.
               </p>
               <AlertDialog>

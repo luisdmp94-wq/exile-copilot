@@ -2,7 +2,11 @@ import type {
   ExpertCraftingBlueprint,
   ExpertCraftingRouteCandidate,
 } from "@shared/craftingBlueprint.js";
-import type { CraftingProjectAttempt } from "@/lib/craftingProject";
+import {
+  splitCraftingProjectAttemptHistory,
+  type CraftingProjectAttempt,
+  type NumberedCraftingProjectAttempt,
+} from "@/lib/craftingProject";
 import { Button } from "@/components/ui/button";
 
 const RISK_STYLE: Record<ExpertCraftingRouteCandidate["risk"], string> = {
@@ -23,7 +27,7 @@ const STATUS_STYLE: Record<ExpertCraftingBlueprint["status"], string> = {
   "needs-stop": "border-amber-500/40 bg-amber-500/[0.07] text-amber-50",
   "already-complete": "border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-50",
   "needs-route-data": "border-rose-500/40 bg-rose-500/[0.07] text-rose-50",
-  ready: "border-cyan-500/40 bg-cyan-500/[0.07] text-cyan-50",
+  ready: "border-primary/40 bg-primary/[0.07] text-foreground",
 };
 
 const PHASE_LABEL: Record<ExpertCraftingBlueprint["projectPhase"], string> = {
@@ -40,12 +44,12 @@ const BASE_DECISION_STYLE: Record<ExpertCraftingBlueprint["baseDecision"]["kind"
   continue: "border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-50",
   recover: "border-violet-500/40 bg-violet-500/[0.07] text-violet-50",
   "change-base": "border-rose-500/40 bg-rose-500/[0.07] text-rose-50",
-  stop: "border-cyan-500/40 bg-cyan-500/[0.07] text-cyan-50",
+  stop: "border-primary/40 bg-primary/[0.07] text-foreground",
 };
 
 const BRANCH_STYLE = {
   success: "border-emerald-500/30 bg-emerald-500/[0.055]",
-  salvage: "border-cyan-500/30 bg-cyan-500/[0.055]",
+  salvage: "border-primary/30 bg-muted/[0.04]",
   failure: "border-rose-500/30 bg-rose-500/[0.055]",
 } as const;
 
@@ -57,7 +61,7 @@ const ATTEMPT_LABEL: Record<CraftingProjectAttempt["branch"], string> = {
 
 const ATTEMPT_STYLE: Record<CraftingProjectAttempt["branch"], string> = {
   success: "border-emerald-500/35 bg-emerald-500/[0.06] text-emerald-100",
-  salvage: "border-cyan-500/35 bg-cyan-500/[0.06] text-cyan-100",
+  salvage: "border-primary/35 bg-primary/[0.07] text-primary",
   failure: "border-rose-500/35 bg-rose-500/[0.06] text-rose-100",
 };
 
@@ -72,7 +76,7 @@ function ContractCell({
 }) {
   return (
     <div className="min-w-0 bg-background/65 px-3 py-2.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-300/75">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">
         {label}
       </span>
       <p className={`mt-1 line-clamp-2 text-xs leading-relaxed ${empty ? "text-amber-200" : "text-foreground"}`}>
@@ -82,16 +86,70 @@ function ContractCell({
   );
 }
 
+function attemptDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function ProjectAttemptCard({
+  entry,
+}: {
+  entry: NumberedCraftingProjectAttempt;
+}) {
+  const { attempt, number } = entry;
+  return (
+    <li
+      className={`rounded border p-3 ${ATTEMPT_STYLE[attempt.branch]}`}
+      data-testid="crafting-project-attempt"
+      data-project-branch={attempt.branch}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] opacity-70">
+            Intento {number} · {attempt.actionLabel}
+          </span>
+          <strong className="mt-1 block text-sm text-foreground">
+            {ATTEMPT_LABEL[attempt.branch]}
+          </strong>
+        </div>
+        <span className="shrink-0 rounded-full border border-current/25 px-2 py-0.5 text-[10px]">
+          +{attempt.addedModifiers.length} / −{attempt.removedModifiers.length}
+        </span>
+      </div>
+      <p className="mt-1 truncate text-[11px] opacity-70" title={attempt.resultName}>
+        {attempt.resultName} · {attemptDate(attempt.recordedAt)}
+      </p>
+      <p className="mt-1 line-clamp-2 text-xs leading-relaxed opacity-85">
+        {attempt.decisionTitle}
+      </p>
+      {attempt.protectedStatus === "lost" && (
+        <p className="mt-2 text-[11px] font-semibold">Se perdió una línea protegida.</p>
+      )}
+    </li>
+  );
+}
+
 export function CraftingExpertBlueprint({
   blueprint,
   attempts = [],
   disabled,
+  simulation = false,
+  unavailableRouteIds = [],
   onChooseRoute,
   showContract = true,
 }: {
   blueprint: ExpertCraftingBlueprint;
   attempts?: CraftingProjectAttempt[];
   disabled: boolean;
+  /** Enseña la lectura sin ofrecer preparar una acción sobre un objeto ficticio. */
+  simulation?: boolean;
+  /** Rutas conocidas cuya mecánica aún no está autorizada para el parche. */
+  unavailableRouteIds?: readonly ExpertCraftingRouteCandidate["id"][];
   onChooseRoute: (route: ExpertCraftingRouteCandidate) => void;
   /** El laboratorio ya muestra el contrato paso a paso; evita repetirlo aquí. */
   showContract?: boolean;
@@ -104,10 +162,12 @@ export function CraftingExpertBlueprint({
     blueprint.stopConditions.length > 0
       ? blueprint.stopConditions.join(" · ")
       : "Sin condición de salida";
+  const unavailableRoutes = new Set(unavailableRouteIds);
+  const attemptHistory = splitCraftingProjectAttemptHistory(attempts);
 
   return (
     <section
-      className="overflow-hidden rounded-md border border-cyan-500/30 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_38%)]"
+      className="overflow-hidden rounded-md border border-primary/30 bg-[radial-gradient(circle_at_top_left,hsl(42 92% 55% / 0.08),transparent_38%)]"
       data-testid="crafting-expert-blueprint"
       data-status={blueprint.status}
       aria-labelledby="crafting-expert-blueprint-title"
@@ -204,40 +264,39 @@ export function CraftingExpertBlueprint({
                 {attempts.length} {attempts.length === 1 ? "intento registrado" : "intentos registrados"}
               </strong>
             </div>
-            <span className="text-[11px] text-muted-foreground">Últimos 4</span>
+            <span className="text-[11px] text-muted-foreground">
+              {attemptHistory.previous.length > 0 ? "4 recientes" : "Todos visibles"}
+            </span>
           </div>
-          <ol className="mt-2 grid gap-2 sm:grid-cols-2">
-            {attempts.slice(-4).reverse().map((attempt, reversedIndex) => {
-              const attemptNumber = attempts.length - reversedIndex;
-              return (
-                <li
-                  key={attempt.sessionId}
-                  className={`rounded border p-3 ${ATTEMPT_STYLE[attempt.branch]}`}
-                  data-project-branch={attempt.branch}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.15em] opacity-70">
-                        Intento {attemptNumber} · {attempt.actionLabel}
-                      </span>
-                      <strong className="mt-1 block text-sm text-foreground">
-                        {ATTEMPT_LABEL[attempt.branch]}
-                      </strong>
-                    </div>
-                    <span className="shrink-0 rounded-full border border-current/25 px-2 py-0.5 text-[10px]">
-                      +{attempt.addedModifiers.length} / −{attempt.removedModifiers.length}
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed opacity-85">
-                    {attempt.decisionTitle}
-                  </p>
-                  {attempt.protectedStatus === "lost" && (
-                    <p className="mt-2 text-[11px] font-semibold">Se perdió una línea protegida.</p>
-                  )}
-                </li>
-              );
-            })}
+          <ol
+            className="mt-2 grid gap-2 sm:grid-cols-2"
+            data-testid="crafting-project-recent-attempts"
+          >
+            {attemptHistory.recent.map((entry) => (
+              <ProjectAttemptCard key={entry.attempt.sessionId} entry={entry} />
+            ))}
           </ol>
+          {attemptHistory.previous.length > 0 && (
+            <details
+              className="mt-2 rounded border border-border/70 bg-background/35 px-3 py-2"
+              data-testid="crafting-project-older-attempts"
+            >
+              <summary className="cursor-pointer select-none text-xs font-medium text-foreground hover:text-primary">
+                Ver {attemptHistory.previous.length}{" "}
+                {attemptHistory.previous.length === 1
+                  ? "intento anterior"
+                  : "intentos anteriores"}
+              </summary>
+              <ol
+                className="mt-2 grid gap-2 border-t border-border/60 pt-2 sm:grid-cols-2"
+                data-testid="crafting-project-previous-attempts"
+              >
+                {attemptHistory.previous.map((entry) => (
+                  <ProjectAttemptCard key={entry.attempt.sessionId} entry={entry} />
+                ))}
+              </ol>
+            </details>
+          )}
         </section>
       )}
 
@@ -250,7 +309,9 @@ export function CraftingExpertBlueprint({
             </span>
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {blueprint.routes.map((route) => (
+            {blueprint.routes.map((route) => {
+              const patchBlocked = unavailableRoutes.has(route.id);
+              return (
               <article
                 key={route.id}
                 className={`rounded border p-3 ${RISK_STYLE[route.risk]}`}
@@ -261,13 +322,17 @@ export function CraftingExpertBlueprint({
                   <div>
                     <strong className="text-sm text-foreground">{route.label}</strong>
                     {route.recommended && (
-                      <span className="ml-2 rounded-full border border-cyan-400/35 bg-cyan-500/[0.1] px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
+                      <span className="ml-2 rounded-full border border-primary/35 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                         Primero
                       </span>
                     )}
                   </div>
                   <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide">
-                    {route.availability === "legal" ? RISK_LABEL[route.risk] : "Falta tooltip"}
+                    {patchBlocked
+                      ? "En revisión"
+                      : route.availability === "legal"
+                        ? RISK_LABEL[route.risk]
+                        : "Falta tooltip"}
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-foreground/90">{route.consequence}</p>
@@ -285,17 +350,22 @@ export function CraftingExpertBlueprint({
                   type="button"
                   size="sm"
                   variant={route.recommended ? "default" : "outline"}
-                  disabled={disabled || blueprint.status !== "ready"}
+                  disabled={simulation || patchBlocked || disabled || blueprint.status !== "ready"}
                   onClick={() => onChooseRoute(route)}
                 >
-                  {blueprint.status === "already-complete"
+                  {simulation
+                    ? "Solo demostración"
+                    : patchBlocked
+                    ? "Esperando revisión del parche"
+                    : blueprint.status === "already-complete"
                     ? "Parada ya cumplida"
                     : route.availability === "legal"
                       ? `Preparar ${route.label}`
                       : `Evaluar ${route.label}`}
                 </Button>
               </article>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

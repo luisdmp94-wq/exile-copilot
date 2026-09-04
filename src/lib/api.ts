@@ -6,6 +6,16 @@ import {
   type MentorQueryResponse,
 } from "@shared/mentorQuery.js";
 import {
+  DeleteMentorThreadResponseSchema,
+  RestoreMentorThreadResponseSchema,
+  SaveMentorThreadResponseSchema,
+  type DeleteMentorThreadResponse,
+  type RestoreMentorThreadRequest,
+  type RestoreMentorThreadResponse,
+  type SaveMentorThreadRequest,
+  type SaveMentorThreadResponse,
+} from "@shared/mentorThreadPersistence.js";
+import {
   ApiErrorSchema,
   DemoCharacterResponseSchema,
   DeleteVisitorDataResponseSchema,
@@ -17,10 +27,13 @@ import {
   JournalEntryResponseSchema,
   BuildMemoryEntryResponseSchema,
   CraftingKnowledgeResponseSchema,
+  FeaturedBuildsResponseSchema,
   JournalResponseSchema,
   MarketPricesResponseSchema,
   MetaResponseSchema,
   RecommendationsResponseSchema,
+  RecentCharacterResponseSchema,
+  SavedCharactersResponseSchema,
   SaveCharacterResponseSchema,
   type DemoCharacterResponse,
   type DeleteVisitorDataRequest,
@@ -38,6 +51,7 @@ import {
   type JournalEntryResponse,
   type BuildMemoryEntryResponse,
   type CraftingKnowledgeResponse,
+  type FeaturedBuildsResponse,
   type CreateBuildMemoryEntryRequest,
   type UpdateBuildMemoryEntryRequest,
   type JournalResponse,
@@ -45,6 +59,8 @@ import {
   type MetaResponse,
   type RecommendationsRequest,
   type RecommendationsResponse,
+  type RecentCharacterResponse,
+  type SavedCharactersResponse,
   type UpdateJournalEntryRequest,
   type StartDecisionSessionRequest,
   type AddSessionConstraintRequest,
@@ -212,7 +228,7 @@ async function request<S extends z.ZodTypeAny>(
 
 function jsonInit(
   payload: unknown,
-  method: "POST" | "PATCH" | "DELETE" = "POST",
+  method: "POST" | "PUT" | "PATCH" | "DELETE" = "POST",
 ): RequestInit {
   return {
     method,
@@ -240,6 +256,15 @@ export const api = {
 
   getCharacter: (id: string): Promise<GetCharacterResponse> =>
     request(`/api/character/${encodeURIComponent(id)}`, GetCharacterResponseSchema),
+
+  recentCharacter: (): Promise<RecentCharacterResponse> =>
+    request("/api/visitor/character/recent", RecentCharacterResponseSchema),
+
+  savedCharacters: (offset = 0, limit = 10): Promise<SavedCharactersResponse> =>
+    request(
+      `/api/visitor/characters?offset=${encodeURIComponent(String(offset))}&limit=${encodeURIComponent(String(limit))}`,
+      SavedCharactersResponseSchema,
+    ),
 
   deleteVisitorData: (
     payload: DeleteVisitorDataRequest,
@@ -394,6 +419,14 @@ export const api = {
     return request(`/api/market/prices?${params.toString()}`, MarketPricesResponseSchema);
   },
 
+  featuredBuilds: (league: string, patch: string): Promise<FeaturedBuildsResponse> => {
+    const params = new URLSearchParams({ league, patch });
+    return request(
+      `/api/featured-builds?${params.toString()}`,
+      FeaturedBuildsResponseSchema,
+    );
+  },
+
   craftingKnowledge: (input: {
     itemClass?: string;
     baseType?: string;
@@ -417,6 +450,33 @@ export const api = {
       timeoutMessage:
         "El Mentor tardó demasiado en responder. No se aplicó ningún cambio; inténtalo de nuevo.",
     }),
+
+  restoreMentorThread: (
+    characterId: string,
+    payload: RestoreMentorThreadRequest,
+  ): Promise<RestoreMentorThreadResponse> =>
+    request(
+      `/api/mentor/thread/${encodeURIComponent(characterId)}/restore`,
+      RestoreMentorThreadResponseSchema,
+      jsonInit(payload),
+    ),
+
+  saveMentorThread: (
+    characterId: string,
+    payload: SaveMentorThreadRequest,
+  ): Promise<SaveMentorThreadResponse> =>
+    request(
+      `/api/mentor/thread/${encodeURIComponent(characterId)}`,
+      SaveMentorThreadResponseSchema,
+      jsonInit(payload, "PUT"),
+    ),
+
+  deleteMentorThread: (characterId: string): Promise<DeleteMentorThreadResponse> =>
+    request(
+      `/api/mentor/thread/${encodeURIComponent(characterId)}`,
+      DeleteMentorThreadResponseSchema,
+      jsonInit({}, "DELETE"),
+    ),
 
   recommendations: (payload: RecommendationsRequest): Promise<RecommendationsResponse> =>
     request("/api/recommendations", RecommendationsResponseSchema, jsonInit(payload)),

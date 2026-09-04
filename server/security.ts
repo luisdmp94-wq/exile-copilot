@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { RequestHandler, Response } from "express";
 import type { ServerConfig } from "./config.js";
+import { logRateLimitExceeded } from "./operationalLog.js";
 
 const LOCAL_SESSION_COOKIE = "exile_copilot_session";
 const SECURE_SESSION_COOKIE = "__Host-exile_copilot_session";
@@ -117,9 +118,25 @@ export function securityHeaders(config: ServerConfig): RequestHandler {
       res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
       res.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
+        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://www.youtube-nocookie.com; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
       );
     }
+    next();
+  };
+}
+
+/**
+ * Las rutas funcionales pertenecen a una sesión anónima y pueden devolver el
+ * expediente, el diario o una conversación. Incluso cuando una respuesta
+ * concreta sea pública, compartir su URL con las rutas privadas hace más
+ * seguro aplicar una política única: ningún navegador, CDN o proxy debe
+ * reutilizarla para otro visitante.
+ */
+export function privateSessionResponse(): RequestHandler {
+  return (_req, res, next) => {
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.vary("Cookie");
     next();
   };
 }
@@ -129,12 +146,66 @@ interface RateBucket {
   count: number;
 }
 
+const DEFAULT_RATE_BUCKET_CAPACITY = 10_000;
+
+/**
+ * Almacén local acotado para el limitador. Una rotación masiva de IPs no puede
+ * hacer crecer el proceso sin límite: primero se retiran ventanas caducadas y,
+ * si todas siguen activas, se sustituye la ventana más antigua.
+ */
+export class BoundedRateBucketStore {
+  private readonly buckets = new Map<string, RateBucket>();
+  private readonly capacity: number;
+
+  constructor(capacity = DEFAULT_RATE_BUCKET_CAPACITY) {
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      throw new Error("La capacidad del limitador debe ser un entero positivo.");
+    }
+    this.capacity = capacity;
+  }
+
+  get size(): number {
+    return this.buckets.size;
+  }
+
+  consume(key: string, now: number, windowMs: number): RateBucket {
+    const previous = this.buckets.get(key);
+    if (previous !== undefined && now - previous.startedAt < windowMs) {
+      previous.count += 1;
+      return previous;
+    }
+
+    if (previous !== undefined) this.buckets.delete(key);
+
+    if (this.buckets.size >= this.capacity) {
+      for (const [storedKey, bucket] of this.buckets) {
+        if (now - bucket.startedAt >= windowMs) this.buckets.delete(storedKey);
+      }
+    }
+
+    if (this.buckets.size >= this.capacity) {
+      const oldestKey = this.buckets.keys().next().value as string | undefined;
+      if (oldestKey !== undefined) this.buckets.delete(oldestKey);
+    }
+
+    const bucket = { startedAt: now, count: 1 };
+    this.buckets.set(key, bucket);
+    return bucket;
+  }
+}
+
 /** Límite local por IP. En despliegues multi-instancia se sustituirá por un almacén compartido. */
 export function fixedWindowRateLimit(
   config: ServerConfig,
-  options: { scope: string; limit: number; windowMs?: number },
+  options: {
+    scope: string;
+    limit: number;
+    windowMs?: number;
+    /** Override acotado para pruebas; producción usa 10.000 ventanas. */
+    bucketCapacity?: number;
+  },
 ): RequestHandler {
-  const buckets = new Map<string, RateBucket>();
+  const buckets = new BoundedRateBucketStore(options.bucketCapacity);
   const windowMs = options.windowMs ?? 60_000;
 
   return (req, res, next) => {
@@ -143,19 +214,8 @@ export function fixedWindowRateLimit(
       return;
     }
     const now = Date.now();
-    if (buckets.size > 10_000) {
-      for (const [key, bucket] of buckets) {
-        if (now - bucket.startedAt >= windowMs) buckets.delete(key);
-      }
-    }
     const key = `${options.scope}:${req.ip ?? req.socket.remoteAddress ?? "unknown"}`;
-    const previous = buckets.get(key);
-    const bucket =
-      previous === undefined || now - previous.startedAt >= windowMs
-        ? { startedAt: now, count: 0 }
-        : previous;
-    bucket.count += 1;
-    buckets.set(key, bucket);
+    const bucket = buckets.consume(key, now, windowMs);
 
     const remaining = Math.max(0, options.limit - bucket.count);
     const resetSeconds = Math.max(1, Math.ceil((bucket.startedAt + windowMs - now) / 1000));
@@ -164,10 +224,17 @@ export function fixedWindowRateLimit(
     res.setHeader("RateLimit-Reset", String(resetSeconds));
     if (bucket.count > options.limit) {
       res.setHeader("Retry-After", String(resetSeconds));
+      const requestId = publicRequestId(res.locals as Record<string, unknown>);
+      logRateLimitExceeded({
+        scope: options.scope,
+        requestId,
+        limit: options.limit,
+        retryAfterSeconds: resetSeconds,
+      });
       res.status(429).json({
         error: "demasiadas-peticiones",
         detail: "Has hecho demasiadas peticiones. Espera un momento y vuelve a intentarlo.",
-        requestId: publicRequestId(res.locals as Record<string, unknown>),
+        requestId,
       });
       return;
     }

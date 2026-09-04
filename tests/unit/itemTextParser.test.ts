@@ -22,8 +22,43 @@ const distortedAmulet = readFileSync(
   fileURLToPath(new URL("../../server/fixtures/distortedAmuletAdvanced.es.txt", import.meta.url)),
   "utf8",
 );
+const englishFracturedAmulet = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../../server/fixtures/itemText/observedFocusedAmuletAdvanced.en.txt",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
 
 describe("itemTextParser", () => {
+  it("no presenta texto arbitrario como un objeto importado", () => {
+    const result = parseItemText("quiero mejorar mi personaje pero no he copiado el objeto");
+
+    expect(result.recognized).toBe(false);
+    expect(result.item).toMatchObject({
+      name: "Objeto sin nombre",
+      baseType: "Desconocida",
+      slot: "other",
+      rarity: "other",
+    });
+    expect(result.warnings.join(" ")).toContain("No se reconoció una cabecera");
+  });
+
+  it("una etiqueta de rareza ilegible no se convierte en evidencia estructural", () => {
+    const result = parseItemText([
+      "Rareza: Legendario inventado",
+      "Objeto dudoso",
+      "--------",
+      "Nivel de objeto: 80",
+    ].join("\n"));
+
+    expect(result.recognized).toBe(false);
+    expect(result.item.craftingState).toBeUndefined();
+    expect(result.warnings.join(" ")).toContain("rareza no reconocida");
+  });
+
   it("parsea el fixture de ballesta rare del juego", () => {
     const { item, warnings } = parseItemText(demoText);
 
@@ -587,5 +622,44 @@ describe("itemTextParser — evidencia suficiente para craftingState", () => {
     expect(item.modifiers[0]?.mutated).toBeUndefined();
     expect(item.modifiers[1]?.mutated).toBe(true);
     expect(item.modifiers[1]?.fractured).toBeUndefined();
+  });
+
+  it("lee el orden real de las cabeceras avanzadas inglesas de PoE2", () => {
+    const { item, warnings } = parseItemText(englishFracturedAmulet);
+    const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
+
+    expect(warnings).toEqual([]);
+    expect(item).toMatchObject({
+      slot: "amulet",
+      rarity: "rare",
+      quality: 20,
+      itemLevel: 86,
+      requirements: { level: 65 },
+      craftingState: { fractured: true },
+    });
+    expect(item.modifiers).toHaveLength(4);
+    expect(item.modifiers.filter((modifier) => modifier.kind === "enchant")).toHaveLength(1);
+    expect(item.modifiers.filter((modifier) => modifier.kind === "implicit")).toEqual([
+      expect.objectContaining({ tags: ["Special"] }),
+    ]);
+    expect(explicit).toEqual([
+      expect.objectContaining({
+        affix: "prefix",
+        name: "Observed",
+        tier: 1,
+        tags: ["Gem"],
+      }),
+      expect.objectContaining({
+        affix: "suffix",
+        name: "of Shelter",
+        tier: 2,
+        tags: ["Elemental", "Cold", "Resistance"],
+        fractured: true,
+      }),
+    ]);
+    expect(explicit.every((modifier) => !modifier.text.includes("Fractured Item"))).toBe(true);
+    expect(
+      evaluateObservedCraftingActions(item).find((entry) => entry.action.id === "exalted"),
+    ).toMatchObject({ status: "needs-data" });
   });
 });

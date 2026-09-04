@@ -57,6 +57,7 @@ function startServer(mode, port) {
       PORT: String(port),
       DATABASE_PATH: join(tempRoot, `${mode}.db`),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      PUBLIC_DEPLOYMENT: "false",
       POE_NINJA_OFFLINE: "true",
       SECURE_COOKIES: "false",
     },
@@ -98,6 +99,29 @@ async function desplegar(page, testId) {
 
 async function abrirOtras(page) {
   await desplegar(page, "acordeon-otras");
+}
+
+/**
+ * Las alternativas empiezan resumidas para reducir densidad visual. Abre cada
+ * una antes de auditar sus acciones; la recomendación principal ya está
+ * desplegada en el Caso Abierto.
+ */
+async function contarRecomendacionesSeguibles(page) {
+  let seguibles = await page
+    .locator('[data-testid="caso-abierto"]')
+    .getByRole("button", { name: "Guardar como próximo paso" })
+    .count();
+  const alternativas = page.locator('[data-testid^="alternativa-"]:visible');
+  for (let index = 0; index < (await alternativas.count()); index += 1) {
+    const alternativa = alternativas.nth(index);
+    const verDetalles = alternativa.getByRole("button", { name: "Ver detalles" });
+    if ((await verDetalles.count()) > 0) await verDetalles.click();
+    const guardar = alternativa.getByRole("button", { name: "Guardar como próximo paso" });
+    if ((await guardar.count()) > 0 && (await guardar.isVisible()) && !(await guardar.isDisabled())) {
+      seguibles += 1;
+    }
+  }
+  return seguibles;
 }
 
 async function generar(page) {
@@ -241,7 +265,7 @@ async function runFlow(mode, port) {
     await trackButtons.first().waitFor({ timeout: 25_000 });
     // La principal domina el caso; el resto vive en «Otras posibilidades».
     await abrirOtras(page);
-    const nTrack = await trackButtons.count();
+    const nTrack = await contarRecomendacionesSeguibles(page);
     check(`[${mode}] cada recomendación puede seguirse (${nTrack})`, nTrack === 3);
 
     // Otra pestaña crea una acción mientras esta UI conserva recomendaciones

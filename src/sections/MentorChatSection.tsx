@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { BookmarkPlus, Loader2, PackageSearch, Send } from "lucide-react";
+import { BookmarkPlus, Loader2, PackageSearch, PencilLine, Send } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
+import { assessMentorReadiness } from "@shared/characterReadiness.js";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import { MENTOR_SUGGESTIONS } from "@shared/mentorQuery.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { MentorState } from "@/hooks/useMentor";
@@ -60,6 +61,8 @@ interface MentorChatSectionProps {
   savingNextAction: boolean;
   /** Abre el detalle de un objeto; solo se ofrece con relatedItemIds. */
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
+  /** Lleva al jugador a completar los datos observados que faltan. */
+  onEditProfile: () => void;
 }
 
 export function MentorChatSection({
@@ -70,6 +73,7 @@ export function MentorChatSection({
   onSaveNextAction,
   savingNextAction,
   onFocusItem,
+  onEditProfile,
 }: MentorChatSectionProps) {
   const [question, setQuestion] = useState("");
   const { turns, loading, error } = mentor;
@@ -84,7 +88,17 @@ export function MentorChatSection({
 
   const patchBlocked =
     patchCompatibility !== null && !allowsPatchGuidance(patchCompatibility);
-  const canAsk = profile !== null && !patchBlocked && question.trim().length > 0 && !loading;
+  const readiness = assessMentorReadiness(profile);
+  const canAsk =
+    profile !== null &&
+    readiness.ready &&
+    !patchBlocked &&
+    question.trim().length > 0 &&
+    !loading;
+  const visibleSuggestions =
+    turns.length === 0
+      ? [MENTOR_SUGGESTIONS[0], MENTOR_SUGGESTIONS[2]]
+      : [MENTOR_SUGGESTIONS[0], MENTOR_SUGGESTIONS[3]];
 
   // Cada pregunta, respuesta o estado de carga deja el ÚLTIMO turno a la vista.
   // Se desplaza el CONTENEDOR del hilo (`scrollTo` sobre el propio elemento),
@@ -103,47 +117,57 @@ export function MentorChatSection({
 
   const submit = (value: string) => {
     const texto = value.trim();
-    if (profile === null || patchBlocked || texto.length === 0 || loading) return;
+    if (
+      profile === null ||
+      !readiness.ready ||
+      patchBlocked ||
+      texto.length === 0 ||
+      loading
+    ) return;
     onAsk(texto);
     setQuestion("");
   };
 
   return (
-    <Card id="seccion-mentor-chat">
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-3">
-          <CardTitle className="text-xl">Habla con tu mentor</CardTitle>
-          <Badge
-            variant="outline"
-            className={cn(
-              latestAnswer?.responseMode === "ai"
-                ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-200"
-                : latestAnswer?.responseMode === "rules_fallback"
-                  ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
-                  : "text-muted-foreground",
-            )}
-            data-testid="mentor-modo"
-          >
-            {modeLabel}
-          </Badge>
-          <Badge variant="outline" className="text-muted-foreground" data-testid="mentor-version">
-            Mentor v4 · memoria de sesión
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Conversa usando tu personaje, el objeto abierto, tu objetivo, presupuesto y diario.
-          Puede explicar y preguntar con naturalidad, pero las acciones y cifras proceden de
-          datos verificados. Si la IA falla o añade algo dudoso, responden las reglas.
-        </p>
-      </CardHeader>
-
-      <CardContent className="flex flex-col gap-4">
+    /* El título («Habla con tu Mentor») lo pone la sección que envuelve a este
+       componente. Aquí solo queda la procedencia de la respuesta, que sí cambia
+       con cada turno y no es un rótulo decorativo. */
+    <Card id="seccion-mentor-chat" data-testid="mentor-chat-principal" className="gap-0 border-0 bg-transparent py-0 shadow-none">
+      <CardContent className="flex flex-col gap-3 px-0">
+        <Badge
+          variant="outline"
+          className={cn(
+            "w-fit",
+            latestAnswer?.responseMode === "ai"
+              ? "border-primary/45 bg-primary/10 text-primary"
+              : latestAnswer?.responseMode === "rules_fallback"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                : "text-muted-foreground",
+          )}
+          data-testid="mentor-modo"
+        >
+          {modeLabel}
+        </Badge>
         {profile === null ? (
           <Alert>
             <AlertTitle>Necesitas un personaje primero</AlertTitle>
             <AlertDescription>
               Carga el ejemplo o importa tu build en «Mi personaje». Sin personaje no puedo
               responder nada con datos tuyos, y no voy a improvisar.
+            </AlertDescription>
+          </Alert>
+        ) : !readiness.ready ? (
+          <Alert data-testid="mentor-profile-readiness-gate">
+            <AlertTitle>Completa el expediente antes de pedir una prioridad</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>
+                El Mentor no convertirá un plan parcial en datos de tu personaje real.
+                Faltan: {readiness.issues.map((issue) => issue.label.toLowerCase()).join(", ")}.
+              </p>
+              <Button type="button" variant="secondary" onClick={onEditProfile}>
+                <PencilLine className="size-4" aria-hidden="true" />
+                Completar expediente
+              </Button>
             </AlertDescription>
           </Alert>
         ) : patchBlocked ? (
@@ -155,12 +179,8 @@ export function MentorChatSection({
           </Alert>
         ) : (
           <>
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Preguntas que entiendo
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {MENTOR_SUGGESTIONS.map((sugerencia) => (
+            <div className="flex flex-wrap gap-2">
+                {visibleSuggestions.map((sugerencia) => (
                   <Button
                     key={sugerencia}
                     type="button"
@@ -173,7 +193,6 @@ export function MentorChatSection({
                     {sugerencia}
                   </Button>
                 ))}
-              </div>
             </div>
 
             <div
@@ -182,12 +201,6 @@ export function MentorChatSection({
               data-testid="mentor-hilo"
               aria-live="polite"
             >
-              {turns.length === 0 && !loading && (
-                <p className="text-sm text-muted-foreground">
-                  Todavía no hemos hablado. Pregúntame qué mejorar ahora o por qué esa es tu
-                  prioridad.
-                </p>
-              )}
               {turns.map((turn) => (
                 <MentorTurnView key={turn.id} turn={turn} onFocusItem={onFocusItem} />
               ))}
@@ -217,30 +230,36 @@ export function MentorChatSection({
             )}
 
             <form
-              className="flex flex-col gap-2"
+              className="flex flex-col gap-2 sm:flex-row sm:items-end"
               onSubmit={(event) => {
                 event.preventDefault();
                 submit(question);
               }}
             >
-              <Label htmlFor="mentor-pregunta">Tu pregunta</Label>
-              <Textarea
-                id="mentor-pregunta"
-                value={question}
-                rows={2}
-                maxLength={MAX_MENTOR_QUESTION_LENGTH}
-                placeholder="p. ej. ¿Qué mejoro ahora?"
-                disabled={loading}
-                onChange={(event) => setQuestion(event.target.value)}
-                onKeyDown={(event) => {
-                  // Enter envía; Mayús+Enter permite escribir varias líneas.
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    submit(question);
-                  }
-                }}
-              />
-              <div className="flex justify-end">
+              <div className="min-w-0 flex-1">
+                <Label htmlFor="mentor-pregunta" className="sr-only">Tu pregunta</Label>
+                <Textarea
+                  id="mentor-pregunta"
+                  value={question}
+                  rows={1}
+                  maxLength={MAX_MENTOR_QUESTION_LENGTH}
+                  placeholder="Pregúntale algo sobre tu personaje"
+                  className="min-h-10 resize-none"
+                  disabled={loading}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  onKeyDown={(event) => {
+                    // Enter envía; Mayús+Enter permite escribir varias líneas.
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      submit(question);
+                    }
+                  }}
+                />
+              </div>
+              {/* Alineado a la izquierda, con el campo. Antes vivía en la esquina
+                  inferior derecha, justo donde flota el Copiloto: la mascota
+                  tapaba el único botón de envío del Mentor. */}
+              <div className="flex justify-start sm:shrink-0">
                 <Button type="submit" disabled={!canAsk} data-testid="mentor-preguntar">
                   {loading ? (
                     <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />

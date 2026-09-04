@@ -329,6 +329,28 @@ export const CraftingKnowledgeSnapshotSchema = z
   });
 export type CraftingKnowledgeSnapshot = z.infer<typeof CraftingKnowledgeSnapshotSchema>;
 
+/**
+ * Lista explícita y ordenada de snapshots que forman el registro activo.
+ * No se escanea el directorio: un archivo suelto o temporal nunca entra por
+ * accidente. Los nombres son basenames JSON, sin rutas ni globbing.
+ */
+export const CraftingKnowledgeManifestSchema = z
+  .strictObject({
+    schemaVersion: z.literal(1),
+    files: z.array(
+      z.string().regex(
+        /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.json$/,
+        "el archivo debe ser un nombre JSON sin directorios",
+      ),
+    ),
+  })
+  .superRefine((manifest, ctx) => {
+    if (new Set(manifest.files).size !== manifest.files.length) {
+      ctx.addIssue({ code: "custom", message: "El manifiesto repite archivos.", path: ["files"] });
+    }
+  });
+export type CraftingKnowledgeManifest = z.infer<typeof CraftingKnowledgeManifestSchema>;
+
 /** Comparador estable: misma entrada, misma salida, siempre. */
 function compareCandidates(left: ModCandidate, right: ModCandidate): number {
   const affix = (candidate: ModCandidate): string => candidate.affixType ?? "~";

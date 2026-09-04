@@ -75,21 +75,47 @@ function startServer(mode, port) {
   const { command, args: cmdArgs, shell } =
     mode === "prod"
       ? productionServerCommand()
-      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+      : toolCommand("vite", [
+          "--configLoader",
+          "runner",
+          "--port",
+          String(port),
+          "--strictPort",
+        ]);
   const proc = spawn(command, cmdArgs, {
     cwd: REPO,
     env: {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      PUBLIC_DEPLOYMENT: "false",
       SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
+      API_RATE_LIMIT_PER_MINUTE: "10000",
+      WRITE_RATE_LIMIT_PER_MINUTE: "2000",
+      GUIDANCE_RATE_LIMIT_PER_MINUTE: "1000",
+      MENTOR_RATE_LIMIT_PER_MINUTE: "300",
       DATABASE_PATH: dbPathFor(mode),
     },
     shell,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  proc.stderr.on("data", () => {});
+  // Drenar ambos pipes evita que Vite o el servidor de producción se bloqueen
+  // cuando el buffer del proceso hijo se llena. Conservamos solo una cola corta
+  // para explicar un fallo de arranque sin inundar la salida del smoke.
+  const recentOutput = [];
+  const captureOutput = (stream) => (chunk) => {
+    const lines = String(chunk)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `[${stream}] ${line}`);
+    recentOutput.push(...lines);
+    if (recentOutput.length > 30) recentOutput.splice(0, recentOutput.length - 30);
+  };
+  proc.stdout.on("data", captureOutput("stdout"));
+  proc.stderr.on("data", captureOutput("stderr"));
+  proc.smokeRecentOutput = recentOutput;
   return proc;
 }
 
@@ -389,7 +415,11 @@ async function runFlow(mode, port) {
   const proc = startServer(mode, port);
   let browser;
   try {
-    check(`[${mode}] servidor responde /api/health`, await waitForServer(BASE));
+    const serverReady = await waitForServer(BASE);
+    check(`[${mode}] servidor responde /api/health`, serverReady);
+    if (!serverReady && proc.smokeRecentOutput.length > 0) {
+      console.error("   últimas líneas del servidor:", proc.smokeRecentOutput.join("\n   "));
+    }
     const dbPath = dbPathFor(mode);
     check(
       `[${mode}] base SQLite temporal y aislada (${basenameSeguro(dbPath)})`,
@@ -451,12 +481,226 @@ async function runFlow(mode, port) {
     await page.screenshot({ path: join(SHOT_DIR, `taller-academia-${mode}.png`), fullPage: false });
     await page.getByTestId("crafting-mode-coach").click();
 
+    // El personaje cargado desde «Cargar ejemplo» no existe en la cuenta del
+    // jugador. Puede enseñar el recorrido, pero jamás autorizar una moneda ni
+    // pedir después un tooltip real imposible de obtener.
+    await irA(page, "expediente");
+    await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 15000 });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-objeto").waitFor({ timeout: 15000 });
+    await page.getByTestId("coach-direccion-defence").click();
+    await page.getByTestId("coach-focus-maximum-life").click();
+    await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] el personaje de ejemplo no autoriza gasto ni exige un resultado real`,
+      (await page.getByTestId("coach-example-summary").isVisible()) &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0 &&
+        (await page.getByTestId("coach-registro").count()) === 0 &&
+        (await page.getByTestId("coach-probar-practica").isVisible()) &&
+        (await page.getByTestId("coach-evaluacion-base").count()) === 0 &&
+        (await page.getByTestId("coach-condicion-parada").count()) === 0 &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "no existe en tu cuenta",
+        ) &&
+        !/moneda es legal|siguiente moneda|intento controlado/i.test(
+          await page.getByTestId("mentor-contextual-mensaje").innerText(),
+        ),
+    );
+
+    await page.getByTestId("coach-probar-practica").click();
+    await page.getByTestId("coach-practice-summary").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] la pieza de práctica continúa siendo simulación sin gasto ni resultado`,
+      (await page.getByTestId("coach-practice-summary").isVisible()) &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0 &&
+        (await page.getByTestId("coach-registro").count()) === 0 &&
+        (await page.getByTestId("coach-practice-return").isVisible()) &&
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
+          "pieza de práctica",
+        ) &&
+        !/aceptar riesgo|moneda es legal|intento controlado/i.test(
+          await page.getByTestId("crafting-coach").innerText(),
+        ),
+    );
+    await page.getByTestId("coach-practice-return").click();
+    await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
+    await page.getByTestId("coach-direccion-defence").click();
+    await page.getByTestId("coach-focus-maximum-life").click();
+    await page.getByTestId("coach-example-summary").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] volver desde práctica recupera el ejemplo sin habilitar gasto`,
+      (await page.getByTestId("coach-example-summary").isVisible()) &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0 &&
+        (await page.getByTestId("coach-registro").count()) === 0,
+    );
+    await page.getByTestId("coach-probar-practica").click();
+    await page.getByTestId("coach-practice-summary").waitFor({ timeout: 15000 });
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("crafting-coach").waitFor({ timeout: 10000 });
+    const reloadedPracticeVisible = await page
+      .getByTestId("coach-practice-summary")
+      .isVisible()
+      .catch(() => false);
+    const reloadedExampleVisible = await page
+      .getByTestId("coach-example-summary")
+      .isVisible()
+      .catch(() => false);
+    const reloadedChoiceVisible = await page
+      .getByTestId("coach-eleccion")
+      .isVisible()
+      .catch(() => false);
+    const reloadedEmpty =
+      (await page.getByTestId("crafting-coach").getAttribute("data-phase")) === "empty";
+    check(
+      `[${mode}] recargar desde práctica conserva la simulación o vuelve a un estado seguro`,
+      (reloadedPracticeVisible || reloadedExampleVisible || reloadedChoiceVisible || reloadedEmpty) &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0 &&
+        (await page.getByTestId("coach-registro").count()) === 0 &&
+        !/aceptar riesgo|texto del objeto después del craft/i.test(
+          await page.getByTestId("crafting-coach").innerText(),
+        ),
+    );
+
+    // El ejemplo es deliberadamente temporal: tras comprobar la recarga lo
+    // cargamos otra vez para recorrer el Taller avanzado desde su entrada real.
+    await irA(page, "expediente");
+    await page.getByRole("button", { name: "Cargar ejemplo" }).first().click();
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 15000 });
+    await irA(page, "crafting");
+    await page.getByTestId("crafting-mode-laboratory").click();
+    await page.getByRole("radio", { name: /Defensa/i }).click();
+    await page.getByRole("button", { name: "Guardar objetivo y continuar" }).click();
+    await page.getByRole("button", { name: "Confirmar esta base" }).click();
+    await page.getByRole("button", { name: "Continuar sin marcar" }).click();
+    await page.getByTestId("crafting-success-goal-toggle").click();
+    await page.getByRole("button", { name: "Guardar parada y continuar" }).click();
+    await page.getByTestId("crafting-example-simulation-gate").waitFor({ timeout: 10000 });
+    const simulatedRoutes = page
+      .getByTestId("crafting-expert-blueprint")
+      .getByRole("button", { name: "Solo demostración" });
+    check(
+      `[${mode}] el Taller avanzado conserva el plan demo pero no prepara una moneda`,
+      (await page.getByTestId("crafting-example-simulation-gate").isVisible()) &&
+        (await simulatedRoutes.count()) > 0 &&
+        (await simulatedRoutes.first().isDisabled()) &&
+        (await page.getByRole("button", { name: "Preparar este craft" }).count()) === 0 &&
+        (await page.locator('[data-testid^="crafting-preflight-"]').count()) === 0 &&
+        (await page.getByTestId("crafting-tool-panel-currency").isHidden()),
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page
+      .locator(
+        '[data-testid="crafting-example-simulation-gate"], [data-testid="crafting-laboratory-needs-profile"], [data-testid="crafting-coach"][data-phase="empty"]',
+      )
+      .first()
+      .waitFor({ timeout: 10000 });
+    const reloadedLaboratoryGate = await page
+      .getByTestId("crafting-example-simulation-gate")
+      .isVisible()
+      .catch(() => false);
+    const reloadedLaboratoryEmpty = await page
+      .getByTestId("crafting-laboratory-needs-profile")
+      .isVisible()
+      .catch(() => false);
+    const reloadedCoachEmpty =
+      (await page.getByTestId("crafting-coach").getAttribute("data-phase").catch(() => null)) ===
+      "empty";
+    check(
+      `[${mode}] recargar el proyecto demo mantiene cerrada la ejecución real`,
+      (reloadedLaboratoryGate || reloadedLaboratoryEmpty || reloadedCoachEmpty) &&
+        (await page.getByRole("button", { name: "Preparar este craft" }).count()) === 0 &&
+        (await page.locator('[data-testid^="crafting-preflight-"]').count()) === 0,
+    );
+    await page.getByTestId("crafting-mode-coach").click();
+
+    // Una pieza copiada de la cuenta del jugador no puede convertir el perfil
+    // de demostración en un expediente real ni heredar su build ficticia. La
+    // entrada nace desde la práctica para cubrir exactamente el cambio de
+    // contexto más peligroso: simulación → evidencia propia.
+    const restoredDemo = await (await context.request.get(`${BASE}/api/character/demo`)).json();
+    const savedDemo = await context.request.post(`${BASE}/api/character`, {
+      data: { profile: restoredDemo.profile },
+    });
+    if (!savedDemo.ok()) {
+      throw new Error(`no se pudo preparar la demo restaurada: HTTP ${savedDemo.status()}`);
+    }
+    await page.evaluate(
+      (profileId) => localStorage.setItem("exile-copilot:characterId", profileId),
+      restoredDemo.profile.id,
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "expediente");
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 15000 });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-direccion-defence").click();
+    await page.getByTestId("coach-focus-maximum-life").click();
+    await page.getByTestId("coach-probar-practica").click();
+    await page.getByTestId("coach-practice-summary").waitFor({ timeout: 15000 });
+    await page.getByRole("button", { name: "Pegar mi propia pieza" }).click();
+    const ownItemDialog = page.getByRole("dialog");
+    await ownItemDialog.locator("#item-text").fill(CROSSBOW_TEXT);
+    await ownItemDialog.getByRole("button", { name: "Analizar objeto" }).click();
+    await ownItemDialog.waitFor({ state: "hidden", timeout: 15000 });
+    await irA(page, "expediente");
+    const ownProfileTitle = await page.locator("#expediente-titulo").innerText();
+    const ownProfileEquipment = await page.getByTestId("equipment-grid").innerText();
+    check(
+      `[${mode}] una pieza propia pegada desde una demo restaurada abandona el perfil ficticio`,
+      ownProfileTitle === "Expediente provisional" &&
+        ownProfileEquipment.includes("Núcleo de fénix") &&
+        !ownProfileEquipment.includes("Doom Song") &&
+        !ownProfileEquipment.includes("Gale Crown"),
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "expediente");
+    check(
+      `[${mode}] el expediente propio separado sobrevive sin equipo ficticio`,
+      (await page.locator("#expediente-titulo").innerText()) === "Expediente provisional" &&
+        (await page.getByTestId("equipment-grid").innerText()).includes("Núcleo de fénix") &&
+        !(await page.getByTestId("equipment-grid").innerText()).includes("Doom Song"),
+    );
+
     // --- 2. Con piezas reales --------------------------------------------
     const profile = await seedProfile(context.request, BASE);
     await page.evaluate((id) => localStorage.setItem("exile-copilot:characterId", id), profile.id);
     await page.reload({ waitUntil: "networkidle" });
+    // El producto ya no inventa un presupuesto de 50 exaltados. Este recorrido
+    // sí quiere probar comparaciones de coste, así que lo declara como lo haría
+    // un jugador antes de entrar al Taller.
+    await irA(page, "plan");
+    const initialMarketContext = page.getByTestId("market-context-details");
+    if ((await initialMarketContext.getAttribute("open")) === null) {
+      await initialMarketContext.locator("summary").click();
+    }
+    await page.locator("#market-budget").fill("50");
     await irA(page, "crafting");
     await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
+    await abrirPieza(page, "taller-incompleto", "defence");
+    await page.getByTestId("coach-probar-practica").click();
+    await page.getByTestId("coach-practice-summary").waitFor({ timeout: 15000 });
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-practice-summary").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] un expediente persistente recuerda que la pieza restaurada es práctica`,
+      (await page.getByTestId("coach-practice-summary").isVisible()) &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0 &&
+        !/aceptar riesgo|texto del objeto después del craft/i.test(
+          await page.getByTestId("crafting-coach").innerText(),
+        ),
+    );
+    await page.getByTestId("coach-practice-return").click();
+    await page.getByTestId("coach-eleccion").waitFor({ timeout: 10000 });
+    await elegirPieza(page, "taller-ballesta");
+    await page.evaluate(() => {
+      document
+        .querySelector('[data-testid="coach-piezas-importadas"]')
+        ?.closest("details")
+        ?.removeAttribute("open");
+    });
     await page.getByText("Trabajar con otra pieza", { exact: true }).click();
     const selectorPiezas = page.getByTestId("coach-piezas-importadas");
     check(
@@ -582,21 +826,22 @@ async function runFlow(mode, port) {
       const storageKey = Object.keys(localStorage).find((key) => key.startsWith(prefix));
       if (!storageKey) throw new Error("No se encontró el proyecto avanzado guardado");
       const project = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
-      project.attempts = [
-        {
-          sessionId: "smoke-project-attempt",
-          recordedAt: new Date().toISOString(),
+      project.attempts = Array.from({ length: 6 }, (_, index) => {
+        const attemptNumber = index + 1;
+        return {
+          sessionId: `smoke-project-attempt-${attemptNumber}`,
+          recordedAt: new Date(Date.now() - (6 - attemptNumber) * 86_400_000).toISOString(),
           actionLabel: "Orbe exaltado",
-          resultName: "Núcleo de fénix",
+          resultName: `Núcleo de fénix ${attemptNumber}`,
           branch: "salvage",
           decisionKind: "stop",
           decisionTitle: "No gastes otra moneda todavía",
-          addedModifiers: ["+12 a la fuerza"],
+          addedModifiers: [`+${10 + attemptNumber} a la fuerza`],
           removedModifiers: [],
           protectedStatus: "preserved",
           successStatus: "not-fulfilled",
-        },
-      ];
+        };
+      });
       localStorage.setItem(storageKey, JSON.stringify(project));
       window.dispatchEvent(
         new CustomEvent("exile-copilot:crafting-project-updated", {
@@ -607,9 +852,23 @@ async function runFlow(mode, port) {
     await page.getByTestId("crafting-project-history").waitFor({ timeout: 10000 });
     check(
       `[${mode}] el proyecto conserva memoria de cada intento y su rama`,
-      (await page.getByTestId("crafting-project-history").getAttribute("data-attempt-count")) === "1" &&
+      (await page.getByTestId("crafting-project-history").getAttribute("data-attempt-count")) === "6" &&
         (await page.getByTestId("crafting-project-history").innerText()).includes("Resultado aprovechable") &&
-        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes("1 intento registrado"),
+        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes("6 intentos registrados"),
+    );
+    const olderAttempts = page.getByTestId("crafting-project-older-attempts");
+    check(
+      `[${mode}] el historial largo muestra cuatro recientes y guarda el resto plegado`,
+      (await page.getByTestId("crafting-project-recent-attempts").getByTestId("crafting-project-attempt").count()) === 4 &&
+        (await olderAttempts.getByText("Ver 2 intentos anteriores").isVisible()) &&
+        !(await page.getByTestId("crafting-project-previous-attempts").isVisible()),
+    );
+    await olderAttempts.locator("summary").click();
+    check(
+      `[${mode}] el jugador puede abrir todos los intentos anteriores con resultado y fecha`,
+      (await page.getByTestId("crafting-project-previous-attempts").isVisible()) &&
+        (await page.getByTestId("crafting-project-previous-attempts").getByTestId("crafting-project-attempt").count()) === 2 &&
+        (await page.getByTestId("crafting-project-history").innerText()).includes("Núcleo de fénix 1"),
     );
     await page.screenshot({ path: join(SHOT_DIR, `taller-laboratorio-${mode}.png`), fullPage: false });
     await page.getByTestId("crafting-mode-coach").click();
@@ -625,6 +884,26 @@ async function runFlow(mode, port) {
       `[${mode}] el proyecto conserva su contrato al salir y volver`,
       persistedAdvancedContract.includes("Daño físico aumentado un 81") &&
         (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete",
+    );
+    const maximumDepthAntes = erroresConsola.filter((entry) =>
+      entry.includes("Maximum update depth exceeded"),
+    ).length;
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    if (
+      (await page.getByTestId("crafting-mode-chooser").getAttribute("data-mode")) !==
+      "laboratory"
+    ) {
+      await page.getByTestId("crafting-mode-laboratory").click();
+    }
+    await page.getByTestId("crafting-expert-blueprint").waitFor({ timeout: 15000 });
+    await wait(4_000);
+    const maximumDepthDespues = erroresConsola.filter((entry) =>
+      entry.includes("Maximum update depth exceeded"),
+    ).length;
+    check(
+      `[${mode}] restaurar contrato e historial avanzado no crea un bucle de render`,
+      maximumDepthDespues === maximumDepthAntes,
     );
     await page.getByTestId("crafting-mode-coach").click();
     await page.getByTestId("crafting-coach").waitFor({ timeout: 15000 });
@@ -833,6 +1112,16 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-corregir-resultado").isVisible()) &&
         (await page.getByTestId("coach-objeto-resumen").innerText()).includes("pieza normal"),
     );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] recargar conserva «NO CUADRA» y no vuelve a autorizar el gasto`,
+      (await page.getByTestId("coach-estado-resultado").innerText()).includes("NO CUADRA") &&
+        (await page.getByTestId("coach-veredicto").textContent()).includes("La base cambió") &&
+        (await page.getByTestId("coach-corregir-resultado").isVisible()) &&
+        (await page.getByTestId("coach-recomendacion").count()) === 0,
+    );
     await page.getByTestId("coach-diagnostico-comparacion").locator("summary").click();
     check(
       `[${mode}] un bloqueo muestra el snapshot anterior y las diferencias exactas`,
@@ -947,16 +1236,36 @@ async function runFlow(mode, port) {
         (await recomendacion.innerText()).includes("llena") &&
         (await page.getByTestId("coach-lo-hare").count()) === 0,
     );
+    // Cambiar objetivo y pegar otra pieza son acciones distintas: la primera
+    // reinicia el contrato; solo la segunda abre el importador.
+    await page.getByTestId("coach-otra-pieza").click();
+    const changeItemDialog = page.getByRole("dialog", { name: "Evaluar un objeto" });
+    await changeItemDialog.waitFor({ state: "visible", timeout: 10000 });
+    const changeItemInput = changeItemDialog.locator("#item-text");
+    await changeItemInput.waitFor({ state: "visible", timeout: 10000 });
+    const changeItemDialogHasInput = await changeItemInput.isVisible();
+    const fullRareItemSummary = await page.getByTestId("coach-objeto").innerText();
+    check(
+      `[${mode}] «Pegar otra pieza» abre directamente el importador`,
+      changeItemDialogHasInput && fullRareItemSummary.includes("Coraza terminada"),
+    );
+    await changeItemDialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+    await changeItemDialog.waitFor({ state: "hidden", timeout: 10000 });
 
     // --- 6. Datos incompletos --------------------------------------------
     await abrirPieza(page, "taller-incompleto");
     await recomendacion.getByTestId("crafting-repair-toggle").click();
+    const repairEvidenceText = await recomendacion
+      .getByTestId("crafting-repair-evidence-summary")
+      .innerText();
     check(
       `[${mode}] datos incompletos → pedir la evidencia que falta, no gastar`,
       (await recomendacion.getAttribute("data-kind")) === "needs-data" &&
         (await recomendacion.getByTestId("crafting-repair-category").getAttribute("data-kind")) ===
           "copy-incomplete" &&
         (await recomendacion.innerText()).includes("Ctrl+Alt+C") &&
+        /sí he leído/i.test(repairEvidenceText) &&
+        /todavía necesito/i.test(repairEvidenceText) &&
         (await recomendacion.getByTestId("crafting-repair-repaste").isVisible()) &&
         (await page.getByTestId("coach-otro-camino").isVisible()),
     );
@@ -966,6 +1275,7 @@ async function runFlow(mode, port) {
       `[${mode}] el fallo produce un informe local reproducible y revisable`,
       importReport.includes("Formato: EC-CRAFTING-IMPORT-1") &&
         importReport.includes("Parche declarado: 0.5.4f") &&
+        importReport.includes("LECTURA PARCIAL") &&
         importReport.includes("Botas copiadas a medias") &&
         importReport.includes("No se ha enviado nada"),
     );
@@ -1042,6 +1352,33 @@ async function runFlow(mode, port) {
         (await page.getByTestId("coach-diagnostico-nuevos").locator("li").count()) === 2 &&
         (await page.getByTestId("coach-usar-resultado-base").isVisible()),
     );
+    const storageAntesDeAdoptar = await page.evaluate(() => ({ ...localStorage }));
+    await page.getByTestId("coach-usar-resultado-base").click();
+    await page.getByTestId("coach-espera").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] adoptar el objeto observado consume el intento y no autoriza repetir la moneda`,
+      (await page.getByTestId("coach-recomendacion").count()) === 0 &&
+        (await page.getByTestId("coach-espera").isVisible()),
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-espera").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] la parada por límite continúa bloqueada después de recargar`,
+      (await page.getByTestId("coach-recomendacion").count()) === 0 &&
+        (await page.getByTestId("coach-espera").isVisible()) &&
+        (await page.getByTestId("coach-limite-agotado").isVisible()) &&
+        (await page.getByTestId("coach-volver-accion").count()) === 0 &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0 &&
+        (await page.getByTestId("coach-otra-pieza").isVisible()),
+    );
+    await page.evaluate((snapshot) => {
+      localStorage.clear();
+      Object.entries(snapshot).forEach(([key, value]) => localStorage.setItem(key, value));
+    }, storageAntesDeAdoptar);
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-comparacion").waitFor({ timeout: 10000 });
     await page.getByTestId("coach-corregir-resultado").click();
     await page.getByTestId("coach-resultado-texto").fill(REAL_MACE_AFTER_EXALTED_TEXT);
     await page.getByTestId("coach-comparar").click();
@@ -1163,16 +1500,27 @@ async function runFlow(mode, port) {
       `[${mode}] la ballesta real recibe una única acción compatible`,
       (await recomendacion.getAttribute("data-action")) === "exalted",
     );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] Exaltado se contrasta con el límite en la misma moneda`,
-      (await page.getByTestId("coach-presupuesto").getAttribute("data-status")) ===
-        "within-budget" &&
-        (await page.getByTestId("coach-presupuesto").innerText()).includes(
+      `[${mode}] recargar conserva el contrato del Coach para la misma pieza`,
+      (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+        "Quiero más daño de hielo sin perder velocidad de ataque" &&
+        (await page.getByTestId("coach-protecciones").innerText()).includes(
+          "Velocidad de ataque aumentada un 13",
+        ),
+    );
+    const crossbowBudgetStatus = await page.getByTestId("coach-presupuesto").getAttribute("data-status");
+    const crossbowBudgetText = await page.getByTestId("coach-presupuesto").innerText();
+    const crossbowMentorText = await page.getByTestId("mentor-contextual-mensaje").innerText();
+    check(
+      `[${mode}] Exaltado se contrasta con el límite sin que el Mentor invente seguridad`,
+      crossbowBudgetStatus === "within-budget" &&
+        crossbowBudgetText.includes(
           "1 exaltado de un límite de 50 exaltados",
         ) &&
-        (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes(
-          "1 exaltado de un límite de 50 exaltados",
-        ),
+        !/garantiz|rentable|segur[oa]/i.test(crossbowMentorText),
     );
     await irA(page, "plan");
     const marketContext = page.getByTestId("market-context-details");
@@ -1211,9 +1559,13 @@ async function runFlow(mode, port) {
         (await aviso.getAttribute("data-goal-fit")) === "not-confirmed" &&
         (await aviso.innerText()).includes("no puedo dirigirlo hacia daño"),
     );
+    const confirmacionDentroDelJuego = page.getByTestId("coach-lo-hare");
     check(
-      `[${mode}] las acciones son aceptar el riesgo, no gastar y explorar avanzadas`,
-      (await page.getByTestId("coach-lo-hare").innerText()).includes("Aceptar riesgo") &&
+      `[${mode}] la web espera a que el jugador confirme el paso hecho en PoE2`,
+      (await page.getByTestId("coach-instruccion").innerText()).startsWith("Dentro de PoE2:") &&
+        (await confirmacionDentroDelJuego.innerText()).includes("Ya lo hice en PoE2") &&
+        (await confirmacionDentroDelJuego.getAttribute("aria-label")).includes("Orbe exaltado") &&
+        !(await confirmacionDentroDelJuego.innerText()).includes("Aceptar riesgo") &&
         (await page.getByTestId("coach-no-gastar").isVisible()) &&
         (await page.getByTestId("coach-explorar-avanzado").isVisible()),
     );
@@ -1265,16 +1617,31 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-lo-hare").click();
     await page.getByTestId("coach-registro").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] tras «Lo haré en el juego» el foco cae en el pegado del resultado`,
+      `[${mode}] tras confirmar el paso hecho en PoE2 el foco cae en el pegado del resultado`,
       await page.evaluate(
         () => document.activeElement?.getAttribute("data-testid") === "coach-resultado-texto",
       ),
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-registro").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] recargar mientras espera el resultado conserva el intento pendiente`,
+      (await page.getByTestId("coach-registro").innerText()).includes("¿Qué te ha salido?") &&
+        (await page.getByTestId("coach-objeto").innerText()).includes("Núcleo de fénix") &&
+        (await page.getByTestId("coach-recomendacion").count()) === 0,
     );
     await page.screenshot({ path: join(SHOT_DIR, `taller-registro-${mode}.png`), fullPage: false });
 
     const resultado = `${CROSSBOW_TEXT.trim()}\n{ Mod. de sufijo "sintético del smoke" (Grado: 1) — Daño, Ataque }\n+19% a la velocidad de ataque añadida por la prueba`;
     await page.getByTestId("coach-resultado-texto").fill(resultado);
     await page.getByTestId("coach-comparar").click();
+    await page.waitForTimeout(500);
+    if (await page.getByTestId("coach-error").isVisible().catch(() => false)) {
+      throw new Error(
+        `la comparación final devolvió un error visible: ${await page.getByTestId("coach-error").innerText()}`,
+      );
+    }
     await page.getByTestId("coach-comparacion").waitFor({ timeout: 20000 });
     const comparacion = await page.getByTestId("coach-comparacion").innerText();
     check(
@@ -1319,8 +1686,8 @@ async function runFlow(mode, port) {
       });
       return {
         visibleWords,
-        goldLabels: buttons
-          .filter((button) => getComputedStyle(button).backgroundColor === "rgb(246, 182, 35)")
+        primaryLabels: buttons
+          .filter((button) => button.getAttribute("data-variant") === "default")
           .map((button) => button.textContent?.trim() ?? ""),
         buttonHeights: buttons.map((button) => button.getBoundingClientRect().height),
         valueFontSizes: Array.from(
@@ -1331,8 +1698,8 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el parte muestra un veredicto con palabra e icono y una sola acción dorada coherente`,
       (await page.getByTestId("coach-estado-resultado").innerText()).includes("PARA") &&
-        resultLayout.goldLabels.length === 1 &&
-        !resultLayout.goldLabels.includes("Probar otra base"),
+        resultLayout.primaryLabels.length === 1 &&
+        !resultLayout.primaryLabels.includes("Probar otra base"),
     );
     check(
       `[${mode}] cifras y densidad forman un parte escaneable (${resultLayout.visibleWords} palabras)`,
@@ -1552,7 +1919,196 @@ async function runFlow(mode, port) {
     await page.getByTestId("mentor-contextual-plegar").click();
     await page.setViewportSize({ width: 1440, height: 1000 });
 
-    // --- 13. Recursos y consola ------------------------------------------
+    // --- 13. Reparar desde Crafting también persiste --------------------
+    const incompleteMaceText = REAL_MAGIC_MACE_TEXT.split("\n")
+      .filter((line) => !line.trim().startsWith("{ Mod."))
+      .join("\n");
+    const incompleteMaceResponse = await context.request.post(
+      `${BASE}/api/import/item-text`,
+      { data: { text: incompleteMaceText, patch: "0.5.4f" } },
+    );
+    if (!incompleteMaceResponse.ok()) {
+      throw new Error(`no se pudo preparar la copia incompleta: HTTP ${incompleteMaceResponse.status()}`);
+    }
+    const incompleteMace = (await incompleteMaceResponse.json()).item;
+    incompleteMace.id = "taller-reparacion-persistida";
+    const repairProfile = {
+      ...profile,
+      id: "taller-smoke-reparacion",
+      items: [incompleteMace],
+    };
+    const savedRepairProfile = await context.request.post(`${BASE}/api/character`, {
+      data: { profile: repairProfile },
+    });
+    if (!savedRepairProfile.ok()) {
+      throw new Error(`no se pudo guardar el perfil de reparación: HTTP ${savedRepairProfile.status()}`);
+    }
+    await page.evaluate((id) => localStorage.setItem("exile-copilot:characterId", id), repairProfile.id);
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    const repairCoach = page.getByTestId("crafting-coach");
+    await repairCoach.getByTestId("crafting-repair-toggle").click();
+    await repairCoach.getByTestId("crafting-repair-repaste").click();
+    const repairDialog = page.getByRole("dialog");
+    await repairDialog.locator("#item-text").fill(REAL_MAGIC_MACE_TEXT);
+    await repairDialog.getByRole("button", { name: "Analizar objeto" }).click();
+    const repairCollision = page.getByTestId("item-slot-collision-dialog");
+    await repairCollision
+      .getByRole("button", { name: `Sustituir ${incompleteMace.name}` })
+      .click();
+    await repairDialog.waitFor({ state: "hidden", timeout: 15000 });
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    const repairCategoriesAfterReload = await page.getByTestId("crafting-repair-category").count();
+    const repairedCoachSummary = await page.getByTestId("coach-objeto").innerText();
+    check(
+      `[${mode}] la pieza corregida desde Crafting sobrevive a la recarga`,
+      repairCategoriesAfterReload === 0 &&
+        repairedCoachSummary.includes("Maza de procesión de victoria"),
+    );
+
+    // --- 14. Dos personajes con el mismo id de objeto ------------------
+    // Esta es una colisión realista: dos expedientes pueden importar la misma
+    // pieza y producir el mismo id estable. El contrato pertenece al personaje,
+    // no solo al objeto. La prueba alterna ambos perfiles con recargas reales
+    // para impedir que objetivo, fase o CTA de gasto crucen de uno a otro.
+    const sharedItem = structuredClone(profile.items[0]);
+    sharedItem.id = "coach-shared-item";
+    const companionItem = structuredClone(profile.items[1]);
+    companionItem.id = "coach-shared-companion";
+    const ownerA = {
+      ...profile,
+      id: "coach-owner-a",
+      name: "Artesana A",
+      items: [structuredClone(sharedItem), structuredClone(companionItem)],
+    };
+    const ownerB = {
+      ...profile,
+      id: "coach-owner-b",
+      name: "Artesano B",
+      items: [structuredClone(sharedItem), structuredClone(companionItem)],
+    };
+    for (const owner of [ownerA, ownerB]) {
+      const savedOwner = await context.request.post(`${BASE}/api/character`, {
+        data: { profile: owner },
+      });
+      if (!savedOwner.ok()) {
+        throw new Error(`no se pudo guardar ${owner.id}: HTTP ${savedOwner.status()}`);
+      }
+    }
+
+    const activateOwner = async (profileId) => {
+      await page.evaluate(
+        (id) => localStorage.setItem("exile-copilot:characterId", id),
+        profileId,
+      );
+      await page.reload({ waitUntil: "networkidle" });
+      await irA(page, "crafting");
+      const coachMode = page.getByTestId("crafting-mode-coach");
+      if ((await coachMode.getAttribute("data-active")) !== "true") {
+        await coachMode.click();
+      }
+      await page.getByTestId("crafting-coach").waitFor({ timeout: 15000 });
+    };
+
+    const goalA = "Quiero más daño de hielo sin perder velocidad de ataque";
+    const goalB = "Quiero más daño de hielo sin perder precisión";
+    await activateOwner(ownerA.id);
+    await abrirPiezaConObjetivo(page, sharedItem.id, goalA);
+    check(
+      `[${mode}] el personaje A guarda su contrato sobre el objeto compartido`,
+      (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+        goalA &&
+        (await page.getByTestId("coach-recomendacion").isVisible()),
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] recargar A conserva exactamente su objetivo`,
+      (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+        goalA,
+    );
+    await page.getByTestId("coach-lo-hare").click();
+    await page.getByTestId("coach-registro").waitFor({ timeout: 10000 });
+
+    await activateOwner(ownerB.id);
+    check(
+      `[${mode}] B empieza limpio aunque reutilice el mismo id de objeto`,
+      (await page.getByTestId("crafting-coach").getAttribute("data-phase")) === "choose" &&
+        (await page.getByTestId("coach-eleccion").isVisible()) &&
+        (await page.getByTestId("coach-recomendacion").count()) === 0 &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0,
+    );
+    await abrirPiezaConObjetivo(page, sharedItem.id, goalB);
+    check(
+      `[${mode}] B puede crear un contrato distinto sobre el mismo objeto`,
+      (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+        goalB &&
+        (await page.getByTestId("coach-recomendacion").isVisible()),
+    );
+
+    await activateOwner(ownerA.id);
+    await page.getByTestId("coach-registro").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] volver a A recupera su intento pendiente, no la fase de B`,
+      (await page.getByTestId("crafting-coach").getAttribute("data-phase")) ===
+        "await-result" &&
+        (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+          goalA &&
+        (await page.getByTestId("coach-registro").isVisible()) &&
+        (await page.getByTestId("coach-recomendacion").count()) === 0,
+    );
+    await page.getByTestId("coach-volver-recomendacion").click();
+    await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
+    await page.getByTestId("coach-no-gastar").click();
+    await page.getByTestId("coach-espera").waitFor({ timeout: 10000 });
+
+    await activateOwner(ownerB.id);
+    await page.getByTestId("coach-recomendacion").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] B continúa en recomendación tras aparcar A`,
+      (await page.getByTestId("crafting-coach").getAttribute("data-phase")) === "recommend" &&
+        (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+          goalB &&
+        (await page.getByTestId("coach-lo-hare").isVisible()),
+    );
+
+    await activateOwner(ownerA.id);
+    await page.getByTestId("coach-espera").waitFor({ timeout: 10000 });
+    check(
+      `[${mode}] A conserva HOLD sin heredar la CTA de gasto de B`,
+      (await page.getByTestId("crafting-coach").getAttribute("data-phase")) === "hold" &&
+        (await page.getByTestId("coach-direccion-elegida").getAttribute("data-player-goal")) ===
+          goalA &&
+        (await page.getByTestId("coach-espera").isVisible()) &&
+        (await page.getByTestId("coach-lo-hare").count()) === 0,
+    );
+
+    const scopedContracts = await page.evaluate(
+      ({ ownerAId, ownerBId, itemId }) => {
+        const prefix = "exile-copilot:crafting-coach:v2:";
+        const keyA = `${prefix}${encodeURIComponent(ownerAId)}:${encodeURIComponent(itemId)}`;
+        const keyB = `${prefix}${encodeURIComponent(ownerBId)}:${encodeURIComponent(itemId)}`;
+        return {
+          keyA,
+          keyB,
+          contractA: localStorage.getItem(keyA) ?? "",
+          contractB: localStorage.getItem(keyB) ?? "",
+        };
+      },
+      { ownerAId: ownerA.id, ownerBId: ownerB.id, itemId: sharedItem.id },
+    );
+    check(
+      `[${mode}] el navegador guarda dos contratos v2 separados por personaje`,
+      scopedContracts.keyA !== scopedContracts.keyB &&
+        scopedContracts.contractA.includes(goalA) &&
+        !scopedContracts.contractA.includes(goalB) &&
+        scopedContracts.contractB.includes(goalB) &&
+        !scopedContracts.contractB.includes(goalA),
+    );
+
+    // --- 15. Recursos y consola ------------------------------------------
     check(`[${mode}] sin peticiones a hosts externos (${externas.length})`, externas.length === 0);
     if (externas.length > 0) console.log("   externas:", externas.slice(0, 5));
     const erroresRelevantes = erroresConsola.filter((e) => !esFaviconAusente(e));

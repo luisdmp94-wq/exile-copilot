@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "supportedLocales": [
+    "es",
+    "en"
+  ],
+  "cases": [
+    {
+      "id": "phoenix-core-crossbow-es-2026-08-22",
+      "fixture": "../phoenixCoreCrossbowAdvanced.es.txt",
+      "locale": "es",
+      "patch": "0.5.4f",
+      "provenance": {
+        "method": "in-game-clipboard",
+        "observedAt": "2026-08-22",
+        "source": "docs/evidence/crafting/2026-08-22/README.md"
+      },
+      "expected": {
+        "name": "Núcleo de fénix",
+        "baseType": "Ballesta barnizada",
+        "slot": "weapon",
+        "rarity": "rare",
+        "itemLevel": 32,
+        "requirements": {
+          "level": 24,
+          "str": 19,
+          "dex": 19
+        },
+        "modifierCount": 5,
+        "explicitCount": 5,
+        "prefixCount": 3,
+        "suffixCount": 2,
+        "unclassifiedExplicitCount": 0,
+        "diagnosisState": "complete",
+        "warningCount": 0
+      }
+    },
+    {
+      "id": "soul-branch-es-2026-08-22",
+      "fixture": "../../../docs/evidence/crafting/2026-08-22/soul-branch-advanced.es.txt",
+      "locale": "es",
+      "patch": "0.5.4f",
+      "provenance": {
+        "method": "in-game-clipboard",
+        "observedAt": "2026-08-22",
+        "source": "docs/evidence/crafting/2026-08-22/05-rare-bow-advanced.jpg"
+      },
+      "expected": {
+        "name": "Rama de alma",
+        "baseType": "Arco obliterador",
+        "slot": "weapon",
+        "rarity": "rare",
+        "itemLevel": 81,
+        "quality": 20,
+        "requirements": {
+          "level": 78,
+          "dex": 163
+        },
+        "modifierCount": 9,
+        "explicitCount": 6,
+        "prefixCount": 3,
+        "suffixCount": 3,
+        "unclassifiedExplicitCount": 0,
+        "diagnosisState": "partial",
+        "importIssueKind": "mechanic-unverified",
+        "specialModifierCounts": {
+          "desecrated": 1
+        },
+        "warningCount": 0
+      }
+    },
+    {
+      "id": "distorted-amulet-es-2026-08-28",
+      "fixture": "../distortedAmuletAdvanced.es.txt",
+      "locale": "es",
+      "patch": "0.5.4f",
+      "provenance": {
+        "method": "in-game-clipboard",
+        "observedAt": "2026-08-28",
+        "source": "Tooltip avanzado aportado por el propietario durante una prueba real"
+      },
+      "expected": {
+        "name": "Amuleto distorsionado",
+        "baseType": "Amuleto distorsionado",
+        "slot": "amulet",
+        "rarity": "normal",
+        "itemLevel": 79,
+        "modifierCount": 3,
+        "explicitCount": 0,
+        "prefixCount": 0,
+        "suffixCount": 0,
+        "unclassifiedExplicitCount": 0,
+        "diagnosisState": "complete",
+        "warningCount": 0
+      }
+    },
+    {
+      "id": "focused-amulet-fractured-en-forum-shape",
+      "fixture": "observedFocusedAmuletAdvanced.en.txt",
+      "locale": "en",
+      "patch": "not-stated",
+      "provenance": {
+        "method": "official-forum-derived-regression",
+        "observedAt": "2026-02-19",
+        "source": "https://www.pathofexile.com/forum/view-thread/3912560"
+      },
+      "expected": {
+        "name": "Observed Pendant",
+        "baseType": "Focused Amulet",
+        "slot": "amulet",
+        "rarity": "rare",
+        "itemLevel": 86,
+        "quality": 20,
+        "requirements": {
+          "level": 65
+        },
+        "modifierCount": 4,
+        "explicitCount": 2,
+        "prefixCount": 1,
+        "suffixCount": 1,
+        "unclassifiedExplicitCount": 0,
+        "diagnosisState": "partial",
+        "importIssueKind": "mechanic-unverified",
+        "craftingState": {
+          "fractured": true
+        },
+        "specialModifierCounts": {
+          "fractured": 1
+        },
+        "warningCount": 0
+      }
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AuditedReleaseEvidence } from "./releaseEvidence.js";
 
 /** Áreas cuyos datos pueden cambiar entre parches y deben revisarse por separado. */
 export const PatchFeatureId = z.enum([
@@ -133,4 +134,143 @@ export function allowsPatchFeature(
 ): boolean {
   return allowsPatchGuidance(record) &&
     patchFeatureCoverage(record, featureId).status !== "review-required";
+}
+
+export type PatchEvidenceIssueCode =
+  | "missing-evidence"
+  | "wrong-feature"
+  | "wrong-patch"
+  | "unverified-artifact"
+  | "evidence-after-review";
+
+export interface PatchEvidenceIssue {
+  patchId: string;
+  featureId: PatchFeatureId;
+  evidenceId: string | null;
+  code: PatchEvidenceIssueCode;
+  detail: string;
+}
+
+/**
+ * Coherencia exigida durante la ejecución, no solo al preparar un lanzamiento.
+ *
+ * Una cobertura `limited` puede conservar observaciones cuyo tooltip no muestra
+ * el parche (`patch: null`), siempre que ese límite permanezca visible. Lo que
+ * nunca puede hacer es heredar evidencia que declara explícitamente otra
+ * versión. `covered` es más fuerte y exige que toda su evidencia declare el
+ * parche exacto.
+ */
+export function auditPatchEvidence(
+  registry: PatchCompatibilityRegistry,
+  evidenceCatalog: readonly AuditedReleaseEvidence[],
+): PatchEvidenceIssue[] {
+  const catalog = new Map(evidenceCatalog.map((entry) => [entry.evidenceId, entry]));
+  const issues: PatchEvidenceIssue[] = [];
+
+  for (const record of registry.patches) {
+    for (const feature of record.features) {
+      if (feature.status === "review-required") continue;
+      if (feature.evidenceIds.length === 0) {
+        issues.push({
+          patchId: record.patchId,
+          featureId: feature.id,
+          evidenceId: null,
+          code: "missing-evidence",
+          detail: "La capacidad habilitada no declara ninguna evidencia.",
+        });
+        continue;
+      }
+
+      for (const evidenceId of feature.evidenceIds) {
+        const evidence = catalog.get(evidenceId);
+        if (!evidence) {
+          issues.push({
+            patchId: record.patchId,
+            featureId: feature.id,
+            evidenceId,
+            code: "missing-evidence",
+            detail: `No existe ${evidenceId} en el catálogo auditado.`,
+          });
+          continue;
+        }
+        if (!evidence.artifactVerified) {
+          issues.push({
+            patchId: record.patchId,
+            featureId: feature.id,
+            evidenceId,
+            code: "unverified-artifact",
+            detail: evidence.artifactIssue ?? `No se pudo verificar ${evidenceId}.`,
+          });
+        }
+        if (evidence.featureId !== feature.id) {
+          issues.push({
+            patchId: record.patchId,
+            featureId: feature.id,
+            evidenceId,
+            code: "wrong-feature",
+            detail: `${evidenceId} pertenece a ${evidence.featureId}, no a ${feature.id}.`,
+          });
+        }
+        const exactPatchRequired = feature.status === "covered";
+        if (
+          evidence.patch !== record.patchId &&
+          (exactPatchRequired || evidence.patch !== null)
+        ) {
+          issues.push({
+            patchId: record.patchId,
+            featureId: feature.id,
+            evidenceId,
+            code: "wrong-patch",
+            detail: evidence.patch === null
+              ? `${evidenceId} no declara el parche exacto exigido por una cobertura completa.`
+              : `${evidenceId} declara ${evidence.patch}, no ${record.patchId}.`,
+          });
+        }
+        if (record.reviewedAt !== null && evidence.asOf > record.reviewedAt) {
+          issues.push({
+            patchId: record.patchId,
+            featureId: feature.id,
+            evidenceId,
+            code: "evidence-after-review",
+            detail: `${evidenceId} es posterior a la fecha de revisión ${record.reviewedAt}.`,
+          });
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * Aplica la auditoría al registro que consume la API. Una inconsistencia solo
+ * detiene el área afectada; no convierte un fallo de mercado en un bloqueo del
+ * lector de objetos o de las pasivas.
+ */
+export function gatePatchCompatibilityByEvidence(
+  registry: PatchCompatibilityRegistry,
+  evidenceCatalog: readonly AuditedReleaseEvidence[],
+): PatchCompatibilityRegistry {
+  const issues = auditPatchEvidence(registry, evidenceCatalog);
+  if (issues.length === 0) return registry;
+
+  return {
+    ...registry,
+    patches: registry.patches.map((record) => ({
+      ...record,
+      features: record.features.map((feature) => {
+        const featureIssues = issues.filter(
+          (issue) => issue.patchId === record.patchId && issue.featureId === feature.id,
+        );
+        if (featureIssues.length === 0) return feature;
+        return {
+          ...feature,
+          status: "review-required" as const,
+          note: `Detenido por evidencia inconsistente: ${featureIssues
+            .map((issue) => issue.detail)
+            .join(" ")}`,
+        };
+      }),
+    })),
+  };
 }

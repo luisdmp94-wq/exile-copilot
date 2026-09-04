@@ -109,6 +109,207 @@ describe("API de sesiones adaptativas", () => {
     expect((await jsonOf(second)).error).toBe("sesion-ya-activa");
   });
 
+  it("no inicia una decisión recomendada sobre un expediente parcial", async () => {
+    const recommendationResponse = await postJson("/recommendations", {
+      profile: demoProfile,
+      budget: { amount: 50, currency: "exalted" },
+      goal: { kind: "survival" },
+      league: demoProfile.league,
+      patch: demoProfile.patch,
+    });
+    expect(recommendationResponse.status).toBe(200);
+    const recommendation = (await jsonOf(recommendationResponse)).recommendations[0];
+
+    const profile = CharacterProfileSchema.parse({
+      ...demoProfile,
+      id: "sesion-api-personaje-parcial",
+      characterClass: "Desconocida",
+      level: 1,
+      levelSource: "placeholder",
+      items: [],
+    });
+    expect((await postJson("/character", { profile })).status).toBe(200);
+    const empty = JournalResponseSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const response = await postJson(`/journal/${profile.id}/session`, {
+      journalRevision: buildRecommendationMemory(empty).revision,
+      idempotencyKey: "idem-partial-recommendation",
+      kind: "guided_decision",
+      objective: recommendation.title,
+      hypothesis: recommendation.reason,
+      expectedResult: recommendation.impact.description,
+      observationMethod: "Comprobar el resultado dentro de PoE2.",
+      unknowns: [],
+      constraints: [],
+      soonReplacedItemIds: [],
+      protectedResources: [],
+      recommendation,
+      profile,
+      budget: { amount: 50, currency: "exalted" },
+      goal: "survival",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await jsonOf(response)).toMatchObject({
+      error: "personaje-incompleto",
+      detail: expect.stringContaining("clase, nivel, equipo"),
+    });
+  });
+
+  it("frena Essences y Alloys cuando el parche activo no tiene revisión avanzada", async () => {
+    const profile = { ...demoProfile, id: "sesion-api-crafting-avanzado-sin-revisar" };
+    await postJson("/character", { profile });
+    const empty = JournalResponseSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const response = await postJson(`/journal/${profile.id}/session`, {
+      journalRevision: buildRecommendationMemory(empty).revision,
+      idempotencyKey: "idem-advanced-patch-gate",
+      kind: "guided_decision",
+      objective: "Comprobar una Essence",
+      hypothesis: "El tooltip observado añade el modificador indicado",
+      expectedResult: "Comparar el objeto antes y después dentro de PoE2",
+      observationMethod: "Volver a copiar el objeto completo",
+      recommendation: null,
+      craftingExperiment: {
+        actionId: "essence",
+        actionLabel: "Essence observada (Perfecta)",
+        variantId: "perfect",
+        variantLabel: "Perfecta",
+        desiredOutcome: "Añadir un modificador útil",
+        guaranteedModifierText: "Efecto exacto del tooltip",
+        originalItem: profile.items[0],
+      },
+      profile,
+      budget: { amount: 1, currency: "exalted" },
+      goal: "balanced",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await jsonOf(response)).toMatchObject({
+      error: "area-parche-sin-revisar",
+      detail: expect.stringContaining("no está autorizado para 0.5.4f"),
+    });
+
+    const basicResponse = await postJson(`/journal/${profile.id}/session`, {
+      journalRevision: buildRecommendationMemory(empty).revision,
+      idempotencyKey: "idem-basic-patch-still-allowed",
+      kind: "guided_decision",
+      objective: "Comprobar un Orbe exaltado",
+      hypothesis: "La moneda añade un modificador al objeto raro",
+      expectedResult: "Comparar el objeto antes y después dentro de PoE2",
+      observationMethod: "Volver a copiar el objeto completo",
+      recommendation: null,
+      craftingExperiment: {
+        actionId: "exalted",
+        actionLabel: "Orbe exaltado observado",
+        desiredOutcome: "Añadir un modificador útil",
+        originalItem: profile.items[0],
+      },
+      profile,
+      budget: { amount: 1, currency: "exalted" },
+      goal: "balanced",
+    });
+    expect(basicResponse.status).toBe(201);
+    expect(
+      JournalResponseSchema.parse(await jsonOf(basicResponse)).session?.sourcePatch,
+    ).toBe("0.5.4f");
+  });
+
+  it("usa el parche guardado y no el que declara una pestaña al abrir crafting", async () => {
+    const savedProfile = {
+      ...demoProfile,
+      id: "sesion-api-parche-autoritativo",
+      patch: "0.5.5",
+    };
+    expect((await postJson("/character", { profile: savedProfile })).status).toBe(200);
+    const empty = JournalResponseSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${savedProfile.id}`)),
+    );
+    const staleClientProfile = { ...savedProfile, patch: "0.5.4f" };
+
+    const response = await postJson(`/journal/${savedProfile.id}/session`, {
+      journalRevision: buildRecommendationMemory(empty).revision,
+      idempotencyKey: "idem-authoritative-patch-gate",
+      kind: "guided_decision",
+      objective: "Comprobar un Orbe exaltado",
+      hypothesis: "La moneda añade un modificador al objeto raro",
+      expectedResult: "Comparar el objeto antes y después dentro de PoE2",
+      observationMethod: "Volver a copiar el objeto completo",
+      recommendation: null,
+      craftingExperiment: {
+        actionId: "exalted",
+        actionLabel: "Orbe exaltado observado",
+        desiredOutcome: "Añadir un modificador útil",
+        originalItem: staleClientProfile.items[0],
+      },
+      profile: staleClientProfile,
+      budget: { amount: 1, currency: "exalted" },
+      goal: "balanced",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await jsonOf(response)).toMatchObject({ error: "parche-sin-revisar" });
+  });
+
+  it("no reabre una sesión de crafting creada para otro parche", async () => {
+    const profile = { ...demoProfile, id: "sesion-api-crafting-cambio-parche" };
+    await postJson("/character", { profile });
+    const empty = JournalResponseSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const startedResponse = await postJson(`/journal/${profile.id}/session`, {
+      journalRevision: buildRecommendationMemory(empty).revision,
+      idempotencyKey: "idem-cross-patch-start",
+      kind: "guided_decision",
+      objective: "Comprobar un Orbe exaltado",
+      hypothesis: "La moneda añade un modificador al objeto raro",
+      expectedResult: "Comparar el objeto antes y después dentro de PoE2",
+      observationMethod: "Volver a copiar el objeto completo",
+      recommendation: null,
+      craftingExperiment: {
+        actionId: "exalted",
+        actionLabel: "Orbe exaltado observado",
+        desiredOutcome: "Añadir un modificador útil",
+        originalItem: profile.items[0],
+      },
+      profile,
+      budget: { amount: 1, currency: "exalted" },
+      goal: "balanced",
+    });
+    expect(startedResponse.status).toBe(201);
+    const started = JournalResponseSchema.parse(await jsonOf(startedResponse));
+    const pausedResponse = await postJson(`/journal/${profile.id}/session/pause`, {
+      journalRevision: buildRecommendationMemory(started).revision,
+      idempotencyKey: "idem-cross-patch-pause",
+      reason: "Continuar más tarde",
+      profile,
+    });
+    expect(pausedResponse.status).toBe(200);
+    const paused = JournalResponseSchema.parse(await jsonOf(pausedResponse));
+    const sessionId = paused.pausedSessions[0]?.id;
+    expect(sessionId).toBeDefined();
+
+    const updatedProfile = { ...profile, patch: "0.5.5" };
+    expect((await postJson("/character", { profile: updatedProfile })).status).toBe(200);
+    const afterPatch = JournalResponseSchema.parse(
+      await jsonOf(await fetch(`${base}/journal/${profile.id}`)),
+    );
+    const reopened = await postJson(`/journal/${profile.id}/session/reopen`, {
+      journalRevision: buildRecommendationMemory(afterPatch).revision,
+      idempotencyKey: "idem-cross-patch-reopen",
+      sessionId,
+      note: "Continuar la sesión anterior",
+      profile: updatedProfile,
+    });
+
+    expect(reopened.status).toBe(409);
+    expect(await jsonOf(reopened)).toMatchObject({
+      error: "sesion-crafting-de-otro-parche",
+    });
+  });
+
   it("rechaza una revisión obsoleta con 409 memoria-diario-obsoleta", async () => {
     const profile = { ...demoProfile, id: "sesion-api-409" };
     await postJson("/character", { profile });

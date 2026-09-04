@@ -91,6 +91,16 @@ export interface AdvancedAcademyScenario {
 }
 
 /**
+ * Si el ejercicio enseña que la lectura está incompleta, la tarjeta tampoco
+ * puede adelantar rareza, recuento ni huecos como si ya estuvieran confirmados.
+ */
+export function concealAdvancedAcademyItemReading(
+  scenario: Pick<AdvancedAcademyScenario, "facts">,
+): boolean {
+  return !scenario.facts.itemDataComplete;
+}
+
+/**
  * La misma jerarquía conservadora que gobierna el plano experto.
  * Devuelve una decisión, no una valoración de la build ni una receta.
  */
@@ -361,12 +371,12 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     title: "Frenar un reemplazo",
     skill: "No arriesgar una línea protegida a ciegas",
     situation:
-      "La pieza rara está llena. Tienes una Essence y un Alloy, pero todavía no has leído su descripción completa dentro del juego.",
+      "Quieres saber si una Essence o un Alloy podría sustituir alguna de las tres líneas visibles, pero todavía no has leído la descripción completa de ninguno dentro del juego.",
     item: ITEM_REEMPLAZO,
     contract: {
-      objective: "Sustituir una línea prescindible",
-      protect: ["Velocidad de ataque", "Nivel de habilidades"],
-      stop: "Parar si cualquiera de las dos líneas protegidas queda en riesgo",
+      objective: "Evaluar si es seguro sustituir la línea prescindible",
+      protect: ["+108 a la vida máxima", "+24 a la destreza"],
+      stop: "Parar si cualquiera de las dos líneas visibles protegidas queda en riesgo",
     },
     facts: {
       itemDataComplete: true,
@@ -401,7 +411,7 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     ],
     expectedDecision: "request-tooltip",
     explanation:
-      "No hay una ruta segura sin leer la descripción completa. En una operación de reemplazo, el nombre del recurso no demuestra qué línea puede desaparecer.",
+      "No hay una ruta segura sin leer la descripción completa. Si un recurso puede reemplazar una línea, su nombre no demuestra cuál podría desaparecer.",
     lesson: "La incertidumbre aceptable para añadir no es la misma que para reemplazar algo que ya quieres conservar.",
     gameSteps: [
       "Pon la pieza y los dos recursos juntos en el inventario o alijo.",
@@ -614,12 +624,12 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
     title: "Simular antes de transformar",
     skill: "Elegir la pieza por el resultado completo",
     situation:
-      "Tienes fuego por debajo del límite, frío sobrante y rayo justo. La descripción del Flux afecta dos resistencias de la pieza elegida: tus guantes solo aportan frío, pero tus botas aportan frío y rayo.",
+      "Has leído la descripción completa del Flux y quieres valorar su efecto sobre el anillo visible. El recurso puede afectar más de una de las líneas que nombra, pero todavía no has simulado cómo quedaría la pieza completa.",
     item: ITEM_TRANSFORMACION,
     contract: {
-      objective: "Reequilibrar resistencias sin abrir otra carencia",
-      protect: ["Mantener fuego, frío y rayo en su límite"],
-      stop: "La simulación deja las tres resistencias cubiertas",
+      objective: "Valorar el Flux sin juzgarlo por una sola línea",
+      protect: ["Conservar las líneas importantes del anillo"],
+      stop: "La simulación del anillo conserva las líneas protegidas",
     },
     facts: {
       itemDataComplete: true,
@@ -648,31 +658,31 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
       option(
         "av-simular-ambas",
         "simulate-transformation",
-        "Simular guantes y botas por separado",
-        "Recalcular las tres resistencias tras cada resultado",
+        "Simular el anillo completo",
+        "Revisar todas las líneas que afectaría el resultado",
       ),
       option(
         "av-elegir-mayor-frio",
         "compare-risks",
-        "Usarlo donde haya más frío",
-        "Así obtendré la mayor conversión posible",
+        "Usarlo por la línea que me interesa",
+        "Solo estoy mirando una parte de la pieza",
       ),
       option(
         "av-usar-botas",
         "compare-risks",
-        "Usarlo directamente en las botas",
-        "Tienen dos resistencias y parecen más aprovechables",
+        "Usarlo porque la descripción ya está comprobada",
+        "Conocer el recurso no anticipa el resultado de la pieza",
       ),
     ],
     expectedDecision: "simulate-transformation",
     explanation:
-      "El excedente aislado no basta para elegir. Primero simula el objeto entero: transformar las botas también puede tocar el rayo que estaba justo; una pieza con solo frío puede conservar más equilibrio.",
+      "Conocer la descripción no basta para aceptar el resultado. Primero simula el anillo completo: una transformación puede afectar otras líneas nombradas además de la que quieres aprovechar.",
     lesson:
-      "Una transformación global se evalúa por el estado final del personaje, no por la línea que quieres convertir.",
+      "Una transformación se evalúa por el estado final de la pieza, no solo por la línea que quieres aprovechar.",
     gameSteps: [
-      "Lee el Flux y las dos piezas dentro del juego antes de seleccionar ninguna.",
-      "Calcula cómo quedarían fuego, frío y rayo si lo usas sobre cada candidata.",
-      "Usa el Flux únicamente sobre la pieza cuyo resultado mantenga cubiertas las tres resistencias.",
+      "Lee el Flux y el anillo dentro del juego.",
+      "Anota qué líneas del anillo nombra la descripción y simula el resultado completo.",
+      "No uses el Flux si la simulación pone en riesgo una línea que quieres conservar.",
     ],
   },
   {
@@ -736,8 +746,31 @@ export const CRAFTING_ADVANCED_ACADEMY_SCENARIOS: readonly AdvancedAcademyScenar
 
 export function validateAdvancedAcademyScenario(scenario: AdvancedAcademyScenario): boolean {
   const decisions = scenario.options.map((entry) => entry.decision);
+  const optionIds = scenario.options.map((entry) => entry.id);
+  const requiredText = [
+    scenario.title,
+    scenario.skill,
+    scenario.situation,
+    scenario.contract.objective,
+    scenario.contract.stop,
+    scenario.question,
+    scenario.explanation,
+    scenario.lesson,
+    ...scenario.contract.protect,
+    ...scenario.gameSteps,
+    ...scenario.options.flatMap((entry) => [entry.label, entry.hint]),
+    ...scenario.facts.routes.flatMap((route) => [route.label, route.consequence]),
+  ];
+
   return (
     resolveAdvancedAcademyDecision(scenario.facts) === scenario.expectedDecision &&
-    decisions.includes(scenario.expectedDecision)
+    scenario.options.length >= 2 &&
+    scenario.options.length <= 4 &&
+    new Set(optionIds).size === optionIds.length &&
+    decisions.filter((decision) => decision === scenario.expectedDecision).length === 1 &&
+    scenario.gameSteps.length >= 2 &&
+    scenario.gameSteps.length <= 4 &&
+    requiredText.every((value) => value.trim().length > 0) &&
+    scenario.item.sources.some((source) => source.kind === "internal")
   );
 }

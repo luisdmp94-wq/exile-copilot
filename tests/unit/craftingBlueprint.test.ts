@@ -79,6 +79,12 @@ describe("buildExpertCraftingBlueprint", () => {
     expect(result.baseDecision.kind).toBe("continue");
     expect(result.budgetLabel).toBe("50 exaltados");
     expect(result.branches.map((branch) => branch.id)).toEqual(["success", "salvage", "failure"]);
+    expect(result.routes.find((route) => route.id === "augmentation")?.preserves).toContain(
+      "no declara reemplazar",
+    );
+    expect(result.branches.find((branch) => branch.id === "failure")?.trigger).toContain(
+      "El resultado pegado ya no conserva",
+    );
   });
 
   it("conserva en el contrato el objetivo, las líneas protegidas y la parada", () => {

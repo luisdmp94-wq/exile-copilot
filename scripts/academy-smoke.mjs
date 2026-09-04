@@ -92,13 +92,20 @@ function startServer(mode, port) {
   const { command, args: cmdArgs, shell } =
     mode === "prod"
       ? productionServerCommand()
-      : toolCommand("vite", ["--port", String(port), "--strictPort"]);
+      : toolCommand("vite", [
+          "--configLoader",
+          "runner",
+          "--port",
+          String(port),
+          "--strictPort",
+        ]);
   const proc = spawn(command, cmdArgs, {
     cwd: REPO,
     env: {
       ...process.env,
       PORT: String(port),
       NODE_ENV: mode === "prod" ? "production" : "development",
+      PUBLIC_DEPLOYMENT: "false",
       SECURE_COOKIES: "false",
       POE_NINJA_OFFLINE: "true",
       DATABASE_PATH: dbPathFor(mode),
@@ -223,6 +230,13 @@ async function runFlow(mode, port) {
     );
     await standaloneDialog.getByRole("button", { name: "Analizar objeto" }).click();
     await page.getByTestId("coach-objeto").getByText("Núcleo de prueba").waitFor({ timeout: 15000 });
+    const closingEditorText = (await standaloneDialog.isVisible())
+      ? await standaloneDialog.innerText()
+      : "";
+    check(
+      `[${mode}] el importador no se transforma en el editor durante su cierre`,
+      !closingEditorText.includes("Creado aquí"),
+    );
     check(
       `[${mode}] el objeto suelto abre el guía sin pedir datos de personaje`,
       (await page.getByTestId("tab-crafting").getAttribute("data-state")) === "active" &&
@@ -266,8 +280,30 @@ async function runFlow(mode, port) {
       (await page.getByTestId("academia-objeto").isVisible()) &&
         (await page.getByTestId("academia-media-pregunta").isVisible()),
     );
+    check(
+      `[${mode}] el nivel medio no revela las pistas antes de responder`,
+      !(await page.getByTestId("academia-media-opcion-med-base-correcta").innerText()).includes(
+        "Es una referencia observable",
+      ),
+    );
+    await page.getByTestId("academia-media-opcion-med-base-correcta").click();
+    check(
+      `[${mode}] el nivel medio explica la pista después de responder`,
+      (await page.getByTestId("academia-media-opcion-med-base-correcta").innerText()).includes(
+        "Es una referencia observable",
+      ),
+    );
+    await page.getByTestId("academia-media-continuar").click();
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    check(
+      `[${mode}] recargar conserva Aprender, nivel Medio y la situación siguiente`,
+      (await page.getByTestId("crafting-mode-chooser").getAttribute("data-mode")) === "academy" &&
+        (await page.getByTestId("academia-nivel-medio").getAttribute("data-active")) === "true" &&
+        (await page.getByTestId("academia-media").getAttribute("data-stage")) === "cases" &&
+        (await page.getByTestId("academia-media-pregunta").innerText()).includes("primera moneda"),
+    );
     const respuestasMedias = [
-      "med-base-correcta",
       "med-objetivo-concreto",
       "med-cambiar-base",
       "med-usar-aumento",
@@ -283,6 +319,7 @@ async function runFlow(mode, port) {
         `[${mode}] situación media ${opcion} se corrige con una idea clave`,
         (await feedback.getAttribute("data-result")) === "correcto" &&
           (await feedback.innerText()).includes("Idea clave") &&
+          (await page.getByTestId("academia-media-parada").innerText()).toLowerCase().includes("para cuando") &&
           (await page.getByTestId("academia-media-pasos-juego").innerText()).toLowerCase().includes("hazlo dentro de poe2"),
       );
       await page.getByTestId("academia-media-continuar").click();
@@ -314,8 +351,30 @@ async function runFlow(mode, port) {
       (await page.getByTestId("academia-objeto").isVisible()) &&
         (await page.getByTestId("academia-avanzada-pregunta").isVisible()),
     );
+    check(
+      `[${mode}] el nivel avanzado no revela las pistas antes de responder`,
+      !(await page.getByTestId("academia-avanzada-opcion-av-definir-salida").innerText()).includes(
+        "Algo que puedas comprobar",
+      ),
+    );
+    await page.getByTestId("academia-avanzada-opcion-av-definir-salida").click();
+    check(
+      `[${mode}] el nivel avanzado explica la pista después de responder`,
+      (await page.getByTestId("academia-avanzada-opcion-av-definir-salida").innerText()).includes(
+        "Algo que puedas comprobar",
+      ),
+    );
+    await page.getByTestId("academia-avanzada-continuar").click();
+    await page.reload({ waitUntil: "networkidle" });
+    await irA(page, "crafting");
+    check(
+      `[${mode}] recargar conserva Aprender, nivel Avanzado y el caso siguiente`,
+      (await page.getByTestId("crafting-mode-chooser").getAttribute("data-mode")) === "academy" &&
+        (await page.getByTestId("academia-nivel-avanzado").getAttribute("data-active")) === "true" &&
+        (await page.getByTestId("academia-avanzada").getAttribute("data-stage")) === "case" &&
+        (await page.getByTestId("academia-avanzada-pregunta").innerText()).includes("conserva más decisiones"),
+    );
     const respuestasAvanzadas = [
-      "av-definir-salida",
       "av-aumento",
       "av-pedir-tooltip",
       "av-parar",
@@ -326,6 +385,16 @@ async function runFlow(mode, port) {
       "av-simular-cambio",
     ];
     for (const opcion of respuestasAvanzadas) {
+      if (opcion === "av-pedir-tooltip") {
+        const avisosNoVerificados = page.getByTestId("academia-avanzada-ruta-no-verificada");
+        const textosAvisos = await avisosNoVerificados.allTextContents();
+        check(
+          `[${mode}] los recursos sin evidencia paran y dicen qué comprobar en PoE2`,
+          textosAvisos.length === 2 &&
+            textosAvisos.every((texto) => texto.includes("No verificado · léelo en PoE2 antes de gastar")) &&
+            !(await avanzada.innerText()).includes("Descripción del recurso pendiente"),
+        );
+      }
       await page.getByTestId(`academia-avanzada-opcion-${opcion}`).click();
       const feedback = page.getByTestId("academia-avanzada-feedback");
       await feedback.waitFor({ timeout: 10000 });

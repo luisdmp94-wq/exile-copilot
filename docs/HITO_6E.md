@@ -52,12 +52,13 @@ Groq. Solo «Analizar este contexto» consulta al modelo opcional.
   una segunda decisión mientras la primera siga en curso.
 - Si el validador detecta una cifra, id o afirmación fuera del contexto, desecha
   toda la redacción y responde con el respaldo seguro de reglas.
-- Conserva como máximo ocho turnos al recargar durante la sesión del navegador;
-  una petición incompleta o un error nunca se persisten.
+- Conserva como máximo ocho turnos completos en SQLite para la misma sesión
+  anónima y personaje; una petición incompleta o un error nunca se persisten.
 - El hilo restaurado conserva su huella de inputs. Cambiar personaje, build,
   presupuesto, objetivo, liga, parche o diario lo elimina antes de reutilizarlo.
-- La conversación no sobrevive al cierre de la sesión del navegador y continúa
-  siendo texto no autoritativo.
+- La conversación sobrevive al cierre del navegador y al reinicio del servidor
+  con su SQLite. Perder la cookie rompe el vínculo y el texto continúa siendo no
+  autoritativo.
 
 ## Mascota v3: avisos recordados y prioridades visibles
 
@@ -81,10 +82,16 @@ Groq. Solo «Analizar este contexto» consulta al modelo opcional.
   según el proveedor; nunca se envía al navegador.
 - Groq no recibe los campos de OpenAI que no soporta (`store` y
   `safety_identifier`). Tampoco se reutiliza estado remoto de conversación.
-- Con OpenAI, `store:false` evita almacenar la respuesta y el id del personaje
-  se envía únicamente como hash en `safety_identifier`.
+- Con OpenAI, `store:false` evita que la respuesta se almacene para usos
+  posteriores del proveedor. `safety_identifier` es un hash irreversible de la
+  sesión anónima del navegador: nunca deriva del id ni del nombre del personaje
+  y la cookie real permanece en el servidor.
 - Contexto acotado a 3 candidatos, 14 objetos, 12 memorias, 12 datos faltantes y
   8 turnos conversacionales de hasta 800 caracteres.
+- El proveedor recibe únicamente el resumen necesario de clase, defensas,
+  objetivo, presupuesto, equipo y decisión activa. Se excluyen nombre del
+  personaje, cookie, id de expediente, afijos/tooltips crudos y resultados
+  libres del diario.
 - Tiempo máximo 1–30 s y salida 128–1024 tokens; valores iniciales 12 s/256.
 - La pregunta, nombres de objetos, memoria y conversación se marcan
   explícitamente como datos no confiables. El texto libre se valida antes de
@@ -112,6 +119,11 @@ repositorio.
 - Petición Groq Responses con esquema estricto, sin filtrar la clave y sin los
   campos incompatibles `store`/`safety_identifier`.
 - La alternativa OpenAI conserva `store:false` y `safety_identifier`.
+- Dos personajes del mismo navegador comparten el identificador anónimo
+  antiabuso, que no contiene ninguno de sus ids.
+- Una regresión serializa el contexto entregado al selector y demuestra que no
+  contiene nombre, id de expediente, tooltip completo ni resultado libre del
+  diario.
 - Negativa, falta de clave e ids inventados producen fallback seguro.
 - Pregunta libre selecciona una acción exacta del motor.
 - Petición de dato faltante usa una carencia canónica.

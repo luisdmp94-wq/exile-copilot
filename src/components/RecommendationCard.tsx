@@ -1,12 +1,14 @@
 import {
   AlertTriangle,
   BookMarked,
+  ChevronDown,
   ExternalLink,
   FileWarning,
   OctagonAlert,
   PackageSearch,
   Undo2,
 } from "lucide-react";
+import { useId } from "react";
 import type { Budget, Recommendation } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +32,7 @@ interface RecommendationCardProps {
   recommendation: Recommendation;
   applied: boolean;
   onAppliedChange: (applied: boolean) => void;
-  budget: Budget;
+  budget: Budget | null;
   /**
    * Abre el objeto que la regla evaluó. Solo se ofrece cuando el motor declara
    * `relatedItemIds`: sin vínculo estructurado no se muestra el botón ni se
@@ -42,6 +44,14 @@ interface RecommendationCardProps {
   tracking: boolean;
   onStartSession?: (recommendation: Recommendation) => void;
   startingSession?: boolean;
+  /**
+   * La recomendación principal se explica completa. Las alternativas empiezan
+   * como una comparación breve y solo enseñan el expediente técnico cuando el
+   * jugador lo pide.
+   */
+  presentation?: "full" | "alternative";
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 const PRIORITY_CLASSES: Record<number, string> = {
@@ -60,14 +70,27 @@ export function RecommendationCard({
   tracking,
   onStartSession,
   startingSession = false,
+  presentation = "full",
+  expanded = false,
+  onExpandedChange,
 }: RecommendationCardProps) {
+  const detailsId = useId();
+  const isAlternative = presentation === "alternative";
   const overBudget =
+    budget !== null &&
     rec.cost.currency === budget.currency &&
     ((rec.cost.min !== null && rec.cost.min > budget.amount) ||
       (rec.cost.max !== null && rec.cost.max > budget.amount));
 
   return (
-    <Card className={cn("gap-3", overBudget && "border-amber-500/50")}>
+    <Card
+      className={cn(
+        "gap-3",
+        overBudget && "border-amber-500/50",
+        isAlternative && "gap-0 py-0",
+      )}
+      data-testid={isAlternative ? `alternativa-${rec.id}` : undefined}
+    >
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
           <Badge
@@ -94,8 +117,50 @@ export function RecommendationCard({
           </Badge>
         </div>
         <CardTitle className="text-lg">{rec.title}</CardTitle>
+        {isAlternative && (
+          <>
+            <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+              {rec.action}
+            </p>
+            {(overBudget || rec.mayLoseValuableMods || rec.irreversible) && (
+              <p className="flex items-center gap-2 text-xs font-medium text-amber-300">
+                <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+                {rec.irreversible
+                  ? "Incluye una acción irreversible"
+                  : rec.mayLoseValuableMods
+                    ? "Puede afectar modificadores valiosos"
+                    : "Supera el presupuesto indicado"}
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-fit px-0 text-primary hover:bg-transparent hover:text-primary/80"
+              aria-expanded={expanded}
+              aria-controls={detailsId}
+              onClick={() => onExpandedChange?.(!expanded)}
+            >
+              {expanded ? "Ocultar detalles" : "Ver detalles"}
+              <ChevronDown
+                className={cn(
+                  "size-4 transition-transform",
+                  expanded && "rotate-180",
+                )}
+                aria-hidden="true"
+              />
+            </Button>
+          </>
+        )}
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-sm">
+      {(!isAlternative || expanded) && (
+      <CardContent
+        id={isAlternative ? detailsId : undefined}
+        className={cn(
+          "flex flex-col gap-3 text-sm",
+          isAlternative && "border-t border-border/70 pt-4",
+        )}
+      >
         <div>
           <p className="font-medium text-foreground">Acción</p>
           <p className="text-muted-foreground">{rec.action}</p>
@@ -284,6 +349,7 @@ export function RecommendationCard({
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }

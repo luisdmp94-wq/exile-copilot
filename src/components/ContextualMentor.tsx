@@ -107,19 +107,27 @@ function MentorRobot({
 function shouldSpeakAutomatically(
   cue: ContextualMentorCue,
   error: string | null,
-  blockedReason: string | null,
 ): boolean {
+  // `recommendations:` NO habla sola: la prioridad recién generada ya es el
+  // contenido dominante de la pantalla y el bocadillo repetía palabra por
+  // palabra lo que el jugador acaba de leer. El Copiloto solo interrumpe cuando
+  // trae algo que NO está ya delante: un resultado, un freno o un aviso.
+  // Un aviso puede declararse «no anunciable»: la pantalla ya lo cuenta entera.
+  if (cue.announce === false) return false;
   return (
     cue.id.startsWith("crafting-result:") ||
     cue.id.startsWith("crafting-coach:") ||
-    cue.id.startsWith("recommendations:") ||
     cue.id.startsWith("tracked:") ||
     cue.id.startsWith("session:") ||
     cue.id.startsWith("session-result:") ||
     cue.id.startsWith("applied:") ||
     cue.source === "warning" ||
-    error !== null ||
-    blockedReason !== null
+    // `error` es transitorio: acaba de fallar algo y la página puede no
+    // decirlo. `blockedReason` NO habla sola: es una condición permanente
+    // (expediente incompleto, parche sin revisar) que la propia pantalla ya
+    // muestra en su panel, y repetirla en cada cambio de contexto interrumpía
+    // al jugador con un asunto distinto del que tiene delante.
+    error !== null
   );
 }
 
@@ -150,7 +158,7 @@ export function ContextualMentor({
   const speechVisible =
     placement === "floating" &&
     collapsed &&
-    shouldSpeakAutomatically(cue, error, blockedReason) &&
+    shouldSpeakAutomatically(cue, error) &&
     !acknowledgedSpeechKeys.has(speechKey);
   const visualState = mascotVisualState(cue, answer, loading, error, blockedReason);
   const visualStatus = mascotStatusLabel(visualState);
@@ -298,7 +306,7 @@ export function ContextualMentor({
               Copiloto · {speechPriority === "important" ? "Atención" : "Novedad"}
             </span>
             <strong>{cue.title}</strong>
-            <span className="mentor-speech-bubble__message">{error ?? blockedReason ?? cue.message}</span>
+            <span className="mentor-speech-bubble__message">{error ?? cue.message}</span>
             <span className="mentor-speech-bubble__action">Ver explicación</span>
           </button>
           <button

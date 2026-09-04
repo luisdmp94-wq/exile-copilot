@@ -4,6 +4,7 @@ import {
   assessCraftingImportIssue,
   buildCraftingImportReport,
   craftingTooltipFingerprint,
+  summarizeCraftingImportEvidence,
 } from "../../shared/craftingImportReport.js";
 import type { Item } from "../../shared/domain.js";
 
@@ -88,6 +89,23 @@ describe("informe local de lectura de crafting", () => {
         }),
       ).kind,
     ).toBe("verified-blocker");
+    expect(
+      assessCraftingImportIssue(
+        item({
+          modifiers: [
+            {
+              id: "fracturado",
+              text: "+20 a la vida máxima",
+              kind: "explicit",
+              affix: "prefix",
+              values: [20],
+              verified: false,
+              fractured: true,
+            },
+          ],
+        }),
+      ).kind,
+    ).toBe("mechanic-unverified");
   });
 
   it("genera un informe reproducible sin ids, personaje ni envío automático", () => {
@@ -108,5 +126,28 @@ describe("informe local de lectura de crafting", () => {
     expect(craftingTooltipFingerprint("Línea 1\r\nLínea\u00a02")).toBe(
       craftingTooltipFingerprint("Línea 1\nLínea 2"),
     );
+  });
+
+  it("separa la base reconocida de los datos avanzados que todavía faltan", () => {
+    const partial = item({
+      itemLevel: undefined,
+      craftingState: undefined,
+      modifiers: [
+        {
+          id: "mod-sin-posicion",
+          text: "+20 a la vida máxima",
+          kind: "explicit",
+          values: [20],
+          verified: false,
+        },
+      ],
+    });
+    const summary = summarizeCraftingImportEvidence(partial);
+
+    expect(summary.recognized).toContain("Base: Ballesta de prueba");
+    expect(summary.recognized).toContain("Clase: Ballestas");
+    expect(summary.missing).toContain("Nivel de objeto");
+    expect(summary.missing).toContain("Estados especiales del tooltip");
+    expect(summary.missing).toContain("Posición de 1 modificador(es)");
   });
 });

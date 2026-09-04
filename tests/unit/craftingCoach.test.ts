@@ -156,6 +156,7 @@ describe("guía de crafting — la única siguiente acción", () => {
     if (step.kind !== "stop") return;
     expect(step.headline).toContain("llena");
     expect(step.why).toContain("6");
+    expect(step.reviewInExpediente).toBe(false);
     expect(step.needsAdvancedTools).toBe(true);
   });
 
@@ -176,6 +177,28 @@ describe("guía de crafting — la única siguiente acción", () => {
       "El texto no confirma todavía los estados especiales que pueden impedir el crafting.",
     );
     expect(textoDelPaso(step)).not.toMatch(/usa un orbe/i);
+  });
+
+  it("distingue una mecánica especial leída de una copia incompleta", () => {
+    const item = pieza({
+      rarity: "rare",
+      craftingState: { ...ESTADO_LIMPIO, fractured: true },
+      modifiers: [
+        mod("p", "+1 al nivel de todas las habilidades", "prefix", ["Gema"]),
+        {
+          ...mod("s", "+37% a la resistencia al frío", "suffix", ["Frío"]),
+          fractured: true,
+        },
+      ],
+    });
+
+    const step = chooseNextStep(item);
+
+    expect(step.kind).toBe("needs-data");
+    if (step.kind !== "needs-data") return;
+    expect(step.headline).toBe("Esta interacción aún no está verificada");
+    expect(step.instruction).toContain("No gastes moneda");
+    expect(textoDelPaso(step)).not.toMatch(/Ctrl\+Alt\+C|copia incompleta/i);
   });
 
   it("nunca promete un resultado ni menciona probabilidades o precios", () => {
@@ -553,6 +576,34 @@ describe("guía de crafting — evaluación de la base antes de gastar", () => {
     });
   });
 
+  it("no convierte una carencia sugerida por el contexto en una apuesta sobre otra pieza", () => {
+    const item = pieza({
+      name: "Doom Song",
+      baseType: "Ballesta geminiana",
+      slot: "weapon",
+      rarity: "rare",
+      modifiers: [
+        mod("fisico", "Daño físico aumentado un 69%", "prefix", ["Daño", "Físico", "Ataque"]),
+      ],
+    });
+    const assessment = assessPurposefulCraftBase({
+      item,
+      direction: "defence",
+      focus: "resistances",
+      profile: perfil([item]),
+      goalSource: "context",
+    });
+
+    expect(assessment.status).toBe("change-base");
+    expect(assessment.decisionLabel).toBe("Cambiar de pieza sin gastar.");
+    expect(assessment.nextStep.kind).toBe("stop");
+    if (assessment.nextStep.kind !== "stop") {
+      throw new Error("La sugerencia contextual no bloqueó el gasto aleatorio");
+    }
+    expect(assessment.nextStep.headline).toContain("No gastes");
+    expect(assessment.nextStep.instruction).toContain("Cambia de pieza");
+  });
+
   it("detiene el gasto si la pieza ya cumple la parada observable", () => {
     const item = pieza({
       name: "Trueno de runa",
@@ -580,7 +631,10 @@ describe("guía de crafting — evaluación de la base antes de gastar", () => {
 
     expect(assessment.status).toBe("already-satisfied");
     expect(assessment.nextStep.kind).toBe("stop");
-    expect(assessment.decisionLabel).toBe("Parar y comparar.");
+    if (assessment.nextStep.kind !== "stop") return;
+    expect(assessment.nextStep.reviewInExpediente).toBe(true);
+    expect(assessment.nextStep.instruction).toContain("revisar la tirada actual");
+    expect(assessment.decisionLabel).toBe("Parar y revisar.");
   });
 
   it("no confunde un afijo físico aislado con una pieza de endgame terminada", () => {
@@ -611,6 +665,7 @@ describe("guía de crafting — evaluación de la base antes de gastar", () => {
       throw new Error("El proyecto de endgame no quedó bloqueado");
     }
     expect(assessment.nextStep.headline).not.toContain("parada ya se cumple");
+    expect(assessment.nextStep.reviewInExpediente).toBe(false);
   });
 
   it("manda cambiar una base llena que no contiene el objetivo", () => {

@@ -12,14 +12,14 @@
     {
       "patchId": "0.5.4f",
       "status": "limited",
-      "reviewedAt": "2026-08-22",
+      "reviewedAt": "2026-08-30",
       "summary": "La estructura principal está contrastada, pero no existen pools, pesos ni probabilidades completos y redistribuibles.",
       "features": [
         {
           "id": "item-import",
           "label": "Importación de objetos",
-          "status": "covered",
-          "note": "El formato avanzado en español se contrasta con objetos copiados del cliente.",
+          "status": "limited",
+          "note": "El formato avanzado en español se contrasta con objetos copiados del cliente; la evidencia original no muestra por sí sola el parche.",
           "evidence": "Fixtures locales capturadas el 22/08/2026 y regresiones del importador.",
           "evidenceIds": ["item-parser-fixtures-2026-08-22"]
         },
@@ -37,9 +37,9 @@
         {
           "id": "advanced-crafting",
           "label": "Essences, Alloys y rutas avanzadas",
-          "status": "limited",
-          "note": "Cada operación exige el tooltip real; no hay matriz completa de efectos ni probabilidades.",
-          "evidence": "Fuentes oficiales parciales registradas y comprobación conservadora por tooltip.",
+          "status": "review-required",
+          "note": "Essences y Alloys quedan detenidos hasta verificar sus reglas específicamente contra 0.5.4f.",
+          "evidence": "Las fuentes registradas solo alcanzan 0.5.0 para Essences y 0.5.3 para Alloys; no autorizan 0.5.4f.",
           "evidenceIds": ["crafting-essences-sources", "crafting-alloys-sources"]
         },
         {
@@ -57,6 +57,102 @@
           "note": "Los precios son consultas temporales de poe.ninja, no valores garantizados.",
           "evidence": "Respuesta fechada del endpoint de economía y aviso de procedencia visible.",
           "evidenceIds": ["poe-ninja-economy-endpoint"]
+        }
+      ]
+    },
+    {
+      "patchId": "0.5.5",
+      "status": "review-required",
+      "reviewedAt": null,
+      "summary": "0.5.5 está anunciado para el 4 de septiembre, pero sus notas y evidencias del cliente aún no están disponibles. No hereda datos ni reglas de 0.5.4f.",
+      "features": [
+        {
+          "id": "item-import",
+          "label": "Importación de objetos",
+          "status": "review-required",
+          "note": "Detenido hasta reproducir textos copiados directamente del cliente 0.5.5 en los idiomas soportados.",
+          "evidence": "El anuncio oficial no documenta el formato de objetos de 0.5.5.",
+          "evidenceIds": []
+        },
+        {
+          "id": "basic-crafting",
+          "label": "Crafting básico guiado",
+          "status": "review-required",
+          "note": "Detenido hasta contrastar monedas y transiciones con las notas y el cliente 0.5.5.",
+          "evidence": "El anuncio oficial anticipa contenido, pero no aporta reglas completas de crafting.",
+          "evidenceIds": []
+        },
+        {
+          "id": "advanced-crafting",
+          "label": "Essences, Alloys y rutas avanzadas",
+          "status": "review-required",
+          "note": "Detenido hasta revisar Essences, Alloys y cualquier cambio del parche con evidencia propia de 0.5.5.",
+          "evidence": "Las evidencias existentes pertenecen a 0.5.0 y 0.5.3; no autorizan 0.5.5.",
+          "evidenceIds": []
+        },
+        {
+          "id": "passive-tree",
+          "label": "Árbol de pasivas",
+          "status": "review-required",
+          "note": "Detenido hasta fijar y probar un export oficial contra 0.5.5.",
+          "evidence": "El registro actual está probado exclusivamente contra 0.5.4f.",
+          "evidenceIds": []
+        },
+        {
+          "id": "market",
+          "label": "Mercado",
+          "status": "review-required",
+          "note": "Detenido hasta confirmar la liga y una fuente de economía que identifique 0.5.5.",
+          "evidence": "Todavía no existe una captura posterior al lanzamiento de 0.5.5.",
+          "evidenceIds": []
+        }
+      ]
+    },
+    {
+      "patchId": "1.0",
+      "status": "review-required",
+      "reviewedAt": null,
+      "summary": "1.0 está anunciado para el 11 de diciembre de 2026. Ninguna evidencia del acceso anticipado autoriza sus objetos, crafting, pasivas o economía.",
+      "features": [
+        {
+          "id": "item-import",
+          "label": "Importación de objetos",
+          "status": "review-required",
+          "note": "Detenido hasta reproducir copias directas del cliente 1.0 en español e inglés después del lanzamiento.",
+          "evidence": "El anuncio confirma la fecha, pero no demuestra el formato final de los objetos.",
+          "evidenceIds": []
+        },
+        {
+          "id": "basic-crafting",
+          "label": "Crafting básico guiado",
+          "status": "review-required",
+          "note": "Detenido hasta contrastar monedas básicas y transiciones con notas y tooltips reales de 1.0.",
+          "evidence": "Las reglas observadas en acceso anticipado no se heredan al lanzamiento completo.",
+          "evidenceIds": []
+        },
+        {
+          "id": "advanced-crafting",
+          "label": "Essences, Alloys y rutas avanzadas",
+          "status": "review-required",
+          "note": "Detenido hasta revisar Essences, Alloys y condiciones de parada con evidencia propia de 1.0.",
+          "evidence": "No existe todavía evidencia posterior al lanzamiento para estas mecánicas.",
+          "evidenceIds": []
+        },
+        {
+          "id": "passive-tree",
+          "label": "Árbol de pasivas",
+          "status": "review-required",
+          "note": "Detenido hasta fijar un export oficial y probar la resolución de nodos contra 1.0.",
+          "evidence": "El registro activo pertenece a 0.5.4f y no puede resolver 1.0.",
+          "evidenceIds": []
+        },
+        {
+          "id": "market",
+          "label": "Mercado",
+          "status": "review-required",
+          "note": "Detenido hasta confirmar la liga de lanzamiento y una fuente de economía que la identifique.",
+          "evidence": "El anuncio no contiene una captura de economía ni precios del lanzamiento.",
+          "evidenceIds": []
         }
       ]
     }

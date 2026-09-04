@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { withTransaction, type Database } from "./database.js";
 
 /**
@@ -105,6 +106,46 @@ export function getCharacter(db: Database, id: string): CharacterRow | null {
   return (row as CharacterRow | undefined) ?? null;
 }
 
+/** Último expediente de una sesión anónima; nunca mezcla propietarios. */
+export function getMostRecentCharacterForOwner(
+  db: Database,
+  ownerId: string,
+): CharacterRow | null {
+  const row = db
+    .prepare(
+      `SELECT id, owner_id, payload, updated_at
+         FROM characters
+        WHERE owner_id = ?
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1`,
+    )
+    .get(ownerId);
+  return (row as CharacterRow | undefined) ?? null;
+}
+
+export function listCharactersForOwner(
+  db: Database,
+  ownerId: string,
+  options: { offset: number; limit: number },
+): CharacterRow[] {
+  return db
+    .prepare(
+      `SELECT id, owner_id, payload, updated_at
+         FROM characters
+        WHERE owner_id = ?
+        ORDER BY updated_at DESC, id DESC
+        LIMIT ? OFFSET ?`,
+    )
+    .all(ownerId, options.limit, options.offset) as unknown as CharacterRow[];
+}
+
+export function countCharactersForOwner(db: Database, ownerId: string): number {
+  const row = db
+    .prepare("SELECT COUNT(*) AS count FROM characters WHERE owner_id = ?")
+    .get(ownerId) as { count: number | bigint };
+  return Number(row.count);
+}
+
 export function claimCharacterOwner(db: Database, id: string, ownerId: string): boolean {
   const result = db
     .prepare("UPDATE characters SET owner_id = ? WHERE id = ? AND owner_id IS NULL")
@@ -116,6 +157,7 @@ export interface DeletedVisitorData {
   characters: number;
   journalEntries: number;
   journalStates: number;
+  mentorThreads: number;
   buildMemoryEntries: number;
   decisionSessions: number;
   decisionSessionEvents: number;
@@ -133,6 +175,9 @@ export function deleteVisitorData(
   return withTransaction(db, () => {
     const ownedCharacter =
       "character_id IN (SELECT id FROM characters WHERE owner_id = ?)";
+    const mentorThreads = Number(
+      db.prepare("DELETE FROM mentor_threads WHERE owner_id = ?").run(ownerId).changes,
+    );
     const decisionSessionEvents = Number(
       db
         .prepare(`DELETE FROM decision_session_events WHERE ${ownedCharacter}`)
@@ -164,11 +209,88 @@ export function deleteVisitorData(
       characters,
       journalEntries,
       journalStates,
+      mentorThreads,
       buildMemoryEntries,
       decisionSessions,
       decisionSessionEvents,
     };
   });
+}
+
+export interface MentorThreadRow {
+  character_id: string;
+  owner_id: string;
+  inputs_hash: string;
+  payload: string;
+  updated_at: string;
+}
+
+function hashMentorInputsKey(threadInputsKey: string): string {
+  return createHash("sha256").update(threadInputsKey, "utf8").digest("hex");
+}
+
+/** Guarda solo la huella de los inputs autoritativos, nunca la ficha duplicada. */
+export function saveMentorThread(
+  db: Database,
+  input: {
+    characterId: string;
+    ownerId: string;
+    threadInputsKey: string;
+    payload: string;
+    updatedAt: string;
+  },
+): boolean {
+  const result = db.prepare(
+    `INSERT INTO mentor_threads (
+       character_id, owner_id, inputs_hash, payload, updated_at
+     ) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(character_id) DO UPDATE SET
+       inputs_hash = excluded.inputs_hash,
+       payload = excluded.payload,
+       updated_at = excluded.updated_at
+     WHERE mentor_threads.owner_id = excluded.owner_id`,
+  ).run(
+    input.characterId,
+    input.ownerId,
+    hashMentorInputsKey(input.threadInputsKey),
+    input.payload,
+    input.updatedAt,
+  );
+  return Number(result.changes) > 0;
+}
+
+/**
+ * Devuelve el hilo únicamente para el propietario y la misma huella. Si los
+ * inputs cambiaron, retira la conversación obsoleta en el mismo acceso.
+ */
+export function getMatchingMentorThread(
+  db: Database,
+  characterId: string,
+  ownerId: string,
+  threadInputsKey: string,
+): MentorThreadRow | null {
+  const row = db.prepare(
+    `SELECT character_id, owner_id, inputs_hash, payload, updated_at
+       FROM mentor_threads
+      WHERE character_id = ? AND owner_id = ?`,
+  ).get(characterId, ownerId) as MentorThreadRow | undefined;
+  if (row === undefined) return null;
+  if (row.inputs_hash === hashMentorInputsKey(threadInputsKey)) return row;
+  db.prepare(
+    "DELETE FROM mentor_threads WHERE character_id = ? AND owner_id = ?",
+  ).run(characterId, ownerId);
+  return null;
+}
+
+export function deleteMentorThread(
+  db: Database,
+  characterId: string,
+  ownerId: string,
+): boolean {
+  const result = db.prepare(
+    "DELETE FROM mentor_threads WHERE character_id = ? AND owner_id = ?",
+  ).run(characterId, ownerId);
+  return Number(result.changes) > 0;
 }
 
 export interface BuildMemoryEntryRow {

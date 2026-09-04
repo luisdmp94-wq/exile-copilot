@@ -1,4 +1,5 @@
 import { isAbsolute } from "node:path";
+import { isIP } from "node:net";
 import type { ServerConfig } from "./config.js";
 
 export type DeploymentReadinessStatus = "pass" | "block";
@@ -18,12 +19,28 @@ export interface DeploymentReadinessCheck {
   message: string;
 }
 
+function isReservedContactHostname(value: string): boolean {
+  const hostname = value.trim().toLowerCase().replace(/\.$/, "");
+  if (
+    hostname === "localhost" ||
+    hostname === "example.com" ||
+    hostname === "example.net" ||
+    hostname === "example.org"
+  ) {
+    return true;
+  }
+  return [".localhost", ".local", ".invalid", ".test", ".example"].some(
+    (suffix) => hostname.endsWith(suffix),
+  );
+}
+
 function hasIdentifiablePoeNinjaContact(value: string): boolean {
   const candidate = value.trim();
   if (candidate === "" || candidate.toLowerCase().includes("local-dev")) return false;
 
-  const email = /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/i;
-  if (email.test(candidate)) return true;
+  const email = /\b[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})\b/i;
+  const emailMatch = candidate.match(email);
+  if (emailMatch?.[1] && !isReservedContactHostname(emailMatch[1])) return true;
 
   const urls = candidate.match(/https?:\/\/[^\s)]+/gi) ?? [];
   return urls.some((rawUrl) => {
@@ -31,11 +48,38 @@ function hasIdentifiablePoeNinjaContact(value: string): boolean {
       const parsed = new URL(rawUrl);
       return (
         (parsed.protocol === "http:" || parsed.protocol === "https:") &&
-        parsed.hostname.includes(".")
+        parsed.hostname.includes(".") &&
+        !isReservedContactHostname(parsed.hostname)
       );
     } catch {
       return false;
     }
+  });
+}
+
+function isExplicitTrustedProxy(value: ServerConfig["trustProxy"]): boolean {
+  if (typeof value !== "string") return false;
+  const entries = value
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  if (entries.length === 0) return false;
+
+  return entries.every((entry) => {
+    if (entry === "loopback") return true;
+    if (isIP(entry) !== 0) return true;
+
+    const separator = entry.lastIndexOf("/");
+    if (separator <= 0) return false;
+    const address = entry.slice(0, separator);
+    const prefix = Number(entry.slice(separator + 1));
+    const version = isIP(address);
+    return (
+      version !== 0 &&
+      Number.isInteger(prefix) &&
+      prefix >= 1 &&
+      prefix <= (version === 4 ? 32 : 128)
+    );
   });
 }
 
@@ -55,6 +99,7 @@ export function auditPublicDeploymentConfig(
   const identifiedClient =
     config.poeNinjaOffline || hasIdentifiablePoeNinjaContact(config.poeNinjaUserAgent);
   const mentorReady = !config.mentorAiEnabled || config.mentorAiApiKey !== null;
+  const explicitTrustedProxy = isExplicitTrustedProxy(config.trustProxy);
 
   return [
     {
@@ -80,10 +125,12 @@ export function auditPublicDeploymentConfig(
     },
     {
       id: "trusted-proxy",
-      status: config.trustProxy ? "pass" : "block",
-      message: config.trustProxy
-        ? "Express confía en el proxy HTTPS controlado para identificar al visitante."
-        : "Un despliegue público exige TRUST_PROXY=true detrás del proxy HTTPS controlado.",
+      status: explicitTrustedProxy ? "pass" : "block",
+      message: explicitTrustedProxy
+        ? `Express solo confía en el proxy HTTPS declarado (${config.trustProxy}).`
+        : config.trustProxy === true
+          ? "TRUST_PROXY=true confía en cualquier salto y no es seguro en público; usa loopback o la IP/CIDR exacta del proxy HTTPS."
+          : "Un despliegue público exige TRUST_PROXY=loopback o la IP/CIDR exacta del proxy HTTPS controlado.",
     },
     {
       id: "persistent-database",
@@ -99,7 +146,7 @@ export function auditPublicDeploymentConfig(
         ? config.poeNinjaOffline
           ? "poe.ninja está desactivado; no saldrán peticiones de mercado."
           : "poe.ninja recibirá un User-Agent identificable."
-        : "POE_NINJA_USER_AGENT debe sustituir local-dev por un correo o URL de contacto con formato válido.",
+        : "POE_NINJA_USER_AGENT debe sustituir local-dev por un correo o URL de contacto real; no se admiten dominios reservados o de ejemplo.",
     },
     {
       id: "ggg-oauth-disabled",

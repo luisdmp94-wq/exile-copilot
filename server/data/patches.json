@@ -8,6 +8,26 @@
     "source": "pathofexile.com — foro oficial de parches, hilo '0.5.4f Hotfix' (Stacey_GGG, 2026-08-12)"
   },
   {
+    "id": "0.5.5",
+    "label": "PoE2 0.5.5 · anunciado",
+    "status": "announced",
+    "releaseDate": "2026-09-04",
+    "content": "0.5.5",
+    "hotfix": null,
+    "asOf": "2026-08-27",
+    "source": "Steam Community — anuncio oficial 'Path of Exile 2: 0.5.5 Event League & Duelist Deep Dive' (Natalia_GGG, 2026-08-27); lanzamiento anunciado para 2026-09-04, notas del parche aún pendientes"
+  },
+  {
+    "id": "1.0",
+    "label": "PoE2 1.0 · anunciado",
+    "status": "announced",
+    "releaseDate": "2026-12-11",
+    "content": "1.0",
+    "hotfix": null,
+    "asOf": "2026-08-25",
+    "source": "Steam — anuncio oficial 'Path of Exile 2 Fully Releases on December 11!' (2026-08-25); el lanzamiento completo sigue pendiente"
+  },
+  {
     "id": "0.5.0",
     "label": "PoE2 0.5.0",
     "content": "0.5.0",

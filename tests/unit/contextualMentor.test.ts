@@ -66,6 +66,20 @@ describe("mentor contextual", () => {
     expect(action.message).toContain("no predice");
   });
 
+  it("no convierte una pieza de práctica en un gasto o un resultado real", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachExample",
+      itemName: "Maza de procesión de victoria",
+      origin: "practice",
+    });
+
+    expect(cue.eyebrow).toBe("Simulación de Crafting");
+    expect(cue.message).toContain("pieza de práctica");
+    expect(cue.message).toContain("no gastes moneda");
+    expect(cue.message).toContain("ni pegues un resultado real");
+    expect(cue.ask).toBeNull();
+  });
+
   it("reacciona a la dirección elegida en el guía con la pieza y el paso concretos", () => {
     const cue = contextualMentorCue({
       type: "craftingCoachDirection",
@@ -215,6 +229,35 @@ describe("mentor contextual", () => {
     expect(cue.ask?.question).toContain("continuar, parar o cambiar de base");
   });
 
+  it("normaliza progreso antiguo para no mostrar un paso imposible", () => {
+    const cue = contextualMentorCue({
+      type: "craftingCoachResult",
+      itemName: "Núcleo de fénix",
+      playerGoal: "quiero más daño de hielo",
+      headline: "El resultado no encaja",
+      verdict: "stop",
+      decisionKind: "stop",
+      verdictText: "Se alcanzó el límite del contrato.",
+      nextStepTitle: null,
+      focus: "cold",
+      rollMinimum: "middle",
+      rollMinimumLabel: "tirada media o alta",
+      attemptCurrent: 2,
+      attemptLimit: 1,
+      attemptsRemaining: 0,
+      nextAction: null,
+    });
+
+    expect(cue.message).toContain("Paso 1 de 1");
+    expect(cue.message).not.toContain("Paso 2 de 1");
+    expect(cue.ask?.question).toContain("paso 1 de 1");
+    expect(cue.ask?.craftingState?.mode).toBe("coach");
+    if (cue.ask?.craftingState?.mode === "coach") {
+      expect(cue.ask.craftingState.attemptCurrent).toBe(1);
+      expect(cue.ask.craftingState.attemptLimit).toBe(1);
+    }
+  });
+
   it("resume el contrato avanzado completo sin transportar el texto libre del afijo", () => {
     const state = {
       mode: "advanced" as const,
@@ -288,6 +331,19 @@ describe("mentor contextual", () => {
 
     expect(cue.title).toBe("Necesito conocer a tu personaje");
     expect(cue.message).not.toContain("tu equipo");
+    expect(cue.ask).toBeNull();
+  });
+
+  it("no presenta un borrador parcial como expediente listo", () => {
+    const cue = contextualMentorCue({
+      type: "profileIncomplete",
+      profileName: "Titan Warrior",
+      missing: ["clase", "nivel", "equipo"],
+    });
+
+    expect(cue.source).toBe("warning");
+    expect(cue.title).toContain("todavía no está listo");
+    expect(cue.message).toContain("clase, nivel, equipo");
     expect(cue.ask).toBeNull();
   });
 

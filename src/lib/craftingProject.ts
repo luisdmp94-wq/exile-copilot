@@ -48,6 +48,37 @@ export interface CraftingProject {
 
 export type CraftingProjectContract = Omit<CraftingProject, "attempts">;
 
+export interface NumberedCraftingProjectAttempt {
+  attempt: CraftingProjectAttempt;
+  number: number;
+}
+
+export interface CraftingProjectAttemptHistory {
+  recent: NumberedCraftingProjectAttempt[];
+  previous: NumberedCraftingProjectAttempt[];
+}
+
+/**
+ * Mantiene a primera vista solo los intentos recientes y conserva el resto en
+ * orden inverso para una divulgación progresiva. Ningún intento almacenado se
+ * descarta al construir la vista.
+ */
+export function splitCraftingProjectAttemptHistory(
+  attempts: readonly CraftingProjectAttempt[],
+  recentLimit = 4,
+): CraftingProjectAttemptHistory {
+  const limit = Math.max(1, Math.min(12, Math.trunc(recentLimit) || 4));
+  const numbered = attempts.map((attempt, index) => ({
+    attempt,
+    number: index + 1,
+  }));
+  const previousCount = Math.max(0, numbered.length - limit);
+  return {
+    recent: numbered.slice(previousCount).reverse(),
+    previous: numbered.slice(0, previousCount).reverse(),
+  };
+}
+
 export function craftingProjectStorageKey(profileId: string | null, itemId: string): string {
   return `exile-copilot:crafting-project:v1:${profileId ?? "loose"}:${itemId}`;
 }
@@ -87,10 +118,14 @@ export function saveCraftingProjectContract(
   if (typeof window === "undefined") return;
   try {
     const current = readCraftingProject(storageKey);
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify(CraftingProjectSchema.parse({ ...current, ...contract })),
-    );
+    const next = CraftingProjectSchema.parse({ ...current, ...contract });
+    const currentSerialized = JSON.stringify(current);
+    const nextSerialized = JSON.stringify(next);
+    // Persistir un contrato idéntico no aporta estado nuevo y puede despertar
+    // listeners del Taller en ciertos entornos. El guardado es idempotente.
+    if (nextSerialized !== currentSerialized) {
+      window.localStorage.setItem(storageKey, nextSerialized);
+    }
   } catch {
     // El proyecto sigue disponible en memoria si el navegador bloquea localStorage.
   }
