@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ClipboardCheck } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -79,7 +80,11 @@ export function OpenCase({
       >
         <div className="relative z-10 flex flex-col gap-4">
           {isWaitingForDiagnosis ? (
-            <div className="max-w-prose">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
+                <ClipboardCheck className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 max-w-prose">
               <p className="rotulo-seccion text-primary/70">
                 {partialAnalysis
                   ? "Análisis parcial disponible"
@@ -112,9 +117,13 @@ export function OpenCase({
                   Añade más piezas para ampliar el análisis del equipo. La orientación actual seguirá marcada como parcial.
                 </p>
               )}
+              </div>
             </div>
           ) : (
-            <p className="rotulo-seccion text-primary/70">
+            <p className="flex items-center gap-2.5 rotulo-seccion text-primary/70">
+              <span className="grid size-7 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
+                <ClipboardCheck className="size-4" aria-hidden="true" />
+              </span>
               {partialAnalysis
                 ? `Diagnóstico parcial · ${profileReadiness.equippedItemCount} ${profileReadiness.equippedItemCount === 1 ? "pieza observada" : "piezas observadas"}`
                 : "Diagnóstico activo"}

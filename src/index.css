@@ -161,6 +161,15 @@
   }
 
   /** Superficie elevada: sombra interior discreta, sin transparencias que resten contraste. */
+  /**
+   * Velo de diálogos y panel lateral. Sobre una página casi negra, el 50 %
+   * previo apenas separaba; se define aquí porque la utilidad equivalente de
+   * Tailwind no llega a generarse en este proyecto y dejaría el velo en nada.
+   */
+  .scrim-dialogo {
+    background: hsl(240 32% 2% / 0.74);
+  }
+
   .superficie-panel {
     @apply border border-border bg-card/95;
     border-radius: 3px;
@@ -896,7 +905,6 @@
   }
 
   .welcome-stage {
-    min-height: 34rem;
     position: relative;
     overflow: hidden;
     background:

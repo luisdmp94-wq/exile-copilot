@@ -1715,14 +1715,22 @@ export default function App() {
               >
                 {/* Encabezado del área, no una caja aparte: antes era un panel
                     de 85 px de alto que solo contenía su propio título. */}
-                <header className="mb-6" aria-labelledby="operaciones-titulo">
-                  <p className="rotulo-seccion text-primary/70">Mesa de operaciones</p>
-                  <h2
-                    id="operaciones-titulo"
-                    className="dossier-title mt-1 text-3xl font-semibold text-foreground"
-                  >
-                    Decide el rumbo antes de gastar
-                  </h2>
+                <header
+                  className="mb-6 flex items-center gap-3 border-b border-border/70 pb-4"
+                  aria-labelledby="operaciones-titulo"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
+                    <Compass className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="rotulo-seccion text-primary/70">Mesa de operaciones</p>
+                    <h2
+                      id="operaciones-titulo"
+                      className="dossier-title text-2xl font-semibold text-foreground"
+                    >
+                      Decide el rumbo antes de gastar
+                    </h2>
+                  </div>
                 </header>
                 {savedNextAction && (
                   <section
