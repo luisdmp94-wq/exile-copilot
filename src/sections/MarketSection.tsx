@@ -166,14 +166,19 @@ export function MarketSection({
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
-              disabled={loading || missingRequirement !== null}
-              onClick={() =>
+              disabled={loading}
+              onClick={() => {
+                // Un botón desactivado no explica nada: se puede pulsar y dice qué falta.
+                if (missingRequirement) {
+                  setTouched(true);
+                  return;
+                }
                 void market.queryPrices(
                   league,
                   namesText.split(",").map((n) => n.trim()),
                   patch,
-                )
-              }
+                );
+              }}
             >
               {loading ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
