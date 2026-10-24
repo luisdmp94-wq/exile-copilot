@@ -1,445 +1,124 @@
-# Exile Copilot
+# Exile Mentor
 
-Aplicación web para jugadores de **Path of Exile 2**. Su núcleo es un mentor
-persistente que conoce el personaje, recuerda decisiones y mantiene una sola
-próxima acción:
+**What to fix first in your Path of Exile 2 build.**
 
-> «Importa tu build, indica tu presupuesto y recibe las próximas mejoras ordenadas por impacto, coste y riesgo.»
+Paste your Path of Building 2 code (or type four numbers from your character
+sheet) and Exile Mentor tells you, in plain words, the top things holding your
+character back — and remembers your last check so you can see your progress.
 
-No es un chatbot genérico: construye un perfil estructurado del personaje,
-consulta datos verificables (API económica pública documentada de poe.ninja),
-devuelve acciones concretas y conserva el resultado de cada decisión en el
-diario del personaje. Además, un **mentor contextual persistente** acompaña la
-navegación: reacciona al objeto inspeccionado, al área abierta, al objetivo, al
-presupuesto, al mercado y a las recomendaciones. La reacción inmediata es local
-y determinista. En Crafting también sigue la pieza, el objetivo, la condición
-de parada y la moneda que el jugador prepara. Su cabecera permanece visible y empieza plegada para no tapar
-acciones; solo consulta al proveedor de IA cuando el jugador despliega el panel
-y pulsa «Analizar este contexto». Mientras haya un paso activo no genera tareas
-paralelas; si una mejora ya se intentó, exige reconciliar el resultado con el
-perfil antes de repetirla.
+> Free, no account, no ads. Your build never leaves your browser.
 
-## Requisitos
+*Resumen en español [más abajo](#en-español).*
 
-- Node.js 24+ (usa `node:sqlite`, sin dependencias nativas)
-- npm
-- (Opcional, solo para `npm run test:browser`) Microsoft Edge instalado
+## What it checks
 
-## Puesta en marcha
+Exile Mentor only says things it can back up with the numbers it read:
+
+| Check | Example |
+| --- | --- |
+| Elemental resistances below 75% | `Fire 52% · 23 points short` — *you take 92% more fire damage than at 75%* |
+| Empty gear slots | `Empty: Belt, Ring 2` |
+| Negative chaos resistance | `Chaos −24% · 24 points short of 0%` |
+
+Up to three priorities, most urgent first. "Extra damage taken" is plain
+arithmetic: damage of a type scales with `100 − resistance`. If everything it
+checks is fine, it says so instead of inventing advice.
+
+**Your progress.** Each check is saved in your browser (up to 20, nothing is
+sent anywhere). Next time you get a comparison: level, resistance changes,
+slots you filled and priorities you fixed. One click forgets them all.
+
+**English and Spanish**, switchable at any time.
+
+## How to use it
+
+1. In **Path of Building 2**: *Import/Export Build → Generate → Copy*.
+2. Paste the code into Exile Mentor and press **Check my build**.
+3. No PoB? Choose **I'll type it in** and copy your four resistances from the
+   in-game character sheet, then tick any empty gear slots.
+
+The numbers are the ones Path of Building calculates with your PoB
+configuration, so they can differ slightly from the game if PoB is set up
+differently (campaign penalty, buffs, charges).
+
+## Privacy
+
+- The PoB code is decompressed and read **in your browser**. There are no
+  requests to any server when you check a build.
+- Saved checks and your language choice live in your browser's local storage.
+- The public site is static: no accounts, cookies, analytics or third-party
+  scripts.
+
+## Status
+
+Early release ahead of Path of Exile 2's 1.0 launch (11 December 2026). The
+rules will be reviewed against the 1.0 patch notes. Planned next: knowing which
+act you are in and the next goal for your character while you level.
+
+## Run it locally
+
+Requires **Node.js 24** and npm.
 
 ```bash
 npm install
-cp .env.example .env   # opcional; todos los valores tienen default
-npm run dev            # frontend + API en http://localhost:7100
+npm run dev            # http://localhost:7100/check
 ```
 
-- `npm run dev` — servidor de desarrollo único (Vite sirve el frontend y monta la API Express bajo `/api`).
-- `npm start` — modo producción: sirve `dist/` + API en el puerto `PORT` (default 7177). Requiere `npm run build` previo.
-- `npm run build` — typecheck completo (`tsc -b`) + build de producción.
-- `npm test` — pruebas automatizadas (unitarias, integración y e2e del flujo principal).
-- `npm run lint` — ESLint sobre todo el repo.
-- `npm run test:browser` — prueba real de navegador del flujo principal con Edge (Playwright, `channel: msedge`, sin descargar navegadores). `--dev` la ejecuta contra el servidor de desarrollo (Strict Mode), `--all` contra ambos. Requiere `npm run build` previo para el modo producción. Guarda capturas en `docs/screenshots/`.
-- `npm run test:journal` — prueba del flujo persistente del mentor en una base temporal; acepta también `--dev` y `--all` y nunca modifica los datos del usuario.
-- `npm run test:mentor` — prueba de navegador de la conversación con el mentor (Hito 6A) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
-- `npm run test:session` — prueba de navegador del ciclo «Probar y volver» (Hito 6C) en una base SQLite temporal; acepta `--dev`, `--all` y `--update-screenshots`.
-- `npm run verify:release` — barrera completa de la versión: ejecuta ESLint, compila el servidor que se desplegará y recorre bienvenida, equipo, Crafting, Academia, Mentor, diario, sesiones y memoria en bases temporales.
-- `npm run drill:restore` — crea una SQLite temporal, guarda un expediente, su diario y una sesión activa del Mentor, copia y restaura el conjunto, ejecuta `integrity_check` y demuestra que la misma sesión anónima puede recuperarlos; nunca usa la base real.
-- `npm run readiness:deployment` — bloquea una publicación si conserva configuración local, cookies inseguras, almacenamiento efímero, proxy sin declarar o credenciales externas incompletas.
-- `npm run verify:public` — barrera final para abrir una versión a usuarios reales: primero valida exactamente la configuración pública y después ejecuta `verify:release` en un entorno local aislado, sin heredar la base ni los secretos reales.
-- `npm run verify:public:1.0` — añade a la barrera pública la evidencia estricta y exclusiva de PoE2 1.0; no acepta cobertura heredada de otro parche.
-- `server/data/releaseEvidence.json` — catálogo auditable que liga cada id de
-  compatibilidad a un área, un parche explícito y un artefacto local fijado por
-  SHA-256; un nombre inventado o una observación sin parche no desbloquean un
-  lanzamiento.
-
-El procedimiento para publicar, hacer copias y recuperar el servicio está en
-[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
-
-## Cómo probar el flujo principal (sin credenciales)
-
-1. Abre http://localhost:7100 y elige una intención: **«Mejorar mi personaje»**
-   abre el importador, **«Empezar desde cero»** crea un perfil editable y
-   **«Evaluar o craftear»** permite pegar un objeto y entrar directamente al
-   banco de Crafting. **«Cargar ejemplo»** sigue disponible como recorrido demo.
-2. Revisa/corrige campos en **Mi personaje** (atributos, resistencias, vida y defensas; «Desconocido» = sin dato, nunca 0) y pulsa **Guardar correcciones**. El personaje se recupera automáticamente al recargar la página. Si falta solo el id local, la cookie anónima redescubre el expediente reciente; una caída temporal conserva la referencia y ofrece reintentar. **Cambiar o empezar de nuevo** suspende esa recuperación automática y muestra, de forma compacta, todos los personajes guardados de esa sesión para elegir uno sin mezclar su diario ni su Mentor.
-3. Al importar un **`.build` oficial** de GGG se añade como **Build objetivo** (plan de referencia), no como personaje. Un código de **Path of Building 2** reconstruye los datos de personaje que contenga su instantánea y declara los campos ausentes.
-4. En **Mercado actual** elige liga, presupuesto y objetivo; consulta precios (datos reales de poe.ninja con caché; tasas de conversión con origen y verificación visibles).
-5. Pulsa **Generar recomendaciones** → 3 tarjetas con prioridad, acción, motivo, coste, impacto, riesgo, irreversibilidad, parche, fuentes, fecha y confianza. Si cambias cualquier dato, las tarjetas se invalidan.
-6. Guarda una recomendación como **próximo paso**, o pulsa **Probar y volver**.
-   El mentor te dice qué cambiar y qué observar. Cuando regreses del juego,
-   pulsa **Volví de jugar** y elige el resultado: resuelto, mejoró, igual,
-   empeoró o ocurrió algo diferente. El expediente conserva el resultado y,
-   si el problema continúa, mantiene una sola próxima acción abierta.
-7. Marca las recomendaciones aplicadas y pulsa **Descargar .build** → archivo
-   **`.build` oficial** (GGG Build Planner v1) con las mejoras planificadas
-   incrustadas, junto a un informe honesto de lo exportado y lo omitido.
-
-## Crafting guiado con comparación antes/después
-
-El propósito de Crafting no es simular Path of Exile 2 dentro del navegador.
-El jugador explica con sus palabras qué quiere conseguir, Exile Copilot lo
-convierte en una dirección segura y propone **una sola próxima acción**. El
-jugador la realiza dentro del juego, pega el resultado y el mentor continúa
-desde el cambio observado. Si la intención mezcla prioridades o no puede
-interpretarse con seguridad, pregunta antes de recomendar.
-
-También entiende una restricción escrita como **«sin perder…»**, pero solo la
-considera protegida cuando puede vincularla con una línea explícita del objeto
-copiado. Esa protección se comprueba al volver del juego: si desaparece, el
-guía manda parar incluso cuando la acción aplicada produjo la estructura
-esperada. Una frase que no coincida con ninguna línea visible se conserva como
-pendiente y no se presenta como validada.
-
-La entrada **Quiero aprender crafting** tiene tres niveles. El básico enseña a
-leer rareza, afijos, huecos y acciones observadas; el medio practica la
-comparación antes/después y la decisión de continuar o parar; el avanzado
-enseña a cerrar un contrato con objetivo, líneas intocables, salida y rutas.
-Los tres trabajan con casos sintéticos explícitos y no inventan pools,
-probabilidades ni recetas.
-
-La pestaña Crafting funciona como un banco de decisión. **Planear un craft** ya
-no muestra todo el laboratorio a la vez: guía por objetivo, protección,
-condición de parada y ruta; los diagnósticos y límites quedan plegados. El
-banco técnico sigue usando los mismos contratos y preflights. Primero pregunta qué
-quieres conseguir y separa, sin inventar valor, los mods con señal directa para
-ese objetivo, los que no tienen una relación literal y los grados 1–2 que
-merece la pena revisar antes de arriesgar. Después convierte la lectura de la pieza en una ruta visible: si
-solo hay una moneda básica compatible permite prepararla directamente; si hay
-varias, muestra la decisión sin fingir un ranking; y si el raro está lleno
-lleva a las rutas de reemplazo de Essence o Alloy. Un objeto normal bien
-identificado entra correctamente por Transmutación.
-
-Antes de elegir una moneda, una conclusión destacada responde a la pregunta
-práctica: si esa base merece una prueba controlada, si falta definir el objetivo
-o si no conviene reemplazar todavía. Se apoya solo en la pieza observada, las
-protecciones y la intención declarada; no estima valor, DPS ni probabilidades.
-
-La intención se define una sola vez por pieza. En «Ayúdame con mi objeto», una
-dirección genérica ya no basta: antes de gastar se concreta si se busca daño
-físico, elemental, velocidad, crítico, vida, resistencias u otra señal observable.
-Después de pegar el resultado, un afijo ajeno a esa señal detiene la cadena aunque
-queden huecos; si coincide, todavía se comprueban el expediente, los requisitos y
-las protecciones. Un objeto suelto sirve para aprender legalidad, pero no recibe
-una falsa recomendación personalizada.
-
-En el laboratorio, el jugador elige con botones el
-objetivo principal y puede añadir un matiz libre —por ejemplo, «más daño sin perder
-velocidad ni +niveles»— y marca directamente sobre los afijos qué líneas deben
-sobrevivir. Ese mismo plan acompaña a Monedas, Essences, Alloys y a la
-comparación final; no hay tres formularios distintos ni se intenta interpretar
-la palabra «sin» como si fuera evidencia estructurada.
-
-En una ruta que solo añade, la lista de líneas intocables empieza plegada para
-que la próxima acción siga visible. Se abre automáticamente cuando continuar
-exige reemplazar un modificador, y también puede desplegarse manualmente en
-cualquier momento.
-
-Antes de preparar una moneda, el jugador declara también **cuándo debe parar**
-mediante una a tres condiciones observables: aumentar el número de afijos con
-etiquetas de la categoría elegida, hacer aparecer una línea exacta escrita por
-él o alcanzar un número de afijos explícitos. Los umbrales siempre parten por
-encima del snapshot actual, así que una condición no puede presentarse como
-mejora si ya estaba cumplida. La interfaz ofrece como primera opción una señal
-adicional de la categoría elegida y muestra el recuento actual y el objetivo en
-lenguaje directo; el jugador debe aceptarla con un clic. Después del craft se muestra cada condición como
-«cumplida», «no aparece» o «no comprobable». Si todas se cumplen, la acción
-principal es parar y conservar, aunque todavía exista un hueco. La descripción
-libre nunca se analiza como evidencia y las sesiones anteriores cargan sin
-inventar condiciones.
-
-La auditoría adversarial y sus límites están documentados en
-[`docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md`](docs/CRAFTING_ADVERSARIAL_AUDIT_2026-08-23.md).
-
-**Crafting** es la tercera área principal del producto, separada de
-«Expediente y mentor» y «Plan y mercado». Allí eliges una pieza real del
-expediente y completas todo el ciclo sin saltar entre pestañas. El detalle del
-objeto conserva sus datos y una entrada directa al banco; el preflight y la
-sesión persistente existen una sola vez, dentro de Crafting.
-
-Al seleccionar un objeto importado mediante texto avanzado, las acciones
-compatibles aparecen primero y las no aplicables quedan en un bloque secundario.
-Transmutación, Aumento, Regio y Exaltado se evalúan únicamente contra la
-evidencia local documentada. El preflight obliga a registrar la variante
-exacta (base, superior o perfecta cuando fue observada) y conserva el mínimo
-mostrado en su tooltip sin tratarlo como probabilidad ni garantía. Una acción compatible permite abrir una
-decisión guiada: antes de gastar exige definir el objetivo y una sola
-confirmación compacta de que el snapshot sigue vigente, el resultado será
-aleatorio y la moneda aún no se ha usado.
-
-Las fichas de equipo, el detalle y el banco incluyen ilustraciones locales por
-tipo de objeto y rareza. Son siluetas propias que siempre funcionan sin red; no
-se presentan como el arte exacto del juego mientras el texto pegado no aporte un
-id oficial verificable. La marca de la cabecera vuelve al expediente y el botón
-Volver recupera el área anterior sin refrescar la página.
-
-El primer flujo P1 cubre también **Essences**. Menor, Normal y Superior se
-tratan como una mejora de mágico a raro; Perfecta y las obtenidas mediante
-corrupción, como un reemplazo aleatorio de un modificador explícito en un raro.
-El nombre y el efecto garantizado se copian siempre del tooltip real: la app no
-los deduce ni incorpora una tabla incompleta. El contrato, las fuentes oficiales
-y los límites están en
-[`docs/CRAFTING_ESSENCES.md`](docs/CRAFTING_ESSENCES.md).
-
-El segundo flujo guiado cubre **Alloys** sin inventar una tabla de compatibilidad.
-GGG confirma que reemplazan un modificador existente por un modificador
-fabricado garantizado y que un objeto solo puede tener uno. La pieza admitida y
-la forma de elegir el reemplazo deben proceder del tooltip real que introduce
-el jugador. Después del gasto, la comparación exige exactamente una retirada,
-un añadido marcado como fabricado y no más de un fabricado total. El contrato y
-sus límites están en [`docs/CRAFTING_ALLOYS.md`](docs/CRAFTING_ALLOYS.md).
-
-El jugador puede marcar desde el plan los **modificadores que no acepta
-perder**. Las herramientas muestran un resumen de esa selección sin duplicar el
-formulario; una moneda que solo añade conserva la intención para la comparación,
-pero no inventa un riesgo de retirada. El contrato distingue
-entre retirada aleatoria, retirada elegida por el jugador y mecanismo todavía
-desconocido: advierte cuando existe riesgo, bloquea cuando la pérdida es segura
-y se niega a prometer protección si falta el dato decisivo. Tras pegar el
-resultado, la comparación indica de forma separada si esos modificadores se
-conservaron o se perdieron. Las selecciones antiguas se descartan cuando cambia
-la pieza o su snapshot, para no aplicar una protección obsoleta a otro objeto.
-
-Después de aplicar **una sola moneda** en el juego, pega el nuevo texto en el
-caso abierto del banco de Crafting. La comparación ignora los ids aleatorios del importador y verifica
-la misma base y el mismo nivel de objeto —si falta cualquiera de los dos niveles
-el resultado queda inconcluso—, la transición de rareza, la conservación de los modificadores
-anteriores —o exactamente una retirada cuando la acción lo declara— y la aparición
-de exactamente un explícito nuevo. El jugador decide
-si ese resultado le sirve; entonces se conserva la comparación en el diario y
-se actualiza el objeto del expediente manteniendo su vínculo local.
-
-Si el jugador empezó pegando una pieza suelta, el perfil mínimo se guarda al
-preparar el craft y la sesión continúa en el mismo clic: no se abre el formulario
-completo ni hay que repetir la acción. Durante la sesión, el planificador queda
-oculto y la interfaz muestra únicamente tres etapas: antes de gastar, pegar el
-resultado y decidir.
-
-Una sesión pausada queda guardada sin ocupar el banco. Crafting muestra todos
-los casos pausados, permite reanudar exactamente el elegido y deja empezar otra
-prueba mientras tanto. Un caso abierto también puede cerrarse sin aplicar la
-moneda; se conserva como historial descartado y no se presenta como craft
-ejecutado.
-
-Antes de ofrecer una herramienta de reemplazo sobre una pieza llena, el banco
-obliga a reconocer el riesgo para los afijos de grado alto que ya existen. Tras
-pegar el resultado, el asesor formula una única decisión conservadora:
-**continuar**, **parar y conservar** o **replantear la ruta**. Esa decisión usa
-solo diferencias estructurales, requisitos y etiquetas explícitas verificadas;
-no inventa DPS, precios, probabilidades ni calidad real de los afijos.
-
-El bloque **Núcleo de afijos** cruza el objetivo con las etiquetas y grados que
-aparecen literalmente en el texto avanzado. Resume cuántos afijos convergen en
-la dirección elegida, qué etiquetas específicas se repiten y cuáles de grado
-1–2 conviene revisar antes de reemplazar. El detalle afijo por afijo empieza
-plegado para no saturar la pantalla. Una etiqueta genérica como «Ataque» no se
-convierte por sí sola en daño directo: precisión y otras señales contextuales
-permanecen separadas hasta que la build permita demostrar su utilidad.
-
-La evidencia factual («qué cambió») y la valoración del jugador («me sirve»)
-se guardan por separado. Si falla el guardado del objeto, la sesión permanece
-abierta y permite reintentar; dos clics concurrentes no pueden cerrar o duplicar
-el mismo resultado.
-
-El objetivo incluye una categoría elegida por el jugador —daño, defensa,
-atributos, velocidad, habilidades u otro— además de su descripción libre. Al
-pegar el resultado, la app contrasta esa categoría únicamente con las etiquetas
-literales que muestra el texto avanzado del juego. Puede señalar coincidencia
-directa, ausencia de señal directa o datos insuficientes; nunca convierte esa
-señal en «este objeto es bueno» ni sustituye la decisión final del jugador.
-
-La comparación añade una **lectura del personaje** antes de preguntar si el
-resultado sirve. Comprueba los requisitos declarados contra el nivel y los
-atributos conocidos, detiene la recomendación si desapareció un modificador
-protegido y relaciona señales de resistencias con huecos defensivos ya visibles
-en el expediente. Si el craft cambió atributos, no reutiliza el total anterior
-como si siguiera vigente: exige revisión. La salida es «candidato», «revisar» o
-«detenerse», nunca una puntuación ficticia.
-
-El nivel conserva su procedencia en todo el producto. Si todavía no fue
-importado o escrito por el jugador, motor, mentor, diario y cabeceras muestran
-«desconocido»: el mínimo técnico `1` nunca se usa para bloquear, calcular vida
-esperada ni describir al personaje. Un nivel 1 declarado sí se conserva como
-dato real.
-
-Esto confirma cambios estructurales, requisitos y señales taxonómicas directas,
-no la calidad del afijo. No estima pesos,
-probabilidades, valor de mercado ni el resultado de monedas todavía no
-documentadas.
-
-El motor matemático avanzado ya puede calcular probabilidades ponderadas,
-intentos y costes esperados, además de secuencias condicionales, pero permanece
-cerrado por defecto: solo devuelve porcentajes si recibe un pool marcado y
-validado como **verificado y completo**. Los pools parciales o ausentes producen
-«probabilidad no disponible», nunca `0 %`. El contrato y sus límites están en
-[`docs/CRAFTING_MATH_ENGINE.md`](docs/CRAFTING_MATH_ENGINE.md).
-
-## Formato `.build` — GGG Build Planner v1
-
-El archivo exportado sigue el esquema oficial documentado por GGG en
-<https://www.pathofexile.com/developer/docs/game>: un único objeto `Build` JSON con
-`name`, `author`, `link`, `description`, `ascendancy`, `passives`, `skills` e `inventory_slots`.
-
-Separación de conceptos:
-
-- **CharacterProfileSnapshot** (`shared/domain.ts`): estado interno completo (nivel, liga, resistencias, vida, mods de objetos, presupuesto…).
-- **GggBuildPlannerV1** (`shared/gggBuildPlanner.ts`): el archivo oficial exportable al juego.
-
-El formato oficial **no puede almacenar** nivel, liga, parche, atributos, resistencias, vida/defensas, mods concretos de objetos, presupuesto ni objetivo. Además, pasivas y gemas solo se exportan cuando existe un **id oficial verificable** (tablas `PassiveSkills` / `BaseItemTypes`); lo que no lo tiene aparece en `skippedUnverified` del informe de exportación. Por tanto NO es un round-trip sin pérdida: la app informa siempre de lo omitido.
-Los campos de un plan importado que el esquema v1 no documenta se conservan tal
-cual (el importador los declara en los avisos) y se reexportan sin pérdida.
-
-### Validación manual dentro del juego (2026-08-20)
-
-Además de las pruebas automatizadas (que validan contra el esquema documentado,
-no contra el juego), un archivo `.build` exportado por Exile Copilot —el plan
-Titan Warrior con una mejora aplicada incrustada— se importó manualmente en
-Path of Exile 2 real. El juego lo aceptó y mostró:
-
-- Nombre y ascendencia («Titan Warrior», planificador del juego): [captura del árbol](docs/screenshots/ingame-arbol-pasivas.jpg).
-- Las 34 pasivas del plan con sus rutas resaltadas en el árbol (misma captura).
-- Las 4 habilidades: Boneshatter (Destrozahuesos), Earthquake (Terremoto),
-  Infernal Cry (Grito infernal) y Shockwave Totem (Tótem de onda sísmica):
-  [captura de habilidades](docs/screenshots/ingame-habilidades.jpg).
-- Los 9 huecos de equipo con sus pistas, incluido el texto añadido al anillo
-  «Mejora planificada: Cubrir resistencias elementales hasta el cap»:
-  [captura del equipo](docs/screenshots/ingame-equipo-mejora-incrustada.jpg).
-
-Esta validación manual cubre **ese archivo concreto** en esa sesión de juego;
-no convierte a todos los exports en «probados en el juego».
-
-## Registro de pasivas y ascendencias (Hito 4A)
-
-Los ids de `passives` y `ascendancy` de un `.build` se resuelven a su **nombre
-inglés oficial** con un registro interno derivado EXCLUSIVAMENTE del export
-oficial del árbol de pasivas de GGG:
-
-- Fuente: <https://github.com/grindinggear/poe2-skilltree-export> (`data.json`).
-- Revisión fijada: commit `1e9eb2d8c1946398c3aaaacfbaead5c75c0d1fa6` (2026-06-15).
-- SHA-256 del archivo original: `f83c94ce7b09f2bfc5b3b1d63523c2ab3d2582d0e964f6aeec34b8b0390abcfe` (5 141 380 bytes).
-- Propietario de los datos: **Grinding Gear Games**. Licencia explícita: **no encontrada**.
-- Compatibilidad **probada** con el parche `0.5.4f`. GGG no afirma esa
-  correspondencia: el commit de origen lleva su propia etiqueta (`0.5.2`), por eso
-  el artefacto se nombra por commit y no por parche.
-
-No se usan RePoE, Path of Building, poe2db, scraping ni extracción del cliente, y
-no se copian sprites ni recursos gráficos: solo id, nombre inglés, stats, tipo de
-nodo, ascendencia y clases.
-
-El registro se genera **offline** y se versiona; en runtime jamás se descarga nada:
-
-```bash
-npx tsx scripts/build-passive-registry.ts --download
-```
-
-El proceso verifica el SHA-256 de la revisión fijada, valida la entrada y la salida
-con esquemas estrictos y falla de forma explícita si la estructura oficial cambia.
-Un id que no esté en el registro se muestra siempre como «No verificado» junto a su
-id crudo: el nombre nunca se deduce del texto del id.
-
-> This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
-
-## Habla con tu mentor (Hitos 6A, 6E y Mentor v4)
-
-«Habla con tu mentor», dentro de **Expediente y mentor**, permite conversar en
-español. Por defecto responde solo con reglas, sin llamadas externas ni coste.
-Con Mentor v4 activo, Groq redacta respuestas naturales, recuerda los ocho
-últimos turnos visibles y puede hacer una pregunta de seguimiento. No recibe
-autoridad para inventar PoE2: toda afirmación de juego debe citar una
-recomendación o carencia que el motor ya haya producido.
-
-Mentor v4 conserva esos ocho turnos en el servidor para la misma sesión anónima
-y personaje. Sobreviven a una recarga, a cerrar y volver a abrir el navegador y
-a reiniciar el servidor con su SQLite. Se eliminan inmediatamente si cambia el
-personaje, build objetivo, presupuesto, objetivo, liga, parche o diario. No hay
-recuperación entre dispositivos: perder o borrar la cookie rompe el vínculo.
-
-Preguntas que entiende hoy:
-
-- «¿Qué mejoro ahora?», «¿Qué debería hacer primero?» → siguiente paso.
-- «¿Por qué me recomiendas esto?», «¿Cuál es mi principal problema?» → explicación.
-- «Hola», «gracias» → conversación social sin fabricar una decisión.
-- Una pregunta libre puede relacionarse con el diagnóstico real o pedir el dato
-  exacto que falta antes de aconsejar.
-
-Los botones que genera el propio mentor incluyen una intención estructurada y
-se prueban contra este contrato. Una respuesta tardía puede conservarse en el
-hilo, pero nunca sustituye el objeto, área o decisión que el jugador haya abierto
-mientras esperaba. La etiqueta declara su origen real: «IA fundamentada» con
-modelo, «Respaldo del motor de reglas» o «Respuesta del motor»; nunca se atribuye
-una respuesta a Groq solo por configuración.
-
-Mentor v2 añade un contexto compacto y versionado a cada consulta contextual:
-área activa, pieza seleccionada, sesión abierta, personaje, build y mercado. El
-servidor no confía en esa copia del navegador: vuelve a obtener personaje,
-build, presupuesto y liga desde sus inputs canónicos; solo acepta una pieza o
-recomendación si su id existe realmente. En Crafting, seleccionar otra pieza o
-elegir daño/defensa actualiza el mentor inmediatamente con la pieza y el único
-paso calculado por el guía.
-
-Con IA desactivada, cualquier otra pregunta se declara **no soportada**. Con IA
-activada puede relacionarla con hasta tres candidatos reales, pedir un dato
-faltante real, explicar el caso o declarar que no existe una acción segura. El
-servidor valida los ids citados y también el texto: rechaza identificadores
-internos, campos técnicos, HTML, enlaces o cifras que no existan en el contexto.
-Un dato inventado, una respuesta inválida, un rechazo, timeout o error de red
-activa automáticamente el respaldo por reglas.
-
-La conversación reutiliza el motor y el Character Journal: si ya tienes una
-acción activa, el mentor **recuerda ese paso** en lugar de crear otro y no
-consulta precios. Cuando el motor sí necesita precios, el mentor usa el mismo
-**servicio documentado de poe.ninja** que el resto de la aplicación (desde el
-servidor, con caché y ETag). Por eso **las fechas y la evidencia pueden
-cambiar**: la misma pregunta con los mismos datos puede citar precios o fechas
-distintos más adelante, aunque la decisión siga saliendo del motor.
-
-Cada respuesta se lee primero como te la contaría una persona. Cuando existe
-una decisión muestra diagnóstico, una única próxima acción y confianza; las
-fuentes, la fecha, la versión del motor y lo que falta por verificar quedan
-dentro de «Ver evidencia y limitaciones». Un saludo no fabrica esos bloques.
-
-**Limitación:** los ocho últimos turnos se guardan como contexto conversacional
-no autoritativo. El servidor conserva una huella irreversible de los inputs, no
-otra copia de la ficha, y descarta el hilo cuando cambian los datos relevantes.
-No existe cuenta ni recuperación sin la cookie anónima. Groq es el proveedor predeterminado para la
-prueba gratuita; su cuota no está garantizada para producción. OpenAI sigue
-disponible como alternativa, con facturación API separada de ChatGPT. Ninguna
-clave real se guarda en el repositorio. Detalles en `docs/HITO_6A.md` y
-`docs/HITO_6E.md`.
-
-## Estructura
-
-- `shared/` — esquemas zod: dominio interno, contrato API y esquema oficial GGG Build Planner v1.
-- `server/` — API Express: importadores (`.build` oficial, texto de objetos, PoB básico con límite de descompresión), diario persistente, conversación IA fundamentada opcional con respaldo determinista, adaptadores (GGG OAuth desactivado por flag, Mobalytics solo referencia), servicio poe.ninja con caché SQLite+ETag tolerante a corrupción y fixtures, motor determinista y exportador `.build` oficial con informe.
-- `src/` — frontend React + Tailwind + shadcn/ui (español, tema oscuro).
-- `tests/` — vitest: unit, integration, e2e. `scripts/browser-smoke.mjs` — prueba de navegador real.
-- `docs/ROADMAP.md` — prioridades hasta PoE2 1.0 y decisiones futuras.
-  `docs/PLAN.md` — plan y arquitectura. `docs/HITO_5A.md` — memoria persistente.
-  `docs/HITO_5B.md` — memoria como contexto del motor. `HANDOFF.md` — informe
-  para el propietario.
-
-## Variables de entorno
-
-Todas documentadas en `.env.example`. Para desarrollo local, copia ese archivo
-como `.env`; el backend lo carga automáticamente y Git lo ignora. Nunca uses el
-prefijo `VITE_` para una clave privada. Destacadas:
-
-- `POE_NINJA_OFFLINE=true` — nunca hace red; sirve fixtures (ideal para demos/tests).
-- `POE_NINJA_USER_AGENT` — User-Agent descriptivo (exigido por poe.ninja).
-- `POE_NINJA_TIMEOUT_MS` — plazo externo antes de degradar a caché o fixture no
-  verificado (8 segundos por defecto; entre 1 y 30 segundos).
-- `GGG_OAUTH_ENABLED` / `EXPLAINER_LLM_ENABLED` — adaptadores todavía
-  incompletos y desactivados por defecto; la barrera pública bloquea el arranque
-  si alguien intenta activarlos.
-- `MENTOR_AI_ENABLED=true` + `MENTOR_AI_PROVIDER=groq` + `GROQ_API_KEY` — activa
-  la conversación fundamentada sujeta a la cuota de Groq. El valor por defecto de la
-  flag es `false`, así que sin activarlo hay cero llamadas.
-- `MENTOR_AI_PROVIDER=openai` + `OPENAI_API_KEY` — alternativa opcional de pago.
-- `MENTOR_AI_MODEL`, `MENTOR_AI_REASONING_EFFORT`, `MENTOR_AI_TIMEOUT_MS` y
-  `MENTOR_AI_MAX_OUTPUT_TOKENS` — límites explícitos documentados en `.env.example`.
-
-## Reglas de datos
-
-- Solo API económica pública documentada de poe.ninja (`/poe2/api/economy/...`), llamada desde el servidor, con caché/ETag y fallback. Sin scraping ni endpoints internos ni OAuth de GGG.
-- Los valores desconocidos permanecen `null` («Desconocido»); nunca se convierten en cero ni generan afirmaciones falsas.
-- Los objetos raros nunca se valoran con precios de únicos por coincidencia de base; no se inventan rangos de precio.
-- Los presupuestos se comparan solo tras normalizar divine/exalted/chaos con las tasas reales de poe.ninja; sin tasas verificables no se afirma que algo «entra en el presupuesto».
+| Command | What it does |
+| --- | --- |
+| `npm run build:check` | Builds the public static site into `dist-check/` |
+| `npm run preview:check` | Serves that build on http://localhost:7300 |
+| `npm test` | Runs the test suite (Vitest) |
+| `npm run lint` | ESLint |
+
+The public site is a static build of the `relaunch` branch (build command
+`npm run build:check`, output directory `dist-check`), meant for Cloudflare
+Pages; `public-check/_headers` holds its security headers.
+
+### Where the code lives
+
+| Path | Purpose |
+| --- | --- |
+| `src/check/` | The build check page, manual form and standalone entry |
+| `src/lib/buildPriorities.ts` | The rules |
+| `src/lib/checkHistory.ts` | Saved checks and progress comparison |
+| `src/lib/checkText.ts` | All texts, English and Spanish |
+| `src/lib/pobBrowser.ts` | Reads a PoB2 code in the browser |
+| `server/adapters/pobXml.ts`, `server/importers/pobProfile.ts` | PoB2 XML reading, shared by browser and server |
+| `tests/unit/` | Tests (`buildPriorities`, `checkHistory`, `checkText`, `pobBrowser`…) |
+
+The repository still contains the previous, larger app (*Exile Copilot*:
+server, crafting guide, AI mentor). Its documentation is the
+[README in the `archivo-v0` branch](https://github.com/luisdmp94-wq/exile-copilot/blob/archivo-v0/README.md).
+
+## Data and assets
+
+- No game data APIs are used by the build check: everything comes from the
+  code or numbers you provide.
+- No Grinding Gear Games artwork is used. The icon is an original design.
+
+## Disclaimer
+
+This product isn't affiliated with or endorsed by Grinding Gear Games in any
+way. Path of Exile is a trademark of Grinding Gear Games.
+
+---
+
+## En español
+
+**Exile Mentor** te dice qué arreglar primero en tu personaje de Path of Exile 2.
+
+- Pega tu código de **Path of Building 2** o escribe tus cuatro resistencias de
+  la hoja de personaje.
+- Te da hasta 3 prioridades con su dato: resistencias elementales por debajo
+  del 75 %, huecos de equipo vacíos y resistencia al caos negativa, con cuánto
+  daño extra recibes por ello.
+- Recuerda tu último chequeo y te dice qué has mejorado.
+- Funciona en español e inglés.
+- **Tu build no sale de tu navegador**: no hay cuentas, ni servidor, ni
+  analítica.
+
+Para ejecutarlo en local: `npm install` y `npm run dev`, y abre
+http://localhost:7100/check.
+
+*Este producto no está afiliado ni respaldado por Grinding Gear Games.*
