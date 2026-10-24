@@ -75,6 +75,7 @@ npm run dev            # http://localhost:7100/check
 | `npm run build:check` | Builds the public static site into `dist-check/` |
 | `npm run preview:check` | Serves that build on http://localhost:7300 |
 | `npm test` | Runs the test suite (Vitest) |
+| `npm run test:check` | Builds the public site and walks through it in a real browser (Edge/Chromium), with the production security headers |
 | `npm run lint` | ESLint |
 
 The public site is a static build of the `relaunch` branch (build command

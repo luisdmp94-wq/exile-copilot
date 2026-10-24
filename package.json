@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build && tsc -p tsconfig.prod-server.json && node scripts/copy-server-assets.mjs",
     "build:check": "tsc -b && vite build --config vite.check.config.ts",
     "preview:check": "vite preview --config vite.check.config.ts",
+    "test:check": "npm run build:check && node scripts/check-smoke.mjs",
     "start": "node scripts/start-production.mjs",
     "test": "vitest run",
     "verify:patch": "tsc --noEmit && vitest run && node scripts/browser-smoke.mjs --dev",
