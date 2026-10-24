@@ -24,6 +24,7 @@ import {
 import {
   classifyMentorQuestion,
   isMentorIdentityQuestion,
+  type MentorQuestionFocus,
 } from "../../shared/mentorIntent.js";
 import {
   computeInputFingerprint,
@@ -237,12 +238,26 @@ function metadata(
   return { responseMode: mode, model, fallbackReason };
 }
 
+/**
+ * Recomendaciones que responden a «¿por qué muero?». El resto (arma, enlaces,
+ * build objetivo) puede ser útil, pero no explica las muertes.
+ */
+const SURVIVAL_RECOMMENDATION_IDS: ReadonlySet<string> = new Set([
+  "rec-resistencias-elementales",
+  "rec-resistencia-caos",
+  "rec-huecos-equipo",
+  "rec-vida-baja",
+  "rec-datos-resistencias",
+  "rec-datos-vida",
+]);
+
 function answerFromRecommendation(
   recommendation: Recommendation,
   intent: "next_improvement" | "explain_priority",
   normalizedQuestion: string,
   result: EngineResult,
   answerMetadata: AnswerMetadata,
+  focus: MentorQuestionFocus = null,
 ): MentorAnswer {
   const title = publicText(recommendation.title, [recommendation]);
   const reason = publicText(recommendation.reason, [recommendation]);
@@ -252,10 +267,12 @@ function answerFromRecommendation(
   const answer =
     recommendation.actionKind === "session_gate"
       ? `${title}. ${reason} ${action}`
-      : intent === "explain_priority"
-        ? `Tu principal problema ahora es «${title}». ${reason} ` +
-          `${impact} Riesgo ${RISK_LEVEL_ES[recommendation.risk.level]}: ${risk}`
-        : `Lo siguiente que haría: ${title}. ${reason}`;
+      : focus === "survival"
+        ? `Si mueres a menudo, lo primero que revisaría es «${title}». ${reason}`
+        : intent === "explain_priority"
+          ? `Tu principal problema ahora es «${title}». ${reason} ` +
+            `${impact} Riesgo ${RISK_LEVEL_ES[recommendation.risk.level]}: ${risk}`
+          : `Lo siguiente que haría: ${title}. ${reason}`;
 
   return MentorAnswerSchema.parse({
     intent,
@@ -267,6 +284,34 @@ function answerFromRecommendation(
     sources: recommendation.sources,
     confidence: recommendation.confidence,
     unverified: recommendation.unverified.map((text) => publicText(text, [recommendation])),
+    memoryImpact: result.memoryImpact,
+    inputFingerprint: result.inputFingerprint,
+    unsupported: null,
+    generatedAt: result.generatedAt,
+    engineVersion: result.engineVersion,
+    ...answerMetadata,
+  });
+}
+
+function survivalNothingFoundAnswer(
+  normalizedQuestion: string,
+  result: EngineResult,
+  answerMetadata: AnswerMetadata,
+): MentorAnswer {
+  return MentorAnswerSchema.parse({
+    intent: "explain_priority",
+    normalizedQuestion,
+    answer:
+      "En lo que puedo revisar —resistencias elementales, resistencia al caos, vida y huecos de equipo— " +
+      "no encuentro una causa clara de tus muertes. Puede deberse a algo que todavía no compruebo, como " +
+      "armadura, evasión, escudo de energía o la mecánica concreta que te mata. Si me dices qué te mata " +
+      "(un jefe, un tipo de daño, un grupo de monstruos), lo tendré en cuenta en el diario.",
+    nextAction: null,
+    usedRecommendationIds: [],
+    relatedItemIds: [],
+    sources: [],
+    confidence: null,
+    unverified: [],
     memoryImpact: result.memoryImpact,
     inputFingerprint: result.inputFingerprint,
     unsupported: null,
@@ -936,7 +981,9 @@ async function buildAnswer(
 ): Promise<MentorAnswer> {
   const classified = classifyMentorQuestion(options.question);
   const intent = options.intentHint ?? classified.intent;
-  const { normalizedQuestion } = classified;
+  const { normalizedQuestion, focus } = classified;
+  // «¿Por qué muero?» se evalúa como supervivencia, sea cual sea el objetivo guardado.
+  const engineGoal: Goal = focus === "survival" ? { ...options.goal, kind: "survival" } : options.goal;
   const selector = deps.selector ?? null;
   const readiness = assessMentorReadiness(options.profile);
   const hasStructuredCraftingContext =
@@ -992,7 +1039,7 @@ async function buildAnswer(
     options.profile,
     {
       budget: options.budget,
-      goal: options.goal,
+      goal: engineGoal,
       league: options.league,
       patch: options.patch,
       memory: options.memory,
@@ -1054,14 +1101,30 @@ async function buildAnswer(
     });
   }
 
-  if (selector === null && top !== undefined) {
+  /**
+   * Respuesta por reglas, igual sin IA que cuando la IA falla: con foco
+   * supervivencia solo vale una recomendación defensiva, o se dice que no la hay.
+   */
+  const answerByRules = (recommendation: Recommendation, answerMetadata: AnswerMetadata): MentorAnswer => {
+    if (focus === "survival") {
+      const defensive = result.recommendations.find((candidate) =>
+        SURVIVAL_RECOMMENDATION_IDS.has(candidate.id),
+      );
+      return defensive
+        ? answerFromRecommendation(defensive, "explain_priority", normalizedQuestion, result, answerMetadata, focus)
+        : survivalNothingFoundAnswer(normalizedQuestion, result, answerMetadata);
+    }
     return answerFromRecommendation(
-      top,
+      recommendation,
       intent === "explain_priority" ? "explain_priority" : "next_improvement",
       normalizedQuestion,
       result,
-      metadata(),
+      answerMetadata,
     );
+  };
+
+  if (selector === null && top !== undefined) {
+    return answerByRules(top, metadata());
   }
 
   // Las ramas sin selector ya han devuelto arriba; esta guarda hace explícita
@@ -1181,12 +1244,6 @@ async function buildAnswer(
     if (top === undefined) {
       return unsupportedAnswer(options, normalizedQuestion, { model: selector.name, reason });
     }
-    return answerFromRecommendation(
-      top,
-      intent,
-      normalizedQuestion,
-      result,
-      metadata("rules_fallback", selector.name, reason),
-    );
+    return answerByRules(top, metadata("rules_fallback", selector.name, reason));
   }
 }

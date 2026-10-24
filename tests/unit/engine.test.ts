@@ -190,7 +190,7 @@ describe("engine — exactitud y contratos", () => {
       "75% es un umbral provisional",
     );
     expect(result.recommendations[0]?.action).toContain(
-      "Eleva hacia 75% las resistencias que ahora están así: frío 61%, rayo 40%",
+      "Eleva hacia 75% las resistencias que ahora están así: frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)",
     );
     expect(result.recommendations[0]?.reason).not.toMatch(/fuente más común|causa más común/i);
     expect(result.recommendations[0]?.mayLoseValuableMods).toBe(true);
@@ -894,5 +894,28 @@ describe("engine — target e fingerprint", () => {
       { priceService: offlinePriceService() },
     );
     expect(result.recommendations.length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("regla de huecos de equipo vacíos", () => {
+  it("nombra los huecos vacíos del personaje", async () => {
+    const { emptySlotsRule } = await import("../../server/engine/rules.js");
+    const profile = JSON.parse(
+      readFileSync(fileURLToPath(new URL("../../server/fixtures/demoSnapshot.json", import.meta.url)), "utf8"),
+    );
+    const [candidate] = emptySlotsRule({ profile: profile.profile ?? profile, league: "Standard", patch: "0.5.5" });
+    expect(candidate).toMatchObject({
+      ruleId: "huecos-equipo",
+      magnitude: "medium",
+      action: "Tienes vacío: Anillo 2. Hasta un objeto raro barato con vida o resistencias ya ayuda.",
+    });
+  });
+
+  it("un expediente sin equipo no son nueve huecos vacíos", async () => {
+    const { emptySlotsRule } = await import("../../server/engine/rules.js");
+    const profile = JSON.parse(
+      readFileSync(fileURLToPath(new URL("../../server/fixtures/demoSnapshot.json", import.meta.url)), "utf8"),
+    );
+    expect(emptySlotsRule({ profile: { ...(profile.profile ?? profile), items: [] }, league: "Standard", patch: "0.5.5" })).toEqual([]);
   });
 });

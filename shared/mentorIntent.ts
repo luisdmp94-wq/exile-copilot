@@ -73,6 +73,33 @@ const NEXT_IMPROVEMENT_PATTERNS: readonly string[] = [
   "que sigue",
 ];
 
+/**
+ * Preguntas sobre MORIR o aguantar. No son una intención aparte: marcan el
+ * foco «supervivencia», para que el mentor mire solo lo defensivo. Sin esto,
+ * «¿por qué muero?» caía en «explica tu prioridad» y podía contestar «mejora
+ * el arma».
+ */
+const SURVIVAL_PATTERNS: readonly string[] = [
+  "muero",
+  "muere",
+  "morir",
+  "muriendo",
+  "muerto",
+  "muertes",
+  "me matan",
+  "me mata",
+  "me revientan",
+  "me pegan",
+  "sobrevivir",
+  "supervivencia",
+  "aguantar",
+  "aguanto",
+  "one shot",
+  "oneshot",
+];
+
+export type MentorQuestionFocus = "survival" | null;
+
 /** Conversación social que no debe convertirse en una recomendación. */
 const CONVERSATION_PATTERNS: readonly string[] = [
   "hola",
@@ -116,11 +143,15 @@ export function classifyMentorQuestion(question: string): {
   normalizedQuestion: string;
   /** Patrón que disparó la clasificación; null si no hubo ninguno. */
   matchedPattern: string | null;
+  /** «survival» si la pregunta habla de morir o aguantar. */
+  focus: MentorQuestionFocus;
 } {
   const normalized = normalizeQuestion(question);
   if (normalized.length === 0) {
-    return { intent: "unsupported", normalizedQuestion: normalized, matchedPattern: null };
+    return { intent: "unsupported", normalizedQuestion: normalized, matchedPattern: null, focus: null };
   }
+  const survivalPattern = SURVIVAL_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null;
+  const focus: MentorQuestionFocus = survivalPattern ? "survival" : null;
 
   for (const pattern of EXPLAIN_PRIORITY_PATTERNS) {
     if (normalized.includes(pattern)) {
@@ -128,6 +159,7 @@ export function classifyMentorQuestion(question: string): {
         intent: "explain_priority",
         normalizedQuestion: normalized,
         matchedPattern: pattern,
+        focus,
       };
     }
   }
@@ -137,8 +169,14 @@ export function classifyMentorQuestion(question: string): {
         intent: "next_improvement",
         normalizedQuestion: normalized,
         matchedPattern: pattern,
+        focus,
       };
     }
+  }
+  // «Me matan mucho» no pide explícitamente una explicación, pero sí la merece,
+  // y va antes que el saludo: «hola, me matan mucho» es una pregunta de juego.
+  if (survivalPattern) {
+    return { intent: "explain_priority", normalizedQuestion: normalized, matchedPattern: survivalPattern, focus };
   }
   if (isMentorIdentityQuestion(normalized)) {
     return {
@@ -148,6 +186,7 @@ export function classifyMentorQuestion(question: string): {
         IDENTITY_PATTERNS.find(
           (pattern) => normalized === pattern || normalized.startsWith(`${pattern} `),
         ) ?? null,
+      focus,
     };
   }
   if (
@@ -159,7 +198,8 @@ export function classifyMentorQuestion(question: string): {
       intent: "conversation",
       normalizedQuestion: normalized,
       matchedPattern: normalized.split(" ").slice(0, 2).join(" "),
+      focus,
     };
   }
-  return { intent: "unsupported", normalizedQuestion: normalized, matchedPattern: null };
+  return { intent: "unsupported", normalizedQuestion: normalized, matchedPattern: null, focus };
 }

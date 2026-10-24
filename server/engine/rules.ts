@@ -34,6 +34,7 @@ export const RECOMMENDATION_LABELS: Record<string, string> = {
   "rec-datos-vida": "Completar datos del personaje: vida máxima",
   "rec-datos-nivel-personaje": "Completar datos del personaje: nivel",
   "rec-mods-objetivo": "Acercarse a la build de referencia",
+  "rec-huecos-equipo": "Rellenar los huecos de equipo vacíos",
 };
 
 /** Hueco/skill relacionado con una recomendación (para additional_text al exportar). */
@@ -150,6 +151,16 @@ function dataGapCandidate(args: {
   };
 }
 
+/**
+ * «un 92% más» o «2,4 veces más»: el daño recibido de un tipo es proporcional
+ * a (100 − resistencia), así que basta comparar ese factor con el del objetivo.
+ */
+export function extraDamageTaken(resistance: number, target: number): string {
+  const ratio = (100 - resistance) / (100 - target);
+  if (ratio >= 2) return `${(Math.round(ratio * 10) / 10).toLocaleString("es-ES")} veces más`;
+  return `un ${Math.round((ratio - 1) * 100)}% más`;
+}
+
 // ---------------------------------------------------------------------------
 // Regla 1: resistencias elementales bajo el umbral provisional — null-safe
 // ---------------------------------------------------------------------------
@@ -185,12 +196,16 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
   if (lows.length === 0) return out;
 
   const worst = Math.min(...lows.map((k) => res[k] ?? 0));
-  const labels = lows.map((k) => `${RESISTANCE_LABELS[k]} ${res[k]}%`).join(", ");
+  const worstKind = lows.find((k) => res[k] === worst) ?? lows[0];
+  const labels = lows
+    .map((k) => `${RESISTANCE_LABELS[k]} ${res[k]}% (te faltan ${RESISTANCE_CAP - (res[k] ?? 0)} puntos)`)
+    .join(", ");
+  const extraDamage = `Con ${RESISTANCE_LABELS[worstKind]} al ${worst}% recibes ${extraDamageTaken(worst, RESISTANCE_CAP)} daño de ${RESISTANCE_LABELS[worstKind]} que con el ${RESISTANCE_CAP}%.`;
   out.push({
     ruleId: "resistencias-elementales",
     title: "Cubrir resistencias elementales",
     action: `Eleva hacia ${RESISTANCE_CAP}% las resistencias que ahora están así: ${labels}. Después vuelve a comprobar el límite que muestra el juego; ${RESISTANCE_CAP}% se usa aquí solo como objetivo provisional.`,
-    reason: `Tienes resistencias elementales conocidas por debajo del umbral provisional: ${labels}. Cubrirlas reduce una debilidad defensiva observable.`,
+    reason: `Tienes resistencias elementales conocidas por debajo del umbral provisional: ${labels}. ${extraDamage}`,
     impactMetric: "resistencias",
     impactDescription: "Impacto estimado en supervivencia (métrica parcial orientativa).",
     magnitude: worst < 50 ? "high" : "medium",
@@ -667,9 +682,58 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
 };
 
 /** Reglas activas del motor (orden estable; la prioridad la decide el score). */
+// ---------------------------------------------------------------------------
+// Regla: huecos de equipo vacíos (traída del chequeo de build)
+// ---------------------------------------------------------------------------
+
+/** Huecos que toda build lleva ocupados; la mano secundaria depende del arma. */
+const REQUIRED_SLOTS: Array<{ slot: CharacterProfile["items"][number]["slot"]; label: string }> = [
+  { slot: "weapon", label: "Arma" },
+  { slot: "helmet", label: "Casco" },
+  { slot: "body", label: "Pecho" },
+  { slot: "gloves", label: "Guantes" },
+  { slot: "boots", label: "Botas" },
+  { slot: "belt", label: "Cinturón" },
+  { slot: "amulet", label: "Amuleto" },
+  { slot: "ring1", label: "Anillo 1" },
+  { slot: "ring2", label: "Anillo 2" },
+];
+
+export const emptySlotsRule: Rule = ({ profile }) => {
+  // Un perfil sin ningún objeto es un expediente sin equipo, no nueve huecos vacíos.
+  if (profile.items.length === 0) return [];
+  const occupied = new Set(profile.items.map((item) => item.slot));
+  const empty = REQUIRED_SLOTS.filter(({ slot }) => !occupied.has(slot));
+  if (empty.length === 0) return [];
+  const names = empty.map(({ label }) => label).join(", ");
+  const missingCore = empty.some(({ slot }) => slot === "weapon" || slot === "body");
+  return [
+    {
+      ruleId: "huecos-equipo",
+      title: "Rellenar los huecos de equipo vacíos",
+      action: `Tienes vacío: ${names}. Hasta un objeto raro barato con vida o resistencias ya ayuda.`,
+      reason: "Cada hueco vacío es vida, resistencias o daño que no estás recibiendo.",
+      impactMetric: "equipo",
+      impactDescription: "Impacto directo en supervivencia y daño: el hueco no aporta nada ahora mismo.",
+      magnitude: missingCore || empty.length >= 3 ? "high" : "medium",
+      riskLevel: "low",
+      riskDescription: "No sustituyes nada: solo ocupas un hueco libre.",
+      mayLoseValuableMods: false,
+      irreversible: false,
+      priceQueries: [],
+      goalWeights: { ...BALANCED, survival: 2, mapping: 1.3, bossing: 1.3, balanced: 1.3 },
+      confidenceBase: "high",
+      unverified: [],
+      extraSources: [],
+      relatedItemIds: [],
+    },
+  ];
+};
+
 export const RULES: Rule[] = [
   elementalResistancesRule,
   chaosResistanceRule,
+  emptySlotsRule,
   attributeRequirementsRule,
   weaponUpgradeRule,
   skillLinksRule,

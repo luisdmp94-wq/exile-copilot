@@ -127,3 +127,25 @@ describe("determinismo", () => {
     expect(a).toEqual(b);
   });
 });
+
+describe("foco supervivencia («¿por qué muero?»)", () => {
+  it("marca las preguntas sobre morir o aguantar como supervivencia", () => {
+    for (const question of [
+      "¿Por qué muero tanto?",
+      "me matan mucho en mapas",
+      "Hola, me revientan los jefes",
+      "no aguanto nada",
+      "¿cómo sobrevivir más?",
+    ]) {
+      const result = classifyMentorQuestion(question);
+      expect(result.focus).toBe("survival");
+      expect(result.intent).toBe("explain_priority");
+    }
+  });
+
+  it("las demás preguntas no llevan ese foco", () => {
+    expect(classifyMentorQuestion("¿Qué mejoro ahora?").focus).toBeNull();
+    expect(classifyMentorQuestion("¿Por qué me recomiendas esto?").focus).toBeNull();
+    expect(classifyMentorQuestion("hola").focus).toBeNull();
+  });
+});

@@ -428,14 +428,14 @@ describe("mentor — resistencias en español", () => {
     ].join(" | ");
   }
 
-  it("el personaje demo presenta «frío 61%, rayo 40%», no las claves del dominio", async () => {
+  it("el personaje demo presenta «frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)», no las claves del dominio", async () => {
     const answer = await answerMentorQuery(
       { ...BASE, question: "¿Qué mejoro ahora?", memory: emptyMemory() },
       { priceService: offlinePriceService() },
     );
 
-    expect(answer.answer).toContain("frío 61%, rayo 40%");
-    expect(answer.nextAction?.text).toContain("frío 61%, rayo 40%");
+    expect(answer.answer).toContain("frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)");
+    expect(answer.nextAction?.text).toContain("frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)");
   });
 
   it("ninguna intención filtra identificadores ingleses de resistencia", async () => {
@@ -1055,5 +1055,88 @@ describe("mentor v2 — contexto supervisado", () => {
     expect(fallbackAnswer.usedRecommendationIds).toEqual(rulesAnswer.usedRecommendationIds);
     expect(fallbackAnswer.nextAction?.text).toBe(rulesAnswer.nextAction?.text);
     expect(fallbackAnswer.answer).toBe(rulesAnswer.answer);
+  });
+});
+
+describe("mentor — «¿por qué muero?» se responde con lo defensivo", () => {
+  // Con objetivo «equilibrado» el arma empataba con las resistencias y ganaba
+  // por orden alfabético: «¿por qué muero?» acababa en «mejora el arma».
+  const balanced = { ...BASE, goal: { kind: "balanced" as const } };
+
+  it("habla de las resistencias, con el daño extra, y no del arma", async () => {
+    const answer = await answerMentorQuery(
+      { ...balanced, question: "¿Por qué muero tanto en mapas?", memory: emptyMemory() },
+      { priceService: offlinePriceService() },
+    );
+
+    expect(answer.intent).toBe("explain_priority");
+    expect(answer.answer.startsWith("Si mueres a menudo, lo primero que revisaría es «Cubrir resistencias elementales»")).toBe(true);
+    expect(answer.answer).toContain("Con rayo al 40% recibes 2,4 veces más daño de rayo que con el 75%.");
+    expect(answer.usedRecommendationIds).toEqual(["rec-resistencias-elementales"]);
+    expect(answer.answer).not.toMatch(/arma/i);
+  });
+
+  it("también sin «por qué» y aunque empiece con un saludo", async () => {
+    for (const question of ["me matan mucho", "Hola, me matan en los mapas"]) {
+      const answer = await answerMentorQuery(
+        { ...balanced, question, memory: emptyMemory() },
+        { priceService: offlinePriceService() },
+      );
+      expect(answer.usedRecommendationIds).toEqual(["rec-resistencias-elementales"]);
+    }
+  });
+
+  it("si lo defensivo está bien, lo dice en vez de mandar al arma", async () => {
+    const profile = demoProfile();
+    const ring = profile.items.find((item) => item.slot === "ring1")!;
+    const sturdy = {
+      ...profile,
+      life: 6000,
+      resistances: { fire: 75, cold: 75, lightning: 75, chaos: 0 },
+      items: [...profile.items, { ...ring, id: "anillo-2", slot: "ring2" as const }],
+    };
+    const answer = await answerMentorQuery(
+      { ...balanced, profile: sturdy, question: "¿Por qué muero?", memory: emptyMemory() },
+      { priceService: offlinePriceService() },
+    );
+
+    expect(answer.answer).toContain("no encuentro una causa clara de tus muertes");
+    expect(answer.nextAction).toBeNull();
+    expect(answer.usedRecommendationIds).toEqual([]);
+  });
+
+  it("una pregunta que no habla de morir sigue igual", async () => {
+    const answer = await answerMentorQuery(
+      { ...balanced, question: "¿Qué mejoro ahora?", memory: emptyMemory() },
+      { priceService: offlinePriceService() },
+    );
+    expect(answer.answer.startsWith("Lo siguiente que haría:")).toBe(true);
+  });
+});
+
+describe("mentor — «¿por qué muero?» cuando la IA falla", () => {
+  it("el respaldo por reglas usa el mismo foco defensivo", async () => {
+    const { MentorAiError } = await import("../../server/mentor/mentorAi.js");
+    const answer = await answerMentorQuery(
+      {
+        ...BASE,
+        goal: { kind: "balanced" as const },
+        question: "¿Por qué muero tanto en mapas?",
+        memory: emptyMemory(),
+      },
+      {
+        priceService: offlinePriceService(),
+        selector: {
+          name: "proveedor-caducado",
+          select: async () => {
+            throw new MentorAiError("Clave caducada; se usaron las reglas.");
+          },
+        },
+      },
+    );
+
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(answer.answer.startsWith("Si mueres a menudo, lo primero que revisaría es «Cubrir resistencias elementales»")).toBe(true);
+    expect(answer.usedRecommendationIds).toEqual(["rec-resistencias-elementales"]);
   });
 });
