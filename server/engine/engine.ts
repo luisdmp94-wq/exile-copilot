@@ -348,7 +348,14 @@ export async function generateRecommendations(
     });
   }
 
-  scored.sort((a, b) => b.score - a.score || a.candidate.ruleId.localeCompare(b.candidate.ruleId));
+  // A igual puntuación manda lo defensivo (morir frena más que hacer menos
+  // daño); el orden alfabético solo deshace empates que queden después.
+  scored.sort(
+    (a, b) =>
+      b.score - a.score ||
+      (b.candidate.goalWeights.survival ?? 1) - (a.candidate.goalWeights.survival ?? 1) ||
+      a.candidate.ruleId.localeCompare(b.candidate.ruleId),
+  );
   const top = scored.slice(0, 3);
 
   const recommendations: Recommendation[] = top.map((entry, index) => {

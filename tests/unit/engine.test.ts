@@ -919,3 +919,18 @@ describe("regla de huecos de equipo vacíos", () => {
     expect(emptySlotsRule({ profile: { ...(profile.profile ?? profile), items: [] }, league: "Standard", patch: "0.5.5" })).toEqual([]);
   });
 });
+
+describe("desempate entre recomendaciones con la misma puntuación", () => {
+  it("con objetivo equilibrado, las resistencias van antes que el arma (antes ganaba por orden alfabético)", async () => {
+    const result = await generateRecommendations(
+      demoProfile(),
+      { ...BASE_OPTIONS, goal: { kind: "balanced" } },
+      { priceService: null },
+    );
+    const ids = result.recommendations.map((recommendation) => recommendation.id);
+    const resistances = ids.indexOf("rec-resistencias-elementales");
+    const weapon = ids.indexOf("rec-mejora-arma");
+    expect(resistances).toBeGreaterThanOrEqual(0);
+    expect(weapon === -1 || resistances < weapon).toBe(true);
+  });
+});
