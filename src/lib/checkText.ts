@@ -99,6 +99,14 @@ export interface CheckText {
     slotsWhy: string;
   };
 
+  summary: {
+    copy: string;
+    copied: string;
+    copyFailed: string;
+    stage: { campaign: string; maps: string };
+    footer: (siteUrl: string) => string;
+  };
+
   history: {
     heading: string;
     justNow: string;
@@ -225,6 +233,13 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       slotsFact: (slots) => `Vacío: ${slots}`,
       slotsWhy:
         "Cada hueco vacío es vida, resistencias o daño que no estás recibiendo. Hasta un objeto raro barato ayuda.",
+    },
+    summary: {
+      copy: "Copiar resumen",
+      copied: "Copiado. Ya puedes pegarlo en Discord o Reddit.",
+      copyFailed: "No he podido copiarlo. Selecciona el resumen a mano:",
+      stage: { campaign: "en la campaña", maps: "en mapas" },
+      footer: (siteUrl) => `Chequeo hecho con Exile Mentor: ${siteUrl}`,
     },
     history: {
       heading: "Tu progreso",
@@ -356,6 +371,13 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       slotsFact: (slots) => `Empty: ${slots}`,
       slotsWhy:
         "Every empty slot is life, resistances or damage you're not getting. Even a cheap rare helps.",
+    },
+    summary: {
+      copy: "Copy summary",
+      copied: "Copied. You can paste it on Discord or Reddit.",
+      copyFailed: "I couldn't copy it. Select the summary by hand:",
+      stage: { campaign: "in the campaign", maps: "mapping" },
+      footer: (siteUrl) => `Checked with Exile Mentor: ${siteUrl}`,
     },
     history: {
       heading: "Your progress",

@@ -8,7 +8,8 @@
  * Cloudflare Pages) y aplica a cada respuesta la Content-Security-Policy de
  * public-check/_headers, así un cambio que rompa la política falla aquí antes
  * que en producción. Recorre como jugador: errores de pegado, código PoB2 en
- * campaña y en mapas, idioma, modo manual, memoria de progreso y móvil.
+ * campaña y en mapas, resumen copiado, idioma, modo manual, memoria de
+ * progreso y móvil.
  * Comprueba además que leer un build no hace ninguna petición de red.
  */
 import { spawn } from "node:child_process";
@@ -118,6 +119,14 @@ async function run(page, requests) {
     "primer chequeo guardado",
     (await page.getByTestId("build-check-history").innerText()).includes("Guardo este chequeo"),
   );
+  await page.getByRole("button", { name: "Copiar resumen" }).click();
+  const summary = await page.evaluate(() => navigator.clipboard.readText());
+  check(
+    "copiar resumen: personaje, prioridades y dirección de la web",
+    summary.startsWith("Exile Mentor · Ranger · Ritualist · nivel 90 · en la campaña") &&
+      summary.includes("1. [Urgente] Rellena los huecos de equipo vacíos") &&
+      summary.endsWith(`Chequeo hecho con Exile Mentor: ${BASE}`),
+  );
 
   // 4. Mapas y cambio de idioma sobre el mismo resultado
   await page.getByRole("button", { name: "Ya en mapas" }).click();
@@ -195,6 +204,7 @@ async function main() {
 
     const csp = contentSecurityPolicy();
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: "es-ES" });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE });
     await context.route("**/*", async (route) => {
       const response = await route.fetch();
       await route.fulfill({ response, headers: { ...response.headers(), "content-security-policy": csp } });

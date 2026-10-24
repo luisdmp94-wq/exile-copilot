@@ -34,6 +34,9 @@ mode keeps the strict 75% check.
 sent anywhere). Next time you get a comparison: level, resistance changes,
 slots you filled and priorities you fixed. One click forgets them all.
 
+**Share it.** *Copy summary* puts the result as plain text on your clipboard,
+ready to paste on Discord or Reddit when you ask for help.
+
 **English and Spanish**, switchable at any time.
 
 ## How to use it

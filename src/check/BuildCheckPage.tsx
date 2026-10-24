@@ -34,6 +34,7 @@ import {
   type CheckLang,
   type CheckText,
 } from "@/lib/checkText";
+import { checkSummaryText } from "@/lib/checkSummary";
 import { readPobCodeInBrowser } from "@/lib/pobBrowser";
 import { ManualCheckForm } from "./ManualCheckForm";
 
@@ -178,6 +179,45 @@ function HistoryCard({ memory, lang }: { memory: CheckMemory; lang: CheckLang })
         )}
       </p>
     </section>
+  );
+}
+
+/** Copia el resumen; si el navegador no deja, lo muestra para copiarlo a mano. */
+function SummaryButton({ summary, text }: { summary: string; text: CheckText }) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(summary);
+      setStatus("copied");
+    } catch {
+      setStatus("failed");
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <Button type="button" variant="outline" size="sm" onClick={copy}>
+        {text.summary.copy}
+      </Button>
+      {status === "copied" && (
+        <p role="status" className="text-xs text-muted-foreground">
+          {text.summary.copied}
+        </p>
+      )}
+      {status === "failed" && (
+        <div className="space-y-1">
+          <p role="status" className="text-xs text-muted-foreground">
+            {text.summary.copyFailed}
+          </p>
+          <Textarea
+            readOnly
+            value={summary}
+            onFocus={(event) => event.currentTarget.select()}
+            className="min-h-28 font-mono text-xs"
+            data-testid="build-check-summary-text"
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -346,6 +386,17 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
       : "profile" in state
         ? findBuildPriorities(state.profile, lang, stage)
         : prioritiesForInput(state.input, lang, stage);
+  // Al cambiar idioma, etapa o resultado el resumen cambia y el botón vuelve a empezar.
+  const summary =
+    priorities && state.status === "done"
+      ? checkSummaryText({
+          identity: "profile" in state ? readBuildForCheck(state.profile, lang).identity : null,
+          priorities,
+          stage,
+          lang,
+          siteUrl: window.location.origin,
+        })
+      : null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -471,6 +522,11 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
               {text.priorities.heading}
             </h2>
             <PriorityList priorities={priorities} text={text} />
+            <SummaryButton
+              key={summary}
+              summary={summary ?? ""}
+              text={text}
+            />
           </section>
         )}
 
