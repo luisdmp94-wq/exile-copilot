@@ -1,7 +1,7 @@
-import { BookOpen, Coins, ExternalLink, FilePenLine, Shield, Skull } from "lucide-react";
+import { BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Shield, Skull, Sparkles } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
-import type { ActGuide, GuideBlock } from "@/guides/guide";
+import type { ActGuide, GuideBlock, GuideTip } from "@/guides/guide";
 import { ACT_ONE_GUIDE } from "@/guides/actOne";
 
 const BLOCK_ICON: Record<string, typeof Skull> = {
@@ -30,6 +30,20 @@ function SourceRefs({ guide, ids }: { guide: ActGuide; ids: string[] }) {
   );
 }
 
+function TipList({ guide, tips }: { guide: ActGuide; tips: GuideTip[] }) {
+  return (
+    <ul className="mt-3 space-y-2">
+      {tips.map((tip, index) => (
+        <li key={index} className="text-sm leading-relaxed text-foreground/90">
+          {tip.lead && <strong className="font-semibold text-foreground">{tip.lead} </strong>}
+          {tip.text}
+          <SourceRefs guide={guide} ids={tip.sourceIds} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Block({ guide, block, number }: { guide: ActGuide; block: GuideBlock; number: number }) {
   const Icon = BLOCK_ICON[block.id] ?? BookOpen;
   return (
@@ -42,26 +56,27 @@ function Block({ guide, block, number }: { guide: ActGuide; block: GuideBlock; n
         <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
         {number}. {block.title}
       </h2>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{block.intro}</p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{block.intro}</p>
       {block.cards && (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {block.cards.map((card) => (
             <div key={card.title} className="rounded-lg bg-secondary/60 p-3">
               <h3 className="text-sm font-semibold text-foreground">{card.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{card.text}</p>
+              <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{card.text}</p>
             </div>
           ))}
         </div>
       )}
-      <ul className="mt-3 space-y-2.5">
-        {block.tips.map((tip, index) => (
-          <li key={index} className="text-sm leading-relaxed text-foreground/90">
-            {tip.lead && <strong className="font-semibold text-foreground">{tip.lead} </strong>}
-            {tip.text}
-            <SourceRefs guide={guide} ids={tip.sourceIds} />
-          </li>
-        ))}
-      </ul>
+      <TipList guide={guide} tips={block.tips} />
+      {block.more && block.more.length > 0 && (
+        <details className="group mt-3 border-t border-border pt-2.5" data-testid={`guia-mas-${block.id}`}>
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+            Más detalle
+          </summary>
+          <TipList guide={guide} tips={block.more} />
+        </details>
+      )}
     </section>
   );
 }
@@ -114,12 +129,33 @@ export function GuidesSection({ profile, patch, onAskMentor }: GuidesSectionProp
         >
           <FilePenLine className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>
-            <strong className="font-semibold">Borrador sin revisar.</strong> Este texto lo ha redactado
-            Claude a partir de las fuentes del final y falta la revisión de Luis antes de publicarlo.
-            Cada consejo indica de qué fuente sale.
+            <strong className="font-semibold">Borrador sin revisar.</strong> Falta la revisión de Luis
+            antes de publicarlo.
           </p>
         </div>
       )}
+
+      <section
+        className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5"
+        aria-labelledby="guia-esencial"
+        data-testid="guia-esencial"
+      >
+        <h2 id="guia-esencial" className="flex items-center gap-2 text-base font-semibold text-foreground">
+          <Sparkles className="size-4 shrink-0 text-primary" aria-hidden="true" />
+          Lo esencial
+        </h2>
+        <ol className="mt-2 space-y-1.5">
+          {guide.essentials.map((tip, index) => (
+            <li key={index} className="flex gap-2.5 text-sm leading-relaxed text-foreground">
+              <span className="font-semibold tabular-nums text-primary">{index + 1}</span>
+              <span>
+                {tip.text}
+                <SourceRefs guide={guide} ids={tip.sourceIds} />
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       {guide.blocks.map((block, index) => (
         <Block key={block.id} guide={guide} block={block} number={index + 1} />

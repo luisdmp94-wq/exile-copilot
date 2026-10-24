@@ -12,12 +12,11 @@ export const ACT_ONE_GUIDE: ActGuide = {
   slug: "acto-1",
   actLabel: "acto 1",
   title: "Acto 1: cómo no morir antes del acto 2",
-  summary:
-    "Los jefes que más atascan, qué pasa con tus resistencias al cambiar de acto y las mejoras que casi no cuestan nada.",
+  summary: "Lo justo para llegar vivo al acto 2. Si no tienes tiempo, lee solo el recuadro de abajo.",
   status: "borrador",
   checkedPatch: "0.5.5",
   checkedOn: "24-10-2026",
-  readMinutes: 5,
+  readMinutes: 2,
   check: {
     elemental: 30,
     nextAct: "acto 2",
@@ -27,78 +26,97 @@ export const ACT_ONE_GUIDE: ActGuide = {
       note: "El conde Geonor pega con frío: es la que más importa antes de entrar.",
     },
   },
+  essentials: [
+    {
+      text: "El jefe final, el conde Geonor, es el muro más nombrado: entra con al menos un 30 % de resistencia al frío.",
+      sourceIds: ["maxroll-subida"],
+    },
+    {
+      text: "Al pasar al acto 2 pierdes un 10 % de resistencia a fuego, frío y rayo.",
+      sourceIds: ["wiki-resistencias"],
+    },
+    {
+      text: "Mejora el equipo en este orden: velocidad de movimiento, resistencias, vida y daño.",
+      sourceIds: ["maxroll-subida"],
+    },
+    {
+      text: "No te saltes las recompensas para siempre: puntos de pasiva, vida y espíritu.",
+      sourceIds: ["maxroll-subida"],
+    },
+  ],
   blocks: [
     {
       id: "jefes",
-      title: "Los jefes que más atascan",
-      intro:
-        "No hay datos oficiales de qué jefe mata más. En los foros, el que más se nombra es el conde Geonor, el jefe final del acto, en la mansión de Ogham. Detrás vienen el verdugo y el rey de las nieblas.",
+      title: "El conde Geonor",
+      intro: "Jefe final del acto, en la mansión de Ogham. Pega con daño físico y de frío.",
       cards: [
-        {
-          title: "Geonor · fase 1, con espada",
-          text: "Su estocada helada (destello rojo) congela mucho: apártate. Si su embestida falla, sigue un tajo enorme a su espalda: no te quedes detrás. Con dos muros de hielo en V golpea por el medio: sal rodando a un lado.",
-        },
-        {
-          title: "Desde el 75 % · forma de lobo",
-          text: "Clava la espada y la rodea de runas de escarcha: no pises ese círculo, te congela. Invoca hombres lobo: mátalos o aléjate de ellos.",
-        },
-        {
-          title: "Al 50 % · lobo pútrido",
-          text: "Se cura entero: es normal. Su golpe de sangre no se puede bloquear, esquívalo. Sal de las manchas de hielo antes de que salgan los pinchos. Desde el 25 % caen rayos de luna hasta el final: no dejes de moverte. En la niebla no recibe daño y sale embistiendo seis veces: esquiva, no ataques.",
-        },
+        { title: "Fase 1", text: "No te quedes a su espalda. Sal rodando de los muros de hielo." },
+        { title: "Desde el 75 %", text: "Se vuelve lobo. No pises el círculo de runas: congela." },
+        { title: "Desde el 50 %", text: "Se cura entero. Muévete sin parar y, en la niebla, solo esquiva." },
       ],
       tips: [
         {
-          lead: "Antes de entrar a por Geonor:",
-          text: "pega con daño físico y de frío. La guía de Maxroll dice que muchos jugadores sufren con menos de un 30–40 % de resistencia al frío.",
+          lead: "Antes de entrar:",
+          text: "30–40 % de resistencia al frío.",
           sourceIds: ["wiki-geonor", "maxroll-subida"],
         },
+      ],
+      more: [
         {
-          text: "El parche 0.5.3 le bajó el daño a sus rayos de luna y a sus tajos hacia atrás: si leíste que era imposible, ahora es algo más amable.",
+          lead: "Fase 1, golpe a golpe:",
+          text: "su estocada helada (destello rojo) congela mucho. Si su embestida falla, sigue un tajo enorme a su espalda. Con los dos muros de hielo en V golpea por el medio.",
+          sourceIds: ["wiki-geonor"],
+        },
+        {
+          lead: "Fase de lobo:",
+          text: "clava la espada rodeada de runas de escarcha e invoca hombres lobo: mátalos o aléjate. Al 50 % se cura entero; su golpe de sangre no se puede bloquear. Sal de las manchas de hielo antes de que salgan los pinchos. Desde el 25 % caen rayos de luna hasta el final. En la niebla no recibe daño y sale embistiendo seis veces.",
+          sourceIds: ["wiki-geonor"],
+        },
+        {
+          text: "El parche 0.5.3 le bajó el daño a sus rayos de luna y a sus tajos hacia atrás.",
           sourceIds: ["ggg-053"],
         },
         {
-          lead: "El verdugo (pueblo de Ogham, obligatorio):",
-          text: "una ráfaga de viento marca dónde caerá su guillotina; apártate de esa marca. Su golpe cargado cubre mucho terreno y su grieta avanza en línea recta: muévete de lado. Mata a los esbirros para que no te rodeen.",
+          lead: "El verdugo (pueblo de Ogham):",
+          text: "una ráfaga de viento marca dónde caerá su guillotina; apártate. Su grieta avanza en línea recta: muévete de lado. Mata a los esbirros para que no te rodeen.",
           sourceIds: ["wiki-verdugo"],
         },
         {
           lead: "El rey de las nieblas (Villafrey, opcional):",
-          text: "uno de sus efectos te aturde si te quedas quieto y el otro si te mueves: fíjate en cuál llevas. Mata rápido sus tótems, tienen poca vida y cada onda te hace recibir más daño físico. Merece la pena: da +30 de espíritu para siempre.",
+          text: "un efecto te aturde si te quedas quieto y el otro si te mueves: mira cuál llevas. Mata rápido sus tótems. Da +30 de espíritu para siempre.",
           sourceIds: ["wiki-rey-nieblas", "maxroll-subida"],
         },
       ],
     },
     {
       id: "resistencias",
-      title: "Resistencias al llegar al acto 2",
-      intro:
-        "En el acto 1 el juego no te quita resistencia. Desde el acto 2 empieza la penalización a fuego, frío y rayo, y crece en cada acto: la cifra de tu hoja de personaje baja aunque no cambies nada.",
+      title: "Resistencias",
+      intro: "En el acto 1 no pierdes nada. Desde el acto 2, cada acto te quita más:",
       cards: [
-        { title: "Acto 1", text: "Sin penalización." },
         { title: "Acto 2", text: "−10 %" },
         { title: "Acto 3", text: "−20 %" },
         { title: "Acto 4", text: "−30 %" },
-        { title: "Interludios", text: "−40 % a −50 %, según el nivel de la zona." },
+        { title: "Interludios", text: "−40 % a −50 %" },
         { title: "Mapas", text: "−60 %" },
       ],
       tips: [
         {
-          lead: "El tope normal es un 75 %.",
-          text: "Por encima no sirve de nada, salvo que algo te suba el máximo.",
+          lead: "Apunta a un 30 % en las tres.",
+          text: "Es la referencia de las guías de la comunidad, no una cifra oficial.",
+          sourceIds: ["wiki-resistencias", "maxroll-subida"],
+        },
+      ],
+      more: [
+        {
+          text: "El tope normal es un 75 %: por encima no sirve, salvo que algo te suba el máximo.",
           sourceIds: ["wiki-resistencias"],
         },
         {
-          lead: "Para el acto 2, apunta al menos a un 30 % en las tres.",
-          text: "No es una cifra oficial: es la referencia que dan las guías de la comunidad, y la que usa la comprobación de abajo.",
-          sourceIds: ["maxroll-subida"],
-        },
-        {
-          text: "Beira, de la manada putrefacta (Sierraclara), suelta un trofeo que da +10 % de resistencia al frío para siempre. No te lo saltes.",
+          text: "Beira, de la manada putrefacta (Sierraclara), suelta un trofeo que da +10 % de resistencia al frío para siempre.",
           sourceIds: ["wiki-resistencias"],
         },
         {
-          text: "Maxroll aconseja tener un anillo de zafiro (resistencia al frío) hacia el nivel 15, justo antes de Geonor.",
+          text: "Maxroll aconseja tener un anillo de zafiro (frío) hacia el nivel 15, antes de Geonor.",
           sourceIds: ["maxroll-subida"],
         },
       ],
@@ -106,35 +124,40 @@ export const ACT_ONE_GUIDE: ActGuide = {
     {
       id: "mejoras",
       title: "Mejoras baratas",
-      intro:
-        "Orden que aconseja Maxroll para el equipo durante la campaña: velocidad de movimiento, después resistencias, después vida y por último daño.",
+      intro: "Velocidad de movimiento → resistencias → vida → daño.",
       tips: [
         {
-          lead: "Mira al vendedor cada vez que vuelvas al campamento.",
-          text: "En el acto 1 venden piezas de hasta nivel de objeto 15.",
+          text: "Mira al vendedor cada vez que vuelvas al campamento.",
           sourceIds: ["maxroll-subida"],
         },
         {
-          lead: "Orbes de transmutación en botas, sin miedo:",
-          text: "buscas velocidad de movimiento. Un orbe de aumento añade un modificador a un objeto mágico que solo tiene uno. Guarda los orbes regios para tus mejores piezas.",
+          text: "Usa orbes de transmutación en botas sin miedo: buscas velocidad.",
           sourceIds: ["maxroll-subida"],
         },
         {
-          text: "Un arma blanca con buen daño base vale la pena: transmútala y auméntala antes de seguir buscando otra.",
+          text: "Recoge siempre: el cuervo repicador y el laúd de Una (2 puntos de pasiva cada uno), Cirio (+20 de vida) y el rey de las nieblas (+30 de espíritu).",
+          sourceIds: ["maxroll-subida", "wiki-cuervo"],
+        },
+      ],
+      more: [
+        {
+          text: "En el acto 1 los vendedores llegan hasta nivel de objeto 15.",
+          sourceIds: ["maxroll-subida"],
+        },
+        {
+          text: "Un orbe de aumento añade un modificador a un objeto mágico que solo tiene uno. Guarda los orbes regios para tus mejores piezas.",
+          sourceIds: ["maxroll-subida"],
+        },
+        {
+          text: "Un arma blanca con buen daño base vale la pena: transmútala y auméntala.",
           sourceIds: ["wiki-consejos"],
         },
         {
-          lead: "Frascos gratis:",
-          text: "en el bosque singular, el caldero de la cabaña de la bruja da frascos medianos. Una vende frascos mayores por 80–500 de oro.",
+          text: "Frascos: el caldero de la cabaña de la bruja, en el bosque singular, da frascos medianos gratis. Una vende frascos mayores por 80–500 de oro.",
           sourceIds: ["maxroll-subida"],
         },
         {
-          lead: "Recompensas para siempre que no conviene saltarse:",
-          text: "el cuervo repicador y el laúd de Una dan 2 puntos de pasiva cada uno; Cirio, el Ritual viviente, +20 de vida máxima; el rey de las nieblas, +30 de espíritu.",
-          sourceIds: ["maxroll-subida", "wiki-cuervo"],
-        },
-        {
-          text: "Engarza runas de resistencia en tu equipo: es la forma más barata de tapar la que te falte.",
+          text: "Engarza runas de resistencia en tu equipo para tapar la que te falte.",
           sourceIds: ["maxroll-subida"],
         },
       ],

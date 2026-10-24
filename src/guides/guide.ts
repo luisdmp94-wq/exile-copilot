@@ -27,7 +27,10 @@ export interface GuideBlock {
   intro: string;
   /** Tarjetas cortas (fases de un jefe); se muestran en rejilla. */
   cards?: Array<{ title: string; text: string }>;
+  /** Lo que se ve sin desplegar: dos o tres frases cortas como mucho. */
   tips: GuideTip[];
+  /** Detalle plegado en «Más detalle», para quien quiera leer más. */
+  more?: GuideTip[];
 }
 
 export interface ActGuide {
@@ -40,6 +43,8 @@ export interface ActGuide {
   checkedPatch: string;
   checkedOn: string;
   readMinutes: number;
+  /** «Lo esencial»: cuatro líneas que bastan si no lees nada más. */
+  essentials: GuideTip[];
   blocks: GuideBlock[];
   sources: GuideSource[];
   check: GuideCheckTargets;
