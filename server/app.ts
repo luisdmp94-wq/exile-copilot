@@ -353,7 +353,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const craftingKnowledge = loadCraftingKnowledgeRegistry();
   const featuredBuildCatalog = loadFeaturedBuildCatalog();
 
-  const assertGuidancePatch = (requestPatch: string, profilePatch: string) => {
+  const assertPatchMatchesProfile = (requestPatch: string, profilePatch: string) => {
     if (requestPatch !== profilePatch) {
       throw new ApiHttpError(
         400,
@@ -361,6 +361,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         `La petición usa ${requestPatch}, pero el personaje pertenece a ${profilePatch}.`,
       );
     }
+  };
+
+  const assertGuidancePatch = (requestPatch: string, profilePatch: string) => {
+    assertPatchMatchesProfile(requestPatch, profilePatch);
     const coverage = compatibilityForPatch(patchCompatibility, profilePatch);
     if (!allowsPatchGuidance(coverage)) {
       throw new ApiHttpError(
@@ -620,19 +624,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /import/item-text
   app.post("/import/item-text", (req, res, next) => {
     try {
-      const { text, patch } = ImportItemTextRequestSchema.parse(req.body);
-      const patchRecord = compatibilityForPatch(patchCompatibility, patch);
-      const importCoverage = patchFeatureCoverage(patchRecord, "item-import");
-      if (
-        !allowsPatchFeature(patchRecord, "item-import") ||
-        !importCoverage.evidenceIds.includes("item-parser-fixtures-2026-08-22")
-      ) {
-        throw new ApiHttpError(
-          422,
-          "parche-sin-revisar",
-          `${patchRecord.summary} La lectura de objetos permanece cerrada.`,
-        );
-      }
+      // El texto copiado con Ctrl+C se lee igual en cualquier parche; el
+      // parche solo se valida en el esquema, no cierra la importación.
+      const { text } = ImportItemTextRequestSchema.parse(req.body);
       const parsed = parseItemText(text);
       if (!parsed.recognized) {
         throw new ApiHttpError(
@@ -1384,7 +1378,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.post("/recommendations", guidanceLimiter, async (req, res, next) => {
     try {
       const body = RecommendationsRequestSchema.parse(req.body);
-      assertGuidancePatch(body.patch, body.profile.patch);
+      // Las reglas (resistencias, vida, atributos, huecos) no dependen del
+      // parche: se responden para cualquiera, incluido el que esté en curso.
+      assertPatchMatchesProfile(body.patch, body.profile.patch);
       const readiness = assessCharacterReadiness(body.profile);
       if (!readiness.ready) {
         throw new ApiHttpError(

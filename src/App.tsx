@@ -409,6 +409,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character.profile?.id]);
 
+  // El parche del personaje manda: si el jugador lo corrige en el expediente,
+  // las peticiones dejan de usar el anterior (el servidor rechaza mezclarlos).
+  const profilePatch = character.profile?.patch;
+  useEffect(() => {
+    return deferEffect(() => {
+      if (profilePatch) setPatch(profilePatch);
+    });
+  }, [profilePatch]);
+
   // Invalidación: si los inputs cambian tras generar, las recomendaciones quedan obsoletas.
   const currentInputsKey = character.profile
     ? JSON.stringify(

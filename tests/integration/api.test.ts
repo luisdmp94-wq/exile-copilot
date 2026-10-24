@@ -648,10 +648,10 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.patches[0].source).toContain("pathofexile.com");
     expect(body.patches[1]).toMatchObject({
       id: "0.5.5",
-      status: "announced",
+      status: "released",
       releaseDate: "2026-09-04",
-      asOf: "2026-08-27",
-      source: expect.stringContaining("lanzamiento anunciado"),
+      asOf: "2026-10-24",
+      source: expect.stringContaining("Forbidden Rites"),
     });
     expect(body.patches[2]).toMatchObject({
       id: "1.0",
@@ -685,7 +685,7 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.currencies).toEqual(["chaos", "exalted", "divine", "gold"]);
   });
 
-  it("0.5.5 es conocido, pero no admite tráfico ni orientación antes de su revisión", async () => {
+  it("0.5.5 está publicado, pero el despliegue sigue bloqueado hasta revisar su compatibilidad", async () => {
     const announcedApp = createApiApp({
       dbPath: ":memory:",
       config: { poeNinjaOffline: true, defaultPatch: "0.5.5" },
@@ -697,7 +697,7 @@ describe("api (integración, app Express con db :memory:)", () => {
       const { port } = announcedServer.address() as AddressInfo;
       const origin = `http://127.0.0.1:${port}`;
       const health = await jsonOf(await fetch(`${origin}/health`));
-      expect(health.patch).toMatchObject({ id: "0.5.5", asOf: "2026-08-27" });
+      expect(health.patch).toMatchObject({ id: "0.5.5", asOf: "2026-10-24" });
       expect(health.compatibility).toMatchObject({
         patchId: "0.5.5",
         status: "review-required",
@@ -716,7 +716,7 @@ describe("api (integración, app Express con db :memory:)", () => {
         ok: false,
         patchId: "0.5.5",
         checks: expect.arrayContaining([
-          expect.objectContaining({ id: "patch-metadata", status: "block" }),
+          expect.objectContaining({ id: "patch-metadata", status: "pass" }),
           expect.objectContaining({ id: "patch-guidance", status: "block" }),
         ]),
       });
@@ -759,7 +759,7 @@ describe("api (integración, app Express con db :memory:)", () => {
     }
   });
 
-  it("recomendaciones y mentor fallan cerrados para un parche sin revisar", async () => {
+  it("las recomendaciones responden con el parche en curso; el mentor sigue cerrado", async () => {
     const demo = await jsonOf(await fetch(`${base}/character/demo`));
     const futureProfile = { ...demo.profile, patch: "1.0" };
     const common = {
@@ -770,9 +770,15 @@ describe("api (integración, app Express con db :memory:)", () => {
       patch: "1.0",
     };
 
-    const recommendations = await postJson("/recommendations", common);
-    expect(recommendations.status).toBe(422);
-    expect(await jsonOf(recommendations)).toMatchObject({ error: "parche-sin-revisar" });
+    for (const patch of ["0.5.5", "1.0"]) {
+      const recommendations = await postJson("/recommendations", {
+        ...common,
+        profile: { ...demo.profile, patch },
+        patch,
+      });
+      expect(recommendations.status).toBe(200);
+      expect((await jsonOf(recommendations)).recommendations.length).toBeGreaterThan(0);
+    }
 
     const mentor = await postJson("/mentor/query", {
       ...common,
@@ -979,13 +985,15 @@ describe("api (integración, app Express con db :memory:)", () => {
     ]);
   });
 
-  it("POST /import/item-text no interpreta objetos con un parche sin revisar", async () => {
+  it("POST /import/item-text lee objetos del parche en curso", async () => {
     const missingPatch = await postJson("/import/item-text", { text: demoItemText });
     expect(missingPatch.status).toBe(400);
 
-    const future = await postJson("/import/item-text", { text: demoItemText, patch: "1.0" });
-    expect(future.status).toBe(422);
-    expect(await jsonOf(future)).toMatchObject({ error: "parche-sin-revisar" });
+    for (const patch of ["0.5.5", "1.0"]) {
+      const res = await postJson("/import/item-text", { text: demoItemText, patch });
+      expect(res.status).toBe(200);
+      expect((await jsonOf(res)).item.name).toBeTruthy();
+    }
   });
 
   it("POST /character + GET /character/:id: el personaje se recupera tras guardarlo", async () => {
