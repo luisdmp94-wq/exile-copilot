@@ -86,7 +86,7 @@ export function AcademyItemBoard({
       data-rarity={concealCounters ? "oculta" : item.rarity}
       data-open-slots={concealCounters || open === null ? "desconocido" : String(open)}
     >
-      <p className="border-b border-border/70 bg-primary/[0.06] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/80">
+      <p className="border-b border-border/70 bg-primary/[0.06] px-3 py-1.5 text-xs font-semibold text-primary/80">
         Ejemplo visual · no interactivo
       </p>
 
@@ -142,7 +142,7 @@ export function AcademyItemBoard({
           <section className="min-w-0" aria-labelledby={`prefijos-${item.id}`}>
             <h4
               id={`prefijos-${item.id}`}
-              className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+              className="mb-1.5 text-xs font-semibold text-muted-foreground"
             >
               Prefijos{concealCounters ? "" : ` · ${prefixes.length}`}
             </h4>
@@ -158,7 +158,7 @@ export function AcademyItemBoard({
           <section className="min-w-0" aria-labelledby={`sufijos-${item.id}`}>
             <h4
               id={`sufijos-${item.id}`}
-              className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+              className="mb-1.5 text-xs font-semibold text-muted-foreground"
             >
               Sufijos{concealCounters ? "" : ` · ${suffixes.length}`}
             </h4>

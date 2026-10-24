@@ -62,7 +62,7 @@ export function TargetSection({
       <summary className="min-h-11 cursor-pointer list-none px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden sm:px-6">
         <p className="rotulo-seccion flex items-center gap-2 text-primary/75">
           <Route className="size-4" aria-hidden="true" />
-          Briefing de destino
+          Build objetivo
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <span className="dossier-title text-xl font-semibold text-foreground">La build que quieres alcanzar</span>

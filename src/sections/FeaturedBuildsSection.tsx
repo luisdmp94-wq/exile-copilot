@@ -161,7 +161,7 @@ export function FeaturedBuildsSection({
                 <div className="grid min-h-36 place-items-center border-b border-primary/25 bg-primary/[0.07] p-4 sm:border-b-0 sm:border-r">
                   <div className="text-center">
                     <span className="dossier-title text-4xl text-primary">#{index + 1}</span>
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    <p className="mt-2 text-xs font-semibold text-muted-foreground">
                       {build.characterClass}
                     </p>
                   </div>

@@ -30,7 +30,7 @@ export function CraftingTargetEvidencePanel({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
+          <p className="flex items-center gap-1.5 text-xs font-semibold opacity-70">
             <Eye className="size-3.5" aria-hidden="true" />
             Evidencia del objetivo
           </p>
@@ -53,7 +53,7 @@ export function CraftingTargetEvidencePanel({
             >
               <div className="flex items-start justify-between gap-2">
                 <strong className="text-xs text-foreground">{observation.itemName}</strong>
-                <span className="shrink-0 text-[10px] uppercase tracking-wide opacity-65">
+                <span className="shrink-0 text-xs opacity-65">
                   {observation.source === "current" ? "Actual" : "Otra base"}
                 </span>
               </div>

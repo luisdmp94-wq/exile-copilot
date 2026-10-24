@@ -158,7 +158,7 @@ function HistoryCard({ memory, lang }: { memory: CheckMemory; lang: CheckLang })
     >
       <h2
         id="build-check-history"
-        className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80"
+        className="text-xs font-semibold text-primary/80"
       >
         {text.history.heading}
       </h2>
@@ -267,7 +267,7 @@ function PriorityList({ priorities, text }: { priorities: BuildPriority[]; text:
 function StatGroup({ title, rows, noData }: { title: string; rows: BuildCheckRow[]; noData: string }) {
   return (
     <div>
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
+      <h3 className="mb-2 text-xs font-semibold text-primary/80">
         {title}
       </h3>
       <dl className="space-y-1">
@@ -294,7 +294,7 @@ function ReadingCard({ profile, lang }: { profile: CharacterProfile; lang: Check
       data-testid="build-check-reading"
     >
       <div className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
+        <p className="text-xs font-semibold text-primary/80">
           {text.readingView.heading}
         </p>
         <h2 id="build-check-reading" className="text-lg font-semibold">
@@ -403,7 +403,7 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-10 sm:py-16">
         <header className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/70">
+            <p className="text-xs font-semibold text-primary/70">
               {text.page.kicker}
             </p>
             <div role="group" aria-label={text.page.languageLabel} className="flex gap-1 text-xs">
@@ -518,7 +518,7 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
 
         {priorities && (
           <section aria-labelledby="build-check-priorities" className="space-y-3" data-testid="build-check-priorities">
-            <h2 id="build-check-priorities" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
+            <h2 id="build-check-priorities" className="text-xs font-semibold text-primary/80">
               {text.priorities.heading}
             </h2>
             <PriorityList priorities={priorities} text={text} />

@@ -349,7 +349,7 @@ function Recommendation({
         data-testid="coach-recomendacion"
         data-kind="stop"
       >
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+        <p className="text-xs font-semibold text-primary/80">
           Mi consejo
         </p>
         <h3 ref={headingRef} tabIndex={-1} className="dossier-title mt-1 text-xl font-semibold outline-none">
@@ -409,7 +409,7 @@ function Recommendation({
       data-kind="use-currency"
       data-action={step.actionId}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+      <p className="text-xs font-semibold text-primary/80">
         Siguiente acción legal
       </p>
       <h3
@@ -1387,7 +1387,7 @@ export function CraftingCoach({
                   {activeNeedsRepair ? "Repara primero la lectura de la pieza." : "Elige un objetivo exacto."}
                 </span>
               )}
-              <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="mt-4 text-xs font-semibold text-muted-foreground">
                 O elige una forma rápida
               </p>
               <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-3">
@@ -1460,7 +1460,7 @@ export function CraftingCoach({
                   data-intent={goalIntent}
                   role="status"
                 >
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-300">
+                  <p className="text-xs font-semibold text-amber-300">
                     {goalIntent === "unique-acquisition" ? "Objetivo detectado · objeto único" : "Objetivo detectado · proyecto endgame"}
                   </p>
                   <h4 className="mt-1 text-base font-semibold text-foreground">
@@ -1553,7 +1553,7 @@ export function CraftingCoach({
                   data-testid="coach-sin-evidencia"
                   role="status"
                 >
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/80">
+                  <p className="text-xs font-semibold text-primary/80">
                     {usingContextSuggestion && contextSuggestion.focuses.length > 0
                       ? "1. Lo que necesita tu personaje"
                       : "Antes de gastar"}
@@ -2032,7 +2032,7 @@ export function CraftingCoach({
                   data-testid="coach-resultado-cargando"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <span className="text-xs font-semibold text-muted-foreground">
                       Resultado
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
@@ -2060,14 +2060,14 @@ export function CraftingCoach({
               tabIndex={-1}
               role="status"
               aria-live="polite"
-              className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)] rounded-md border border-border bg-muted/[0.06] p-4 outline-none"
+              className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)] rounded-md border border-border bg-muted/[0.06] p-3 outline-none sm:p-4"
               data-testid="coach-comparacion"
               data-verdict={resultReading.verdict}
               data-decision-kind={resultReading.decisionKind ?? "none"}
             >
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="text-xs font-semibold text-muted-foreground">
                     Resultado
                   </p>
                 <div
@@ -2209,15 +2209,15 @@ export function CraftingCoach({
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                     <div className="rounded-sm border border-border/60 bg-background/35 px-1 py-2 sm:px-2">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Físico</p>
+                      <p className="text-xs text-muted-foreground">Físico</p>
                       <p className="mt-0.5 text-xl font-semibold leading-none sm:text-2xl">{resultReading.weaponPerformance.candidate.physicalDps}</p>
                     </div>
                     <div className="rounded-sm border border-border/60 bg-background/35 px-1 py-2 sm:px-2">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Elemental</p>
+                      <p className="text-xs text-muted-foreground">Elemental</p>
                       <p className="mt-0.5 text-xl font-semibold leading-none sm:text-2xl">{resultReading.weaponPerformance.candidate.elementalDps}</p>
                     </div>
                     <div className="rounded-sm border border-cyan-400/25 bg-cyan-500/[0.06] px-1 py-2 sm:px-2">
-                      <p className="text-[11px] uppercase tracking-wide text-cyan-100/70">Total</p>
+                      <p className="text-xs text-cyan-100/70">Total</p>
                       <p className="mt-0.5 text-xl font-semibold leading-none text-cyan-50 sm:text-2xl">{resultReading.weaponPerformance.candidate.totalDps}</p>
                     </div>
                   </div>

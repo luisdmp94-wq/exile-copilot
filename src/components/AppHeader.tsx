@@ -64,7 +64,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   return (
     <header
-      className="command-header sticky top-0 z-40 border-b border-primary/15"
+      className="command-header sticky top-0 z-40 border-b border-border"
       data-testid="cabecera-principal"
     >
       <div className="mx-auto flex min-h-16 max-w-[92rem] items-center gap-2 px-3 py-2 sm:gap-4 sm:px-6">
@@ -95,20 +95,15 @@ export function AppHeader({
           title="Volver al expediente"
           data-testid="cabecera-inicio"
         >
-          <span className="brand-seal size-9 shrink-0 sm:size-12" aria-hidden="true">
+          <span className="brand-seal size-9 shrink-0 sm:size-10" aria-hidden="true">
             <Swords className="size-4 sm:size-5" />
           </span>
-          <div className="min-w-0">
-            <p className="hidden text-[9px] font-semibold uppercase tracking-[0.28em] text-primary/70 sm:block">
-              Archivo del exiliado
-            </p>
-            <h1 className="dossier-title truncate text-[15px] font-semibold leading-none text-foreground sm:text-2xl">
-              Exile Copilot
-            </h1>
-          </div>
+          <h1 className="dossier-title min-w-0 truncate text-base leading-none text-foreground sm:text-lg">
+            Exile Copilot
+          </h1>
         </button>
 
-        <p className="hidden border-l border-border/70 pl-4 text-xs text-muted-foreground xl:block">
+        <p className="hidden border-l border-border pl-4 text-sm text-muted-foreground xl:block">
           Mentor de builds y crafting para Path of Exile 2
         </p>
 
@@ -149,15 +144,15 @@ export function AppHeader({
           >
             {profile ? <Bot className="size-4 shrink-0" aria-hidden="true" /> : <UserRoundPlus className="size-4 shrink-0" aria-hidden="true" />}
             <span className="hidden md:inline">{profile ? "Abrir Mentor" : "Añadir personaje"}</span>
-            {/* Por debajo de 380 px el rótulo cede su sitio al nombre del
+            {/* Por debajo de 440 px el rótulo cede su sitio al nombre del
                 producto: la acción sigue etiquetada por `aria-label` y la
                 página ya ofrece el mismo CTA con texto completo. */}
-            <span className="hidden min-[380px]:inline md:hidden">{profile ? "Mentor" : "Añadir"}</span>
+            <span className="hidden min-[440px]:inline md:hidden">{profile ? "Mentor" : "Añadir"}</span>
           </Button>
 
           <details className="group relative shrink-0" data-testid="cabecera-estado">
             <summary
-              className="flex min-h-8 cursor-pointer list-none items-center gap-1 rounded-full border border-border/60 px-1.5 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-9 sm:px-2.5 [&::-webkit-details-marker]:hidden"
+              className="flex min-h-8 cursor-pointer list-none items-center gap-1 rounded-full border border-border px-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-9 sm:px-2.5 [&::-webkit-details-marker]:hidden"
               aria-label="Ver estado de datos y servicios"
             >
               {/* Por debajo de `sm` el estado se reduce a su icono: sigue

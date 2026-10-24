@@ -398,7 +398,7 @@ function PrimaryEntry({
 
       {entry.nextAction && (
         <div className="mt-4 rounded-lg border border-primary/40 bg-background p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+          <p className="text-xs font-semibold text-primary">
             Haz esto ahora
           </p>
           <p className="mt-1 font-medium text-foreground">{entry.nextAction}</p>

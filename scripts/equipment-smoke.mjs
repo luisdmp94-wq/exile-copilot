@@ -248,6 +248,18 @@ async function seedProfile(request, base) {
       modifiers: [],
       sources: fuente,
     },
+    // La demo llega sin segundo anillo y la regla de huecos vacíos lo sube al
+    // primer puesto. Esta prueba mide el vínculo recomendación → objeto, así
+    // que se rellena el hueco para que una recomendación con objeto siga arriba.
+    {
+      id: "smoke-ring-2",
+      name: "Segundo anillo de prueba",
+      baseType: "Iron Ring",
+      slot: "ring2",
+      rarity: "normal",
+      modifiers: [],
+      sources: fuente,
+    },
     craftingItem,
   );
   const res = await request.post(`${base}/api/character`, {

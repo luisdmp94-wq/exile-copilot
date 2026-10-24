@@ -106,7 +106,7 @@ export function MarketSection({
       <CardHeader className="border-b border-border/70 px-6 py-6">
         <p className="rotulo-seccion flex items-center gap-2 text-primary/70">
           <Radar className="size-4" aria-hidden="true" />
-          Inteligencia de mercado
+          Mercado
         </p>
         <CardTitle className="dossier-title text-3xl">Qué puedes permitirte ahora</CardTitle>
       </CardHeader>
@@ -114,7 +114,7 @@ export function MarketSection({
         <div className="market-console flex flex-col gap-3 p-5">
           <p className="rotulo-seccion flex items-center gap-2 text-primary/70">
             <Database className="size-4" aria-hidden="true" />
-            Terminal de consulta
+            Consulta
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(10rem,0.65fr)_minmax(0,1.35fr)]">
             <div className="intel-field">

@@ -802,7 +802,7 @@ export function CraftingActionPlanner({
           patch={patch}
         />
         <section className="pointer-events-none rounded-md border border-border/60 bg-background/30 p-4 opacity-55" aria-hidden="true">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/70">Proyecto de craft</p>
+          <p className="text-xs font-semibold text-cyan-300/70">Proyecto de craft</p>
           <h3 className="mt-1 text-lg font-semibold">{item.name || item.baseType}</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             Monedas · {availableActions} de {craftingActions.length} disponibles
@@ -830,7 +830,7 @@ export function CraftingActionPlanner({
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan-500/20 px-4 py-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Proyecto de craft</p>
+              <p className="text-xs font-semibold text-cyan-300/80">Proyecto de craft</p>
               <h3 id={`crafting-laboratory-title-${item.id}`} className="mt-1 text-lg font-semibold">
                 {laboratoryPrompt[laboratoryActiveStep]}
               </h3>
@@ -887,7 +887,7 @@ export function CraftingActionPlanner({
                             : "cursor-not-allowed opacity-60"
                   }`}
                 >
-                  <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide sm:text-xs">
+                  <span className="flex items-center gap-1 text-xs font-semibold sm:text-xs">
                     <span aria-hidden="true">
                       {step.state === "done" ? "✓" : step.state === "current" ? "▸" : step.state === "blocked" ? "⛔" : "·"}
                     </span>
@@ -931,7 +931,7 @@ export function CraftingActionPlanner({
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+              <p className="text-xs font-semibold text-primary/75">
                 Tu plan para esta pieza
               </p>
               <h4 id={`crafting-intention-title-${item.id}`} className="mt-1 text-base font-semibold text-foreground">Tu contrato</h4>
@@ -988,7 +988,7 @@ export function CraftingActionPlanner({
             />
             <div className={`flex flex-col gap-2 rounded-md border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between ${BUILD_ALIGNMENT_STYLE[buildIntent.alignment]}`} data-testid="crafting-build-intent" data-alignment={buildIntent.alignment} role="status">
               <div className="min-w-0">
-                <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">Sugerencia del personaje</span>
+                <span className="block text-xs font-semibold opacity-70">Sugerencia del personaje</span>
                 <strong className="mt-0.5 block text-sm">{buildIntentPresentation.title}</strong>
                 <span className="mt-0.5 block text-xs leading-relaxed opacity-80">{buildIntentPresentation.detail}</span>
               </div>
@@ -1017,7 +1017,7 @@ export function CraftingActionPlanner({
                 <CraftingTargetEvidencePanel evidence={targetEvidence} />
               </div>
               <div className={`rounded-md border p-3 ${baseVerdictStyle}`} data-testid="crafting-base-verdict" data-base-verdict={baseVerdict.tone} aria-live="polite">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">{baseVerdict.eyebrow}</p>
+                <p className="text-xs font-semibold opacity-75">{baseVerdict.eyebrow}</p>
                 <p className="mt-1 text-base font-semibold">{baseVerdict.title}</p>
                 <p className="mt-1 text-xs leading-relaxed opacity-90">{baseVerdict.detail}</p>
               </div>
@@ -1052,7 +1052,7 @@ export function CraftingActionPlanner({
             data-base-verdict={baseVerdict.tone}
             aria-live="polite"
           >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">
+            <p className="text-xs font-semibold opacity-75">
               {baseVerdict.eyebrow}
             </p>
             <p className="mt-1 text-base font-semibold">{baseVerdict.title}</p>
@@ -1105,7 +1105,7 @@ export function CraftingActionPlanner({
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+                <p className="text-xs font-semibold text-primary/75">
                   Núcleo de afijos
                 </p>
                 <h4 className="mt-1 text-base font-semibold text-foreground">
@@ -1185,7 +1185,7 @@ export function CraftingActionPlanner({
             data-testid="crafting-route"
             data-route-state={route.state}
           >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+          <p className="text-xs font-semibold text-primary/75">
             {route.eyebrow}
           </p>
           <p className="mt-1 text-sm font-semibold text-foreground">{route.headline}</p>
@@ -1751,7 +1751,7 @@ function EssencePlanner({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-300/80">
+          <p className="text-xs font-semibold text-violet-300/80">
             Mecánica guiada P1
           </p>
           <h3 id={`crafting-essences-title-${item.id}`} className="mt-1 font-medium text-foreground">

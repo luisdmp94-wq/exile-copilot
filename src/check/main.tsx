@@ -1,5 +1,6 @@
 import { Component, StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import "@fontsource-variable/inter";
 import "../index.css";
 import { BuildCheckPage } from "./BuildCheckPage";
 

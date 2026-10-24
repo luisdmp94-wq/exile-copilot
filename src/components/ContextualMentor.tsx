@@ -395,7 +395,7 @@ export function ContextualMentor({
             )}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/75">
+            <p className="text-xs font-semibold text-primary/75">
               {placement === "inline" ? "Tu Copiloto" : "Mentor contextual"}
             </p>
             <p
@@ -436,7 +436,7 @@ export function ContextualMentor({
         )}>
             <span
               className={cn(
-                "w-fit border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]",
+                "w-fit border px-2 py-0.5 text-xs font-semibold",
                 SOURCE_STYLES[cue.source],
               )}
             >
@@ -512,7 +512,7 @@ export function ContextualMentor({
                 data-testid="mentor-contextual-respuesta"
               >
                 <p
-                  className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200"
+                  className="text-xs font-semibold text-emerald-200"
                   data-testid="mentor-contextual-modo"
                 >
                   {answerLabel(answer)}

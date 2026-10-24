@@ -102,7 +102,7 @@ export function CraftingProtectionPicker({
               />
               <span className="min-w-0">
                 <span className="line-clamp-2 block text-foreground">{modifier.text}</span>
-                <span className="mt-1 block text-[10px] uppercase tracking-wide text-muted-foreground">
+                <span className="mt-1 block text-xs text-muted-foreground">
                   {modifier.affix === "prefix"
                     ? "Prefijo"
                     : modifier.affix === "suffix"

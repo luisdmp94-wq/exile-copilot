@@ -109,7 +109,7 @@ export function AlloyPlanner({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">
+          <p className="text-xs font-semibold text-cyan-300/80">
             Mecánica guiada P2
           </p>
           <h3 id={`crafting-alloys-title-${item.id}`} className="mt-1 font-medium text-foreground">

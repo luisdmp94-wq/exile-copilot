@@ -229,7 +229,7 @@ function ItemDetailContent({
             {modifierGroups.length > 0 ? (
               modifierGroups.map((group) => (
                 <div key={group.kind} className="flex flex-col gap-1">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {MODIFIER_KIND_LABELS[group.kind]}
                   </p>
                   <ul className="flex flex-col gap-1">

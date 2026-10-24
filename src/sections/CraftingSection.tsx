@@ -377,7 +377,7 @@ export function CraftingSection({
           role="status"
           aria-labelledby="crafting-patch-review-title"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300/85">
+          <p className="text-xs font-semibold text-amber-300/85">
             Crafting detenido por seguridad
           </p>
           <h2 id="crafting-patch-review-title" className="dossier-title mt-1 text-2xl font-semibold">
@@ -406,7 +406,7 @@ export function CraftingSection({
           />
         ) : mode === "laboratory" ? (
           <section className="superficie-panel p-6" data-testid="crafting-laboratory-needs-profile">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+            <p className="text-xs font-semibold text-primary/75">
               Flujo avanzado bloqueado
             </p>
             <h2 className="dossier-title text-2xl font-semibold">Primero necesito una pieza real</h2>
@@ -492,7 +492,7 @@ export function CraftingSection({
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+              <p className="text-xs font-semibold text-amber-200/80">
                 Guardado sin bloquear el banco
               </p>
               <h3 id="crafting-paused-title" className="font-semibold">

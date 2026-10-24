@@ -88,10 +88,10 @@ export function OpenCaseRecommendation({
   const compactObservationMethod = compactCaseText(observationMethod, 150);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+          <span className="text-xs font-semibold text-primary">
             Prioridad {rec.priority}
           </span>
           {rec.actionKind === "profile_sync" && (
@@ -105,13 +105,13 @@ export function OpenCaseRecommendation({
             </Badge>
           )}
         </div>
-        <h3 className="font-serif text-2xl font-semibold leading-tight text-foreground sm:text-3xl">
+        <h3 className="text-2xl font-semibold leading-tight text-foreground sm:text-3xl">
           {rec.title}
         </h3>
       </div>
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="text-xs font-semibold text-muted-foreground">
           Acción
         </p>
         <p

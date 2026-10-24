@@ -43,7 +43,7 @@ function MediumCase({
     <div className="space-y-4" data-testid="academia-media-caso">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/70">
+          <p className="text-xs font-semibold text-primary/70">
             Situación {scenario.order}
           </p>
           <h3 className="dossier-title mt-1 text-2xl font-semibold">{scenario.title}</h3>
@@ -62,7 +62,7 @@ function MediumCase({
 
         <div className="min-w-0 space-y-4">
           <div className="rounded-md border border-border/70 bg-muted/[0.04] p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">Antes de decidir</p>
+            <p className="text-xs font-semibold text-primary/70">Antes de decidir</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               {scenario.facts.situation === "base-selection"
                 ? CRAFTING_MEDIUM_BASE_READING_HELP
@@ -74,17 +74,17 @@ function MediumCase({
 
           <div className="grid gap-px overflow-hidden rounded-md border border-border/70 bg-border/60 sm:grid-cols-2" aria-label="Situación dentro del juego">
             <div className="bg-background/70 p-3">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">En el juego</span>
+              <span className="text-xs font-semibold text-muted-foreground">En el juego</span>
               <p className="mt-1 text-sm font-medium">{scenario.gameState}</p>
             </div>
             <div className="bg-muted/[0.04] p-3">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">Lo que buscas</span>
+              <span className="text-xs font-semibold text-primary/70">Lo que buscas</span>
               <p className="mt-1 text-sm font-medium">{scenario.playerGoal}</p>
             </div>
           </div>
 
           <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">¿Qué harías dentro de PoE2?</p>
+            <p className="mb-1 text-xs font-semibold text-primary/70">¿Qué harías dentro de PoE2?</p>
             <h4 className="text-lg font-semibold" data-testid="academia-media-pregunta">{scenario.question}</h4>
             <div className="mt-2 grid gap-2" role="group" aria-label="Decisiones del nivel medio">
               {scenario.options.map((entry) => {
@@ -133,11 +133,11 @@ function MediumCase({
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{scenario.explanation}</p>
               <p className="mt-2 text-xs font-medium text-primary">Idea clave: {scenario.takeaway}</p>
               <div className="mt-3 rounded border border-amber-400/25 bg-amber-400/[0.05] px-3 py-2" data-testid="academia-media-parada">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">Para cuando</p>
+                <p className="text-xs font-semibold text-amber-200">Para cuando</p>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{scenario.stopCondition}</p>
               </div>
               <div className="mt-3 rounded border border-border/70 bg-background/35 p-3" data-testid="academia-media-pasos-juego">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Hazlo dentro de PoE2</p>
+                <p className="text-xs font-semibold text-primary">Hazlo dentro de PoE2</p>
                 <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
                   {scenario.gameSteps.map((step) => <li key={step}>{step}</li>)}
                 </ol>
@@ -191,7 +191,7 @@ export function CraftingMediumAcademy({ onBack, onPracticeWithMyItem }: Crafting
         <div className="flex items-center gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary"><Gamepad2 className="size-5" aria-hidden="true" /></span>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/70">Nivel medio</p>
+            <p className="text-xs font-semibold text-primary/70">Nivel medio</p>
             <h2 className="dossier-title text-2xl font-semibold">Aprende a decidir dentro del juego</h2>
           </div>
         </div>
@@ -218,7 +218,7 @@ export function CraftingMediumAcademy({ onBack, onPracticeWithMyItem }: Crafting
   if (stage === "results") {
     return (
       <section className="superficie-panel min-w-0 p-4 sm:p-6" data-testid="academia-media" data-stage="results">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/70">Nivel medio</p>
+        <p className="text-xs font-semibold text-primary/70">Nivel medio</p>
         <h2 className="dossier-title mt-1 text-2xl font-semibold">Ya sabes dirigir un craft en PoE2</h2>
         <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-media-resultado">Has resuelto {score} de {CRAFTING_MEDIUM_ACADEMY_SCENARIOS.length}. Ya puedes pasar de «tengo una moneda» a «sé por qué la usaría y cuándo parar».</p>
         <div className="mt-4 flex flex-wrap gap-2">

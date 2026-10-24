@@ -126,9 +126,9 @@ export function OpenCase({
               </span>
               {partialAnalysis
                 ? `Diagnóstico parcial · ${profileReadiness.equippedItemCount} ${profileReadiness.equippedItemCount === 1 ? "pieza observada" : "piezas observadas"}`
-                : "Diagnóstico activo"}
+                : "Recomendación"}
               <span id="caso-abierto-titulo" className="sr-only">
-                Caso abierto. Una sola decisión; la evidencia queda registrada.
+                Una sola decisión cada vez; lo que hagas queda en tu diario.
               </span>
             </p>
           )}

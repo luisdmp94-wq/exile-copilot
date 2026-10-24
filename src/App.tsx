@@ -1400,16 +1400,16 @@ export default function App() {
         >
           {/* La navegación conserva su propia jerarquía. Música vive en la
               cabecera principal para no parecer una cuarta área de trabajo. */}
-          <div className="workspace-nav sticky top-16 z-30 -mx-4 mb-8 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:-mx-6 sm:px-6">
+          <div className="workspace-nav sticky top-16 z-30 -mx-4 mb-8 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6">
             <div className="mx-auto flex max-w-[92rem] items-center justify-center">
               <TabsList
                 aria-label="Áreas de Exile Copilot"
-                className="grid h-auto min-w-0 flex-1 grid-cols-3 gap-1.5 bg-transparent p-0 lg:flex lg:w-auto lg:flex-none lg:gap-2"
+                className="grid h-auto min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-border bg-card p-1 lg:flex lg:w-auto lg:flex-none"
               >
               <TabsTrigger
                 value="expediente"
                 data-testid="tab-expediente"
-                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card lg:flex-none lg:flex-row lg:gap-2 lg:px-3 lg:py-3 lg:text-xs lg:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate lg:hidden">Expediente</span>
@@ -1418,7 +1418,7 @@ export default function App() {
               <TabsTrigger
                 value="plan"
                 data-testid="tab-plan"
-                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card lg:flex-none lg:flex-row lg:gap-2 lg:px-3 lg:py-3 lg:text-xs lg:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <Compass className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate lg:hidden">Plan</span>
@@ -1427,7 +1427,7 @@ export default function App() {
               <TabsTrigger
                 value="crafting"
                 data-testid="tab-crafting"
-                className="min-w-0 flex-col gap-1 rounded-sm border border-border/70 bg-card/55 px-1.5 py-2.5 text-[10px] uppercase tracking-[0.06em] shadow-none transition-all hover:border-primary/45 hover:bg-card lg:flex-none lg:flex-row lg:gap-2 lg:px-3 lg:py-3 lg:text-xs lg:tracking-[0.11em] data-[state=active]:border-primary/65 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <Hammer className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">Crafting</span>
@@ -1506,7 +1506,9 @@ export default function App() {
                 onOpenCrafting={openCraftingForItem}
               />
             ) : (
-              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(28rem,32rem)_minmax(0,1fr)] lg:items-start">
+              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(28rem,32rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
+                {/* Filas 1 y 2 a su medida; la 3 absorbe la altura de la columna
+                    izquierda, que ocupa las tres: sin esto quedaban huecos a la derecha. */}
                 {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
                     contexto antes de inspeccionar la pieza (§8). */}
                 <div className="order-1 flex flex-col gap-6 lg:order-2 lg:col-start-2 lg:row-start-1">
@@ -1732,7 +1734,7 @@ export default function App() {
                     <Compass className="size-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <p className="rotulo-seccion text-primary/70">Mesa de operaciones</p>
+                    <p className="rotulo-seccion text-primary/70">Plan</p>
                     <h2
                       id="operaciones-titulo"
                       className="dossier-title text-2xl font-semibold text-foreground"

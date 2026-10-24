@@ -41,7 +41,7 @@ export function ExperimentalMusicPlayer() {
         className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
           active
             ? "border-primary/70 bg-primary/15 text-primary shadow-[0_0_18px_rgba(245,180,28,0.09)]"
-            : "border-primary/35 bg-primary/[0.06] text-foreground hover:border-primary/60 hover:bg-primary/10"
+            : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary"
         }`}
         data-testid="experimental-music-toggle"
         data-state={active ? "playing" : expanded ? "open" : "idle"}
@@ -66,7 +66,7 @@ export function ExperimentalMusicPlayer() {
         {/* El nombre no se oculta: Música es una función propia y debe seguir
             siendo reconocible incluso en la vista móvil más estrecha. */}
         <span>Música</span>
-        <span className="hidden rounded-full border border-current/25 px-1.5 text-[9px] uppercase tracking-[0.12em] min-[560px]:inline-flex">
+        <span className="hidden rounded-full border border-current/25 px-1.5 text-xs min-[560px]:inline-flex">
           {active ? "sonando" : "prueba"}
         </span>
       </button>
@@ -89,7 +89,7 @@ export function ExperimentalMusicPlayer() {
               <Radio className="size-4" aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+              <p className="text-xs font-semibold text-primary/75">
                 Radio del exiliado
               </p>
               <p className="truncate text-xs text-muted-foreground">Prueba temporal mediante YouTube</p>
@@ -123,7 +123,7 @@ export function ExperimentalMusicPlayer() {
                 <button
                   type="button"
                   onClick={stopPlayer}
-                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-sm border border-border/80 px-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground hover:border-destructive/50 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-sm border border-border/80 px-2.5 text-xs font-semibold text-muted-foreground hover:border-destructive/50 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Detener música"
                 >
                   <Square className="size-3" aria-hidden="true" />

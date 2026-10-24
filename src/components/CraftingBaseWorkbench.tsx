@@ -42,7 +42,7 @@ export function CraftingBaseWorkbench({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300/75">
+          <p className="text-xs font-semibold text-cyan-300/75">
             Banco de bases · {CRAFTING_GOAL_LABELS[goalCategory]}
           </p>
           <h4 id={`crafting-base-workbench-title-${selectedItem.id}`} className="mt-1 flex items-center gap-2 text-base font-semibold">
@@ -108,7 +108,7 @@ export function CraftingBaseWorkbench({
                   {!active && (
                     <div className="mt-2 grid gap-2 lg:grid-cols-2" data-testid={`crafting-base-delta-${candidate.item.id}`}>
                       <div className="rounded border border-rose-500/25 bg-rose-500/[0.04] p-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-200">
+                        <p className="text-xs font-semibold text-rose-200">
                           Dejarías de ver
                         </p>
                         {candidate.missingComparedModifierTexts.length > 0 ? (
@@ -122,7 +122,7 @@ export function CraftingBaseWorkbench({
                         )}
                       </div>
                       <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.04] p-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+                        <p className="text-xs font-semibold text-emerald-200">
                           Aparece en esta base
                         </p>
                         {candidate.newComparedModifierTexts.length > 0 ? (

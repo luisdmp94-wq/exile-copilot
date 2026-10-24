@@ -126,7 +126,7 @@ export function ExpedienteSection({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="rotulo-seccion text-primary/70">
-              Sujeto registrado
+              Tu personaje
             </p>
             <h2
               id="expediente-titulo"
@@ -140,14 +140,14 @@ export function ExpedienteSection({
               decide si el Mentor recuerda entre sesiones. */}
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rotulo-dato border px-2 py-1 ${
+              className={`rotulo-dato rounded-full border px-2.5 py-0.5 ${
                 profilePersisted
-                  ? "border-primary/35 bg-primary/[0.07] text-primary"
-                  : "border-amber-500/35 bg-amber-500/[0.07] text-amber-300"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-300"
               }`}
               data-testid="estado-memoria-build"
             >
-              ● {profilePersisted ? "Memoria activa" : "Memoria inactiva"}
+              ● {profilePersisted ? "Guardado" : "Sin guardar"}
             </span>
           </div>
         </div>

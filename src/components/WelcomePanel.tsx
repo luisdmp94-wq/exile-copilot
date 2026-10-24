@@ -125,10 +125,10 @@ export function WelcomePanel({
                 <Icon className="size-4 sm:size-5" aria-hidden="true" />
               </span>
               <span className={action === "import" ? "flex flex-1 flex-col gap-1" : "flex flex-col gap-0.5"}>
-                <span className="font-serif text-lg font-semibold text-foreground sm:text-xl">{titulo}</span>
+                <span className="text-lg font-semibold text-foreground sm:text-xl">{titulo}</span>
                 <span className="text-xs leading-relaxed text-muted-foreground sm:text-sm">{texto}</span>
               </span>
-              <span className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] ${
+              <span className={`flex items-center gap-2 text-xs font-semibold ${
                 action === "import"
                   ? "mt-auto min-h-11 rounded-md bg-primary px-4 text-primary-foreground lg:mt-0"
                   : "mt-auto text-primary"

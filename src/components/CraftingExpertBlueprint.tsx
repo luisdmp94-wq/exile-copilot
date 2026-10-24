@@ -76,7 +76,7 @@ function ContractCell({
 }) {
   return (
     <div className="min-w-0 bg-background/65 px-3 py-2.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">
+      <span className="text-xs font-semibold text-primary/70">
         {label}
       </span>
       <p className={`mt-1 line-clamp-2 text-xs leading-relaxed ${empty ? "text-amber-200" : "text-foreground"}`}>
@@ -110,7 +110,7 @@ function ProjectAttemptCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] opacity-70">
+          <span className="text-xs font-semibold opacity-70">
             Intento {number} · {attempt.actionLabel}
           </span>
           <strong className="mt-1 block text-sm text-foreground">
@@ -173,7 +173,7 @@ export function CraftingExpertBlueprint({
       aria-labelledby="crafting-expert-blueprint-title"
     >
       <div className={`border-b px-4 py-3 ${STATUS_STYLE[blueprint.status]}`}>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-75">
+        <p className="text-xs font-semibold opacity-75">
           {blueprint.eyebrow}
         </p>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-2">
@@ -220,7 +220,7 @@ export function CraftingExpertBlueprint({
           data-testid="crafting-project-base-decision"
           data-decision={blueprint.baseDecision.kind}
         >
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
+          <span className="text-xs font-semibold opacity-70">
             Decisión sobre la base
           </span>
           <strong className="mt-1 block text-sm">{blueprint.baseDecision.label}</strong>
@@ -257,7 +257,7 @@ export function CraftingExpertBlueprint({
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+              <p className="text-xs font-semibold text-primary/75">
                 Memoria del proyecto
               </p>
               <strong id="crafting-project-history-title" className="text-sm">
@@ -327,7 +327,7 @@ export function CraftingExpertBlueprint({
                       </span>
                     )}
                   </div>
-                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="shrink-0 text-xs font-semibold">
                     {patchBlocked
                       ? "En revisión"
                       : route.availability === "legal"

@@ -601,7 +601,7 @@ export function DecisionSessionSection({
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                <p className="text-xs font-semibold text-amber-200/80">
                   Aparcadas
                 </p>
                 <h3 id={`${instanceId}-paused-title`} className="font-semibold">
@@ -853,7 +853,7 @@ export function DecisionSessionSection({
                   </li>
                 </ol>
                 {craftingComparison?.status !== "confirmed" && <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-200">
+                  <p className="text-xs font-semibold text-sky-200">
                     Cerrar el ciclo
                   </p>
                   <h3
@@ -1017,7 +1017,7 @@ export function DecisionSessionSection({
                     )}
                     {craftingComparison.addedModifiers.length > 0 && (
                       <div className="mt-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <p className="text-xs font-semibold text-muted-foreground">
                           Aparece ahora
                         </p>
                         <ul className="mt-1 list-disc pl-5 text-sm">
@@ -1029,7 +1029,7 @@ export function DecisionSessionSection({
                     )}
                     {craftingComparison.removedModifiers.length > 0 && (
                       <div className="mt-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <p className="text-xs font-semibold text-muted-foreground">
                           Ya no aparece
                         </p>
                         <ul className="mt-1 list-disc pl-5 text-sm">
@@ -1063,7 +1063,7 @@ export function DecisionSessionSection({
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
+                                <p className="text-xs font-semibold text-emerald-200/80">
                                   Tu punto de parada
                                 </p>
                                 <h4 className="mt-1 font-semibold">{craftingSuccessAssessment.title}</h4>
@@ -1120,7 +1120,7 @@ export function DecisionSessionSection({
                                 )}
                               </span>
                               <div className="min-w-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-75">
+                                <p className="text-xs font-semibold opacity-75">
                                   Decisión recomendada
                                 </p>
                                 <h4 className="mt-1 text-lg font-semibold">
@@ -1148,7 +1148,7 @@ export function DecisionSessionSection({
                             data-testid="crafting-character-context"
                             data-context-verdict={craftingCharacterContext.verdict}
                           >
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">
+                            <p className="text-xs font-semibold opacity-75">
                               Lectura del personaje
                             </p>
                             <p className="mt-1 font-semibold">{craftingCharacterContext.title}</p>
@@ -1274,14 +1274,14 @@ export function DecisionSessionSection({
                 aria-labelledby="prueba-activa-titulo"
                 data-testid="prueba-activa"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary/75">
+                <p className="text-xs font-semibold text-primary/75">
                   Próxima acción
                 </p>
                 <h3 id="prueba-activa-titulo" className="mt-2 text-lg font-semibold">
                   {session.activeAction.summary}
                 </h3>
                 <div className="mt-4 rounded-md border border-sky-500/30 bg-sky-500/[0.06] p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200">
+                  <p className="text-xs font-semibold text-sky-200">
                     Después, observa
                   </p>
                   <p className="mt-1 text-sm leading-relaxed">
@@ -1427,7 +1427,7 @@ export function DecisionSessionSection({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary/75">
+                    <p className="text-xs font-semibold text-primary/75">
                       Regreso de la prueba
                     </p>
                     <h3 className="mt-1 text-lg font-semibold">¿Qué ocurrió?</h3>

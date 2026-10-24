@@ -36,7 +36,7 @@ function ContractCell({
 }) {
   return (
     <div className="min-w-0 rounded border border-border/70 bg-background/55 p-3">
-      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary/70">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-primary/70">
         {icon}
         {label}
       </p>
@@ -71,7 +71,7 @@ function AdvancedScenarioView({
     <div className="space-y-4" data-testid="academia-avanzada-caso">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/70">
+          <p className="text-xs font-semibold text-primary/70">
             Caso {scenario.order} · {scenario.skill}
           </p>
           <h3 className="dossier-title mt-1 text-2xl font-semibold">{scenario.title}</h3>
@@ -94,7 +94,7 @@ function AdvancedScenarioView({
 
         <div className="min-w-0 space-y-4">
       <div className="rounded border border-border/70 bg-muted/[0.04] p-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">Cómo leer este caso</p>
+        <p className="text-xs font-semibold text-primary/70">Cómo leer este caso</p>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
           Primero mira la pieza. Después comprueba qué quieres conseguir, qué no puedes sacrificar y qué condición te obliga a parar.
         </p>
@@ -114,7 +114,7 @@ function AdvancedScenarioView({
             <div key={route.id} className="rounded border border-border/70 bg-muted/[0.05] p-3">
               <div className="flex items-center justify-between gap-2">
                 <strong className="text-sm">{route.label}</strong>
-                <span className={`text-[10px] font-semibold uppercase tracking-wide ${route.risk === "replacement" ? "text-rose-300" : route.risk === "stage-change" ? "text-amber-300" : "text-emerald-300"}`}>
+                <span className={`text-xs font-semibold ${route.risk === "replacement" ? "text-rose-300" : route.risk === "stage-change" ? "text-amber-300" : "text-emerald-300"}`}>
                   {route.risk === "replacement" ? "Reemplaza" : route.risk === "stage-change" ? "Cambia etapa" : route.risk === "transformation" ? "Transforma" : "Añade"}
                 </span>
               </div>
@@ -133,7 +133,7 @@ function AdvancedScenarioView({
       )}
 
       <div>
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">¿Qué harías dentro de PoE2?</p>
+        <p className="mb-1 text-xs font-semibold text-primary/70">¿Qué harías dentro de PoE2?</p>
         <h4 className="text-lg font-semibold" data-testid="academia-avanzada-pregunta">{scenario.question}</h4>
         <div className="mt-2 grid gap-2" role="group" aria-label="Opciones avanzadas">
           {scenario.options.map((entry) => {
@@ -177,7 +177,7 @@ function AdvancedScenarioView({
           <p className="mt-1.5 text-sm leading-relaxed">{scenario.explanation}</p>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground"><strong>Idea que te llevas:</strong> {scenario.lesson}</p>
           <div className="mt-3 rounded border border-border/70 bg-background/35 p-3" data-testid="academia-avanzada-pasos-juego">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Hazlo dentro de PoE2</p>
+            <p className="text-xs font-semibold text-primary">Hazlo dentro de PoE2</p>
             <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
               {scenario.gameSteps.map((step) => <li key={step}>{step}</li>)}
             </ol>
@@ -233,7 +233,7 @@ export function CraftingAdvancedAcademy({
           <ArrowLeft className="size-4" /> Volver a niveles
         </Button>
         <div className="mt-4 max-w-3xl">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/70">Nivel avanzado</p>
+          <p className="text-xs font-semibold text-primary/70">Nivel avanzado</p>
           <h2 className="dossier-title mt-1 text-3xl font-semibold">Diseña la decisión antes de gastar</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} casos para aprender qué mirar, qué moneda usar y cuándo parar dentro de Path of Exile 2. La web solo te enseña; el crafting ocurre en el juego.
@@ -242,7 +242,7 @@ export function CraftingAdvancedAcademy({
         <ol className="mt-5 grid gap-2 sm:grid-cols-2" data-testid="academia-avanzada-indice">
           {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.map((scenario) => (
             <li key={scenario.id} className="rounded border border-border/70 bg-background/45 p-3">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/70">Caso {scenario.order}</span>
+              <span className="text-xs font-semibold text-primary/70">Caso {scenario.order}</span>
               <strong className="mt-1 block text-sm">{scenario.title}</strong>
               <span className="mt-0.5 block text-xs text-muted-foreground">{scenario.skill}</span>
             </li>
@@ -266,7 +266,7 @@ export function CraftingAdvancedAcademy({
     }).length;
     return (
       <section className="superficie-panel min-w-0 p-4 sm:p-6" data-testid="academia-avanzada" data-stage="results">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/70">Nivel avanzado completado</p>
+        <p className="text-xs font-semibold text-primary/70">Nivel avanzado completado</p>
         <h2 className="dossier-title mt-1 text-3xl font-semibold">Ya sabes planear un craft dentro de PoE2</h2>
         <p className="mt-2 text-sm text-muted-foreground" data-testid="academia-avanzada-resultado">Has resuelto {correct} de {CRAFTING_ADVANCED_ACADEMY_SCENARIOS.length} decisiones. Esto mide el recorrido, no la calidad ni el valor de un objeto real.</p>
         <div className="mt-5 grid gap-2 sm:grid-cols-3">

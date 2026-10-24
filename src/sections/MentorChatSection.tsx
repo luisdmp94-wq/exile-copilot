@@ -343,7 +343,7 @@ function MentorTurnView({
           : "self-start border-border bg-muted/30",
       )}
     >
-      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">
         {esJugador ? "Tú" : "Mentor"}
       </p>
       {/* Texto plano: React escapa el contenido, nunca se interpreta HTML. */}
@@ -383,7 +383,7 @@ function MentorAnswerDetail({
           className="rounded-md border border-primary/40 bg-primary/5 p-2"
           data-testid="mentor-proxima-accion"
         >
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             Tu única próxima acción
           </p>
           <p className="whitespace-pre-wrap break-words text-foreground">
@@ -459,7 +459,7 @@ function MentorEvidence({ answer }: { answer: MentorAnswer }) {
       <div className="flex flex-col gap-3 px-2 pb-2 pt-1">
         {answer.sources.length > 0 && (
           <div className="flex flex-col gap-1" data-testid="mentor-fuentes">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs font-medium text-muted-foreground">
               Fuentes
             </p>
             <ul className="list-inside list-disc text-xs text-muted-foreground">
@@ -475,7 +475,7 @@ function MentorEvidence({ answer }: { answer: MentorAnswer }) {
 
         {answer.unverified.length > 0 && (
           <div className="flex flex-col gap-1" data-testid="mentor-no-verificado">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-amber-300">
+            <p className="text-xs font-medium text-amber-300">
               Falta por verificar
             </p>
             <ul className="list-inside list-disc text-xs text-amber-200/90">

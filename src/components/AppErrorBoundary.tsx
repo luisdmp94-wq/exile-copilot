@@ -34,7 +34,7 @@ export class AppErrorBoundary extends Component<
             <span className="brand-seal" aria-hidden="true">
               <ShieldCheck className="size-5" />
             </span>
-            <span className="text-xs font-semibold uppercase tracking-[0.24em]">
+            <span className="text-xs font-semibold">
               Exile Copilot
             </span>
           </div>

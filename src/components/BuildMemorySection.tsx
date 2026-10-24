@@ -84,7 +84,7 @@ export function BuildMemorySection({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-primary/75">
             <Brain className="size-3.5" aria-hidden="true" />
             Identidad de la build
           </p>

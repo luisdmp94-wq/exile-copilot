@@ -426,7 +426,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
           <span className="text-primary">{step.position}</span>/{step.total}
         </p>
         <span className="text-border" aria-hidden="true">·</span>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+        <p className="text-xs font-semibold text-primary/80">
           {isExam
             ? academy.isRetry
               ? "Repaso de lo pendiente"

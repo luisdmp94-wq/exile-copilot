@@ -55,7 +55,7 @@ export function CraftingRepairBanner({
             {issue.title}
           </p>
           <p
-            className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-300/80"
+            className="mt-1 text-xs font-semibold text-amber-300/80"
             data-testid="crafting-repair-category"
             data-kind={issue.kind}
           >
@@ -81,7 +81,7 @@ export function CraftingRepairBanner({
             data-testid="crafting-repair-evidence-summary"
           >
             <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.06] p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">
+              <p className="text-xs font-semibold text-emerald-200">
                 Sí he leído
               </p>
               <ul className="mt-2 space-y-1 text-xs leading-relaxed text-emerald-50/80">
@@ -89,7 +89,7 @@ export function CraftingRepairBanner({
               </ul>
             </div>
             <div className="rounded border border-amber-500/25 bg-background/25 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
+              <p className="text-xs font-semibold text-amber-200">
                 Todavía necesito
               </p>
               {evidence.missing.length > 0 ? (
