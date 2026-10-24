@@ -47,7 +47,9 @@ function apiMiddleware(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  // Rutas absolutas: las guías viven en /guias/acto-N y, con './', el
+  // navegador buscaba los archivos en /guias/assets y la página no arrancaba.
+  base: '/',
   plugins: [react(), apiMiddleware()],
   build: {
     rollupOptions: {
