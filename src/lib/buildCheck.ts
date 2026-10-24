@@ -40,6 +40,7 @@ function formatPercent(value: number | null | undefined): string | null {
 export function checkPastedCode(content: string, lang: CheckLang): string | null {
   const t = CHECK_TEXT[lang].importErrors;
   if (!content) return t.emptyCode;
+  if (/^(https?:\/\/)?(www\.)?pobb\.in\//i.test(content)) return t.isPobbinLink;
   if (/^https?:\/\//i.test(content)) return t.isLink;
   return null;
 }

@@ -42,6 +42,8 @@ export interface CheckText {
   importErrors: {
     emptyCode: string;
     isLink: string;
+    /** pobb.in no deja que otra web lea sus códigos: se explica cómo copiarlo allí. */
+    isPobbinLink: string;
     notPob: string;
     poe1: string;
     broken: string;
@@ -155,6 +157,8 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
     importErrors: {
       emptyCode: "Pega primero el código de tu build.",
       isLink: `Eso es un enlace. De momento necesito el código, no el link. ${ES_HOW_TO_COPY}`,
+      isPobbinLink:
+        "Eso es un enlace de pobb.in. Ábrelo, pulsa «Copy» junto al código de la build y pégalo aquí.",
       notPob: `Eso no parece un código de Path of Building 2. ${ES_HOW_TO_COPY}`,
       poe1: "Ese código es de Path of Building para PoE1. Necesito el de Path of Building 2.",
       broken: `El código está incompleto o dañado. ${ES_HOW_TO_COPY}`,
@@ -286,6 +290,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
     importErrors: {
       emptyCode: "Paste your build code first.",
       isLink: `That's a link. For now I need the code itself, not the link. ${EN_HOW_TO_COPY}`,
+      isPobbinLink: "That's a pobb.in link. Open it, press “Copy” next to the build code and paste it here.",
       notPob: `That doesn't look like a Path of Building 2 code. ${EN_HOW_TO_COPY}`,
       poe1: "That code is from Path of Building for PoE1. I need the Path of Building 2 one.",
       broken: `The code is incomplete or damaged. ${EN_HOW_TO_COPY}`,

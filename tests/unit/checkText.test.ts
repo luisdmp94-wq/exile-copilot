@@ -88,7 +88,8 @@ describe("chequeo de build — textos en inglés", () => {
 
   it("los errores salen en inglés y no filtran el detalle en español del servidor", () => {
     expect(checkPastedCode("", "en")).toBe("Paste your build code first.");
-    expect(checkPastedCode("https://pobb.in/x", "en")).toContain("That's a link");
+    expect(checkPastedCode("https://maxroll.gg/x", "en")).toContain("That's a link");
+    expect(checkPastedCode("https://pobb.in/x", "en")).toContain("press “Copy” next to the build code");
     expect(explainImportError("formato-desconocido", "Formato no reconocido.", "en")).toContain(
       "doesn't look like a Path of Building 2 code",
     );

@@ -81,7 +81,15 @@ describe("chequeo de build — lectura de un código PoB2", () => {
 describe("chequeo de build — mensajes cuando lo pegado no sirve", () => {
   it("pide el código cuando está vacío o es un enlace", () => {
     expect(checkPastedCode("")).toBe("Pega primero el código de tu build.");
-    expect(checkPastedCode("https://pobb.in/abc123")).toContain("Eso es un enlace");
+    expect(checkPastedCode("https://maxroll.gg/poe2/build-guides/x")).toContain(
+      "Eso es un enlace. De momento necesito el código",
+    );
+    // pobb.in no deja leer sus códigos desde otra web: se explica cómo copiarlo allí.
+    for (const link of ["https://pobb.in/abc123", "pobb.in/abc123", "http://www.pobb.in/abc123"]) {
+      expect(checkPastedCode(link)).toBe(
+        "Eso es un enlace de pobb.in. Ábrelo, pulsa «Copy» junto al código de la build y pégalo aquí.",
+      );
+    }
     expect(checkPastedCode(makePobCode(fixture("richCharacter.synthetic.xml")))).toBeNull();
   });
 
