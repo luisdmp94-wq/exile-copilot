@@ -88,6 +88,13 @@ import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
 import { GuidesSection } from "@/sections/GuidesSection";
+import {
+  DEFAULT_GUIDE_SLUG,
+  findGuide,
+  guidePageTitle,
+  guidePath,
+  guideSlugFromPath,
+} from "@/guides";
 
 const CraftingSection = lazy(() =>
   import("@/sections/CraftingSection").then((module) => ({
@@ -143,8 +150,6 @@ const EMPTY_TARGET: TargetDraft = {
 type WorkspaceTab = "expediente" | "plan" | "crafting" | "guias";
 type EditorPrompt = "memory" | "new" | "item" | "import" | null;
 
-/** Dirección pública de la guía: se puede enlazar y abrir directamente. */
-const GUIDE_PATH = "/guias/acto-1";
 const APP_TITLE = typeof document === "undefined" ? "" : document.title;
 
 function openedFromGuideUrl(): boolean {
@@ -210,6 +215,13 @@ export default function App() {
   // Elemento que abrió el detalle: puede ser un hueco del paperdoll o el botón
   // «Ver el objeto evaluado» del caso. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
+  // Guía abierta en «Guías». Cada una tiene su dirección (/guias/acto-2) para
+  // poder enlazarla y abrirla directamente.
+  const [guideSlug, setGuideSlug] = useState(
+    () =>
+      (typeof window === "undefined" ? null : guideSlugFromPath(window.location.pathname)) ??
+      DEFAULT_GUIDE_SLUG,
+  );
   const [tab, setTab] = useState<WorkspaceTab>(() =>
     openedFromGuideUrl() ? "guias" : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
   );
@@ -650,14 +662,19 @@ export default function App() {
     [announceMentor],
   );
 
-  // La guía tiene su propia dirección para poder compartirla; las demás áreas
-  // siguen en la raíz. replaceState: cambiar de área no llena el historial.
+  // Cada guía tiene su propia dirección para poder compartirla; las demás
+  // áreas siguen en la raíz. replaceState: cambiar de área no llena el historial.
   useEffect(() => {
-    const onGuide = window.location.pathname.startsWith("/guias");
-    if (tab === "guias" && !onGuide) window.history.replaceState(window.history.state, "", GUIDE_PATH);
-    if (tab !== "guias" && onGuide) window.history.replaceState(window.history.state, "", "/");
-    document.title = tab === "guias" ? "Acto 1 de PoE2: guía de supervivencia · Exile Copilot" : APP_TITLE;
-  }, [tab]);
+    const path = window.location.pathname;
+    if (tab === "guias") {
+      const target = guidePath(guideSlug);
+      if (path !== target) window.history.replaceState(window.history.state, "", target);
+      document.title = guidePageTitle(findGuide(guideSlug));
+    } else {
+      if (path.startsWith("/guias")) window.history.replaceState(window.history.state, "", "/");
+      document.title = APP_TITLE;
+    }
+  }, [tab, guideSlug]);
 
   const goBackWorkspace = () => {
     const previous = workspaceHistory.at(-1);
@@ -1527,7 +1544,10 @@ export default function App() {
               <WelcomePanel
                 loadingDemo={character.busy === "demo"}
                 onLoadDemo={() => void character.loadDemo()}
-                onOpenGuides={() => navigateWorkspace("guias")}
+                onOpenGuides={() => {
+                  setGuideSlug(DEFAULT_GUIDE_SLUG);
+                  navigateWorkspace("guias");
+                }}
                 onGoToImport={() => openEditor(true)}
                 onStartNew={() => startManualJourney("new")}
                 onStartItem={() => startManualJourney("item")}
@@ -1947,6 +1967,11 @@ export default function App() {
           <TabsContent value="guias" forceMount className={PANEL_CLASSES}>
             {mountedWorkspaces.has("guias") && (
               <GuidesSection
+                guideSlug={guideSlug}
+                onSelectGuide={(slug) => {
+                  setGuideSlug(slug);
+                  window.scrollTo({ top: 0 });
+                }}
                 profile={character.profile}
                 patch={character.profile?.patch || activePatchId || "desconocido"}
                 onAskMentor={

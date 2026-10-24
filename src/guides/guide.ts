@@ -1,4 +1,4 @@
-import type { GuideCheckTargets } from "@/lib/guideCheck";
+import type { GuideCheckTargets } from "../lib/guideCheck";
 
 /**
  * Forma de una guía de supervivencia por acto.

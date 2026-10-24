@@ -1,18 +1,16 @@
-import { BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Shield, Skull, Sparkles } from "lucide-react";
+import { AlertTriangle, BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Shield, Skull, Sparkles } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
 import type { ActGuide, GuideBlock, GuideTip } from "@/guides/guide";
-import { ACT_ONE_GUIDE } from "@/guides/actOne";
+import { GUIDES, UPCOMING_GUIDES, findGuide } from "@/guides";
+import { cn } from "@/lib/utils";
 
 const BLOCK_ICON: Record<string, typeof Skull> = {
   jefes: Skull,
   resistencias: Shield,
   mejoras: Coins,
+  trampas: AlertTriangle,
 };
-
-/** Guías publicadas, en orden de campaña. Las que faltan se anuncian como «luego». */
-const GUIDES: ActGuide[] = [ACT_ONE_GUIDE];
-const UPCOMING = ["Acto 2", "Acto 3"];
 
 function SourceRefs({ guide, ids }: { guide: ActGuide; ids: string[] }) {
   if (ids.length === 0) return null;
@@ -82,6 +80,8 @@ function Block({ guide, block, number }: { guide: ActGuide; block: GuideBlock; n
 }
 
 interface GuidesSectionProps {
+  guideSlug: string;
+  onSelectGuide: (slug: string) => void;
   profile: CharacterProfile | null;
   patch: string;
   onAskMentor?: (question: string) => void;
@@ -91,19 +91,34 @@ interface GuidesSectionProps {
  * Área «Guías»: guías de supervivencia por acto en español, legibles sin
  * personaje, con la comprobación «¿está listo tu personaje?» al final.
  */
-export function GuidesSection({ profile, patch, onAskMentor }: GuidesSectionProps) {
-  const guide = GUIDES[0];
+export function GuidesSection({ guideSlug, onSelectGuide, profile, patch, onAskMentor }: GuidesSectionProps) {
+  const guide = findGuide(guideSlug);
   return (
     <article className="mx-auto max-w-3xl space-y-4" aria-labelledby="guia-titulo" data-testid="guia-acto">
       <header>
         <nav aria-label="Guías por acto" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span>Guías ›</span>
-          {GUIDES.map((item) => (
-            <span key={item.slug} className="font-medium text-foreground" aria-current="page">
-              {item.actLabel.replace(/^./, (c) => c.toUpperCase())}
+          {GUIDES.map((item, index) => (
+            <span key={item.slug} className="flex items-center gap-2">
+              {index > 0 && <span aria-hidden="true">·</span>}
+              <a
+                href={`/guias/${item.slug}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onSelectGuide(item.slug);
+                }}
+                aria-current={item.slug === guide.slug ? "page" : undefined}
+                className={cn(
+                  "rounded px-1 py-0.5 hover:text-foreground",
+                  item.slug === guide.slug ? "font-semibold text-foreground" : "underline-offset-2 hover:underline",
+                )}
+                data-testid={`guia-nav-${item.slug}`}
+              >
+                {item.actLabel.replace(/^./, (c) => c.toUpperCase())}
+              </a>
             </span>
           ))}
-          {UPCOMING.map((label) => (
+          {UPCOMING_GUIDES.map((label) => (
             <span key={label}>· {label} (pronto)</span>
           ))}
         </nav>
