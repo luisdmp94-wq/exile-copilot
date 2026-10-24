@@ -12,21 +12,25 @@ import {
 } from "@/lib/buildCheck";
 import {
   findBuildPriorities,
+  prioritiesForInput,
   type BuildPriority,
   type PrioritySeverity,
 } from "@/lib/buildPriorities";
+import { ManualCheckForm } from "./ManualCheckForm";
 
 /**
  * Chequeo de build (relanzamiento). Página aparte en /check: el jugador pega
- * su código de Path of Building 2 y ve qué arreglar primero y lo que hemos
- * leído para llegar a esa conclusión.
+ * su código de Path of Building 2 (o escribe sus resistencias a mano) y ve qué
+ * arreglar primero y, con PoB2, lo que hemos leído para llegar a esa conclusión.
  */
+
+type CheckMode = "pob" | "manual";
 
 type CheckState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "done"; reading: BuildCheckReading; priorities: BuildPriority[] };
+  | { status: "done"; reading: BuildCheckReading | null; priorities: BuildPriority[] };
 
 const SEVERITY_STYLE: Record<PrioritySeverity, { label: string; className: string }> = {
   alta: { label: "Urgente", className: "border-destructive/60 bg-destructive/15 text-destructive-foreground" },
@@ -97,8 +101,14 @@ function StatGroup({ title, rows }: { title: string; rows: BuildCheckRow[] }) {
 }
 
 export function BuildCheckPage() {
+  const [mode, setMode] = useState<CheckMode>("pob");
   const [code, setCode] = useState("");
   const [state, setState] = useState<CheckState>({ status: "idle" });
+
+  const switchMode = (next: CheckMode) => {
+    setMode(next);
+    setState({ status: "idle" });
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -150,27 +160,55 @@ export function BuildCheckPage() {
           </p>
           <h1 className="dossier-title text-3xl font-semibold leading-tight">Chequeo de build</h1>
           <p className="text-sm text-muted-foreground">
-            Pega el código de tu personaje de Path of Building 2 y te digo qué arreglar primero.
+            Dame los datos de tu personaje y te digo qué arreglar primero.
           </p>
         </header>
 
-        <form onSubmit={submit} className="space-y-3" data-testid="build-check-form">
-          <label htmlFor="pob-code" className="text-sm font-medium">
-            Código de Path of Building 2
-          </label>
-          <Textarea
-            id="pob-code"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="En PoB2: Import/Export Build → Generate → Copy, y pégalo aquí"
-            className="max-h-48 min-h-28 font-mono text-xs"
-            spellCheck={false}
-            autoComplete="off"
+        <div role="group" aria-label="Cómo darme los datos" className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/30 p-1">
+          {([
+            ["pob", "Tengo Path of Building 2"],
+            ["manual", "Lo escribo a mano"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={mode === value}
+              onClick={() => switchMode(value)}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                mode === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === "manual" ? (
+          <ManualCheckForm
+            onResult={(input) =>
+              setState({ status: "done", reading: null, priorities: prioritiesForInput(input) })
+            }
+            onError={(message) => setState({ status: "error", message })}
           />
-          <Button type="submit" disabled={state.status === "loading"} className="w-full sm:w-auto">
-            {state.status === "loading" ? "Leyendo…" : "Leer mi build"}
-          </Button>
-        </form>
+        ) : (
+          <form onSubmit={submit} className="space-y-3" data-testid="build-check-form">
+            <label htmlFor="pob-code" className="text-sm font-medium">
+              Código de Path of Building 2
+            </label>
+            <Textarea
+              id="pob-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="En PoB2: Import/Export Build → Generate → Copy, y pégalo aquí"
+              className="max-h-48 min-h-28 font-mono text-xs"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <Button type="submit" disabled={state.status === "loading"} className="w-full sm:w-auto">
+              {state.status === "loading" ? "Leyendo…" : "Leer mi build"}
+            </Button>
+          </form>
+        )}
 
         {state.status === "error" && (
           <p

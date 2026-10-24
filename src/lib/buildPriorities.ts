@@ -1,4 +1,4 @@
-import type { CharacterProfile, ItemSlot } from "@shared/domain.js";
+import type { CharacterProfile, ItemSlot, Resistances } from "@shared/domain.js";
 
 /**
  * Prioridades del chequeo de build: qué arreglar primero, en lenguaje claro.
@@ -13,6 +13,16 @@ import type { CharacterProfile, ItemSlot } from "@shared/domain.js";
  */
 
 export type PrioritySeverity = "alta" | "media" | "baja";
+
+/**
+ * Lo único que necesitan las reglas. Sale de un código PoB2 o del formulario
+ * manual, así que ambos caminos dan exactamente las mismas prioridades.
+ */
+export interface BuildCheckInput {
+  resistances: Resistances;
+  /** Huecos con objeto. null = no se sabe (p. ej. un código PoB2 sin equipo). */
+  equippedSlots: ItemSlot[] | null;
+}
 
 export interface BuildPriority {
   id: "resistencias-elementales" | "huecos-equipo" | "resistencia-caos";
@@ -35,7 +45,7 @@ const ELEMENTS = [
 ] as const;
 
 /** Huecos que toda build lleva ocupados; la mano secundaria depende del arma. */
-const REQUIRED_SLOTS: Array<{ slot: ItemSlot; label: string }> = [
+export const REQUIRED_SLOTS: Array<{ slot: ItemSlot; label: string }> = [
   { slot: "weapon", label: "Arma" },
   { slot: "helmet", label: "Casco" },
   { slot: "body", label: "Pecho" },
@@ -63,9 +73,9 @@ function formatResistance(value: number): string {
   return `${value < 0 ? "−" : ""}${Math.abs(value)}%`;
 }
 
-function elementalPriority(profile: CharacterProfile): BuildPriority | null {
+function elementalPriority(input: BuildCheckInput): BuildPriority | null {
   const low = ELEMENTS.flatMap((element) => {
-    const value = profile.resistances[element.key];
+    const value = input.resistances[element.key];
     return value !== null && value < ELEMENTAL_RESISTANCE_TARGET ? [{ ...element, value }] : [];
   });
   if (low.length === 0) return null;
@@ -84,8 +94,8 @@ function elementalPriority(profile: CharacterProfile): BuildPriority | null {
   };
 }
 
-function chaosPriority(profile: CharacterProfile): BuildPriority | null {
-  const chaos = profile.resistances.chaos;
+function chaosPriority(input: BuildCheckInput): BuildPriority | null {
+  const chaos = input.resistances.chaos;
   if (chaos === null || chaos >= CHAOS_RESISTANCE_TARGET) return null;
   return {
     id: "resistencia-caos",
@@ -96,10 +106,9 @@ function chaosPriority(profile: CharacterProfile): BuildPriority | null {
   };
 }
 
-function emptySlotsPriority(profile: CharacterProfile): BuildPriority | null {
-  // Un código sin ningún objeto es un árbol sin equipo, no nueve huecos vacíos.
-  if (profile.items.length === 0) return null;
-  const occupied = new Set(profile.items.map((item) => item.slot));
+function emptySlotsPriority(input: BuildCheckInput): BuildPriority | null {
+  if (input.equippedSlots === null) return null;
+  const occupied = new Set(input.equippedSlots);
   const empty = REQUIRED_SLOTS.filter(({ slot }) => !occupied.has(slot));
   if (empty.length === 0) return null;
 
@@ -113,10 +122,23 @@ function emptySlotsPriority(profile: CharacterProfile): BuildPriority | null {
   };
 }
 
+/** Entrada de las reglas a partir de un personaje importado de PoB2. */
+export function checkInputFromProfile(profile: CharacterProfile): BuildCheckInput {
+  return {
+    resistances: profile.resistances,
+    // Un código sin ningún objeto es un árbol sin equipo, no nueve huecos vacíos.
+    equippedSlots: profile.items.length === 0 ? null : profile.items.map((item) => item.slot),
+  };
+}
+
 /** Hasta 3 prioridades, de la más grave a la menos. Lista vacía = nada urgente. */
-export function findBuildPriorities(profile: CharacterProfile): BuildPriority[] {
-  return [elementalPriority(profile), emptySlotsPriority(profile), chaosPriority(profile)]
+export function prioritiesForInput(input: BuildCheckInput): BuildPriority[] {
+  return [elementalPriority(input), emptySlotsPriority(input), chaosPriority(input)]
     .filter((priority): priority is BuildPriority => priority !== null)
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
     .slice(0, 3);
+}
+
+export function findBuildPriorities(profile: CharacterProfile): BuildPriority[] {
+  return prioritiesForInput(checkInputFromProfile(profile));
 }
