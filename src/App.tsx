@@ -739,8 +739,10 @@ export default function App() {
   };
 
   const updateBudgetWithMentor = (nextBudget: Budget | null) => {
+    // Volver a escribir tras vaciar el campo no es un cambio de moneda: si lo
+    // fuera, la primera tecla («1» de «1500») se anunciaría sin esperar.
     const currencyChanged =
-      nextBudget !== null && nextBudget.currency !== budget?.currency;
+      budget !== null && nextBudget !== null && nextBudget.currency !== budget.currency;
     setBudget(nextBudget);
     if (budgetCueTimerRef.current !== null) window.clearTimeout(budgetCueTimerRef.current);
     if (nextBudget === null) {

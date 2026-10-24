@@ -82,6 +82,14 @@ describe("huella del hilo conversacional", () => {
     expect(b).toBe(a);
   });
 
+  it("el mismo presupuesto con las claves en otro orden NO invalida el hilo", () => {
+    const request = requestFor();
+    expect(request.budget).not.toBeNull();
+    const { amount, currency } = request.budget!;
+    const reordered = { ...request, budget: { currency, amount } };
+    expect(mentorInputsKey(reordered)).toBe(mentorInputsKey(request));
+  });
+
   it("cambiar objetivo, presupuesto, liga o perfil SÍ invalida el hilo", () => {
     const base = mentorInputsKey(requestFor());
     expect(mentorInputsKey(requestFor({ goal: "damage" }))).not.toBe(base);

@@ -163,8 +163,24 @@ export type MentorQueryResponse = z.infer<typeof MentorQueryResponseSchema>;
  * hilo; cambiar personaje, build objetivo, presupuesto, objetivo, liga, parche
  * o revisión del diario, sí.
  */
+/**
+ * JSON con las claves ordenadas. El mismo presupuesto puede llegar como
+ * `{currency, amount}` desde el formulario y como `{amount, currency}` tras
+ * restaurarlo de localStorage; sin ordenar, la huella cambiaba al recargar y
+ * el hilo del Mentor se borraba aunque los datos fueran idénticos.
+ */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_key, current: unknown) =>
+    current !== null && typeof current === "object" && !Array.isArray(current)
+      ? Object.fromEntries(
+          Object.entries(current as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+        )
+      : current,
+  );
+}
+
 export function mentorInputsKey(request: MentorQueryRequest): string {
-  return JSON.stringify({
+  return canonicalJson({
     profile: request.profile,
     target: request.target,
     budget: request.budget,
