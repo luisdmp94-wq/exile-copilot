@@ -130,7 +130,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
     locale: "es-ES",
     noData: "sin dato",
     page: {
-      kicker: "Exile Copilot · Path of Exile 2",
+      kicker: "Exile Mentor · Path of Exile 2",
       title: "Chequeo de build",
       intro: "Dame los datos de tu personaje y te digo qué arreglar primero.",
       modeGroup: "Cómo darme los datos",
@@ -255,7 +255,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
     locale: "en-US",
     noData: "no data",
     page: {
-      kicker: "Exile Copilot · Path of Exile 2",
+      kicker: "Exile Mentor · Path of Exile 2",
       title: "Build check",
       intro: "Give me your character's numbers and I'll tell you what to fix first.",
       modeGroup: "How to give me your data",
