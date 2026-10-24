@@ -40,7 +40,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       sourceIds: ["maxroll-subida"],
     },
     {
-      text: "No te saltes las recompensas para siempre: puntos de pasiva, vida y espíritu.",
+      text: "No te saltes las recompensas para siempre: puntos de pasiva de set de arma, vida y espíritu.",
       sourceIds: ["maxroll-subida"],
     },
   ],
@@ -135,8 +135,8 @@ export const ACT_ONE_GUIDE: ActGuide = {
           sourceIds: ["maxroll-subida"],
         },
         {
-          text: "Recoge siempre: el cuervo repicador y el laúd de Una (2 puntos de pasiva cada uno), Cirio (+20 de vida) y el rey de las nieblas (+30 de espíritu).",
-          sourceIds: ["maxroll-subida", "wiki-cuervo"],
+          text: "Recoge siempre: el cuervo repicador y el laúd de Una (2 puntos de pasiva de set de arma cada uno), Cirio (+20 de vida) y el rey de las nieblas (+30 de espíritu).",
+          sourceIds: ["maxroll-subida", "wiki-cuervo", "wiki-libro"],
         },
       ],
       more: [
@@ -193,6 +193,11 @@ export const ACT_ONE_GUIDE: ActGuide = {
       id: "wiki-cuervo",
       label: "PoE2 Wiki — The Crowbell",
       url: "https://www.poe2wiki.net/wiki/The_Crowbell",
+    },
+    {
+      id: "wiki-libro",
+      label: "PoE2 Wiki — Book of Specialisation",
+      url: "https://www.poe2wiki.net/wiki/Book_of_Specialisation",
     },
     {
       id: "wiki-consejos",
