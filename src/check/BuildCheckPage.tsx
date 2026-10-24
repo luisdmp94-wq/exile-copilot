@@ -268,7 +268,8 @@ function ReadingCard({ profile, lang }: { profile: CharacterProfile; lang: Check
   );
 }
 
-export function BuildCheckPage() {
+/** `standalone`: la web pública solo con el chequeo, sin enlace a la app anterior. */
+export function BuildCheckPage({ standalone = false }: { standalone?: boolean }) {
   const [lang, setLang] = useState<CheckLang>(() =>
     initialCheckLang(window.location.search, readStoredLang(), navigator.languages ?? [navigator.language]),
   );
@@ -437,11 +438,13 @@ export function BuildCheckPage() {
 
         <footer className="mt-auto space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
           <p>{GGG_AFFILIATION_NOTICE}</p>
-          <p>
-            <a href="/" className="underline underline-offset-2 hover:text-foreground">
-              {text.page.previousVersion}
-            </a>
-          </p>
+          {!standalone && (
+            <p>
+              <a href="/" className="underline underline-offset-2 hover:text-foreground">
+                {text.page.previousVersion}
+              </a>
+            </p>
+          )}
         </footer>
       </main>
     </div>

@@ -7,6 +7,8 @@
     "dev": "vite",
     "dev:api": "tsx watch server/index.ts",
     "build": "tsc -b && vite build && tsc -p tsconfig.prod-server.json && node scripts/copy-server-assets.mjs",
+    "build:check": "tsc -b && vite build --config vite.check.config.ts",
+    "preview:check": "vite preview --config vite.check.config.ts",
     "start": "node scripts/start-production.mjs",
     "test": "vitest run",
     "verify:patch": "tsc --noEmit && vitest run && node scripts/browser-smoke.mjs --dev",

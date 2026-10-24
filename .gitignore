@@ -2,6 +2,7 @@ node_modules
 .pnpm-store/
 dist
 dist-server
+dist-check
 /data/
 .env
 *.tsbuildinfo
