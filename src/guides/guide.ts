@@ -38,6 +38,8 @@ export interface ActGuide {
   actLabel: string;
   title: string;
   summary: string;
+  /** Descripción para buscadores (meta description): unos 150 caracteres. */
+  description: string;
   status: "borrador" | "revisada";
   /** Parche contra el que se comprobaron los datos. */
   checkedPatch: string;

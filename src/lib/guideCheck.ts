@@ -42,7 +42,7 @@ type Element = (typeof ELEMENTS)[number];
 
 const ELEMENT_LABELS: Record<Element | "chaos", string> = {
   fire: "fuego",
-  cold: "frío",
+  cold: "hielo",
   lightning: "rayo",
   chaos: "caos",
 };
@@ -92,6 +92,23 @@ function resistanceValue(line: string): number | null {
   const clean = line.replace(ROLL_RANGE, "");
   const match = /^\s*([+-]\d+(?:\.\d+)?)%\s+(?:to|a)\b/i.exec(clean);
   return match ? Number(match[1]) : null;
+}
+
+/** Cada objeto copiado del juego empieza por esta línea, en inglés o en español. */
+const ITEM_START = /^(?:Item Class|Clase de objeto):/;
+
+/**
+ * Separa un pegado con varias piezas seguidas en un texto por pieza. Si no
+ * encuentra la cabecera, devuelve el texto entero: el servidor decidirá si es
+ * un objeto y explicará el error.
+ */
+export function splitPastedItems(text: string): string[] {
+  const lines = text.split(/\r\n?|\n/);
+  const starts = lines.flatMap((line, index) => (ITEM_START.test(line.trim()) ? [index] : []));
+  if (starts.length <= 1) return text.trim() ? [text.trim()] : [];
+  return starts
+    .map((start, i) => lines.slice(start, starts[i + 1] ?? lines.length).join("\n").trim())
+    .filter((chunk) => chunk.length > 0);
 }
 
 /** Suma de resistencias de las piezas pegadas (solo mods de esas piezas). */
@@ -225,7 +242,7 @@ export function checkForGuide(input: GuideCheckInput, targets: GuideCheckTargets
     lines.push({
       id: "res-ok",
       tone: "ok",
-      text: `Fuego, frío y rayo al ${targets.elemental}% o más: vas bien para el ${targets.nextAct}.`,
+      text: `Fuego, hielo y rayo al ${targets.elemental}% o más: vas bien para el ${targets.nextAct}.`,
     });
   } else if (goodElements.length > 0) {
     lines.push({

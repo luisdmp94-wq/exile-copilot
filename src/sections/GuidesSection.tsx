@@ -96,6 +96,15 @@ export function GuidesSection({ guideSlug, onSelectGuide, profile, patch, onAskM
   return (
     <article className="mx-auto max-w-3xl space-y-4" aria-labelledby="guia-titulo" data-testid="guia-acto">
       <header>
+        {/* Quien llega desde Google no sabe qué es esta web. Con un personaje
+            cargado ya lo sabe, y la frase sobra. */}
+        {profile === null && (
+          <p className="mb-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground" data-testid="guia-presentacion">
+            <strong className="font-semibold text-foreground">Exile Copilot</strong> es un compañero
+            en español para Path of Exile 2: guías por acto y un mentor que mira tu personaje. Gratis
+            y sin registrarte.
+          </p>
+        )}
         <nav aria-label="Guías por acto" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span>Guías ›</span>
           {GUIDES.map((item, index) => (

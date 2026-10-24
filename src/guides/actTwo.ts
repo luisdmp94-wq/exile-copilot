@@ -18,6 +18,8 @@ export const ACT_TWO_GUIDE: ActGuide = {
   slug: "acto-2",
   actLabel: "acto 2",
   title: "Acto 2: cómo cruzar el desierto sin morir",
+  description:
+    "Guía en español del acto 2 de Path of Exile 2 para novatos: Rudja y Jamanra, resistencias al fuego y al rayo, y recompensas que no debes saltarte.",
   summary: "Lo justo para llegar vivo al acto 3. Si no tienes tiempo, lee solo el recuadro de abajo.",
   status: "borrador",
   checkedPatch: "0.5.5",
@@ -46,7 +48,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
       sourceIds: ["wiki-resistencias"],
     },
     {
-      text: "No te saltes las Hermanas de Garukhan (+10 % de rayo para siempre) ni las Promesas antiguas (+1 vial).",
+      text: "No te saltes las Hermanas de Garukhan (+10 % de rayo para siempre) ni las Promesas antiguas (+1 espacio para viales).",
       sourceIds: ["maxroll-subida", "wiki-promesas"],
     },
   ],
@@ -77,11 +79,6 @@ export const ACT_TWO_GUIDE: ActGuide = {
           sourceIds: ["maxroll-subida"],
         },
         {
-          lead: "Antes de Jamanra:",
-          text: "en el último punto de control hay monstruos azules para subir uno o dos niveles.",
-          sourceIds: ["maxroll-subida"],
-        },
-        {
           text: "Rudja también tiene una embestida que no se puede bloquear y un gas venenoso que explota si lo toca su fuego.",
           sourceIds: ["wiki-rudja"],
         },
@@ -91,7 +88,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
         },
         {
           text: "El parche 0.5.2 le bajó a Jamanra, la Abominación, alrededor de un 17 % de vida. Desde el 0.5.0 está en El Acorazado: si una guía antigua habla de una «vanguardia», ya no existe.",
-          sourceIds: ["wiki-jamanra", "ggg-050"],
+          sourceIds: ["ggg-052", "ggg-050"],
         },
         {
           lead: "Azarian, el Hijo abandonado (Santuarios enterrados):",
@@ -138,7 +135,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
       tips: [
         {
           lead: "Promesas antiguas:",
-          text: "lleva las reliquias de los clanes de Kabala y del sol al medallón del Valle de los titanes. Ganas un vial.",
+          text: "lleva las reliquias de los clanes de Kabala y del sol al medallón del Valle de los titanes. Ganas un espacio más para viales.",
           sourceIds: ["wiki-promesas"],
         },
         {
@@ -149,11 +146,11 @@ export const ACT_TWO_GUIDE: ActGuide = {
       ],
       more: [
         {
-          text: "En Las torres de Deshar los vendedores pueden tener botas con 20 % de velocidad, frascos colosales y amuletos de espíritu.",
+          text: "Hacia el nivel 30, los vendedores pueden tener botas con 20 % de velocidad, frascos colosales y amuletos de espíritu.",
           sourceIds: ["maxroll-subida"],
         },
         {
-          text: "La elección de las Promesas antiguas (vial con más cargas o con más duración) se puede cambiar luego.",
+          text: "Las Promesas antiguas también dan, a elegir, +30 % de cargas de viales o +30 % de duración de sus efectos. La elección se puede cambiar luego.",
           sourceIds: ["wiki-promesas"],
         },
         {
@@ -181,7 +178,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
       ],
       more: [
         {
-          text: "Las tres rutas se abren tras vencer a Jamanra, el Rey ascendido, y las tres son obligatorias.",
+          text: "Las tres rutas se abren tras enfrentarte a Jamanra, el Rey ascendido (no muere: huye), y las tres son obligatorias.",
           sourceIds: ["wiki-acto2"],
         },
         {
@@ -197,6 +194,11 @@ export const ACT_TWO_GUIDE: ActGuide = {
       id: "ggg-050",
       label: "Grinding Gear Games — notas del parche 0.5.0 (22-05-2026)",
       url: "https://www.pathofexile.com/forum/view-thread/3932540",
+    },
+    {
+      id: "ggg-052",
+      label: "Grinding Gear Games — notas del parche 0.5.2",
+      url: "https://www.pathofexile.com/forum/view-thread/3960375",
     },
     {
       id: "wiki-acto2",

@@ -22,6 +22,7 @@ import {
   guideInputFromProfile,
   placePastedItem,
   resistancesFromItems,
+  splitPastedItems,
   type GuideCheckInput,
   type GuideCheckLine,
   type GuideCheckTargets,
@@ -61,7 +62,7 @@ function pieceSummary(item: Item): string {
   const parts = (
     [
       ["fuego", res.fire],
-      ["frío", res.cold],
+      ["hielo", res.cold],
       ["rayo", res.lightning],
       ["caos", res.chaos],
     ] as const
@@ -108,34 +109,70 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
   };
 
   const addPiece = async () => {
-    const text = pasted.trim();
-    if (!text) {
+    const chunks = splitPastedItems(pasted);
+    if (chunks.length === 0) {
       setError("Pega primero el texto de una pieza.");
       return;
     }
     setBusy(true);
     setError(null);
     setNotice(null);
-    try {
-      const { item } = await api.importItemText({ text, patch });
-      const placed = placePastedItem(items, item);
-      setItems(placed.items);
-      setPasted("");
-      setUseExpediente(false);
-      if (placed.replaced) {
-        setNotice(
-          `Has pegado otro ${SLOT_LABEL.get(placed.replaced.slot) ?? "objeto"}: sustituye a «${placed.replaced.name}».`,
+    // Varias piezas pegadas seguidas se leen una a una. Las que sí se leen se
+    // añaden aunque otra falle, y el aviso dice cuántas fueron.
+    let current = items;
+    let added = 0;
+    const replaced: Item[] = [];
+    const skipped: string[] = [];
+    const failures: string[] = [];
+    for (const text of chunks) {
+      try {
+        const { item } = await api.importItemText({ text, patch });
+        // Frascos, joyas o un texto que solo trae la cabecera no ocupan un
+        // hueco de equipo: no cuentan para la comprobación.
+        if (item.slot === "other" || item.slot === "flask") {
+          skipped.push(item.name);
+          continue;
+        }
+        const placed = placePastedItem(current, item);
+        current = placed.items;
+        added += 1;
+        if (placed.replaced) replaced.push(placed.replaced);
+      } catch (err) {
+        failures.push(
+          err instanceof ApiRequestError && err.message === "texto-de-objeto-no-reconocido"
+            ? "no parece un objeto de PoE2"
+            : getErrorMessage(err),
         );
       }
-    } catch (err) {
-      setError(
-        err instanceof ApiRequestError && err.message === "texto-de-objeto-no-reconocido"
-          ? "Eso no parece un objeto de PoE2. En el juego, pon el ratón encima de la pieza, pulsa Ctrl+C y pega aquí todo el texto."
-          : getErrorMessage(err),
-      );
-    } finally {
-      setBusy(false);
     }
+    setItems(current);
+    if (added > 0) setUseExpediente(false);
+    if (failures.length === 0) setPasted("");
+
+    const notes: string[] = [];
+    if (chunks.length > 1 && added > 0) notes.push(`${added} ${added === 1 ? "pieza añadida" : "piezas añadidas"}.`);
+    for (const old of replaced) {
+      notes.push(`Has pegado otro ${SLOT_LABEL.get(old.slot) ?? "objeto"}: sustituye a «${old.name}».`);
+    }
+    if (skipped.length > 0) {
+      notes.push(
+        `${skipped.map((name) => `«${name}»`).join(", ")} no ${skipped.length === 1 ? "es una pieza" : "son piezas"} de equipo (arma, armadura o joyería): no cuenta para la comprobación.`,
+      );
+    }
+    setNotice(notes.length > 0 ? notes.join(" ") : null);
+
+    if (failures.length > 0) {
+      const lead =
+        chunks.length === 1
+          ? "Eso no parece un objeto de PoE2."
+          : `${failures.length} de ${chunks.length} piezas no se han podido leer.`;
+      setError(
+        chunks.length === 1 && failures[0] !== "no parece un objeto de PoE2"
+          ? failures[0]
+          : `${lead} En el juego, pon el ratón encima de la pieza, pulsa Ctrl+C y pega aquí todo el texto.`,
+      );
+    }
+    setBusy(false);
   };
 
   const readPob = async () => {
@@ -222,7 +259,7 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
         <div className="mt-4">
           <Label htmlFor="guia-pegar" className="text-sm text-muted-foreground">
             {mode === "items"
-              ? "En el juego, pon el ratón sobre una pieza equipada, pulsa Ctrl+C y pégala aquí. Repite con cada pieza."
+              ? "En el juego, pon el ratón sobre una pieza equipada y pulsa Ctrl+C. Puedes pegar varias piezas seguidas de una vez."
               : "Pega el código que exporta Path of Building 2 (Importar/Exportar → Generar)."}
           </Label>
           <Textarea
@@ -256,7 +293,7 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
               ) : (
                 <ClipboardPaste className="size-4" aria-hidden="true" />
               )}
-              {mode === "items" ? "Añadir pieza" : "Leer código"}
+              {mode === "items" ? "Añadir piezas" : "Leer código"}
             </Button>
             {mode === "pob" && pobProfile && (
               <span className="text-xs text-muted-foreground">

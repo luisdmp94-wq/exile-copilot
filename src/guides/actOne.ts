@@ -12,6 +12,8 @@ export const ACT_ONE_GUIDE: ActGuide = {
   slug: "acto-1",
   actLabel: "acto 1",
   title: "Acto 1: cómo no morir antes del acto 2",
+  description:
+    "Guía en español del acto 1 de Path of Exile 2 para novatos: cómo vencer al conde Geonor, qué resistencias llevar y mejoras baratas.",
   summary: "Lo justo para llegar vivo al acto 2. Si no tienes tiempo, lee solo el recuadro de abajo.",
   status: "borrador",
   checkedPatch: "0.5.5",
@@ -23,20 +25,20 @@ export const ACT_ONE_GUIDE: ActGuide = {
     focus: {
       element: "cold",
       minimum: 30,
-      note: "El conde Geonor pega con frío: es la que más importa antes de entrar.",
+      note: "El conde Geonor pega con hielo: es la que más importa antes de entrar.",
     },
   },
   essentials: [
     {
-      text: "El jefe final, el conde Geonor, es el muro más nombrado: entra con al menos un 30 % de resistencia al frío.",
+      text: "El jefe final, el conde Geonor, es el muro más nombrado: entra con al menos un 30 % de resistencia al hielo.",
       sourceIds: ["maxroll-subida"],
     },
     {
-      text: "Al pasar al acto 2 pierdes un 10 % de resistencia a fuego, frío y rayo.",
+      text: "Al pasar al acto 2 pierdes un 10 % de resistencia al fuego, al hielo y al rayo.",
       sourceIds: ["wiki-resistencias"],
     },
     {
-      text: "Mejora el equipo en este orden: velocidad de movimiento, resistencias, vida y daño.",
+      text: "Al mejorar el equipo, busca primero velocidad de movimiento y después resistencias.",
       sourceIds: ["maxroll-subida"],
     },
     {
@@ -48,7 +50,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
     {
       id: "jefes",
       title: "El conde Geonor",
-      intro: "Jefe final del acto, en la mansión de Ogham. Pega con daño físico y de frío.",
+      intro: "Jefe final del acto, en la mansión de Ogham. Pega con daño físico y de hielo.",
       cards: [
         { title: "Fase 1", text: "No te quedes a su espalda. Sal rodando de los muros de hielo." },
         { title: "Desde el 75 %", text: "Se vuelve lobo. No pises el círculo de runas: congela." },
@@ -57,7 +59,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       tips: [
         {
           lead: "Antes de entrar:",
-          text: "30–40 % de resistencia al frío.",
+          text: "30–40 % de resistencia al hielo.",
           sourceIds: ["wiki-geonor", "maxroll-subida"],
         },
       ],
@@ -112,11 +114,11 @@ export const ACT_ONE_GUIDE: ActGuide = {
           sourceIds: ["wiki-resistencias"],
         },
         {
-          text: "Beira, de la manada putrefacta (Sierraclara), suelta un trofeo que da +10 % de resistencia al frío para siempre.",
+          text: "Beira, de la manada putrefacta (Sierraclara), suelta un trofeo que da +10 % de resistencia al hielo para siempre.",
           sourceIds: ["wiki-resistencias"],
         },
         {
-          text: "Maxroll aconseja tener un anillo de zafiro (frío) hacia el nivel 15, antes de Geonor.",
+          text: "Maxroll aconseja tener un anillo de zafiro (hielo) hacia el nivel 15, antes de Geonor.",
           sourceIds: ["maxroll-subida"],
         },
       ],
@@ -124,7 +126,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
     {
       id: "mejoras",
       title: "Mejoras baratas",
-      intro: "Velocidad de movimiento → resistencias → vida → daño.",
+      intro: "Primero velocidad de movimiento, después resistencias. Es una guía orientativa, no una regla fija.",
       tips: [
         {
           text: "Mira al vendedor cada vez que vuelvas al campamento.",

@@ -5,6 +5,7 @@ import {
   guideInputFromItems,
   placePastedItem,
   resistancesFromItems,
+  splitPastedItems,
 } from "../../src/lib/guideCheck.js";
 import type { Item } from "../../shared/domain.js";
 
@@ -66,6 +67,20 @@ describe("resistancesFromItems", () => {
   it("no suma la resistencia máxima ni líneas que no son resistencias", () => {
     const boots = parse(BOOTS_EN);
     expect(resistancesFromItems([boots]).fire).toBe(5);
+  });
+});
+
+describe("splitPastedItems", () => {
+  it("separa varias piezas pegadas seguidas, en español e inglés", () => {
+    const chunks = splitPastedItems(`${HELMET_ES}\n${BOOTS_EN}\r\n${RING_ES_ADVANCED}`);
+    expect(chunks).toHaveLength(3);
+    expect(chunks.map((chunk) => parse(chunk).slot)).toEqual(["helmet", "boots", "ring1"]);
+  });
+
+  it("una sola pieza o un texto sin cabecera se devuelven enteros", () => {
+    expect(splitPastedItems(HELMET_ES)).toEqual([HELMET_ES.trim()]);
+    expect(splitPastedItems("hola")).toEqual(["hola"]);
+    expect(splitPastedItems("   ")).toEqual([]);
   });
 });
 

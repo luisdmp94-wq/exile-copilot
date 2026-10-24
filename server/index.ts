@@ -37,6 +37,18 @@ if (existsSync(distDir)) {
       },
     }),
   );
+  // Guías por acto: versión ya escrita en HTML (scripts/prerender-guides.ts)
+  // para que los buscadores lean el texto sin ejecutar JavaScript.
+  app.use((req, res, next) => {
+    const match = /^\/guias\/([a-z0-9-]+)\/?$/.exec(req.path);
+    const page = match ? resolve(distDir, "guias", `${match[1]}.html`) : null;
+    if (page === null || !existsSync(page)) {
+      next();
+      return;
+    }
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(page);
+  });
   // SPA fallback: cualquier ruta no-API devuelve index.html
   app.use((_req, res, next) => {
     if (existsSync(resolve(distDir, "index.html"))) {
