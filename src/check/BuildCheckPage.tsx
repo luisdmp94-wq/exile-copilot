@@ -10,18 +10,71 @@ import {
   type BuildCheckReading,
   type BuildCheckRow,
 } from "@/lib/buildCheck";
+import {
+  findBuildPriorities,
+  type BuildPriority,
+  type PrioritySeverity,
+} from "@/lib/buildPriorities";
 
 /**
  * Chequeo de build (relanzamiento). Página aparte en /check: el jugador pega
- * su código de Path of Building 2 y ve lo que hemos leído. Las prioridades
- * llegan en el siguiente bloque; aquí solo se comprueba que la lectura es fiel.
+ * su código de Path of Building 2 y ve qué arreglar primero y lo que hemos
+ * leído para llegar a esa conclusión.
  */
 
 type CheckState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "done"; reading: BuildCheckReading };
+  | { status: "done"; reading: BuildCheckReading; priorities: BuildPriority[] };
+
+const SEVERITY_STYLE: Record<PrioritySeverity, { label: string; className: string }> = {
+  alta: { label: "Urgente", className: "border-destructive/60 bg-destructive/15 text-destructive-foreground" },
+  media: { label: "Importante", className: "border-primary/60 bg-primary/15 text-primary" },
+  baja: { label: "Menor", className: "border-border bg-muted/50 text-muted-foreground" },
+};
+
+function PriorityList({ priorities }: { priorities: BuildPriority[] }) {
+  if (priorities.length === 0) {
+    return (
+      <p className="rounded-lg border border-border bg-card px-5 py-4 text-sm">
+        No veo nada urgente en lo que compruebo: resistencias, caos y huecos de equipo están bien.
+      </p>
+    );
+  }
+  return (
+    <ol className="space-y-3">
+      {priorities.map((priority, index) => {
+        const severity = SEVERITY_STYLE[priority.severity];
+        return (
+          <li
+            key={priority.id}
+            className="rounded-lg border border-border bg-card p-5"
+            data-testid={`priority-${priority.id}`}
+          >
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <h3 className="text-base font-semibold">
+                <span className="mr-2 text-primary">{index + 1}.</span>
+                {priority.title}
+              </h3>
+              <span
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severity.className}`}
+              >
+                {severity.label}
+              </span>
+            </div>
+            <ul className="mb-2 space-y-0.5 text-sm font-medium tabular-nums">
+              {priority.facts.map((fact) => (
+                <li key={fact}>{fact}</li>
+              ))}
+            </ul>
+            <p className="text-sm text-muted-foreground">{priority.why}</p>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 function StatGroup({ title, rows }: { title: string; rows: BuildCheckRow[] }) {
   return (
@@ -71,7 +124,11 @@ export function BuildCheckPage() {
         });
         return;
       }
-      setState({ status: "done", reading: readBuildForCheck(result.profile) });
+      setState({
+        status: "done",
+        reading: readBuildForCheck(result.profile),
+        priorities: findBuildPriorities(result.profile),
+      });
     } catch (err) {
       const message =
         err instanceof ApiRequestError && err.status !== null && err.status < 500
@@ -82,6 +139,7 @@ export function BuildCheckPage() {
   };
 
   const reading = state.status === "done" ? state.reading : null;
+  const priorities = state.status === "done" ? state.priorities : null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -92,7 +150,7 @@ export function BuildCheckPage() {
           </p>
           <h1 className="dossier-title text-3xl font-semibold leading-tight">Chequeo de build</h1>
           <p className="text-sm text-muted-foreground">
-            Pega el código de tu personaje de Path of Building 2 y te digo qué he leído.
+            Pega el código de tu personaje de Path of Building 2 y te digo qué arreglar primero.
           </p>
         </header>
 
@@ -123,6 +181,15 @@ export function BuildCheckPage() {
           </p>
         )}
 
+        {priorities && (
+          <section aria-labelledby="build-check-priorities" className="space-y-3" data-testid="build-check-priorities">
+            <h2 id="build-check-priorities" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
+              Lo que arreglaría primero
+            </h2>
+            <PriorityList priorities={priorities} />
+          </section>
+        )}
+
         {reading && (
           <section
             aria-labelledby="build-check-reading"
@@ -130,6 +197,9 @@ export function BuildCheckPage() {
             data-testid="build-check-reading"
           >
             <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
+                Lo que he leído
+              </p>
               <h2 id="build-check-reading" className="text-lg font-semibold">
                 {reading.identity}
               </h2>
