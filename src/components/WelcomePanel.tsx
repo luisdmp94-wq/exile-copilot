@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  BookOpen,
   Hammer,
   Loader2,
   ShieldCheck,
@@ -18,6 +19,8 @@ interface WelcomePanelProps {
   onStartNew: () => void;
   onStartItem: () => void;
   onLoadDemo: () => void;
+  /** Abre el área «Guías»: lo primero que necesita quien empieza en PoE2. */
+  onOpenGuides?: () => void;
   loadingDemo: boolean;
   previousCharacterName?: string | null;
   onRestorePrevious?: () => void;
@@ -62,6 +65,7 @@ export function WelcomePanel({
   onStartNew,
   onStartItem,
   onLoadDemo,
+  onOpenGuides,
   loadingDemo,
   previousCharacterName = null,
   onRestorePrevious,
@@ -140,6 +144,22 @@ export function WelcomePanel({
             </button>
           ))}
         </div>
+
+        {onOpenGuides && (
+          <button
+            type="button"
+            onClick={onOpenGuides}
+            className="group flex items-center gap-3 rounded-md border border-border/80 bg-background/65 px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="bienvenida-guias"
+          >
+            <BookOpen className="size-5 shrink-0 text-primary" aria-hidden="true" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-semibold text-foreground">¿Empiezas en PoE2? Lee la guía del acto 1</span>
+              <span className="text-xs text-muted-foreground">Cómo no morir antes del acto 2, en 2 minutos. Sin registrarte.</span>
+            </span>
+            <ArrowRight className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+          </button>
+        )}
 
         {savedCharactersTotal > 1 && onRestoreCharacter && (
           <details

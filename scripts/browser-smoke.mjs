@@ -599,9 +599,9 @@ async function runFlow(mode, port) {
         intermediateMascot.height <= 90,
     );
     check(
-      `[${mode}] las tres áreas conservan nombres completos en ancho intermedio`,
+      `[${mode}] las cuatro áreas conservan nombres completos en ancho intermedio`,
       intermediateNavigation.map((tab) => tab.label.toLocaleLowerCase("es")).join("|") ===
-        "expediente|plan|crafting" &&
+        "expediente|plan|crafting|guías" &&
         intermediateNavigation.every((tab) => !tab.clipped),
     );
     await page.setViewportSize({ width: 1280, height: 800 });

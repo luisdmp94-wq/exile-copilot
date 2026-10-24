@@ -1527,6 +1527,7 @@ export default function App() {
               <WelcomePanel
                 loadingDemo={character.busy === "demo"}
                 onLoadDemo={() => void character.loadDemo()}
+                onOpenGuides={() => navigateWorkspace("guias")}
                 onGoToImport={() => openEditor(true)}
                 onStartNew={() => startManualJourney("new")}
                 onStartItem={() => startManualJourney("item")}
