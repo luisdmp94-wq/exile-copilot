@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ClipboardCheck } from "lucide-react";
+import { Bot } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -20,6 +20,8 @@ interface OpenCaseProps {
   generateSlot: ReactNode;
   /** Evidencia del caso; `null` cuando el caso no tiene snapshot que enseñar. */
   evidenceSlot: ReactNode | null;
+  /** Pregunta rápida al Mentor, al pie de la tarjeta y fuera del caso medido. */
+  mentorAskSlot?: ReactNode;
 }
 
 /**
@@ -41,6 +43,7 @@ export function OpenCase({
   recommendationSlot,
   generateSlot,
   evidenceSlot,
+  mentorAskSlot,
 }: OpenCaseProps) {
   const isWaitingForDiagnosis = selection.kind === "generate";
   const profileReady = profileReadiness.ready;
@@ -70,19 +73,23 @@ export function OpenCase({
        *   solo queda el rótulo de estado; el nombre accesible de la región se
        *   mantiene con un encabezado para lectores de pantalla.
        */}
+      {/* «Tu siguiente paso»: la tarjeta la pone el envoltorio para que la
+          pregunta al Mentor comparta marco con la decisión sin formar parte
+          de la región del caso (que tiene su propia medida de densidad). */}
+      <div className="case-panel superficie-accion" data-testid="tu-siguiente-paso">
       <section
         id="caso-abierto"
         tabIndex={-1}
         data-testid="caso-abierto"
         data-caso={selection.kind}
         aria-labelledby="caso-abierto-titulo"
-        className="case-panel superficie-accion scroll-mt-20 p-5 outline-none"
+        className="scroll-mt-20 p-5 outline-none"
       >
         <div className="relative z-10 flex flex-col gap-3">
           {isWaitingForDiagnosis ? (
             <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
-                <ClipboardCheck className="size-5" aria-hidden="true" />
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+                <Bot className="size-5" aria-hidden="true" />
               </span>
               <div className="min-w-0 max-w-prose">
               <p className="rotulo-seccion text-primary/70">
@@ -120,13 +127,13 @@ export function OpenCase({
               </div>
             </div>
           ) : (
-            <p className="flex items-center gap-2.5 rotulo-seccion text-primary/70">
-              <span className="grid size-7 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
-                <ClipboardCheck className="size-4" aria-hidden="true" />
+            <p className="flex items-center gap-2.5 text-sm font-medium text-primary">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+                <Bot className="size-4" aria-hidden="true" />
               </span>
               {partialAnalysis
-                ? `Diagnóstico parcial · ${profileReadiness.equippedItemCount} ${profileReadiness.equippedItemCount === 1 ? "pieza observada" : "piezas observadas"}`
-                : "Recomendación"}
+                ? `Tu siguiente paso · diagnóstico parcial, ${profileReadiness.equippedItemCount} ${profileReadiness.equippedItemCount === 1 ? "pieza observada" : "piezas observadas"}`
+                : "Tu siguiente paso"}
               <span id="caso-abierto-titulo" className="sr-only">
                 Una sola decisión cada vez; lo que hagas queda en tu diario.
               </span>
@@ -135,17 +142,22 @@ export function OpenCase({
           <div className="min-w-0">{dominant}</div>
         </div>
       </section>
+      {mentorAskSlot && (
+        <div className="hidden border-t border-border/70 px-5 py-3.5 sm:block">{mentorAskSlot}</div>
+      )}
+      </div>
 
-      <Accordion type="multiple" className="superficie-panel px-5">
-        {evidenceSlot !== null && (
+      {/* Sin evidencia no se pinta el marco vacío: quedaba una raya suelta. */}
+      {evidenceSlot !== null && (
+        <Accordion type="multiple" className="superficie-panel px-5">
           <AccordionItem value="evidencia">
             <AccordionTrigger data-testid="acordeon-evidencia">
               Evidencia y limitaciones
             </AccordionTrigger>
             <AccordionContent forceMount>{evidenceSlot}</AccordionContent>
           </AccordionItem>
-        )}
-      </Accordion>
+        </Accordion>
+      )}
     </div>
   );
 }
@@ -170,7 +182,7 @@ export function MentorBriefing({
     <details
       id="mentor-briefing"
       data-testid="mentor-briefing"
-      className="group superficie-panel"
+      className="group superficie-panel scroll-mt-20"
       open={open}
       onToggle={(event) => onOpenChange(event.currentTarget.open)}
     >

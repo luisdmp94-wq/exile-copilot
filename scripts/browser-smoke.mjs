@@ -1428,7 +1428,11 @@ async function runFlow(mode, port) {
       if (!(openCase instanceof HTMLElement) || !(mentor instanceof HTMLElement)) {
         return null;
       }
-      const openCaseGroup = openCase.parentElement;
+      // El caso vive dentro de la tarjeta «Tu siguiente paso»; el grupo que
+      // precede al Mentor es el contenedor de esa tarjeta y su evidencia.
+      const openCaseGroup =
+        openCase.closest('[data-testid="tu-siguiente-paso"]')?.parentElement ??
+        openCase.parentElement;
       if (!(openCaseGroup instanceof HTMLElement)) return null;
       return mentor.getBoundingClientRect().top - openCaseGroup.getBoundingClientRect().bottom;
     });

@@ -63,6 +63,12 @@ interface MentorChatSectionProps {
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
   /** Lleva al jugador a completar los datos observados que faltan. */
   onEditProfile: () => void;
+  /**
+   * Pregunta escrita en «Tu siguiente paso». Cada `seq` nuevo se envía con
+   * las mismas reglas que el formulario propio; si aún no se puede preguntar,
+   * el texto se queda en el campo para no perderlo.
+   */
+  pendingQuestion?: { text: string; seq: number } | null;
 }
 
 export function MentorChatSection({
@@ -74,6 +80,7 @@ export function MentorChatSection({
   savingNextAction,
   onFocusItem,
   onEditProfile,
+  pendingQuestion = null,
 }: MentorChatSectionProps) {
   const [question, setQuestion] = useState("");
   const { turns, loading, error } = mentor;
@@ -127,6 +134,24 @@ export function MentorChatSection({
     onAsk(texto);
     setQuestion("");
   };
+
+  // Pregunta llegada desde «Tu siguiente paso». Si se puede preguntar, se
+  // envía (efecto: llama al servidor); si no, el texto se copia al campo
+  // durante el render para que el jugador no lo pierda.
+  const pendingText = pendingQuestion?.text.trim() ?? "";
+  const pendingAllowed =
+    profile !== null && readiness.ready && !patchBlocked && pendingText.length > 0 && !loading;
+  const [seenPendingSeq, setSeenPendingSeq] = useState<number | null>(null);
+  if (pendingQuestion !== null && pendingQuestion.seq !== seenPendingSeq) {
+    setSeenPendingSeq(pendingQuestion.seq);
+    if (!pendingAllowed) setQuestion(pendingQuestion.text);
+  }
+  const askedPendingSeq = useRef<number | null>(null);
+  useEffect(() => {
+    if (pendingQuestion === null || askedPendingSeq.current === pendingQuestion.seq) return;
+    askedPendingSeq.current = pendingQuestion.seq;
+    if (pendingAllowed) onAsk(pendingText);
+  }, [pendingQuestion, pendingAllowed, pendingText, onAsk]);
 
   return (
     /* El título («Habla con tu Mentor») lo pone la sección que envuelve a este

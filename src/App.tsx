@@ -58,6 +58,7 @@ import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
 import { OpenCaseRecommendation } from "@/components/OpenCaseRecommendation";
 import { ExpedienteSection } from "@/sections/ExpedienteSection";
 import { CharacterStrip } from "@/components/CharacterStrip";
+import { MentorQuickAsk } from "@/components/MentorQuickAsk";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
@@ -223,6 +224,10 @@ export default function App() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPrompt, setEditorPrompt] = useState<EditorPrompt>(null);
   const [mentorBriefingOpen, setMentorBriefingOpen] = useState(false);
+  const [mentorQuickQuestion, setMentorQuickQuestion] = useState<{
+    text: string;
+    seq: number;
+  } | null>(null);
   const [contextualCue, setContextualCue] = useState(() =>
     contextualMentorCue({ type: "welcome" }),
   );
@@ -1528,12 +1533,14 @@ export default function App() {
                 onOpenCrafting={openCraftingForItem}
               />
             ) : (
-              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(28rem,32rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
-                {/* Filas 1 y 2 a su medida; la 3 absorbe la altura de la columna
-                    izquierda, que ocupa las tres: sin esto quedaban huecos a la derecha. */}
+              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(28rem,32rem)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
+                {/* «Tu siguiente paso», la conversación y las alternativas ocupan
+                    la columna ancha de la izquierda; el equipo, la estrecha de la
+                    derecha. Filas 1 y 2 a su medida; la 3 absorbe la altura del
+                    equipo, que ocupa las tres: sin esto quedaban huecos. */}
                 {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
                     contexto antes de inspeccionar la pieza (§8). */}
-                <div className="order-1 flex flex-col gap-6 lg:order-2 lg:col-start-2 lg:row-start-1">
+                <div className="order-1 flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
                   <OpenCase
                     selection={selection}
                     profileReadiness={profileReadiness}
@@ -1617,11 +1624,22 @@ export default function App() {
                       />
                     }
                     evidenceSlot={evidenceSlot}
+                    mentorAskSlot={
+                      <MentorQuickAsk
+                        onAsk={(text) => {
+                          setMentorQuickQuestion((current) => ({
+                            text,
+                            seq: (current?.seq ?? 0) + 1,
+                          }));
+                          openMentorConversation();
+                        }}
+                      />
+                    }
                   />
                 </div>
 
-                {/* Expediente: identidad, paperdoll y acceso al editor. */}
-                <div className="order-2 lg:order-1 lg:col-start-1 lg:row-span-3 lg:row-start-1">
+                {/* Expediente: equipo, memoria de la build y acceso al editor. */}
+                <div className="order-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
                   <ExpedienteSection
                     profile={character.profile}
                     restoring={character.restoring}
@@ -1647,7 +1665,7 @@ export default function App() {
                 {/* La cabecera ya ofrece el acceso global al Mentor. La
                     conversación completa aparece después del equipo para no
                     duplicar la misma decisión en la primera pantalla. */}
-                <div className="order-3 lg:col-start-2 lg:row-start-2">
+                <div className="order-3 lg:col-start-1 lg:row-start-2">
                   <MentorBriefing
                     open={mentorBriefingOpen}
                     onOpenChange={setMentorBriefingOpen}
@@ -1665,12 +1683,13 @@ export default function App() {
                       }}
                       onFocusItem={focusItem}
                       onEditProfile={() => openEditor()}
+                      pendingQuestion={mentorQuickQuestion}
                     />
                   </MentorBriefing>
                 </div>
 
                 {/* Memoria y alternativas: tras el equipo y Mentor en móvil. */}
-                <div className="order-4 lg:col-start-2 lg:row-start-3">
+                <div className="order-4 lg:col-start-1 lg:row-start-3">
                   <OpenCaseSecondary
                     selection={selection}
                     sessionSlot={
