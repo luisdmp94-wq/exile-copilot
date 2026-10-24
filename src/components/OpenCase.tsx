@@ -76,9 +76,9 @@ export function OpenCase({
         data-testid="caso-abierto"
         data-caso={selection.kind}
         aria-labelledby="caso-abierto-titulo"
-        className="case-panel superficie-accion scroll-mt-20 p-5 outline-none sm:p-6"
+        className="case-panel superficie-accion scroll-mt-20 p-5 outline-none"
       >
-        <div className="relative z-10 flex flex-col gap-4">
+        <div className="relative z-10 flex flex-col gap-3">
           {isWaitingForDiagnosis ? (
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">

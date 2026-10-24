@@ -57,6 +57,7 @@ import { MentorBriefing, OpenCase, OpenCaseSecondary } from "@/components/OpenCa
 import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
 import { OpenCaseRecommendation } from "@/components/OpenCaseRecommendation";
 import { ExpedienteSection } from "@/sections/ExpedienteSection";
+import { CharacterStrip } from "@/components/CharacterStrip";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
@@ -146,7 +147,7 @@ type EditorPrompt = "memory" | "new" | "item" | "import" | null;
  * la conversación: buena parte de ese estado es local de cada sección.
  */
 const PANEL_CLASSES =
-  "flex flex-col gap-6 focus-visible:outline-none data-[state=inactive]:hidden";
+  "flex flex-col gap-6 focus-visible:outline-none data-[state=inactive]:hidden xl:col-start-2 xl:row-start-2";
 
 function deferEffect(task: () => void): () => void {
   let cancelled = false;
@@ -1396,45 +1397,66 @@ export default function App() {
             const workspace = value as WorkspaceTab;
             navigateWorkspace(workspace);
           }}
-          className="gap-0"
+          className="gap-0 xl:grid xl:grid-cols-[4rem_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[13rem_minmax(0,1fr)] xl:gap-x-6 xl:pt-6"
         >
-          {/* La navegación conserva su propia jerarquía. Música vive en la
-              cabecera principal para no parecer una cuarta área de trabajo. */}
-          <div className="workspace-nav sticky top-16 z-30 -mx-4 mb-8 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6">
-            <div className="mx-auto flex max-w-[92rem] items-center justify-center">
+          {/* Por debajo de xl las áreas son pestañas fijas arriba. En xl pasan a
+              un carril lateral de iconos (deja anchura al expediente y al caso)
+              y desde 2xl a una barra con una línea que explica cada área.
+              La nueva distribución vive en el mismo TabsList para no duplicar
+              estado ni foco. Música sigue en la cabecera principal. */}
+          <div className="workspace-nav sticky top-16 z-30 -mx-4 mb-6 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 xl:top-20 xl:col-start-1 xl:row-span-2 xl:row-start-1 xl:mx-0 xl:mb-0 xl:border-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
+            <div className="mx-auto flex max-w-[92rem] items-center justify-center xl:block">
               <TabsList
                 aria-label="Áreas de Exile Copilot"
-                className="grid h-auto min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-border bg-card p-1 lg:flex lg:w-auto lg:flex-none"
+                className="grid h-auto min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-border bg-card p-1 lg:flex lg:w-auto lg:flex-none xl:flex xl:w-full xl:flex-col xl:items-stretch xl:gap-1 xl:p-1.5"
               >
               <TabsTrigger
                 value="expediente"
                 data-testid="tab-expediente"
-                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+                title="Expediente y mentor"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
-                <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
+                <FolderOpen className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
                 <span className="truncate lg:hidden">Expediente</span>
-                <span className="hidden truncate lg:inline">Expediente y mentor</span>
+                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">Expediente y mentor</span>
+                <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
+                  Tu personaje y qué mejorar primero
+                </span>
               </TabsTrigger>
               <TabsTrigger
                 value="plan"
                 data-testid="tab-plan"
-                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+                title="Plan y mercado"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
-                <Compass className="size-4 shrink-0" aria-hidden="true" />
+                <Compass className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
                 <span className="truncate lg:hidden">Plan</span>
-                <span className="hidden truncate lg:inline">Plan y mercado</span>
+                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">Plan y mercado</span>
+                <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
+                  Objetivo, presupuesto y precios
+                </span>
               </TabsTrigger>
               <TabsTrigger
                 value="crafting"
                 data-testid="tab-crafting"
-                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+                title="Crafting"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
-                <Hammer className="size-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">Crafting</span>
+                <Hammer className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
+                <span className="truncate xl:sr-only 2xl:not-sr-only">Crafting</span>
+                <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
+                  Mejorar un objeto paso a paso
+                </span>
               </TabsTrigger>
               </TabsList>
             </div>
           </div>
+
+          {character.profile !== null && character.restorationError === null && (
+            <div className="xl:col-start-2 xl:row-start-1">
+              <CharacterStrip profile={character.profile} persisted={character.persisted} />
+            </div>
+          )}
 
           {/* --- Área 1: Expediente y mentor -------------------------------- */}
           <TabsContent value="expediente" forceMount className={PANEL_CLASSES}>

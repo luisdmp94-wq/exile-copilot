@@ -7,7 +7,6 @@ import { EquipmentPanel } from "@/components/EquipmentPanel";
 import { ItemDetailDialog } from "@/components/ItemDetailDialog";
 import { BuildMemorySection } from "@/components/BuildMemorySection";
 import type { JournalState } from "@/hooks/useJournal";
-import { formatCharacterLevel } from "@/lib/format";
 
 interface ExpedienteSectionProps {
   profile: CharacterProfile | null;
@@ -120,45 +119,17 @@ export function ExpedienteSection({
   return (
     <section
       className="dossier-panel superficie-panel flex flex-col gap-5 p-5 sm:p-6"
-      aria-labelledby="expediente-titulo"
+      aria-labelledby="expediente-equipo-titulo"
     >
+      {/* Nombre, clase, nivel y estado de guardado viven en la franja del
+          personaje (CharacterStrip), visible en las tres áreas. */}
       <div className="flex flex-col gap-1.5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="rotulo-seccion text-primary/70">
-              Tu personaje
-            </p>
-            <h2
-              id="expediente-titulo"
-              className="dossier-title mt-1 text-3xl font-semibold leading-tight text-foreground"
-            >
-              {profile.name}
-            </h2>
-          </div>
-          {/* «Expediente activo» decía lo que ya se ve: estás mirando el
-              expediente y tiene datos. La memoria sí es un estado real, porque
-              decide si el Mentor recuerda entre sesiones. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rotulo-dato rounded-full border px-2.5 py-0.5 ${
-                profilePersisted
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                  : "border-amber-500/30 bg-amber-500/10 text-amber-300"
-              }`}
-              data-testid="estado-memoria-build"
-            >
-              ● {profilePersisted ? "Guardado" : "Sin guardar"}
-            </span>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {profile.characterClass}
-          {profile.ascendancy !== null && profile.ascendancy !== "" && (
-            <> · {profile.ascendancy}</>
-          )}{" "}
-          · nivel {formatCharacterLevel(profile)} · liga {profile.league || "desconocida"} · parche{" "}
-          {profile.patch || "desconocido"}
-        </p>
+        <h2
+          id="expediente-equipo-titulo"
+          className="dossier-title text-lg font-semibold leading-tight text-foreground"
+        >
+          Equipo
+        </h2>
         {limitations.length > 0 && (
           <p
             className="flex items-center gap-1.5 text-xs text-muted-foreground"

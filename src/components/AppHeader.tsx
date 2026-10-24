@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   Bot,
   ChevronDown,
-  CircleUserRound,
   Database,
   Swords,
   UserRoundPlus,
@@ -13,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ExperimentalMusicPlayer } from "@/components/ExperimentalMusicPlayer";
 import type { HealthResponse } from "@shared/api.js";
 import type { CharacterProfile } from "@shared/domain.js";
-import { formatCharacterLevel, formatDateTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 
 interface AppHeaderProps {
   health: HealthResponse | null;
@@ -115,23 +114,8 @@ export function AppHeader({
               cualquiera de las tres áreas, no confundirse con una pestaña. */}
           <ExperimentalMusicPlayer />
 
-          {/* Dato, no control: sin píldora propia deja de competir con Música y
-              con el estado, que sí se pulsan. */}
-          <div
-            className="hidden min-w-0 items-center gap-2 border-l border-border/60 pl-3 md:flex"
-            data-testid="cabecera-personaje"
-          >
-            <CircleUserRound className="size-4 shrink-0 text-primary/80" aria-hidden="true" />
-            {profile ? (
-              <span className="min-w-0 truncate text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{profile.name}</span>
-                {" · "}nivel {formatCharacterLevel(profile)}
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">Sin personaje</span>
-            )}
-          </div>
-
+          {/* El nombre y nivel del personaje ya no se repiten aquí: viven en
+              la franja del personaje (CharacterStrip), bajo la navegación. */}
           <Button
             type="button"
             size="sm"

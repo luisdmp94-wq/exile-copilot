@@ -105,7 +105,7 @@ export function OpenCaseRecommendation({
             </Badge>
           )}
         </div>
-        <h3 className="text-2xl font-semibold leading-tight text-foreground sm:text-3xl">
+        <h3 className="text-2xl font-semibold leading-tight text-foreground">
           {rec.title}
         </h3>
       </div>
