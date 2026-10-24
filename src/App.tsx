@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Compass, FolderOpen, Hammer, RefreshCw } from "lucide-react";
+import { BookOpen, Compass, FolderOpen, Hammer, RefreshCw } from "lucide-react";
 import {
   craftingCurrencyLabel,
   type CraftingCurrencyVariant,
@@ -87,6 +87,7 @@ import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
+import { GuidesSection } from "@/sections/GuidesSection";
 
 const CraftingSection = lazy(() =>
   import("@/sections/CraftingSection").then((module) => ({
@@ -139,8 +140,16 @@ const EMPTY_TARGET: TargetDraft = {
  * «Personaje» ya no es un área: su editor completo sigue existiendo una sola
  * vez, dentro del panel lateral «Editar expediente».
  */
-type WorkspaceTab = "expediente" | "plan" | "crafting";
+type WorkspaceTab = "expediente" | "plan" | "crafting" | "guias";
 type EditorPrompt = "memory" | "new" | "item" | "import" | null;
+
+/** Dirección pública de la guía: se puede enlazar y abrir directamente. */
+const GUIDE_PATH = "/guias/acto-1";
+const APP_TITLE = typeof document === "undefined" ? "" : document.title;
+
+function openedFromGuideUrl(): boolean {
+  return typeof window !== "undefined" && window.location.pathname.startsWith("/guias");
+}
 
 /**
  * Los paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
@@ -201,8 +210,8 @@ export default function App() {
   // Elemento que abrió el detalle: puede ser un hueco del paperdoll o el botón
   // «Ver el objeto evaluado» del caso. Al cerrar se le devuelve el foco.
   const dialogTriggerRef = useRef<HTMLElement | null>(null);
-  const [tab, setTab] = useState<WorkspaceTab>(
-    initialPlanningWorkspace?.activeWorkspace ?? "expediente",
+  const [tab, setTab] = useState<WorkspaceTab>(() =>
+    openedFromGuideUrl() ? "guias" : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
   );
   // Las áreas pesadas se descargan al visitarlas por primera vez y después
   // permanecen montadas para no perder formularios, selección ni sesiones.
@@ -210,7 +219,7 @@ export default function App() {
     () =>
       new Set([
         "expediente",
-        initialPlanningWorkspace?.activeWorkspace ?? "expediente",
+        openedFromGuideUrl() ? "guias" : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
       ]),
   );
   const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceTab[]>(
@@ -483,7 +492,7 @@ export default function App() {
     character.profile
       ? {
           version: "1.0",
-          activeArea: tab,
+          activeArea: tab === "guias" ? "expediente" : tab,
           character: {
             level: character.profile.level,
             characterClass: character.profile.characterClass,
@@ -640,6 +649,15 @@ export default function App() {
     },
     [announceMentor],
   );
+
+  // La guía tiene su propia dirección para poder compartirla; las demás áreas
+  // siguen en la raíz. replaceState: cambiar de área no llena el historial.
+  useEffect(() => {
+    const onGuide = window.location.pathname.startsWith("/guias");
+    if (tab === "guias" && !onGuide) window.history.replaceState(window.history.state, "", GUIDE_PATH);
+    if (tab !== "guias" && onGuide) window.history.replaceState(window.history.state, "", "/");
+    document.title = tab === "guias" ? "Acto 1 de PoE2: guía de supervivencia · Exile Copilot" : APP_TITLE;
+  }, [tab]);
 
   const goBackWorkspace = () => {
     const previous = workspaceHistory.at(-1);
@@ -1162,7 +1180,7 @@ export default function App() {
     const activeItem = character.profile.items.find((i) => i.id === activeItemId);
     const envelope: import("@shared/mentorContext.js").ContextEnvelope = {
       version: "1.0",
-      activeArea: tab,
+      activeArea: tab === "guias" ? "expediente" : tab,
       character: {
         level: character.profile.level,
         characterClass: character.profile.characterClass,
@@ -1413,7 +1431,7 @@ export default function App() {
             <div className="mx-auto flex max-w-[92rem] items-center justify-center xl:block">
               <TabsList
                 aria-label="Áreas de Exile Copilot"
-                className="grid h-auto min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-border bg-card p-1 lg:flex lg:w-auto lg:flex-none xl:flex xl:w-full xl:flex-col xl:items-stretch xl:gap-1 xl:p-1.5"
+                className="grid h-auto min-w-0 flex-1 grid-cols-4 gap-1 rounded-xl border border-border bg-card p-1 lg:flex lg:w-auto lg:flex-none xl:flex xl:w-full xl:flex-col xl:items-stretch xl:gap-1 xl:p-1.5"
               >
               <TabsTrigger
                 value="expediente"
@@ -1451,6 +1469,18 @@ export default function App() {
                 <span className="truncate xl:sr-only 2xl:not-sr-only">Crafting</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
                   Mejorar un objeto paso a paso
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="guias"
+                data-testid="tab-guias"
+                title="Guías por acto"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+              >
+                <BookOpen className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
+                <span className="truncate xl:sr-only 2xl:not-sr-only">Guías</span>
+                <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
+                  Cómo pasar cada acto sin morir
                 </span>
               </TabsTrigger>
               </TabsList>
@@ -1907,6 +1937,27 @@ export default function App() {
                   onMentorContext={announceMentor}
                 />
               </Suspense>
+            )}
+          </TabsContent>
+
+          {/* --- Área 4: Guías por acto ------------------------------------ */}
+          <TabsContent value="guias" forceMount className={PANEL_CLASSES}>
+            {mountedWorkspaces.has("guias") && (
+              <GuidesSection
+                profile={character.profile}
+                patch={character.profile?.patch || activePatchId || "desconocido"}
+                onAskMentor={
+                  character.profile
+                    ? (text) => {
+                        setMentorQuickQuestion((current) => ({
+                          text,
+                          seq: (current?.seq ?? 0) + 1,
+                        }));
+                        openMentorConversation();
+                      }
+                    : undefined
+                }
+              />
             )}
           </TabsContent>
         </Tabs>

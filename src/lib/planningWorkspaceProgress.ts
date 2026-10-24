@@ -23,7 +23,7 @@ export const PlanningWorkspaceProgressSchema = z.strictObject({
   /** null significa que el jugador todavía no ha declarado ningún límite. */
   budget: BudgetSchema.nullable(),
   goal: GoalKind,
-  activeWorkspace: z.enum(["expediente", "plan", "crafting"]).default("expediente"),
+  activeWorkspace: z.enum(["expediente", "plan", "crafting", "guias"]).default("expediente"),
 });
 
 export interface PlanningWorkspaceProgress {
@@ -33,7 +33,7 @@ export interface PlanningWorkspaceProgress {
   targetResolution: z.infer<typeof PlanResolutionSchema> | null;
   budget: z.infer<typeof BudgetSchema> | null;
   goal: z.infer<typeof GoalKind>;
-  activeWorkspace: "expediente" | "plan" | "crafting";
+  activeWorkspace: "expediente" | "plan" | "crafting" | "guias";
 }
 
 function defaultStorage(): StorageLike | null {

@@ -45,7 +45,7 @@ export type ContextualMentorEvent =
   | { type: "welcome" }
   | { type: "ready"; profileName: string }
   | { type: "profileIncomplete"; profileName: string; missing: string[] }
-  | { type: "workspace"; workspace: "expediente" | "plan" | "crafting" }
+  | { type: "workspace"; workspace: "expediente" | "plan" | "crafting" | "guias" }
   | { type: "item"; item: Item }
   | { type: "craftingItem"; item: Item }
   | {
@@ -189,6 +189,16 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
                 "¿Por qué la pieza seleccionada está relacionada con mi prioridad y qué dato debo comprobar antes de cambiarla?",
               intent: "explain_priority",
             },
+          }
+        : event.workspace === "guias"
+        ? {
+            id: "workspace:guias",
+            source: "guide",
+            eyebrow: "Guías",
+            title: "Estás en las guías por acto",
+            message:
+              "Léelas sin prisa. Al final de cada guía puedes comprobar si tu personaje está listo para el siguiente acto.",
+            ask: null,
           }
         : event.workspace === "plan"
         ? {
