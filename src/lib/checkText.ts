@@ -42,7 +42,6 @@ export interface CheckText {
     notPob: string;
     poe1: string;
     broken: string;
-    isPlan: string;
     generic: (code: string) => string;
   };
 
@@ -150,8 +149,6 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       notPob: `Eso no parece un código de Path of Building 2. ${ES_HOW_TO_COPY}`,
       poe1: "Ese código es de Path of Building para PoE1. Necesito el de Path of Building 2.",
       broken: `El código está incompleto o dañado. ${ES_HOW_TO_COPY}`,
-      isPlan:
-        "Eso es un plan de build, no un personaje. Pega el código que da Path of Building 2 en Import/Export Build → Generate.",
       generic: (code) => `No he podido leer el código (${code}). Vuelve a intentarlo en un momento.`,
     },
     readingView: {
@@ -277,8 +274,6 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       notPob: `That doesn't look like a Path of Building 2 code. ${EN_HOW_TO_COPY}`,
       poe1: "That code is from Path of Building for PoE1. I need the Path of Building 2 one.",
       broken: `The code is incomplete or damaged. ${EN_HOW_TO_COPY}`,
-      isPlan:
-        "That's a build plan, not a character. Paste the code Path of Building 2 gives you under Import/Export Build → Generate.",
       generic: (code) => `I couldn't read the code (${code}). Please try again in a moment.`,
     },
     readingView: {

@@ -3,7 +3,6 @@ import type { CharacterProfile } from "@shared/domain.js";
 import { GGG_AFFILIATION_NOTICE } from "@shared/passiveRegistry.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { api, ApiRequestError } from "@/lib/api";
 import {
   checkPastedCode,
   explainImportError,
@@ -34,6 +33,7 @@ import {
   type CheckLang,
   type CheckText,
 } from "@/lib/checkText";
+import { readPobCodeInBrowser } from "@/lib/pobBrowser";
 import { ManualCheckForm } from "./ManualCheckForm";
 
 /**
@@ -305,36 +305,20 @@ export function BuildCheckPage() {
       return;
     }
     setState({ status: "loading" });
-    try {
-      const health = await api.health();
-      const result = await api.importBuild({
-        content,
-        patch: health.patch.id,
-        intent: "character",
-      });
-      if (!result.profile) {
-        setState({ status: "error", message: (current) => CHECK_TEXT[current].importErrors.isPlan });
-        return;
-      }
-      setState({
-        status: "done",
-        profile: result.profile,
-        ...rememberCheck(checkInputFromProfile(result.profile), result.profile),
-      });
-    } catch (err) {
-      const code =
-        err instanceof ApiRequestError && err.status !== null && err.status < 500 ? err.message : null;
-      const detail = err instanceof ApiRequestError ? err.detail : undefined;
+    // El código se lee en este navegador: no se envía a ningún servidor.
+    const result = await readPobCodeInBrowser(content);
+    if (!result.ok) {
       setState({
         status: "error",
-        message: (current) =>
-          code !== null
-            ? explainImportError(code, detail, current)
-            : CHECK_TEXT[current].importErrors.generic(
-                err instanceof ApiRequestError && err.status !== null ? `HTTP ${err.status}` : "red",
-              ),
+        message: (current) => explainImportError(result.code, result.detail, current),
       });
+      return;
     }
+    setState({
+      status: "done",
+      profile: result.profile,
+      ...rememberCheck(checkInputFromProfile(result.profile), result.profile),
+    });
   };
 
   const priorities =

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type {
   CraftingItemState,
   Item,
@@ -437,7 +436,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
     }
     const observedRolls = extractObservedModifierRolls(text);
     result.modifiers.push({
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       text,
       values: extractNumbers(text),
       ...(observedRolls.length > 0 ? { observedRolls } : {}),
@@ -572,7 +571,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
 
       if (FIXED_ASSIGNMENT_RE.test(structuralLine)) {
         result.modifiers.push({
-          id: randomUUID(),
+          id: crypto.randomUUID(),
           text: structuralLine,
           kind: "enchant",
           values: extractNumbers(structuralLine),
@@ -602,7 +601,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
           .trim();
       }
       result.modifiers.push({
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         text,
         kind,
         values: extractNumbers(text),
@@ -672,7 +671,7 @@ export function parseItemText(input: string): ParsedItemText {
     // Fallback mínimo: conservar el texto crudo.
     return {
       item: {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         name: "Objeto sin nombre",
         baseType: "Desconocida",
         slot: "other",
@@ -697,7 +696,7 @@ export function parseItemText(input: string): ParsedItemText {
   }
 
   const item: Item = {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     name: parsed.name,
     ...(parsed.itemClass ? { itemClass: parsed.itemClass } : {}),
     baseType: parsed.baseType,
