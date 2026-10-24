@@ -11,7 +11,14 @@ import { CHECK_TEXT, type CheckLang, type CheckText } from "./checkText";
  *  - huecos de equipo vacíos.
  * El daño recibido de un tipo es proporcional a (100 − resistencia), así que
  * comparar ese factor con el del objetivo da el «cuánto más daño recibes».
+ *
+ * En campaña el 75% sigue siendo el objetivo, pero cada acto resta un 10% y
+ * llegar a él pronto es casi imposible: la gravedad se suaviza (ver
+ * `elementalSeverity`) y se explica la penalización en vez de alarmar.
  */
+
+/** Dónde está el personaje: lo elige el jugador, no se deduce del nivel. */
+export type CheckStage = "campaign" | "maps";
 
 export type PrioritySeverity = "alta" | "media" | "baja";
 
@@ -38,6 +45,12 @@ export interface BuildPriority {
 export const ELEMENTAL_RESISTANCE_TARGET = 75;
 /** Mínimo razonable para el caos: por debajo de 0 se recibe daño extra. */
 export const CHAOS_RESISTANCE_TARGET = 0;
+/**
+ * Referencia para la campaña. No es un dato de GGG: es la recomendación de las
+ * guías de la comunidad (Maxroll, PoE Vault: «al menos un 30% en campaña»), y
+ * la página la presenta como tal.
+ */
+export const CAMPAIGN_RESISTANCE_GUIDE = 30;
 
 const ELEMENTS = ["fire", "cold", "lightning"] as const;
 
@@ -71,7 +84,25 @@ function formatResistance(value: number): string {
   return `${value < 0 ? "−" : ""}${Math.abs(value)}%`;
 }
 
-function elementalPriority(input: BuildCheckInput, text: CheckText, lang: CheckLang): BuildPriority | null {
+/**
+ * En mapas manda la distancia al 75%. En campaña: por debajo de 0 se recibe más
+ * daño que sin resistencia (urgente), por debajo de la referencia de las guías
+ * es importante y por encima solo queda seguir subiendo.
+ */
+function elementalSeverity(worst: number, stage: CheckStage): PrioritySeverity {
+  if (stage === "campaign") {
+    return worst < 0 ? "alta" : worst < CAMPAIGN_RESISTANCE_GUIDE ? "media" : "baja";
+  }
+  const gap = ELEMENTAL_RESISTANCE_TARGET - worst;
+  return gap >= 20 ? "alta" : gap >= 8 ? "media" : "baja";
+}
+
+function elementalPriority(
+  input: BuildCheckInput,
+  text: CheckText,
+  lang: CheckLang,
+  stage: CheckStage,
+): BuildPriority | null {
   const low = ELEMENTS.flatMap((key) => {
     const value = input.resistances[key];
     return value !== null && value < ELEMENTAL_RESISTANCE_TARGET ? [{ key, value }] : [];
@@ -79,11 +110,15 @@ function elementalPriority(input: BuildCheckInput, text: CheckText, lang: CheckL
   if (low.length === 0) return null;
 
   const worst = low.reduce((a, b) => (b.value < a.value ? b : a));
-  const worstGap = ELEMENTAL_RESISTANCE_TARGET - worst.value;
+  const why = text.priorities.elementalWhy(
+    text.damageNames[worst.key],
+    formatResistance(worst.value),
+    extraDamageTaken(worst.value, ELEMENTAL_RESISTANCE_TARGET, lang),
+  );
   return {
     id: "resistencias-elementales",
-    severity: worstGap >= 20 ? "alta" : worstGap >= 8 ? "media" : "baja",
-    title: text.priorities.elementalTitle,
+    severity: elementalSeverity(worst.value, stage),
+    title: stage === "campaign" ? text.priorities.elementalTitleCampaign : text.priorities.elementalTitle,
     facts: low.map(({ key, value }) =>
       text.priorities.elementalFact(
         text.resistanceLabels[key],
@@ -91,20 +126,22 @@ function elementalPriority(input: BuildCheckInput, text: CheckText, lang: CheckL
         ELEMENTAL_RESISTANCE_TARGET - value,
       ),
     ),
-    why: text.priorities.elementalWhy(
-      text.damageNames[worst.key],
-      formatResistance(worst.value),
-      extraDamageTaken(worst.value, ELEMENTAL_RESISTANCE_TARGET, lang),
-    ),
+    why: stage === "campaign" ? `${why} ${text.priorities.campaignNote(CAMPAIGN_RESISTANCE_GUIDE)}` : why,
   };
 }
 
-function chaosPriority(input: BuildCheckInput, text: CheckText, lang: CheckLang): BuildPriority | null {
+function chaosPriority(
+  input: BuildCheckInput,
+  text: CheckText,
+  lang: CheckLang,
+  stage: CheckStage,
+): BuildPriority | null {
   const chaos = input.resistances.chaos;
   if (chaos === null || chaos >= CHAOS_RESISTANCE_TARGET) return null;
   return {
     id: "resistencia-caos",
-    severity: chaos <= -20 ? "media" : "baja",
+    // En campaña el caos pesa poco frente a las elementales: nunca pasa por delante.
+    severity: stage === "maps" && chaos <= -20 ? "media" : "baja",
     title: text.priorities.chaosTitle,
     facts: [text.priorities.chaosFact(formatResistance(chaos), -chaos)],
     why: text.priorities.chaosWhy(
@@ -140,18 +177,26 @@ export function checkInputFromProfile(profile: CharacterProfile): BuildCheckInpu
 }
 
 /** Hasta 3 prioridades, de la más grave a la menos. Lista vacía = nada urgente. */
-export function prioritiesForInput(input: BuildCheckInput, lang: CheckLang): BuildPriority[] {
+export function prioritiesForInput(
+  input: BuildCheckInput,
+  lang: CheckLang,
+  stage: CheckStage,
+): BuildPriority[] {
   const text = CHECK_TEXT[lang];
   return [
-    elementalPriority(input, text, lang),
+    elementalPriority(input, text, lang, stage),
     emptySlotsPriority(input, text),
-    chaosPriority(input, text, lang),
+    chaosPriority(input, text, lang, stage),
   ]
     .filter((priority): priority is BuildPriority => priority !== null)
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
     .slice(0, 3);
 }
 
-export function findBuildPriorities(profile: CharacterProfile, lang: CheckLang): BuildPriority[] {
-  return prioritiesForInput(checkInputFromProfile(profile), lang);
+export function findBuildPriorities(
+  profile: CharacterProfile,
+  lang: CheckLang,
+  stage: CheckStage,
+): BuildPriority[] {
+  return prioritiesForInput(checkInputFromProfile(profile), lang, stage);
 }

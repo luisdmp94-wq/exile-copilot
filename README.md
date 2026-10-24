@@ -24,6 +24,12 @@ Up to three priorities, most urgent first. "Extra damage taken" is plain
 arithmetic: damage of a type scales with `100 − resistance`. If everything it
 checks is fine, it says so instead of inventing advice.
 
+**Campaign or maps.** Each act takes 10% off your elemental resistances, so
+75% is unrealistic early on. In campaign mode the target stays 75%, but the
+urgency is softened (negative resistances are urgent, below the ~30% that
+community guides suggest is important) and the penalty is explained. Mapping
+mode keeps the strict 75% check.
+
 **Your progress.** Each check is saved in your browser (up to 20, nothing is
 sent anywhere). Next time you get a comparison: level, resistance changes,
 slots you filled and priorities you fixed. One click forgets them all.

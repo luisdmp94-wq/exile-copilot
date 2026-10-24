@@ -11,8 +11,8 @@ const { EMPTY_MANUAL_VALUES } = manual;
 // Estos casos fijan los textos en español; los de inglés están en checkText.test.ts.
 const parseManualCheck = (values: manual.ManualResistanceValues, emptySlots: ItemSlot[]) =>
   manual.parseManualCheck(values, emptySlots, "es");
-const findBuildPriorities = (profile: CharacterProfile) => rules.findBuildPriorities(profile, "es");
-const prioritiesForInput = (input: rules.BuildCheckInput) => rules.prioritiesForInput(input, "es");
+const findBuildPriorities = (profile: CharacterProfile) => rules.findBuildPriorities(profile, "es", "maps");
+const prioritiesForInput = (input: rules.BuildCheckInput) => rules.prioritiesForInput(input, "es", "maps");
 
 function makePobCode(xml: string): string {
   return deflateSync(Buffer.from(xml, "utf8"))

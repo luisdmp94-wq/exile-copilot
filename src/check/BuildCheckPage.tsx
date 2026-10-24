@@ -15,6 +15,7 @@ import {
   prioritiesForInput,
   type BuildCheckInput,
   type BuildPriority,
+  type CheckStage,
   type PrioritySeverity,
 } from "@/lib/buildPriorities";
 import {
@@ -61,21 +62,27 @@ type CheckState =
   | ({ status: "done"; input: BuildCheckInput } & CheckMemory);
 
 const LANG_STORAGE_KEY = "exile-copilot.check.lang";
+const STAGE_STORAGE_KEY = "exile-copilot.check.stage";
 
-function readStoredLang(): string | null {
+function readStored(key: string): string | null {
   try {
-    return window.localStorage.getItem(LANG_STORAGE_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-function storeLang(lang: CheckLang) {
+function store(key: string, value: string) {
   try {
-    window.localStorage.setItem(LANG_STORAGE_KEY, lang);
+    window.localStorage.setItem(key, value);
   } catch {
-    // Sin almacenamiento (modo privado): el idioma dura lo que la pestaña.
+    // Sin almacenamiento (modo privado): la elección dura lo que la pestaña.
   }
+}
+
+/** Por defecto, campaña: el público principal es quien está subiendo su primer personaje. */
+function initialStage(): CheckStage {
+  return readStored(STAGE_STORAGE_KEY) === "maps" ? "maps" : "campaign";
 }
 
 function browserStorage(): Storage | null {
@@ -87,10 +94,14 @@ function browserStorage(): Storage | null {
 }
 
 /** Guarda el chequeo y devuelve el anterior para compararlo. */
-function rememberCheck(input: BuildCheckInput, profile: CharacterProfile | null): CheckMemory {
+function rememberCheck(
+  input: BuildCheckInput,
+  profile: CharacterProfile | null,
+  stage: CheckStage,
+): CheckMemory {
   const storage = browserStorage();
   const previous = loadCheckHistory(storage)[0] ?? null;
-  const snapshot = snapshotForCheck(input, prioritiesForInput(input, "es"), profile, new Date());
+  const snapshot = snapshotForCheck(input, prioritiesForInput(input, "es", stage), profile, new Date());
   saveCheck(storage, snapshot);
   return { snapshot, previous };
 }
@@ -271,9 +282,10 @@ function ReadingCard({ profile, lang }: { profile: CharacterProfile; lang: Check
 /** `standalone`: la web pública solo con el chequeo, sin enlace a la app anterior. */
 export function BuildCheckPage({ standalone = false }: { standalone?: boolean }) {
   const [lang, setLang] = useState<CheckLang>(() =>
-    initialCheckLang(window.location.search, readStoredLang(), navigator.languages ?? [navigator.language]),
+    initialCheckLang(window.location.search, readStored(LANG_STORAGE_KEY), navigator.languages ?? [navigator.language]),
   );
   const [mode, setMode] = useState<CheckMode>("pob");
+  const [stage, setStage] = useState<CheckStage>(initialStage);
   const [code, setCode] = useState("");
   const [state, setState] = useState<CheckState>({ status: "idle" });
   const text = CHECK_TEXT[lang];
@@ -284,13 +296,19 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
 
   const changeLang = (next: CheckLang) => {
     setLang(next);
-    storeLang(next);
+    store(LANG_STORAGE_KEY, next);
     // Si se entró con ?lang=, el enlace debe seguir la elección al recargar o compartir.
     const url = new URL(window.location.href);
     if (url.searchParams.has("lang")) {
       url.searchParams.set("lang", next);
       window.history.replaceState(null, "", url);
     }
+  };
+
+  // Cambiar de etapa vuelve a redactar el resultado en pantalla; no borra nada.
+  const changeStage = (next: CheckStage) => {
+    setStage(next);
+    store(STAGE_STORAGE_KEY, next);
   };
 
   const switchMode = (next: CheckMode) => {
@@ -318,7 +336,7 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
     setState({
       status: "done",
       profile: result.profile,
-      ...rememberCheck(checkInputFromProfile(result.profile), result.profile),
+      ...rememberCheck(checkInputFromProfile(result.profile), result.profile, stage),
     });
   };
 
@@ -326,8 +344,8 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
     state.status !== "done"
       ? null
       : "profile" in state
-        ? findBuildPriorities(state.profile, lang)
-        : prioritiesForInput(state.input, lang);
+        ? findBuildPriorities(state.profile, lang, stage)
+        : prioritiesForInput(state.input, lang, stage);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -360,6 +378,32 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
           <p className="text-sm text-muted-foreground">{text.page.intro}</p>
         </header>
 
+        <div className="space-y-2">
+          <p id="build-check-stage" className="text-sm font-medium">
+            {text.page.stageGroup}
+          </p>
+          <div role="group" aria-labelledby="build-check-stage" className="flex flex-wrap gap-2">
+            {([
+              ["campaign", text.page.stageCampaign],
+              ["maps", text.page.stageMaps],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={stage === value}
+                onClick={() => changeStage(value)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  stage === value
+                    ? "border-primary/60 bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div
           role="group"
           aria-label={text.page.modeGroup}
@@ -386,7 +430,7 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
         {mode === "manual" ? (
           <ManualCheckForm
             lang={lang}
-            onResult={(input) => setState({ status: "done", input, ...rememberCheck(input, null) })}
+            onResult={(input) => setState({ status: "done", input, ...rememberCheck(input, null, stage) })}
             onError={(message) => {
               // El formulario redacta el error en el idioma actual; se conserva tal cual.
               setState({ status: "error", message: () => message });

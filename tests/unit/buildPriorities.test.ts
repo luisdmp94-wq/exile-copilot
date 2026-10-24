@@ -6,10 +6,11 @@ import { CharacterProfileSchema, type CharacterProfile, type ItemSlot } from "..
 import { importBuild } from "../../server/importers/buildImporter.js";
 import * as rules from "../../src/lib/buildPriorities.js";
 
-// Estos casos fijan los textos en español; los de inglés están en checkText.test.ts.
+// Estos casos fijan los textos en español y el modo mapas; los de inglés están en
+// checkText.test.ts y los de campaña al final de este archivo.
 const extraDamageTaken = (resistance: number, target: number) =>
   rules.extraDamageTaken(resistance, target, "es");
-const findBuildPriorities = (profile: CharacterProfile) => rules.findBuildPriorities(profile, "es");
+const findBuildPriorities = (profile: CharacterProfile) => rules.findBuildPriorities(profile, "es", "maps");
 
 const ALL_SLOTS: ItemSlot[] = [
   "weapon", "helmet", "body", "gloves", "boots", "belt", "amulet", "ring1", "ring2",
@@ -166,5 +167,54 @@ describe("chequeo de build — prioridades desde códigos PoB2", () => {
       ],
     });
     expect(priorities[0].why).toContain("6 veces más daño de fuego");
+  });
+});
+
+describe("chequeo de build — en la campaña", () => {
+  const campaign = (resistances: Parameters<typeof profileWith>[0]["resistances"], lang: "es" | "en" = "es") =>
+    rules.findBuildPriorities(profileWith({ resistances }), lang, "campaign");
+
+  it("mantiene los datos y el 75% como objetivo, pero cambia el tono y explica la penalización", () => {
+    const [priority] = campaign({ fire: 20, cold: 75, lightning: 75 });
+    expect(priority).toMatchObject({
+      id: "resistencias-elementales",
+      severity: "media",
+      title: "Sigue subiendo tus resistencias elementales",
+      facts: ["Fuego 20% · te faltan 55 puntos"],
+    });
+    expect(priority.why).toBe(
+      "Con fuego al 20% recibes 3,2 veces más daño de fuego que con el 75%. " +
+        "En la campaña cada acto te resta un 10% más, así que no hace falta llegar al 75% ya: " +
+        "las guías recomiendan al menos un 30% y subir según avanzas.",
+    );
+  });
+
+  it("gradúa la gravedad con la referencia de campaña: negativa, bajo el 30% o por encima", () => {
+    const severityFor = (fire: number) => campaign({ fire })[0]?.severity;
+    expect(severityFor(-10)).toBe("alta");
+    expect(severityFor(0)).toBe("media");
+    expect(severityFor(29)).toBe("media");
+    expect(severityFor(30)).toBe("baja");
+    expect(severityFor(60)).toBe("baja");
+  });
+
+  it("el caos negativo nunca pasa por delante en la campaña", () => {
+    const priorities = campaign({ fire: 75, cold: 75, lightning: 75, chaos: -60 });
+    expect(priorities).toEqual([expect.objectContaining({ id: "resistencia-caos", severity: "baja" })]);
+  });
+
+  it("los huecos vacíos siguen siendo urgentes en la campaña", () => {
+    const priorities = rules.findBuildPriorities(
+      profileWith({ slots: ALL_SLOTS.filter((slot) => slot !== "body") }),
+      "es",
+      "campaign",
+    );
+    expect(priorities[0]).toMatchObject({ id: "huecos-equipo", severity: "alta" });
+  });
+
+  it("también en inglés", () => {
+    const [priority] = campaign({ fire: 20 }, "en");
+    expect(priority.title).toBe("Keep raising your elemental resistances");
+    expect(priority.why).toContain("During the campaign each act takes another 10% away");
   });
 });

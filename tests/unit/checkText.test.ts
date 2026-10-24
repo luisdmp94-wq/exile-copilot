@@ -49,7 +49,7 @@ describe("chequeo de build — idioma inicial", () => {
 
 describe("chequeo de build — textos en inglés", () => {
   it("las prioridades salen en inglés con los mismos datos", () => {
-    const priorities = findBuildPriorities(lowResProfile(), "en");
+    const priorities = findBuildPriorities(lowResProfile(), "en", "maps");
     expect(priorities).toEqual([
       {
         id: "resistencias-elementales",
@@ -108,7 +108,7 @@ describe("chequeo de build — textos en inglés", () => {
       "en",
     );
     if (!manual.ok) throw new Error(manual.message);
-    expect(prioritiesForInput(manual.input, "en")).toEqual(findBuildPriorities(lowResProfile(), "en"));
+    expect(prioritiesForInput(manual.input, "en", "maps")).toEqual(findBuildPriorities(lowResProfile(), "en", "maps"));
   });
 
   it("los dos idiomas tienen exactamente las mismas claves", () => {

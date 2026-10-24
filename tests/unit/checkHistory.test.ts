@@ -43,7 +43,7 @@ function snapshot(
         importedAt: checkedAt,
       })
     : null;
-  return snapshotForCheck(checkInput, prioritiesForInput(checkInput, "es"), profile, new Date(checkedAt));
+  return snapshotForCheck(checkInput, prioritiesForInput(checkInput, "es", "maps"), profile, new Date(checkedAt));
 }
 
 function memoryStorage() {

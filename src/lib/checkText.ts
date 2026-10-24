@@ -25,6 +25,9 @@ export interface CheckText {
     kicker: string;
     title: string;
     intro: string;
+    stageGroup: string;
+    stageCampaign: string;
+    stageMaps: string;
     modeGroup: string;
     modePob: string;
     modeManual: string;
@@ -81,6 +84,9 @@ export interface CheckText {
     /** Daño extra frente al objetivo: «un 92% más» / «92% more», «6 veces más» / «6 times more». */
     extraDamage: (percentMore: number | null, times: string | null) => string;
     elementalTitle: string;
+    elementalTitleCampaign: string;
+    /** Nota añadida al «por qué» en campaña: penalización por acto y referencia de las guías. */
+    campaignNote: (guide: number) => string;
     elementalFact: (label: string, value: string, gap: number) => string;
     elementalWhy: (damage: string, value: string, extra: string) => string;
     chaosTitle: string;
@@ -133,6 +139,9 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       kicker: "Exile Mentor · Path of Exile 2",
       title: "Chequeo de build",
       intro: "Dame los datos de tu personaje y te digo qué arreglar primero.",
+      stageGroup: "¿Dónde está tu personaje?",
+      stageCampaign: "En la campaña",
+      stageMaps: "Ya en mapas",
       modeGroup: "Cómo darme los datos",
       modePob: "Tengo Path of Building 2",
       modeManual: "Lo escribo a mano",
@@ -198,6 +207,9 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       extraDamage: (percentMore, times) =>
         times !== null ? `${times} veces más` : `un ${percentMore}% más`,
       elementalTitle: "Sube tus resistencias elementales al 75%",
+      elementalTitleCampaign: "Sigue subiendo tus resistencias elementales",
+      campaignNote: (guide) =>
+        `En la campaña cada acto te resta un 10% más, así que no hace falta llegar al 75% ya: las guías recomiendan al menos un ${guide}% y subir según avanzas.`,
       elementalFact: (label, value, gap) => `${label} ${value} · te faltan ${gap} puntos`,
       elementalWhy: (damage, value, extra) =>
         `Con ${damage} al ${value} recibes ${extra} daño de ${damage} que con el 75%.`,
@@ -258,6 +270,9 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       kicker: "Exile Mentor · Path of Exile 2",
       title: "Build check",
       intro: "Give me your character's numbers and I'll tell you what to fix first.",
+      stageGroup: "Where is your character?",
+      stageCampaign: "In the campaign",
+      stageMaps: "Already mapping",
       modeGroup: "How to give me your data",
       modePob: "I have Path of Building 2",
       modeManual: "I'll type it in",
@@ -323,6 +338,9 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       extraDamage: (percentMore, times) =>
         times !== null ? `${times} times more` : `${percentMore}% more`,
       elementalTitle: "Raise your elemental resistances to 75%",
+      elementalTitleCampaign: "Keep raising your elemental resistances",
+      campaignNote: (guide) =>
+        `During the campaign each act takes another 10% away, so you don't need 75% yet: guides suggest at least ${guide}% and raising it as you go.`,
       elementalFact: (label, value, gap) => `${label} ${value} · ${gap} points short`,
       elementalWhy: (damage, value, extra) =>
         `With ${damage} at ${value} you take ${extra} ${damage} damage than at 75%.`,
