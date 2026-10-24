@@ -190,7 +190,7 @@ describe("engine — exactitud y contratos", () => {
       "75% es un umbral provisional",
     );
     expect(result.recommendations[0]?.action).toContain(
-      "Eleva hacia 75% las resistencias que ahora están así: frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)",
+      "Eleva hacia 75% las resistencias que ahora están así: hielo 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)",
     );
     expect(result.recommendations[0]?.reason).not.toMatch(/fuente más común|causa más común/i);
     expect(result.recommendations[0]?.mayLoseValuableMods).toBe(true);
@@ -224,7 +224,7 @@ describe("engine — exactitud y contratos", () => {
 
   it("las resistencias desconocidas se enumeran en español, no con las claves del dominio", async () => {
     const profile = demoProfile();
-    // fuego y frío desconocidos, rayo conocido y bajo: se ejercitan a la vez la
+    // fuego y hielo desconocidos, rayo conocido y bajo: se ejercitan a la vez la
     // lista de desconocidas, la de bajas y la nota «No verificado».
     profile.resistances = { fire: null, cold: null, lightning: 40, chaos: -10 };
 
@@ -239,7 +239,7 @@ describe("engine — exactitud y contratos", () => {
     expect(bajas?.reason).toContain("rayo 40%");
     // La nota «No verificado» de la regla de resistencias tampoco filtra claves.
     expect(bajas?.unverified.join(" ")).toContain(
-      "resistencias desconocidas no evaluadas: fuego, frío.",
+      "resistencias desconocidas no evaluadas: fuego, hielo.",
     );
 
     // Con TODAS las elementales desconocidas aparece el hueco de datos, cuya
@@ -252,7 +252,7 @@ describe("engine — exactitud y contratos", () => {
       { priceService: offlinePriceService() },
     );
     const gap = sinDatos.recommendations.find((r) => r.id === "rec-datos-resistencias");
-    expect(gap?.unverified.join(" ")).toContain("Resistencias desconocidas: fuego, frío, rayo.");
+    expect(gap?.unverified.join(" ")).toContain("Resistencias desconocidas: fuego, hielo, rayo.");
 
     const visible = [...result.recommendations, ...sinDatos.recommendations]
       .flatMap((r) => [r.title, r.action, r.reason, ...r.unverified])

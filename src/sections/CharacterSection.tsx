@@ -88,7 +88,7 @@ interface CharacterSectionProps {
 
 const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
   { key: "fire", label: "Fuego" },
-  { key: "cold", label: "Frío" },
+  { key: "cold", label: "Hielo" },
   { key: "lightning", label: "Rayo" },
   { key: "chaos", label: "Caos" },
 ];

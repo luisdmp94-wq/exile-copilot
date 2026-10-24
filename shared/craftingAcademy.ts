@@ -234,7 +234,7 @@ const ANILLO_MAGICO_1 = exerciseItem({
   slot: "ring1",
   rarity: "magic",
   itemLevel: 58,
-  modifiers: [affix("aca-a1", "+24% a la resistencia al frío", "suffix", ["Resistencias"])],
+  modifiers: [affix("aca-a1", "+24% a la resistencia al hielo", "suffix", ["Resistencias"])],
 });
 
 const ANILLO_MAGICO_2 = exerciseItem({
@@ -246,7 +246,7 @@ const ANILLO_MAGICO_2 = exerciseItem({
   itemLevel: 58,
   modifiers: [
     affix("aca-a2", "+31 a la vida máxima", "prefix", ["Vida"]),
-    affix("aca-a3", "+24% a la resistencia al frío", "suffix", ["Resistencias"]),
+    affix("aca-a3", "+24% a la resistencia al hielo", "suffix", ["Resistencias"]),
   ],
 });
 
@@ -334,7 +334,7 @@ const ESCUDO_RARO_EXAMEN = exerciseItem({
   modifiers: [
     affix("aca-e1", "+92 a la vida máxima", "prefix", ["Vida"]),
     affix("aca-e2", "+180 a la armadura", "prefix", ["Defensa"]),
-    affix("aca-e3", "+26% a la resistencia al frío", "suffix", ["Resistencias"]),
+    affix("aca-e3", "+26% a la resistencia al hielo", "suffix", ["Resistencias"]),
     affix("aca-e4", "+22% a la resistencia al caos", "suffix", ["Resistencias"]),
   ],
 });
@@ -351,7 +351,7 @@ const CASCO_EXAMEN_LLENO = exerciseItem({
     affix("aca-h2", "+150 a la evasión", "prefix", ["Defensa"]),
     affix("aca-h3", "+9% a la vida máxima", "prefix", ["Vida"]),
     affix("aca-h4", "+30% a la resistencia al fuego", "suffix", ["Resistencias"]),
-    affix("aca-h5", "+27% a la resistencia al frío", "suffix", ["Resistencias"]),
+    affix("aca-h5", "+27% a la resistencia al hielo", "suffix", ["Resistencias"]),
     affix("aca-h6", "+15 a la destreza", "suffix", ["Atributo"]),
   ],
 });

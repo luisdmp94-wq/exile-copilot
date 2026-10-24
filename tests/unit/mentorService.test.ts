@@ -428,14 +428,14 @@ describe("mentor — resistencias en español", () => {
     ].join(" | ");
   }
 
-  it("el personaje demo presenta «frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)», no las claves del dominio", async () => {
+  it("el personaje demo presenta «hielo 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)», no las claves del dominio", async () => {
     const answer = await answerMentorQuery(
       { ...BASE, question: "¿Qué mejoro ahora?", memory: emptyMemory() },
       { priceService: offlinePriceService() },
     );
 
-    expect(answer.answer).toContain("frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)");
-    expect(answer.nextAction?.text).toContain("frío 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)");
+    expect(answer.answer).toContain("hielo 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)");
+    expect(answer.nextAction?.text).toContain("hielo 61% (te faltan 14 puntos), rayo 40% (te faltan 35 puntos)");
   });
 
   it("ninguna intención filtra identificadores ingleses de resistencia", async () => {

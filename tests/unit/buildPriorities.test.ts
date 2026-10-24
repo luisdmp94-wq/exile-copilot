@@ -162,7 +162,7 @@ describe("chequeo de build — prioridades desde códigos PoB2", () => {
       severity: "alta",
       facts: [
         "Fuego −50% · te faltan 125 puntos",
-        "Frío −50% · te faltan 125 puntos",
+        "Hielo −50% · te faltan 125 puntos",
         "Rayo −50% · te faltan 125 puntos",
       ],
     });

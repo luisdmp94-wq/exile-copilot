@@ -8,7 +8,7 @@ const RESISTANCE_CAP = 75;
 
 const RESISTANCES: Array<{ kind: ResistanceKind; label: string }> = [
   { kind: "fire", label: "Fuego" },
-  { kind: "cold", label: "Frío" },
+  { kind: "cold", label: "Hielo" },
   { kind: "lightning", label: "Rayo" },
   { kind: "chaos", label: "Caos" },
 ];

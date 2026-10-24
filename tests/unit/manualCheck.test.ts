@@ -50,7 +50,7 @@ describe("chequeo manual — lectura del formulario", () => {
   it("rechaza valores que no son un entero razonable y dice qué campo falla", () => {
     expect(parseManualCheck({ ...EMPTY_MANUAL_VALUES, cold: "abc" }, [])).toEqual({
       ok: false,
-      message: "Frío: escribe un número entero entre -200 y 90, por ejemplo 52 o -30.",
+      message: "Hielo: escribe un número entero entre -200 y 90, por ejemplo 52 o -30.",
     });
     expect(parseManualCheck({ ...EMPTY_MANUAL_VALUES, fire: "52.5" }, []).ok).toBe(false);
     expect(parseManualCheck({ ...EMPTY_MANUAL_VALUES, fire: "500" }, []).ok).toBe(false);

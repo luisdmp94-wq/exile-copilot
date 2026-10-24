@@ -196,8 +196,8 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       dex: "Destreza",
       int: "Inteligencia",
     },
-    resistanceLabels: { fire: "Fuego", cold: "Frío", lightning: "Rayo", chaos: "Caos" },
-    damageNames: { fire: "fuego", cold: "frío", lightning: "rayo", chaos: "caos" },
+    resistanceLabels: { fire: "Fuego", cold: "Hielo", lightning: "Rayo", chaos: "Caos" },
+    damageNames: { fire: "fuego", cold: "hielo", lightning: "rayo", chaos: "caos" },
     slots: {
       weapon: "Arma",
       offhand: "Mano secundaria",

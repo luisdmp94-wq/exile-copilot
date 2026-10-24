@@ -175,7 +175,7 @@ describe("lectura contextual del resultado de crafting", () => {
     });
 
     expect(context.verdict).toBe("candidate");
-    expect(context.facts.join(" ")).toContain("frío 60%");
+    expect(context.facts.join(" ")).toContain("hielo 60%");
     expect(context.facts.join(" ")).toContain("rayo 40%");
   });
 });
