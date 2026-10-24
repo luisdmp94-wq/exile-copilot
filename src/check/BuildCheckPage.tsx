@@ -11,12 +11,22 @@ import {
   type BuildCheckRow,
 } from "@/lib/buildCheck";
 import {
+  checkInputFromProfile,
   findBuildPriorities,
   prioritiesForInput,
   type BuildCheckInput,
   type BuildPriority,
   type PrioritySeverity,
 } from "@/lib/buildPriorities";
+import {
+  clearCheckHistory,
+  compareChecks,
+  isSameCharacter,
+  loadCheckHistory,
+  saveCheck,
+  snapshotForCheck,
+  type CheckSnapshot,
+} from "@/lib/checkHistory";
 import {
   CHECK_LANGS,
   CHECK_TEXT,
@@ -37,12 +47,18 @@ import { ManualCheckForm } from "./ManualCheckForm";
 
 type CheckMode = "pob" | "manual";
 
+/** El chequeo recién guardado y el anterior con el que se compara (si lo hay). */
+interface CheckMemory {
+  snapshot: CheckSnapshot;
+  previous: CheckSnapshot | null;
+}
+
 type CheckState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: (lang: CheckLang) => string }
-  | { status: "done"; profile: CharacterProfile }
-  | { status: "done"; input: BuildCheckInput };
+  | ({ status: "done"; profile: CharacterProfile } & CheckMemory)
+  | ({ status: "done"; input: BuildCheckInput } & CheckMemory);
 
 const LANG_STORAGE_KEY = "exile-copilot.check.lang";
 
@@ -60,6 +76,98 @@ function storeLang(lang: CheckLang) {
   } catch {
     // Sin almacenamiento (modo privado): el idioma dura lo que la pestaña.
   }
+}
+
+function browserStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Guarda el chequeo y devuelve el anterior para compararlo. */
+function rememberCheck(input: BuildCheckInput, profile: CharacterProfile | null): CheckMemory {
+  const storage = browserStorage();
+  const previous = loadCheckHistory(storage)[0] ?? null;
+  const snapshot = snapshotForCheck(input, prioritiesForInput(input, "es"), profile, new Date());
+  saveCheck(storage, snapshot);
+  return { snapshot, previous };
+}
+
+const CHANGE_MARK = { better: "↑", worse: "↓", info: "·" } as const;
+const CHANGE_STYLE = {
+  better: "text-emerald-400",
+  worse: "text-destructive",
+  info: "text-muted-foreground",
+} as const;
+
+function HistoryCard({ memory, lang }: { memory: CheckMemory; lang: CheckLang }) {
+  const text = CHECK_TEXT[lang];
+  const [forgotten, setForgotten] = useState(false);
+  const forget = () => {
+    clearCheckHistory(browserStorage());
+    setForgotten(true);
+  };
+
+  let body;
+  if (forgotten) {
+    body = <p className="text-sm">{text.history.forgotten}</p>;
+  } else if (memory.previous === null) {
+    body = <p className="text-sm">{text.history.firstCheck}</p>;
+  } else if (!isSameCharacter(memory.previous, memory.snapshot)) {
+    body = <p className="text-sm">{text.history.otherCharacter}</p>;
+  } else {
+    const comparison = compareChecks(memory.previous, memory.snapshot, new Date(), lang);
+    body = (
+      <>
+        <p className="text-sm font-medium">{comparison.headline}</p>
+        {comparison.changes.length > 0 && (
+          <ul className="space-y-0.5 text-sm tabular-nums">
+            {comparison.changes.map((change) => (
+              <li key={change.text} className="flex gap-2">
+                <span aria-hidden="true" className={CHANGE_STYLE[change.direction]}>
+                  {CHANGE_MARK[change.direction]}
+                </span>
+                {change.text}
+              </li>
+            ))}
+          </ul>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <section
+      aria-labelledby="build-check-history"
+      className="space-y-2 rounded-lg border border-border bg-card p-5"
+      data-testid="build-check-history"
+    >
+      <h2
+        id="build-check-history"
+        className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80"
+      >
+        {text.history.heading}
+      </h2>
+      {body}
+      <p className="text-xs text-muted-foreground">
+        {text.history.storedLocally}
+        {!forgotten && (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={forget}
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              {text.history.forget}
+            </button>
+          </>
+        )}
+      </p>
+    </section>
+  );
 }
 
 const SEVERITY_STYLE: Record<PrioritySeverity, string> = {
@@ -208,7 +316,11 @@ export function BuildCheckPage() {
         setState({ status: "error", message: (current) => CHECK_TEXT[current].importErrors.isPlan });
         return;
       }
-      setState({ status: "done", profile: result.profile });
+      setState({
+        status: "done",
+        profile: result.profile,
+        ...rememberCheck(checkInputFromProfile(result.profile), result.profile),
+      });
     } catch (err) {
       const code =
         err instanceof ApiRequestError && err.status !== null && err.status < 500 ? err.message : null;
@@ -289,7 +401,7 @@ export function BuildCheckPage() {
         {mode === "manual" ? (
           <ManualCheckForm
             lang={lang}
-            onResult={(input) => setState({ status: "done", input })}
+            onResult={(input) => setState({ status: "done", input, ...rememberCheck(input, null) })}
             onError={(message) => {
               // El formulario redacta el error en el idioma actual; se conserva tal cual.
               setState({ status: "error", message: () => message });
@@ -331,6 +443,10 @@ export function BuildCheckPage() {
             </h2>
             <PriorityList priorities={priorities} text={text} />
           </section>
+        )}
+
+        {state.status === "done" && (
+          <HistoryCard key={state.snapshot.checkedAt} memory={state} lang={lang} />
         )}
 
         {state.status === "done" && "profile" in state && <ReadingCard profile={state.profile} lang={lang} />}

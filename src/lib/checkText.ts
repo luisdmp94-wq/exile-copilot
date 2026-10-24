@@ -92,6 +92,23 @@ export interface CheckText {
     slotsWhy: string;
   };
 
+  history: {
+    heading: string;
+    justNow: string;
+    headline: (trend: "better" | "worse" | "mixed" | "same", since: string) => string;
+    levelChange: (from: number, to: number) => string;
+    resistanceChange: (label: string, from: string, to: string, delta: number) => string;
+    slotsFilled: (slots: string) => string;
+    slotsEmptied: (slots: string) => string;
+    resolved: (name: string) => string;
+    priorityNames: Record<"resistencias-elementales" | "huecos-equipo" | "resistencia-caos", string>;
+    firstCheck: string;
+    otherCharacter: string;
+    storedLocally: string;
+    forget: string;
+    forgotten: string;
+  };
+
   manual: {
     resistancesLegend: string;
     resistancesHint: string;
@@ -196,6 +213,34 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       slotsWhy:
         "Cada hueco vacío es vida, resistencias o daño que no estás recibiendo. Hasta un objeto raro barato ayuda.",
     },
+    history: {
+      heading: "Tu progreso",
+      justNow: "hace un momento",
+      headline: (trend, since) =>
+        ({
+          better: `Vas mejorando desde tu último chequeo (${since}).`,
+          worse: `Algo ha empeorado desde tu último chequeo (${since}).`,
+          mixed: `Hay cambios desde tu último chequeo (${since}): unos a mejor y otros a peor.`,
+          same: `Nada ha cambiado en lo que compruebo desde tu último chequeo (${since}).`,
+        })[trend],
+      levelChange: (from, to) => `Nivel ${from} → ${to}`,
+      resistanceChange: (label, from, to, delta) =>
+        `${label} ${from} → ${to} (${delta > 0 ? "+" : "−"}${Math.abs(delta)})`,
+      slotsFilled: (slots) => `Ya llevas: ${slots}`,
+      slotsEmptied: (slots) => `Ahora vacío: ${slots}`,
+      resolved: (name) => `Resuelto: ${name}`,
+      priorityNames: {
+        "resistencias-elementales": "resistencias elementales",
+        "huecos-equipo": "huecos de equipo vacíos",
+        "resistencia-caos": "resistencia al caos negativa",
+      },
+      firstCheck: "Guardo este chequeo para decirte qué ha cambiado la próxima vez.",
+      otherCharacter:
+        "Es otro personaje distinto al de tu último chequeo, así que empiezo a seguir a este desde ahora.",
+      storedLocally: "Solo se guarda en este navegador.",
+      forget: "Olvidar mis chequeos",
+      forgotten: "He borrado tus chequeos guardados.",
+    },
     manual: {
       resistancesLegend: "Resistencias",
       resistancesHint: "Cópialas de la hoja de personaje del juego. Deja en blanco las que no sepas.",
@@ -293,6 +338,34 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       slotsFact: (slots) => `Empty: ${slots}`,
       slotsWhy:
         "Every empty slot is life, resistances or damage you're not getting. Even a cheap rare helps.",
+    },
+    history: {
+      heading: "Your progress",
+      justNow: "just now",
+      headline: (trend, since) =>
+        ({
+          better: `You're improving since your last check (${since}).`,
+          worse: `Something got worse since your last check (${since}).`,
+          mixed: `Things changed since your last check (${since}): some better, some worse.`,
+          same: `Nothing I check has changed since your last check (${since}).`,
+        })[trend],
+      levelChange: (from, to) => `Level ${from} → ${to}`,
+      resistanceChange: (label, from, to, delta) =>
+        `${label} ${from} → ${to} (${delta > 0 ? "+" : "−"}${Math.abs(delta)})`,
+      slotsFilled: (slots) => `Now equipped: ${slots}`,
+      slotsEmptied: (slots) => `Now empty: ${slots}`,
+      resolved: (name) => `Fixed: ${name}`,
+      priorityNames: {
+        "resistencias-elementales": "elemental resistances",
+        "huecos-equipo": "empty gear slots",
+        "resistencia-caos": "negative chaos resistance",
+      },
+      firstCheck: "I'm saving this check so I can tell you what changed next time.",
+      otherCharacter:
+        "This is a different character from your last check, so I'll start tracking this one from now.",
+      storedLocally: "Only stored in this browser.",
+      forget: "Forget my checks",
+      forgotten: "I've deleted your saved checks.",
     },
     manual: {
       resistancesLegend: "Resistances",
