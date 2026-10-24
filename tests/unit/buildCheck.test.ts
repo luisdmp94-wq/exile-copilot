@@ -3,11 +3,14 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { importBuild } from "../../server/importers/buildImporter.js";
-import {
-  checkPastedCode,
-  explainImportError,
-  readBuildForCheck,
-} from "../../src/lib/buildCheck.js";
+import type { CharacterProfile } from "../../shared/domain.js";
+import * as buildCheck from "../../src/lib/buildCheck.js";
+
+// Estos casos fijan los textos en español; los de inglés están en checkText.test.ts.
+const readBuildForCheck = (profile: CharacterProfile) => buildCheck.readBuildForCheck(profile, "es");
+const checkPastedCode = (content: string) => buildCheck.checkPastedCode(content, "es");
+const explainImportError = (code: string, detail: string | undefined) =>
+  buildCheck.explainImportError(code, detail, "es");
 
 function makePobCode(xml: string): string {
   return deflateSync(Buffer.from(xml, "utf8"))

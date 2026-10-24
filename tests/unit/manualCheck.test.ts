@@ -3,8 +3,16 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { importBuild } from "../../server/importers/buildImporter.js";
-import { findBuildPriorities, prioritiesForInput } from "../../src/lib/buildPriorities.js";
-import { EMPTY_MANUAL_VALUES, parseManualCheck } from "../../src/lib/manualCheck.js";
+import type { CharacterProfile, ItemSlot } from "../../shared/domain.js";
+import * as rules from "../../src/lib/buildPriorities.js";
+import * as manual from "../../src/lib/manualCheck.js";
+
+const { EMPTY_MANUAL_VALUES } = manual;
+// Estos casos fijan los textos en español; los de inglés están en checkText.test.ts.
+const parseManualCheck = (values: manual.ManualResistanceValues, emptySlots: ItemSlot[]) =>
+  manual.parseManualCheck(values, emptySlots, "es");
+const findBuildPriorities = (profile: CharacterProfile) => rules.findBuildPriorities(profile, "es");
+const prioritiesForInput = (input: rules.BuildCheckInput) => rules.prioritiesForInput(input, "es");
 
 function makePobCode(xml: string): string {
   return deflateSync(Buffer.from(xml, "utf8"))

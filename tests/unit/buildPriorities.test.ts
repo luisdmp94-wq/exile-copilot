@@ -2,9 +2,14 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { CharacterProfileSchema, type ItemSlot } from "../../shared/domain.js";
+import { CharacterProfileSchema, type CharacterProfile, type ItemSlot } from "../../shared/domain.js";
 import { importBuild } from "../../server/importers/buildImporter.js";
-import { extraDamageTaken, findBuildPriorities } from "../../src/lib/buildPriorities.js";
+import * as rules from "../../src/lib/buildPriorities.js";
+
+// Estos casos fijan los textos en español; los de inglés están en checkText.test.ts.
+const extraDamageTaken = (resistance: number, target: number) =>
+  rules.extraDamageTaken(resistance, target, "es");
+const findBuildPriorities = (profile: CharacterProfile) => rules.findBuildPriorities(profile, "es");
 
 const ALL_SLOTS: ItemSlot[] = [
   "weapon", "helmet", "body", "gloves", "boots", "belt", "amulet", "ring1", "ring2",

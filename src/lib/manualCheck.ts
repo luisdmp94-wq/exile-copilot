@@ -1,5 +1,6 @@
 import type { ItemSlot, Resistances } from "@shared/domain.js";
 import { REQUIRED_SLOTS, type BuildCheckInput } from "./buildPriorities";
+import { CHECK_TEXT, type CheckLang } from "./checkText";
 
 /**
  * Formulario manual del chequeo de build, para quien no usa Path of Building:
@@ -18,12 +19,7 @@ export const EMPTY_MANUAL_VALUES: ManualResistanceValues = {
   chaos: "",
 };
 
-export const RESISTANCE_FIELDS: Array<{ key: ResistanceField; label: string }> = [
-  { key: "fire", label: "Fuego" },
-  { key: "cold", label: "Frío" },
-  { key: "lightning", label: "Rayo" },
-  { key: "chaos", label: "Caos" },
-];
+export const RESISTANCE_FIELDS: ResistanceField[] = ["fire", "cold", "lightning", "chaos"];
 
 /** Rango que puede mostrar la hoja de personaje: penalizaciones hasta el tope máximo. */
 const MIN_RESISTANCE = -200;
@@ -45,20 +41,22 @@ function parseResistance(raw: string): number | null | undefined {
 export function parseManualCheck(
   values: ManualResistanceValues,
   emptySlots: ItemSlot[],
+  lang: CheckLang,
 ): ManualCheckResult {
+  const text = CHECK_TEXT[lang];
   const resistances: Resistances = { fire: null, cold: null, lightning: null, chaos: null };
-  for (const { key, label } of RESISTANCE_FIELDS) {
+  for (const key of RESISTANCE_FIELDS) {
     const parsed = parseResistance(values[key]);
     if (parsed === undefined) {
       return {
         ok: false,
-        message: `${label}: escribe un número entero entre ${MIN_RESISTANCE} y ${MAX_RESISTANCE}, por ejemplo 52 o -30.`,
+        message: text.manual.invalidNumber(text.resistanceLabels[key], MIN_RESISTANCE, MAX_RESISTANCE),
       };
     }
     resistances[key] = parsed;
   }
   if (Object.values(resistances).every((value) => value === null)) {
-    return { ok: false, message: "Escribe al menos una resistencia de tu hoja de personaje." };
+    return { ok: false, message: text.manual.needOneResistance };
   }
 
   const empty = new Set(emptySlots);
@@ -66,7 +64,7 @@ export function parseManualCheck(
     ok: true,
     input: {
       resistances,
-      equippedSlots: REQUIRED_SLOTS.map(({ slot }) => slot).filter((slot) => !empty.has(slot)),
+      equippedSlots: REQUIRED_SLOTS.filter((slot) => !empty.has(slot)),
     },
   };
 }

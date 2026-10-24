@@ -3,6 +3,7 @@ import type { ItemSlot } from "@shared/domain.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { REQUIRED_SLOTS, type BuildCheckInput } from "@/lib/buildPriorities";
+import { CHECK_TEXT, type CheckLang } from "@/lib/checkText";
 import {
   EMPTY_MANUAL_VALUES,
   parseManualCheck,
@@ -16,12 +17,15 @@ import {
  * un código PoB2.
  */
 export function ManualCheckForm({
+  lang,
   onResult,
   onError,
 }: {
+  lang: CheckLang;
   onResult: (input: BuildCheckInput) => void;
   onError: (message: string) => void;
 }) {
+  const text = CHECK_TEXT[lang];
   const [values, setValues] = useState<ManualResistanceValues>(EMPTY_MANUAL_VALUES);
   const [emptySlots, setEmptySlots] = useState<ItemSlot[]>([]);
 
@@ -33,7 +37,7 @@ export function ManualCheckForm({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const result = parseManualCheck(values, emptySlots);
+    const result = parseManualCheck(values, emptySlots, lang);
     if (result.ok) onResult(result.input);
     else onError(result.message);
   };
@@ -41,14 +45,12 @@ export function ManualCheckForm({
   return (
     <form onSubmit={submit} className="space-y-5" data-testid="manual-check-form">
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Resistencias</legend>
-        <p className="text-xs text-muted-foreground">
-          Cópialas de la hoja de personaje del juego. Deja en blanco las que no sepas.
-        </p>
+        <legend className="text-sm font-medium">{text.manual.resistancesLegend}</legend>
+        <p className="text-xs text-muted-foreground">{text.manual.resistancesHint}</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {RESISTANCE_FIELDS.map(({ key, label }) => (
+          {RESISTANCE_FIELDS.map((key) => (
             <label key={key} className="space-y-1 text-sm">
-              <span className="text-muted-foreground">{label} (%)</span>
+              <span className="text-muted-foreground">{text.manual.field(text.resistanceLabels[key])}</span>
               <Input
                 name={key}
                 inputMode="numeric"
@@ -64,10 +66,10 @@ export function ManualCheckForm({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">¿Qué huecos de equipo tienes vacíos?</legend>
-        <p className="text-xs text-muted-foreground">Si llevas todo puesto, no marques nada.</p>
+        <legend className="text-sm font-medium">{text.manual.slotsLegend}</legend>
+        <p className="text-xs text-muted-foreground">{text.manual.slotsHint}</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {REQUIRED_SLOTS.map(({ slot, label }) => (
+          {REQUIRED_SLOTS.map((slot) => (
             <label
               key={slot}
               className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm has-[:checked]:border-primary/60 has-[:checked]:bg-primary/10"
@@ -78,14 +80,14 @@ export function ManualCheckForm({
                 onChange={() => toggleSlot(slot)}
                 className="size-4 accent-[hsl(var(--primary))]"
               />
-              {label}
+              {text.slots[slot]}
             </label>
           ))}
         </div>
       </fieldset>
 
       <Button type="submit" className="w-full sm:w-auto">
-        Ver qué arreglar
+        {text.manual.submit}
       </Button>
     </form>
   );

@@ -1,27 +1,38 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import type { CharacterProfile } from "@shared/domain.js";
 import { GGG_AFFILIATION_NOTICE } from "@shared/passiveRegistry.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { api, ApiRequestError, getErrorMessage } from "@/lib/api";
+import { api, ApiRequestError } from "@/lib/api";
 import {
   checkPastedCode,
   explainImportError,
   readBuildForCheck,
-  type BuildCheckReading,
   type BuildCheckRow,
 } from "@/lib/buildCheck";
 import {
   findBuildPriorities,
   prioritiesForInput,
+  type BuildCheckInput,
   type BuildPriority,
   type PrioritySeverity,
 } from "@/lib/buildPriorities";
+import {
+  CHECK_LANGS,
+  CHECK_TEXT,
+  initialCheckLang,
+  type CheckLang,
+  type CheckText,
+} from "@/lib/checkText";
 import { ManualCheckForm } from "./ManualCheckForm";
 
 /**
  * Chequeo de build (relanzamiento). Página aparte en /check: el jugador pega
  * su código de Path of Building 2 (o escribe sus resistencias a mano) y ve qué
  * arreglar primero y, con PoB2, lo que hemos leído para llegar a esa conclusión.
+ *
+ * El estado guarda los datos, no las frases: al cambiar de idioma se vuelven a
+ * redactar el resultado y el error que haya en pantalla.
  */
 
 type CheckMode = "pob" | "manual";
@@ -29,58 +40,72 @@ type CheckMode = "pob" | "manual";
 type CheckState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "done"; reading: BuildCheckReading | null; priorities: BuildPriority[] };
+  | { status: "error"; message: (lang: CheckLang) => string }
+  | { status: "done"; profile: CharacterProfile }
+  | { status: "done"; input: BuildCheckInput };
 
-const SEVERITY_STYLE: Record<PrioritySeverity, { label: string; className: string }> = {
-  alta: { label: "Urgente", className: "border-destructive/60 bg-destructive/15 text-destructive-foreground" },
-  media: { label: "Importante", className: "border-primary/60 bg-primary/15 text-primary" },
-  baja: { label: "Menor", className: "border-border bg-muted/50 text-muted-foreground" },
+const LANG_STORAGE_KEY = "exile-copilot.check.lang";
+
+function readStoredLang(): string | null {
+  try {
+    return window.localStorage.getItem(LANG_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeLang(lang: CheckLang) {
+  try {
+    window.localStorage.setItem(LANG_STORAGE_KEY, lang);
+  } catch {
+    // Sin almacenamiento (modo privado): el idioma dura lo que la pestaña.
+  }
+}
+
+const SEVERITY_STYLE: Record<PrioritySeverity, string> = {
+  alta: "border-destructive/60 bg-destructive/15 text-destructive-foreground",
+  media: "border-primary/60 bg-primary/15 text-primary",
+  baja: "border-border bg-muted/50 text-muted-foreground",
 };
 
-function PriorityList({ priorities }: { priorities: BuildPriority[] }) {
+function PriorityList({ priorities, text }: { priorities: BuildPriority[]; text: CheckText }) {
   if (priorities.length === 0) {
     return (
-      <p className="rounded-lg border border-border bg-card px-5 py-4 text-sm">
-        No veo nada urgente en lo que compruebo: resistencias, caos y huecos de equipo están bien.
-      </p>
+      <p className="rounded-lg border border-border bg-card px-5 py-4 text-sm">{text.priorities.none}</p>
     );
   }
   return (
     <ol className="space-y-3">
-      {priorities.map((priority, index) => {
-        const severity = SEVERITY_STYLE[priority.severity];
-        return (
-          <li
-            key={priority.id}
-            className="rounded-lg border border-border bg-card p-5"
-            data-testid={`priority-${priority.id}`}
-          >
-            <div className="mb-2 flex items-start justify-between gap-3">
-              <h3 className="text-base font-semibold">
-                <span className="mr-2 text-primary">{index + 1}.</span>
-                {priority.title}
-              </h3>
-              <span
-                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severity.className}`}
-              >
-                {severity.label}
-              </span>
-            </div>
-            <ul className="mb-2 space-y-0.5 text-sm font-medium tabular-nums">
-              {priority.facts.map((fact) => (
-                <li key={fact}>{fact}</li>
-              ))}
-            </ul>
-            <p className="text-sm text-muted-foreground">{priority.why}</p>
-          </li>
-        );
-      })}
+      {priorities.map((priority, index) => (
+        <li
+          key={priority.id}
+          className="rounded-lg border border-border bg-card p-5"
+          data-testid={`priority-${priority.id}`}
+        >
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <h3 className="text-base font-semibold">
+              <span className="mr-2 text-primary">{index + 1}.</span>
+              {priority.title}
+            </h3>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_STYLE[priority.severity]}`}
+            >
+              {text.priorities.severity[priority.severity]}
+            </span>
+          </div>
+          <ul className="mb-2 space-y-0.5 text-sm font-medium tabular-nums">
+            {priority.facts.map((fact) => (
+              <li key={fact}>{fact}</li>
+            ))}
+          </ul>
+          <p className="text-sm text-muted-foreground">{priority.why}</p>
+        </li>
+      ))}
     </ol>
   );
 }
 
-function StatGroup({ title, rows }: { title: string; rows: BuildCheckRow[] }) {
+function StatGroup({ title, rows, noData }: { title: string; rows: BuildCheckRow[]; noData: string }) {
   return (
     <div>
       <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
@@ -91,7 +116,7 @@ function StatGroup({ title, rows }: { title: string; rows: BuildCheckRow[] }) {
           <div key={row.label} className="flex items-baseline justify-between gap-3 text-sm">
             <dt className="text-muted-foreground">{row.label}</dt>
             <dd className={row.value === null ? "text-muted-foreground/70" : "font-medium tabular-nums"}>
-              {row.value ?? "sin dato"}
+              {row.value ?? noData}
             </dd>
           </div>
         ))}
@@ -100,10 +125,64 @@ function StatGroup({ title, rows }: { title: string; rows: BuildCheckRow[] }) {
   );
 }
 
+function ReadingCard({ profile, lang }: { profile: CharacterProfile; lang: CheckLang }) {
+  const text = CHECK_TEXT[lang];
+  const reading = readBuildForCheck(profile, lang);
+  return (
+    <section
+      aria-labelledby="build-check-reading"
+      className="space-y-5 rounded-lg border border-border bg-card p-5"
+      data-testid="build-check-reading"
+    >
+      <div className="space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
+          {text.readingView.heading}
+        </p>
+        <h2 id="build-check-reading" className="text-lg font-semibold">
+          {reading.identity}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {reading.mainSkill ? text.readingView.firstSkill(reading.mainSkill) : text.readingView.noSkills}
+          {" · "}
+          {text.readingView.items(reading.itemCount)}
+        </p>
+      </div>
+      {reading.knownStats === 0 && (
+        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">{text.readingView.noStats}</p>
+      )}
+      <div className="grid gap-5 sm:grid-cols-3">
+        <StatGroup title={text.readingView.defencesTitle} rows={reading.defences} noData={text.noData} />
+        <StatGroup title={text.readingView.resistancesTitle} rows={reading.resistances} noData={text.noData} />
+        <StatGroup title={text.readingView.attributesTitle} rows={reading.attributes} noData={text.noData} />
+      </div>
+      <p className="text-xs text-muted-foreground">{text.readingView.pobNote}</p>
+    </section>
+  );
+}
+
 export function BuildCheckPage() {
+  const [lang, setLang] = useState<CheckLang>(() =>
+    initialCheckLang(window.location.search, readStoredLang(), navigator.languages ?? [navigator.language]),
+  );
   const [mode, setMode] = useState<CheckMode>("pob");
   const [code, setCode] = useState("");
   const [state, setState] = useState<CheckState>({ status: "idle" });
+  const text = CHECK_TEXT[lang];
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  const changeLang = (next: CheckLang) => {
+    setLang(next);
+    storeLang(next);
+    // Si se entró con ?lang=, el enlace debe seguir la elección al recargar o compartir.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("lang")) {
+      url.searchParams.set("lang", next);
+      window.history.replaceState(null, "", url);
+    }
+  };
 
   const switchMode = (next: CheckMode) => {
     setMode(next);
@@ -113,9 +192,8 @@ export function BuildCheckPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const content = code.trim();
-    const problem = checkPastedCode(content);
-    if (problem) {
-      setState({ status: "error", message: problem });
+    if (checkPastedCode(content, lang)) {
+      setState({ status: "error", message: (current) => checkPastedCode(content, current) ?? "" });
       return;
     }
     setState({ status: "loading" });
@@ -127,47 +205,72 @@ export function BuildCheckPage() {
         intent: "character",
       });
       if (!result.profile) {
-        setState({
-          status: "error",
-          message:
-            "Eso es un plan de build, no un personaje. Pega el código que da Path of Building 2 en Import/Export Build → Generate.",
-        });
+        setState({ status: "error", message: (current) => CHECK_TEXT[current].importErrors.isPlan });
         return;
       }
-      setState({
-        status: "done",
-        reading: readBuildForCheck(result.profile),
-        priorities: findBuildPriorities(result.profile),
-      });
+      setState({ status: "done", profile: result.profile });
     } catch (err) {
-      const message =
-        err instanceof ApiRequestError && err.status !== null && err.status < 500
-          ? explainImportError(err.message, err.detail)
-          : getErrorMessage(err);
-      setState({ status: "error", message });
+      const code =
+        err instanceof ApiRequestError && err.status !== null && err.status < 500 ? err.message : null;
+      const detail = err instanceof ApiRequestError ? err.detail : undefined;
+      setState({
+        status: "error",
+        message: (current) =>
+          code !== null
+            ? explainImportError(code, detail, current)
+            : CHECK_TEXT[current].importErrors.generic(
+                err instanceof ApiRequestError && err.status !== null ? `HTTP ${err.status}` : "red",
+              ),
+      });
     }
   };
 
-  const reading = state.status === "done" ? state.reading : null;
-  const priorities = state.status === "done" ? state.priorities : null;
+  const priorities =
+    state.status !== "done"
+      ? null
+      : "profile" in state
+        ? findBuildPriorities(state.profile, lang)
+        : prioritiesForInput(state.input, lang);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-10 sm:py-16">
         <header className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/70">
-            Exile Copilot · Path of Exile 2
-          </p>
-          <h1 className="dossier-title text-3xl font-semibold leading-tight">Chequeo de build</h1>
-          <p className="text-sm text-muted-foreground">
-            Dame los datos de tu personaje y te digo qué arreglar primero.
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-primary/70">
+              {text.page.kicker}
+            </p>
+            <div role="group" aria-label={text.page.languageLabel} className="flex gap-1 text-xs">
+              {CHECK_LANGS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  lang={id}
+                  aria-pressed={lang === id}
+                  onClick={() => changeLang(id)}
+                  className={`rounded-md border px-2 py-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    lang === id
+                      ? "border-primary/60 bg-primary/15 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <h1 className="dossier-title text-3xl font-semibold leading-tight">{text.page.title}</h1>
+          <p className="text-sm text-muted-foreground">{text.page.intro}</p>
         </header>
 
-        <div role="group" aria-label="Cómo darme los datos" className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/30 p-1">
+        <div
+          role="group"
+          aria-label={text.page.modeGroup}
+          className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/30 p-1"
+        >
           {([
-            ["pob", "Tengo Path of Building 2"],
-            ["manual", "Lo escribo a mano"],
+            ["pob", text.page.modePob],
+            ["manual", text.page.modeManual],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -185,27 +288,29 @@ export function BuildCheckPage() {
 
         {mode === "manual" ? (
           <ManualCheckForm
-            onResult={(input) =>
-              setState({ status: "done", reading: null, priorities: prioritiesForInput(input) })
-            }
-            onError={(message) => setState({ status: "error", message })}
+            lang={lang}
+            onResult={(input) => setState({ status: "done", input })}
+            onError={(message) => {
+              // El formulario redacta el error en el idioma actual; se conserva tal cual.
+              setState({ status: "error", message: () => message });
+            }}
           />
         ) : (
           <form onSubmit={submit} className="space-y-3" data-testid="build-check-form">
             <label htmlFor="pob-code" className="text-sm font-medium">
-              Código de Path of Building 2
+              {text.page.codeLabel}
             </label>
             <Textarea
               id="pob-code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              placeholder="En PoB2: Import/Export Build → Generate → Copy, y pégalo aquí"
+              placeholder={text.page.codePlaceholder}
               className="max-h-48 min-h-28 font-mono text-xs"
               spellCheck={false}
               autoComplete="off"
             />
             <Button type="submit" disabled={state.status === "loading"} className="w-full sm:w-auto">
-              {state.status === "loading" ? "Leyendo…" : "Leer mi build"}
+              {state.status === "loading" ? text.page.reading : text.page.read}
             </Button>
           </form>
         )}
@@ -215,59 +320,26 @@ export function BuildCheckPage() {
             role="alert"
             className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm"
           >
-            {state.message}
+            {state.message(lang)}
           </p>
         )}
 
         {priorities && (
           <section aria-labelledby="build-check-priorities" className="space-y-3" data-testid="build-check-priorities">
             <h2 id="build-check-priorities" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
-              Lo que arreglaría primero
+              {text.priorities.heading}
             </h2>
-            <PriorityList priorities={priorities} />
+            <PriorityList priorities={priorities} text={text} />
           </section>
         )}
 
-        {reading && (
-          <section
-            aria-labelledby="build-check-reading"
-            className="space-y-5 rounded-lg border border-border bg-card p-5"
-            data-testid="build-check-reading"
-          >
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
-                Lo que he leído
-              </p>
-              <h2 id="build-check-reading" className="text-lg font-semibold">
-                {reading.identity}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {reading.mainSkill ? `Primer grupo de habilidades: ${reading.mainSkill}` : "Sin habilidades en el código"}
-                {" · "}
-                {reading.itemCount} objeto{reading.itemCount === 1 ? "" : "s"} equipado{reading.itemCount === 1 ? "" : "s"}
-              </p>
-            </div>
-            {reading.knownStats === 0 && (
-              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                El código no trae estadísticas calculadas. Abre la build en PoB2, comprueba que tiene equipo y vuelve a generar el código.
-              </p>
-            )}
-            <div className="grid gap-5 sm:grid-cols-3">
-              <StatGroup title="Defensa" rows={reading.defences} />
-              <StatGroup title="Resistencias" rows={reading.resistances} />
-              <StatGroup title="Atributos" rows={reading.attributes} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Son los valores que calcula Path of Building. Si alguno no coincide con tu personaje en el juego, dímelo.
-            </p>
-          </section>
-        )}
+        {state.status === "done" && "profile" in state && <ReadingCard profile={state.profile} lang={lang} />}
 
         <footer className="mt-auto space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
           <p>{GGG_AFFILIATION_NOTICE}</p>
           <p>
             <a href="/" className="underline underline-offset-2 hover:text-foreground">
-              Abrir la versión anterior de Exile Copilot
+              {text.page.previousVersion}
             </a>
           </p>
         </footer>
