@@ -97,6 +97,11 @@ function resistanceValue(line: string): number | null {
 /** Cada objeto copiado del juego empieza por esta línea, en inglés o en español. */
 const ITEM_START = /^(?:Item Class|Clase de objeto):/;
 
+/** ¿Lo pegado trae al menos la cabecera de un objeto copiado del juego? */
+export function looksLikeItemText(text: string): boolean {
+  return text.split(/\r\n?|\n/).some((line) => ITEM_START.test(line.trim()));
+}
+
 /**
  * Separa un pegado con varias piezas seguidas en un texto por pieza. Si no
  * encuentra la cabecera, devuelve el texto entero: el servidor decidirá si es

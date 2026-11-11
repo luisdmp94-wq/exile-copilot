@@ -22,6 +22,7 @@ import {
   guideInputFromProfile,
   placePastedItem,
   resistancesFromItems,
+  looksLikeItemText,
   splitPastedItems,
   type GuideCheckInput,
   type GuideCheckLine,
@@ -108,8 +109,8 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
     setNotice(null);
   };
 
-  const addPiece = async () => {
-    const chunks = splitPastedItems(pasted);
+  const addPiece = async (source: string = pasted) => {
+    const chunks = splitPastedItems(source);
     if (chunks.length === 0) {
       setError("Pega primero el texto de una pieza.");
       return;
@@ -147,7 +148,8 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
     }
     setItems(current);
     if (added > 0) setUseExpediente(false);
-    if (failures.length === 0) setPasted("");
+    // Si algo falla, el texto se queda en la casilla para poder corregirlo.
+    setPasted(failures.length === 0 ? "" : source);
 
     const notes: string[] = [];
     if (chunks.length > 1 && added > 0) notes.push(`${added} ${added === 1 ? "pieza añadida" : "piezas añadidas"}.`);
@@ -259,7 +261,7 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
         <div className="mt-4">
           <Label htmlFor="guia-pegar" className="text-sm text-muted-foreground">
             {mode === "items"
-              ? "En el juego, pon el ratón sobre una pieza equipada y pulsa Ctrl+C. Puedes pegar varias piezas seguidas de una vez."
+              ? "En el juego, pon el ratón sobre una pieza equipada y pulsa Ctrl+C. Pégala aquí con Ctrl+V y se añade sola. Puedes pegar varias seguidas."
               : "Pega el código que exporta Path of Building 2 (Importar/Exportar → Generar)."}
           </Label>
           <Textarea
@@ -269,9 +271,18 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
               setPasted(event.target.value);
               if (error) setError(null);
             }}
+            onPaste={(event) => {
+              // Un objeto copiado del juego se añade al pegarlo, sin botón.
+              // Cualquier otro texto se pega normal, para poder escribir a mano.
+              if (mode !== "items" || busy) return;
+              const text = event.clipboardData.getData("text");
+              if (!looksLikeItemText(text)) return;
+              event.preventDefault();
+              void addPiece(text);
+            }}
             rows={mode === "items" ? 5 : 3}
             className="mt-2 font-mono text-xs"
-            placeholder={mode === "items" ? "Clase de objeto: Yelmos\nRareza: Mágico\n…" : "eNrtfWl3…"}
+            placeholder={mode === "items" ? "Clase de objeto: Cascos\nRareza: Mágico\n…" : "eNrtfWl3…"}
             data-testid="guia-texto"
           />
           {error && (

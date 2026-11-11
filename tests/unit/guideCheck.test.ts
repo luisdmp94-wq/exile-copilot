@@ -5,6 +5,7 @@ import {
   guideInputFromItems,
   placePastedItem,
   resistancesFromItems,
+  looksLikeItemText,
   splitPastedItems,
 } from "../../src/lib/guideCheck.js";
 import type { Item } from "../../shared/domain.js";
@@ -67,6 +68,20 @@ describe("resistancesFromItems", () => {
   it("no suma la resistencia máxima ni líneas que no son resistencias", () => {
     const boots = parse(BOOTS_EN);
     expect(resistancesFromItems([boots]).fire).toBe(5);
+  });
+});
+
+describe("looksLikeItemText", () => {
+  it("reconoce un objeto copiado del juego, en español o en inglés", () => {
+    expect(looksLikeItemText(HELMET_ES)).toBe(true);
+    expect(looksLikeItemText(BOOTS_EN)).toBe(true);
+    expect(looksLikeItemText("Clase de objeto: Varitas\r\nRareza: Normal\r\nVarita marchita")).toBe(true);
+  });
+
+  it("no confunde un texto cualquiera con un objeto", () => {
+    expect(looksLikeItemText("hola")).toBe(false);
+    expect(looksLikeItemText("")).toBe(false);
+    expect(looksLikeItemText("Rareza: Normal\nVarita marchita")).toBe(false);
   });
 });
 
