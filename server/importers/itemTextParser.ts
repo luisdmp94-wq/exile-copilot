@@ -67,25 +67,35 @@ const RARITY_MAP: Record<string, ItemRarity> = {
   gema: "gem",
 };
 
-/** Heurística de slot a partir del Item Class / tipo base. */
-function guessSlot(itemClass: string, baseType: string): ItemSlot {
-  const haystack = `${itemClass} ${baseType}`.toLowerCase();
-  const tests: Array<[RegExp, ItemSlot]> = [
-    [/crossbow|ballesta|bow|arco|wand|vara|sceptre|cetro|staff|bast[oó]n|mace|maza|axe|hacha|sword|espada|dagger|daga|claw|garra|spear|lanza|flail/, "weapon"],
-    [/shield|escudo|quiver|carcaj|\bfocus\b/, "offhand"],
-    [/helmet|yelmo|casco/, "helmet"],
-    [/body armour|armadura|body armor/, "body"],
-    [/gloves|guantes/, "gloves"],
-    [/boots|botas/, "boots"],
-    [/belt|cintur[oó]n/, "belt"],
-    [/amulet|amuleto/, "amulet"],
-    [/ring(?! mail)|anillo/, "ring1"],
-    [/flask|frasco/, "flask"],
-  ];
-  for (const [re, slot] of tests) {
+const SLOT_TESTS: Array<[RegExp, ItemSlot]> = [
+  // Clases del cliente en inglés y en español (Varitas, Báculos, Manguales, Broqueles, Focos…).
+  [/crossbow|ballesta|bow|arco|wand|varita|vara|sceptre|cetro|staff|stave|b[aá]culo|bast[oó]n|mace|maza|axe|hacha|sword|espada|dagger|daga|claw|garra|spear|lanza|flail|mangual|\btraps?\b|trampa|talism[aá]n/, "weapon"],
+  [/shield|escudo|buckler|broquel|quiver|carcaj|\bfocus\b|\bfoci\b|\bfocos?\b/, "offhand"],
+  [/helmet|yelmo|casco/, "helmet"],
+  [/body armour|armadura|body armor/, "body"],
+  [/gloves|guantes/, "gloves"],
+  [/boots|botas/, "boots"],
+  [/belt|cintur[oó]n/, "belt"],
+  [/amulet|amuleto/, "amulet"],
+  [/ring(?! mail)|anillo/, "ring1"],
+  [/flask|frasco/, "flask"],
+];
+
+function matchSlot(haystack: string): ItemSlot | null {
+  for (const [re, slot] of SLOT_TESTS) {
     if (re.test(haystack)) return slot;
   }
-  return "other";
+  return null;
+}
+
+/**
+ * Heurística de slot. Manda la clase del objeto («Clase de objeto: Varitas»);
+ * el tipo base solo se mira si la clase no dice nada, para que una palabra
+ * suelta del nombre no cambie el hueco.
+ */
+function guessSlot(itemClass: string, baseType: string): ItemSlot {
+  const fromClass = itemClass.trim() ? matchSlot(itemClass.toLowerCase()) : null;
+  return fromClass ?? matchSlot(`${itemClass} ${baseType}`.toLowerCase()) ?? "other";
 }
 
 function parseRarity(raw: string): ItemRarity | null {

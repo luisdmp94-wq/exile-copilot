@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+import { parseItemText } from "../../server/importers/itemTextParser.js";
+
+function header(itemClass: string, name: string): string {
+  return [`Clase de objeto: ${itemClass}`, "Rareza: Normal", name, "--------", "Nivel de objeto: 1"].join("\n");
+}
+
+describe("clases de objeto del cliente en español", () => {
+  it("reconoce la varita real copiada del juego (11-11-2026)", () => {
+    const text = [
+      "Clase de objeto: Varitas",
+      "Rareza: Normal",
+      "Varita marchita",
+      "--------",
+      "Nivel de objeto: 1",
+      "--------",
+      "Otorga la habilidad: Descarga de caos de nivel 1",
+    ].join("\r\n");
+    const { item, recognized } = parseItemText(text);
+    expect(recognized).toBe(true);
+    expect(item.name).toBe("Varita marchita");
+    expect(item.slot).toBe("weapon");
+  });
+
+  it.each([
+    ["Garras", "weapon"],
+    ["Dagas", "weapon"],
+    ["Varitas", "weapon"],
+    ["Espadas a una mano", "weapon"],
+    ["Hachas a una mano", "weapon"],
+    ["Mazas a una mano", "weapon"],
+    ["Cetros", "weapon"],
+    ["Lanzas", "weapon"],
+    ["Manguales", "weapon"],
+    ["Arcos", "weapon"],
+    ["Báculos", "weapon"],
+    ["Espadas a dos manos", "weapon"],
+    ["Hachas a dos manos", "weapon"],
+    ["Mazas a dos manos", "weapon"],
+    ["Bastones", "weapon"],
+    ["Ballestas", "weapon"],
+    ["Trampas", "weapon"],
+    ["Talismanes", "weapon"],
+    ["Carcajes", "offhand"],
+    ["Escudos", "offhand"],
+    ["Broqueles", "offhand"],
+    ["Focos", "offhand"],
+    ["Guantes", "gloves"],
+    ["Botas", "boots"],
+    ["Armaduras corporales", "body"],
+    ["Cascos", "helmet"],
+    ["Amuletos", "amulet"],
+    ["Anillos", "ring1"],
+    ["Cinturones", "belt"],
+    ["Frascos de vida", "flask"],
+    ["Frascos de maná", "flask"],
+  ] as const)("«%s» va al hueco %s", (itemClass, slot) => {
+    expect(parseItemText(header(itemClass, "Objeto de prueba")).item.slot).toBe(slot);
+  });
+
+  it.each([
+    ["Staves", "weapon"],
+    ["Quarterstaves", "weapon"],
+    ["Flails", "weapon"],
+    ["Bucklers", "offhand"],
+    ["Foci", "offhand"],
+  ] as const)("clase en inglés «%s» va al hueco %s", (itemClass, slot) => {
+    const text = [`Item Class: ${itemClass}`, "Rarity: Normal", "Test Item", "--------", "Item Level: 1"].join("\n");
+    expect(parseItemText(text).item.slot).toBe(slot);
+  });
+
+  it("la clase manda sobre una palabra suelta del nombre", () => {
+    expect(parseItemText(header("Botas", "Botas de lanza")).item.slot).toBe("boots");
+    expect(parseItemText(header("Anillos", "Anillo del arco")).item.slot).toBe("ring1");
+  });
+});
