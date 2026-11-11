@@ -22,6 +22,10 @@ describe("versión HTML de las guías para buscadores", () => {
       expect(html).toContain(`<title>${act} de PoE2: guía de supervivencia · Exile Copilot</title>`);
       expect(html).toContain(`<meta name="description" content="${guide.description}" />`);
       expect(html).toContain(`<h1>${guide.title}</h1>`);
+      for (const step of guide.route ?? []) {
+        expect(html).toContain(step.zone);
+        expect(html).toContain(step.text.replace(/"/g, "&quot;"));
+      }
       for (const block of guide.blocks) {
         for (const tip of [...block.tips, ...(block.more ?? [])]) {
           // Las comillas del texto salen escapadas en el HTML.

@@ -33,6 +33,15 @@ export interface GuideBlock {
   more?: GuideTip[];
 }
 
+/** Un paso de la ruta del acto: una zona y lo que conviene hacer en ella. */
+export interface GuideRouteStep {
+  zone: string;
+  text: string;
+  /** Se puede saltar sin bloquear la historia. */
+  optional?: boolean;
+  sourceIds: string[];
+}
+
 export interface ActGuide {
   slug: string;
   actLabel: string;
@@ -47,6 +56,8 @@ export interface ActGuide {
   readMinutes: number;
   /** «Lo esencial»: cuatro líneas que bastan si no lees nada más. */
   essentials: GuideTip[];
+  /** Zonas del acto en orden, una línea cada una; se pueden ir marcando. */
+  route?: GuideRouteStep[];
   blocks: GuideBlock[];
   sources: GuideSource[];
   check: GuideCheckTargets;

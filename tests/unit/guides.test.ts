@@ -8,6 +8,7 @@ describe("guías por acto", () => {
       const known = new Set(guide.sources.map((source) => source.id));
       const tips = [
         ...guide.essentials,
+        ...(guide.route ?? []),
         ...guide.blocks.flatMap((block) => [...block.tips, ...(block.more ?? [])]),
       ];
       for (const tip of tips) {

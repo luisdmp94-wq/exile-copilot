@@ -1,4 +1,5 @@
-import { AlertTriangle, BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Shield, Skull, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Map as MapIcon, Shield, Skull, Sparkles } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
 import type { ActGuide, GuideBlock, GuideTip } from "@/guides/guide";
@@ -25,6 +26,88 @@ function SourceRefs({ guide, ids }: { guide: ActGuide; ids: string[] }) {
         );
       })}
     </span>
+  );
+}
+
+const ROUTE_STORAGE_PREFIX = "exile-copilot:guia-ruta:";
+
+function readRouteDone(slug: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(ROUTE_STORAGE_PREFIX + slug) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((zone): zone is string => typeof zone === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Ruta del acto: las zonas en orden, una línea cada una. El jugador marca lo
+ * que ya ha hecho; se recuerda en su navegador y nada sale de su equipo.
+ */
+function Route({ guide }: { guide: ActGuide }) {
+  const steps = guide.route ?? [];
+  const [done, setDone] = useState<string[]>(() => readRouteDone(guide.slug));
+
+  const toggle = (zone: string) => {
+    const next = done.includes(zone) ? done.filter((item) => item !== zone) : [...done, zone];
+    setDone(next);
+    try {
+      window.localStorage.setItem(ROUTE_STORAGE_PREFIX + guide.slug, JSON.stringify(next));
+    } catch {
+      // Sin almacenamiento (modo privado) la ruta sigue funcionando en esta visita.
+    }
+  };
+
+  const doneCount = steps.filter((step) => done.includes(step.zone)).length;
+
+  return (
+    <section
+      className="rounded-xl border border-border bg-card p-4 sm:p-5"
+      aria-labelledby="guia-ruta"
+      data-testid="guia-ruta"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 id="guia-ruta" className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <MapIcon className="size-5 shrink-0 text-primary" aria-hidden="true" />
+          Ruta del acto
+        </h2>
+        <span className="text-xs tabular-nums text-muted-foreground" data-testid="guia-ruta-progreso">
+          {doneCount} de {steps.length} hechas
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">Las zonas en orden. Marca cada una al terminarla.</p>
+      <ol className="mt-3 space-y-1">
+        {steps.map((step, index) => {
+          const checked = done.includes(step.zone);
+          const id = `guia-ruta-${guide.slug}-${index}`;
+          return (
+            <li key={step.zone} className="flex gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary/50">
+              <input
+                id={id}
+                type="checkbox"
+                checked={checked}
+                onChange={() => toggle(step.zone)}
+                className="mt-1 size-4 shrink-0 accent-primary"
+              />
+              <label htmlFor={id} className={cn("min-w-0 flex-1 cursor-pointer text-sm leading-relaxed", checked && "opacity-55")}>
+                <span className="font-semibold text-foreground">
+                  {index + 1}. {step.zone}
+                </span>
+                {step.optional && (
+                  <span className="ml-2 rounded-full border border-border px-1.5 py-px text-[11px] text-muted-foreground">
+                    opcional
+                  </span>
+                )}
+                <span className="block text-foreground/85">
+                  {step.text}
+                  <SourceRefs guide={guide} ids={step.sourceIds} />
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -180,6 +263,8 @@ export function GuidesSection({ guideSlug, onSelectGuide, profile, patch, onAskM
           ))}
         </ol>
       </section>
+
+      {guide.route && guide.route.length > 0 && <Route key={guide.slug} guide={guide} />}
 
       {guide.blocks.map((block, index) => (
         <Block key={block.id} guide={guide} block={block} number={index + 1} />

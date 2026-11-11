@@ -18,7 +18,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
   status: "borrador",
   checkedPatch: "0.5.5",
   checkedOn: "24-10-2026",
-  readMinutes: 2,
+  readMinutes: 3,
   check: {
     elemental: 30,
     nextAct: "acto 2",
@@ -44,6 +44,72 @@ export const ACT_ONE_GUIDE: ActGuide = {
     {
       text: "No te saltes las recompensas para siempre: puntos de pasiva de set de arma, vida y espíritu.",
       sourceIds: ["maxroll-subida"],
+    },
+  ],
+  route: [
+    {
+      zone: "La orilla del río",
+      text: "Mata al molinero hinchado: te da tu primera gema de habilidad.",
+      sourceIds: ["poe2db-acto1"],
+    },
+    {
+      zone: "Sierraclara",
+      text: "Busca a Beira, de la manada putrefacta: +10 % de resistencia al hielo para siempre.",
+      sourceIds: ["wiki-resistencias", "poe2db-acto1"],
+    },
+    {
+      zone: "Lodazal",
+      text: "El devorador da una gema de asistencia y 100 de oro. Merece la pena.",
+      optional: true,
+      sourceIds: ["poe2db-acto1"],
+    },
+    {
+      zone: "El bosque singular",
+      text: "Frascos medianos gratis en la Cabaña de la bruja. El Horror de espinas es opcional.",
+      sourceIds: ["maxroll-subida", "poe2db-acto1"],
+    },
+    {
+      zone: "El valle rojo",
+      text: "Jefe: el rey del óxido. La misión «En busca de la forja» te deja reciclar objetos con Renly.",
+      sourceIds: ["poe2db-acto1"],
+    },
+    {
+      zone: "El enredo sombrío",
+      text: "Es el camino al cementerio. Ervig, el Druida putrefacto, es opcional.",
+      sourceIds: ["poe2db-acto1"],
+    },
+    {
+      zone: "Cementerio de los eternos",
+      text: "Para llegar a Lachlann del lamento eterno pasa antes por el Mausoleo del pretor y la Tumba de la consorte. Da una gema de asistencia.",
+      sourceIds: ["wiki-acto1", "poe2db-acto1"],
+    },
+    {
+      zone: "Terrenos de caza",
+      text: "El cuervo repicador da un libro con 2 puntos de pasiva de set de arma.",
+      optional: true,
+      sourceIds: ["wiki-cuervo", "poe2db-acto1"],
+    },
+    {
+      zone: "Villafrey",
+      text: "El rey de las nieblas da +30 de espíritu para siempre.",
+      optional: true,
+      sourceIds: ["maxroll-subida", "wiki-rey-nieblas"],
+    },
+    {
+      zone: "Tierras de cultivo de Ogham",
+      text: "Misión «El laúd perdido»: está en La cabaña de Una. Da otro libro con 2 puntos.",
+      optional: true,
+      sourceIds: ["poe2db-acto1", "wiki-libro"],
+    },
+    {
+      zone: "Pueblo de Ogham",
+      text: "El verdugo: apártate de la ráfaga de viento que marca su guillotina. Da una gema de habilidad de nivel 5.",
+      sourceIds: ["wiki-verdugo", "poe2db-acto1"],
+    },
+    {
+      zone: "Mansión de Ogham",
+      text: "Cirio, el Ritual viviente, da +20 de vida. Al final espera el conde Geonor.",
+      sourceIds: ["maxroll-subida", "wiki-geonor"],
     },
   ],
   blocks: [
@@ -170,6 +236,11 @@ export const ACT_ONE_GUIDE: ActGuide = {
       id: "ggg-053",
       label: "Grinding Gear Games — notas del parche 0.5.3",
       url: "https://www.pathofexile.com/forum/view-thread/3968601",
+    },
+    {
+      id: "wiki-acto1",
+      label: "PoE2 Wiki — Act 1",
+      url: "https://www.poe2wiki.net/wiki/Act_1",
     },
     {
       id: "wiki-geonor",

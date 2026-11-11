@@ -34,6 +34,16 @@ export function renderGuideArticle(guide: ActGuide): string {
   parts.push(`<p>${escapeHtml(guide.summary)}</p>`);
   parts.push(`<p>Comprobada para el parche ${escapeHtml(guide.checkedPatch)}. Se revisa al salir la 1.0.</p>`);
   parts.push(`<h2>Lo esencial</h2><ol>${guide.essentials.map(tipHtml).join("")}</ol>`);
+  if (guide.route?.length) {
+    parts.push(
+      `<h2>Ruta del acto</h2><ol>${guide.route
+        .map(
+          (step) =>
+            `<li><strong>${escapeHtml(step.zone)}${step.optional ? " (opcional)" : ""}:</strong> ${escapeHtml(step.text)}</li>`,
+        )
+        .join("")}</ol>`,
+    );
+  }
   guide.blocks.forEach((block, index) => {
     parts.push(`<section><h2>${index + 1}. ${escapeHtml(block.title)}</h2>`);
     parts.push(`<p>${escapeHtml(block.intro)}</p>`);
