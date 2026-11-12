@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { AlertTriangle, BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Map as MapIcon, Shield, Skull, Sparkles } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
+import { GemAdvisorCard } from "@/components/GemAdvisorCard";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
-import type { ActGuide, GuideBlock, GuideTip } from "@/guides/guide";
+import { ItemCompareCard } from "@/components/ItemCompareCard";
+import type { ActGuide, GuideBlock, GuideRoutePriority, GuideTip } from "@/guides/guide";
 import { GUIDES, UPCOMING_GUIDES, findGuide } from "@/guides";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,12 @@ function SourceRefs({ guide, ids }: { guide: ActGuide; ids: string[] }) {
 }
 
 const ROUTE_STORAGE_PREFIX = "exile-copilot:guia-ruta:";
+
+const ROUTE_PRIORITY: Record<GuideRoutePriority, { label: string; className: string }> = {
+  clave: { label: "No te lo saltes", className: "border-amber-400/60 bg-amber-400/15 text-amber-200" },
+  recomendable: { label: "Merece la pena", className: "border-emerald-400/40 text-emerald-200" },
+  historia: { label: "Historia", className: "border-border text-muted-foreground" },
+};
 
 function readRouteDone(slug: string): string[] {
   try {
@@ -59,6 +67,8 @@ function Route({ guide }: { guide: ActGuide }) {
   };
 
   const doneCount = steps.filter((step) => done.includes(step.zone)).length;
+  const keySteps = steps.filter((step) => step.priority === "clave");
+  const skippable = steps.flatMap((step) => (step.skip ? [`${step.skip} (${step.zone})`] : []));
 
   return (
     <section
@@ -76,6 +86,22 @@ function Route({ guide }: { guide: ActGuide }) {
         </span>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">Las zonas en orden. Marca cada una al terminarla.</p>
+      {(keySteps.length > 0 || skippable.length > 0) && (
+        <div className="mt-3 rounded-lg bg-secondary/50 p-3 text-sm leading-relaxed" data-testid="guia-ruta-resumen">
+          {keySteps.length > 0 && (
+            <p>
+              <strong className="font-semibold text-amber-200">Lo más importante, para siempre:</strong>{" "}
+              {keySteps.map((step) => `${step.reward ?? step.zone} (${step.zone})`).join(" · ")}.
+            </p>
+          )}
+          {skippable.length > 0 && (
+            <p className="mt-1 text-muted-foreground">
+              <strong className="font-semibold text-foreground/90">Te puedes saltar:</strong> {skippable.join(" · ")}.
+              No dan nada para siempre.
+            </p>
+          )}
+        </div>
+      )}
       <ol className="mt-3 space-y-1">
         {steps.map((step, index) => {
           const checked = done.includes(step.zone);
@@ -93,8 +119,16 @@ function Route({ guide }: { guide: ActGuide }) {
                 <span className="font-semibold text-foreground">
                   {index + 1}. {step.zone}
                 </span>
-                {step.optional && (
-                  <span className="ml-2 rounded-full border border-border px-1.5 py-px text-[11px] text-muted-foreground">
+                <span
+                  className={cn(
+                    "ml-2 rounded-full border px-1.5 py-px text-[11px]",
+                    ROUTE_PRIORITY[step.priority].className,
+                  )}
+                >
+                  {ROUTE_PRIORITY[step.priority].label}
+                </span>
+                {step.optional && step.priority !== "clave" && (
+                  <span className="ml-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted-foreground">
                     opcional
                   </span>
                 )}
@@ -102,6 +136,9 @@ function Route({ guide }: { guide: ActGuide }) {
                   {step.text}
                   <SourceRefs guide={guide} ids={step.sourceIds} />
                 </span>
+                {step.skip && (
+                  <span className="block text-xs text-muted-foreground">Te puedes saltar: {step.skip}.</span>
+                )}
               </label>
             </li>
           );
@@ -264,6 +301,8 @@ export function GuidesSection({ guideSlug, onSelectGuide, profile, patch, onAskM
         </ol>
       </section>
 
+      <GemAdvisorCard />
+
       {guide.route && guide.route.length > 0 && <Route key={guide.slug} guide={guide} />}
 
       {guide.blocks.map((block, index) => (
@@ -277,6 +316,8 @@ export function GuidesSection({ guideSlug, onSelectGuide, profile, patch, onAskM
         patch={patch}
         onAskMentor={onAskMentor}
       />
+
+      <ItemCompareCard patch={patch} />
 
       <section aria-labelledby="guia-fuentes" className="px-1 pt-2" data-testid="guia-fuentes">
         <h2 id="guia-fuentes" className="text-sm font-semibold text-foreground">

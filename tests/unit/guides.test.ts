@@ -25,6 +25,17 @@ describe("guías por acto", () => {
     },
   );
 
+  it.each(GUIDES.map((guide) => [guide.slug, guide] as const))(
+    "%s: la ruta dice qué importa y qué se puede saltar",
+    (_slug, guide) => {
+      for (const step of guide.route ?? []) {
+        expect(["clave", "recomendable", "historia"], step.zone).toContain(step.priority);
+        // Lo clave nombra su recompensa permanente; lo demás no presume de una.
+        expect(Boolean(step.reward), step.zone).toBe(step.priority === "clave");
+      }
+    },
+  );
+
   it("lee la guía de la dirección y descarta las desconocidas", () => {
     expect(guideSlugFromPath("/guias/acto-2")).toBe("acto-2");
     expect(guideSlugFromPath("/guias/acto-2/")).toBe("acto-2");

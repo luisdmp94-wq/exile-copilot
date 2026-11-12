@@ -34,11 +34,24 @@ export interface GuideBlock {
 }
 
 /** Un paso de la ruta del acto: una zona y lo que conviene hacer en ella. */
+/**
+ * Cuánto importa una zona de la ruta:
+ * - `clave`: da algo para siempre (resistencia, puntos, espíritu, vida).
+ * - `recomendable`: da una recompensa que se agradece, pero no permanente.
+ * - `historia`: el juego te lleva allí; no hay nada que decidir.
+ */
+export type GuideRoutePriority = "clave" | "recomendable" | "historia";
+
 export interface GuideRouteStep {
   zone: string;
   text: string;
   /** Se puede saltar sin bloquear la historia. */
   optional?: boolean;
+  priority: GuideRoutePriority;
+  /** Solo en las zonas clave: la recompensa permanente, en dos o tres palabras. */
+  reward?: string;
+  /** Jefe u objetivo opcional de la zona que no da nada para siempre. */
+  skip?: string;
   sourceIds: string[];
 }
 

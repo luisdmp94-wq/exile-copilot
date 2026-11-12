@@ -1,4 +1,4 @@
-import type { ActGuide, GuideTip } from "./guide";
+import type { ActGuide, GuideRoutePriority, GuideTip } from "./guide";
 import { guidePageTitle } from "./index";
 
 /**
@@ -18,6 +18,12 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+const ROUTE_PRIORITY_LABEL: Record<GuideRoutePriority, string> = {
+  clave: "no te lo saltes",
+  recomendable: "merece la pena",
+  historia: "historia",
+};
 
 function tipHtml(tip: GuideTip): string {
   const lead = tip.lead ? `<strong>${escapeHtml(tip.lead)}</strong> ` : "";
@@ -39,7 +45,9 @@ export function renderGuideArticle(guide: ActGuide): string {
       `<h2>Ruta del acto</h2><ol>${guide.route
         .map(
           (step) =>
-            `<li><strong>${escapeHtml(step.zone)}${step.optional ? " (opcional)" : ""}:</strong> ${escapeHtml(step.text)}</li>`,
+            `<li><strong>${escapeHtml(step.zone)} (${ROUTE_PRIORITY_LABEL[step.priority]}):</strong> ${escapeHtml(step.text)}${
+              step.skip ? ` Te puedes saltar: ${escapeHtml(step.skip)}.` : ""
+            }</li>`,
         )
         .join("")}</ol>`,
     );
