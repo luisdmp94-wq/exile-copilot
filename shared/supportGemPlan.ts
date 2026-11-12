@@ -1,11 +1,13 @@
 import { z } from "zod";
 import {
+  BuildContextSchema,
   GemAttributeSchema,
   MAX_ADVICE_NOTE_LENGTH,
   SupportAdviceOptionSchema,
   normalizeGemText,
   supportCandidates,
   supportFamily,
+  type BuildContext,
   type GemAttribute,
   type GemData,
   type GemSkill,
@@ -34,6 +36,7 @@ export interface PlanQuery {
   capacity: GemCapacity;
   /** Asistencias que el personaje ya lleva puestas, en cualquier habilidad. */
   socketed?: readonly string[];
+  build?: BuildContext | null;
 }
 
 /** Cuántas candidatas se consideran por habilidad y atributo. */
@@ -53,6 +56,7 @@ export function supportPairs(data: GemData, query: PlanQuery): SupportPair[] {
       maxGrade: query.maxGrade,
       attributes,
       socketed: query.socketed ?? [],
+      build: query.build ?? null,
     });
     // Las mejores de cada atributo: así una gema de destreza no se queda fuera
     // solo porque las de inteligencia puntúen más.
@@ -120,6 +124,7 @@ export const SupportPlanRequestSchema = z.object({
   capacity: z.object({ Fue: FreeSlots, Des: FreeSlots, Int: FreeSlots }),
   socketed: z.array(z.string().trim().min(1).max(80)).max(16).optional(),
   note: z.string().trim().max(MAX_ADVICE_NOTE_LENGTH).optional(),
+  build: BuildContextSchema.optional(),
 });
 export type SupportPlanRequest = z.infer<typeof SupportPlanRequestSchema>;
 

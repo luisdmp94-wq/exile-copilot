@@ -119,6 +119,55 @@ describe("adviseSupportPlan", () => {
     }
   });
 
+  describe("con la build del Expediente", () => {
+    const WARLOCK = { characterClass: "Bruja", archetype: "brujo de caos con esbirros" };
+
+    it("un personaje de caos ya no recibe Brutalidad: la gema va a una habilidad de caos", async () => {
+      const without = await adviseSupportPlan(data, LUIS, null);
+      expect(without.assignments.some((item) => item.support.name === "Brutalidad I")).toBe(true);
+
+      const withBuild = await adviseSupportPlan(data, { ...LUIS, build: WARLOCK }, null);
+      expect(withBuild.assignments).toHaveLength(3);
+      expect(withBuild.assignments.some((item) => item.support.name === "Brutalidad I")).toBe(false);
+      for (const item of withBuild.assignments) {
+        expect(["Contagio", "Drenar esencia", "Descarga de caos", "Tirador esqueleto"]).toContain(item.skill);
+      }
+    });
+
+    it("lo marcado como core va primero y lo descartado no se propone", async () => {
+      const answer = await adviseSupportPlan(
+        data,
+        { ...LUIS, gems: 1, build: { ...WARLOCK, core: ["Drenar esencia: mi daño contra jefes"], discarded: ["Aflicción veloz"] } },
+        null,
+      );
+      expect(answer.assignments).toHaveLength(1);
+      expect(answer.assignments[0].skill).toBe("Drenar esencia");
+      expect(answer.assignments[0].support.name).not.toBe("Aflicción veloz I");
+    });
+
+    it("la build llega a la IA como dato para explicar", async () => {
+      let received: unknown = null;
+      const explainer: SupportPlanExplainer = async ({ build, pairs }) => {
+        received = build;
+        return pairs.map((pair) => ({ skill: pair.skill.name, support: pair.support.name, reason: "Encaja con tu brujo de caos." }));
+      };
+      const answer = await adviseSupportPlan(data, { ...LUIS, build: WARLOCK }, explainer);
+      expect(received).toEqual(WARLOCK);
+      expect(answer.mode).toBe("ai");
+    });
+
+    it("las asistencias ya puestas valen también con su nombre en inglés", async () => {
+      const answer = await adviseSupportPlan(
+        data,
+        { skills: ["Chaos Bolt"], gems: 1, maxGrade: 1, capacity: { Fue: 0, Des: 0, Int: 1 }, socketed: ["Rapid Casting I", "Profanity I"] },
+        null,
+      );
+      expect(answer.unknownSkills).toEqual([]);
+      expect(answer.assignments[0].skill).toBe("Descarga de caos");
+      expect(["Lanzamiento rápido I", "Obscenidad I"]).not.toContain(answer.assignments[0].support.name);
+    });
+  });
+
   it("avisa de las habilidades que no conoce y de las gemas que sobran", async () => {
     const answer = await adviseSupportPlan(
       data,

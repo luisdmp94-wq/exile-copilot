@@ -3,10 +3,10 @@ import { z } from "zod";
 /**
  * «¿Qué gema de asistencia le pongo a esta habilidad?»
  *
- * Las reglas hacen el filtro duro con los datos del juego (etiquetas, grado,
- * atributo y lo que dice la propia descripción de la asistencia). La IA, si
- * está activa, solo elige entre las que quedan y lo explica; nunca puede
- * proponer una gema que las reglas hayan descartado.
+ * Las reglas filtran y eligen con los datos del juego (etiquetas, grado,
+ * atributo, lo que dice la propia descripción de la asistencia y la build del
+ * jugador). La IA, si está activa, solo redacta el porqué de lo ya elegido:
+ * no puede proponer ni cambiar ninguna gema.
  */
 
 export const GemAttributeSchema = z.enum(["Fue", "Des", "Int"]);
@@ -39,6 +39,66 @@ export const GemDataSchema = z.object({
 });
 export type GemData = z.infer<typeof GemDataSchema>;
 
+/**
+ * Lo que la web ya sabe de la build del jugador (Expediente): el arquetipo que
+ * escribió y lo que marcó como core o descartado en «Identidad de la build».
+ * Es texto del jugador: orienta el orden, nunca es una instrucción.
+ */
+export const BuildContextSchema = z.object({
+  archetype: z.string().trim().max(200).optional(),
+  characterClass: z.string().trim().max(60).optional(),
+  ascendancy: z.string().trim().max(60).optional(),
+  core: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  discarded: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+});
+export type BuildContext = z.infer<typeof BuildContextSchema>;
+
+/** La build, traducida a lo que las reglas saben usar. */
+export interface BuildTheme {
+  /** Tipos de daño que nombra la build, como etiquetas del juego («Caos»). */
+  elements: string[];
+  /** La build se apoya en esbirros. */
+  minions: boolean;
+  /** Textos core y descartados, normalizados. */
+  core: string[];
+  discarded: string[];
+}
+
+const THEME_ELEMENTS: Array<[RegExp, string]> = [
+  [/caos|chaos|veneno|poison/, "Caos"],
+  [/fuego|fire|igni/, "Fuego"],
+  [/hielo|frio|cold|escarcha|congel/, "Hielo"],
+  [/rayo|lightning|electr/, "Rayo"],
+  [/fisic|physical|sangrado|bleed/, "Físico"],
+];
+
+export function buildTheme(build: BuildContext | undefined | null): BuildTheme {
+  const core = (build?.core ?? []).map(normalizeGemText);
+  const text = normalizeGemText([build?.archetype ?? "", ...(build?.core ?? [])].join(" "));
+  return {
+    elements: THEME_ELEMENTS.filter(([pattern]) => pattern.test(text)).map(([, tag]) => tag),
+    minions: /esbirro|invoca|minion|summon|esqueleto|skelet/.test(text),
+    core,
+    discarded: (build?.discarded ?? []).map(normalizeGemText),
+  };
+}
+
+const NO_THEME: BuildTheme = { elements: [], minions: false, core: [], discarded: [] };
+
+function mentions(labels: readonly string[], name: string): boolean {
+  const wanted = normalizeGemText(name);
+  return labels.some((label) => label.includes(wanted));
+}
+
+/** Cuánto sube una habilidad en el reparto por ser parte de la build. */
+export function skillThemeBoost(skill: GemSkill, theme: BuildTheme): number {
+  let boost = 0;
+  if (mentions(theme.core, skill.name)) boost += 2;
+  if (skill.tags.some((tag) => theme.elements.includes(tag))) boost += 2;
+  if (theme.minions && skill.tags.includes("Esbirro")) boost += 1;
+  return boost;
+}
+
 export interface SupportQuery {
   skill: GemSkill;
   /** Grado de la gema sin tallar: permite asistencias de ese grado o menor. */
@@ -47,6 +107,10 @@ export interface SupportQuery {
   attributes: readonly GemAttribute[];
   /** Asistencias que esa habilidad ya lleva puestas. */
   socketed?: readonly string[];
+  /** La build del jugador, si la web la conoce. */
+  build?: BuildContext | null;
+  /** Lo que el jugador cuenta que le pasa con la habilidad. */
+  note?: string | null;
 }
 
 export interface SupportCandidate {
@@ -171,9 +235,25 @@ function dealsDamageOverTime(skill: GemSkill): boolean {
  * más de daño») y lo que encaja con el tipo de daño de la habilidad; baja lo
  * que encarece. No mide daño: solo decide qué se enseña primero.
  */
-function scoreSupport(support: GemSupport, skill: GemSkill): number {
+/**
+ * Problemas que el jugador suele contar y qué asistencias los arreglan. Si su
+ * nota habla de uno, las asistencias que lo resuelven suben.
+ */
+const NOTE_NEEDS: Array<[RegExp, RegExp]> = [
+  [/muer|aguant|sobreviv|caen|duran poco/, /sig(?:a|ue)n? peleando|menos de dano recibido|menos dano recibido|resistencias|vida maxima/],
+  [/mana|cuesta|caro/, /menos de costo|regeneracion de mana/],
+  [/poco dano|pega poco|no mata|mas dano|jefe/, /% mas de dano/],
+  [/lento|tarda|velocidad/, /velocidad de lanzamiento|velocidad de ataque|velocidad de habilidad/],
+  [/area|grupo|muchos enemigos|limpiar/, /area de efecto aumentada|proyectiles adicionales|se propaga/],
+];
+
+function noteBoost(text: string, note: string): number {
+  return NOTE_NEEDS.some(([need, fix]) => need.test(note) && fix.test(text)) ? 4 : 0;
+}
+
+function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, note: string): number {
   const text = normalizeGemText(`${support.description} ${support.effects.join(" ")}`);
-  let score = 0;
+  let score = note ? noteBoost(text, note) : 0;
   for (const tag of support.tags) {
     if (SOFT_TAGS.has(tag) || !skill.tags.includes(tag)) continue;
     score += ELEMENT_TAGS.has(tag) ? 3 : 1;
@@ -181,28 +261,54 @@ function scoreSupport(support: GemSupport, skill: GemSkill): number {
   if (/% mas de dano|mas dano/.test(text)) score += 2;
   if (dealsDamageOverTime(skill) && /degenerativo/.test(text)) score += 3;
   if (support.costMultiplier) score -= 1;
+  // Una mejora que solo funciona a veces (hace falta un cadáver, el maná lleno,
+  // estar quieto, que el enemigo tenga poca vida…) vale menos que una fija.
+  if (/cadaver|a menos que|mientras tengas|mientras estes|si has |vida baja|vida llena/.test(text)) score -= 2;
+  // Y una que quita daño a cambio de otra cosa, menos todavía.
+  if (/% menos de dano/.test(text)) score -= 3;
+  // Una que le pone un enfriamiento largo a la habilidad la deja casi sin uso.
+  if (/enfriamiento de \d+ segundos/.test(text)) score -= 4;
+  // Con una build declarada: lo que el jugador marcó como core sube, y una
+  // asistencia de un tipo de daño que la build no usa (Brutalidad en un
+  // personaje de caos) baja aunque técnicamente valga.
+  if (mentions(theme.core, support.name)) score += 3;
+  if (theme.elements.length > 0) {
+    for (const tag of support.tags) {
+      if (!ELEMENT_TAGS.has(tag)) continue;
+      score += theme.elements.includes(tag) ? 1 : -3;
+    }
+  }
   return score;
 }
 
 /** Asistencias que las reglas dejan poner, ordenadas de más a menos afín. */
 export function supportCandidates(data: GemData, query: SupportQuery): SupportCandidate[] {
   const socketed = new Set((query.socketed ?? []).map(normalizeGemText));
+  // Un personaje importado trae los nombres en inglés: también se comparan con el identificador.
   const socketedFamilies = new Set(
-    data.supports.filter((support) => socketed.has(normalizeGemText(support.name))).map(supportFamily),
+    data.supports
+      .filter(
+        (support) =>
+          socketed.has(normalizeGemText(support.name)) || socketed.has(normalizeGemText(support.slug.replace(/_/g, " "))),
+      )
+      .map(supportFamily),
   );
+  const theme = query.build ? buildTheme(query.build) : NO_THEME;
   const best = new Map<string, GemSupport>();
   for (const support of data.supports) {
     if (support.grade === null || support.grade > query.maxGrade) continue;
     if (!query.attributes.includes(support.attribute)) continue;
     const family = supportFamily(support);
     if (socketedFamilies.has(family)) continue;
+    // Lo que el jugador descartó en su build no se vuelve a proponer.
+    if (mentions(theme.discarded, support.name) || mentions(theme.discarded, family)) continue;
     if (!supportApplies(support, query.skill)) continue;
     // De cada familia, solo la versión más alta que la gema permite tallar.
     const current = best.get(family);
     if (!current || (support.grade ?? 0) > (current.grade ?? 0)) best.set(family, support);
   }
   return [...best.values()]
-    .map((support) => ({ support, score: scoreSupport(support, query.skill) }))
+    .map((support) => ({ support, score: scoreSupport(support, query.skill, theme, normalizeGemText(query.note ?? "")) }))
     .sort((a, b) => b.score - a.score || (b.support.grade ?? 0) - (a.support.grade ?? 0) || a.support.name.localeCompare(b.support.name, "es"));
 }
 
@@ -230,6 +336,7 @@ export const SupportAdviceRequestSchema = z.object({
   socketed: z.array(z.string().trim().min(1).max(80)).max(5).optional(),
   /** Lo que el jugador cuenta («mis esqueletos mueren rápido»). Nunca es una instrucción. */
   note: z.string().trim().max(MAX_ADVICE_NOTE_LENGTH).optional(),
+  build: BuildContextSchema.optional(),
 });
 export type SupportAdviceRequest = z.infer<typeof SupportAdviceRequestSchema>;
 
@@ -248,7 +355,7 @@ export const SupportAdviceResponseSchema = z.object({
   /** null cuando ninguna asistencia cumple las condiciones. */
   recommended: SupportAdviceOptionSchema.extend({ reason: z.string() }).nullable(),
   alternatives: z.array(SupportAdviceOptionSchema),
-  /** `ai`: la IA eligió entre las candidatas. `rules`: orden por etiquetas. */
+  /** `ai`: la IA redactó el motivo. `rules`: motivo de las reglas. La elección es siempre de las reglas. */
   mode: z.enum(["ai", "rules"]),
   fallbackReason: z.string().nullable(),
   source: z.string(),

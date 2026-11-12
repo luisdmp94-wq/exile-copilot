@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { ChevronDown, Gem, Loader2, Minus, Plus, Sparkles, X } from "lucide-react";
-import type { GemAttribute, SupportAdviceOption, SupportAdviceResponse } from "@shared/supportGemAdvice.js";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, Gem, Loader2, Minus, Plus, Sparkles, UserCheck, X } from "lucide-react";
+import type { BuildMemoryEntry, CharacterProfile } from "@shared/domain.js";
+import type { BuildContext, GemAttribute, SupportAdviceOption, SupportAdviceResponse } from "@shared/supportGemAdvice.js";
 import type { SupportPlanResponse } from "@shared/supportGemPlan.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,13 +120,47 @@ function Footer({ mode, aiRole, fallbackReason, source, fetchedAt, hasPick }: Fo
   );
 }
 
+const UNKNOWN_CLASS = /^desconocid/i;
+
+/** Lo que el Expediente ya sabe de la build, en la forma que entiende el consejo de gemas. */
+function buildFromCharacter(profile: CharacterProfile, memory: readonly BuildMemoryEntry[]): BuildContext {
+  const active = memory.filter((entry) => entry.active);
+  const labels = (kind: BuildMemoryEntry["kind"]) =>
+    active
+      .filter((entry) => entry.kind === kind)
+      .map((entry) => `${entry.label}: ${entry.reason}`.slice(0, 200))
+      .slice(0, 20);
+  const core = labels("core");
+  const discarded = active
+    .filter((entry) => entry.kind === "discarded")
+    .map((entry) => entry.label.slice(0, 200))
+    .slice(0, 20);
+  const characterClass = profile.characterClass.trim();
+  return {
+    ...(characterClass && !UNKNOWN_CLASS.test(characterClass) ? { characterClass: characterClass.slice(0, 60) } : {}),
+    ...(profile.ascendancy?.trim() ? { ascendancy: profile.ascendancy.trim().slice(0, 60) } : {}),
+    ...(profile.archetype?.trim() ? { archetype: profile.archetype.trim().slice(0, 200) } : {}),
+    ...(core.length > 0 ? { core } : {}),
+    ...(discarded.length > 0 ? { discarded } : {}),
+  };
+}
+
+interface GemAdvisorCardProps {
+  /** Personaje cargado en el Expediente, si lo hay. */
+  profile: CharacterProfile | null;
+  /** «Identidad de la build» de ese personaje. */
+  buildMemory: readonly BuildMemoryEntry[];
+}
+
 /**
  * «¿Qué gema de asistencia le pongo?»: para una habilidad, o repartiendo
  * varias gemas entre las habilidades del personaje. Las reglas filtran con los
- * datos del juego y, si hay IA, elige y lo explica.
+ * datos del juego y, si hay IA, elige y lo explica. Con un personaje cargado
+ * usa su build: arquetipo, lo marcado como core o descartado y sus habilidades.
  */
-export function GemAdvisorCard() {
+export function GemAdvisorCard({ profile, buildMemory }: GemAdvisorCardProps) {
   const [remembered] = useState(readRemembered);
+  const [useCharacter, setUseCharacter] = useState(true);
   const [mode, setMode] = useState<Mode>(remembered.mode);
   const [skillNames, setSkillNames] = useState<string[]>([]);
   const [maxGrade, setMaxGrade] = useState(remembered.maxGrade);
@@ -145,6 +180,30 @@ export function GemAdvisorCard() {
   const [gems, setGems] = useState(remembered.gems);
   const [free, setFree] = useState(remembered.free);
   const [plan, setPlan] = useState<SupportPlanResponse | null>(null);
+
+  const character = profile && useCharacter ? profile : null;
+  const build = useMemo(
+    () => (character ? buildFromCharacter(character, buildMemory) : undefined),
+    [character, buildMemory],
+  );
+  const hasBuildIdentity = Boolean(build?.archetype || build?.core?.length);
+  const characterSkills = useMemo(
+    () =>
+      (character?.skills ?? [])
+        .filter((setup) => setup.mainSkill.trim() !== "")
+        .slice(0, MAX_SKILLS)
+        .map((setup) => ({ name: setup.mainSkill.trim(), supports: setup.supports.map((support) => support.name.trim()).filter(Boolean) })),
+    [character],
+  );
+  /** Asistencias que el personaje ya lleva en esa habilidad, según el Expediente. */
+  const supportsOf = (skillName: string): string[] =>
+    characterSkills.find((item) => item.name.toLocaleLowerCase("es") === skillName.trim().toLocaleLowerCase("es"))?.supports ?? [];
+
+  const loadCharacterSkills = () => {
+    setMySkills(characterSkills.map((item) => item.name));
+    setSocketed([...new Set(characterSkills.flatMap((item) => item.supports))].join(", "));
+    setError(null);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -206,7 +265,7 @@ export function GemAdvisorCard() {
     setBusy(true);
     setError(null);
     try {
-      const names = splitNames(socketed, 5);
+      const names = [...new Set([...splitNames(socketed, 5), ...supportsOf(skill)])].slice(0, 5);
       setAnswer(
         await api.supportGemAdvice({
           skill: skill.trim(),
@@ -214,6 +273,7 @@ export function GemAdvisorCard() {
           attributes,
           ...(names.length > 0 ? { socketed: names } : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
+          ...(build ? { build } : {}),
         }),
       );
     } catch (err) {
@@ -251,6 +311,7 @@ export function GemAdvisorCard() {
           capacity: free,
           ...(names.length > 0 ? { socketed: names } : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
+          ...(build ? { build } : {}),
         }),
       );
     } catch (err) {
@@ -276,6 +337,39 @@ export function GemAdvisorCard() {
       <p className="mt-1 text-sm text-muted-foreground">
         Dime tus habilidades y qué te deja tallar tu gema. Te digo cuál poner, dónde y por qué.
       </p>
+
+      {profile && (
+        <div className="mt-3 rounded-lg bg-secondary/50 px-3 py-2 text-sm" data-testid="asistencia-personaje">
+          <label className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              checked={useCharacter}
+              onChange={(event) => setUseCharacter(event.target.checked)}
+              className="mt-1 size-4 shrink-0 accent-primary"
+              data-testid="asistencia-usar-personaje"
+            />
+            <span className="min-w-0">
+              <span className="flex flex-wrap items-center gap-1.5 font-semibold text-foreground">
+                <UserCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                Usar mi personaje: {profile.name}
+              </span>
+              {useCharacter && (
+                <span className="block text-xs text-muted-foreground" data-testid="asistencia-build">
+                  {hasBuildIdentity
+                    ? [
+                        build?.archetype ? `Build: ${build.archetype}.` : null,
+                        build?.core?.length ? `${build.core.length} cosa(s) marcadas como core.` : null,
+                        build?.discarded?.length ? `${build.discarded.length} descartada(s) que no te propondré.` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                    : "Aún no sé qué build es. Escribe el arquetipo en el Expediente (por ejemplo «brujo de caos con esbirros») o marca lo esencial en «Identidad de la build», y afinaré mucho más."}
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Qué quieres saber">
         <Button
@@ -360,6 +454,19 @@ export function GemAdvisorCard() {
                 Añadir
               </Button>
             </div>
+            {characterSkills.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={loadCharacterSkills}
+                data-testid="asistencia-cargar-personaje"
+              >
+                <UserCheck className="size-4" aria-hidden="true" />
+                Usar las {characterSkills.length} habilidades de {character?.name}
+              </Button>
+            )}
             {mySkills.length > 0 && (
               <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Tus habilidades" data-testid="asistencia-lista-habilidades">
                 {mySkills.map((name) => (
@@ -592,7 +699,7 @@ export function GemAdvisorCard() {
           )}
           <Footer
             mode={answer.mode}
-            aiRole="Elegida por la IA entre las que valen."
+            aiRole="La gema la eligen las reglas; la IA solo explica el porqué."
             fallbackReason={answer.fallbackReason}
             source={answer.source}
             fetchedAt={answer.fetchedAt}

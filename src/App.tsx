@@ -1973,6 +1973,7 @@ export default function App() {
                   window.scrollTo({ top: 0 });
                 }}
                 profile={character.profile}
+                buildMemory={journal.journal?.buildMemory ?? []}
                 patch={character.profile?.patch || activePatchId || "desconocido"}
                 onAskMentor={
                   character.profile

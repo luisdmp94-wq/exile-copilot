@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   adviseSupportGem,
   loadGemData,
-  type SupportPicker,
+  type SupportPlanExplainer,
 } from "../../server/advice/supportGemAdvisor.js";
 import { ApiHttpError } from "../../server/errors.js";
 import { SupportAdviceResponseSchema, type SupportAdviceRequest } from "../../shared/supportGemAdvice.js";
@@ -16,8 +16,10 @@ const SKELETONS: SupportAdviceRequest = {
   note: "mis esqueletos mueren muy rápido",
 };
 
+const WARLOCK = { characterClass: "Bruja", archetype: "brujo de caos con esbirros" };
+
 describe("adviseSupportGem", () => {
-  it("sin IA responde con las reglas y una explicación propia", async () => {
+  it("sin IA elige con las reglas y da una explicación propia", async () => {
     const answer = SupportAdviceResponseSchema.parse(await adviseSupportGem(data, SKELETONS, null));
     expect(answer.mode).toBe("rules");
     expect(answer.fallbackReason).toBeNull();
@@ -28,43 +30,62 @@ describe("adviseSupportGem", () => {
     expect(answer.source).toContain("poe2db");
   });
 
-  it("con IA usa su elección y su motivo si señala una candidata de la lista", async () => {
+  it("la IA solo redacta: la gema elegida es la misma con o sin ella", async () => {
+    const byRules = await adviseSupportGem(data, SKELETONS, null);
     const seen: string[] = [];
-    const picker: SupportPicker = async ({ candidates, note }) => {
-      seen.push(...candidates.map((candidate) => candidate.name), note ?? "");
-      return { name: "ejército elemental", reason: "Tus esqueletos aguantan mejor el fuego, el hielo y el rayo." };
+    const explainer: SupportPlanExplainer = async ({ pairs, note }) => {
+      seen.push(...pairs.map((pair) => pair.support.name), note ?? "");
+      return [{ skill: pairs[0].skill.name, support: pairs[0].support.name, reason: "Tus esqueletos siguen peleando 4 segundos más." }];
     };
-    const answer = await adviseSupportGem(data, SKELETONS, picker);
+    const answer = await adviseSupportGem(data, SKELETONS, explainer);
     expect(answer.mode).toBe("ai");
-    expect(answer.recommended?.name).toBe("Ejército elemental");
-    expect(answer.recommended?.reason).toBe("Tus esqueletos aguantan mejor el fuego, el hielo y el rayo.");
-    expect(answer.alternatives.map((option) => option.name)).not.toContain("Ejército elemental");
-    expect(seen).toContain("Último aliento");
-    expect(seen).toContain("mis esqueletos mueren muy rápido");
+    expect(answer.recommended?.name).toBe(byRules.recommended?.name);
+    expect(answer.recommended?.reason).toBe("Tus esqueletos siguen peleando 4 segundos más.");
+    expect(seen).toEqual(["Último aliento", "mis esqueletos mueren muy rápido"]);
   });
 
-  it("si la IA propone una gema que las reglas no dejaron, se ignora y mandan las reglas", async () => {
-    const picker: SupportPicker = async () => ({ name: "Obscenidad I", reason: "Añade daño de caos a los esqueletos." });
-    const answer = await adviseSupportGem(data, SKELETONS, picker);
-    expect(answer.mode).toBe("rules");
-    expect(answer.recommended?.name).toBe("Último aliento");
-    expect(answer.fallbackReason).toContain("reglas");
-  });
-
-  it("si la IA falla, responde igualmente con las reglas", async () => {
-    const picker: SupportPicker = async () => {
+  it("si la IA explica otra gema o falla, queda el motivo de las reglas", async () => {
+    const other: SupportPlanExplainer = async () => [
+      { skill: "Guerrero esqueleto", support: "Obscenidad I", reason: "Añade daño de caos a los esqueletos." },
+    ];
+    const broken: SupportPlanExplainer = async () => {
       throw new Error("sin conexión");
     };
-    const answer = await adviseSupportGem(data, SKELETONS, picker);
-    expect(answer.mode).toBe("rules");
-    expect(answer.recommended).not.toBeNull();
+    for (const explainer of [other, broken]) {
+      const answer = await adviseSupportGem(data, SKELETONS, explainer);
+      expect(answer.mode).toBe("rules");
+      expect(answer.recommended?.name).toBe("Último aliento");
+      expect(answer.fallbackReason).toContain("reglas");
+    }
   });
 
   it("limpia el motivo de la IA: texto plano y corto", async () => {
-    const picker: SupportPicker = async () => ({ name: "Último aliento", reason: `<b>Aguantan</b>   más. ${"x".repeat(900)}` });
-    const answer = await adviseSupportGem(data, SKELETONS, picker);
+    const explainer: SupportPlanExplainer = async ({ pairs }) => [
+      { skill: pairs[0].skill.name, support: pairs[0].support.name, reason: `<b>Aguantan</b>   más. ${"x".repeat(900)}` },
+    ];
+    const answer = await adviseSupportGem(data, SKELETONS, explainer);
     expect(answer.recommended?.reason.startsWith("bAguantan/b más.")).toBe(true);
     expect(answer.recommended?.reason.length).toBeLessThanOrEqual(400);
+  });
+
+  it("un hechizo que se lanza sin parar no recibe una gema que le pone enfriamiento ni una condicionada", async () => {
+    const answer = await adviseSupportGem(data, { skill: "Descarga de caos", maxGrade: 1, attributes: ["Int"], build: WARLOCK }, null);
+    expect(["Reloj de arena", "Cénit I"]).not.toContain(answer.recommended?.name);
+    expect(answer.alternatives.map((option) => option.name)).toContain("Lanzamiento rápido I");
+  });
+
+  it("la nota del jugador cambia la elección cuando cuenta un problema", async () => {
+    const base: SupportAdviceRequest = { skill: "Descarga de caos", maxGrade: 1, attributes: ["Int", "Fue", "Des"], build: WARLOCK };
+    const mana = await adviseSupportGem(data, { ...base, note: "me quedo sin maná enseguida" }, null);
+    expect(["Eficiencia I", "Sobrecarga arcana"]).toContain(mana.recommended?.name);
+    const slow = await adviseSupportGem(data, { ...base, note: "tarda mucho en lanzarse" }, null);
+    expect(slow.recommended?.name).toBe("Lanzamiento rápido I");
+  });
+
+  it("lo descartado en la build no se propone", async () => {
+    const answer = await adviseSupportGem(data, { ...SKELETONS, build: { discarded: ["Último aliento"] } }, null);
+    expect(answer.recommended?.name).not.toBe("Último aliento");
+    expect(answer.alternatives.map((option) => option.name)).not.toContain("Último aliento");
   });
 
   it("dice que no hay ninguna cuando nada cumple las condiciones", async () => {
