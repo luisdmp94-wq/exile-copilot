@@ -12,6 +12,7 @@
     "test:check": "npm run build:check && node scripts/check-smoke.mjs",
     "start": "node scripts/start-production.mjs",
     "test": "vitest run",
+    "data:gems": "tsx scripts/refresh-gem-data.ts",
     "verify:patch": "tsc --noEmit && vitest run && node scripts/browser-smoke.mjs --dev",
     "verify:release": "npm run lint && npm run build && npm run test && npm run drill:restore && npm run drill:restart && node scripts/browser-smoke.mjs --all && node scripts/equipment-smoke.mjs --all && node scripts/mentor-smoke.mjs --all && node scripts/academy-smoke.mjs --all && node scripts/coach-smoke.mjs --all && node scripts/journal-smoke.mjs --all && node scripts/session-smoke.mjs --all && node scripts/build-memory-smoke.mjs --all",
     "readiness:1.0": "tsx scripts/audit-target-release.ts --target 1.0",

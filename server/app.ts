@@ -106,6 +106,13 @@ import {
 } from "../shared/mentorThreadPersistence.js";
 import { answerMentorQuery } from "./mentor/mentorService.js";
 import {
+  adviseSupportGem,
+  createSupportPicker,
+  loadGemData,
+  type SupportPicker,
+} from "./advice/supportGemAdvisor.js";
+import { SupportAdviceRequestSchema } from "../shared/supportGemAdvice.js";
+import {
   createMentorDecisionSelector,
   type MentorDecisionSelector,
 } from "./mentor/mentorAi.js";
@@ -164,6 +171,8 @@ export interface CreateApiAppOptions {
   explainer?: ExplainerProvider;
   /** Selector IA inyectable; `null` fuerza reglas incluso si la flag está activa. */
   mentorSelector?: MentorDecisionSelector | null;
+  /** Elector de asistencias inyectable; `null` fuerza reglas. */
+  supportPicker?: SupportPicker | null;
 }
 
 function fixtureUrl(rel: string): URL {
@@ -344,6 +353,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     options.mentorSelector !== undefined
       ? options.mentorSelector
       : createMentorDecisionSelector(config);
+  const supportPicker =
+    options.supportPicker !== undefined ? options.supportPicker : createSupportPicker(config);
+  const gemData = loadGemData();
   const patches = loadPatches();
   const releaseEvidenceCatalog = loadReleaseEvidenceCatalog();
   const patchCompatibility = gatePatchCompatibilityByEvidence(
@@ -636,6 +648,27 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         );
       }
       res.json({ item: parsed.item, warnings: parsed.warnings });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /gems/skills — nombres de habilidades del cliente en español, para
+  // que el jugador elija sobre cuál pregunta.
+  app.get("/gems/skills", (_req, res) => {
+    res.json({
+      skills: gemData.skills.map((skill) => ({ name: skill.name, tags: skill.tags })),
+      fetchedAt: gemData.fetchedAt,
+    });
+  });
+
+  // POST /advice/support-gem — «¿qué asistencia le pongo a esta habilidad?».
+  // Las reglas filtran con los datos del juego; la IA, si está activa, solo
+  // elige entre las candidatas y lo explica.
+  app.post("/advice/support-gem", mentorLimiter, async (req, res, next) => {
+    try {
+      const body = SupportAdviceRequestSchema.parse(req.body);
+      res.json(await adviseSupportGem(gemData, body, supportPicker));
     } catch (err) {
       next(err);
     }

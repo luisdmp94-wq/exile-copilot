@@ -1,6 +1,13 @@
 import type { z } from "zod";
 import type { CharacterProfile } from "@shared/domain.js";
 import {
+  GemSkillListResponseSchema,
+  SupportAdviceResponseSchema,
+  type GemSkillListResponse,
+  type SupportAdviceRequest,
+  type SupportAdviceResponse,
+} from "@shared/supportGemAdvice.js";
+import {
   MentorQueryResponseSchema,
   type MentorQueryRequest,
   type MentorQueryResponse,
@@ -247,6 +254,11 @@ export const api = {
 
   importItemText: (payload: ImportItemTextRequest): Promise<ImportItemTextResponse> =>
     request("/api/import/item-text", ImportItemTextResponseSchema, jsonInit(payload)),
+
+  gemSkills: (): Promise<GemSkillListResponse> => request("/api/gems/skills", GemSkillListResponseSchema),
+
+  supportGemAdvice: (payload: SupportAdviceRequest): Promise<SupportAdviceResponse> =>
+    request("/api/advice/support-gem", SupportAdviceResponseSchema, jsonInit(payload)),
 
   saveCharacter: (profile: CharacterProfile): Promise<SaveCharacterResponse> =>
     request("/api/character", SaveCharacterResponseSchema, jsonInit({ profile })),
