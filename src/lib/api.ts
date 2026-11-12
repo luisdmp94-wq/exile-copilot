@@ -8,6 +8,11 @@ import {
   type SupportAdviceResponse,
 } from "@shared/supportGemAdvice.js";
 import {
+  SupportPlanResponseSchema,
+  type SupportPlanRequest,
+  type SupportPlanResponse,
+} from "@shared/supportGemPlan.js";
+import {
   MentorQueryResponseSchema,
   type MentorQueryRequest,
   type MentorQueryResponse,
@@ -259,6 +264,9 @@ export const api = {
 
   supportGemAdvice: (payload: SupportAdviceRequest): Promise<SupportAdviceResponse> =>
     request("/api/advice/support-gem", SupportAdviceResponseSchema, jsonInit(payload)),
+
+  supportGemPlan: (payload: SupportPlanRequest): Promise<SupportPlanResponse> =>
+    request("/api/advice/support-plan", SupportPlanResponseSchema, jsonInit(payload)),
 
   saveCharacter: (profile: CharacterProfile): Promise<SaveCharacterResponse> =>
     request("/api/character", SaveCharacterResponseSchema, jsonInit({ profile })),

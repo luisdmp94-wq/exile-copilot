@@ -161,13 +161,25 @@ function supportApplies(support: GemSupport, skill: GemSkill): boolean {
   return textRulesAllow(support, skill);
 }
 
+/** ¿El daño de la habilidad es sobre todo «por segundo»? (Contagio, Drenar esencia…) */
+function dealsDamageOverTime(skill: GemSkill): boolean {
+  return skill.effects.some((effect) => /de dano .*por segundo/.test(normalizeGemText(effect)));
+}
+
+/**
+ * Orden orientativo de las candidatas. Sube lo que da daño de verdad («un 30%
+ * más de daño») y lo que encaja con el tipo de daño de la habilidad; baja lo
+ * que encarece. No mide daño: solo decide qué se enseña primero.
+ */
 function scoreSupport(support: GemSupport, skill: GemSkill): number {
+  const text = normalizeGemText(`${support.description} ${support.effects.join(" ")}`);
   let score = 0;
   for (const tag of support.tags) {
     if (SOFT_TAGS.has(tag) || !skill.tags.includes(tag)) continue;
-    score += ELEMENT_TAGS.has(tag) ? 3 : 2;
+    score += ELEMENT_TAGS.has(tag) ? 3 : 1;
   }
-  if (/mas dano/.test(normalizeGemText(`${support.description} ${support.effects.join(" ")}`))) score += 1;
+  if (/% mas de dano|mas dano/.test(text)) score += 2;
+  if (dealsDamageOverTime(skill) && /degenerativo/.test(text)) score += 3;
   if (support.costMultiplier) score -= 1;
   return score;
 }

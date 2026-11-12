@@ -107,11 +107,15 @@ import {
 import { answerMentorQuery } from "./mentor/mentorService.js";
 import {
   adviseSupportGem,
+  adviseSupportPlan,
   createSupportPicker,
+  createSupportPlanExplainer,
   loadGemData,
   type SupportPicker,
+  type SupportPlanExplainer,
 } from "./advice/supportGemAdvisor.js";
 import { SupportAdviceRequestSchema } from "../shared/supportGemAdvice.js";
+import { SupportPlanRequestSchema } from "../shared/supportGemPlan.js";
 import {
   createMentorDecisionSelector,
   type MentorDecisionSelector,
@@ -173,6 +177,8 @@ export interface CreateApiAppOptions {
   mentorSelector?: MentorDecisionSelector | null;
   /** Elector de asistencias inyectable; `null` fuerza reglas. */
   supportPicker?: SupportPicker | null;
+  /** Redactor de los motivos del reparto inyectable; `null` deja los de las reglas. */
+  supportPlanExplainer?: SupportPlanExplainer | null;
 }
 
 function fixtureUrl(rel: string): URL {
@@ -355,6 +361,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       : createMentorDecisionSelector(config);
   const supportPicker =
     options.supportPicker !== undefined ? options.supportPicker : createSupportPicker(config);
+  const supportPlanExplainer =
+    options.supportPlanExplainer !== undefined
+      ? options.supportPlanExplainer
+      : createSupportPlanExplainer(config);
   const gemData = loadGemData();
   const patches = loadPatches();
   const releaseEvidenceCatalog = loadReleaseEvidenceCatalog();
@@ -669,6 +679,18 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     try {
       const body = SupportAdviceRequestSchema.parse(req.body);
       res.json(await adviseSupportGem(gemData, body, supportPicker));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /advice/support-plan — «tengo N gemas de asistencia: ¿cuáles cojo y
+  // dónde las pongo?». El reparto y los topes por atributo son de las reglas;
+  // la IA, si está activa, solo redacta el motivo de cada pareja.
+  app.post("/advice/support-plan", mentorLimiter, async (req, res, next) => {
+    try {
+      const body = SupportPlanRequestSchema.parse(req.body);
+      res.json(await adviseSupportPlan(gemData, body, supportPlanExplainer));
     } catch (err) {
       next(err);
     }

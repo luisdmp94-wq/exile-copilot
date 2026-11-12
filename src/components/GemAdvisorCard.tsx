@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Gem, Loader2, Sparkles } from "lucide-react";
-import type { GemAttribute, SupportAdviceResponse } from "@shared/supportGemAdvice.js";
+import { ChevronDown, Gem, Loader2, Minus, Plus, Sparkles, X } from "lucide-react";
+import type { GemAttribute, SupportAdviceOption, SupportAdviceResponse } from "@shared/supportGemAdvice.js";
+import type { SupportPlanResponse } from "@shared/supportGemPlan.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +9,7 @@ import { api, getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "exile-copilot:asistencia";
+const MAX_SKILLS = 8;
 const GRADES = [
   { value: 1, label: "I" },
   { value: 2, label: "II" },
@@ -22,54 +24,134 @@ const ATTRIBUTES: Array<{ id: GemAttribute; label: string; className: string }> 
 ];
 const ATTRIBUTE_LABEL: Record<GemAttribute, string> = { Int: "inteligencia", Des: "destreza", Fue: "fuerza" };
 
+type Mode = "one" | "many";
+
 interface Remembered {
+  mode: Mode;
   maxGrade: number;
   attributes: GemAttribute[];
+  mySkills: string[];
+  gems: number;
+  free: Record<GemAttribute, number>;
+  socketed: string;
 }
 
+const DEFAULTS: Remembered = {
+  mode: "one",
+  maxGrade: 1,
+  attributes: ["Int", "Des", "Fue"],
+  mySkills: [],
+  gems: 1,
+  free: { Int: 1, Des: 1, Fue: 1 },
+  socketed: "",
+};
+
 function readRemembered(): Remembered {
-  const fallback: Remembered = { maxGrade: 1, attributes: ["Int", "Des", "Fue"] };
   try {
     const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "null") as Partial<Remembered> | null;
-    if (!parsed) return fallback;
-    const attributes = (parsed.attributes ?? []).filter((item): item is GemAttribute => ATTRIBUTES.some((a) => a.id === item));
-    const maxGrade = GRADES.some((grade) => grade.value === parsed.maxGrade) ? (parsed.maxGrade as number) : 1;
-    return { maxGrade, attributes: attributes.length > 0 ? attributes : fallback.attributes };
+    if (!parsed) return DEFAULTS;
+    const isAttribute = (item: unknown): item is GemAttribute => ATTRIBUTES.some((a) => a.id === item);
+    const attributes = (parsed.attributes ?? []).filter(isAttribute);
+    const slot = (value: unknown, fallback: number) =>
+      typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 9 ? value : fallback;
+    return {
+      mode: parsed.mode === "many" ? "many" : "one",
+      maxGrade: GRADES.some((grade) => grade.value === parsed.maxGrade) ? (parsed.maxGrade as number) : 1,
+      attributes: attributes.length > 0 ? attributes : DEFAULTS.attributes,
+      mySkills: Array.isArray(parsed.mySkills)
+        ? parsed.mySkills.filter((name): name is string => typeof name === "string").slice(0, MAX_SKILLS)
+        : [],
+      gems: typeof parsed.gems === "number" && parsed.gems >= 1 && parsed.gems <= 5 ? Math.trunc(parsed.gems) : 1,
+      free: { Int: slot(parsed.free?.Int, 1), Des: slot(parsed.free?.Des, 1), Fue: slot(parsed.free?.Fue, 1) },
+      socketed: typeof parsed.socketed === "string" ? parsed.socketed.slice(0, 400) : "",
+    };
   } catch {
-    return fallback;
+    return DEFAULTS;
   }
 }
 
-function splitNames(value: string): string[] {
+function splitNames(value: string, max: number): string[] {
   return value
     .split(/[,;\n]/)
     .map((name) => name.trim())
     .filter(Boolean)
-    .slice(0, 5);
+    .slice(0, max);
+}
+
+function gradeLabel(grade: number): string {
+  return GRADES.find((item) => item.value === grade)?.label ?? String(grade);
+}
+
+function OptionDetails({ option }: { option: SupportAdviceOption }) {
+  return (
+    <ul className="mt-1.5 space-y-0.5 text-sm text-muted-foreground">
+      {option.effects.map((effect) => (
+        <li key={effect}>· {effect}</li>
+      ))}
+      {option.costMultiplier && <li>· La habilidad pasa a costar el {option.costMultiplier} de su maná.</li>}
+      <li>
+        · Grado {gradeLabel(option.grade)}, de {ATTRIBUTE_LABEL[option.attribute]}.
+      </li>
+    </ul>
+  );
+}
+
+interface FooterProps {
+  mode: "ai" | "rules";
+  /** Qué hizo la IA cuando intervino: elegir entre candidatas o solo explicar. */
+  aiRole: string;
+  fallbackReason: string | null;
+  source: string;
+  fetchedAt: string;
+  hasPick: boolean;
+}
+
+function Footer({ mode, aiRole, fallbackReason, source, fetchedAt, hasPick }: FooterProps) {
+  return (
+    <p className="mt-3 text-xs text-muted-foreground">
+      {hasPick && (mode === "ai" ? `${aiRole} ` : fallbackReason ? `${fallbackReason} ` : "Decidido por reglas, sin IA. ")}
+      Datos de{" "}
+      <a href={source} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+        poe2db.tw
+      </a>{" "}
+      del {fetchedAt}. Si el juego no te deja ponerla, manda el juego.
+    </p>
+  );
 }
 
 /**
- * «¿Qué gema de asistencia le pongo?»: el jugador dice la habilidad y lo que
- * le deja tallar su gema; las reglas filtran y, si hay IA, elige y lo explica.
+ * «¿Qué gema de asistencia le pongo?»: para una habilidad, o repartiendo
+ * varias gemas entre las habilidades del personaje. Las reglas filtran con los
+ * datos del juego y, si hay IA, elige y lo explica.
  */
 export function GemAdvisorCard() {
   const [remembered] = useState(readRemembered);
-  const [skills, setSkills] = useState<string[]>([]);
-  const [skill, setSkill] = useState("");
+  const [mode, setMode] = useState<Mode>(remembered.mode);
+  const [skillNames, setSkillNames] = useState<string[]>([]);
   const [maxGrade, setMaxGrade] = useState(remembered.maxGrade);
-  const [attributes, setAttributes] = useState<GemAttribute[]>(remembered.attributes);
-  const [socketed, setSocketed] = useState("");
+  const [socketed, setSocketed] = useState(remembered.socketed);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Una habilidad
+  const [skill, setSkill] = useState("");
+  const [attributes, setAttributes] = useState<GemAttribute[]>(remembered.attributes);
   const [answer, setAnswer] = useState<SupportAdviceResponse | null>(null);
+
+  // Varias gemas
+  const [mySkills, setMySkills] = useState<string[]>(remembered.mySkills);
+  const [draftSkill, setDraftSkill] = useState("");
+  const [gems, setGems] = useState(remembered.gems);
+  const [free, setFree] = useState(remembered.free);
+  const [plan, setPlan] = useState<SupportPlanResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     api
       .gemSkills()
       .then((response) => {
-        if (!cancelled) setSkills(response.skills.map((item) => item.name).sort((a, b) => a.localeCompare(b, "es")));
+        if (!cancelled) setSkillNames(response.skills.map((item) => item.name).sort((a, b) => a.localeCompare(b, "es")));
       })
       .catch(() => {
         // Sin la lista sigue funcionando: el jugador escribe el nombre a mano.
@@ -81,16 +163,38 @@ export function GemAdvisorCard() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ maxGrade, attributes }));
+      const value: Remembered = { mode, maxGrade, attributes, mySkills, gems, free, socketed };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
     } catch {
       // Sin almacenamiento la elección vale para esta visita.
     }
-  }, [maxGrade, attributes]);
+  }, [mode, maxGrade, attributes, mySkills, gems, free, socketed]);
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError(null);
+  };
 
   const toggleAttribute = (id: GemAttribute) =>
     setAttributes((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
 
-  const ask = async () => {
+  const addSkill = () => {
+    const name = draftSkill.trim();
+    if (!name) return;
+    setError(null);
+    if (mySkills.some((item) => item.toLocaleLowerCase("es") === name.toLocaleLowerCase("es"))) {
+      setDraftSkill("");
+      return;
+    }
+    if (mySkills.length >= MAX_SKILLS) {
+      setError(`Como mucho ${MAX_SKILLS} habilidades a la vez.`);
+      return;
+    }
+    setMySkills([...mySkills, name]);
+    setDraftSkill("");
+  };
+
+  const askOne = async () => {
     if (!skill.trim()) {
       setError("Escribe primero la habilidad, tal como sale en el juego.");
       return;
@@ -102,7 +206,7 @@ export function GemAdvisorCard() {
     setBusy(true);
     setError(null);
     try {
-      const names = splitNames(socketed);
+      const names = splitNames(socketed, 5);
       setAnswer(
         await api.supportGemAdvice({
           skill: skill.trim(),
@@ -120,6 +224,43 @@ export function GemAdvisorCard() {
     }
   };
 
+  const askMany = async () => {
+    const pending = draftSkill.trim();
+    const skills = pending && mySkills.length < MAX_SKILLS ? [...mySkills, pending] : mySkills;
+    if (skills.length === 0) {
+      setError("Añade primero tus habilidades, tal como salen en el juego.");
+      return;
+    }
+    if (free.Int + free.Des + free.Fue === 0) {
+      setError("Si no te queda ningún hueco libre, no cabe ninguna gema más.");
+      return;
+    }
+    if (pending) {
+      setMySkills(skills);
+      setDraftSkill("");
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const names = splitNames(socketed, 16);
+      setPlan(
+        await api.supportGemPlan({
+          skills,
+          gems,
+          maxGrade,
+          capacity: free,
+          ...(names.length > 0 ? { socketed: names } : {}),
+          ...(note.trim() ? { note: note.trim() } : {}),
+        }),
+      );
+    } catch (err) {
+      setPlan(null);
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const pick = answer?.recommended ?? null;
 
   return (
@@ -130,45 +271,136 @@ export function GemAdvisorCard() {
     >
       <h2 id="asistencia-titulo" className="flex items-center gap-2 text-lg font-semibold text-foreground">
         <Gem className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        ¿Qué gema de asistencia le pongo?
+        ¿Qué gema de asistencia pongo?
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Dime la habilidad y qué te deja tallar tu gema. Te digo cuál poner y por qué.
+        Dime tus habilidades y qué te deja tallar tu gema. Te digo cuál poner, dónde y por qué.
       </p>
+
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Qué quieres saber">
+        <Button
+          type="button"
+          size="sm"
+          variant={mode === "one" ? "secondary" : "outline"}
+          aria-pressed={mode === "one"}
+          onClick={() => switchMode("one")}
+          data-testid="asistencia-modo-una"
+        >
+          Para una habilidad
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={mode === "many" ? "secondary" : "outline"}
+          aria-pressed={mode === "many"}
+          onClick={() => switchMode("many")}
+          data-testid="asistencia-modo-varias"
+        >
+          Tengo varias gemas
+        </Button>
+      </div>
 
       <form
         className="mt-3 space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
-          void ask();
+          void (mode === "one" ? askOne() : askMany());
         }}
       >
-        <div>
-          <Label htmlFor="asistencia-habilidad" className="text-sm text-muted-foreground">
-            Habilidad
-          </Label>
-          <Input
-            id="asistencia-habilidad"
-            list="asistencia-habilidades"
-            value={skill}
-            onChange={(event) => {
-              setSkill(event.target.value);
-              if (error) setError(null);
-            }}
-            placeholder="Contagio, Guerrero esqueleto…"
-            autoComplete="off"
-            className="mt-1"
-            data-testid="asistencia-habilidad"
-          />
-          <datalist id="asistencia-habilidades">
-            {skills.map((name) => (
-              <option key={name} value={name} />
+        <datalist id="asistencia-habilidades">
+          {skillNames.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+
+        {mode === "one" ? (
+          <div>
+            <Label htmlFor="asistencia-habilidad" className="text-sm text-muted-foreground">
+              Habilidad
+            </Label>
+            <Input
+              id="asistencia-habilidad"
+              list="asistencia-habilidades"
+              value={skill}
+              onChange={(event) => {
+                setSkill(event.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="Contagio, Guerrero esqueleto…"
+              autoComplete="off"
+              className="mt-1"
+              data-testid="asistencia-habilidad"
+            />
+          </div>
+        ) : (
+          <div>
+            <Label htmlFor="asistencia-mis-habilidades" className="text-sm text-muted-foreground">
+              Tus habilidades (se quedan guardadas para la próxima vez)
+            </Label>
+            <div className="mt-1 flex gap-2">
+              <Input
+                id="asistencia-mis-habilidades"
+                list="asistencia-habilidades"
+                value={draftSkill}
+                onChange={(event) => {
+                  setDraftSkill(event.target.value);
+                  if (error) setError(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addSkill();
+                  }
+                }}
+                placeholder="Escribe una y pulsa Intro"
+                autoComplete="off"
+                data-testid="asistencia-nueva-habilidad"
+              />
+              <Button type="button" variant="outline" onClick={addSkill} data-testid="asistencia-anadir-habilidad">
+                Añadir
+              </Button>
+            </div>
+            {mySkills.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Tus habilidades" data-testid="asistencia-lista-habilidades">
+                {mySkills.map((name) => (
+                  <li key={name} className="flex items-center gap-1 rounded-full bg-secondary/70 py-0.5 pl-2.5 pr-1 text-sm">
+                    {name}
+                    <button
+                      type="button"
+                      className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                      aria-label={`Quitar ${name}`}
+                      onClick={() => setMySkills(mySkills.filter((item) => item !== name))}
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {mode === "many" && (
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Cuántas gemas tienes">
+            <span className="text-sm text-muted-foreground">Gemas que tienes:</span>
+            {[1, 2, 3, 4, 5].map((count) => (
+              <Button
+                key={count}
+                type="button"
+                size="sm"
+                variant={gems === count ? "default" : "outline"}
+                aria-pressed={gems === count}
+                onClick={() => setGems(count)}
+                data-testid={`asistencia-gemas-${count}`}
+              >
+                {count}
+              </Button>
             ))}
-          </datalist>
-        </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Grado de tu gema sin tallar">
-          <span className="text-sm text-muted-foreground">Grado de tu gema:</span>
+          <span className="text-sm text-muted-foreground">{mode === "one" ? "Grado de tu gema:" : "Grado de tus gemas:"}</span>
           {GRADES.map((grade) => (
             <Button
               key={grade.value}
@@ -185,67 +417,134 @@ export function GemAdvisorCard() {
         </div>
 
         <div>
-          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Atributos en los que te queda hueco">
-            <span className="text-sm text-muted-foreground">Te queda hueco en:</span>
-            {ATTRIBUTES.map((attribute) => {
-              const active = attributes.includes(attribute.id);
-              return (
-                <Button
-                  key={attribute.id}
-                  type="button"
-                  size="sm"
-                  variant={active ? "secondary" : "outline"}
-                  aria-pressed={active}
-                  onClick={() => toggleAttribute(attribute.id)}
-                  className={cn(active ? attribute.className : "opacity-60")}
-                  data-testid={`asistencia-atributo-${attribute.id}`}
-                >
-                  {active ? "✓ " : ""}
-                  {attribute.label}
-                </Button>
-              );
-            })}
-          </div>
+          {mode === "one" ? (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Atributos en los que te queda hueco">
+              <span className="text-sm text-muted-foreground">Te queda hueco en:</span>
+              {ATTRIBUTES.map((attribute) => {
+                const active = attributes.includes(attribute.id);
+                return (
+                  <Button
+                    key={attribute.id}
+                    type="button"
+                    size="sm"
+                    variant={active ? "secondary" : "outline"}
+                    aria-pressed={active}
+                    onClick={() => toggleAttribute(attribute.id)}
+                    className={cn(active ? attribute.className : "opacity-60")}
+                    data-testid={`asistencia-atributo-${attribute.id}`}
+                  >
+                    {active ? "✓ " : ""}
+                    {attribute.label}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2" role="group" aria-label="Huecos libres por atributo">
+              <span className="text-sm text-muted-foreground">Huecos libres:</span>
+              {ATTRIBUTES.map((attribute) => (
+                <span key={attribute.id} className="flex items-center gap-1 text-sm">
+                  <span className={attribute.className}>{attribute.label}</span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-7"
+                    aria-label={`Un hueco menos de ${ATTRIBUTE_LABEL[attribute.id]}`}
+                    onClick={() => setFree({ ...free, [attribute.id]: Math.max(0, free[attribute.id] - 1) })}
+                  >
+                    <Minus className="size-3.5" aria-hidden="true" />
+                  </Button>
+                  <span className="w-4 text-center tabular-nums" data-testid={`asistencia-libres-${attribute.id}`}>
+                    {free[attribute.id]}
+                  </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-7"
+                    aria-label={`Un hueco más de ${ATTRIBUTE_LABEL[attribute.id]}`}
+                    onClick={() => setFree({ ...free, [attribute.id]: Math.min(9, free[attribute.id] + 1) })}
+                    data-testid={`asistencia-libres-mas-${attribute.id}`}
+                  >
+                    <Plus className="size-3.5" aria-hidden="true" />
+                  </Button>
+                </span>
+              ))}
+            </div>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
-            Lo ves en el juego, arriba del panel de habilidades: «Capacidad de las gemas equipadas». Si pone Int 5/5, ya no
-            te cabe ninguna de inteligencia.
+            Lo ves en el juego, arriba del panel de habilidades: «Capacidad de las gemas equipadas».{" "}
+            {mode === "one" ? "Si pone Int 5/5, ya no te cabe ninguna de inteligencia." : "Si pone Int 4/5, te queda 1 hueco de inteligencia."}
           </p>
         </div>
 
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-            Afinar más (opcional)
-          </summary>
-          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        {mode === "many" ? (
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="asistencia-puestas" className="text-xs text-muted-foreground">
-                Asistencias que ya lleva, separadas por comas
+                Asistencias que ya llevas puestas, separadas por comas
               </Label>
               <Input
                 id="asistencia-puestas"
                 value={socketed}
                 onChange={(event) => setSocketed(event.target.value)}
-                placeholder="Lanzamiento rápido I"
+                placeholder="Lanzamiento rápido I, Último aliento"
                 className="mt-1"
+                data-testid="asistencia-puestas"
               />
             </div>
             <div>
               <Label htmlFor="asistencia-nota" className="text-xs text-muted-foreground">
-                ¿Te pasa algo con ella?
+                ¿Algo que deba saber? (opcional)
               </Label>
               <Input
                 id="asistencia-nota"
                 value={note}
                 maxLength={200}
                 onChange={(event) => setNote(event.target.value)}
-                placeholder="Mis esqueletos mueren muy rápido"
+                placeholder="Drenar esencia es mi daño contra jefes"
                 className="mt-1"
                 data-testid="asistencia-nota"
               />
             </div>
           </div>
-        </details>
+        ) : (
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+              Afinar más (opcional)
+            </summary>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="asistencia-puestas" className="text-xs text-muted-foreground">
+                  Asistencias que ya lleva, separadas por comas
+                </Label>
+                <Input
+                  id="asistencia-puestas"
+                  value={socketed}
+                  onChange={(event) => setSocketed(event.target.value)}
+                  placeholder="Lanzamiento rápido I"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="asistencia-nota" className="text-xs text-muted-foreground">
+                  ¿Te pasa algo con ella?
+                </Label>
+                <Input
+                  id="asistencia-nota"
+                  value={note}
+                  maxLength={200}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Mis esqueletos mueren muy rápido"
+                  className="mt-1"
+                  data-testid="asistencia-nota"
+                />
+              </div>
+            </div>
+          </details>
+        )}
 
         {error && (
           <p className="text-sm text-rose-300" role="alert" data-testid="asistencia-error">
@@ -254,11 +553,11 @@ export function GemAdvisorCard() {
         )}
         <Button type="submit" disabled={busy} data-testid="asistencia-preguntar">
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
-          Dime cuál
+          {mode === "one" ? "Dime cuál" : "Repárteme las gemas"}
         </Button>
       </form>
 
-      {answer && (
+      {mode === "one" && answer && (
         <div className="mt-4 border-t border-border pt-4" data-testid="asistencia-resultado" aria-live="polite">
           {pick ? (
             <>
@@ -266,16 +565,7 @@ export function GemAdvisorCard() {
                 En {answer.skill.name}, pon <span className="text-primary">{pick.name}</span>
               </p>
               <p className="mt-1 text-sm leading-relaxed text-foreground/90">{pick.reason}</p>
-              <ul className="mt-2 space-y-0.5 text-sm text-muted-foreground">
-                {pick.effects.map((effect) => (
-                  <li key={effect}>· {effect}</li>
-                ))}
-                {pick.costMultiplier && <li>· La habilidad pasa a costar el {pick.costMultiplier} de su maná.</li>}
-                <li>
-                  · Grado {GRADES.find((grade) => grade.value === pick.grade)?.label ?? pick.grade}, de{" "}
-                  {ATTRIBUTE_LABEL[pick.attribute]}.
-                </li>
-              </ul>
+              <OptionDetails option={pick} />
               {answer.alternatives.length > 0 && (
                 <details className="group mt-3">
                   <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -300,14 +590,57 @@ export function GemAdvisorCard() {
               otro atributo o guarda la gema para más adelante.
             </p>
           )}
-          <p className="mt-3 text-xs text-muted-foreground">
-            {pick && (answer.mode === "ai" ? "Elegida por la IA entre las que valen. " : "Elegida por reglas, sin IA. ")}
-            Datos de{" "}
-            <a href={answer.source} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-              poe2db.tw
-            </a>{" "}
-            del {answer.fetchedAt}. Si el juego no te deja ponerla, manda el juego.
-          </p>
+          <Footer
+            mode={answer.mode}
+            aiRole="Elegida por la IA entre las que valen."
+            fallbackReason={answer.fallbackReason}
+            source={answer.source}
+            fetchedAt={answer.fetchedAt}
+            hasPick={pick !== null}
+          />
+        </div>
+      )}
+
+      {mode === "many" && plan && (
+        <div className="mt-4 border-t border-border pt-4" data-testid="asistencia-reparto" aria-live="polite">
+          {plan.assignments.length > 0 ? (
+            <ol className="space-y-3">
+              {plan.assignments.map((item, index) => (
+                <li key={`${item.skill}-${item.support.name}`} data-testid="asistencia-reparto-linea">
+                  <p className="text-base font-semibold text-foreground">
+                    {index + 1}. <span className="text-primary">{item.support.name}</span> en {item.skill}
+                  </p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-foreground/90">{item.reason}</p>
+                  <OptionDetails option={item.support} />
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-foreground/90">
+              Con ese grado y esos huecos no hay ninguna asistencia que valga para tus habilidades. Guarda las gemas para
+              más adelante.
+            </p>
+          )}
+          {plan.leftover > 0 && plan.assignments.length > 0 && (
+            <p className="mt-3 text-sm text-amber-200" data-testid="asistencia-sobran">
+              {plan.leftover === 1 ? "Te sobra 1 gema" : `Te sobran ${plan.leftover} gemas`}: no te quedan huecos donde
+              quepan. Guárdalas; no caducan.
+            </p>
+          )}
+          {plan.unknownSkills.length > 0 && (
+            <p className="mt-2 text-sm text-amber-200" data-testid="asistencia-desconocidas">
+              No conozco {plan.unknownSkills.map((name) => `«${name}»`).join(", ")}. Escríbelas como salen en el juego en
+              español.
+            </p>
+          )}
+          <Footer
+            mode={plan.mode}
+            aiRole="El reparto es de las reglas; la IA solo explica el porqué."
+            fallbackReason={plan.fallbackReason}
+            source={plan.source}
+            fetchedAt={plan.fetchedAt}
+            hasPick={plan.assignments.length > 0}
+          />
         </div>
       )}
     </section>
