@@ -734,7 +734,18 @@ async function runFlow(mode, port) {
     // Crear personaje ya no es una promesa vacía: crea un perfil manual y
     // lleva directamente al primer campo que el jugador puede completar.
     await page.getByTestId("bienvenida-nuevo").click();
-    await page.getByRole("dialog").waitFor({ timeout: 15000 });
+    await page.getByTestId("alta-rapida").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] «Crear personaje» abre el alta corta de tres datos`,
+      (await page.getByTestId("alta-clase-Bruja").isVisible()) &&
+        (await page.getByTestId("alta-build").isVisible()) &&
+        (await page.getByTestId("alta-habilidad").isVisible()),
+    );
+    await auditAccessibleSurface(page, `[${mode}] el alta corta conserva nombres y diálogo accesible`);
+    // El formulario completo sigue estando a un clic.
+    await page.getByTestId("alta-rapida-completo").click();
+    await page.locator("#char-name").waitFor({ state: "visible", timeout: 15000 });
+    await page.waitForFunction(() => document.activeElement?.id === "char-name", undefined, { timeout: 15000 });
     const closeControls = page.getByRole("dialog").getByRole("button", { name: "Cerrar", exact: true });
     check(
       `[${mode}] «Empezar desde cero» crea un perfil editable`,
@@ -1918,6 +1929,83 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] tras borrar se vuelve a una sesión sin personaje`,
       await page.getByText("Descubre qué mejorar primero en tu personaje de PoE2").isVisible(),
+    );
+
+    // Alta corta de principio a fin: tres datos, personaje guardado y la
+    // tarjeta de gemas ya conoce su build y sus habilidades.
+    await page.getByTestId("bienvenida-nuevo").click();
+    await page.getByTestId("alta-rapida").waitFor({ timeout: 15000 });
+    await page.getByTestId("alta-guardar").click();
+    check(
+      `[${mode}] el alta corta pide la clase antes de guardar`,
+      (await page.getByTestId("alta-error").innerText()).includes("clase"),
+    );
+    await page.getByTestId("alta-clase-Bruja").click();
+    await page.getByTestId("alta-build").fill("brujo de caos con esbirros");
+    for (const skill of ["Contagio", "Drenar esencia"]) {
+      await page.getByTestId("alta-habilidad").fill(skill);
+      await page.getByTestId("alta-anadir-habilidad").click();
+    }
+    await page.getByTestId("alta-nivel").fill("9");
+    await page.getByTestId("alta-guardar").click();
+    await page.getByTestId("alta-rapida").waitFor({ state: "hidden", timeout: 15000 });
+    await page.getByTestId("tab-guias").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] el alta corta guarda el personaje con su nombre por defecto`,
+      await page.getByText("Mi bruja").first().isVisible(),
+    );
+    await page.getByTestId("tab-guias").click();
+    await page.getByTestId("asistencia-personaje").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] la tarjeta de gemas lee la build del personaje recién creado`,
+      (await page.getByTestId("asistencia-build").innerText()).includes("brujo de caos con esbirros"),
+    );
+    await page.getByTestId("asistencia-modo-varias").click();
+    await page.getByTestId("asistencia-cargar-personaje").click();
+    check(
+      `[${mode}] el reparto de gemas carga las habilidades del personaje`,
+      (await page.getByTestId("asistencia-lista-habilidades").innerText()).includes("Drenar esencia"),
+    );
+    await page.getByTestId("asistencia-preguntar").click();
+    await page.getByTestId("asistencia-reparto").waitFor({ timeout: 20000 });
+    check(
+      `[${mode}] un brujo de caos recibe gemas para sus habilidades de caos`,
+      (await page.getByTestId("asistencia-reparto-linea").count()) >= 1 &&
+        !(await page.getByTestId("asistencia-reparto").innerText()).includes("Brutalidad"),
+    );
+
+    // «Completar expediente» sobre un personaje a medias: el que se crea solo
+    // al pegar un objeto. Debe pedir lo que falta en el alta corta y guardar
+    // encima del mismo personaje, sin perder el objeto.
+    await volverASelectorDePersonajes(page);
+    await page.getByTestId("bienvenida-objeto").click();
+    await page.locator("#item-text").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("#item-text").fill(STANDALONE_ITEM);
+    await page.getByRole("button", { name: "Analizar objeto" }).click();
+    await page.getByTestId("crafting-coach").waitFor({ timeout: 20000 });
+    await page.getByTestId("tab-expediente").click();
+    const halfDoneGate = page.getByTestId("recommendations-readiness");
+    await halfDoneGate.waitFor({ state: "visible", timeout: 15000 });
+    const halfDoneId = await page.evaluate(() => localStorage.getItem("exile-copilot:characterId"));
+    await halfDoneGate.getByRole("button", { name: "Completar expediente" }).click();
+    await page.getByTestId("alta-rapida").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] «Completar expediente» abre el alta corta y no el formulario largo`,
+      (await page.getByTestId("alta-rapida").innerText()).includes("Completa tu personaje") &&
+        (await page.locator("#char-ascendancy-id").count()) === 0,
+    );
+    await page.getByTestId("alta-clase-Guerrero").click();
+    await page.getByTestId("alta-nivel").fill("12");
+    await page.getByTestId("alta-guardar").click();
+    await page.getByTestId("alta-rapida").waitFor({ state: "hidden", timeout: 15000 });
+    await page.getByText("Mi guerrero").first().waitFor({ timeout: 15000 });
+    const gateAfter = (await halfDoneGate.count()) > 0 ? await halfDoneGate.innerText() : "";
+    check(
+      `[${mode}] completar guarda clase y nivel en el mismo personaje y conserva su objeto`,
+      (await page.evaluate(() => localStorage.getItem("exile-copilot:characterId"))) === halfDoneId &&
+        !gateAfter.includes("Clase:") &&
+        !gateAfter.includes("Nivel:") &&
+        (await page.getByText("Núcleo de prueba").count()) > 0,
     );
     if (runtimeErrors.length > 0) {
       for (const error of runtimeErrors) console.error(`[runtime:${mode}] ${error}`);

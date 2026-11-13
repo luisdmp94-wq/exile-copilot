@@ -205,6 +205,8 @@ interface GuidesSectionProps {
   profile: CharacterProfile | null;
   /** «Identidad de la build» del personaje cargado; vacía si no hay personaje. */
   buildMemory?: readonly BuildMemoryEntry[];
+  /** Abre el alta corta de personaje. */
+  onCreateCharacter?: () => void;
   patch: string;
   onAskMentor?: (question: string) => void;
 }
@@ -213,7 +215,15 @@ interface GuidesSectionProps {
  * Área «Guías»: guías de supervivencia por acto en español, legibles sin
  * personaje, con la comprobación «¿está listo tu personaje?» al final.
  */
-export function GuidesSection({ guideSlug, onSelectGuide, profile, buildMemory, patch, onAskMentor }: GuidesSectionProps) {
+export function GuidesSection({
+  guideSlug,
+  onSelectGuide,
+  profile,
+  buildMemory,
+  onCreateCharacter,
+  patch,
+  onAskMentor,
+}: GuidesSectionProps) {
   const guide = findGuide(guideSlug);
   return (
     <article className="mx-auto max-w-3xl space-y-4" aria-labelledby="guia-titulo" data-testid="guia-acto">
@@ -303,7 +313,7 @@ export function GuidesSection({ guideSlug, onSelectGuide, profile, buildMemory, 
         </ol>
       </section>
 
-      <GemAdvisorCard profile={profile} buildMemory={buildMemory ?? []} />
+      <GemAdvisorCard profile={profile} buildMemory={buildMemory ?? []} onCreateCharacter={onCreateCharacter} />
 
       {guide.route && guide.route.length > 0 && <Route key={guide.slug} guide={guide} />}
 

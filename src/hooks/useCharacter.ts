@@ -9,6 +9,7 @@ import {
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import type { PlanResolution } from "@shared/passiveRegistry.js";
 import type { SavedCharacterSummary } from "@shared/api.js";
+import type { QuickCharacterInput } from "@/components/QuickCharacterDialog";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 import {
   planImportedItemPlacement,
@@ -85,6 +86,13 @@ export interface CharacterState {
   pendingItemImport: PendingItemImport | null;
   loadDemo: () => Promise<void>;
   startManual: (defaults: { league: string; patch: string }) => void;
+  /** Alta corta: crea y guarda un personaje con lo mínimo. Devuelve null si falla. */
+  createQuick: (
+    input: QuickCharacterInput,
+    defaults: { league: string; patch: string },
+  ) => Promise<CharacterProfile | null>;
+  /** Completa el personaje cargado con los datos del alta corta y lo guarda. */
+  completeQuick: (input: QuickCharacterInput) => Promise<CharacterProfile | null>;
   importBuild: (
     content: string,
     patch: string,
@@ -421,6 +429,108 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     setDirty(true);
     setPersisted(false);
   }, []);
+
+  const createQuick = useCallback(
+    async (input: QuickCharacterInput, defaults: { league: string; patch: string }) => {
+      const stamp = Date.now();
+      const draft: CharacterProfile = {
+        id: `manual-${stamp}`,
+        name: input.name,
+        characterClass: input.characterClass,
+        ascendancy: null,
+        ascendancyId: null,
+        // Sin nivel declarado se guarda el mínimo técnico, marcado como tal.
+        level: input.level ?? PLACEHOLDER_CHARACTER_LEVEL,
+        levelSource: input.level === null ? "placeholder" : "observed",
+        archetype: input.archetype || null,
+        league: defaults.league || "Desconocida",
+        patch: defaults.patch || "Desconocido",
+        items: [],
+        skills: input.skills.map((name, index) => ({
+          id: `skill-${stamp}-${index}`,
+          label: "",
+          mainSkill: name,
+          mainSkillGemId: null,
+          supports: [],
+        })),
+        passives: { allocated: [] },
+        attributes: { str: null, dex: null, int: null },
+        resistances: { fire: null, cold: null, lightning: null, chaos: null },
+        sources: [],
+        importedAt: new Date(stamp).toISOString(),
+      };
+      setBusy("save");
+      try {
+        const res = await api.saveCharacter(draft);
+        setProfile(res.profile);
+        persistId(res.profile.id);
+        setWarnings([]);
+        setOrigin("manual");
+        setDirty(false);
+        setPersisted(true);
+        void refreshSavedCharacters().catch(() => {
+          // El guardado es autoritativo aunque el resumen no se refresque ahora.
+        });
+        toast.success(`Personaje guardado: ${res.profile.name}`);
+        return res.profile;
+      } catch (err) {
+        toast.error("No se pudo guardar el personaje", { description: getErrorMessage(err) });
+        return null;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [persistId, refreshSavedCharacters],
+  );
+
+  const completeQuick = useCallback(
+    async (input: QuickCharacterInput) => {
+      if (!profile) return null;
+      const stamp = Date.now();
+      const wanted = input.skills.map((name) => name.trim()).filter(Boolean);
+      const key = (name: string) => name.trim().toLocaleLowerCase("es");
+      // Las habilidades que ya estaban conservan sus asistencias; las que el
+      // jugador quitó se van y las nuevas entran sin asistencias.
+      const existing = new Map(profile.skills.map((setup) => [key(setup.mainSkill), setup]));
+      const merged: CharacterProfile = {
+        ...profile,
+        name: input.name,
+        characterClass: input.characterClass,
+        level: input.level ?? profile.level,
+        levelSource: input.level === null ? profile.levelSource : "observed",
+        archetype: input.archetype || profile.archetype,
+        skills: wanted.map(
+          (name, index) =>
+            existing.get(key(name)) ?? {
+              id: `skill-${stamp}-${index}`,
+              label: "",
+              mainSkill: name,
+              mainSkillGemId: null,
+              supports: [],
+            },
+        ),
+      };
+      setBusy("save");
+      try {
+        const res = await api.saveCharacter(merged);
+        setProfile(res.profile);
+        persistId(res.profile.id);
+        setDirty(false);
+        setPersisted(true);
+        void refreshSavedCharacters().catch(() => {
+          // El guardado es autoritativo aunque el resumen no se refresque ahora.
+        });
+        toast.success(`Personaje guardado: ${res.profile.name}`);
+        return res.profile;
+      } catch (err) {
+        toast.error("No se pudo guardar el personaje", { description: getErrorMessage(err) });
+        return null;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [profile, persistId, refreshSavedCharacters],
+  );
 
   const importBuild = useCallback(
     async (content: string, patch: string, intent: "character" | "target" = "target") => {
@@ -885,6 +995,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     pendingItemImport,
     loadDemo,
     startManual,
+    createQuick,
+    completeQuick,
     importBuild,
     importItemText,
     resolvePendingItemImport,

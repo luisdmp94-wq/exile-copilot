@@ -150,6 +150,8 @@ interface GemAdvisorCardProps {
   profile: CharacterProfile | null;
   /** «Identidad de la build» de ese personaje. */
   buildMemory: readonly BuildMemoryEntry[];
+  /** Abre el alta corta de personaje cuando todavía no hay ninguno. */
+  onCreateCharacter?: () => void;
 }
 
 /**
@@ -158,7 +160,7 @@ interface GemAdvisorCardProps {
  * datos del juego y, si hay IA, elige y lo explica. Con un personaje cargado
  * usa su build: arquetipo, lo marcado como core o descartado y sus habilidades.
  */
-export function GemAdvisorCard({ profile, buildMemory }: GemAdvisorCardProps) {
+export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemAdvisorCardProps) {
   const [remembered] = useState(readRemembered);
   const [useCharacter, setUseCharacter] = useState(true);
   const [mode, setMode] = useState<Mode>(remembered.mode);
@@ -337,6 +339,21 @@ export function GemAdvisorCard({ profile, buildMemory }: GemAdvisorCardProps) {
       <p className="mt-1 text-sm text-muted-foreground">
         Dime tus habilidades y qué te deja tallar tu gema. Te digo cuál poner, dónde y por qué.
       </p>
+
+      {!profile && onCreateCharacter && (
+        <div
+          className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm"
+          data-testid="asistencia-sin-personaje"
+        >
+          <span className="text-muted-foreground">
+            Ahora te aconsejo sin saber qué build llevas. Dímelo y afino mucho más.
+          </span>
+          <Button type="button" size="sm" variant="outline" onClick={onCreateCharacter} data-testid="asistencia-crear-personaje">
+            <UserCheck className="size-4" aria-hidden="true" />
+            Guardar mi personaje
+          </Button>
+        </div>
+      )}
 
       {profile && (
         <div className="mt-3 rounded-lg bg-secondary/50 px-3 py-2 text-sm" data-testid="asistencia-personaje">

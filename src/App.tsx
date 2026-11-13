@@ -26,6 +26,7 @@ import type {
   Item,
   Recommendation,
 } from "@shared/domain.js";
+import { readCharacterLevel } from "@shared/domain.js";
 import {
   assessCharacterReadiness,
   assessMentorReadiness,
@@ -52,6 +53,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { ContextualMentor } from "@/components/ContextualMentor";
 import { DataPrivacyDialog } from "@/components/DataPrivacyDialog";
+import { QuickCharacterDialog } from "@/components/QuickCharacterDialog";
 import { WelcomePanel } from "@/components/WelcomePanel";
 import { MentorBriefing, OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
 import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
@@ -243,6 +245,10 @@ export default function App() {
   const [craftingRequestedItemId, setCraftingRequestedItemId] = useState<string | null>(null);
   // Panel lateral con el editor completo del personaje.
   const [editorOpen, setEditorOpen] = useState(false);
+  // Alta corta de personaje: clase, build en una frase y habilidades.
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  /** true = el alta corta completa el personaje cargado en vez de crear otro. */
+  const [quickCompleting, setQuickCompleting] = useState(false);
   const [editorPrompt, setEditorPrompt] = useState<EditorPrompt>(null);
   const [mentorBriefingOpen, setMentorBriefingOpen] = useState(false);
   const [mentorQuickQuestion, setMentorQuickQuestion] = useState<{
@@ -809,6 +815,31 @@ export default function App() {
     setEditorOpen(true);
     announceMentor({ type: "editor" });
   };
+
+  /**
+   * «Completar expediente»: si al personaje le faltan los datos básicos, se
+   * piden en el alta corta; si ya los tiene, se abre el formulario completo.
+   */
+  const completeProfile = () => {
+    if (character.profile && !profileReadiness.ready) {
+      setQuickCompleting(true);
+      setQuickCreateOpen(true);
+      return;
+    }
+    openEditor();
+  };
+  const quickInitial = character.profile
+    ? {
+        // Los nombres de relleno no se proponen: el alta pone «Mi bruja».
+        name: /^(?:expediente provisional|nuevo personaje)$/i.test(character.profile.name.trim())
+          ? ""
+          : character.profile.name,
+        characterClass: character.profile.characterClass,
+        level: readCharacterLevel(character.profile).known ? character.profile.level : null,
+        archetype: character.profile.archetype ?? "",
+        skills: character.profile.skills.map((setup) => setup.mainSkill.trim()).filter(Boolean),
+      }
+    : null;
 
   const startManualJourney = (intent: "new" | "item") => {
     if (!character.profile) {
@@ -1549,7 +1580,10 @@ export default function App() {
                   navigateWorkspace("guias");
                 }}
                 onGoToImport={() => openEditor(true)}
-                onStartNew={() => startManualJourney("new")}
+                onStartNew={() => {
+                  setQuickCompleting(false);
+                  setQuickCreateOpen(true);
+                }}
                 onStartItem={() => startManualJourney("item")}
                 previousCharacterName={character.previousCharacter?.name ?? null}
                 onRestorePrevious={() => void character.restorePrevious()}
@@ -1665,7 +1699,7 @@ export default function App() {
                         }}
                         recommendations={recommendations}
                         onLoadDemo={character.loadDemo}
-                        onEditProfile={() => openEditor()}
+                        onEditProfile={completeProfile}
                         onFocusItem={focusItem}
                         onTrackRecommendation={trackRecommendation}
                         trackingRecommendation={journal.saving}
@@ -1735,7 +1769,7 @@ export default function App() {
                         trackRecommendation(recommendation);
                       }}
                       onFocusItem={focusItem}
-                      onEditProfile={() => openEditor()}
+                      onEditProfile={completeProfile}
                       pendingQuestion={mentorQuickQuestion}
                     />
                   </MentorBriefing>
@@ -1784,7 +1818,7 @@ export default function App() {
                         }}
                         recommendations={recommendations}
                         onLoadDemo={character.loadDemo}
-                        onEditProfile={() => openEditor()}
+                        onEditProfile={completeProfile}
                         onFocusItem={focusItem}
                         onTrackRecommendation={trackRecommendation}
                         trackingRecommendation={journal.saving}
@@ -1974,6 +2008,10 @@ export default function App() {
                 }}
                 profile={character.profile}
                 buildMemory={journal.journal?.buildMemory ?? []}
+                onCreateCharacter={() => {
+                  setQuickCompleting(false);
+                  setQuickCreateOpen(true);
+                }}
                 patch={character.profile?.patch || activePatchId || "desconocido"}
                 onAskMentor={
                   character.profile
@@ -2185,6 +2223,25 @@ export default function App() {
         onCollapsedChange={setContextualCollapsed}
         onAsk={askContextualMentor}
         onOpenMentor={openMentorConversation}
+      />
+      <QuickCharacterDialog
+        open={quickCreateOpen}
+        onOpenChange={setQuickCreateOpen}
+        initial={quickCompleting ? quickInitial : null}
+        saving={character.busy === "save"}
+        onCreate={async (input) =>
+          (quickCompleting
+            ? await character.completeQuick(input)
+            : await character.createQuick(input, {
+                league: league || meta?.leagues[0] || "Desconocida",
+                patch: patch || health?.patch.content || "Desconocido",
+              })) !== null
+        }
+        onOpenFullEditor={() => {
+          setQuickCreateOpen(false);
+          if (quickCompleting) openEditor();
+          else startManualJourney("new");
+        }}
       />
       <Toaster theme="dark" richColors closeButton position="top-right" />
     </div>
