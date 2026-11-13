@@ -207,6 +207,8 @@ interface GuidesSectionProps {
   buildMemory?: readonly BuildMemoryEntry[];
   /** Abre el alta corta de personaje. */
   onCreateCharacter?: () => void;
+  /** Apunta en el personaje que una habilidad ya lleva esa asistencia. */
+  onOwnSupport?: (skillName: string, supportName: string) => void;
   patch: string;
   onAskMentor?: (question: string) => void;
 }
@@ -221,6 +223,7 @@ export function GuidesSection({
   profile,
   buildMemory,
   onCreateCharacter,
+  onOwnSupport,
   patch,
   onAskMentor,
 }: GuidesSectionProps) {
@@ -313,7 +316,12 @@ export function GuidesSection({
         </ol>
       </section>
 
-      <GemAdvisorCard profile={profile} buildMemory={buildMemory ?? []} onCreateCharacter={onCreateCharacter} />
+      <GemAdvisorCard
+        profile={profile}
+        buildMemory={buildMemory ?? []}
+        onCreateCharacter={onCreateCharacter}
+        onOwnSupport={onOwnSupport}
+      />
 
       {guide.route && guide.route.length > 0 && <Route key={guide.slug} guide={guide} />}
 

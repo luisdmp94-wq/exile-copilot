@@ -2012,6 +2012,7 @@ export default function App() {
                   setQuickCompleting(false);
                   setQuickCreateOpen(true);
                 }}
+                onOwnSupport={(skillName, supportName) => void character.rememberSupport(skillName, supportName)}
                 patch={character.profile?.patch || activePatchId || "desconocido"}
                 onAskMentor={
                   character.profile

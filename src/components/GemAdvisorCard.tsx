@@ -152,6 +152,8 @@ interface GemAdvisorCardProps {
   buildMemory: readonly BuildMemoryEntry[];
   /** Abre el alta corta de personaje cuando todavía no hay ninguno. */
   onCreateCharacter?: () => void;
+  /** Apunta en el personaje cargado que esa habilidad ya lleva esa asistencia. */
+  onOwnSupport?: (skillName: string, supportName: string) => void;
 }
 
 /**
@@ -160,7 +162,7 @@ interface GemAdvisorCardProps {
  * datos del juego y, si hay IA, elige y lo explica. Con un personaje cargado
  * usa su build: arquetipo, lo marcado como core o descartado y sus habilidades.
  */
-export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemAdvisorCardProps) {
+export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnSupport }: GemAdvisorCardProps) {
   const [remembered] = useState(readRemembered);
   const [useCharacter, setUseCharacter] = useState(true);
   const [mode, setMode] = useState<Mode>(remembered.mode);
@@ -255,7 +257,21 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemA
     setDraftSkill("");
   };
 
-  const askOne = async () => {
+  /**
+   * «Ya la tengo»: la gema se apunta como puesta (en esta tarjeta y, si hay
+   * personaje, en su Expediente) y se pide la siguiente mejor.
+   */
+  const alreadyOwned = (skillName: string, supportName: string) => {
+    const names = splitNames(socketed, 16);
+    const next = names.some((name) => name.toLocaleLowerCase("es") === supportName.toLocaleLowerCase("es"))
+      ? names
+      : [...names, supportName];
+    setSocketed(next.join(", "));
+    if (character) onOwnSupport?.(skillName, supportName);
+    return next;
+  };
+
+  const askOne = async (owned?: string[]) => {
     if (!skill.trim()) {
       setError("Escribe primero la habilidad, tal como sale en el juego.");
       return;
@@ -267,7 +283,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemA
     setBusy(true);
     setError(null);
     try {
-      const names = [...new Set([...splitNames(socketed, 5), ...supportsOf(skill)])].slice(0, 5);
+      const names = [...new Set([...(owned ?? splitNames(socketed, 16)), ...supportsOf(skill)])].slice(0, 5);
       setAnswer(
         await api.supportGemAdvice({
           skill: skill.trim(),
@@ -286,7 +302,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemA
     }
   };
 
-  const askMany = async () => {
+  const askMany = async (owned?: string[]) => {
     const pending = draftSkill.trim();
     const skills = pending && mySkills.length < MAX_SKILLS ? [...mySkills, pending] : mySkills;
     if (skills.length === 0) {
@@ -304,7 +320,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemA
     setBusy(true);
     setError(null);
     try {
-      const names = splitNames(socketed, 16);
+      const names = owned ?? splitNames(socketed, 16);
       setPlan(
         await api.supportGemPlan({
           skills,
@@ -690,6 +706,17 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemA
               </p>
               <p className="mt-1 text-sm leading-relaxed text-foreground/90">{pick.reason}</p>
               <OptionDetails option={pick} />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                disabled={busy}
+                onClick={() => void askOne(alreadyOwned(answer.skill.name, pick.name))}
+                data-testid="asistencia-ya-la-tengo"
+              >
+                Ya la tengo: dime otra
+              </Button>
               {answer.alternatives.length > 0 && (
                 <details className="group mt-3">
                   <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -736,6 +763,17 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter }: GemA
                   </p>
                   <p className="mt-0.5 text-sm leading-relaxed text-foreground/90">{item.reason}</p>
                   <OptionDetails option={item.support} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    disabled={busy}
+                    onClick={() => void askMany(alreadyOwned(item.skill, item.support.name))}
+                    data-testid="asistencia-reparto-ya-la-tengo"
+                  >
+                    Ya la tengo: reparte otra vez
+                  </Button>
                 </li>
               ))}
             </ol>

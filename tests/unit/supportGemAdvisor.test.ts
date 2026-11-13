@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   adviseSupportGem,
   loadGemData,
+  reasonIsGrounded,
   type SupportPlanExplainer,
 } from "../../server/advice/supportGemAdvisor.js";
 import { ApiHttpError } from "../../server/errors.js";
-import { SupportAdviceResponseSchema, type SupportAdviceRequest } from "../../shared/supportGemAdvice.js";
+import { SupportAdviceResponseSchema, findSkill, type SupportAdviceRequest } from "../../shared/supportGemAdvice.js";
 
 const data = loadGemData();
 
@@ -57,6 +58,34 @@ describe("adviseSupportGem", () => {
       expect(answer.recommended?.name).toBe("Último aliento");
       expect(answer.fallbackReason).toContain("reglas");
     }
+  });
+
+  it("descarta un motivo de la IA que inventa una pega (caso real del 13-11-2026)", async () => {
+    // Último aliento no encarece la habilidad; la IA escribió que sí.
+    const invented: SupportPlanExplainer = async ({ pairs }) => [
+      {
+        skill: pairs[0].skill.name,
+        support: pairs[0].support.name,
+        reason: "Los guerreros esqueleto seguirán luchando 4 s tras morir, pero la gema aumenta el coste de maná.",
+      },
+    ];
+    const answer = await adviseSupportGem(data, SKELETONS, invented);
+    expect(answer.recommended?.name).toBe("Último aliento");
+    expect(answer.mode).toBe("rules");
+    expect(answer.recommended?.reason).not.toContain("coste");
+  });
+
+  it("reasonIsGrounded: números y costes tienen que salir de los datos", () => {
+    const skeleton = findSkill(data, "Guerrero esqueleto")!;
+    const lastGasp = data.supports.find((support) => support.name === "Último aliento")!;
+    const swift = data.supports.find((support) => support.name === "Aflicción veloz I")!;
+    const brutality = data.supports.find((support) => support.name === "Brutalidad I")!;
+    expect(reasonIsGrounded("Siguen peleando 4 segundos después de caer.", skeleton, lastGasp)).toBe(true);
+    expect(reasonIsGrounded("Siguen peleando 10 segundos después de caer.", skeleton, lastGasp)).toBe(false);
+    expect(reasonIsGrounded("Aguantan más, pero cuesta más maná.", skeleton, lastGasp)).toBe(false);
+    expect(reasonIsGrounded("Un 30 % más de daño degenerativo y un 20 % menos de duración.", skeleton, swift)).toBe(true);
+    // Brutalidad sí encarece: hablar de coste está respaldado.
+    expect(reasonIsGrounded("Un 25 % más de daño físico, pero cuesta el 120 % de maná.", skeleton, brutality)).toBe(true);
   });
 
   it("limpia el motivo de la IA: texto plano y corto", async () => {

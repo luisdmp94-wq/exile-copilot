@@ -91,6 +91,8 @@ export interface CharacterState {
     input: QuickCharacterInput,
     defaults: { league: string; patch: string },
   ) => Promise<CharacterProfile | null>;
+  /** Apunta en el personaje cargado que esa habilidad ya lleva esa asistencia, y guarda. */
+  rememberSupport: (skillName: string, supportName: string) => Promise<boolean>;
   /** Completa el personaje cargado con los datos del alta corta y lo guarda. */
   completeQuick: (input: QuickCharacterInput) => Promise<CharacterProfile | null>;
   importBuild: (
@@ -530,6 +532,34 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       }
     },
     [profile, persistId, refreshSavedCharacters],
+  );
+
+  const rememberSupport = useCallback(
+    async (skillName: string, supportName: string) => {
+      if (!profile) return false;
+      const key = (value: string) => value.trim().toLocaleLowerCase("es");
+      const support = { name: supportName.trim(), gemId: null };
+      const found = profile.skills.find((setup) => key(setup.mainSkill) === key(skillName));
+      if (found?.supports.some((item) => key(item.name) === key(supportName))) return true;
+      const skills = found
+        ? profile.skills.map((setup) => (setup === found ? { ...setup, supports: [...setup.supports, support] } : setup))
+        : [
+            ...profile.skills,
+            { id: `skill-${Date.now()}`, label: "", mainSkill: skillName.trim(), mainSkillGemId: null, supports: [support] },
+          ];
+      try {
+        const res = await api.saveCharacter({ ...profile, skills });
+        setProfile(res.profile);
+        persistId(res.profile.id);
+        setDirty(false);
+        setPersisted(true);
+        return true;
+      } catch (err) {
+        toast.error("No se pudo apuntar en tu personaje", { description: getErrorMessage(err) });
+        return false;
+      }
+    },
+    [profile, persistId],
   );
 
   const importBuild = useCallback(
@@ -997,6 +1027,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     startManual,
     createQuick,
     completeQuick,
+    rememberSupport,
     importBuild,
     importItemText,
     resolvePendingItemImport,
