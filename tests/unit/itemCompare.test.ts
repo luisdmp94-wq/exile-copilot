@@ -132,6 +132,35 @@ describe("compareItems", () => {
     });
   });
 
+  it("una diferencia mínima es empate: 22 de escudo frente a 20 no es perderlo (caso del 13-11-2026)", () => {
+    const body = (name: string, lines: string[]) =>
+      parse(["Clase de objeto: Armaduras corporales", "Rareza: Raro", name, "Túnica", "--------", ...lines].join("\n"));
+    const fortress = body("Fortaleza de olvido", [
+      "Armadura: 35 (augmented)",
+      "Escudo de energía: 22 (augmented)",
+      "--------",
+      "Nivel de objeto: 12",
+      "--------",
+      "Regeneras 3.2(2.1-3.5) de vida por segundo",
+      "+6(6-10)% a la resistencia al rayo",
+    ]);
+    const gambeson = body("Gambesón de víbora", [
+      "Evasión: 20 (augmented)",
+      "Escudo de energía: 20 (augmented)",
+      "--------",
+      "Nivel de objeto: 12",
+      "--------",
+      "+10(7-10) a la vida máxima",
+      "+7(6-10)% a la resistencia al fuego",
+      "+7(6-10)% a la resistencia al hielo",
+    ]);
+    const result = compareItems(fortress, gambeson, "caster");
+    expect(result.winner).toBe("b");
+    expect(result.rows.find((row) => row.id === "es")).toMatchObject({ a: "22", b: "20", winner: "tie" });
+    expect(result.reasons.join(" ")).not.toContain("escudo de energía");
+    expect(result.rows.find((row) => row.id === "res")).toMatchObject({ winner: "b" });
+  });
+
   it("avisa cuando las dos piezas no van en el mismo hueco", () => {
     const boots = parse(
       ["Clase de objeto: Botas", "Rareza: Mágico", "Botas de prueba", "--------", "Nivel de objeto: 5", "--------", "Velocidad de movimiento aumentada un 10%"].join("\n"),

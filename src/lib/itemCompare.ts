@@ -160,8 +160,13 @@ function plain(value: number): string {
   return value === 0 ? "nada" : String(value);
 }
 
+/**
+ * Quién gana una fila. Si las dos piezas dan casi lo mismo (menos de un 10 %
+ * de diferencia), es empate: 22 de escudo frente a 20 no es «perder escudo».
+ */
 function winnerOf(a: number, b: number): CompareSide | "tie" {
   if (a === b) return "tie";
+  if (a > 0 && b > 0 && Math.abs(a - b) <= 0.1 * Math.max(a, b)) return "tie";
   return a > b ? "a" : "b";
 }
 
