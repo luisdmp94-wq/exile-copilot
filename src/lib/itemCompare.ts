@@ -80,6 +80,7 @@ const ATTACK_LINE =
 const SPELL_LINE =
   /hechizos?|spells?|esbirros?|minions?|velocidad de lanzamiento|cast speed|daño de (?:caos|fuego|hielo|rayo)|(?:chaos|fire|cold|lightning) damage|daño elemental|elemental damage/i;
 const ACCURACY_LINE = /precisión|accuracy/i;
+const ALLY_LINE = /aliados|allies|esbirros|minions/i;
 const RESISTANCE_LINE = /resistenc|resistanc/i;
 
 interface Reading {
@@ -131,11 +132,14 @@ function read(item: Item): Reading {
       .map(([key, label]) => `${res[key] > 0 ? "+" : ""}${res[key]} % ${label}`)
       .join(", "),
     moveSpeed: sumLines(lines, /velocidad de movimiento|movement speed/i),
-    spirit: flat(/al espíritu|to spirit/i),
+    // En un cetro el espíritu es una propiedad de la base («Espíritu: 100»), no un modificador.
+    spirit: baseProperty(item, /^(?:espíritu|spirit)$/i) + flat(/al espíritu|to spirit/i),
     attributes: flat(/a la (?:fuerza|destreza|inteligencia)|a todos los atributos|to (?:strength|dexterity|intelligence|all attributes)/i),
     // Una línea que habla de ataques es de ataque aunque nombre un elemento.
-    attackLines: damageLines.filter((line) => ATTACK_LINE.test(line)),
-    spellLines: damageLines.filter((line) => !ATTACK_LINE.test(line) && SPELL_LINE.test(line)),
+    // Y una que mejora a los aliados (los esbirros lo son) cuenta para quien
+    // lleva esbirros aunque hable de ataques: los que atacan son ellos.
+    attackLines: damageLines.filter((line) => ATTACK_LINE.test(line) && !ALLY_LINE.test(line)),
+    spellLines: damageLines.filter((line) => ALLY_LINE.test(line) || (!ATTACK_LINE.test(line) && SPELL_LINE.test(line))),
     accuracyLines: lines.filter((line) => ACCURACY_LINE.test(line)),
   };
 }

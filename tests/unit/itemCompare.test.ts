@@ -100,6 +100,38 @@ describe("compareItems", () => {
     expect(melee.wasted.a).toEqual(["42% increased Spell Damage"]);
   });
 
+  describe("cetros (caso de Luis del 13-11-2026)", () => {
+    const sceptre = (name: string, spirit: number, lines: string[]) =>
+      parse(
+        ["Clase de objeto: Cetros", "Rareza: Raro", name, "Cetro traqueteante", "--------", `Espíritu: ${spirit}`, "--------", "Nivel de objeto: 14", "--------", ...lines].join(
+          "\n",
+        ),
+      );
+    const A = sceptre("Canción de apocalipsis", 100, [
+      "Los aliados que están en tu presencia infligen de 2(2-3) a 4(4-6) de daño físico agregado con los ataques",
+      "Los esbirros infligen daño aumentado un 24(20-30)%",
+      "+24(20-25) al maná máximo",
+    ]);
+    const B = sceptre("Tejedora de penumbra", 118, ["Los esbirros tienen un 15(12-18)% más de vida máxima", "+16(15-19) al maná máximo"]);
+
+    it("lee el espíritu de la base, que es lo principal de un cetro", () => {
+      const row = compareItems(A, B, "caster").rows.find((item) => item.id === "spirit");
+      expect(row).toMatchObject({ a: "+100", b: "+118", winner: "b" });
+    });
+
+    it("con esbirros, el daño que ganan los aliados cuenta y no aparece como desaprovechado", () => {
+      const result = compareItems(A, B, "caster");
+      expect(result.wasted.a).toEqual([]);
+      expect(result.rows.find((item) => item.id === "damage")).toMatchObject({ a: "2 líneas", winner: "a" });
+    });
+
+    it("para un personaje sin esbirros, esas mismas líneas sí se desaprovechan", () => {
+      const result = compareItems(A, B, "melee");
+      expect(result.wasted.a).toHaveLength(2);
+      expect(result.rows.find((item) => item.id === "damage")?.a ?? "nada").toBe("nada");
+    });
+  });
+
   it("avisa cuando las dos piezas no van en el mismo hueco", () => {
     const boots = parse(
       ["Clase de objeto: Botas", "Rareza: Mágico", "Botas de prueba", "--------", "Nivel de objeto: 5", "--------", "Velocidad de movimiento aumentada un 10%"].join("\n"),
