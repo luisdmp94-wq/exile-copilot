@@ -42,6 +42,20 @@ export interface GuideBlock {
  */
 export type GuideRoutePriority = "clave" | "recomendable" | "historia";
 
+/**
+ * Huella que deja una recompensa permanente en un número del juego, para
+ * poder comprobar si el jugador la tiene:
+ * - `resistance`: suma a una resistencia de la hoja de personaje.
+ * - `spirit`: suma al espíritu máximo.
+ * - `weaponSetPoints`: suma a los puntos de pasiva de set de armas del árbol.
+ * - `manual`: no deja huella en un número; se le pregunta al jugador.
+ */
+export type GuideRewardProof =
+  | { kind: "resistance"; element: "fire" | "cold" | "lightning"; amount: number }
+  | { kind: "spirit"; amount: number }
+  | { kind: "weaponSetPoints"; amount: number }
+  | { kind: "manual"; question: string };
+
 export interface GuideRouteStep {
   zone: string;
   text: string;
@@ -52,11 +66,15 @@ export interface GuideRouteStep {
   reward?: string;
   /** Jefe u objetivo opcional de la zona que no da nada para siempre. */
   skip?: string;
+  /** Solo en las zonas clave: cómo se nota en el juego que la recompensa está cogida. */
+  proof?: GuideRewardProof;
   sourceIds: string[];
 }
 
 export interface ActGuide {
   slug: string;
+  /** Número del acto: fija la penalización de resistencias y el orden entre guías. */
+  act: number;
   actLabel: string;
   title: string;
   summary: string;

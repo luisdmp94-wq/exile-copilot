@@ -10,6 +10,7 @@ import type { ActGuide } from "./guide";
  */
 export const ACT_ONE_GUIDE: ActGuide = {
   slug: "acto-1",
+  act: 1,
   actLabel: "acto 1",
   title: "Acto 1: cómo no morir antes del acto 2",
   description:
@@ -58,6 +59,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       text: "Busca a Beira, de la manada putrefacta: +10 % de resistencia al hielo para siempre.",
       priority: "clave",
       reward: "+10 % de hielo",
+      proof: { kind: "resistance", element: "cold", amount: 10 },
       sourceIds: ["wiki-resistencias", "poe2db-acto1"],
     },
     {
@@ -99,6 +101,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
+      proof: { kind: "weaponSetPoints", amount: 2 },
       sourceIds: ["wiki-cuervo", "poe2db-acto1"],
     },
     {
@@ -107,6 +110,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       optional: true,
       priority: "clave",
       reward: "+30 de espíritu",
+      proof: { kind: "spirit", amount: 30 },
       sourceIds: ["maxroll-subida", "wiki-rey-nieblas"],
     },
     {
@@ -115,6 +119,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
+      proof: { kind: "weaponSetPoints", amount: 2 },
       sourceIds: ["poe2db-acto1", "wiki-libro"],
     },
     {
@@ -128,6 +133,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       text: "Cirio, el Ritual viviente, da +20 de vida. Al final espera el conde Geonor.",
       priority: "clave",
       reward: "+20 de vida",
+      proof: { kind: "manual", question: "¿Mataste a Cirio, el Ritual viviente, en la Mansión de Ogham?" },
       sourceIds: ["maxroll-subida", "wiki-geonor"],
     },
   ],

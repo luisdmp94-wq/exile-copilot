@@ -16,6 +16,7 @@ import type { ActGuide } from "./guide";
  */
 export const ACT_TWO_GUIDE: ActGuide = {
   slug: "acto-2",
+  act: 2,
   actLabel: "acto 2",
   title: "Acto 2: cómo cruzar el desierto sin morir",
   description:
@@ -24,7 +25,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
   status: "borrador",
   checkedPatch: "0.5.5",
   checkedOn: "24-10-2026",
-  readMinutes: 2,
+  readMinutes: 3,
   check: {
     elemental: 30,
     nextAct: "acto 3",
@@ -50,6 +51,102 @@ export const ACT_TWO_GUIDE: ActGuide = {
     {
       text: "No te saltes las Hermanas de Garukhan (+10 % de rayo para siempre) ni las Promesas antiguas (+1 espacio para viales).",
       sourceIds: ["maxroll-subida", "wiki-promesas"],
+    },
+  ],
+  // Orden de la historia. Zonas, jefes y recompensas según poe2db (consultado
+  // el 14-11-2026); el porqué de cada recompensa, de las fuentes ya citadas.
+  route: [
+    {
+      zone: "Alrededores del Vastiri",
+      text: "Vence a Matajefes para subir a la caravana de los ardura.",
+      priority: "historia",
+      sourceIds: ["poe2db-acto2"],
+    },
+    {
+      zone: "Cantera y mina Mawdun",
+      text: "Rudja, Ingeniera del terror, espera en la mina. Sal del alquitrán antes de que lo encienda.",
+      priority: "historia",
+      sourceIds: ["wiki-rudja", "poe2db-acto2"],
+    },
+    {
+      zone: "El pasaje de la traidora",
+      text: "Balbala, la Traidora. Al vencerla te llevas la Barya que abre la Prueba de las sekhemas.",
+      priority: "historia",
+      sourceIds: ["wiki-balbala", "poe2db-acto2"],
+    },
+    {
+      zone: "Prueba de las sekhemas",
+      text: "Aquí consigues tu ascendencia. Si se te atraganta, vuelve con más nivel: no caduca.",
+      optional: true,
+      priority: "clave",
+      reward: "tu ascendencia",
+      proof: { kind: "manual", question: "¿Tienes ya una ascendencia elegida?" },
+      sourceIds: ["maxroll-subida", "poe2db-acto2"],
+    },
+    {
+      zone: "Las puertas de Halani",
+      text: "Jamanra, el Rey ascendido, no muere: huye. Después se abren tres rutas por el desierto y hay que hacer las tres.",
+      priority: "historia",
+      sourceIds: ["wiki-acto2", "poe2db-acto2"],
+    },
+    {
+      zone: "Keth",
+      text: "Kabala, Reina constrictora, suelta un libro con 2 puntos de pasiva de set de arma. Llévate también la reliquia de su clan.",
+      optional: true,
+      priority: "clave",
+      reward: "2 puntos de pasiva",
+      proof: { kind: "weaponSetPoints", amount: 2 },
+      sourceIds: ["wiki-libro", "wiki-promesas", "poe2db-acto2"],
+    },
+    {
+      zone: "La ciudad perdida y Santuarios enterrados",
+      text: "Azarian, el Hijo abandonado, espera al fondo de los santuarios.",
+      priority: "historia",
+      sourceIds: ["wiki-azarian", "poe2db-acto2"],
+    },
+    {
+      zone: "Páramo de los mastodontes y La llanura de huesos",
+      text: "Ekbab, Montura ancestral. En esta ruta está la reliquia del clan del sol: no te vayas sin ella.",
+      priority: "historia",
+      sourceIds: ["wiki-promesas", "poe2db-acto2"],
+    },
+    {
+      zone: "Valle de los titanes",
+      text: "Promesas antiguas: pon las dos reliquias en el medallón y ganas un espacio más para viales.",
+      optional: true,
+      priority: "clave",
+      reward: "+1 espacio para viales",
+      proof: { kind: "manual", question: "¿Pusiste las dos reliquias en el medallón del Valle de los titanes?" },
+      sourceIds: ["wiki-promesas", "poe2db-acto2"],
+    },
+    {
+      zone: "La gruta del titán",
+      text: "Zalmarath, el Coloso, cierra la ruta del valle.",
+      priority: "historia",
+      sourceIds: ["poe2db-acto2"],
+    },
+    {
+      zone: "Deshar",
+      text: "El rhoa abandonado: busca la Última carta y llévasela a Shambrin. Da otro libro con 2 puntos.",
+      optional: true,
+      priority: "clave",
+      reward: "2 puntos de pasiva",
+      proof: { kind: "weaponSetPoints", amount: 2 },
+      sourceIds: ["wiki-tradicion", "poe2db-acto2"],
+    },
+    {
+      zone: "Las torres de Deshar",
+      text: "Santuario de las Hermanas de Garukhan: +10 % de resistencia al rayo para siempre. Después, Tor Gul, el Profanador.",
+      priority: "clave",
+      reward: "+10 % de rayo",
+      proof: { kind: "resistance", element: "lightning", amount: 10 },
+      sourceIds: ["maxroll-subida", "wiki-resistencias", "poe2db-acto2"],
+    },
+    {
+      zone: "El Acorazado",
+      text: "Jamanra, la Abominación, el jefe final. En la tormenta de arena, quédate detrás del escudo de la sekhema Asala.",
+      priority: "historia",
+      sourceIds: ["wiki-jamanra", "maxroll-jefes"],
     },
   ],
   blocks: [
@@ -257,7 +354,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
     },
     {
       id: "poe2db-acto2",
-      label: "PoE2DB en español — Acto 2 (nombres de jefes y zonas)",
+      label: "PoE2DB en español — Acto 2 (zonas, jefes y recompensas)",
       url: "https://poe2db.tw/sp/Act_2",
     },
   ],
