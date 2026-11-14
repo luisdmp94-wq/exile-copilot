@@ -75,6 +75,16 @@ function sumLines(lines: string[], test: RegExp, reject?: RegExp): number {
 
 const PERCENT = /aumentad|increased|reducid|reduced|\bmás\b|\bmore\b/i;
 
+/**
+ * Espíritu que da una pieza: la propiedad de la base de los cetros
+ * («Espíritu: 100») más los modificadores planos («+30 al espíritu»).
+ */
+export function itemSpirit(item: Item): number {
+  return (
+    baseProperty(item, /^(?:espíritu|spirit)$/i) + sumLines(modifierLines(item), /al espíritu|to spirit/i, PERCENT)
+  );
+}
+
 const ATTACK_LINE =
   /a los ataques|to attacks|velocidad de ataque|attack speed|daño de ataque|attack damage|daño físico|physical damage|cuerpo a cuerpo|melee|proyectil|projectile|flechas?|arrows?/i;
 const SPELL_LINE =
@@ -133,7 +143,7 @@ function read(item: Item): Reading {
       .join(", "),
     moveSpeed: sumLines(lines, /velocidad de movimiento|movement speed/i),
     // En un cetro el espíritu es una propiedad de la base («Espíritu: 100»), no un modificador.
-    spirit: baseProperty(item, /^(?:espíritu|spirit)$/i) + flat(/al espíritu|to spirit/i),
+    spirit: itemSpirit(item),
     attributes: flat(/a la (?:fuerza|destreza|inteligencia)|a todos los atributos|to (?:strength|dexterity|intelligence|all attributes)/i),
     // Una línea que habla de ataques es de ataque aunque nombre un elemento.
     // Y una que mejora a los aliados (los esbirros lo son) cuenta para quien

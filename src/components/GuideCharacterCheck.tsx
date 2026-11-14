@@ -39,6 +39,9 @@ interface GuideCharacterCheckProps {
   targets: GuideCheckTargets;
   /** Personaje del expediente, si hay uno cargado. */
   profile: CharacterProfile | null;
+  /** Piezas pegadas. Las guarda la sección, que las comparte y las recuerda. */
+  items: Item[];
+  onItemsChange: (items: Item[]) => void;
   patch: string;
   /** Solo existe con expediente: el mentor responde sobre ese personaje. */
   onAskMentor?: (question: string) => void;
@@ -79,10 +82,17 @@ function pieceSummary(item: Item): string {
  * Las piezas pegadas viven solo en esta tarjeta: no tocan el expediente ni se
  * guardan. El código PoB se lee en el navegador, igual que en /check.
  */
-export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMentor }: GuideCharacterCheckProps) {
+export function GuideCharacterCheck({
+  actLabel,
+  targets,
+  profile,
+  items,
+  onItemsChange,
+  patch,
+  onAskMentor,
+}: GuideCharacterCheckProps) {
   const [mode, setMode] = useState<Mode>("items");
   const [pasted, setPasted] = useState("");
-  const [items, setItems] = useState<Item[]>([]);
   const [pobProfile, setPobProfile] = useState<CharacterProfile | null>(null);
   const [useExpediente, setUseExpediente] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -146,7 +156,7 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
         );
       }
     }
-    setItems(current);
+    onItemsChange(current);
     if (added > 0) setUseExpediente(false);
     // Si algo falla, el texto se queda en la casilla para poder corregirlo.
     setPasted(failures.length === 0 ? "" : source);
@@ -200,7 +210,7 @@ export function GuideCharacterCheck({ actLabel, targets, profile, patch, onAskMe
   };
 
   const removePiece = (target: Item) => {
-    setItems((current) => current.filter((item) => item !== target));
+    onItemsChange(items.filter((item) => item !== target));
     setNotice(null);
   };
 

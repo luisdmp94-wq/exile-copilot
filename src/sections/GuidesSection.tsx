@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Map as MapIcon, Shield, Skull, Sparkles } from "lucide-react";
-import type { BuildMemoryEntry, CharacterProfile } from "@shared/domain.js";
+import { ItemSchema, type BuildMemoryEntry, type CharacterProfile, type Item } from "@shared/domain.js";
 import { GemAdvisorCard } from "@/components/GemAdvisorCard";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
 import { ItemCompareCard } from "@/components/ItemCompareCard";
+import { RewardCheckCard } from "@/components/RewardCheckCard";
 import type { ActGuide, GuideBlock, GuideRoutePriority, GuideTip } from "@/guides/guide";
 import { GUIDES, UPCOMING_GUIDES, findGuide } from "@/guides";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,17 @@ function SourceRefs({ guide, ids }: { guide: ActGuide; ids: string[] }) {
 }
 
 const ROUTE_STORAGE_PREFIX = "exile-copilot:guia-ruta:";
+const PIECES_STORAGE_KEY = "exile-copilot:guia-piezas";
+
+/** Piezas pegadas en una visita anterior. Lo que no sea un objeto válido se descarta. */
+function readStoredPieces(): Item[] {
+  try {
+    const parsed = ItemSchema.array().max(20).safeParse(JSON.parse(window.localStorage.getItem(PIECES_STORAGE_KEY) ?? "[]"));
+    return parsed.success ? parsed.data : [];
+  } catch {
+    return [];
+  }
+}
 
 const ROUTE_PRIORITY: Record<GuideRoutePriority, { label: string; className: string }> = {
   clave: { label: "No te lo saltes", className: "border-amber-400/60 bg-amber-400/15 text-amber-200" },
@@ -228,6 +240,16 @@ export function GuidesSection({
   onAskMentor,
 }: GuidesSectionProps) {
   const guide = findGuide(guideSlug);
+  // El equipo pegado es del personaje, no de un acto: se comparte entre guías
+  // y se recuerda en el navegador para no pegar nueve piezas cada vez.
+  const [pastedItems, setPastedItems] = useState<Item[]>(readStoredPieces);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PIECES_STORAGE_KEY, JSON.stringify(pastedItems));
+    } catch {
+      // Sin almacenamiento las piezas valen para esta visita.
+    }
+  }, [pastedItems]);
   return (
     <article className="mx-auto max-w-3xl space-y-4" aria-labelledby="guia-titulo" data-testid="guia-acto">
       <header>
@@ -333,8 +355,17 @@ export function GuidesSection({
         actLabel={guide.actLabel}
         targets={guide.check}
         profile={profile}
+        items={pastedItems}
+        onItemsChange={setPastedItems}
         patch={patch}
         onAskMentor={onAskMentor}
+      />
+
+      <RewardCheckCard
+        key={`recompensas-${guide.slug}`}
+        guide={guide}
+        earlier={GUIDES.filter((other) => other.act < guide.act)}
+        items={pastedItems}
       />
 
       <ItemCompareCard patch={patch} />
