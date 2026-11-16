@@ -45,7 +45,7 @@ const TEXT = texts(
     checkedFor: (patch: string) => `Comprobada para ${patch} · se revisa al salir la 1.0`,
     readTime: (minutes: number) => `${minutes} min de lectura · sin registrarse`,
     draftTitle: "Borrador sin revisar.",
-    draftText: "Falta la revisión de Luis antes de publicarlo.",
+    draftText: "Falta una última revisión.",
     essentials: "Lo esencial",
     sources: "Fuentes",
     checkedOn: (date: string) =>
