@@ -6,7 +6,7 @@ import { resistancesFromItems } from "./guideCheck";
  *
  * Reglas fijas y a la vista, sin IA: se lee lo que da cada pieza, se agrupa en
  * filas (vida, resistencias, defensa…) y cada fila la gana la pieza con más.
- * Cada fila pesa según el estilo de juego elegido. No mira el árbol de pasivas
+ * Cada fila pesa según el estilo de juego elegido y según por cuánto se gana. No mira el árbol de pasivas
  * ni las gemas: compara lo que pone en los dos objetos, nada más.
  */
 
@@ -28,6 +28,8 @@ export interface CompareRow {
   winner: CompareSide | "tie";
   /** Cuánto pesa esta fila para el estilo elegido (0 = solo informativa). */
   weight: number;
+  /** Por cuánto la gana la ganadora, de 0 (empate) a 1 (la otra no da nada). */
+  margin: number;
 }
 
 export interface CompareResult {
@@ -41,6 +43,11 @@ export interface CompareResult {
   reasons: string[];
   /** Aviso cuando las dos piezas no van en el mismo hueco. */
   slotWarning: string | null;
+  /**
+   * Cómo llamar a cada pieza en una frase: su nombre, o «la pieza A» cuando
+   * las dos se llaman igual (dos raros pueden compartir nombre).
+   */
+  labels: Record<CompareSide, string>;
 }
 
 /** El texto avanzado escribe la tirada con su rango: `+28(25-30)%`. */
@@ -92,6 +99,41 @@ const SPELL_LINE =
 const ACCURACY_LINE = /precisión|accuracy/i;
 const ALLY_LINE = /aliados|allies|esbirros|minions/i;
 const RESISTANCE_LINE = /resistenc|resistanc/i;
+/** «+1 al nivel de todas las habilidades de esbirros», «+2 to Level of all Spell Skills»… */
+const SKILL_LEVEL_LINE = /al nivel de (?:todas las )?(?:gemas|habilidades)|to level of all/i;
+
+type SkillKind = "minion" | "spell" | "melee" | "projectile" | "all";
+
+const SKILL_KINDS: Array<[SkillKind, RegExp, string]> = [
+  ["minion", /esbirros?|minions?/i, "esbirros"],
+  ["spell", /hechizos?|spells?/i, "hechizos"],
+  ["melee", /cuerpo a cuerpo|melee/i, "cuerpo a cuerpo"],
+  ["projectile", /proyectil|projectile/i, "proyectiles"],
+];
+
+/** Qué habilidades sube cada estilo de juego. «Todas» sirve a cualquiera. */
+const SKILL_KINDS_FOR: Record<CompareStyle, SkillKind[]> = {
+  caster: ["minion", "spell", "all"],
+  melee: ["melee", "all"],
+  ranged: ["projectile", "all"],
+};
+
+interface SkillLevel {
+  kind: SkillKind;
+  levels: number;
+  label: string;
+  line: string;
+}
+
+function readSkillLevel(line: string): SkillLevel {
+  const found = SKILL_KINDS.find(([, test]) => test.test(line));
+  return {
+    kind: found?.[0] ?? "all",
+    levels: firstNumber(line) ?? 1,
+    label: found?.[2] ?? "todas",
+    line,
+  };
+}
 
 interface Reading {
   life: number;
@@ -108,6 +150,7 @@ interface Reading {
   spellLines: string[];
   attackLines: string[];
   accuracyLines: string[];
+  skillLevels: SkillLevel[];
 }
 
 const RES_LABEL: Array<["fire" | "cold" | "lightning" | "chaos", string]> = [
@@ -129,7 +172,10 @@ function read(item: Item): Reading {
   };
   const flat = (test: RegExp) => sumLines(lines, test, PERCENT);
   const baseOrFlat = (property: RegExp, modifier: RegExp) => baseProperty(item, property) || flat(modifier);
-  const damageLines = lines.filter((line) => !RESISTANCE_LINE.test(line) && !ACCURACY_LINE.test(line));
+  // Subir de nivel las habilidades va en su propia fila: no es «una línea de daño más».
+  const damageLines = lines.filter(
+    (line) => !RESISTANCE_LINE.test(line) && !ACCURACY_LINE.test(line) && !SKILL_LEVEL_LINE.test(line),
+  );
   return {
     life: flat(/a la vida máxima|to maximum life/i),
     lifeRegen: sumLines(lines, /de vida por segundo|life per second|life regeneration/i),
@@ -151,13 +197,15 @@ function read(item: Item): Reading {
     attackLines: damageLines.filter((line) => ATTACK_LINE.test(line) && !ALLY_LINE.test(line)),
     spellLines: damageLines.filter((line) => ALLY_LINE.test(line) || (!ATTACK_LINE.test(line) && SPELL_LINE.test(line))),
     accuracyLines: lines.filter((line) => ACCURACY_LINE.test(line)),
+    skillLevels: lines.filter((line) => SKILL_LEVEL_LINE.test(line)).map(readSkillLevel),
   };
 }
 
 const WEIGHTS: Record<CompareStyle, Record<string, number>> = {
-  caster: { move: 3, life: 3, res: 3, spirit: 2, damage: 2, es: 2, armour: 1, evasion: 1, mana: 1, regen: 1, attr: 1 },
-  melee: { move: 3, life: 3, res: 3, spirit: 1, damage: 2, es: 1, armour: 2, evasion: 1, mana: 1, regen: 1, attr: 1 },
-  ranged: { move: 3, life: 3, res: 3, spirit: 1, damage: 2, es: 1, armour: 1, evasion: 2, mana: 1, regen: 1, attr: 1 },
+  // Un nivel más en las habilidades que usas es de lo mejor que puede tener una pieza.
+  caster: { skills: 5, move: 3, life: 3, res: 3, spirit: 2, damage: 2, es: 2, armour: 1, evasion: 1, mana: 1, regen: 1, attr: 1 },
+  melee: { skills: 5, move: 3, life: 3, res: 3, spirit: 1, damage: 2, es: 1, armour: 2, evasion: 1, mana: 1, regen: 1, attr: 1 },
+  ranged: { skills: 5, move: 3, life: 3, res: 3, spirit: 1, damage: 2, es: 1, armour: 1, evasion: 2, mana: 1, regen: 1, attr: 1 },
 };
 
 function amount(value: number, unit = ""): string {
@@ -171,13 +219,23 @@ function plain(value: number): string {
 }
 
 /**
- * Quién gana una fila. Si las dos piezas dan casi lo mismo (menos de un 10 %
- * de diferencia), es empate: 22 de escudo frente a 20 no es «perder escudo».
+ * Quién gana una fila. Si las dos piezas dan casi lo mismo (hasta un 15 % de
+ * diferencia), es empate: 22 de escudo frente a 20 no es «perder escudo», y
+ * un 9 % de resistencia frente a un 8 % no decide nada.
  */
 function winnerOf(a: number, b: number): CompareSide | "tie" {
   if (a === b) return "tie";
-  if (a > 0 && b > 0 && Math.abs(a - b) <= 0.1 * Math.max(a, b)) return "tie";
+  if (a > 0 && b > 0 && Math.abs(a - b) <= 0.15 * Math.max(a, b)) return "tie";
   return a > b ? "a" : "b";
+}
+
+/**
+ * Por cuánto gana una fila, de 0 a 1: 34 de vida frente a nada es 1; un 10 %
+ * de resistencia frente a un 6 % es 0,4. Así ganar por poco cuenta poco.
+ */
+function marginOf(a: number, b: number): number {
+  const top = Math.max(Math.abs(a), Math.abs(b));
+  return top === 0 ? 0 : Math.min(1, Math.abs(a - b) / top);
 }
 
 function joinList(items: string[]): string {
@@ -192,62 +250,91 @@ export function compareItems(a: Item, b: Item, style: CompareStyle): CompareResu
   const damageA = style === "caster" ? ra.spellLines : ra.attackLines;
   const damageB = style === "caster" ? rb.spellLines : rb.attackLines;
 
+  // Niveles de habilidad: solo cuentan los de las habilidades que usa el estilo.
+  const usefulKinds = SKILL_KINDS_FOR[style];
+  const usefulSkills = (reading: Reading) => reading.skillLevels.filter((skill) => usefulKinds.includes(skill.kind));
+  const skillsA = usefulSkills(ra);
+  const skillsB = usefulSkills(rb);
+  const skillText = (skills: SkillLevel[]) =>
+    skills.length === 0 ? "nada" : skills.map((skill) => `+${skill.levels} ${skill.label}`).join(", ");
+  const levelsOf = (skills: SkillLevel[]) => skills.reduce((total, skill) => total + skill.levels, 0);
+
+  const row = (id: string, label: string, a: string, b: string, valueA: number, valueB: number, weight: number): CompareRow => {
+    const winner = winnerOf(valueA, valueB);
+    return { id, label, a, b, winner, weight, margin: winner === "tie" ? 0 : marginOf(valueA, valueB) };
+  };
+  const lineCount = (lines: string[]) =>
+    lines.length === 0 ? "nada" : `${lines.length} ${lines.length === 1 ? "línea" : "líneas"}`;
+
   const candidates: CompareRow[] = [
-    { id: "move", label: "Velocidad de movimiento", a: amount(ra.moveSpeed, " %"), b: amount(rb.moveSpeed, " %"), winner: winnerOf(ra.moveSpeed, rb.moveSpeed), weight: weights.move },
-    { id: "life", label: "Vida máxima", a: amount(ra.life), b: amount(rb.life), winner: winnerOf(ra.life, rb.life), weight: weights.life },
-    { id: "res", label: "Resistencias", a: ra.resistanceText || "nada", b: rb.resistanceText || "nada", winner: winnerOf(ra.resistances, rb.resistances), weight: weights.res },
-    { id: "spirit", label: "Espíritu", a: amount(ra.spirit), b: amount(rb.spirit), winner: winnerOf(ra.spirit, rb.spirit), weight: weights.spirit },
-    {
-      id: "damage",
-      label: style === "caster" ? "Daño de hechizos y esbirros" : "Daño de ataques",
-      a: damageA.length === 0 ? "nada" : `${damageA.length} ${damageA.length === 1 ? "línea" : "líneas"}`,
-      b: damageB.length === 0 ? "nada" : `${damageB.length} ${damageB.length === 1 ? "línea" : "líneas"}`,
-      winner: winnerOf(damageA.length, damageB.length),
-      weight: weights.damage,
-    },
-    { id: "es", label: "Escudo de energía", a: plain(ra.energyShield), b: plain(rb.energyShield), winner: winnerOf(ra.energyShield, rb.energyShield), weight: weights.es },
-    { id: "armour", label: "Armadura", a: plain(ra.armour), b: plain(rb.armour), winner: winnerOf(ra.armour, rb.armour), weight: weights.armour },
-    { id: "evasion", label: "Evasión", a: plain(ra.evasion), b: plain(rb.evasion), winner: winnerOf(ra.evasion, rb.evasion), weight: weights.evasion },
-    { id: "mana", label: "Maná máximo", a: amount(ra.mana), b: amount(rb.mana), winner: winnerOf(ra.mana, rb.mana), weight: weights.mana },
-    { id: "regen", label: "Vida por segundo", a: amount(ra.lifeRegen), b: amount(rb.lifeRegen), winner: winnerOf(ra.lifeRegen, rb.lifeRegen), weight: weights.regen },
-    { id: "attr", label: "Atributos", a: amount(ra.attributes), b: amount(rb.attributes), winner: winnerOf(ra.attributes, rb.attributes), weight: weights.attr },
+    row("skills", "Nivel de habilidades", skillText(skillsA), skillText(skillsB), levelsOf(skillsA), levelsOf(skillsB), weights.skills),
+    row("move", "Velocidad de movimiento", amount(ra.moveSpeed, " %"), amount(rb.moveSpeed, " %"), ra.moveSpeed, rb.moveSpeed, weights.move),
+    row("life", "Vida máxima", amount(ra.life), amount(rb.life), ra.life, rb.life, weights.life),
+    row("res", "Resistencias", ra.resistanceText || "nada", rb.resistanceText || "nada", ra.resistances, rb.resistances, weights.res),
+    row("spirit", "Espíritu", amount(ra.spirit), amount(rb.spirit), ra.spirit, rb.spirit, weights.spirit),
+    row(
+      "damage",
+      style === "caster" ? "Daño de hechizos y esbirros" : "Daño de ataques",
+      lineCount(damageA),
+      lineCount(damageB),
+      damageA.length,
+      damageB.length,
+      weights.damage,
+    ),
+    row("es", "Escudo de energía", plain(ra.energyShield), plain(rb.energyShield), ra.energyShield, rb.energyShield, weights.es),
+    row("armour", "Armadura", plain(ra.armour), plain(rb.armour), ra.armour, rb.armour, weights.armour),
+    row("evasion", "Evasión", plain(ra.evasion), plain(rb.evasion), ra.evasion, rb.evasion, weights.evasion),
+    row("mana", "Maná máximo", amount(ra.mana), amount(rb.mana), ra.mana, rb.mana, weights.mana),
+    row("regen", "Vida por segundo", amount(ra.lifeRegen), amount(rb.lifeRegen), ra.lifeRegen, rb.lifeRegen, weights.regen),
+    row("attr", "Atributos", amount(ra.attributes), amount(rb.attributes), ra.attributes, rb.attributes, weights.attr),
   ];
   // Solo se enseñan las filas en las que alguna de las dos piezas da algo.
-  const rows = candidates.filter((row) => row.a !== "nada" || row.b !== "nada");
+  const rows = candidates.filter((item) => item.a !== "nada" || item.b !== "nada");
 
-  const score = (side: CompareSide) => rows.reduce((total, row) => total + (row.winner === side ? row.weight : 0), 0);
+  // Cada fila suma su peso por cuánto gana: ganar por poco cuenta poco.
+  const points = (item: CompareRow) => item.weight * item.margin;
+  const score = (side: CompareSide) =>
+    Math.round(rows.reduce((total, item) => total + (item.winner === side ? points(item) : 0), 0) * 100) / 100;
   const scoreA = score("a");
   const scoreB = score("b");
   // Un punto de diferencia es una fila menor: no basta para dar un ganador.
   const winner: CompareSide | "tie" = Math.abs(scoreA - scoreB) <= 1 ? "tie" : scoreA > scoreB ? "a" : "b";
 
-  const wastedFor = (reading: Reading) =>
-    style === "caster" ? [...reading.attackLines, ...reading.accuracyLines] : reading.spellLines;
+  const wastedFor = (reading: Reading) => [
+    ...(style === "caster" ? [...reading.attackLines, ...reading.accuracyLines] : reading.spellLines),
+    ...reading.skillLevels.filter((skill) => !usefulKinds.includes(skill.kind)).map((skill) => skill.line),
+  ];
   const wasted = { a: wastedFor(ra), b: wastedFor(rb) };
 
   const wonBy = (side: CompareSide) =>
     rows
-      .filter((row) => row.winner === side)
-      .sort((x, y) => y.weight - x.weight)
-      .map((row) => row.label.toLocaleLowerCase("es"));
-  const name = { a: a.name, b: b.name };
+      .filter((item) => item.winner === side)
+      .sort((x, y) => points(y) - points(x))
+      .map((item) => item.label.toLocaleLowerCase("es"));
+  // Dos objetos raros pueden llamarse igual: entonces el nombre no distingue
+  // nada y se habla de «la pieza A» y «la pieza B».
+  const sameName = a.name.trim().toLocaleLowerCase("es") === b.name.trim().toLocaleLowerCase("es");
+  const labels: Record<CompareSide, string> = sameName
+    ? { a: "la pieza A", b: "la pieza B" }
+    : { a: `«${a.name}»`, b: `«${b.name}»` };
+  const capital = (text: string) => text.replace(/^./, (first) => first.toLocaleUpperCase("es"));
   const reasons: string[] = [];
   if (winner === "tie") {
     reasons.push("Están muy parejas: ninguna gana con claridad.");
     for (const side of ["a", "b"] as const) {
       const won = wonBy(side);
-      if (won.length > 0) reasons.push(`«${name[side]}» da más ${joinList(won)}.`);
+      if (won.length > 0) reasons.push(`${capital(labels[side])} da más ${joinList(won)}.`);
     }
   } else {
     const loser: CompareSide = winner === "a" ? "b" : "a";
-    reasons.push(`«${name[winner]}» te da más ${joinList(wonBy(winner))}.`);
+    reasons.push(`${capital(labels[winner])} te da más ${joinList(wonBy(winner))}.`);
     const lost = wonBy(loser);
-    if (lost.length > 0) reasons.push(`Pierdes ${joinList(lost)}, que da «${name[loser]}».`);
+    if (lost.length > 0) reasons.push(`Pierdes ${joinList(lost)}, que da ${labels[loser]}.`);
   }
 
   const slotOf = (item: Item) => (item.slot === "ring2" ? "ring1" : item.slot);
   const slotWarning =
     slotOf(a) !== slotOf(b) ? "No van en el mismo hueco: puedes llevar las dos a la vez, no hace falta elegir." : null;
 
-  return { winner, scoreA, scoreB, rows, wasted, reasons, slotWarning };
+  return { winner, scoreA, scoreB, rows, wasted, reasons, slotWarning, labels };
 }

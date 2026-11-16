@@ -184,7 +184,9 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
         <div className="mt-4 border-t border-border pt-4" data-testid="comparar-resultado">
           <p className="flex items-start gap-2 text-base font-semibold text-foreground" data-testid="comparar-veredicto">
             <Trophy className="mt-0.5 size-5 shrink-0 text-amber-300" aria-hidden="true" />
-            {result.winner === "tie" ? "Muy parejas: no hay una ganadora clara." : `Mejor para ti: ${names[result.winner]}`}
+            {result.winner === "tie"
+              ? "Muy parejas: no hay una ganadora clara."
+              : `Mejor para ti: ${result.labels[result.winner].replace(/^«|»$/g, "")}`}
           </p>
           {result.slotWarning && <p className="mt-1 text-sm text-amber-200">{result.slotWarning}</p>}
           <ul className="mt-2 space-y-1 text-sm leading-relaxed text-foreground/90">

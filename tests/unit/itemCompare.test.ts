@@ -161,6 +161,109 @@ describe("compareItems", () => {
     expect(result.rows.find((row) => row.id === "res")).toMatchObject({ winner: "b" });
   });
 
+  it("dos piezas con el mismo nombre se distinguen como A y B (caso del 14-11-2026)", () => {
+    const gloves = (lines: string[]) =>
+      parse(["Clase de objeto: Guantes", "Rareza: Raro", "Apretón de cadáver", "Guanteletes", "--------", ...lines].join("\n"));
+    const first = gloves([
+      "Armadura: 65 (augmented)",
+      "--------",
+      "Nivel de objeto: 20",
+      "--------",
+      "Agrega de 2(1-2) a 3 de daño físico a los ataques",
+      "Velocidad de ataque aumentada un 7(5-7)%",
+      "+6(5-8) a la fuerza",
+      "+9(6-10)% a la resistencia al rayo",
+    ]);
+    const second = gloves([
+      "Escudo de energía: 39 (augmented)",
+      "--------",
+      "Nivel de objeto: 20",
+      "--------",
+      "+27(20-29) a la vida máxima",
+      "+8(6-10)% a la resistencia al fuego",
+    ]);
+    const result = compareItems(first, second, "caster");
+    expect(result.labels).toEqual({ a: "la pieza A", b: "la pieza B" });
+    // Un 9 % frente a un 8 % de resistencia no decide: empate en esa fila.
+    expect(result.rows.find((row) => row.id === "res")).toMatchObject({ winner: "tie" });
+    // Y entonces sí hay ganadora: vida y escudo de energía para una bruja.
+    expect(result.winner).toBe("b");
+    expect(result.reasons[0]).toBe("La pieza B te da más vida máxima y escudo de energía.");
+    expect(result.reasons[1]).toBe("Pierdes armadura y atributos, que da la pieza A.");
+    expect(result.reasons.join(" ")).not.toContain("Apretón de cadáver");
+  });
+
+  describe("cascos del 16-11-2026: «+1 a esbirros» frente a vida y escudo", () => {
+    // Texto real del Visor de plaga; el Albergue mórbido, reconstruido de la captura.
+    const PLAGUE_VISOR = parse(
+      [
+        "Clase de objeto: Cascos",
+        "Rareza: Raro",
+        "Visor de plaga",
+        "Máscara labrada",
+        "--------",
+        "Evasión: 20",
+        "Escudo de energía: 13",
+        "--------",
+        "Requiere: Nivel 17",
+        "--------",
+        "Nivel de objeto: 22",
+        "--------",
+        '{ Mod. de prefijo "enfocado" (Grado: 7) — Ataque }',
+        "+79(61-84) a la precisión",
+        '{ Mod. de sufijo "del prodigio " (Grado: 7) — Atributo }',
+        "+14(13-16) a la inteligencia",
+        '{ Mod. de sufijo "de la foca" (Grado: 8) — Elemental, Hielo, Resistencia }',
+        "+10(6-10)% a la resistencia al hielo",
+        '{ Mod. de sufijo "del capataz" (Grado: 2) — Esbirro, Gema }',
+        "+1 al nivel de todas las habilidades de esbirros",
+      ].join("\n"),
+    );
+    const MORBID_SHELTER = parse(
+      [
+        "Clase de objeto: Cascos",
+        "Rareza: Raro",
+        "Albergue mórbido",
+        "Diadema",
+        "--------",
+        "Escudo de energía: 61 (augmented)",
+        "--------",
+        "Nivel de objeto: 22",
+        "--------",
+        "+34(30-39) a la vida máxima",
+        "Regeneras 1.2(1-2) de vida por segundo",
+        "+6(6-10)% a la resistencia al fuego",
+      ].join("\n"),
+    );
+
+    it("el +1 a esbirros tiene su fila y no cuenta como una línea de daño", () => {
+      const result = compareItems(PLAGUE_VISOR, MORBID_SHELTER, "caster");
+      expect(result.rows.find((row) => row.id === "skills")).toMatchObject({ a: "+1 esbirros", b: "nada", winner: "a" });
+      expect(result.rows.find((row) => row.id === "damage")).toBeUndefined();
+    });
+
+    it("para una bruja de esbirros gana el casco con +1, aunque el otro dé más vida", () => {
+      const result = compareItems(PLAGUE_VISOR, MORBID_SHELTER, "caster");
+      expect(result.winner).toBe("a");
+      expect(result.reasons[0]).toMatch(/^«Visor de plaga» te da más nivel de habilidades/);
+      expect(result.reasons[1]).toContain("vida máxima");
+    });
+
+    it("ganar la resistencia por poco cuenta poco: 10 % frente a 6 % no vale lo que 34 de vida frente a nada", () => {
+      const rows = compareItems(PLAGUE_VISOR, MORBID_SHELTER, "caster").rows;
+      const res = rows.find((row) => row.id === "res")!;
+      const life = rows.find((row) => row.id === "life")!;
+      expect(res.margin * res.weight).toBeLessThan(life.margin * life.weight);
+    });
+
+    it("cuerpo a cuerpo no aprovecha el +1 a esbirros", () => {
+      const result = compareItems(PLAGUE_VISOR, MORBID_SHELTER, "melee");
+      expect(result.rows.find((row) => row.id === "skills")).toBeUndefined();
+      expect(result.wasted.a).toContain("+1 al nivel de todas las habilidades de esbirros");
+      expect(result.winner).toBe("b");
+    });
+  });
+
   it("avisa cuando las dos piezas no van en el mismo hueco", () => {
     const boots = parse(
       ["Clase de objeto: Botas", "Rareza: Mágico", "Botas de prueba", "--------", "Nivel de objeto: 5", "--------", "Velocidad de movimiento aumentada un 10%"].join("\n"),
