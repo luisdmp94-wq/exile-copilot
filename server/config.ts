@@ -41,6 +41,11 @@ export interface ServerConfig {
   mentorAiReasoningEffort: "none" | "low" | "medium" | "high";
   mentorAiTimeoutMs: number;
   mentorAiMaxOutputTokens: number;
+  /**
+   * Clave para leer el contador de visitas (`GET /api/stats`). Sin ella, o si
+   * es corta, el contador sigue sumando pero nadie puede leerlo por la web.
+   */
+  statsToken: string | null;
 }
 
 function bool(value: string | undefined, fallback: boolean): boolean {
@@ -55,6 +60,11 @@ function trustedProxy(value: string | undefined): boolean | string {
   if (["1", "true", "yes", "on"].includes(lower)) return true;
   if (["0", "false", "no", "off", ""].includes(lower)) return false;
   return normalized;
+}
+
+function statsToken(value: string | undefined): string | null {
+  const token = value?.trim() ?? "";
+  return token.length >= 24 ? token : null;
 }
 
 function int(value: string | undefined, fallback: number): number {
@@ -135,6 +145,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     mentorAiReasoningEffort: reasoningEffort(env.MENTOR_AI_REASONING_EFFORT),
     mentorAiTimeoutMs: boundedInt(env.MENTOR_AI_TIMEOUT_MS, 12_000, 1_000, 30_000),
     mentorAiMaxOutputTokens: boundedInt(env.MENTOR_AI_MAX_OUTPUT_TOKENS, 256, 128, 1_024),
+    statsToken: statsToken(env.STATS_TOKEN),
   };
 }
 

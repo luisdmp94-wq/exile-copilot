@@ -1,5 +1,5 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
@@ -147,6 +147,8 @@ import {
   type PatchFeatureId,
 } from "../shared/patchCompatibility.js";
 import { auditRuntimeReadiness } from "./runtimeReadiness.js";
+import { readStats, recordUse, recordVisit } from "./analytics.js";
+import { VisitBeaconSchema, type UsageEvent } from "../shared/visitStats.js";
 import { loadReleaseEvidenceCatalog } from "./releaseEvidenceCatalog.js";
 import { FeaturedBuildCatalogSchema } from "../shared/featuredBuilds.js";
 import {
@@ -497,6 +499,30 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // cargas grandes no debe consumir CPU repetidamente antes de ser rechazada.
   app.use(express.json({ limit: config.requestBodyLimitBytes }));
 
+  // Contador anónimo de uso: cuando una herramienta responde bien, suma uno
+  // a su cifra del día. No se guarda quién ni qué; ver shared/visitStats.ts.
+  const USAGE_ROUTES: Record<string, UsageEvent> = {
+    "POST /advice/support-gem": "gema",
+    "POST /advice/support-plan": "reparto-gemas",
+    "POST /import/item-text": "pieza-leida",
+    "POST /mentor/query": "mentor",
+    "POST /character": "personaje-guardado",
+  };
+  app.use((req, res, next) => {
+    const event = USAGE_ROUTES[`${req.method} ${req.path}`];
+    if (event) {
+      res.on("finish", () => {
+        if (res.statusCode >= 400 || databaseClosed) return;
+        try {
+          recordUse(db, event);
+        } catch {
+          // El contador nunca debe romper una respuesta ya enviada.
+        }
+      });
+    }
+    next();
+  });
+
   const characterForVisitor = (
     characterId: string,
     res: Response,
@@ -583,6 +609,33 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       patchId: config.defaultPatch,
       checks,
     });
+  });
+
+  // POST /visit — una visita a la web, sin datos de la persona.
+  app.post("/visit", (req, res, next) => {
+    try {
+      recordVisit(db, VisitBeaconSchema.parse(req.body));
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /stats — las cifras de los últimos 30 días, solo con la clave del dueño.
+  app.get("/stats", (req, res, next) => {
+    try {
+      if (!config.statsToken) {
+        throw new ApiHttpError(404, "no-encontrado", "No existe esa ruta.");
+      }
+      const given = /^Bearer\s+(.+)$/i.exec(req.get("authorization") ?? "")?.[1]?.trim() ?? "";
+      const digest = (value: string) => createHash("sha256").update(value).digest();
+      if (!given || !timingSafeEqual(digest(given), digest(config.statsToken))) {
+        throw new ApiHttpError(401, "clave-incorrecta", "Esa clave no abre las estadísticas.");
+      }
+      res.json({ days: readStats(db, 30) });
+    } catch (err) {
+      next(err);
+    }
   });
 
   // GET /meta — ligas reales desde poe.ninja (endpoint documentado /economy/leagues),

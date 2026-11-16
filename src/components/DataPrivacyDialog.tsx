@@ -110,7 +110,10 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
               ocho turnos completos del Mentor ligados a tu sesión anónima y a cada
               personaje. En este navegador: progreso de Academia y proyectos de
               Crafting. Otro visitante no puede abrir tus expedientes ni sus
-              conversaciones.
+              conversaciones. Además, un contador anónimo suma cuántas visitas hay
+              cada día, de qué sitio llegan (por ejemplo, Reddit) y qué
+              herramientas se usan; no guarda tu IP, tu sesión ni nada que te
+              identifique.
             </p>
           </section>
 
