@@ -264,6 +264,52 @@ describe("compareItems", () => {
     });
   });
 
+  it("en inglés: lee piezas copiadas de un juego en inglés y lo explica en inglés", () => {
+    const visor = parse(
+      [
+        "Item Class: Helmets",
+        "Rarity: Rare",
+        "Plague Visor",
+        "Carved Mask",
+        "--------",
+        "Evasion Rating: 20",
+        "Energy Shield: 13",
+        "--------",
+        "Item Level: 22",
+        "--------",
+        "+79 to Accuracy Rating",
+        "+14 to Intelligence",
+        "+10% to Cold Resistance",
+        "+1 to Level of all Minion Skills",
+      ].join("\n"),
+    );
+    const shelter = parse(
+      [
+        "Item Class: Helmets",
+        "Rarity: Rare",
+        "Morbid Shelter",
+        "Tiara",
+        "--------",
+        "Energy Shield: 61 (augmented)",
+        "--------",
+        "Item Level: 22",
+        "--------",
+        "+34 to maximum Life",
+        "Regenerate 1.2 Life per second",
+        "+6% to Fire Resistance",
+      ].join("\n"),
+    );
+    const result = compareItems(visor, shelter, "caster", "en");
+    expect(result.winner).toBe("a");
+    const row = (id: string) => result.rows.find((item) => item.id === id);
+    expect(row("skills")).toMatchObject({ label: "Skill levels", a: "+1 minions", b: "none" });
+    expect(row("res")).toMatchObject({ a: "+10 % cold", b: "+6 % fire" });
+    expect(row("regen")).toMatchObject({ b: "+1.2" });
+    expect(result.reasons[0]).toBe("“Plague Visor” gives you more skill levels, resistances, evasion and attributes.");
+    expect(result.reasons[1]).toMatch(/^You lose maximum life/);
+    expect(result.wasted.a).toEqual(["+79 to Accuracy Rating"]);
+  });
+
   it("avisa cuando las dos piezas no van en el mismo hueco", () => {
     const boots = parse(
       ["Clase de objeto: Botas", "Rareza: Mágico", "Botas de prueba", "--------", "Nivel de objeto: 5", "--------", "Velocidad de movimiento aumentada un 10%"].join("\n"),

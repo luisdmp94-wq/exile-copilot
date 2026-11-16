@@ -11,12 +11,84 @@ import { resistancesFromItems } from "./guideCheck";
  */
 
 export type CompareStyle = "caster" | "melee" | "ranged";
+export type CompareLang = "es" | "en";
 
 export const COMPARE_STYLES: Array<{ id: CompareStyle; label: string }> = [
   { id: "caster", label: "Hechizos y esbirros" },
   { id: "melee", label: "Cuerpo a cuerpo" },
   { id: "ranged", label: "Arco o ballesta" },
 ];
+
+type SkillKindWord = "minion" | "spell" | "melee" | "projectile" | "all";
+type ResKey = "fire" | "cold" | "lightning" | "chaos";
+
+/** Todo lo que el comparador escribe, en los dos idiomas. */
+const WORDS = {
+  es: {
+    none: "nada",
+    decimal: ",",
+    line: "línea",
+    lines: "líneas",
+    and: "y",
+    rows: {
+      skills: "Nivel de habilidades",
+      move: "Velocidad de movimiento",
+      life: "Vida máxima",
+      res: "Resistencias",
+      spirit: "Espíritu",
+      damageCaster: "Daño de hechizos y esbirros",
+      damageAttack: "Daño de ataques",
+      es: "Escudo de energía",
+      armour: "Armadura",
+      evasion: "Evasión",
+      mana: "Maná máximo",
+      regen: "Vida por segundo",
+      attr: "Atributos",
+    },
+    kinds: { minion: "esbirros", spell: "hechizos", melee: "cuerpo a cuerpo", projectile: "proyectiles", all: "todas" } as Record<SkillKindWord, string>,
+    res: { fire: "fuego", cold: "hielo", lightning: "rayo", chaos: "caos" } as Record<ResKey, string>,
+    pieceA: "la pieza A",
+    pieceB: "la pieza B",
+    quote: (name: string) => `«${name}»`,
+    tie: "Están muy parejas: ninguna gana con claridad.",
+    givesMore: (who: string, what: string) => `${who} da más ${what}.`,
+    youGetMore: (who: string, what: string) => `${who} te da más ${what}.`,
+    youLose: (what: string, who: string) => `Pierdes ${what}, que da ${who}.`,
+    slotWarning: "No van en el mismo hueco: puedes llevar las dos a la vez, no hace falta elegir.",
+  },
+  en: {
+    none: "none",
+    decimal: ".",
+    line: "line",
+    lines: "lines",
+    and: "and",
+    rows: {
+      skills: "Skill levels",
+      move: "Movement speed",
+      life: "Maximum life",
+      res: "Resistances",
+      spirit: "Spirit",
+      damageCaster: "Spell and minion damage",
+      damageAttack: "Attack damage",
+      es: "Energy shield",
+      armour: "Armour",
+      evasion: "Evasion",
+      mana: "Maximum mana",
+      regen: "Life per second",
+      attr: "Attributes",
+    },
+    kinds: { minion: "minions", spell: "spells", melee: "melee", projectile: "projectiles", all: "all" } as Record<SkillKindWord, string>,
+    res: { fire: "fire", cold: "cold", lightning: "lightning", chaos: "chaos" } as Record<ResKey, string>,
+    pieceA: "piece A",
+    pieceB: "piece B",
+    quote: (name: string) => `“${name}”`,
+    tie: "They're very close: neither wins clearly.",
+    givesMore: (who: string, what: string) => `${who} gives more ${what}.`,
+    youGetMore: (who: string, what: string) => `${who} gives you more ${what}.`,
+    youLose: (what: string, who: string) => `You lose ${what}, which ${who} gives.`,
+    slotWarning: "They don't go in the same slot: you can wear both, no need to choose.",
+  },
+} as const;
 
 export type CompareSide = "a" | "b";
 
@@ -104,11 +176,11 @@ const SKILL_LEVEL_LINE = /al nivel de (?:todas las )?(?:gemas|habilidades)|to le
 
 type SkillKind = "minion" | "spell" | "melee" | "projectile" | "all";
 
-const SKILL_KINDS: Array<[SkillKind, RegExp, string]> = [
-  ["minion", /esbirros?|minions?/i, "esbirros"],
-  ["spell", /hechizos?|spells?/i, "hechizos"],
-  ["melee", /cuerpo a cuerpo|melee/i, "cuerpo a cuerpo"],
-  ["projectile", /proyectil|projectile/i, "proyectiles"],
+const SKILL_KINDS: Array<[SkillKind, RegExp]> = [
+  ["minion", /esbirros?|minions?/i],
+  ["spell", /hechizos?|spells?/i],
+  ["melee", /cuerpo a cuerpo|melee/i],
+  ["projectile", /proyectil|projectile/i],
 ];
 
 /** Qué habilidades sube cada estilo de juego. «Todas» sirve a cualquiera. */
@@ -121,7 +193,6 @@ const SKILL_KINDS_FOR: Record<CompareStyle, SkillKind[]> = {
 interface SkillLevel {
   kind: SkillKind;
   levels: number;
-  label: string;
   line: string;
 }
 
@@ -130,7 +201,6 @@ function readSkillLevel(line: string): SkillLevel {
   return {
     kind: found?.[0] ?? "all",
     levels: firstNumber(line) ?? 1,
-    label: found?.[2] ?? "todas",
     line,
   };
 }
@@ -143,7 +213,7 @@ interface Reading {
   armour: number;
   evasion: number;
   resistances: number;
-  resistanceText: string;
+  resistanceBy: Record<ResKey, number>;
   moveSpeed: number;
   spirit: number;
   attributes: number;
@@ -153,12 +223,7 @@ interface Reading {
   skillLevels: SkillLevel[];
 }
 
-const RES_LABEL: Array<["fire" | "cold" | "lightning" | "chaos", string]> = [
-  ["fire", "fuego"],
-  ["cold", "hielo"],
-  ["lightning", "rayo"],
-  ["chaos", "caos"],
-];
+const RES_ORDER: ResKey[] = ["fire", "cold", "lightning", "chaos"];
 
 function read(item: Item): Reading {
   const lines = modifierLines(item);
@@ -184,9 +249,7 @@ function read(item: Item): Reading {
     armour: baseOrFlat(/^(?:armadura|armour|armor)$/i, /a la armadura|to armour|to armor/i),
     evasion: baseOrFlat(/^(?:evasión|evasion rating|evasion)$/i, /a la evasión|to evasion/i),
     resistances: res.fire + res.cold + res.lightning + res.chaos,
-    resistanceText: RES_LABEL.filter(([key]) => res[key] !== 0)
-      .map(([key, label]) => `${res[key] > 0 ? "+" : ""}${res[key]} % ${label}`)
-      .join(", "),
+    resistanceBy: res,
     moveSpeed: sumLines(lines, /velocidad de movimiento|movement speed/i),
     // En un cetro el espíritu es una propiedad de la base («Espíritu: 100»), no un modificador.
     spirit: itemSpirit(item),
@@ -208,14 +271,22 @@ const WEIGHTS: Record<CompareStyle, Record<string, number>> = {
   ranged: { skills: 5, move: 3, life: 3, res: 3, spirit: 1, damage: 2, es: 1, armour: 1, evasion: 2, mana: 1, regen: 1, attr: 1 },
 };
 
-function amount(value: number, unit = ""): string {
-  if (value === 0) return "nada";
-  const text = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(".", ",");
+type Words = (typeof WORDS)[CompareLang];
+
+function amount(words: Words, value: number, unit = ""): string {
+  if (value === 0) return words.none;
+  const text = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(".", words.decimal);
   return `${value > 0 ? "+" : ""}${text}${unit}`;
 }
 
-function plain(value: number): string {
-  return value === 0 ? "nada" : String(value);
+function plain(words: Words, value: number): string {
+  return value === 0 ? words.none : String(value);
+}
+
+function resistanceText(words: Words, res: Record<ResKey, number>): string {
+  return RES_ORDER.filter((key) => res[key] !== 0)
+    .map((key) => `${res[key] > 0 ? "+" : ""}${res[key]} % ${words.res[key]}`)
+    .join(", ");
 }
 
 /**
@@ -238,12 +309,13 @@ function marginOf(a: number, b: number): number {
   return top === 0 ? 0 : Math.min(1, Math.abs(a - b) / top);
 }
 
-function joinList(items: string[]): string {
+function joinList(items: string[], and: string): string {
   if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+  return `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]}`;
 }
 
-export function compareItems(a: Item, b: Item, style: CompareStyle): CompareResult {
+export function compareItems(a: Item, b: Item, style: CompareStyle, lang: CompareLang = "es"): CompareResult {
+  const words = WORDS[lang];
   const ra = read(a);
   const rb = read(b);
   const weights = WEIGHTS[style];
@@ -256,7 +328,7 @@ export function compareItems(a: Item, b: Item, style: CompareStyle): CompareResu
   const skillsA = usefulSkills(ra);
   const skillsB = usefulSkills(rb);
   const skillText = (skills: SkillLevel[]) =>
-    skills.length === 0 ? "nada" : skills.map((skill) => `+${skill.levels} ${skill.label}`).join(", ");
+    skills.length === 0 ? words.none : skills.map((skill) => `+${skill.levels} ${words.kinds[skill.kind]}`).join(", ");
   const levelsOf = (skills: SkillLevel[]) => skills.reduce((total, skill) => total + skill.levels, 0);
 
   const row = (id: string, label: string, a: string, b: string, valueA: number, valueB: number, weight: number): CompareRow => {
@@ -264,32 +336,40 @@ export function compareItems(a: Item, b: Item, style: CompareStyle): CompareResu
     return { id, label, a, b, winner, weight, margin: winner === "tie" ? 0 : marginOf(valueA, valueB) };
   };
   const lineCount = (lines: string[]) =>
-    lines.length === 0 ? "nada" : `${lines.length} ${lines.length === 1 ? "línea" : "líneas"}`;
+    lines.length === 0 ? words.none : `${lines.length} ${lines.length === 1 ? words.line : words.lines}`;
 
   const candidates: CompareRow[] = [
-    row("skills", "Nivel de habilidades", skillText(skillsA), skillText(skillsB), levelsOf(skillsA), levelsOf(skillsB), weights.skills),
-    row("move", "Velocidad de movimiento", amount(ra.moveSpeed, " %"), amount(rb.moveSpeed, " %"), ra.moveSpeed, rb.moveSpeed, weights.move),
-    row("life", "Vida máxima", amount(ra.life), amount(rb.life), ra.life, rb.life, weights.life),
-    row("res", "Resistencias", ra.resistanceText || "nada", rb.resistanceText || "nada", ra.resistances, rb.resistances, weights.res),
-    row("spirit", "Espíritu", amount(ra.spirit), amount(rb.spirit), ra.spirit, rb.spirit, weights.spirit),
+    row("skills", words.rows.skills, skillText(skillsA), skillText(skillsB), levelsOf(skillsA), levelsOf(skillsB), weights.skills),
+    row("move", words.rows.move, amount(words, ra.moveSpeed, " %"), amount(words, rb.moveSpeed, " %"), ra.moveSpeed, rb.moveSpeed, weights.move),
+    row("life", words.rows.life, amount(words, ra.life), amount(words, rb.life), ra.life, rb.life, weights.life),
+    row(
+      "res",
+      words.rows.res,
+      resistanceText(words, ra.resistanceBy) || words.none,
+      resistanceText(words, rb.resistanceBy) || words.none,
+      ra.resistances,
+      rb.resistances,
+      weights.res,
+    ),
+    row("spirit", words.rows.spirit, amount(words, ra.spirit), amount(words, rb.spirit), ra.spirit, rb.spirit, weights.spirit),
     row(
       "damage",
-      style === "caster" ? "Daño de hechizos y esbirros" : "Daño de ataques",
+      style === "caster" ? words.rows.damageCaster : words.rows.damageAttack,
       lineCount(damageA),
       lineCount(damageB),
       damageA.length,
       damageB.length,
       weights.damage,
     ),
-    row("es", "Escudo de energía", plain(ra.energyShield), plain(rb.energyShield), ra.energyShield, rb.energyShield, weights.es),
-    row("armour", "Armadura", plain(ra.armour), plain(rb.armour), ra.armour, rb.armour, weights.armour),
-    row("evasion", "Evasión", plain(ra.evasion), plain(rb.evasion), ra.evasion, rb.evasion, weights.evasion),
-    row("mana", "Maná máximo", amount(ra.mana), amount(rb.mana), ra.mana, rb.mana, weights.mana),
-    row("regen", "Vida por segundo", amount(ra.lifeRegen), amount(rb.lifeRegen), ra.lifeRegen, rb.lifeRegen, weights.regen),
-    row("attr", "Atributos", amount(ra.attributes), amount(rb.attributes), ra.attributes, rb.attributes, weights.attr),
+    row("es", words.rows.es, plain(words, ra.energyShield), plain(words, rb.energyShield), ra.energyShield, rb.energyShield, weights.es),
+    row("armour", words.rows.armour, plain(words, ra.armour), plain(words, rb.armour), ra.armour, rb.armour, weights.armour),
+    row("evasion", words.rows.evasion, plain(words, ra.evasion), plain(words, rb.evasion), ra.evasion, rb.evasion, weights.evasion),
+    row("mana", words.rows.mana, amount(words, ra.mana), amount(words, rb.mana), ra.mana, rb.mana, weights.mana),
+    row("regen", words.rows.regen, amount(words, ra.lifeRegen), amount(words, rb.lifeRegen), ra.lifeRegen, rb.lifeRegen, weights.regen),
+    row("attr", words.rows.attr, amount(words, ra.attributes), amount(words, rb.attributes), ra.attributes, rb.attributes, weights.attr),
   ];
   // Solo se enseñan las filas en las que alguna de las dos piezas da algo.
-  const rows = candidates.filter((item) => item.a !== "nada" || item.b !== "nada");
+  const rows = candidates.filter((item) => item.a !== words.none || item.b !== words.none);
 
   // Cada fila suma su peso por cuánto gana: ganar por poco cuenta poco.
   const points = (item: CompareRow) => item.weight * item.margin;
@@ -310,31 +390,31 @@ export function compareItems(a: Item, b: Item, style: CompareStyle): CompareResu
     rows
       .filter((item) => item.winner === side)
       .sort((x, y) => points(y) - points(x))
-      .map((item) => item.label.toLocaleLowerCase("es"));
+      .map((item) => item.label.toLocaleLowerCase(lang));
   // Dos objetos raros pueden llamarse igual: entonces el nombre no distingue
   // nada y se habla de «la pieza A» y «la pieza B».
   const sameName = a.name.trim().toLocaleLowerCase("es") === b.name.trim().toLocaleLowerCase("es");
   const labels: Record<CompareSide, string> = sameName
-    ? { a: "la pieza A", b: "la pieza B" }
-    : { a: `«${a.name}»`, b: `«${b.name}»` };
-  const capital = (text: string) => text.replace(/^./, (first) => first.toLocaleUpperCase("es"));
+    ? { a: words.pieceA, b: words.pieceB }
+    : { a: words.quote(a.name), b: words.quote(b.name) };
+  const capital = (text: string) => text.replace(/^./, (first) => first.toLocaleUpperCase(lang));
+  const list = (items: string[]) => joinList(items, words.and);
   const reasons: string[] = [];
   if (winner === "tie") {
-    reasons.push("Están muy parejas: ninguna gana con claridad.");
+    reasons.push(words.tie);
     for (const side of ["a", "b"] as const) {
       const won = wonBy(side);
-      if (won.length > 0) reasons.push(`${capital(labels[side])} da más ${joinList(won)}.`);
+      if (won.length > 0) reasons.push(words.givesMore(capital(labels[side]), list(won)));
     }
   } else {
     const loser: CompareSide = winner === "a" ? "b" : "a";
-    reasons.push(`${capital(labels[winner])} te da más ${joinList(wonBy(winner))}.`);
+    reasons.push(words.youGetMore(capital(labels[winner]), list(wonBy(winner))));
     const lost = wonBy(loser);
-    if (lost.length > 0) reasons.push(`Pierdes ${joinList(lost)}, que da ${labels[loser]}.`);
+    if (lost.length > 0) reasons.push(words.youLose(list(lost), labels[loser]));
   }
 
   const slotOf = (item: Item) => (item.slot === "ring2" ? "ring1" : item.slot);
-  const slotWarning =
-    slotOf(a) !== slotOf(b) ? "No van en el mismo hueco: puedes llevar las dos a la vez, no hace falta elegir." : null;
+  const slotWarning = slotOf(a) !== slotOf(b) ? words.slotWarning : null;
 
   return { winner, scoreA, scoreB, rows, wasted, reasons, slotWarning, labels };
 }

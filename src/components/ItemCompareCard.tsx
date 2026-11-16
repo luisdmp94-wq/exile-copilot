@@ -7,6 +7,52 @@ import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 import { looksLikeItemText } from "@/lib/guideCheck";
 import { COMPARE_STYLES, compareItems, type CompareSide, type CompareStyle } from "@/lib/itemCompare";
 import { cn } from "@/lib/utils";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    styles: { caster: "Hechizos y esbirros", melee: "Cuerpo a cuerpo", ranged: "Arco o ballesta" },
+    pasteFirst: "Pega primero el texto de una pieza.",
+    notGear: (name: string) => `«${name}» no es una pieza de equipo (arma, armadura o joyería).`,
+    notAnItem: "Eso no parece un objeto de PoE2. Pon el ratón encima de la pieza, pulsa Ctrl+C y pega aquí todo el texto.",
+    pieceA: "Pieza A",
+    pieceB: "Pieza B",
+    title: "¿Cuál de estas dos es mejor?",
+    lead: "Copia cada pieza en el juego con Ctrl+C y pégala en su casilla. Te digo cuál conviene y por qué.",
+    remove: (name: string) => `Quitar ${name}`,
+    pasteLabel: (label: string) => `${label}: pega aquí el objeto`,
+    pastePlaceholder: (label: string) => `${label}: pega aquí con Ctrl+V`,
+    read: "Leer pieza",
+    styleGroup: "Tu estilo de juego",
+    playWith: "Juegas con:",
+    tie: "Muy parejas: no hay una ganadora clara.",
+    best: (name: string) => `Mejor para ti: ${name}`,
+    wasted: "No lo aprovechas con ese estilo:",
+    disclaimer:
+      "Comparo solo lo que pone en las dos piezas. No miro tu árbol de pasivas ni tus gemas: si tu personaje depende de algo muy concreto, manda eso.",
+  },
+  {
+    styles: { caster: "Spells and minions", melee: "Melee", ranged: "Bow or crossbow" },
+    pasteFirst: "Paste the text of an item first.",
+    notGear: (name: string) => `“${name}” isn't a piece of gear (weapon, armour or jewellery).`,
+    notAnItem: "That doesn't look like a PoE2 item. Hover the item, press Ctrl+C and paste all the text here.",
+    pieceA: "Piece A",
+    pieceB: "Piece B",
+    title: "Which of these two is better?",
+    lead: "Copy each item in game with Ctrl+C and paste it in its box. I'll tell you which one suits you and why.",
+    remove: (name: string) => `Remove ${name}`,
+    pasteLabel: (label: string) => `${label}: paste the item here`,
+    pastePlaceholder: (label: string) => `${label}: paste here with Ctrl+V`,
+    read: "Read item",
+    styleGroup: "Your play style",
+    playWith: "You play with:",
+    tie: "Very close: there's no clear winner.",
+    best: (name: string) => `Best for you: ${name}`,
+    wasted: "Not useful for that play style:",
+    disclaimer:
+      "I only compare what's written on the two items. I don't look at your passive tree or gems: if your character relies on something very specific, that comes first.",
+  },
+);
 
 const STYLE_STORAGE_KEY = "exile-copilot:comparar-estilo";
 
@@ -37,6 +83,8 @@ interface ItemCompareCardProps {
  * tarjeta dice cuál conviene según el estilo de juego, fila a fila.
  */
 export function ItemCompareCard({ patch }: ItemCompareCardProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const [slots, setSlots] = useState<Record<CompareSide, SlotState>>({ a: EMPTY_SLOT, b: EMPTY_SLOT });
   const [style, setStyle] = useState<CompareStyle>(readStoredStyle);
 
@@ -45,14 +93,14 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
 
   const readItem = async (side: CompareSide, text: string) => {
     if (!text.trim()) {
-      patchSlot(side, { error: "Pega primero el texto de una pieza." });
+      patchSlot(side, { error: t.pasteFirst });
       return;
     }
     patchSlot(side, { busy: true, error: null });
     try {
       const { item } = await api.importItemText({ text, patch });
       if (item.slot === "other" || item.slot === "flask") {
-        patchSlot(side, { busy: false, draft: text, error: `«${item.name}» no es una pieza de equipo (arma, armadura o joyería).` });
+        patchSlot(side, { busy: false, draft: text, error: t.notGear(item.name) });
         return;
       }
       patchSlot(side, { item, draft: "", busy: false, error: null });
@@ -62,7 +110,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
         draft: text,
         error:
           err instanceof ApiRequestError && err.message === "texto-de-objeto-no-reconocido"
-            ? "Eso no parece un objeto de PoE2. Pon el ratón encima de la pieza, pulsa Ctrl+C y pega aquí todo el texto."
+            ? t.notAnItem
             : getErrorMessage(err),
       });
     }
@@ -79,10 +127,10 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
 
   const { a, b } = slots;
   const result = useMemo(
-    () => (a.item && b.item ? compareItems(a.item, b.item, style) : null),
-    [a.item, b.item, style],
+    () => (a.item && b.item ? compareItems(a.item, b.item, style, lang) : null),
+    [a.item, b.item, style, lang],
   );
-  const names: Record<CompareSide, string> = { a: a.item?.name ?? "Pieza A", b: b.item?.name ?? "Pieza B" };
+  const names: Record<CompareSide, string> = { a: a.item?.name ?? t.pieceA, b: b.item?.name ?? t.pieceB };
 
   return (
     <section
@@ -92,16 +140,14 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
     >
       <h2 id="comparar-titulo" className="flex items-center gap-2 text-lg font-semibold text-foreground">
         <Scale className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        ¿Cuál de estas dos es mejor?
+        {t.title}
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Copia cada pieza en el juego con Ctrl+C y pégala en su casilla. Te digo cuál conviene y por qué.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{t.lead}</p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {(["a", "b"] as const).map((side) => {
           const slot = slots[side];
-          const label = side === "a" ? "Pieza A" : "Pieza B";
+          const label = side === "a" ? t.pieceA : t.pieceB;
           return (
             <div key={side} data-testid={`comparar-${side}`}>
               {slot.item ? (
@@ -113,7 +159,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
                   <button
                     type="button"
                     className="rounded p-1 text-muted-foreground hover:text-foreground"
-                    aria-label={`Quitar ${slot.item.name}`}
+                    aria-label={t.remove(slot.item.name)}
                     onClick={() => patchSlot(side, EMPTY_SLOT)}
                   >
                     <X className="size-4" aria-hidden="true" />
@@ -123,7 +169,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
                 <>
                   <Textarea
                     value={slot.draft}
-                    aria-label={`${label}: pega aquí el objeto`}
+                    aria-label={t.pasteLabel(label)}
                     onChange={(event) => patchSlot(side, { draft: event.target.value, error: null })}
                     onPaste={(event) => {
                       // Un objeto copiado del juego se lee al pegarlo, sin botón.
@@ -135,7 +181,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
                     }}
                     rows={3}
                     className="font-mono text-xs"
-                    placeholder={`${label}: pega aquí con Ctrl+V`}
+                    placeholder={t.pastePlaceholder(label)}
                     data-testid={`comparar-texto-${side}`}
                   />
                   {slot.draft.trim() !== "" && (
@@ -148,7 +194,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
                       onClick={() => void readItem(side, slot.draft)}
                     >
                       {slot.busy && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-                      Leer pieza
+                      {t.read}
                     </Button>
                   )}
                 </>
@@ -163,8 +209,8 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
         })}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Tu estilo de juego">
-        <span className="text-sm text-muted-foreground">Juegas con:</span>
+      <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label={t.styleGroup}>
+        <span className="text-sm text-muted-foreground">{t.playWith}</span>
         {COMPARE_STYLES.map((option) => (
           <Button
             key={option.id}
@@ -175,7 +221,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
             onClick={() => chooseStyle(option.id)}
             data-testid={`comparar-estilo-${option.id}`}
           >
-            {option.label}
+            {t.styles[option.id]}
           </Button>
         ))}
       </div>
@@ -185,8 +231,8 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
           <p className="flex items-start gap-2 text-base font-semibold text-foreground" data-testid="comparar-veredicto">
             <Trophy className="mt-0.5 size-5 shrink-0 text-amber-300" aria-hidden="true" />
             {result.winner === "tie"
-              ? "Muy parejas: no hay una ganadora clara."
-              : `Mejor para ti: ${result.labels[result.winner].replace(/^«|»$/g, "")}`}
+              ? t.tie
+              : t.best(result.labels[result.winner].replace(/^[«“]|[»”]$/g, ""))}
           </p>
           {result.slotWarning && <p className="mt-1 text-sm text-amber-200">{result.slotWarning}</p>}
           <ul className="mt-2 space-y-1 text-sm leading-relaxed text-foreground/90">
@@ -227,7 +273,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
 
           {(result.wasted.a.length > 0 || result.wasted.b.length > 0) && (
             <div className="mt-3 text-xs leading-relaxed text-muted-foreground" data-testid="comparar-sobra">
-              <p className="font-semibold text-foreground/80">No lo aprovechas con ese estilo:</p>
+              <p className="font-semibold text-foreground/80">{t.wasted}</p>
               {(["a", "b"] as const).map(
                 (side) =>
                   result.wasted[side].length > 0 && (
@@ -239,8 +285,7 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
             </div>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            Comparo solo lo que pone en las dos piezas. No miro tu árbol de pasivas ni tus gemas: si tu personaje depende
-            de algo muy concreto, manda eso.
+            {t.disclaimer}
           </p>
         </div>
       )}
