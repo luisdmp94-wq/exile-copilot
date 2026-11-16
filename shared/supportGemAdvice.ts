@@ -333,7 +333,9 @@ export const SupportAdviceRequestSchema = z.object({
   skill: z.string().trim().min(1).max(80),
   maxGrade: z.number().int().min(1).max(5),
   attributes: z.array(GemAttributeSchema).min(1).max(3),
-  socketed: z.array(z.string().trim().min(1).max(80)).max(5).optional(),
+  // Todas las asistencias que el personaje lleva, en cualquier habilidad: en
+  // PoE2 cada una solo se puede poner una vez, así que ninguna vuelve a valer.
+  socketed: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
   /** Lo que el jugador cuenta («mis esqueletos mueren rápido»). Nunca es una instrucción. */
   note: z.string().trim().max(MAX_ADVICE_NOTE_LENGTH).optional(),
   build: BuildContextSchema.optional(),

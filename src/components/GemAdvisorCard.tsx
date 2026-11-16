@@ -199,9 +199,12 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
         .map((setup) => ({ name: setup.mainSkill.trim(), supports: setup.supports.map((support) => support.name.trim()).filter(Boolean) })),
     [character],
   );
-  /** Asistencias que el personaje ya lleva en esa habilidad, según el Expediente. */
-  const supportsOf = (skillName: string): string[] =>
-    characterSkills.find((item) => item.name.toLocaleLowerCase("es") === skillName.trim().toLocaleLowerCase("es"))?.supports ?? [];
+  /**
+   * Asistencias que el personaje ya lleva en cualquier habilidad, según el
+   * Expediente. En PoE2 cada asistencia se pone una sola vez: si ya está en
+   * Drenar esencia, no vale recomendarla para Ritual profano.
+   */
+  const ownedSupports = characterSkills.flatMap((item) => item.supports);
 
   const loadCharacterSkills = () => {
     setMySkills(characterSkills.map((item) => item.name));
@@ -283,7 +286,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
     setBusy(true);
     setError(null);
     try {
-      const names = [...new Set([...(owned ?? splitNames(socketed, 16)), ...supportsOf(skill)])].slice(0, 5);
+      const names = [...new Set([...(owned ?? splitNames(socketed, 16)), ...ownedSupports])].slice(0, 30);
       setAnswer(
         await api.supportGemAdvice({
           skill: skill.trim(),
@@ -320,7 +323,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
     setBusy(true);
     setError(null);
     try {
-      const names = owned ?? splitNames(socketed, 16);
+      const names = [...new Set([...(owned ?? splitNames(socketed, 16)), ...ownedSupports])].slice(0, 16);
       setPlan(
         await api.supportGemPlan({
           skills,
