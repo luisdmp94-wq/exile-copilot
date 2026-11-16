@@ -10,6 +10,7 @@ import type { CharacterProfile, Item, ItemSlot, Resistances } from "@shared/doma
  */
 
 export type GuideCheckSource = "items" | "profile";
+export type GuideCheckLang = "es" | "en";
 
 export type GuideCheckTone = "danger" | "warn" | "ok";
 
@@ -40,11 +41,9 @@ export interface GuideCheckTargets {
 const ELEMENTS = ["fire", "cold", "lightning"] as const;
 type Element = (typeof ELEMENTS)[number];
 
-const ELEMENT_LABELS: Record<Element | "chaos", string> = {
-  fire: "fuego",
-  cold: "hielo",
-  lightning: "rayo",
-  chaos: "caos",
+const ELEMENT_LABELS_BY_LANG: Record<GuideCheckLang, Record<Element | "chaos", string>> = {
+  es: { fire: "fuego", cold: "hielo", lightning: "rayo", chaos: "caos" },
+  en: { fire: "fire", cold: "cold", lightning: "lightning", chaos: "chaos" },
 };
 
 /** Huecos que la guía revisa. La mano secundaria depende del arma y no se exige. */
@@ -59,6 +58,24 @@ export const GUIDE_SLOTS: Array<{ slot: ItemSlot; label: string }> = [
   { slot: "ring1", label: "anillo" },
   { slot: "ring2", label: "segundo anillo" },
 ];
+
+const SLOT_LABELS_EN: Partial<Record<ItemSlot, string>> = {
+  weapon: "weapon",
+  helmet: "helmet",
+  body: "body armour",
+  gloves: "gloves",
+  boots: "boots",
+  belt: "belt",
+  amulet: "amulet",
+  ring1: "ring",
+  ring2: "second ring",
+};
+
+/** Nombre del hueco en el idioma pedido. */
+export function guideSlotLabel(slot: ItemSlot, lang: GuideCheckLang = "es"): string {
+  const spanish = GUIDE_SLOTS.find((item) => item.slot === slot)?.label ?? slot;
+  return lang === "en" ? (SLOT_LABELS_EN[slot] ?? spanish) : spanish;
+}
 
 /** El texto avanzado escribe la tirada con su rango: `+28(25-30)%`. */
 const ROLL_RANGE = /\((-?\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)/g;
@@ -178,16 +195,53 @@ export function guideInputFromProfile(profile: CharacterProfile): GuideCheckInpu
   };
 }
 
-function joinSpanish(parts: string[]): string {
+function joinList(parts: string[], lang: GuideCheckLang): string {
   if (parts.length <= 1) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
+  return `${parts.slice(0, -1).join(", ")} ${lang === "en" ? "and" : "y"} ${parts.at(-1)}`;
 }
+
+const CHECK_WORDS = {
+  es: {
+    low: (element: string, value: number, nextAct: string, target: number) =>
+      `Resistencia al ${element}: ${value}%. Para el ${nextAct} conviene llegar al menos al ${target}%: te faltan ${target - value} puntos.`,
+    notPasted: (slots: string) =>
+      `No has pegado: ${slots}. Si llevas algo en esos huecos, pégalo también; si están vacíos, cualquier pieza es mejor que nada.`,
+    empty: (slots: string) =>
+      `Huecos vacíos: ${slots}. Cualquier pieza es mejor que nada, y puede traer la resistencia que te falta.`,
+    unknown: (elements: string) =>
+      `No sé tu resistencia al ${elements}: tu código no la trae. Mírala en la hoja del personaje del juego (tecla C).`,
+    allGood: (target: number, nextAct: string) => `Fuego, hielo y rayo al ${target}% o más: vas bien para el ${nextAct}.`,
+    someGood: (elements: string, target: number) => `${elements}: ya llegas al ${target}%.`,
+    chaos: (value: number) =>
+      `Resistencia al caos negativa (${value}%): recibes más daño de caos del normal. Apúntalo para más adelante.`,
+  },
+  en: {
+    low: (element: string, value: number, nextAct: string, target: number) =>
+      `${element.replace(/^./, (c) => c.toUpperCase())} resistance: ${value}%. For ${nextAct} you should have at least ${target}%: you're ${target - value} points short.`,
+    notPasted: (slots: string) =>
+      `You haven't pasted: ${slots}. If you have something in those slots, paste it too; if they're empty, any item beats nothing.`,
+    empty: (slots: string) => `Empty slots: ${slots}. Any item beats nothing, and it may bring the resistance you're missing.`,
+    unknown: (elements: string) =>
+      `I don't know your ${elements} resistance: your code doesn't include it. Check it on the in-game character sheet (C key).`,
+    allGood: (target: number, nextAct: string) => `Fire, cold and lightning at ${target}% or more: you're fine for ${nextAct}.`,
+    someGood: (elements: string, target: number) => `${elements}: already at ${target}%.`,
+    chaos: (value: number) =>
+      `Negative chaos resistance (${value}%): you take more chaos damage than normal. Keep it in mind for later.`,
+  },
+} as const;
 
 /**
  * Avisos de la guía, del más grave al más leve. No inventa nada que no venga
  * de la entrada: sin dato de una resistencia, lo dice en vez de suponer 0.
  */
-export function checkForGuide(input: GuideCheckInput, targets: GuideCheckTargets): GuideCheckLine[] {
+export function checkForGuide(
+  input: GuideCheckInput,
+  targets: GuideCheckTargets,
+  lang: GuideCheckLang = "es",
+): GuideCheckLine[] {
+  const ELEMENT_LABELS = ELEMENT_LABELS_BY_LANG[lang];
+  const words = CHECK_WORDS[lang];
+  const joinSpanish = (parts: string[]) => joinList(parts, lang);
   const lines: GuideCheckLine[] = [];
   const fromItems = input.source === "items";
 
@@ -211,23 +265,22 @@ export function checkForGuide(input: GuideCheckInput, targets: GuideCheckTargets
     lines.push({
       id: `res-${element}`,
       tone: focused || value < targets.elemental / 2 ? "danger" : "warn",
-      text: `Resistencia al ${ELEMENT_LABELS[element]}: ${value}%. Para el ${targets.nextAct} conviene llegar al menos al ${targets.elemental}%: te faltan ${targets.elemental - value} puntos.${focused ? ` ${focus!.note}` : ""}`,
+      text: `${words.low(ELEMENT_LABELS[element], value, targets.nextAct, targets.elemental)}${focused ? ` ${focus!.note}` : ""}`,
     });
   }
 
   const ringCount = input.filledSlots.filter((slot) => slot === "ring1" || slot === "ring2").length;
-  const missing = GUIDE_SLOTS.filter(({ slot }) => {
+  const missingSlots = GUIDE_SLOTS.filter(({ slot }) => {
     if (slot === "ring1") return ringCount < 1;
     if (slot === "ring2") return ringCount < 2;
     return !input.filledSlots.includes(slot);
-  }).map(({ label }) => label);
+  }).map(({ slot }) => slot);
+  const missing = missingSlots.map((slot) => guideSlotLabel(slot, lang));
   if (missing.length > 0) {
     lines.push({
       id: "slots",
-      tone: missing.includes("arma") ? "danger" : "warn",
-      text: fromItems
-        ? `No has pegado: ${joinSpanish(missing)}. Si llevas algo en esos huecos, pégalo también; si están vacíos, cualquier pieza es mejor que nada.`
-        : `Huecos vacíos: ${joinSpanish(missing)}. Cualquier pieza es mejor que nada, y puede traer la resistencia que te falta.`,
+      tone: missingSlots.includes("weapon") ? "danger" : "warn",
+      text: fromItems ? words.notPasted(joinSpanish(missing)) : words.empty(joinSpanish(missing)),
     });
   }
 
@@ -235,7 +288,7 @@ export function checkForGuide(input: GuideCheckInput, targets: GuideCheckTargets
     lines.push({
       id: "res-unknown",
       tone: "warn",
-      text: `No sé tu resistencia al ${joinSpanish(unknown)}: tu código no la trae. Mírala en la hoja del personaje del juego (tecla C).`,
+      text: words.unknown(joinSpanish(unknown)),
     });
   }
 
@@ -247,13 +300,13 @@ export function checkForGuide(input: GuideCheckInput, targets: GuideCheckTargets
     lines.push({
       id: "res-ok",
       tone: "ok",
-      text: `Fuego, hielo y rayo al ${targets.elemental}% o más: vas bien para el ${targets.nextAct}.`,
+      text: words.allGood(targets.elemental, targets.nextAct),
     });
   } else if (goodElements.length > 0) {
     lines.push({
       id: "res-ok",
       tone: "ok",
-      text: `${joinSpanish(goodElements.map((element) => ELEMENT_LABELS[element]))}: ya llegas al ${targets.elemental}%.`.replace(/^./, (c) => c.toUpperCase()),
+      text: words.someGood(joinSpanish(goodElements.map((element) => ELEMENT_LABELS[element])), targets.elemental).replace(/^./, (c) => c.toUpperCase()),
     });
   }
 
@@ -262,7 +315,7 @@ export function checkForGuide(input: GuideCheckInput, targets: GuideCheckTargets
     lines.push({
       id: "res-chaos",
       tone: "warn",
-      text: `Resistencia al caos negativa (${chaos}%): recibes más daño de caos del normal. Apúntalo para más adelante.`,
+      text: words.chaos(chaos),
     });
   }
 

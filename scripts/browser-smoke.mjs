@@ -1961,9 +1961,16 @@ async function runFlow(mode, port) {
       (await page.getByTestId("tab-guias").innerText()).includes("Guides"),
     );
     await page.getByTestId("tab-guias").click();
+    await page.getByTestId("guia-vistas").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] en inglés, la guía del acto ya sale en inglés`,
+      /^Act \d/.test(await page.locator("#guia-titulo").innerText()) &&
+        (await page.locator('[data-testid="english-soon"]:visible').count()) === 0,
+    );
+    // Las áreas sin traducir (Plan, Crafting…) llevan el aviso aunque estén ocultas.
     check(
       `[${mode}] en inglés, lo que falta por traducir lo avisa`,
-      (await page.locator('[data-testid="english-soon"]:visible').count()) === 1,
+      (await page.getByTestId("english-soon").count()) >= 1,
     );
     await page.getByTestId("idioma-es").click();
     check(

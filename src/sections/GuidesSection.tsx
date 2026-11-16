@@ -19,8 +19,73 @@ import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
 import { ItemCompareCard } from "@/components/ItemCompareCard";
 import { RewardCheckCard } from "@/components/RewardCheckCard";
 import type { ActGuide, GuideBlock, GuideRoutePriority, GuideTip } from "@/guides/guide";
-import { GUIDES, UPCOMING_GUIDES, findGuide } from "@/guides";
+import { UPCOMING_GUIDES, UPCOMING_GUIDES_EN, findGuide, guidesFor } from "@/guides";
 import { cn } from "@/lib/utils";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    views: { guia: "Guía del acto", comprobar: "Comprobar mi personaje", herramientas: "Gemas y piezas" },
+    priority: { clave: "No te lo saltes", recomendable: "Merece la pena", historia: "Historia" },
+    route: "Ruta del acto",
+    doneOf: (done: number, total: number) => `${done} de ${total} hechas`,
+    routeLead: "Las zonas en orden. Marca cada una al terminarla.",
+    mostImportant: "Lo más importante, para siempre:",
+    canSkip: "Te puedes saltar:",
+    nothingForever: "No dan nada para siempre.",
+    optional: "opcional",
+    canSkipOne: (what: string) => `Te puedes saltar: ${what}.`,
+    moreDetail: "Más detalle",
+    intro:
+      "es un compañero en español para Path of Exile 2: guías por acto y un mentor que mira tu personaje. Gratis y sin registrarte.",
+    guidesNav: "Guías por acto",
+    guides: "Guías:",
+    soon: "pronto",
+    viewsLabel: "Partes del área de guías",
+    checkedFor: (patch: string) => `Comprobada para ${patch} · se revisa al salir la 1.0`,
+    readTime: (minutes: number) => `${minutes} min de lectura · sin registrarse`,
+    draftTitle: "Borrador sin revisar.",
+    draftText: "Falta la revisión de Luis antes de publicarlo.",
+    essentials: "Lo esencial",
+    sources: "Fuentes",
+    checkedOn: (date: string) =>
+      `Datos comprobados el ${date}. Path of Exile 2 es de Grinding Gear Games; esta guía no es oficial.`,
+    checkLead: (act: string) =>
+      `Pega tu equipo una vez y sirve para las dos comprobaciones del ${act}. Se queda guardado en este navegador.`,
+    toolsLead: "Dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.",
+  },
+  {
+    views: { guia: "Act guide", comprobar: "Check my character", herramientas: "Gems and items" },
+    priority: { clave: "Don't skip it", recomendable: "Worth it", historia: "Story" },
+    route: "Act route",
+    doneOf: (done: number, total: number) => `${done} of ${total} done`,
+    routeLead: "The zones in order. Tick each one when you finish it.",
+    mostImportant: "Most important, for good:",
+    canSkip: "You can skip:",
+    nothingForever: "They give nothing permanent.",
+    optional: "optional",
+    canSkipOne: (what: string) => `You can skip: ${what}.`,
+    moreDetail: "More detail",
+    intro:
+      "is a companion for Path of Exile 2 players: act guides and a mentor that looks at your character. Free, no sign-up.",
+    guidesNav: "Act guides",
+    guides: "Guides:",
+    soon: "soon",
+    viewsLabel: "Parts of the guides area",
+    checkedFor: (patch: string) => `Checked for ${patch} · reviewed again when 1.0 comes out`,
+    readTime: (minutes: number) => `${minutes} min read · no sign-up`,
+    draftTitle: "Unreviewed draft.",
+    draftText: "It still needs a final review.",
+    essentials: "The essentials",
+    sources: "Sources",
+    checkedOn: (date: string) =>
+      `Data checked on ${date}. Path of Exile 2 belongs to Grinding Gear Games; this guide is not official.`,
+    checkLead: (act: string) =>
+      `Paste your gear once and it works for both ${act} checks. It stays saved in this browser.`,
+    toolsLead: "Two questions every run has, in any act: which support gem to use and which of two items suits you.",
+  },
+);
+type GuidesText = (typeof TEXT)["es"];
 
 const BLOCK_ICON: Record<string, typeof Skull> = {
   jefes: Skull,
@@ -54,9 +119,9 @@ const VIEW_STORAGE_KEY = "exile-copilot:guia-vista";
  * había quien encontrara nada: ahora cada cosa tiene su pestaña.
  */
 const VIEWS = [
-  { id: "guia", label: "Guía del acto", icon: BookOpen },
-  { id: "comprobar", label: "Comprobar mi personaje", icon: ListChecks },
-  { id: "herramientas", label: "Gemas y piezas", icon: Gem },
+  { id: "guia", icon: BookOpen },
+  { id: "comprobar", icon: ListChecks },
+  { id: "herramientas", icon: Gem },
 ] as const;
 type GuideView = (typeof VIEWS)[number]["id"];
 
@@ -79,10 +144,10 @@ function readStoredPieces(): Item[] {
   }
 }
 
-const ROUTE_PRIORITY: Record<GuideRoutePriority, { label: string; className: string }> = {
-  clave: { label: "No te lo saltes", className: "border-amber-400/60 bg-amber-400/15 text-amber-200" },
-  recomendable: { label: "Merece la pena", className: "border-emerald-400/40 text-emerald-200" },
-  historia: { label: "Historia", className: "border-border text-muted-foreground" },
+const ROUTE_PRIORITY: Record<GuideRoutePriority, { className: string }> = {
+  clave: { className: "border-amber-400/60 bg-amber-400/15 text-amber-200" },
+  recomendable: { className: "border-emerald-400/40 text-emerald-200" },
+  historia: { className: "border-border text-muted-foreground" },
 };
 
 function readRouteDone(slug: string): string[] {
@@ -98,8 +163,12 @@ function readRouteDone(slug: string): string[] {
  * Ruta del acto: las zonas en orden, una línea cada una. El jugador marca lo
  * que ya ha hecho; se recuerda en su navegador y nada sale de su equipo.
  */
-function Route({ guide }: { guide: ActGuide }) {
+function Route({ guide, t }: { guide: ActGuide; t: GuidesText }) {
   const steps = guide.route ?? [];
+  // Lo marcado se guarda con el nombre de la zona en español, el mismo en los
+  // dos idiomas: cambiar de idioma no borra lo que ya llevas hecho.
+  const spanishSteps = findGuide(guide.slug).route ?? [];
+  const keyOf = (index: number) => spanishSteps[index]?.zone ?? steps[index].zone;
   const [done, setDone] = useState<string[]>(() => readRouteDone(guide.slug));
 
   const toggle = (zone: string) => {
@@ -112,7 +181,7 @@ function Route({ guide }: { guide: ActGuide }) {
     }
   };
 
-  const doneCount = steps.filter((step) => done.includes(step.zone)).length;
+  const doneCount = steps.filter((_step, index) => done.includes(keyOf(index))).length;
   const keySteps = steps.filter((step) => step.priority === "clave");
   const skippable = steps.flatMap((step) => (step.skip ? [`${step.skip} (${step.zone})`] : []));
 
@@ -125,32 +194,32 @@ function Route({ guide }: { guide: ActGuide }) {
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 id="guia-ruta" className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <MapIcon className="size-5 shrink-0 text-primary" aria-hidden="true" />
-          Ruta del acto
+          {t.route}
         </h2>
         <span className="text-xs tabular-nums text-muted-foreground" data-testid="guia-ruta-progreso">
-          {doneCount} de {steps.length} hechas
+          {t.doneOf(doneCount, steps.length)}
         </span>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">Las zonas en orden. Marca cada una al terminarla.</p>
+      <p className="mt-1 text-sm text-muted-foreground">{t.routeLead}</p>
       {(keySteps.length > 0 || skippable.length > 0) && (
         <div className="mt-3 rounded-lg bg-secondary/50 p-3 text-sm leading-relaxed" data-testid="guia-ruta-resumen">
           {keySteps.length > 0 && (
             <p>
-              <strong className="font-semibold text-amber-200">Lo más importante, para siempre:</strong>{" "}
+              <strong className="font-semibold text-amber-200">{t.mostImportant}</strong>{" "}
               {keySteps.map((step) => `${step.reward ?? step.zone} (${step.zone})`).join(" · ")}.
             </p>
           )}
           {skippable.length > 0 && (
             <p className="mt-1 text-muted-foreground">
-              <strong className="font-semibold text-foreground/90">Te puedes saltar:</strong> {skippable.join(" · ")}.
-              No dan nada para siempre.
+              <strong className="font-semibold text-foreground/90">{t.canSkip}</strong> {skippable.join(" · ")}.{" "}
+              {t.nothingForever}
             </p>
           )}
         </div>
       )}
       <ol className="mt-3 space-y-1">
         {steps.map((step, index) => {
-          const checked = done.includes(step.zone);
+          const checked = done.includes(keyOf(index));
           const id = `guia-ruta-${guide.slug}-${index}`;
           return (
             <li key={step.zone} className="flex gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary/50">
@@ -158,7 +227,7 @@ function Route({ guide }: { guide: ActGuide }) {
                 id={id}
                 type="checkbox"
                 checked={checked}
-                onChange={() => toggle(step.zone)}
+                onChange={() => toggle(keyOf(index))}
                 className="mt-1 size-4 shrink-0 accent-primary"
               />
               <label htmlFor={id} className={cn("min-w-0 flex-1 cursor-pointer text-sm leading-relaxed", checked && "opacity-55")}>
@@ -171,11 +240,11 @@ function Route({ guide }: { guide: ActGuide }) {
                     ROUTE_PRIORITY[step.priority].className,
                   )}
                 >
-                  {ROUTE_PRIORITY[step.priority].label}
+                  {t.priority[step.priority]}
                 </span>
                 {step.optional && step.priority !== "clave" && (
                   <span className="ml-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted-foreground">
-                    opcional
+                    {t.optional}
                   </span>
                 )}
                 <span className="block text-foreground/85">
@@ -183,7 +252,7 @@ function Route({ guide }: { guide: ActGuide }) {
                   <SourceRefs guide={guide} ids={step.sourceIds} />
                 </span>
                 {step.skip && (
-                  <span className="block text-xs text-muted-foreground">Te puedes saltar: {step.skip}.</span>
+                  <span className="block text-xs text-muted-foreground">{t.canSkipOne(step.skip)}</span>
                 )}
               </label>
             </li>
@@ -208,7 +277,7 @@ function TipList({ guide, tips }: { guide: ActGuide; tips: GuideTip[] }) {
   );
 }
 
-function Block({ guide, block, number }: { guide: ActGuide; block: GuideBlock; number: number }) {
+function Block({ guide, block, number, t }: { guide: ActGuide; block: GuideBlock; number: number; t: GuidesText }) {
   const Icon = BLOCK_ICON[block.id] ?? BookOpen;
   return (
     <section
@@ -236,7 +305,7 @@ function Block({ guide, block, number }: { guide: ActGuide; block: GuideBlock; n
         <details className="group mt-3 border-t border-border pt-2.5" data-testid={`guia-mas-${block.id}`}>
           <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
             <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-            Más detalle
+            {t.moreDetail}
           </summary>
           <TipList guide={guide} tips={block.more} />
         </details>
@@ -273,7 +342,10 @@ export function GuidesSection({
   patch,
   onAskMentor,
 }: GuidesSectionProps) {
-  const guide = findGuide(guideSlug);
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const guides = guidesFor(lang);
+  const guide = findGuide(guideSlug, lang);
   // El equipo pegado es del personaje, no de un acto: se comparte entre guías
   // y se recuerda en el navegador para no pegar nueve piezas cada vez.
   const [pastedItems, setPastedItems] = useState<Item[]>(readStoredPieces);
@@ -300,14 +372,12 @@ export function GuidesSection({
             cargado ya lo sabe, y la frase sobra. */}
         {profile === null && (
           <p className="mb-3 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground" data-testid="guia-presentacion">
-            <strong className="font-semibold text-foreground">Exile Copilot</strong> es un compañero
-            en español para Path of Exile 2: guías por acto y un mentor que mira tu personaje. Gratis
-            y sin registrarte.
+            <strong className="font-semibold text-foreground">Exile Copilot</strong> {t.intro}
           </p>
         )}
-        <nav aria-label="Guías por acto" className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">Guías:</span>
-          {GUIDES.map((item) => {
+        <nav aria-label={t.guidesNav} className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t.guides}</span>
+          {guides.map((item) => {
             const active = item.slug === guide.slug;
             return (
               <a
@@ -330,12 +400,12 @@ export function GuidesSection({
               </a>
             );
           })}
-          {UPCOMING_GUIDES.map((label) => (
+          {(lang === "en" ? UPCOMING_GUIDES_EN : UPCOMING_GUIDES).map((label) => (
             <span
               key={label}
               className="rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm text-muted-foreground"
             >
-              {label} · pronto
+              {label} · {t.soon}
             </span>
           ))}
         </nav>
@@ -345,10 +415,10 @@ export function GuidesSection({
         <div
           className="mt-3 grid grid-cols-1 gap-1.5 rounded-xl border border-border bg-card p-1.5 sm:grid-cols-3"
           role="tablist"
-          aria-label="Partes del área de guías"
+          aria-label={t.viewsLabel}
           data-testid="guia-vistas"
         >
-          {VIEWS.map(({ id, label, icon: Icon }) => (
+          {VIEWS.map(({ id, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -366,7 +436,7 @@ export function GuidesSection({
               data-testid={`guia-vista-${id}`}
             >
               <Icon className="size-4 shrink-0" aria-hidden="true" />
-              {label}
+              {t.views[id]}
             </button>
           ))}
         </div>
@@ -384,10 +454,10 @@ export function GuidesSection({
         <p className="text-sm leading-relaxed text-muted-foreground">{guide.summary}</p>
         <div className="mt-2.5 flex flex-wrap gap-2 text-xs">
           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-amber-200">
-            Comprobada para {guide.checkedPatch} · se revisa al salir la 1.0
+            {t.checkedFor(guide.checkedPatch)}
           </span>
           <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-muted-foreground">
-            {guide.readMinutes} min de lectura · sin registrarse
+            {t.readTime(guide.readMinutes)}
           </span>
         </div>
       </div>
@@ -400,8 +470,7 @@ export function GuidesSection({
         >
           <FilePenLine className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>
-            <strong className="font-semibold">Borrador sin revisar.</strong> Falta la revisión de Luis
-            antes de publicarlo.
+            <strong className="font-semibold">{t.draftTitle}</strong> {t.draftText}
           </p>
         </div>
       )}
@@ -413,7 +482,7 @@ export function GuidesSection({
       >
         <h2 id="guia-esencial" className="flex items-center gap-2 text-base font-semibold text-foreground">
           <Sparkles className="size-4 shrink-0 text-primary" aria-hidden="true" />
-          Lo esencial
+          {t.essentials}
         </h2>
         <ol className="mt-2 space-y-1.5">
           {guide.essentials.map((tip, index) => (
@@ -428,15 +497,15 @@ export function GuidesSection({
         </ol>
       </section>
 
-      {guide.route && guide.route.length > 0 && <Route key={guide.slug} guide={guide} />}
+      {guide.route && guide.route.length > 0 && <Route key={`${guide.slug}-${lang}`} guide={guide} t={t} />}
 
       {guide.blocks.map((block, index) => (
-        <Block key={block.id} guide={guide} block={block} number={index + 1} />
+        <Block key={block.id} guide={guide} block={block} number={index + 1} t={t} />
       ))}
 
       <section aria-labelledby="guia-fuentes" className="px-1 pt-2" data-testid="guia-fuentes">
         <h2 id="guia-fuentes" className="text-sm font-semibold text-foreground">
-          Fuentes
+          {t.sources}
         </h2>
         <ol className="mt-2 space-y-1 text-xs text-muted-foreground">
           {guide.sources.map((source, index) => (
@@ -450,8 +519,7 @@ export function GuidesSection({
           ))}
         </ol>
         <p className="mt-2 text-xs text-muted-foreground">
-          Datos comprobados el {guide.checkedOn}. Path of Exile 2 es de Grinding Gear Games; esta guía
-          no es oficial.
+          {t.checkedOn(guide.checkedOn)}
         </p>
       </section>
       </div>
@@ -464,8 +532,7 @@ export function GuidesSection({
         className="space-y-4"
       >
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Pega tu equipo una vez y sirve para las dos comprobaciones del {guide.actLabel}. Se queda guardado en este
-          navegador.
+          {t.checkLead(guide.actLabel)}
         </p>
         <GuideCharacterCheck
           actLabel={guide.actLabel}
@@ -479,7 +546,7 @@ export function GuidesSection({
         <RewardCheckCard
           key={`recompensas-${guide.slug}`}
           guide={guide}
-          earlier={GUIDES.filter((other) => other.act < guide.act)}
+          earlier={guides.filter((other) => other.act < guide.act)}
           items={pastedItems}
         />
       </div>
@@ -492,7 +559,7 @@ export function GuidesSection({
         className="space-y-4"
       >
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.
+          {t.toolsLead}
         </p>
         <GemAdvisorCard
           profile={profile}

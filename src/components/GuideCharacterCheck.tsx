@@ -17,6 +17,7 @@ import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 import { explainImportError } from "@/lib/buildCheck";
 import {
   GUIDE_SLOTS,
+  guideSlotLabel,
   checkForGuide,
   guideInputFromItems,
   guideInputFromProfile,
@@ -30,6 +31,90 @@ import {
 } from "@/lib/guideCheck";
 import { readPobCodeInBrowser } from "@/lib/pobBrowser";
 import { cn } from "@/lib/utils";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    res: { fire: "fuego", cold: "hielo", lightning: "rayo", chaos: "caos" },
+    noRes: "sin resistencias",
+    pasteFirst: "Pega primero el texto de una pieza.",
+    notAnItemShort: "no parece un objeto de PoE2",
+    added: (count: number) => `${count} ${count === 1 ? "pieza añadida" : "piezas añadidas"}.`,
+    replaced: (slot: string, name: string) => `Has pegado otro ${slot}: sustituye a «${name}».`,
+    anotherItem: "objeto",
+    skipped: (names: string, count: number) =>
+      `${names} no ${count === 1 ? "es una pieza" : "son piezas"} de equipo (arma, armadura o joyería): no cuenta para la comprobación.`,
+    notAnItem: "Eso no parece un objeto de PoE2.",
+    someFailed: (failed: number, total: number) => `${failed} de ${total} piezas no se han podido leer.`,
+    howToCopy: "En el juego, pon el ratón encima de la pieza, pulsa Ctrl+C y pega aquí todo el texto.",
+    pastePob: "Pega primero tu código de Path of Building 2.",
+    title: (nextAct: string) => `¿Está listo tu personaje para el ${nextAct}?`,
+    howGroup: "Cómo quieres comprobarlo",
+    pasteItems: "Pegar objetos (Ctrl+C)",
+    pobCode: "Código de PoB",
+    useProfile: (name: string) => `Usar «${name}»`,
+    itemsHelp:
+      "En el juego, pon el ratón sobre una pieza equipada y pulsa Ctrl+C. Pégala aquí con Ctrl+V y se añade sola. Puedes pegar varias seguidas.",
+    pobHelp: "Pega el código que exporta Path of Building 2 (Importar/Exportar → Generar).",
+    itemsPlaceholder: "Clase de objeto: Cascos\nRareza: Mágico\n…",
+    addPieces: "Añadir piezas",
+    readCode: "Leer código",
+    readPob: (name: string, count: number) => `Leído: ${name} · ${count} piezas`,
+    pastedPieces: "Piezas pegadas",
+    other: "otro",
+    remove: (name: string) => `Quitar ${name}`,
+    pieceCount: (count: number, total: number) => `${count} de ${total} piezas · cuantas más pegues, más fiable`,
+    addOne: "Añade al menos una pieza antes de comprobar.",
+    check: "Comprobar mi personaje",
+    result: "Resultado",
+    itemsOnly:
+      "Solo cuento las resistencias de las piezas que has pegado. Las pasivas y otras fuentes también suman: el número exacto está en la hoja del personaje del juego (tecla C).",
+    pobNote:
+      "Path of Building calcula las resistencias con la penalización del acto que tenga configurado; si ves cifras muy negativas, revisa esa opción en PoB.",
+    askMentorQuestion: (act: string, text: string) => `Vengo de la guía del ${act}. La comprobación dice: ${text} ¿Qué hago primero?`,
+    askMentor: "Pregúntale al mentor por esto",
+  },
+  {
+    res: { fire: "fire", cold: "cold", lightning: "lightning", chaos: "chaos" },
+    noRes: "no resistances",
+    pasteFirst: "Paste the text of an item first.",
+    notAnItemShort: "doesn't look like a PoE2 item",
+    added: (count: number) => `${count} ${count === 1 ? "item added" : "items added"}.`,
+    replaced: (slot: string, name: string) => `You pasted another ${slot}: it replaces “${name}”.`,
+    anotherItem: "item",
+    skipped: (names: string, count: number) =>
+      `${names} ${count === 1 ? "isn't a piece" : "aren't pieces"} of gear (weapon, armour or jewellery): not counted in the check.`,
+    notAnItem: "That doesn't look like a PoE2 item.",
+    someFailed: (failed: number, total: number) => `${failed} of ${total} items couldn't be read.`,
+    howToCopy: "In game, hover the item, press Ctrl+C and paste all the text here.",
+    pastePob: "Paste your Path of Building 2 code first.",
+    title: (nextAct: string) => `Is your character ready for ${nextAct}?`,
+    howGroup: "How do you want to check",
+    pasteItems: "Paste items (Ctrl+C)",
+    pobCode: "PoB code",
+    useProfile: (name: string) => `Use “${name}”`,
+    itemsHelp:
+      "In game, hover an equipped item and press Ctrl+C. Paste it here with Ctrl+V and it's added on its own. You can paste several in a row.",
+    pobHelp: "Paste the code Path of Building 2 exports (Import/Export → Generate).",
+    itemsPlaceholder: "Item Class: Helmets\nRarity: Magic\n…",
+    addPieces: "Add items",
+    readCode: "Read code",
+    readPob: (name: string, count: number) => `Read: ${name} · ${count} items`,
+    pastedPieces: "Pasted items",
+    other: "other",
+    remove: (name: string) => `Remove ${name}`,
+    pieceCount: (count: number, total: number) => `${count} of ${total} items · the more you paste, the more reliable`,
+    addOne: "Add at least one item before checking.",
+    check: "Check my character",
+    result: "Result",
+    itemsOnly:
+      "I only count the resistances on the items you pasted. Passives and other sources add up too: the exact number is on the in-game character sheet (C key).",
+    pobNote:
+      "Path of Building calculates resistances with whatever act penalty it's set to; if you see very negative numbers, check that option in PoB.",
+    askMentorQuestion: (act: string, text: string) => `I'm coming from the ${act} guide. The check says: ${text} What should I do first?`,
+    askMentor: "Ask the mentor about this",
+  },
+);
 
 type Mode = "items" | "pob";
 
@@ -47,7 +132,7 @@ interface GuideCharacterCheckProps {
   onAskMentor?: (question: string) => void;
 }
 
-const SLOT_LABEL = new Map(GUIDE_SLOTS.map(({ slot, label }) => [slot, label]));
+const GUIDE_SLOT_IDS = new Set(GUIDE_SLOTS.map(({ slot }) => slot));
 
 const TONE_ICON = {
   danger: AlertTriangle,
@@ -61,19 +146,19 @@ const TONE_TEXT: Record<GuideCheckLine["tone"], string> = {
   ok: "text-emerald-300",
 };
 
-function pieceSummary(item: Item): string {
+function pieceSummary(item: Item, t: (typeof TEXT)["es"]): string {
   const res = resistancesFromItems([item]);
   const parts = (
     [
-      ["fuego", res.fire],
-      ["hielo", res.cold],
-      ["rayo", res.lightning],
-      ["caos", res.chaos],
+      [t.res.fire, res.fire],
+      [t.res.cold, res.cold],
+      [t.res.lightning, res.lightning],
+      [t.res.chaos, res.chaos],
     ] as const
   )
     .filter(([, value]) => value !== 0)
     .map(([label, value]) => `${value! > 0 ? "+" : ""}${value}% ${label}`);
-  return parts.length > 0 ? parts.join(" · ") : "sin resistencias";
+  return parts.length > 0 ? parts.join(" · ") : t.noRes;
 }
 
 /**
@@ -91,6 +176,9 @@ export function GuideCharacterCheck({
   patch,
   onAskMentor,
 }: GuideCharacterCheckProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const slotName = (slot: Item["slot"]) => (GUIDE_SLOT_IDS.has(slot) ? guideSlotLabel(slot, lang) : null);
   const [mode, setMode] = useState<Mode>("items");
   const [pasted, setPasted] = useState("");
   const [pobProfile, setPobProfile] = useState<CharacterProfile | null>(null);
@@ -107,8 +195,8 @@ export function GuideCharacterCheck({
   }, [useExpediente, profile, mode, pobProfile, items]);
 
   const lines = useMemo(
-    () => (checked && input ? checkForGuide(input, targets) : null),
-    [checked, input, targets],
+    () => (checked && input ? checkForGuide(input, targets, lang) : null),
+    [checked, input, targets, lang],
   );
 
   const switchMode = (next: Mode) => {
@@ -122,7 +210,7 @@ export function GuideCharacterCheck({
   const addPiece = async (source: string = pasted) => {
     const chunks = splitPastedItems(source);
     if (chunks.length === 0) {
-      setError("Pega primero el texto de una pieza.");
+      setError(t.pasteFirst);
       return;
     }
     setBusy(true);
@@ -151,7 +239,7 @@ export function GuideCharacterCheck({
       } catch (err) {
         failures.push(
           err instanceof ApiRequestError && err.message === "texto-de-objeto-no-reconocido"
-            ? "no parece un objeto de PoE2"
+            ? t.notAnItemShort
             : getErrorMessage(err),
         );
       }
@@ -162,27 +250,21 @@ export function GuideCharacterCheck({
     setPasted(failures.length === 0 ? "" : source);
 
     const notes: string[] = [];
-    if (chunks.length > 1 && added > 0) notes.push(`${added} ${added === 1 ? "pieza añadida" : "piezas añadidas"}.`);
+    if (chunks.length > 1 && added > 0) notes.push(t.added(added));
     for (const old of replaced) {
-      notes.push(`Has pegado otro ${SLOT_LABEL.get(old.slot) ?? "objeto"}: sustituye a «${old.name}».`);
+      notes.push(t.replaced(slotName(old.slot) ?? t.anotherItem, old.name));
     }
     if (skipped.length > 0) {
-      notes.push(
-        `${skipped.map((name) => `«${name}»`).join(", ")} no ${skipped.length === 1 ? "es una pieza" : "son piezas"} de equipo (arma, armadura o joyería): no cuenta para la comprobación.`,
-      );
+      notes.push(t.skipped(skipped.map((name) => `«${name}»`).join(", "), skipped.length));
     }
     setNotice(notes.length > 0 ? notes.join(" ") : null);
 
     if (failures.length > 0) {
       const lead =
         chunks.length === 1
-          ? "Eso no parece un objeto de PoE2."
-          : `${failures.length} de ${chunks.length} piezas no se han podido leer.`;
-      setError(
-        chunks.length === 1 && failures[0] !== "no parece un objeto de PoE2"
-          ? failures[0]
-          : `${lead} En el juego, pon el ratón encima de la pieza, pulsa Ctrl+C y pega aquí todo el texto.`,
-      );
+          ? t.notAnItem
+          : t.someFailed(failures.length, chunks.length);
+      setError(chunks.length === 1 && failures[0] !== t.notAnItemShort ? failures[0] : `${lead} ${t.howToCopy}`);
     }
     setBusy(false);
   };
@@ -190,7 +272,7 @@ export function GuideCharacterCheck({
   const readPob = async () => {
     const text = pasted.trim();
     if (!text) {
-      setError("Pega primero tu código de Path of Building 2.");
+      setError(t.pastePob);
       return;
     }
     setBusy(true);
@@ -202,7 +284,7 @@ export function GuideCharacterCheck({
         setUseExpediente(false);
         setChecked(true);
       } else {
-        setError(explainImportError(result.code, result.detail, "es"));
+        setError(explainImportError(result.code, result.detail, lang));
       }
     } finally {
       setBusy(false);
@@ -214,7 +296,7 @@ export function GuideCharacterCheck({
     setNotice(null);
   };
 
-  const pieceCount = items.filter((item) => SLOT_LABEL.has(item.slot)).length;
+  const pieceCount = items.filter((item) => GUIDE_SLOT_IDS.has(item.slot)).length;
   const worst = lines?.find((line) => line.tone !== "ok") ?? null;
 
   return (
@@ -225,10 +307,10 @@ export function GuideCharacterCheck({
     >
       <h2 id="guia-comprobar-titulo" className="flex items-center gap-2 text-lg font-semibold text-foreground">
         <UserCheck className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        ¿Está listo tu personaje para el {targets.nextAct}?
+        {t.title(targets.nextAct)}
       </h2>
 
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Cómo quieres comprobarlo">
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t.howGroup}>
         <Button
           type="button"
           size="sm"
@@ -237,7 +319,7 @@ export function GuideCharacterCheck({
           onClick={() => switchMode("items")}
           data-testid="guia-modo-objetos"
         >
-          Pegar objetos (Ctrl+C)
+          {t.pasteItems}
         </Button>
         <Button
           type="button"
@@ -247,7 +329,7 @@ export function GuideCharacterCheck({
           onClick={() => switchMode("pob")}
           data-testid="guia-modo-pob"
         >
-          Código de PoB
+          {t.pobCode}
         </Button>
         {profile && (
           <Button
@@ -262,7 +344,7 @@ export function GuideCharacterCheck({
             }}
             data-testid="guia-modo-expediente"
           >
-            Usar «{profile.name}»
+            {t.useProfile(profile.name)}
           </Button>
         )}
       </div>
@@ -271,8 +353,8 @@ export function GuideCharacterCheck({
         <div className="mt-4">
           <Label htmlFor="guia-pegar" className="text-sm text-muted-foreground">
             {mode === "items"
-              ? "En el juego, pon el ratón sobre una pieza equipada y pulsa Ctrl+C. Pégala aquí con Ctrl+V y se añade sola. Puedes pegar varias seguidas."
-              : "Pega el código que exporta Path of Building 2 (Importar/Exportar → Generar)."}
+              ? t.itemsHelp
+              : t.pobHelp}
           </Label>
           <Textarea
             id="guia-pegar"
@@ -292,7 +374,7 @@ export function GuideCharacterCheck({
             }}
             rows={mode === "items" ? 5 : 3}
             className="mt-2 font-mono text-xs"
-            placeholder={mode === "items" ? "Clase de objeto: Cascos\nRareza: Mágico\n…" : "eNrtfWl3…"}
+            placeholder={mode === "items" ? t.itemsPlaceholder : "eNrtfWl3…"}
             data-testid="guia-texto"
           />
           {error && (
@@ -314,11 +396,11 @@ export function GuideCharacterCheck({
               ) : (
                 <ClipboardPaste className="size-4" aria-hidden="true" />
               )}
-              {mode === "items" ? "Añadir piezas" : "Leer código"}
+              {mode === "items" ? t.addPieces : t.readCode}
             </Button>
             {mode === "pob" && pobProfile && (
               <span className="text-xs text-muted-foreground">
-                Leído: {pobProfile.name} · {pobProfile.items.length} piezas
+                {t.readPob(pobProfile.name, pobProfile.items.length)}
               </span>
             )}
           </div>
@@ -326,7 +408,7 @@ export function GuideCharacterCheck({
       )}
 
       {mode === "items" && !useExpediente && items.length > 0 && (
-        <ul className="mt-4 space-y-1.5" aria-label="Piezas pegadas" data-testid="guia-piezas">
+        <ul className="mt-4 space-y-1.5" aria-label={t.pastedPieces} data-testid="guia-piezas">
           {items.map((item) => (
             <li
               key={item.id}
@@ -335,14 +417,14 @@ export function GuideCharacterCheck({
               <CheckCircle2 className="size-4 shrink-0 text-emerald-300" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">
                 <span className="text-muted-foreground">
-                  {(SLOT_LABEL.get(item.slot) ?? "otro").replace(/^./, (c) => c.toUpperCase())} ·{" "}
+                  {(slotName(item.slot) ?? t.other).replace(/^./, (c) => c.toUpperCase())} ·{" "}
                 </span>
-                {item.name} · <span className="text-muted-foreground">{pieceSummary(item)}</span>
+                {item.name} · <span className="text-muted-foreground">{pieceSummary(item, t)}</span>
               </span>
               <button
                 type="button"
                 className="rounded p-1 text-muted-foreground hover:text-foreground"
-                aria-label={`Quitar ${item.name}`}
+                aria-label={t.remove(item.name)}
                 onClick={() => removePiece(item)}
               >
                 <X className="size-4" aria-hidden="true" />
@@ -356,27 +438,27 @@ export function GuideCharacterCheck({
       {mode === "items" && !useExpediente && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-muted-foreground">
-            {pieceCount} de {GUIDE_SLOTS.length} piezas · cuantas más pegues, más fiable
+            {t.pieceCount(pieceCount, GUIDE_SLOTS.length)}
           </span>
           <Button
             type="button"
             onClick={() => {
               if (items.length === 0) {
-                setError("Añade al menos una pieza antes de comprobar.");
+                setError(t.addOne);
                 return;
               }
               setChecked(true);
             }}
             data-testid="guia-comprobar-boton"
           >
-            Comprobar mi personaje
+            {t.check}
           </Button>
         </div>
       )}
 
       {lines && (
         <div className="mt-4 border-t border-border pt-4" data-testid="guia-resultado" aria-live="polite">
-          <h3 className="text-sm font-semibold text-foreground">Resultado</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t.result}</h3>
           <ul className="mt-2 space-y-2">
             {lines.map((line) => {
               const Icon = TONE_ICON[line.tone];
@@ -390,25 +472,23 @@ export function GuideCharacterCheck({
           </ul>
           {input?.source === "items" && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Solo cuento las resistencias de las piezas que has pegado. Las pasivas y otras fuentes
-              también suman: el número exacto está en la hoja del personaje del juego (tecla C).
+              {t.itemsOnly}
             </p>
           )}
           {mode === "pob" && !useExpediente && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Path of Building calcula las resistencias con la penalización del acto que tenga
-              configurado; si ves cifras muy negativas, revisa esa opción en PoB.
+              {t.pobNote}
             </p>
           )}
           {worst && onAskMentor && useExpediente && (
             <button
               type="button"
               className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-              onClick={() => onAskMentor(`Vengo de la guía del ${actLabel}. La comprobación dice: ${worst.text} ¿Qué hago primero?`)}
+              onClick={() => onAskMentor(t.askMentorQuestion(actLabel, worst.text))}
               data-testid="guia-preguntar-mentor"
             >
               <MessageCircleQuestion className="size-4" aria-hidden="true" />
-              Pregúntale al mentor por esto
+              {t.askMentor}
             </button>
           )}
         </div>

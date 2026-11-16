@@ -50,7 +50,72 @@ export interface RewardCheckInput {
 /** Penalización de resistencias elementales según el acto en el que se está. */
 const ACT_PENALTY: Record<number, number> = { 1: 0, 2: 10, 3: 20 };
 
-const ELEMENT_LABEL = { fire: "fuego", cold: "hielo", lightning: "rayo" } as const;
+export type RewardLang = "es" | "en";
+
+const REWARD_WORDS = {
+  es: {
+    element: { fire: "fuego", cold: "hielo", lightning: "rayo" },
+    or: " o ",
+    pasteGear: "Pega primero tu equipo en la comprobación de arriba: sin él no puedo hacer la resta.",
+    noTrace: "Esto no deja huella en ningún número: solo puedes decírmelo tú.",
+    doneSaid: "Hecho, según me dices.",
+    missingAt: (zone: string) => `Te falta. Está en ${zone}.`,
+    tellRes: (label: string) => `Dime qué resistencia al ${label} pone tu hoja de personaje (tecla C) y hago la resta.`,
+    tellAct: (act: number, penalty: number) =>
+      `Dime primero, arriba, si sigues en el acto ${act} o ya has pasado al ${act + 1}. Al cambiar de acto el juego te quita ${penalty} puntos de resistencia y la resta sale distinta.`,
+    resSum: (gear: number, act: number | null, penalty: number, sheet: number) =>
+      `Tu equipo da ${gear} %${penalty > 0 ? `, el acto ${act} te quita ${penalty}` : ""} y tu hoja dice ${sheet} %.`,
+    partialRes: (label: string) => ` Pero no has pegado todo el equipo, así que la resta no vale: puede faltar una pieza con ${label}.`,
+    extraIsReward: (amount: number) => ` Los ${amount} que sobran son esta recompensa.`,
+    nothingExtra: (zone: string) => ` No sobra nada: te falta. Está en ${zone}.`,
+    maybeNextAct: (next: number, penalty: number) =>
+      ` Ojo: si ya has entrado en el acto ${next}, márcalo arriba. El juego te habrá quitado ${penalty} puntos y entonces sí la tienes.`,
+    oddRes: (extra: number, amount: number, label: string) =>
+      ` La diferencia es de ${extra} y no cuadra con ${amount}: puede que lleves ${label} en el árbol de pasivas o que una pieza no sea la que llevas puesta. No puedo asegurarlo.`,
+    tellSpirit: "Dime tu espíritu máximo (hoja de personaje, tecla C) y hago la resta.",
+    spiritSum: (gear: number, sheet: number) => `Tu equipo da ${gear} de espíritu y tu hoja dice ${sheet}.`,
+    partial: " Pero no has pegado todo el equipo, así que la resta no vale.",
+    spiritThere: (amount: number) => ` Los ${amount} de esta recompensa están ahí.`,
+    oddSpirit: (extra: number, amount: number) =>
+      ` Sobran ${extra}, que no llega a ${amount}: no puedo asegurarlo. Mira que el cetro pegado sea el que llevas.`,
+    tellPoints: "Dime cuántos puntos de set de armas tienes en total (árbol de pasivas, tecla P, arriba a la derecha).",
+    pointsSum: (points: number, expected: number) => `Tienes ${points} y con los libros hasta aquí serían ${expected}.`,
+    bookUsed: " Este libro está cogido y usado.",
+    bookMissing: (zone: string) => ` Te falta. Está en ${zone}. Si tienes el libro en el inventario, úsalo: sin usarlo no cuenta.`,
+    bookUnknown: (places: string) => ` Te falta un libro, pero no sé cuál: es el de ${places}. Si lo tienes en el inventario sin usar, úsalo.`,
+  },
+  en: {
+    element: { fire: "fire", cold: "cold", lightning: "lightning" },
+    or: " or ",
+    pasteGear: "Paste your gear in the check above first: without it I can't do the subtraction.",
+    noTrace: "This doesn't show up in any number: only you can tell me.",
+    doneSaid: "Done, according to you.",
+    missingAt: (zone: string) => `You're missing it. It's in ${zone}.`,
+    tellRes: (label: string) => `Tell me what ${label} resistance your character sheet shows (C key) and I'll do the subtraction.`,
+    tellAct: (act: number, penalty: number) =>
+      `First tell me, above, whether you're still in act ${act} or already in act ${act + 1}. When you change act the game takes away ${penalty} resistance points and the subtraction comes out different.`,
+    resSum: (gear: number, act: number | null, penalty: number, sheet: number) =>
+      `Your gear gives ${gear} %${penalty > 0 ? `, act ${act} takes away ${penalty}` : ""} and your sheet says ${sheet} %.`,
+    partialRes: (label: string) => ` But you haven't pasted all your gear, so the subtraction doesn't hold: an item with ${label} may be missing.`,
+    extraIsReward: (amount: number) => ` The ${amount} left over are this reward.`,
+    nothingExtra: (zone: string) => ` Nothing is left over: you're missing it. It's in ${zone}.`,
+    maybeNextAct: (next: number, penalty: number) =>
+      ` Careful: if you've already entered act ${next}, mark it above. The game will have taken away ${penalty} points, and then you do have it.`,
+    oddRes: (extra: number, amount: number, label: string) =>
+      ` The difference is ${extra} and doesn't match ${amount}: you may have ${label} on your passive tree, or an item may not be the one you're wearing. I can't be sure.`,
+    tellSpirit: "Tell me your maximum spirit (character sheet, C key) and I'll do the subtraction.",
+    spiritSum: (gear: number, sheet: number) => `Your gear gives ${gear} spirit and your sheet says ${sheet}.`,
+    partial: " But you haven't pasted all your gear, so the subtraction doesn't hold.",
+    spiritThere: (amount: number) => ` The ${amount} from this reward are there.`,
+    oddSpirit: (extra: number, amount: number) =>
+      ` ${extra} are left over, which isn't ${amount}: I can't be sure. Check that the sceptre you pasted is the one you're using.`,
+    tellPoints: "Tell me how many weapon set points you have in total (passive tree, P key, top right).",
+    pointsSum: (points: number, expected: number) => `You have ${points}, and with the books up to here it would be ${expected}.`,
+    bookUsed: " This book is picked up and used.",
+    bookMissing: (zone: string) => ` You're missing it. It's in ${zone}. If you have the book in your inventory, use it: it doesn't count until you do.`,
+    bookUnknown: (places: string) => ` You're missing a book, but I don't know which one: it's the one from ${places}. If it's in your inventory unused, use it.`,
+  },
+} as const;
 
 /** Margen para redondeos: una resistencia puede bailar un punto. */
 const TOLERANCE = 2;
@@ -66,8 +131,8 @@ function weaponSetPointsOf(guide: ActGuide): number {
   );
 }
 
-function gearNote(input: RewardCheckInput): string | null {
-  if (input.items.length === 0) return "Pega primero tu equipo en la comprobación de arriba: sin él no puedo hacer la resta.";
+function gearNote(input: RewardCheckInput, lang: RewardLang): string | null {
+  if (input.items.length === 0) return REWARD_WORDS[lang].pasteGear;
   return null;
 }
 
@@ -75,7 +140,13 @@ function gearNote(input: RewardCheckInput): string | null {
  * Comprueba las recompensas permanentes de `guide`. `earlier` son las guías
  * de los actos anteriores: hacen falta para la cuenta acumulada de puntos.
  */
-export function checkRewards(guide: ActGuide, earlier: readonly ActGuide[], input: RewardCheckInput): RewardLine[] {
+export function checkRewards(
+  guide: ActGuide,
+  earlier: readonly ActGuide[],
+  input: RewardCheckInput,
+  lang: RewardLang = "es",
+): RewardLine[] {
+  const w = REWARD_WORDS[lang];
   const steps = claveSteps(guide);
   const penalty = input.currentAct === null ? 0 : (ACT_PENALTY[input.currentAct] ?? ACT_PENALTY[3]);
   const nextPenalty = (ACT_PENALTY[guide.act + 1] ?? ACT_PENALTY[3]) - (ACT_PENALTY[guide.act] ?? 0);
@@ -91,7 +162,7 @@ export function checkRewards(guide: ActGuide, earlier: readonly ActGuide[], inpu
   const points = input.weaponSetPoints;
   const missingBooks =
     points === null ? 0 : Math.min(bookSteps.length, Math.max(0, Math.ceil((expectedPoints - points) / bookSize)));
-  const bookPlaces = bookSteps.map((step) => step.zone).join(" o ");
+  const bookPlaces = bookSteps.map((step) => step.zone).join(w.or);
 
   for (const step of steps) {
     const proof = step.proof!;
@@ -106,24 +177,24 @@ export function checkRewards(guide: ActGuide, earlier: readonly ActGuide[], inpu
         question: proof.question,
         text:
           answer === undefined
-            ? "Esto no deja huella en ningún número: solo puedes decírmelo tú."
+            ? w.noTrace
             : answer
-              ? "Hecho, según me dices."
-              : `Te falta. Está en ${step.zone}.`,
+              ? w.doneSaid
+              : w.missingAt(step.zone),
       });
       continue;
     }
 
     if (proof.kind === "resistance") {
-      const label = ELEMENT_LABEL[proof.element];
+      const label = w.element[proof.element];
       const sheet = input.sheetResistance[proof.element];
-      const note = gearNote(input);
+      const note = gearNote(input, lang);
       if (sheet === null || sheet === undefined || note) {
         lines.push({
           zone: step.zone,
           reward,
           status: "unsure",
-          text: note ?? `Dime qué resistencia al ${label} pone tu hoja de personaje (tecla C) y hago la resta.`,
+          text: note ?? w.tellRes(label),
         });
         continue;
       }
@@ -132,32 +203,32 @@ export function checkRewards(guide: ActGuide, earlier: readonly ActGuide[], inpu
           zone: step.zone,
           reward,
           status: "unsure",
-          text: `Dime primero, arriba, si sigues en el acto ${guide.act} o ya has pasado al ${guide.act + 1}. Al cambiar de acto el juego te quita ${nextPenalty} puntos de resistencia y la resta sale distinta.`,
+          text: w.tellAct(guide.act, nextPenalty),
         });
         continue;
       }
       const fromGear = gear[proof.element] ?? 0;
       const extra = sheet - (fromGear - penalty);
-      const sum = `Tu equipo da ${fromGear} %${penalty > 0 ? `, el acto ${input.currentAct} te quita ${penalty}` : ""} y tu hoja dice ${sheet} %.`;
+      const sum = w.resSum(fromGear, input.currentAct, penalty, sheet);
       if (partialGear) {
         lines.push({
           zone: step.zone,
           reward,
           status: "unsure",
-          text: `${sum} Pero no has pegado todo el equipo, así que la resta no vale: puede faltar una pieza con ${label}.`,
+          text: `${sum}${w.partialRes(label)}`,
         });
       } else if (Math.abs(extra - proof.amount) <= TOLERANCE) {
-        lines.push({ zone: step.zone, reward, status: "ok", text: `${sum} Los ${proof.amount} que sobran son esta recompensa.` });
+        lines.push({ zone: step.zone, reward, status: "ok", text: `${sum}${w.extraIsReward(proof.amount)}` });
       } else if (Math.abs(extra) <= TOLERANCE) {
         lines.push({
           zone: step.zone,
           reward,
           status: "missing",
           text:
-            `${sum} No sobra nada: te falta. Está en ${step.zone}.` +
+            `${sum}${w.nothingExtra(step.zone)}` +
             // El error más fácil: haber cambiado ya de acto y no haberlo dicho.
             (input.currentAct === guide.act
-              ? ` Ojo: si ya has entrado en el acto ${guide.act + 1}, márcalo arriba. El juego te habrá quitado ${nextPenalty} puntos y entonces sí la tienes.`
+              ? w.maybeNextAct(guide.act + 1, nextPenalty)
               : ""),
         });
       } else {
@@ -165,38 +236,38 @@ export function checkRewards(guide: ActGuide, earlier: readonly ActGuide[], inpu
           zone: step.zone,
           reward,
           status: "unsure",
-          text: `${sum} La diferencia es de ${extra} y no cuadra con ${proof.amount}: puede que lleves ${label} en el árbol de pasivas o que una pieza no sea la que llevas puesta. No puedo asegurarlo.`,
+          text: `${sum}${w.oddRes(extra, proof.amount, label)}`,
         });
       }
       continue;
     }
 
     if (proof.kind === "spirit") {
-      const note = gearNote(input);
+      const note = gearNote(input, lang);
       if (input.sheetSpirit === null || note) {
         lines.push({
           zone: step.zone,
           reward,
           status: "unsure",
-          text: note ?? "Dime tu espíritu máximo (hoja de personaje, tecla C) y hago la resta.",
+          text: note ?? w.tellSpirit,
         });
         continue;
       }
       const fromGear = input.items.reduce((total, item) => total + itemSpirit(item), 0);
       const extra = input.sheetSpirit - fromGear;
-      const sum = `Tu equipo da ${fromGear} de espíritu y tu hoja dice ${input.sheetSpirit}.`;
+      const sum = w.spiritSum(fromGear, input.sheetSpirit);
       if (partialGear) {
-        lines.push({ zone: step.zone, reward, status: "unsure", text: `${sum} Pero no has pegado todo el equipo, así que la resta no vale.` });
+        lines.push({ zone: step.zone, reward, status: "unsure", text: `${sum}${w.partial}` });
       } else if (extra >= proof.amount) {
-        lines.push({ zone: step.zone, reward, status: "ok", text: `${sum} Los ${proof.amount} de esta recompensa están ahí.` });
+        lines.push({ zone: step.zone, reward, status: "ok", text: `${sum}${w.spiritThere(proof.amount)}` });
       } else if (extra <= 0) {
-        lines.push({ zone: step.zone, reward, status: "missing", text: `${sum} No sobra nada: te falta. Está en ${step.zone}.` });
+        lines.push({ zone: step.zone, reward, status: "missing", text: `${sum}${w.nothingExtra(step.zone)}` });
       } else {
         lines.push({
           zone: step.zone,
           reward,
           status: "unsure",
-          text: `${sum} Sobran ${extra}, que no llega a ${proof.amount}: no puedo asegurarlo. Mira que el cetro pegado sea el que llevas.`,
+          text: `${sum}${w.oddSpirit(extra, proof.amount)}`,
         });
       }
       continue;
@@ -208,19 +279,19 @@ export function checkRewards(guide: ActGuide, earlier: readonly ActGuide[], inpu
         zone: step.zone,
         reward,
         status: "unsure",
-        text: "Dime cuántos puntos de set de armas tienes en total (árbol de pasivas, tecla P, arriba a la derecha).",
+        text: w.tellPoints,
       });
       continue;
     }
-    const sum = `Tienes ${points} y con los libros hasta aquí serían ${expectedPoints}.`;
+    const sum = w.pointsSum(points, expectedPoints);
     if (missingBooks === 0) {
-      lines.push({ zone: step.zone, reward, status: "ok", text: `${sum} Este libro está cogido y usado.` });
+      lines.push({ zone: step.zone, reward, status: "ok", text: `${sum}${w.bookUsed}` });
     } else if (missingBooks >= bookSteps.length) {
       lines.push({
         zone: step.zone,
         reward,
         status: "missing",
-        text: `${sum} Te falta. Está en ${step.zone}. Si tienes el libro en el inventario, úsalo: sin usarlo no cuenta.`,
+        text: `${sum}${w.bookMissing(step.zone)}`,
       });
     } else {
       // Falta alguno, pero la cuenta no dice cuál.
@@ -228,7 +299,7 @@ export function checkRewards(guide: ActGuide, earlier: readonly ActGuide[], inpu
         zone: step.zone,
         reward,
         status: "unsure",
-        text: `${sum} Te falta un libro, pero no sé cuál: es el de ${bookPlaces}. Si lo tienes en el inventario sin usar, úsalo.`,
+        text: `${sum}${w.bookUnknown(bookPlaces)}`,
       });
     }
   }

@@ -124,7 +124,7 @@ const FeaturedBuildsSection = lazy(() =>
   })),
 );
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
-import { texts, useText } from "@/i18n/lang";
+import { texts, useLang, useText } from "@/i18n/lang";
 import { EnglishSoon } from "@/i18n/EnglishSoon";
 import {
   contextualMentorCue,
@@ -225,6 +225,7 @@ const APP_TEXT = texts(
 
 export default function App() {
   const t = useText(APP_TEXT);
+  const { lang } = useLang();
   const {
     health,
     meta,
@@ -723,12 +724,12 @@ export default function App() {
     if (tab === "guias") {
       const target = guidePath(guideSlug);
       if (path !== target) window.history.replaceState(window.history.state, "", target);
-      document.title = guidePageTitle(findGuide(guideSlug));
+      document.title = guidePageTitle(findGuide(guideSlug, lang), lang);
     } else {
       if (path.startsWith("/guias")) window.history.replaceState(window.history.state, "", "/");
       document.title = APP_TITLE;
     }
-  }, [tab, guideSlug]);
+  }, [tab, guideSlug, lang]);
 
   const goBackWorkspace = () => {
     const previous = workspaceHistory.at(-1);
@@ -2046,7 +2047,6 @@ export default function App() {
 
           {/* --- Área 4: Guías por acto ------------------------------------ */}
           <TabsContent value="guias" forceMount className={PANEL_CLASSES}>
-            <EnglishSoon area={t.guides} />
             {mountedWorkspaces.has("guias") && (
               <GuidesSection
                 guideSlug={guideSlug}
