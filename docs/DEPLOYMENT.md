@@ -5,6 +5,27 @@ La aplicación usa SQLite y sesiones anónimas en cookie: no debe desplegarse en
 varias réplicas ni detrás de balanceo hasta sustituir esos dos componentes por
 almacenamiento compartido.
 
+## Despliegue actual (16-11-2026)
+
+- Render, servicio web `exile-copilot` desde el `Dockerfile`, región Frankfurt,
+  plan Starter, una instancia, disco de 1 GB montado en `/data`, comprobación
+  de salud en `/api/ready` y despliegue automático con cada commit en `main`.
+- Dominio `exilecopilot.com` en Cloudflare Registrar. Registros CNAME `@` y
+  `www` hacia `exile-copilot.onrender.com` en modo **DNS only** (nube gris):
+  activar el proxy de Cloudflare añadiría otro salto y obligaría a revisar
+  `TRUST_PROXY`.
+- Render sirve el tráfico a través de su propio Cloudflare (`Server: cloudflare`,
+  `x-render-origin-server: Render`). Con `TRUST_PROXY=10.0.0.0/8` la web veía
+  HTTPS, pero tomaba la IP del borde de Cloudflare como visitante y los límites
+  cambiaban de contador entre peticiones. El valor en uso es la red interna de
+  Render más los rangos publicados en <https://www.cloudflare.com/ips-v4> y
+  <https://www.cloudflare.com/ips-v6>. Comprobado desde fuera: el contador de
+  una misma IP baja de uno en uno y un `X-Forwarded-For` inventado no lo
+  cambia. Si Cloudflare publica rangos nuevos, hay que añadirlos.
+- Comprobado desde fuera: cookie `__Host-` con `Secure`, `HttpOnly`,
+  `SameSite=Strict`; `http://` y `www` redirigen a `https://exilecopilot.com`;
+  un personaje guardado sobrevive a un reinicio del servicio.
+
 ## Antes de publicar
 
 1. Usar Node.js 24 o posterior e instalar exactamente el lockfile con `npm ci`.
