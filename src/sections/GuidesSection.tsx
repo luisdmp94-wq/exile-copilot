@@ -1,5 +1,18 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, BookOpen, ChevronDown, Coins, ExternalLink, FilePenLine, Map as MapIcon, Shield, Skull, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  Coins,
+  ExternalLink,
+  FilePenLine,
+  Gem,
+  ListChecks,
+  Map as MapIcon,
+  Shield,
+  Skull,
+  Sparkles,
+} from "lucide-react";
 import { ItemSchema, type BuildMemoryEntry, type CharacterProfile, type Item } from "@shared/domain.js";
 import { GemAdvisorCard } from "@/components/GemAdvisorCard";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
@@ -34,6 +47,27 @@ function SourceRefs({ guide, ids }: { guide: ActGuide; ids: string[] }) {
 
 const ROUTE_STORAGE_PREFIX = "exile-copilot:guia-ruta:";
 const PIECES_STORAGE_KEY = "exile-copilot:guia-piezas";
+const VIEW_STORAGE_KEY = "exile-copilot:guia-vista";
+
+/**
+ * Las tres partes del área. Antes iba todo seguido en una sola página y no
+ * había quien encontrara nada: ahora cada cosa tiene su pestaña.
+ */
+const VIEWS = [
+  { id: "guia", label: "Guía del acto", icon: BookOpen },
+  { id: "comprobar", label: "Comprobar mi personaje", icon: ListChecks },
+  { id: "herramientas", label: "Gemas y piezas", icon: Gem },
+] as const;
+type GuideView = (typeof VIEWS)[number]["id"];
+
+function readStoredView(): GuideView {
+  try {
+    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    return VIEWS.some((view) => view.id === stored) ? (stored as GuideView) : "guia";
+  } catch {
+    return "guia";
+  }
+}
 
 /** Piezas pegadas en una visita anterior. Lo que no sea un objeto válido se descarta. */
 function readStoredPieces(): Item[] {
@@ -243,6 +277,15 @@ export function GuidesSection({
   // El equipo pegado es del personaje, no de un acto: se comparte entre guías
   // y se recuerda en el navegador para no pegar nueve piezas cada vez.
   const [pastedItems, setPastedItems] = useState<Item[]>(readStoredPieces);
+  const [view, setView] = useState<GuideView>(readStoredView);
+  const chooseView = (next: GuideView) => {
+    setView(next);
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // Sin almacenamiento la pestaña vale para esta visita.
+    }
+  };
   useEffect(() => {
     try {
       window.localStorage.setItem(PIECES_STORAGE_KEY, JSON.stringify(pastedItems));
@@ -262,36 +305,83 @@ export function GuidesSection({
             y sin registrarte.
           </p>
         )}
-        <nav aria-label="Guías por acto" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <span>Guías ›</span>
-          {GUIDES.map((item, index) => (
-            <span key={item.slug} className="flex items-center gap-2">
-              {index > 0 && <span aria-hidden="true">·</span>}
+        <nav aria-label="Guías por acto" className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Guías:</span>
+          {GUIDES.map((item) => {
+            const active = item.slug === guide.slug;
+            return (
               <a
+                key={item.slug}
                 href={`/guias/${item.slug}`}
                 onClick={(event) => {
                   event.preventDefault();
                   onSelectGuide(item.slug);
                 }}
-                aria-current={item.slug === guide.slug ? "page" : undefined}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded px-1 py-0.5 hover:text-foreground",
-                  item.slug === guide.slug ? "font-semibold text-foreground" : "underline-offset-2 hover:underline",
+                  "rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-secondary text-foreground hover:border-primary/70 hover:text-primary",
                 )}
                 data-testid={`guia-nav-${item.slug}`}
               >
                 {item.actLabel.replace(/^./, (c) => c.toUpperCase())}
               </a>
+            );
+          })}
+          {UPCOMING_GUIDES.map((label) => (
+            <span
+              key={label}
+              className="rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm text-muted-foreground"
+            >
+              {label} · pronto
             </span>
           ))}
-          {UPCOMING_GUIDES.map((label) => (
-            <span key={label}>· {label} (pronto)</span>
-          ))}
         </nav>
-        <h1 id="guia-titulo" className="dossier-title mt-1.5 text-2xl leading-tight text-foreground sm:text-3xl">
+        <h1 id="guia-titulo" className="dossier-title mt-3 text-2xl leading-tight text-foreground sm:text-3xl">
           {guide.title}
         </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{guide.summary}</p>
+        <div
+          className="mt-3 grid grid-cols-1 gap-1.5 rounded-xl border border-border bg-card p-1.5 sm:grid-cols-3"
+          role="tablist"
+          aria-label="Partes del área de guías"
+          data-testid="guia-vistas"
+        >
+          {VIEWS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`guia-vista-${id}`}
+              aria-selected={view === id}
+              aria-controls={`guia-panel-${id}`}
+              onClick={() => chooseView(id)}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+                view === id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+              data-testid={`guia-vista-${id}`}
+            >
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* Las tres partes siguen montadas: lo pegado o escrito en una no se pierde al mirar otra. */}
+      <div
+        id="guia-panel-guia"
+        role="tabpanel"
+        aria-labelledby="guia-vista-guia"
+        hidden={view !== "guia"}
+        className="space-y-4"
+      >
+      <div>
+        <p className="text-sm leading-relaxed text-muted-foreground">{guide.summary}</p>
         <div className="mt-2.5 flex flex-wrap gap-2 text-xs">
           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-amber-200">
             Comprobada para {guide.checkedPatch} · se revisa al salir la 1.0
@@ -300,7 +390,7 @@ export function GuidesSection({
             {guide.readMinutes} min de lectura · sin registrarse
           </span>
         </div>
-      </header>
+      </div>
 
       {guide.status === "borrador" && (
         <div
@@ -338,37 +428,11 @@ export function GuidesSection({
         </ol>
       </section>
 
-      <GemAdvisorCard
-        profile={profile}
-        buildMemory={buildMemory ?? []}
-        onCreateCharacter={onCreateCharacter}
-        onOwnSupport={onOwnSupport}
-      />
-
       {guide.route && guide.route.length > 0 && <Route key={guide.slug} guide={guide} />}
 
       {guide.blocks.map((block, index) => (
         <Block key={block.id} guide={guide} block={block} number={index + 1} />
       ))}
-
-      <GuideCharacterCheck
-        actLabel={guide.actLabel}
-        targets={guide.check}
-        profile={profile}
-        items={pastedItems}
-        onItemsChange={setPastedItems}
-        patch={patch}
-        onAskMentor={onAskMentor}
-      />
-
-      <RewardCheckCard
-        key={`recompensas-${guide.slug}`}
-        guide={guide}
-        earlier={GUIDES.filter((other) => other.act < guide.act)}
-        items={pastedItems}
-      />
-
-      <ItemCompareCard patch={patch} />
 
       <section aria-labelledby="guia-fuentes" className="px-1 pt-2" data-testid="guia-fuentes">
         <h2 id="guia-fuentes" className="text-sm font-semibold text-foreground">
@@ -390,6 +454,54 @@ export function GuidesSection({
           no es oficial.
         </p>
       </section>
+      </div>
+
+      <div
+        id="guia-panel-comprobar"
+        role="tabpanel"
+        aria-labelledby="guia-vista-comprobar"
+        hidden={view !== "comprobar"}
+        className="space-y-4"
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Pega tu equipo una vez y sirve para las dos comprobaciones del {guide.actLabel}. Se queda guardado en este
+          navegador.
+        </p>
+        <GuideCharacterCheck
+          actLabel={guide.actLabel}
+          targets={guide.check}
+          profile={profile}
+          items={pastedItems}
+          onItemsChange={setPastedItems}
+          patch={patch}
+          onAskMentor={onAskMentor}
+        />
+        <RewardCheckCard
+          key={`recompensas-${guide.slug}`}
+          guide={guide}
+          earlier={GUIDES.filter((other) => other.act < guide.act)}
+          items={pastedItems}
+        />
+      </div>
+
+      <div
+        id="guia-panel-herramientas"
+        role="tabpanel"
+        aria-labelledby="guia-vista-herramientas"
+        hidden={view !== "herramientas"}
+        className="space-y-4"
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.
+        </p>
+        <GemAdvisorCard
+          profile={profile}
+          buildMemory={buildMemory ?? []}
+          onCreateCharacter={onCreateCharacter}
+          onOwnSupport={onOwnSupport}
+        />
+        <ItemCompareCard patch={patch} />
+      </div>
     </article>
   );
 }

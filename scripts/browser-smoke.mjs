@@ -1955,6 +1955,21 @@ async function runFlow(mode, port) {
       await page.getByText("Mi bruja").first().isVisible(),
     );
     await page.getByTestId("tab-guias").click();
+    await page.getByTestId("guia-vistas").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] el área de guías abre por la guía y deja las herramientas en su pestaña`,
+      (await page.getByTestId("guia-esencial").isVisible()) &&
+        !(await page.getByTestId("asistencia").isVisible()) &&
+        !(await page.getByTestId("saltado").isVisible()),
+    );
+    await page.getByTestId("guia-vista-comprobar").click();
+    check(
+      `[${mode}] «Comprobar mi personaje» reúne las dos comprobaciones del acto`,
+      (await page.getByTestId("guia-comprobar").isVisible()) &&
+        (await page.getByTestId("saltado").isVisible()) &&
+        !(await page.getByTestId("guia-esencial").isVisible()),
+    );
+    await page.getByTestId("guia-vista-herramientas").click();
     await page.getByTestId("asistencia-personaje").waitFor({ timeout: 15000 });
     check(
       `[${mode}] la tarjeta de gemas lee la build del personaje recién creado`,
