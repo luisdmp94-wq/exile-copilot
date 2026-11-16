@@ -112,6 +112,7 @@ import {
   loadGemData,
   type SupportPlanExplainer,
 } from "./advice/supportGemAdvisor.js";
+import { loadEnglishGemLocale, localizeSkill } from "./advice/gemLocale.js";
 import { SupportAdviceRequestSchema } from "../shared/supportGemAdvice.js";
 import { SupportPlanRequestSchema } from "../shared/supportGemPlan.js";
 import {
@@ -362,6 +363,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       ? options.supportPlanExplainer
       : createSupportPlanExplainer(config);
   const gemData = loadGemData();
+  const gemLocale = loadEnglishGemLocale();
   const patches = loadPatches();
   const releaseEvidenceCatalog = loadReleaseEvidenceCatalog();
   const patchCompatibility = gatePatchCompatibilityByEvidence(
@@ -710,11 +712,12 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
-  // GET /gems/skills — nombres de habilidades del cliente en español, para
-  // que el jugador elija sobre cuál pregunta.
-  app.get("/gems/skills", (_req, res) => {
+  // GET /gems/skills — nombres de habilidades del cliente (en español, o en
+  // inglés con ?lang=en), para que el jugador elija sobre cuál pregunta.
+  app.get("/gems/skills", (req, res) => {
+    const lang = req.query.lang === "en" ? "en" : "es";
     res.json({
-      skills: gemData.skills.map((skill) => ({ name: skill.name, tags: skill.tags })),
+      skills: gemData.skills.map((skill) => ({ name: localizeSkill(skill, lang, gemLocale).name, tags: skill.tags })),
       fetchedAt: gemData.fetchedAt,
     });
   });
@@ -725,7 +728,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.post("/advice/support-gem", mentorLimiter, async (req, res, next) => {
     try {
       const body = SupportAdviceRequestSchema.parse(req.body);
-      res.json(await adviseSupportGem(gemData, body, supportPlanExplainer));
+      res.json(await adviseSupportGem(gemData, body, supportPlanExplainer, gemLocale));
     } catch (err) {
       next(err);
     }
@@ -737,7 +740,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.post("/advice/support-plan", mentorLimiter, async (req, res, next) => {
     try {
       const body = SupportPlanRequestSchema.parse(req.body);
-      res.json(await adviseSupportPlan(gemData, body, supportPlanExplainer));
+      res.json(await adviseSupportPlan(gemData, body, supportPlanExplainer, gemLocale));
     } catch (err) {
       next(err);
     }

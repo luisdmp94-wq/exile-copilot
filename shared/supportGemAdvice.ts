@@ -240,11 +240,11 @@ function dealsDamageOverTime(skill: GemSkill): boolean {
  * nota habla de uno, las asistencias que lo resuelven suben.
  */
 const NOTE_NEEDS: Array<[RegExp, RegExp]> = [
-  [/muer|aguant|sobreviv|caen|duran poco/, /sig(?:a|ue)n? peleando|menos de dano recibido|menos dano recibido|resistencias|vida maxima/],
-  [/mana|cuesta|caro/, /menos de costo|regeneracion de mana/],
-  [/poco dano|pega poco|no mata|mas dano|jefe/, /% mas de dano/],
-  [/lento|tarda|velocidad/, /velocidad de lanzamiento|velocidad de ataque|velocidad de habilidad/],
-  [/area|grupo|muchos enemigos|limpiar/, /area de efecto aumentada|proyectiles adicionales|se propaga/],
+  [/muer|aguant|sobreviv|caen|duran poco|\bdie|dying|surviv|tank|squishy/, /sig(?:a|ue)n? peleando|menos de dano recibido|menos dano recibido|resistencias|vida maxima/],
+  [/mana|cuesta|caro|\bcost|expensive/, /menos de costo|regeneracion de mana/],
+  [/poco dano|pega poco|no mata|mas dano|jefe|low damage|more damage|weak|\bboss/, /% mas de dano/],
+  [/lento|tarda|velocidad|\bslow|speed/, /velocidad de lanzamiento|velocidad de ataque|velocidad de habilidad/],
+  [/area|grupo|muchos enemigos|limpiar|\bpacks?\b|clear/, /area de efecto aumentada|proyectiles adicionales|se propaga/],
 ];
 
 function noteBoost(text: string, note: string): number {
@@ -329,6 +329,10 @@ export function findSkill(data: GemData, name: string): GemSkill | null {
 
 export const MAX_ADVICE_NOTE_LENGTH = 200;
 
+/** Idioma de la respuesta. Las reglas deciden igual en los dos. */
+export const AdviceLangSchema = z.enum(["es", "en"]);
+export type AdviceLang = z.infer<typeof AdviceLangSchema>;
+
 export const SupportAdviceRequestSchema = z.object({
   skill: z.string().trim().min(1).max(80),
   maxGrade: z.number().int().min(1).max(5),
@@ -339,6 +343,7 @@ export const SupportAdviceRequestSchema = z.object({
   /** Lo que el jugador cuenta («mis esqueletos mueren rápido»). Nunca es una instrucción. */
   note: z.string().trim().max(MAX_ADVICE_NOTE_LENGTH).optional(),
   build: BuildContextSchema.optional(),
+  lang: AdviceLangSchema.optional(),
 });
 export type SupportAdviceRequest = z.infer<typeof SupportAdviceRequestSchema>;
 

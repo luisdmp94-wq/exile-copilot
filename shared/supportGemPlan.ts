@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   BuildContextSchema,
   GemAttributeSchema,
+  AdviceLangSchema,
   MAX_ADVICE_NOTE_LENGTH,
   SupportAdviceOptionSchema,
   normalizeGemText,
@@ -125,6 +126,7 @@ export const SupportPlanRequestSchema = z.object({
   socketed: z.array(z.string().trim().min(1).max(80)).max(16).optional(),
   note: z.string().trim().max(MAX_ADVICE_NOTE_LENGTH).optional(),
   build: BuildContextSchema.optional(),
+  lang: AdviceLangSchema.optional(),
 });
 export type SupportPlanRequest = z.infer<typeof SupportPlanRequestSchema>;
 

@@ -260,7 +260,8 @@ export const api = {
   importItemText: (payload: ImportItemTextRequest): Promise<ImportItemTextResponse> =>
     request("/api/import/item-text", ImportItemTextResponseSchema, jsonInit(payload)),
 
-  gemSkills: (): Promise<GemSkillListResponse> => request("/api/gems/skills", GemSkillListResponseSchema),
+  gemSkills: (lang: "es" | "en" = "es"): Promise<GemSkillListResponse> =>
+    request(lang === "en" ? "/api/gems/skills?lang=en" : "/api/gems/skills", GemSkillListResponseSchema),
 
   supportGemAdvice: (payload: SupportAdviceRequest): Promise<SupportAdviceResponse> =>
     request("/api/advice/support-gem", SupportAdviceResponseSchema, jsonInit(payload)),

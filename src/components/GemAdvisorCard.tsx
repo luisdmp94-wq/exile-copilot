@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { texts, useLang, useText } from "@/i18n/lang";
 
 const STORAGE_KEY = "exile-copilot:asistencia";
 const MAX_SKILLS = 8;
@@ -18,12 +19,166 @@ const GRADES = [
   { value: 4, label: "IV" },
   { value: 5, label: "V" },
 ];
-const ATTRIBUTES: Array<{ id: GemAttribute; label: string; className: string }> = [
-  { id: "Int", label: "Inteligencia", className: "text-sky-200" },
-  { id: "Des", label: "Destreza", className: "text-emerald-200" },
-  { id: "Fue", label: "Fuerza", className: "text-rose-200" },
+const ATTRIBUTES: Array<{ id: GemAttribute; className: string }> = [
+  { id: "Int", className: "text-sky-200" },
+  { id: "Des", className: "text-emerald-200" },
+  { id: "Fue", className: "text-rose-200" },
 ];
-const ATTRIBUTE_LABEL: Record<GemAttribute, string> = { Int: "inteligencia", Des: "destreza", Fue: "fuerza" };
+
+const TEXT = texts(
+  {
+    attributes: { Int: "Inteligencia", Des: "Destreza", Fue: "Fuerza" },
+    attributeLower: { Int: "inteligencia", Des: "destreza", Fue: "fuerza" },
+    costs: (value: string) => `La habilidad pasa a costar el ${value} de su maná.`,
+    gradeOf: (grade: string, attribute: string) => `Grado ${grade}, de ${attribute}.`,
+    rulesOnly: "Decidido por reglas, sin IA. ",
+    aiFallback: (reason: string) => `${reason} `,
+    dataFrom: "Datos de",
+    dataTail: (date: string) => ` del ${date}. Si el juego no te deja ponerla, manda el juego.`,
+    tooMany: (max: number) => `Como mucho ${max} habilidades a la vez.`,
+    needSkill: "Escribe primero la habilidad, tal como sale en el juego.",
+    needAttribute: "Marca al menos un atributo en el que te quede hueco.",
+    needSkills: "Añade primero tus habilidades, tal como salen en el juego.",
+    noRoom: "Si no te queda ningún hueco libre, no cabe ninguna gema más.",
+    title: "¿Qué gema de asistencia pongo?",
+    lead: "Dime tus habilidades y qué te deja tallar tu gema. Te digo cuál poner, dónde y por qué.",
+    noCharacter: "Ahora te aconsejo sin saber qué build llevas. Dímelo y afino mucho más.",
+    saveCharacter: "Guardar mi personaje",
+    useCharacter: (name: string) => `Usar mi personaje: ${name}`,
+    buildIs: (archetype: string) => `Build: ${archetype}.`,
+    coreCount: (count: number) => `${count} cosa(s) marcadas como core.`,
+    discardedCount: (count: number) => `${count} descartada(s) que no te propondré.`,
+    unknownBuild:
+      "Aún no sé qué build es. Escribe el arquetipo en el Expediente (por ejemplo «brujo de caos con esbirros») o marca lo esencial en «Identidad de la build», y afinaré mucho más.",
+    whatToKnow: "Qué quieres saber",
+    oneSkill: "Para una habilidad",
+    manyGems: "Tengo varias gemas",
+    skill: "Habilidad",
+    skillPlaceholder: "Contagio, Guerrero esqueleto…",
+    mySkills: "Tus habilidades (se quedan guardadas para la próxima vez)",
+    typeAndEnter: "Escribe una y pulsa Intro",
+    add: "Añadir",
+    useSkillsOf: (count: number, name: string) => `Usar las ${count} habilidades de ${name}`,
+    yourSkills: "Tus habilidades",
+    remove: (name: string) => `Quitar ${name}`,
+    howManyGems: "Cuántas gemas tienes",
+    gemsYouHave: "Gemas que tienes:",
+    gradeGroup: "Grado de tu gema sin tallar",
+    gradeOne: "Grado de tu gema:",
+    gradeMany: "Grado de tus gemas:",
+    roomGroup: "Atributos en los que te queda hueco",
+    roomIn: "Te queda hueco en:",
+    freeGroup: "Huecos libres por atributo",
+    freeSlots: "Huecos libres:",
+    oneLess: (attribute: string) => `Un hueco menos de ${attribute}`,
+    oneMore: (attribute: string) => `Un hueco más de ${attribute}`,
+    whereToSee: "Lo ves en el juego, arriba del panel de habilidades: «Capacidad de las gemas equipadas».",
+    fullExample: "Si pone Int 5/5, ya no te cabe ninguna de inteligencia.",
+    freeExample: "Si pone Int 4/5, te queda 1 hueco de inteligencia.",
+    socketedMany: "Asistencias que ya llevas puestas, separadas por comas",
+    socketedManyPlaceholder: "Lanzamiento rápido I, Último aliento",
+    noteMany: "¿Algo que deba saber? (opcional)",
+    noteManyPlaceholder: "Drenar esencia es mi daño contra jefes",
+    refine: "Afinar más (opcional)",
+    socketedOne: "Asistencias que ya lleva, separadas por comas",
+    socketedOnePlaceholder: "Lanzamiento rápido I",
+    noteOne: "¿Te pasa algo con ella?",
+    noteOnePlaceholder: "Mis esqueletos mueren muy rápido",
+    askOne: "Dime cuál",
+    askMany: "Repárteme las gemas",
+    inSkill: "En",
+    put: ", pon",
+    alreadyHave: "Ya la tengo: dime otra",
+    others: (count: number) => `Otras ${count} que también valen`,
+    none: (skill: string) =>
+      `Con ese grado y esos atributos no hay ninguna asistencia que valga para ${skill}. Prueba a marcar otro atributo o guarda la gema para más adelante.`,
+    aiRoleOne: "La gema la eligen las reglas; la IA solo explica el porqué.",
+    inSkillMany: "en",
+    alreadyHaveMany: "Ya la tengo: reparte otra vez",
+    noneMany:
+      "Con ese grado y esos huecos no hay ninguna asistencia que valga para tus habilidades. Guarda las gemas para más adelante.",
+    leftover: (count: number) =>
+      `${count === 1 ? "Te sobra 1 gema" : `Te sobran ${count} gemas`}: no te quedan huecos donde quepan. Guárdalas; no caducan.`,
+    unknown: (names: string) => `No conozco ${names}. Escríbelas como salen en el juego en español.`,
+    aiRoleMany: "El reparto es de las reglas; la IA solo explica el porqué.",
+  },
+  {
+    attributes: { Int: "Intelligence", Des: "Dexterity", Fue: "Strength" },
+    attributeLower: { Int: "intelligence", Des: "dexterity", Fue: "strength" },
+    costs: (value: string) => `The skill now costs ${value} of its mana.`,
+    gradeOf: (grade: string, attribute: string) => `Tier ${grade}, ${attribute}.`,
+    rulesOnly: "Decided by rules, no AI. ",
+    aiFallback: () => "The AI couldn't explain it this time, so the rules do. ",
+    dataFrom: "Data from",
+    dataTail: (date: string) => ` as of ${date}. If the game won't let you socket it, the game is right.`,
+    tooMany: (max: number) => `${max} skills at most at a time.`,
+    needSkill: "Write the skill first, as the game shows it.",
+    needAttribute: "Pick at least one attribute you still have room in.",
+    needSkills: "Add your skills first, as the game shows them.",
+    noRoom: "If you have no free slots left, no more gems fit.",
+    title: "Which support gem should I use?",
+    lead: "Tell me your skills and what your gem lets you cut. I'll tell you which one, where and why.",
+    noCharacter: "Right now I'm advising without knowing your build. Tell me and I'll be much sharper.",
+    saveCharacter: "Save my character",
+    useCharacter: (name: string) => `Use my character: ${name}`,
+    buildIs: (archetype: string) => `Build: ${archetype}.`,
+    coreCount: (count: number) => `${count} thing(s) marked as core.`,
+    discardedCount: (count: number) => `${count} discarded that I won't suggest.`,
+    unknownBuild:
+      "I don't know your build yet. Write the archetype in your character file (for example «chaos warlock with minions») or mark the essentials in «Build identity», and I'll be much sharper.",
+    whatToKnow: "What do you want to know",
+    oneSkill: "For one skill",
+    manyGems: "I have several gems",
+    skill: "Skill",
+    skillPlaceholder: "Contagion, Skeletal Warrior…",
+    mySkills: "Your skills (saved for next time)",
+    typeAndEnter: "Type one and press Enter",
+    add: "Add",
+    useSkillsOf: (count: number, name: string) => `Use the ${count} skills of ${name}`,
+    yourSkills: "Your skills",
+    remove: (name: string) => `Remove ${name}`,
+    howManyGems: "How many gems you have",
+    gemsYouHave: "Gems you have:",
+    gradeGroup: "Tier of your uncut gem",
+    gradeOne: "Your gem's tier:",
+    gradeMany: "Your gems' tier:",
+    roomGroup: "Attributes you still have room in",
+    roomIn: "Room left in:",
+    freeGroup: "Free slots per attribute",
+    freeSlots: "Free slots:",
+    oneLess: (attribute: string) => `One less ${attribute} slot`,
+    oneMore: (attribute: string) => `One more ${attribute} slot`,
+    whereToSee: "You'll see it in game, at the top of the skills panel: «Equipped gem capacity».",
+    fullExample: "If it says Int 5/5, no more intelligence gems fit.",
+    freeExample: "If it says Int 4/5, you have 1 intelligence slot left.",
+    socketedMany: "Supports you already have socketed, separated by commas",
+    socketedManyPlaceholder: "Faster Casting I, Last Gasp",
+    noteMany: "Anything I should know? (optional)",
+    noteManyPlaceholder: "Essence Drain is my boss damage",
+    refine: "Refine (optional)",
+    socketedOne: "Supports it already has, separated by commas",
+    socketedOnePlaceholder: "Faster Casting I",
+    noteOne: "Any problem with it?",
+    noteOnePlaceholder: "My skeletons die really fast",
+    askOne: "Tell me which",
+    askMany: "Split my gems",
+    inSkill: "In",
+    put: ", use",
+    alreadyHave: "I have it: show me another",
+    others: (count: number) => `${count} more that also work`,
+    none: (skill: string) =>
+      `With that tier and those attributes no support works for ${skill}. Try another attribute or keep the gem for later.`,
+    aiRoleOne: "The rules pick the gem; the AI only explains why.",
+    inSkillMany: "in",
+    alreadyHaveMany: "I have it: split again",
+    noneMany: "With that tier and those slots no support works for your skills. Keep the gems for later.",
+    leftover: (count: number) =>
+      `${count === 1 ? "1 gem is left over" : `${count} gems are left over`}: there are no slots where they fit. Keep them; they don't expire.`,
+    unknown: (names: string) => `I don't know ${names}. Write them as the game shows them.`,
+    aiRoleMany: "The rules decide the split; the AI only explains why.",
+  },
+);
+type GemText = (typeof TEXT)["es"];
 
 type Mode = "one" | "many";
 
@@ -83,16 +238,14 @@ function gradeLabel(grade: number): string {
   return GRADES.find((item) => item.value === grade)?.label ?? String(grade);
 }
 
-function OptionDetails({ option }: { option: SupportAdviceOption }) {
+function OptionDetails({ option, t }: { option: SupportAdviceOption; t: GemText }) {
   return (
     <ul className="mt-1.5 space-y-0.5 text-sm text-muted-foreground">
       {option.effects.map((effect) => (
         <li key={effect}>· {effect}</li>
       ))}
-      {option.costMultiplier && <li>· La habilidad pasa a costar el {option.costMultiplier} de su maná.</li>}
-      <li>
-        · Grado {gradeLabel(option.grade)}, de {ATTRIBUTE_LABEL[option.attribute]}.
-      </li>
+      {option.costMultiplier && <li>· {t.costs(option.costMultiplier)}</li>}
+      <li>· {t.gradeOf(gradeLabel(option.grade), t.attributeLower[option.attribute])}</li>
     </ul>
   );
 }
@@ -105,17 +258,18 @@ interface FooterProps {
   source: string;
   fetchedAt: string;
   hasPick: boolean;
+  t: GemText;
 }
 
-function Footer({ mode, aiRole, fallbackReason, source, fetchedAt, hasPick }: FooterProps) {
+function Footer({ mode, aiRole, fallbackReason, source, fetchedAt, hasPick, t }: FooterProps) {
   return (
     <p className="mt-3 text-xs text-muted-foreground">
-      {hasPick && (mode === "ai" ? `${aiRole} ` : fallbackReason ? `${fallbackReason} ` : "Decidido por reglas, sin IA. ")}
-      Datos de{" "}
+      {hasPick && (mode === "ai" ? `${aiRole} ` : fallbackReason ? t.aiFallback(fallbackReason) : t.rulesOnly)}
+      {t.dataFrom}{" "}
       <a href={source} target="_blank" rel="noreferrer" className="underline underline-offset-2">
         poe2db.tw
-      </a>{" "}
-      del {fetchedAt}. Si el juego no te deja ponerla, manda el juego.
+      </a>
+      {t.dataTail(fetchedAt)}
     </p>
   );
 }
@@ -163,6 +317,8 @@ interface GemAdvisorCardProps {
  * usa su build: arquetipo, lo marcado como core o descartado y sus habilidades.
  */
 export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnSupport }: GemAdvisorCardProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const [remembered] = useState(readRemembered);
   const [useCharacter, setUseCharacter] = useState(true);
   const [mode, setMode] = useState<Mode>(remembered.mode);
@@ -215,9 +371,9 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
   useEffect(() => {
     let cancelled = false;
     api
-      .gemSkills()
+      .gemSkills(lang)
       .then((response) => {
-        if (!cancelled) setSkillNames(response.skills.map((item) => item.name).sort((a, b) => a.localeCompare(b, "es")));
+        if (!cancelled) setSkillNames(response.skills.map((item) => item.name).sort((a, b) => a.localeCompare(b, lang)));
       })
       .catch(() => {
         // Sin la lista sigue funcionando: el jugador escribe el nombre a mano.
@@ -225,7 +381,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     try {
@@ -253,7 +409,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
       return;
     }
     if (mySkills.length >= MAX_SKILLS) {
-      setError(`Como mucho ${MAX_SKILLS} habilidades a la vez.`);
+      setError(t.tooMany(MAX_SKILLS));
       return;
     }
     setMySkills([...mySkills, name]);
@@ -276,11 +432,11 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
 
   const askOne = async (owned?: string[]) => {
     if (!skill.trim()) {
-      setError("Escribe primero la habilidad, tal como sale en el juego.");
+      setError(t.needSkill);
       return;
     }
     if (attributes.length === 0) {
-      setError("Marca al menos un atributo en el que te quede hueco.");
+      setError(t.needAttribute);
       return;
     }
     setBusy(true);
@@ -295,6 +451,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           ...(names.length > 0 ? { socketed: names } : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
           ...(build ? { build } : {}),
+          lang,
         }),
       );
     } catch (err) {
@@ -309,11 +466,11 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
     const pending = draftSkill.trim();
     const skills = pending && mySkills.length < MAX_SKILLS ? [...mySkills, pending] : mySkills;
     if (skills.length === 0) {
-      setError("Añade primero tus habilidades, tal como salen en el juego.");
+      setError(t.needSkills);
       return;
     }
     if (free.Int + free.Des + free.Fue === 0) {
-      setError("Si no te queda ningún hueco libre, no cabe ninguna gema más.");
+      setError(t.noRoom);
       return;
     }
     if (pending) {
@@ -333,6 +490,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           ...(names.length > 0 ? { socketed: names } : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
           ...(build ? { build } : {}),
+          lang,
         }),
       );
     } catch (err) {
@@ -353,23 +511,19 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
     >
       <h2 id="asistencia-titulo" className="flex items-center gap-2 text-lg font-semibold text-foreground">
         <Gem className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        ¿Qué gema de asistencia pongo?
+        {t.title}
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Dime tus habilidades y qué te deja tallar tu gema. Te digo cuál poner, dónde y por qué.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{t.lead}</p>
 
       {!profile && onCreateCharacter && (
         <div
           className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm"
           data-testid="asistencia-sin-personaje"
         >
-          <span className="text-muted-foreground">
-            Ahora te aconsejo sin saber qué build llevas. Dímelo y afino mucho más.
-          </span>
+          <span className="text-muted-foreground">{t.noCharacter}</span>
           <Button type="button" size="sm" variant="outline" onClick={onCreateCharacter} data-testid="asistencia-crear-personaje">
             <UserCheck className="size-4" aria-hidden="true" />
-            Guardar mi personaje
+            {t.saveCharacter}
           </Button>
         </div>
       )}
@@ -387,19 +541,19 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-1.5 font-semibold text-foreground">
                 <UserCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                Usar mi personaje: {profile.name}
+                {t.useCharacter(profile.name)}
               </span>
               {useCharacter && (
                 <span className="block text-xs text-muted-foreground" data-testid="asistencia-build">
                   {hasBuildIdentity
                     ? [
-                        build?.archetype ? `Build: ${build.archetype}.` : null,
-                        build?.core?.length ? `${build.core.length} cosa(s) marcadas como core.` : null,
-                        build?.discarded?.length ? `${build.discarded.length} descartada(s) que no te propondré.` : null,
+                        build?.archetype ? t.buildIs(build.archetype) : null,
+                        build?.core?.length ? t.coreCount(build.core.length) : null,
+                        build?.discarded?.length ? t.discardedCount(build.discarded.length) : null,
                       ]
                         .filter(Boolean)
                         .join(" ")
-                    : "Aún no sé qué build es. Escribe el arquetipo en el Expediente (por ejemplo «brujo de caos con esbirros») o marca lo esencial en «Identidad de la build», y afinaré mucho más."}
+                    : t.unknownBuild}
                 </span>
               )}
             </span>
@@ -407,7 +561,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Qué quieres saber">
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t.whatToKnow}>
         <Button
           type="button"
           size="sm"
@@ -416,7 +570,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           onClick={() => switchMode("one")}
           data-testid="asistencia-modo-una"
         >
-          Para una habilidad
+          {t.oneSkill}
         </Button>
         <Button
           type="button"
@@ -426,7 +580,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           onClick={() => switchMode("many")}
           data-testid="asistencia-modo-varias"
         >
-          Tengo varias gemas
+          {t.manyGems}
         </Button>
       </div>
 
@@ -446,7 +600,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
         {mode === "one" ? (
           <div>
             <Label htmlFor="asistencia-habilidad" className="text-sm text-muted-foreground">
-              Habilidad
+              {t.skill}
             </Label>
             <Input
               id="asistencia-habilidad"
@@ -456,7 +610,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
                 setSkill(event.target.value);
                 if (error) setError(null);
               }}
-              placeholder="Contagio, Guerrero esqueleto…"
+              placeholder={t.skillPlaceholder}
               autoComplete="off"
               className="mt-1"
               data-testid="asistencia-habilidad"
@@ -465,7 +619,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
         ) : (
           <div>
             <Label htmlFor="asistencia-mis-habilidades" className="text-sm text-muted-foreground">
-              Tus habilidades (se quedan guardadas para la próxima vez)
+              {t.mySkills}
             </Label>
             <div className="mt-1 flex gap-2">
               <Input
@@ -482,12 +636,12 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
                     addSkill();
                   }
                 }}
-                placeholder="Escribe una y pulsa Intro"
+                placeholder={t.typeAndEnter}
                 autoComplete="off"
                 data-testid="asistencia-nueva-habilidad"
               />
               <Button type="button" variant="outline" onClick={addSkill} data-testid="asistencia-anadir-habilidad">
-                Añadir
+                {t.add}
               </Button>
             </div>
             {characterSkills.length > 0 && (
@@ -500,18 +654,18 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
                 data-testid="asistencia-cargar-personaje"
               >
                 <UserCheck className="size-4" aria-hidden="true" />
-                Usar las {characterSkills.length} habilidades de {character?.name}
+                {t.useSkillsOf(characterSkills.length, character?.name ?? "")}
               </Button>
             )}
             {mySkills.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Tus habilidades" data-testid="asistencia-lista-habilidades">
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={t.yourSkills} data-testid="asistencia-lista-habilidades">
                 {mySkills.map((name) => (
                   <li key={name} className="flex items-center gap-1 rounded-full bg-secondary/70 py-0.5 pl-2.5 pr-1 text-sm">
                     {name}
                     <button
                       type="button"
                       className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
-                      aria-label={`Quitar ${name}`}
+                      aria-label={t.remove(name)}
                       onClick={() => setMySkills(mySkills.filter((item) => item !== name))}
                     >
                       <X className="size-3.5" aria-hidden="true" />
@@ -524,8 +678,8 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
         )}
 
         {mode === "many" && (
-          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Cuántas gemas tienes">
-            <span className="text-sm text-muted-foreground">Gemas que tienes:</span>
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.howManyGems}>
+            <span className="text-sm text-muted-foreground">{t.gemsYouHave}</span>
             {[1, 2, 3, 4, 5].map((count) => (
               <Button
                 key={count}
@@ -542,8 +696,8 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Grado de tu gema sin tallar">
-          <span className="text-sm text-muted-foreground">{mode === "one" ? "Grado de tu gema:" : "Grado de tus gemas:"}</span>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.gradeGroup}>
+          <span className="text-sm text-muted-foreground">{mode === "one" ? t.gradeOne : t.gradeMany}</span>
           {GRADES.map((grade) => (
             <Button
               key={grade.value}
@@ -561,8 +715,8 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
 
         <div>
           {mode === "one" ? (
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Atributos en los que te queda hueco">
-              <span className="text-sm text-muted-foreground">Te queda hueco en:</span>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.roomGroup}>
+              <span className="text-sm text-muted-foreground">{t.roomIn}</span>
               {ATTRIBUTES.map((attribute) => {
                 const active = attributes.includes(attribute.id);
                 return (
@@ -577,23 +731,23 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
                     data-testid={`asistencia-atributo-${attribute.id}`}
                   >
                     {active ? "✓ " : ""}
-                    {attribute.label}
+                    {t.attributes[attribute.id]}
                   </Button>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2" role="group" aria-label="Huecos libres por atributo">
-              <span className="text-sm text-muted-foreground">Huecos libres:</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2" role="group" aria-label={t.freeGroup}>
+              <span className="text-sm text-muted-foreground">{t.freeSlots}</span>
               {ATTRIBUTES.map((attribute) => (
                 <span key={attribute.id} className="flex items-center gap-1 text-sm">
-                  <span className={attribute.className}>{attribute.label}</span>
+                  <span className={attribute.className}>{t.attributes[attribute.id]}</span>
                   <Button
                     type="button"
                     size="icon"
                     variant="outline"
                     className="size-7"
-                    aria-label={`Un hueco menos de ${ATTRIBUTE_LABEL[attribute.id]}`}
+                    aria-label={t.oneLess(t.attributeLower[attribute.id])}
                     onClick={() => setFree({ ...free, [attribute.id]: Math.max(0, free[attribute.id] - 1) })}
                   >
                     <Minus className="size-3.5" aria-hidden="true" />
@@ -606,7 +760,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
                     size="icon"
                     variant="outline"
                     className="size-7"
-                    aria-label={`Un hueco más de ${ATTRIBUTE_LABEL[attribute.id]}`}
+                    aria-label={t.oneMore(t.attributeLower[attribute.id])}
                     onClick={() => setFree({ ...free, [attribute.id]: Math.min(9, free[attribute.id] + 1) })}
                     data-testid={`asistencia-libres-mas-${attribute.id}`}
                   >
@@ -617,8 +771,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
             </div>
           )}
           <p className="mt-1 text-xs text-muted-foreground">
-            Lo ves en el juego, arriba del panel de habilidades: «Capacidad de las gemas equipadas».{" "}
-            {mode === "one" ? "Si pone Int 5/5, ya no te cabe ninguna de inteligencia." : "Si pone Int 4/5, te queda 1 hueco de inteligencia."}
+            {t.whereToSee} {mode === "one" ? t.fullExample : t.freeExample}
           </p>
         </div>
 
@@ -626,27 +779,27 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="asistencia-puestas" className="text-xs text-muted-foreground">
-                Asistencias que ya llevas puestas, separadas por comas
+                {t.socketedMany}
               </Label>
               <Input
                 id="asistencia-puestas"
                 value={socketed}
                 onChange={(event) => setSocketed(event.target.value)}
-                placeholder="Lanzamiento rápido I, Último aliento"
+                placeholder={t.socketedManyPlaceholder}
                 className="mt-1"
                 data-testid="asistencia-puestas"
               />
             </div>
             <div>
               <Label htmlFor="asistencia-nota" className="text-xs text-muted-foreground">
-                ¿Algo que deba saber? (opcional)
+                {t.noteMany}
               </Label>
               <Input
                 id="asistencia-nota"
                 value={note}
                 maxLength={200}
                 onChange={(event) => setNote(event.target.value)}
-                placeholder="Drenar esencia es mi daño contra jefes"
+                placeholder={t.noteManyPlaceholder}
                 className="mt-1"
                 data-testid="asistencia-nota"
               />
@@ -656,31 +809,31 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           <details className="group">
             <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-              Afinar más (opcional)
+              {t.refine}
             </summary>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="asistencia-puestas" className="text-xs text-muted-foreground">
-                  Asistencias que ya lleva, separadas por comas
+                  {t.socketedOne}
                 </Label>
                 <Input
                   id="asistencia-puestas"
                   value={socketed}
                   onChange={(event) => setSocketed(event.target.value)}
-                  placeholder="Lanzamiento rápido I"
+                  placeholder={t.socketedOnePlaceholder}
                   className="mt-1"
                 />
               </div>
               <div>
                 <Label htmlFor="asistencia-nota" className="text-xs text-muted-foreground">
-                  ¿Te pasa algo con ella?
+                  {t.noteOne}
                 </Label>
                 <Input
                   id="asistencia-nota"
                   value={note}
                   maxLength={200}
                   onChange={(event) => setNote(event.target.value)}
-                  placeholder="Mis esqueletos mueren muy rápido"
+                  placeholder={t.noteOnePlaceholder}
                   className="mt-1"
                   data-testid="asistencia-nota"
                 />
@@ -696,7 +849,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
         )}
         <Button type="submit" disabled={busy} data-testid="asistencia-preguntar">
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
-          {mode === "one" ? "Dime cuál" : "Repárteme las gemas"}
+          {mode === "one" ? t.askOne : t.askMany}
         </Button>
       </form>
 
@@ -705,10 +858,11 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           {pick ? (
             <>
               <p className="text-base font-semibold text-foreground" data-testid="asistencia-elegida">
-                En {answer.skill.name}, pon <span className="text-primary">{pick.name}</span>
+                {t.inSkill} {answer.skill.name}
+                {t.put} <span className="text-primary">{pick.name}</span>
               </p>
               <p className="mt-1 text-sm leading-relaxed text-foreground/90">{pick.reason}</p>
-              <OptionDetails option={pick} />
+              <OptionDetails option={pick} t={t} />
               <Button
                 type="button"
                 variant="outline"
@@ -718,19 +872,19 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
                 onClick={() => void askOne(alreadyOwned(answer.skill.name, pick.name))}
                 data-testid="asistencia-ya-la-tengo"
               >
-                Ya la tengo: dime otra
+                {t.alreadyHave}
               </Button>
               {answer.alternatives.length > 0 && (
                 <details className="group mt-3">
                   <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
                     <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-                    Otras {answer.alternatives.length} que también valen
+                    {t.others(answer.alternatives.length)}
                   </summary>
                   <ul className="mt-2 space-y-1.5 text-sm" data-testid="asistencia-otras">
                     {answer.alternatives.map((option) => (
                       <li key={option.name}>
                         <span className="font-semibold text-foreground">{option.name}</span>{" "}
-                        <span className="text-xs text-muted-foreground">({ATTRIBUTE_LABEL[option.attribute]})</span>
+                        <span className="text-xs text-muted-foreground">({t.attributeLower[option.attribute]})</span>
                         <span className="block text-muted-foreground">{option.effects[0] ?? option.description}</span>
                       </li>
                     ))}
@@ -740,17 +894,17 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
             </>
           ) : (
             <p className="text-sm text-foreground/90" data-testid="asistencia-ninguna">
-              Con ese grado y esos atributos no hay ninguna asistencia que valga para {answer.skill.name}. Prueba a marcar
-              otro atributo o guarda la gema para más adelante.
+              {t.none(answer.skill.name)}
             </p>
           )}
           <Footer
             mode={answer.mode}
-            aiRole="La gema la eligen las reglas; la IA solo explica el porqué."
+            aiRole={t.aiRoleOne}
             fallbackReason={answer.fallbackReason}
             source={answer.source}
             fetchedAt={answer.fetchedAt}
             hasPick={pick !== null}
+            t={t}
           />
         </div>
       )}
@@ -762,10 +916,10 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
               {plan.assignments.map((item, index) => (
                 <li key={`${item.skill}-${item.support.name}`} data-testid="asistencia-reparto-linea">
                   <p className="text-base font-semibold text-foreground">
-                    {index + 1}. <span className="text-primary">{item.support.name}</span> en {item.skill}
+                    {index + 1}. <span className="text-primary">{item.support.name}</span> {t.inSkillMany} {item.skill}
                   </p>
                   <p className="mt-0.5 text-sm leading-relaxed text-foreground/90">{item.reason}</p>
-                  <OptionDetails option={item.support} />
+                  <OptionDetails option={item.support} t={t} />
                   <Button
                     type="button"
                     variant="outline"
@@ -775,36 +929,34 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
                     onClick={() => void askMany(alreadyOwned(item.skill, item.support.name))}
                     data-testid="asistencia-reparto-ya-la-tengo"
                   >
-                    Ya la tengo: reparte otra vez
+                    {t.alreadyHaveMany}
                   </Button>
                 </li>
               ))}
             </ol>
           ) : (
             <p className="text-sm text-foreground/90">
-              Con ese grado y esos huecos no hay ninguna asistencia que valga para tus habilidades. Guarda las gemas para
-              más adelante.
+              {t.noneMany}
             </p>
           )}
           {plan.leftover > 0 && plan.assignments.length > 0 && (
             <p className="mt-3 text-sm text-amber-200" data-testid="asistencia-sobran">
-              {plan.leftover === 1 ? "Te sobra 1 gema" : `Te sobran ${plan.leftover} gemas`}: no te quedan huecos donde
-              quepan. Guárdalas; no caducan.
+              {t.leftover(plan.leftover)}
             </p>
           )}
           {plan.unknownSkills.length > 0 && (
             <p className="mt-2 text-sm text-amber-200" data-testid="asistencia-desconocidas">
-              No conozco {plan.unknownSkills.map((name) => `«${name}»`).join(", ")}. Escríbelas como salen en el juego en
-              español.
+              {t.unknown(plan.unknownSkills.map((name) => `«${name}»`).join(", "))}
             </p>
           )}
           <Footer
             mode={plan.mode}
-            aiRole="El reparto es de las reglas; la IA solo explica el porqué."
+            aiRole={t.aiRoleMany}
             fallbackReason={plan.fallbackReason}
             source={plan.source}
             fetchedAt={plan.fetchedAt}
             hasPick={plan.assignments.length > 0}
+            t={t}
           />
         </div>
       )}

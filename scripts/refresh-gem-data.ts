@@ -1,11 +1,17 @@
 /**
  * Regenera `server/data/gems.es.json`: gemas de habilidad y de asistencia de
- * PoE2 con sus nombres y textos del cliente en español.
+ * PoE2 con sus nombres y textos del cliente en español. Las reglas trabajan
+ * siempre sobre este archivo.
  *
- * Fuente: poe2db.tw/sp (listados + la ficha pequeña de cada gema). Hay que
- * volver a ejecutarlo en cada parche que toque gemas:
+ * Con `--en` regenera `server/data/gems.en.json`: solo nombre, descripción y
+ * efectos en inglés de cada gema, unidos por su identificador. Sirve para
+ * enseñar las gemas en inglés sin tocar las reglas.
+ *
+ * Fuente: poe2db.tw/sp y poe2db.tw/us (listados + la ficha pequeña de cada
+ * gema). Hay que volver a ejecutar los dos en cada parche que toque gemas:
  *
  *   npm run data:gems
+ *   npm run data:gems -- --en
  *
  * Lee unas 730 fichas de 3 KB, de seis en seis, y tarda alrededor de un minuto.
  */
@@ -14,7 +20,9 @@ import { fileURLToPath } from "node:url";
 
 const BASE = "https://poe2db.tw";
 const HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; exile-copilot-data)" };
-const OUT = fileURLToPath(new URL("../server/data/gems.es.json", import.meta.url));
+const ENGLISH = process.argv.includes("--en");
+const SITE = ENGLISH ? "us" : "sp";
+const OUT = fileURLToPath(new URL(ENGLISH ? "../server/data/gems.en.json" : "../server/data/gems.es.json", import.meta.url));
 
 type Attribute = "Fue" | "Des" | "Int";
 
@@ -62,7 +70,10 @@ async function get(url: string, attempt = 1): Promise<string> {
 function parseListing(page: string): Row[] {
   const rows = new Map<string, Row>();
   const pattern =
-    /<tr data-filters="[^"]*"><td><a class="(gem_\w+)" data-hover="([^"]+)" href="\/sp\/([^"]+)">[\s\S]*?<\/a><td><a [^>]*>([^<]+)<\/a>\s*(?:\((\d+)\))?<div class="gem_tags small">([\s\S]*?)<\/div>/g;
+    new RegExp(
+      `<tr data-filters="[^"]*"><td><a class="(gem_\\w+)" data-hover="([^"]+)" href="\\/${SITE}\\/([^"]+)">[\\s\\S]*?<\\/a><td><a [^>]*>([^<]+)<\\/a>\\s*(?:\\((\\d+)\\))?<div class="gem_tags small">([\\s\\S]*?)<\\/div>`,
+      "g",
+    );
   for (const match of page.matchAll(pattern)) {
     const [, color, hover, slug, name, grade, tagHtml] = match;
     const attribute = COLOR_ATTRIBUTE[color];
@@ -121,17 +132,22 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 }
 
 async function build(listing: string, kind: "skill" | "support") {
-  const rows = parseListing(await get(`${BASE}/sp/${listing}`));
+  const rows = parseListing(await get(`${BASE}/${SITE}/${listing}`));
   let failed = 0;
   const entries = await mapLimit(rows, 6, async (row) => {
     let card: Card;
     try {
-      card = parseCard(await get(row.hover));
+      // Algunas fichas vienen como ruta relativa («?s=Data…»): se leen en /<idioma>/hover.
+      const hoverUrl = row.hover.startsWith("?") ? `${BASE}/${SITE}/hover${row.hover}` : row.hover;
+      card = parseCard(await get(hoverUrl));
     } catch {
       failed += 1;
       card = { category: null, grade: null, costMultiplier: null, reserve: null, description: "", effects: [] };
     }
     const tags = row.tags.filter((tag) => tag !== "Asistencia");
+    if (ENGLISH) {
+      return { slug: row.slug, name: row.name, description: card.description, effects: card.effects };
+    }
     return {
       slug: row.slug,
       name: row.name,
@@ -154,7 +170,7 @@ if (skills.length < 100 || supports.length < 200) {
   throw new Error("Demasiadas pocas gemas: poe2db ha cambiado de formato. No se sobrescribe el archivo.");
 }
 const data = {
-  source: "https://poe2db.tw/sp/",
+  source: `https://poe2db.tw/${SITE}/`,
   fetchedAt: new Date().toISOString().slice(0, 10),
   skills,
   supports,

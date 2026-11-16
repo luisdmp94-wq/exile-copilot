@@ -7,6 +7,7 @@ import { EquipmentPanel } from "@/components/EquipmentPanel";
 import { ItemDetailDialog } from "@/components/ItemDetailDialog";
 import { BuildMemorySection } from "@/components/BuildMemorySection";
 import type { JournalState } from "@/hooks/useJournal";
+import { useLang } from "@/i18n/lang";
 
 interface ExpedienteSectionProps {
   profile: CharacterProfile | null;
@@ -109,7 +110,7 @@ export function ExpedienteSection({
         <Skeleton className="h-7 w-2/3" />
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-64 w-full" />
-        <p className="text-sm text-muted-foreground">Restaurando tu último personaje…</p>
+        <RestoringText />
       </section>
     );
   }
@@ -193,5 +194,14 @@ export function ExpedienteSection({
         }}
       />
     </section>
+  );
+}
+
+function RestoringText() {
+  const { lang } = useLang();
+  return (
+    <p className="text-sm text-muted-foreground">
+      {lang === "en" ? "Restoring your last character…" : "Restaurando tu último personaje…"}
+    </p>
   );
 }
