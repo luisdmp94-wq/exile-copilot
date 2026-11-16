@@ -28,9 +28,20 @@ export function detectLang(search: string, stored: string | null, browserLanguag
   return browserLanguages.some((language) => language.toLowerCase().startsWith("es")) ? "es" : "en";
 }
 
+/**
+ * Lo mínimo del navegador que hace falta, declarado aquí: este archivo también
+ * lo compilan las pruebas, que corren sin DOM.
+ */
+interface BrowserWindow {
+  localStorage: { getItem(key: string): string | null; setItem(key: string, value: string): void };
+  location: { search: string };
+  navigator: { languages?: readonly string[]; language: string };
+}
+const browserWindow = (): BrowserWindow | undefined => (globalThis as { window?: BrowserWindow }).window;
+
 function readStored(): string | null {
   try {
-    return window.localStorage.getItem(LANG_STORAGE_KEY);
+    return browserWindow()?.localStorage.getItem(LANG_STORAGE_KEY) ?? null;
   } catch {
     return null;
   }
@@ -38,17 +49,18 @@ function readStored(): string | null {
 
 export function storeLang(lang: Lang): void {
   try {
-    window.localStorage.setItem(LANG_STORAGE_KEY, lang);
+    browserWindow()?.localStorage.setItem(LANG_STORAGE_KEY, lang);
   } catch {
     // Sin almacenamiento, el idioma vale para esta visita.
   }
 }
 
 export function initialLang(): Lang {
-  if (typeof window === "undefined") return "es";
-  const lang = detectLang(window.location.search, readStored(), window.navigator.languages ?? [window.navigator.language]);
+  const win = browserWindow();
+  if (!win) return "es";
+  const lang = detectLang(win.location.search, readStored(), win.navigator.languages ?? [win.navigator.language]);
   // Un enlace con ?lang= deja elegido ese idioma para las próximas visitas.
-  if (new URLSearchParams(window.location.search).has("lang")) storeLang(lang);
+  if (new URLSearchParams(win.location.search).has("lang")) storeLang(lang);
   return lang;
 }
 
