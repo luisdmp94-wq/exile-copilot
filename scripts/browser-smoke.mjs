@@ -359,7 +359,7 @@ async function runFlow(mode, port) {
     );
 
     browser = await launchBrowser();
-    const context = await browser.newContext({ acceptDownloads: true });
+    const context = await browser.newContext({ acceptDownloads: true, locale: "es-ES" });
     const youtubeRequests = [];
     await context.route("https://www.youtube-nocookie.com/**", async (route) => {
       youtubeRequests.push(route.request().url());
@@ -1774,7 +1774,7 @@ async function runFlow(mode, port) {
     // Un fallo real de descarga diferida no puede dejar una pantalla negra.
     // Se bloquea el chunk de Crafting en un contexto limpio, se comprueba la
     // recuperación y después se permite la recarga normal.
-    const recoveryContext = await browser.newContext();
+    const recoveryContext = await browser.newContext({ locale: "es-ES" });
     const recoveryPage = await recoveryContext.newPage();
     let blockedCraftingModule = false;
     const blockCrafting = async (route) => {
@@ -1811,7 +1811,7 @@ async function runFlow(mode, port) {
 
     // Una caída temporal de /meta debe poder resolverse desde la propia app,
     // sin pedir al jugador que conozca F5 ni que vuelva a pegar sus datos.
-    const reconnectContext = await browser.newContext();
+    const reconnectContext = await browser.newContext({ locale: "es-ES" });
     const reconnectPage = await reconnectContext.newPage();
     let metaUnavailable = true;
     const interruptMeta = async (route) => {
@@ -1954,7 +1954,23 @@ async function runFlow(mode, port) {
       `[${mode}] el alta corta guarda el personaje con su nombre por defecto`,
       await page.getByText("Mi bruja").first().isVisible(),
     );
+    // Idiomas: el botón EN cambia el menú y avisa de lo que aún no está traducido.
+    await page.getByTestId("idioma-en").click();
+    check(
+      `[${mode}] el botón EN pasa el menú al inglés`,
+      (await page.getByTestId("tab-guias").innerText()).includes("Guides"),
+    );
     await page.getByTestId("tab-guias").click();
+    check(
+      `[${mode}] en inglés, lo que falta por traducir lo avisa`,
+      (await page.locator('[data-testid="english-soon"]:visible').count()) === 1,
+    );
+    await page.getByTestId("idioma-es").click();
+    check(
+      `[${mode}] el botón ES lo devuelve al español`,
+      (await page.getByTestId("tab-guias").innerText()).includes("Guías") &&
+        (await page.getByTestId("english-soon").count()) === 0,
+    );
     await page.getByTestId("guia-vistas").waitFor({ timeout: 15000 });
     check(
       `[${mode}] el área de guías abre por la guía y deja las herramientas en su pestaña`,

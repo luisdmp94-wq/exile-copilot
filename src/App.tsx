@@ -124,6 +124,8 @@ const FeaturedBuildsSection = lazy(() =>
   })),
 );
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
+import { texts, useText } from "@/i18n/lang";
+import { EnglishSoon } from "@/i18n/EnglishSoon";
 import {
   contextualMentorCue,
   type ContextualMentorAsk,
@@ -176,7 +178,53 @@ function deferEffect(task: () => void): () => void {
   };
 }
 
+const APP_TEXT = texts(
+  {
+    backArea: "Volver al área anterior",
+    backCharacters: "Volver a personajes",
+    metaErrorTitle: "No se pudo cargar la configuración del servidor",
+    metaErrorText: ". La interfaz sigue disponible, pero algunas listas (ligas, objetivos) pueden estar incompletas.",
+    reconnecting: "Reconectando…",
+    retry: "Reintentar conexión",
+    areas: "Áreas de Exile Copilot",
+    dossierShort: "Expediente",
+    dossier: "Expediente y mentor",
+    dossierHint: "Tu personaje y qué mejorar primero",
+    planShort: "Plan",
+    plan: "Plan y mercado",
+    planHint: "Objetivo, presupuesto y precios",
+    crafting: "Crafting",
+    craftingHint: "Mejorar un objeto paso a paso",
+    guidesTitle: "Guías por acto",
+    guides: "Guías",
+    guidesHint: "Cómo pasar cada acto sin morir",
+    pricesNote: "Los precios proceden de poe.ninja y las referencias de builds de la comunidad no están verificadas.",
+  },
+  {
+    backArea: "Back to the previous area",
+    backCharacters: "Back to characters",
+    metaErrorTitle: "Couldn't load the server settings",
+    metaErrorText: ". The site still works, but some lists (leagues, goals) may be incomplete.",
+    reconnecting: "Reconnecting…",
+    retry: "Retry connection",
+    areas: "Exile Copilot areas",
+    dossierShort: "Character",
+    dossier: "Character & mentor",
+    dossierHint: "Your character and what to improve first",
+    planShort: "Plan",
+    plan: "Plan & market",
+    planHint: "Goal, budget and prices",
+    crafting: "Crafting",
+    craftingHint: "Improve an item step by step",
+    guidesTitle: "Act guides",
+    guides: "Guides",
+    guidesHint: "How to get through each act alive",
+    pricesNote: "Prices come from poe.ninja, and community build references are not verified.",
+  },
+);
+
 export default function App() {
+  const t = useText(APP_TEXT);
   const {
     health,
     meta,
@@ -1422,11 +1470,7 @@ export default function App() {
         onHome={goHome}
         onBack={goBackWorkspace}
         canGoBack={workspaceHistory.length > 0 || hasProfile}
-        backLabel={
-          workspaceHistory.length > 0
-            ? "Volver al área anterior"
-            : "Volver a personajes"
-        }
+        backLabel={workspaceHistory.length > 0 ? t.backArea : t.backCharacters}
         onAddCharacter={() => openEditor(true)}
         onOpenMentor={openMentorConversation}
       />
@@ -1439,11 +1483,11 @@ export default function App() {
       >
         {metaError && (
           <Alert variant="destructive" className="mb-6" data-testid="meta-error">
-            <AlertTitle>No se pudo cargar la configuración del servidor</AlertTitle>
+            <AlertTitle>{t.metaErrorTitle}</AlertTitle>
             <AlertDescription>
               <p>
-                {metaError}. La interfaz sigue disponible, pero algunas listas (ligas,
-                objetivos) pueden estar incompletas.
+                {metaError}
+                {t.metaErrorText}
               </p>
               <Button
                 type="button"
@@ -1458,7 +1502,7 @@ export default function App() {
                   className={`size-4 ${metaLoading ? "animate-spin" : ""}`}
                   aria-hidden="true"
                 />
-                {metaLoading ? "Reconectando…" : "Reintentar conexión"}
+                {metaLoading ? t.reconnecting : t.retry}
               </Button>
             </AlertDescription>
           </Alert>
@@ -1480,57 +1524,57 @@ export default function App() {
           <div className="workspace-nav sticky top-16 z-30 -mx-4 mb-6 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 xl:top-20 xl:col-start-1 xl:row-span-2 xl:row-start-1 xl:mx-0 xl:mb-0 xl:border-0 xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
             <div className="mx-auto flex max-w-[92rem] items-center justify-center xl:block">
               <TabsList
-                aria-label="Áreas de Exile Copilot"
+                aria-label={t.areas}
                 className="grid h-auto min-w-0 flex-1 grid-cols-4 gap-1 rounded-xl border border-border bg-card p-1 lg:flex lg:w-auto lg:flex-none xl:flex xl:w-full xl:flex-col xl:items-stretch xl:gap-1 xl:p-1.5"
               >
               <TabsTrigger
                 value="expediente"
                 data-testid="tab-expediente"
-                title="Expediente y mentor"
+                title={t.dossier}
                 className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <FolderOpen className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate lg:hidden">Expediente</span>
-                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">Expediente y mentor</span>
+                <span className="truncate lg:hidden">{t.dossierShort}</span>
+                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">{t.dossier}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
-                  Tu personaje y qué mejorar primero
+                  {t.dossierHint}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="plan"
                 data-testid="tab-plan"
-                title="Plan y mercado"
+                title={t.plan}
                 className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <Compass className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate lg:hidden">Plan</span>
-                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">Plan y mercado</span>
+                <span className="truncate lg:hidden">{t.planShort}</span>
+                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">{t.plan}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
-                  Objetivo, presupuesto y precios
+                  {t.planHint}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="crafting"
                 data-testid="tab-crafting"
-                title="Crafting"
+                title={t.crafting}
                 className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <Hammer className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate xl:sr-only 2xl:not-sr-only">Crafting</span>
+                <span className="truncate xl:sr-only 2xl:not-sr-only">{t.crafting}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
-                  Mejorar un objeto paso a paso
+                  {t.craftingHint}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="guias"
                 data-testid="tab-guias"
-                title="Guías por acto"
+                title={t.guidesTitle}
                 className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <BookOpen className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate xl:sr-only 2xl:not-sr-only">Guías</span>
+                <span className="truncate xl:sr-only 2xl:not-sr-only">{t.guides}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
-                  Cómo pasar cada acto sin morir
+                  {t.guidesHint}
                 </span>
               </TabsTrigger>
               </TabsList>
@@ -1545,6 +1589,7 @@ export default function App() {
 
           {/* --- Área 1: Expediente y mentor -------------------------------- */}
           <TabsContent value="expediente" forceMount className={PANEL_CLASSES}>
+            {hasProfile && <EnglishSoon area={t.dossier} />}
             {character.restorationError !== null ? (
               <Alert variant="destructive" data-testid="character-restore-error">
                 <AlertTitle>No pudimos abrir tu expediente guardado</AlertTitle>
@@ -1844,6 +1889,7 @@ export default function App() {
           {/* Dos columnas en escritorio, una sola en móvil. NUNCA se mezcla con
               el expediente: el plan objetivo es un plan, no el personaje real. */}
           <TabsContent value="plan" forceMount className={PANEL_CLASSES}>
+            <EnglishSoon area={t.plan} />
             {mountedWorkspaces.has("plan") && (
               <Suspense
                 fallback={
@@ -1951,6 +1997,7 @@ export default function App() {
 
           {/* --- Área 3: Crafting ----------------------------------------- */}
           <TabsContent value="crafting" forceMount className={PANEL_CLASSES}>
+            <EnglishSoon area={t.crafting} />
             {mountedWorkspaces.has("crafting") && (
               <Suspense
                 fallback={
@@ -1999,6 +2046,7 @@ export default function App() {
 
           {/* --- Área 4: Guías por acto ------------------------------------ */}
           <TabsContent value="guias" forceMount className={PANEL_CLASSES}>
+            <EnglishSoon area={t.guides} />
             {mountedWorkspaces.has("guias") && (
               <GuidesSection
                 guideSlug={guideSlug}
@@ -2187,10 +2235,7 @@ export default function App() {
 
         <footer className="mt-10 flex flex-col gap-1 border-t border-border pt-4 text-center text-xs text-muted-foreground">
           <p>{GGG_AFFILIATION_NOTICE}</p>
-          <p>
-            Los precios proceden de poe.ninja y las referencias de builds de la comunidad
-            no están verificadas.
-          </p>
+          <p>{t.pricesNote}</p>
           <p className="mt-1">
             <DataPrivacyDialog health={health} />
           </p>

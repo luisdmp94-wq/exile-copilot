@@ -7,6 +7,7 @@ import { BuildCheckPage } from './check/BuildCheckPage.tsx'
 import { AppErrorBoundary } from './components/AppErrorBoundary.tsx'
 import { sendVisitBeacon } from './lib/visitBeacon.ts'
 import { StatsPage } from './stats/StatsPage.tsx'
+import { LangProvider } from './i18n/LangProvider.tsx'
 
 // /check es el chequeo de build del relanzamiento; el resto sigue en la app anterior.
 const isBuildCheck = /^\/check\/?$/.test(window.location.pathname)
@@ -16,7 +17,9 @@ const isStats = /^\/estadisticas\/?$/.test(window.location.pathname)
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary>
-      {isStats ? <StatsPage /> : isBuildCheck ? <BuildCheckPage /> : <App />}
+      <LangProvider>
+        {isStats ? <StatsPage /> : isBuildCheck ? <BuildCheckPage /> : <App />}
+      </LangProvider>
     </AppErrorBoundary>
   </StrictMode>,
 )
