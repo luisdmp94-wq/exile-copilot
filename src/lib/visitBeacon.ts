@@ -1,4 +1,4 @@
-import { classifySource, pageOf, type VisitBeacon } from "@shared/visitStats";
+import { classifySource, looksLikeBot, pageOf, type VisitBeacon } from "@shared/visitStats";
 
 /**
  * Lo mínimo del navegador que hace falta. Se declara aquí para que el archivo
@@ -56,18 +56,52 @@ export function buildVisitBeacon(location: PageLocation, referrer: string, now =
   };
 }
 
-/** Avisa de la visita una vez por carga. Si falla, no pasa nada: la web sigue igual. */
+/** Cuánto tiene que estar una persona en la página para contar como visita. */
+export const VISIT_DWELL_MS = 3000;
+const INTERACTIONS = ["pointerdown", "keydown", "scroll", "touchstart"] as const;
+
+interface BrowserPage {
+  location: PageLocation;
+  document: { referrer: string; visibilityState?: string };
+  navigator: { userAgent?: string; webdriver?: boolean };
+  addEventListener(type: string, listener: () => void, options?: { passive?: boolean }): void;
+  removeEventListener(type: string, listener: () => void): void;
+}
+
+/**
+ * Avisa de la visita una vez por carga, pero solo si parece una persona: ni
+ * un navegador manejado por un programa, ni algo que carga la página y se va.
+ * Cuenta cuando alguien toca la página o la tiene a la vista unos segundos.
+ * Si falla, no pasa nada: la web sigue igual.
+ */
 export function sendVisitBeacon(): void {
   try {
-    const page = globalThis as unknown as { location: PageLocation; document: { referrer: string } };
-    const beacon = buildVisitBeacon(page.location, page.document.referrer);
-    void fetch("/api/visit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(beacon),
-      credentials: "same-origin",
-      keepalive: true,
-    }).catch(() => undefined);
+    const page = globalThis as unknown as BrowserPage;
+    if (looksLikeBot(page.navigator.userAgent, page.navigator.webdriver === true)) return;
+    // La dirección de entrada, antes de que la web la cambie (/guias/acto-1…).
+    const location: PageLocation = {
+      pathname: page.location.pathname,
+      search: page.location.search,
+      hostname: page.location.hostname,
+    };
+    const referrer = page.document.referrer;
+    let sent = false;
+    const send = () => {
+      if (sent) return;
+      sent = true;
+      for (const type of INTERACTIONS) page.removeEventListener(type, send);
+      void fetch("/api/visit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildVisitBeacon(location, referrer)),
+        credentials: "same-origin",
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+    for (const type of INTERACTIONS) page.addEventListener(type, send, { passive: true });
+    setTimeout(() => {
+      if (page.document.visibilityState !== "hidden") send();
+    }, VISIT_DWELL_MS);
   } catch {
     // El contador nunca debe estorbar a la web.
   }

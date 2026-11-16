@@ -53,6 +53,20 @@ export function classifySource(referrer: string, refParam: string | null, ownHos
   return SOURCE_HOSTS.find(([test]) => test.test(host))?.[1] ?? "otro";
 }
 
+/**
+ * Robots que visitan la web: buscadores, vigilantes de dominios nuevos,
+ * vistas previas de enlaces y navegadores manejados por programas. No son
+ * jugadores y no se cuentan.
+ */
+const BOT_USER_AGENT =
+  /\bbot\b|bot\/|crawl|spider|slurp|headless|phantom|puppeteer|playwright|selenium|lighthouse|pagespeed|preview|facebookexternalhit|embedly|python|curl|wget|httpclient|go-http|java\/|scan/i;
+
+export function looksLikeBot(userAgent: string | undefined, automated = false): boolean {
+  if (automated) return true;
+  const agent = userAgent?.trim() ?? "";
+  return agent === "" || BOT_USER_AGENT.test(agent);
+}
+
 export const VISIT_PAGES = ["inicio", "guias", "estadisticas", "otra"] as const;
 export type VisitPage = (typeof VISIT_PAGES)[number];
 

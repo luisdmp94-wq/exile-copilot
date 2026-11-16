@@ -149,7 +149,7 @@ import {
 } from "../shared/patchCompatibility.js";
 import { auditRuntimeReadiness } from "./runtimeReadiness.js";
 import { readStats, recordUse, recordVisit } from "./analytics.js";
-import { VisitBeaconSchema, type UsageEvent } from "../shared/visitStats.js";
+import { VisitBeaconSchema, looksLikeBot, type UsageEvent } from "../shared/visitStats.js";
 import { loadReleaseEvidenceCatalog } from "./releaseEvidenceCatalog.js";
 import { FeaturedBuildCatalogSchema } from "../shared/featuredBuilds.js";
 import {
@@ -616,7 +616,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /visit — una visita a la web, sin datos de la persona.
   app.post("/visit", (req, res, next) => {
     try {
-      recordVisit(db, VisitBeaconSchema.parse(req.body));
+      const visit = VisitBeaconSchema.parse(req.body);
+      // Un robot que se identifica como tal no es una visita.
+      if (!looksLikeBot(req.get("user-agent"))) recordVisit(db, visit);
       res.status(204).end();
     } catch (err) {
       next(err);

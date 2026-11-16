@@ -40,6 +40,18 @@ describe("contador de visitas por la API", () => {
     expect(days[0]).toMatchObject({ visitors: 1, newVisitors: 1, visits: 1, sources: { reddit: 1 }, uses: { gema: 1 } });
   });
 
+  it("un robot que se identifica como tal no suma visitas", async () => {
+    const before = (await (await fetch(`${base}/stats`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json()) as { days: Array<{ visits: number }> };
+    const response = await fetch(`${base}/visit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 HeadlessChrome/131.0" },
+      body: JSON.stringify({ page: "inicio", source: "directo", firstVisit: true, firstToday: true }),
+    });
+    expect(response.status).toBe(204);
+    const after = (await (await fetch(`${base}/stats`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json()) as { days: Array<{ visits: number }> };
+    expect(after.days[0].visits).toBe(before.days[0].visits);
+  });
+
   it("rechaza visitas con datos que no son de la lista cerrada", async () => {
     expect((await post(base, "/visit", { page: "inicio", source: "foro-de-alguien", firstVisit: true, firstToday: true })).status).toBe(400);
     expect(

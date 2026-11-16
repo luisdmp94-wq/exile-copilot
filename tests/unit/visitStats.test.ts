@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { classifySource, pageOf } from "../../shared/visitStats.js";
+import { classifySource, looksLikeBot, pageOf } from "../../shared/visitStats.js";
 import { createDatabase } from "../../server/db/database.js";
 import { readStats, recordUse, recordVisit } from "../../server/analytics.js";
 import { buildVisitBeacon } from "../../src/lib/visitBeacon.js";
@@ -97,5 +97,21 @@ describe("aviso de visita del navegador", () => {
       firstVisit: false,
       firstToday: true,
     });
+  });
+});
+
+describe("robots fuera del contador", () => {
+  it("un navegador de verdad cuenta", () => {
+    expect(looksLikeBot("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0")).toBe(false);
+    expect(looksLikeBot("Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1")).toBe(false);
+    expect(looksLikeBot("Mozilla/5.0 (Linux; Android 14; CUBOT KingKong) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36")).toBe(false);
+  });
+  it("buscadores, vigilantes, vistas previas y navegadores automáticos no cuentan", () => {
+    expect(looksLikeBot("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")).toBe(true);
+    expect(looksLikeBot("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 HeadlessChrome/131.0.0.0 Safari/537.36")).toBe(true);
+    expect(looksLikeBot("Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)")).toBe(true);
+    expect(looksLikeBot("python-requests/2.32")).toBe(true);
+    expect(looksLikeBot("")).toBe(true);
+    expect(looksLikeBot("Mozilla/5.0 (Windows NT 10.0) Chrome/131.0", true)).toBe(true);
   });
 });
