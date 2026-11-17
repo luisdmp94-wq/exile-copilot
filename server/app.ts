@@ -571,8 +571,13 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       .reduce((latest, candidate) => (candidate > latest ? candidate : latest), "");
     const mentorAiConfigured =
       config.mentorAiEnabled && config.mentorAiApiKey !== null;
+    // El parche publicado más nuevo: el que juega la gente ahora mismo.
+    const live = patches
+      .filter((p) => p.status === "released" && typeof p.releaseDate === "string")
+      .sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate)))[0];
     res.json({
       ok: true,
+      livePatch: live ? { id: live.id, label: live.content ?? live.id, releaseDate: live.releaseDate ?? null } : null,
       patch: {
         id: current?.id ?? config.defaultPatch,
         content: current?.content ?? current?.id ?? config.defaultPatch,

@@ -405,8 +405,95 @@
     font-weight: 500;
   }
 
+  /* --- Ojos del Copiloto (capa SVG sobre el visor vacío) ------------------ */
+  .mentor-robot__eyes {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    --eye-core: hsl(46 100% 84%);
+    --eye-edge: hsl(36 96% 56%);
+  }
+
+  .mentor-robot__eye-core {
+    stop-color: var(--eye-core);
+    transition: stop-color 240ms ease;
+  }
+
+  .mentor-robot__eye-edge {
+    stop-color: var(--eye-edge);
+    transition: stop-color 240ms ease;
+  }
+
+  .mentor-robot__eyes-look,
+  .mentor-robot__eyes-open,
+  .mentor-robot__eye {
+    transform-box: fill-box;
+    transform-origin: 50% 90%;
+  }
+
+  /* En reposo parpadea de vez en cuando; cada ojo a la vez. */
+  .mentor-robot__eye {
+    animation: mentor-eye-blink 5.6s ease-in-out infinite;
+    transition: transform 200ms ease;
+  }
+
+  .mentor-robot__eyes-happy {
+    opacity: 0;
+    transition: opacity 180ms ease;
+  }
+
+  /* Pensando: mira a un lado y a otro, con los ojos algo entornados. */
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__eyes-look {
+    animation: mentor-eye-look 0.9s ease-in-out infinite alternate;
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__eye {
+    animation: none;
+    transform: scaleY(0.72);
+  }
+
+  /* Hablando con una respuesta: ojos contentos «^ ^». */
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__eyes-open {
+    opacity: 0;
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__eyes-happy {
+    opacity: 1;
+  }
+
+  /* Aviso: ojos más abiertos y color ámbar. */
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__eyes {
+    --eye-core: hsl(38 100% 78%);
+    --eye-edge: hsl(24 96% 52%);
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="warning"] .mentor-robot__eye {
+    animation: none;
+    transform: scale(1.12);
+  }
+
+  /* Error: ojos entornados y rojizos. */
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="error"] .mentor-robot__eyes {
+    --eye-core: hsl(12 100% 74%);
+    --eye-edge: hsl(4 86% 52%);
+  }
+
+  :is(.mentor-mascot, .mentor-floating-mascot)[data-state="error"] .mentor-robot__eye {
+    animation: none;
+    transform: scaleY(0.55);
+  }
+
+  /* Cuando trae algo nuevo (bocadillo), abre los ojos de golpe una vez. */
+  .mentor-floating-mascot[data-attention="true"] .mentor-robot__eyes-open {
+    animation: mentor-eye-surprise 0.7s ease-out both;
+  }
+
   :is(.mentor-mascot, .mentor-floating-mascot)[data-state="thinking"] .mentor-robot__art {
-    animation: mentor-robot-scan 0.75s ease-in-out infinite alternate;
+    animation: none;
   }
 
   :is(.mentor-mascot, .mentor-floating-mascot)[data-state="ai"] .mentor-robot__art {
@@ -798,6 +885,36 @@
   }
 }
 
+@keyframes mentor-eye-blink {
+  0%, 93%, 100% {
+    transform: scaleY(1);
+  }
+  95.5% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes mentor-eye-look {
+  from {
+    transform: translateX(-16px);
+  }
+  to {
+    transform: translateX(16px);
+  }
+}
+
+@keyframes mentor-eye-surprise {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @keyframes mentor-robot-scan {
   from {
     transform: translateX(-2px);
@@ -885,6 +1002,9 @@
   .ai-dot,
   .mentor-robot,
   .mentor-robot__art,
+  .mentor-robot__eye,
+  .mentor-robot__eyes-look,
+  .mentor-robot__eyes-open,
   .mentor-floating-mascot__beacon,
   .mentor-speech-bubble {
     animation: none;

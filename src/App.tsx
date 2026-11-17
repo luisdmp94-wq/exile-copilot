@@ -184,6 +184,7 @@ function deferEffect(task: () => void): () => void {
 const APP_TEXT = texts(
   {
     backArea: "Volver al área anterior",
+    stuckDamageQuestion: "¿Por qué no hago suficiente daño? ¿Qué cambio primero?",
     backCharacters: "Volver a personajes",
     metaErrorTitle: "No se pudo cargar la configuración del servidor",
     metaErrorText: ". La interfaz sigue disponible, pero algunas listas (ligas, objetivos) pueden estar incompletas.",
@@ -231,6 +232,7 @@ const APP_TEXT = texts(
   },
   {
     backArea: "Back to the previous area",
+    stuckDamageQuestion: "Why am I not doing enough damage? What should I change first?",
     backCharacters: "Back to characters",
     metaErrorTitle: "Couldn't load the server settings",
     metaErrorText: ". The site still works, but some lists (leagues, goals) may be incomplete.",
@@ -361,6 +363,11 @@ export default function App() {
   const [mentorBriefingOpen, setMentorBriefingOpen] = useState(false);
   const [mentorQuickQuestion, setMentorQuickQuestion] = useState<{
     text: string;
+    seq: number;
+  } | null>(null);
+  // «¿Te has atascado?» de la mascota: qué vista de la guía abrir.
+  const [guideViewRequest, setGuideViewRequest] = useState<{
+    view: "guia" | "comprobar" | "herramientas";
     seq: number;
   } | null>(null);
   // Se guarda el último aviso y no su texto: así, al cambiar de idioma, la
@@ -2124,6 +2131,7 @@ export default function App() {
             {mountedWorkspaces.has("guias") && (
               <GuidesSection
                 guideSlug={guideSlug}
+                viewRequest={guideViewRequest}
                 onSelectGuide={(slug) => {
                   setGuideSlug(slug);
                   window.scrollTo({ top: 0 });
@@ -2341,6 +2349,25 @@ export default function App() {
         onCollapsedChange={setContextualCollapsed}
         onAsk={askContextualMentor}
         onOpenMentor={openMentorConversation}
+        onStuck={(kind) => {
+          setContextualCollapsed(true);
+          if (kind === "damage") {
+            setMentorQuickQuestion((current) => ({
+              text: APP_TEXT[pageLang()].stuckDamageQuestion,
+              seq: (current?.seq ?? 0) + 1,
+            }));
+            openMentorConversation();
+            return;
+          }
+          // «Me matan» → comprobación del acto (resistencias y recompensas);
+          // «No sé adónde ir» → la ruta del acto.
+          setGuideViewRequest((current) => ({
+            view: kind === "dying" ? "comprobar" : "guia",
+            seq: (current?.seq ?? 0) + 1,
+          }));
+          navigateWorkspace("guias");
+          window.scrollTo({ top: 0 });
+        }}
       />
       <QuickCharacterDialog
         open={quickCreateOpen}

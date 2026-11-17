@@ -86,6 +86,14 @@ export const HealthResponseSchema = z.object({
   compatibility: PatchCompatibilityRecordSchema,
   /** Evidencia más reciente usada por parche/compatibilidad; nunca la hora de respuesta. */
   dataUpdatedAt: z.string(),
+  /**
+   * Parche publicado más reciente del juego (lo que juega la gente). Puede ser
+   * más nuevo que `patch`, que es contra el que se revisaron los datos.
+   */
+  livePatch: z
+    .object({ id: z.string(), label: z.string(), releaseDate: z.string().nullable() })
+    .nullable()
+    .default(null),
 });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 

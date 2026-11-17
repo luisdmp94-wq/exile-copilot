@@ -123,7 +123,7 @@ const VIEWS = [
   { id: "comprobar", icon: ListChecks },
   { id: "herramientas", icon: Gem },
 ] as const;
-type GuideView = (typeof VIEWS)[number]["id"];
+export type GuideView = (typeof VIEWS)[number]["id"];
 
 function readStoredView(): GuideView {
   try {
@@ -326,6 +326,8 @@ interface GuidesSectionProps {
   onOwnSupport?: (skillName: string, supportName: string) => void;
   patch: string;
   onAskMentor?: (question: string) => void;
+  /** Abrir una vista concreta desde fuera (la mascota). Cambia con cada `seq`. */
+  viewRequest?: { view: GuideView; seq: number } | null;
 }
 
 /**
@@ -341,6 +343,7 @@ export function GuidesSection({
   onOwnSupport,
   patch,
   onAskMentor,
+  viewRequest = null,
 }: GuidesSectionProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
@@ -350,6 +353,12 @@ export function GuidesSection({
   // y se recuerda en el navegador para no pegar nueve piezas cada vez.
   const [pastedItems, setPastedItems] = useState<Item[]>(readStoredPieces);
   const [view, setView] = useState<GuideView>(readStoredView);
+  // La mascota puede pedir abrir una vista concreta («Me matan» → comprobar).
+  const [seenViewRequest, setSeenViewRequest] = useState<number | null>(null);
+  if (viewRequest !== null && viewRequest.seq !== seenViewRequest) {
+    setSeenViewRequest(viewRequest.seq);
+    setView(viewRequest.view);
+  }
   const chooseView = (next: GuideView) => {
     setView(next);
     try {

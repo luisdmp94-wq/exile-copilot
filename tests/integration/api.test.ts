@@ -375,6 +375,9 @@ describe("api (integración, app Express con db :memory:)", () => {
       asOf: "2026-08-12",
       source: expect.stringContaining("0.5.4f Hotfix"),
     });
+    // El juego va por delante de los datos revisados: se dice cuál es, sin
+    // cambiar el parche contra el que trabaja la web.
+    expect(body.livePatch).toEqual({ id: "0.5.5", label: "0.5.5", releaseDate: "2026-09-04" });
     expect(body.services).toEqual({
       mentor: { mode: "rules-only", provider: null },
     });

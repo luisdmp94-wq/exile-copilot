@@ -36,6 +36,8 @@ const TEXT = texts(
     rulesRuntime: "Motor verificable",
     patchTitle: (source: string, date: string) => `Versión del juego según ${source}, a fecha de ${date}.`,
     apiDown: "La API no está conectada.",
+    liveGame: (patch: string) => `Juego actual: PoE2 ${patch}`,
+    reviewedWith: (patch: string) => `Los datos de la web se revisaron con ${patch}.`,
   },
   {
     tagline: "Build and crafting mentor for Path of Exile 2",
@@ -56,6 +58,8 @@ const TEXT = texts(
     rulesRuntime: "Verifiable engine",
     patchTitle: (source: string, date: string) => `Game version according to ${source}, as of ${date}.`,
     apiDown: "The API is not connected.",
+    liveGame: (patch: string) => `Current game: PoE2 ${patch}`,
+    reviewedWith: (patch: string) => `The site's data was reviewed against ${patch}.`,
   },
 );
 type HeaderText = (typeof TEXT)["es"];
@@ -75,6 +79,16 @@ interface AppHeaderProps {
 function patchLabel(health: HealthResponse): string {
   const { content, hotfix } = health.patch;
   return hotfix ? `${content}${hotfix}` : content;
+}
+
+/** Lo que se enseña en la cabecera: el juego actual si es más nuevo que los datos. */
+function shownPatch(health: HealthResponse): string {
+  return health.livePatch?.label ?? patchLabel(health);
+}
+
+/** ¿El juego va por delante del parche contra el que se revisaron los datos? */
+function liveAhead(health: HealthResponse): boolean {
+  return health.livePatch !== null && health.livePatch.id !== health.patch.id;
 }
 
 function patchTitle(health: HealthResponse, t: HeaderText): string {
@@ -193,7 +207,7 @@ export function AppHeader({
               ) : health ? (
                 <span className="hidden whitespace-nowrap sm:inline">
                   <span className="hidden lg:inline">PoE2 </span>
-                  {patchLabel(health)}
+                  {shownPatch(health)}
                 </span>
               ) : (
                 <span className="hidden whitespace-nowrap sm:inline">{t.offline}</span>
@@ -205,7 +219,12 @@ export function AppHeader({
               {health ? (
                 <div className="flex flex-col gap-3">
                   <div>
-                    <p className="font-semibold text-foreground">{t.patchData(patchLabel(health))}</p>
+                    <p className="font-semibold text-foreground" data-testid="cabecera-parche-titulo">
+                      {liveAhead(health) ? t.liveGame(shownPatch(health)) : t.patchData(patchLabel(health))}
+                    </p>
+                    {liveAhead(health) && (
+                      <p className="mt-1 text-xs text-muted-foreground">{t.reviewedWith(patchLabel(health))}</p>
+                    )}
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground" title={patchTitle(health, t)}>
                       {t.coverage(coverageLabel(health, t))} {health.compatibility.summary}
                     </p>

@@ -1178,6 +1178,16 @@ async function runFlow(mode, port) {
         source: art?.getAttribute("src") ?? "",
         loaded:
           art instanceof HTMLImageElement && art.complete && art.naturalWidth > 0,
+        // Ojos dibujados encima del visor: con respuesta, los contentos se ven.
+        happyEyes: (() => {
+          const happy = mascot.querySelector(".mentor-robot__eyes-happy");
+          if (!happy) return false;
+          // Sin la transición, se lee el valor final del estado y no el de medio camino.
+          happy.style.transition = "none";
+          const opacity = getComputedStyle(happy).opacity;
+          happy.style.transition = "";
+          return opacity === "1";
+        })(),
       };
       if (previousState === null) mascot.removeAttribute("data-state");
       else mascot.setAttribute("data-state", previousState);
@@ -1189,9 +1199,10 @@ async function runFlow(mode, port) {
         mascotVoiceMotion.separateMouth === false,
     );
     check(
-      `[${mode}] la mascota completa carga como recurso local del producto`,
+      `[${mode}] la mascota ligera carga como recurso local y pone ojos contentos al hablar`,
       mascotVoiceMotion.loaded &&
-        mascotVoiceMotion.source.endsWith("/mascot/exile-copilot-companion-v2.png"),
+        mascotVoiceMotion.source.endsWith("/mascot/copiloto-sin-ojos.webp") &&
+        mascotVoiceMotion.happyEyes,
     );
     await page.getByTestId("mentor-speech-open").click();
     check(

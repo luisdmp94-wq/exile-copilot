@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Bot, ChevronDown, ChevronUp, MessageCircleMore, Sparkles, X } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Bot, ChevronDown, ChevronUp, Compass, HeartCrack, MessageCircleMore, Sparkles, Swords, X } from "lucide-react";
 import { texts, useText } from "@/i18n/lang";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,14 @@ interface ContextualMentorProps {
   onOpenMentor: () => void;
   /** Flotante fuera del Expediente; integrado cuando acompaña a la paperdoll. */
   placement?: "floating" | "inline";
+  /**
+   * «¿Te has atascado?»: tres atajos para el jugador que solo quiere salir del
+   * apuro. Cada uno lleva a donde ya está la respuesta (Mentor o guía).
+   */
+  onStuck?: (kind: StuckKind) => void;
 }
+
+export type StuckKind = "damage" | "dying" | "lost";
 
 type MascotVisualState = "ready" | "thinking" | "ai" | "warning" | "error";
 type MascotSpeechPriority = "notice" | "important";
@@ -85,6 +92,10 @@ const TEXT = texts(
     checking: "Contrastando este contexto con tu personaje, el motor y el diario…",
     answer: "Respuesta contextual",
     aiCouldNot: (reason: string) => `La IA no pudo decidir: ${reason}`,
+    stuckTitle: "¿Te has atascado?",
+    stuckDamage: "No hago daño",
+    stuckDying: "Me matan",
+    stuckLost: "No sé adónde ir",
   },
   {
     groundedAi: "Grounded AI",
@@ -119,6 +130,10 @@ const TEXT = texts(
     checking: "Checking this context against your character, the engine and the journal…",
     answer: "Contextual answer",
     aiCouldNot: (reason: string) => `The AI couldn't decide: ${reason}`,
+    stuckTitle: "Stuck?",
+    stuckDamage: "I lack damage",
+    stuckDying: "I keep dying",
+    stuckLost: "Where do I go?",
   },
 );
 type MascotText = (typeof TEXT)["es"];
@@ -168,12 +183,75 @@ function MentorRobot({
     >
       <img
         className="mentor-robot__art"
-        src="/mascot/exile-copilot-companion-v2.png"
+        src="/mascot/copiloto-sin-ojos.webp"
         alt=""
+        width={300}
+        height={341}
         draggable="false"
       />
+      <MentorEyes />
       <span className="mentor-robot__shadow" />
     </span>
+  );
+}
+
+/**
+ * Los ojos del Copiloto, dibujados sobre el visor vacío de la ilustración.
+ * El viewBox es el de la ilustración original (1176 × 1337): con
+ * `xMidYMid meet` se colocan igual que la imagen con `object-fit: contain`.
+ * Cada estado (lista, pensando, hablando, aviso, error) cambia los ojos solo
+ * con CSS; el componente no tiene lógica propia.
+ */
+function MentorEyes() {
+  const id = useId().replace(/:/g, "");
+  const glow = `ojos-brillo-${id}`;
+  const fill = `ojos-color-${id}`;
+  return (
+    <svg
+      className="mentor-robot__eyes"
+      viewBox="0 0 1176 1337"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
+          <stop className="mentor-robot__eye-core" offset="0" />
+          <stop className="mentor-robot__eye-edge" offset="1" />
+        </linearGradient>
+        <filter id={glow} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="9" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <g className="mentor-robot__eyes-look" filter={`url(#${glow})`}>
+        <g className="mentor-robot__eyes-open" fill={`url(#${fill})`}>
+          <path
+            className="mentor-robot__eye"
+            d="M366 524C366 486 384 464 406 464C428 464 446 486 446 524Q406 516 366 524Z"
+          />
+          <path
+            className="mentor-robot__eye"
+            d="M582 524C582 486 603 464 627 464C651 464 672 486 672 524Q627 516 582 524Z"
+          />
+        </g>
+        {/* Ojos contentos («^ ^») mientras habla con una respuesta. */}
+        <g
+          className="mentor-robot__eyes-happy"
+          fill="none"
+          stroke={`url(#${fill})`}
+          strokeWidth="16"
+          strokeLinecap="round"
+        >
+          <path d="M370 514Q406 470 442 514" />
+          <path d="M586 514Q627 470 668 514" />
+        </g>
+      </g>
+    </svg>
   );
 }
 
@@ -217,6 +295,7 @@ export function ContextualMentor({
   onAsk,
   onOpenMentor,
   placement = "floating",
+  onStuck,
 }: ContextualMentorProps) {
   const t = useText(TEXT);
   const requestLockedRef = useRef(false);
@@ -508,6 +587,34 @@ export function ContextualMentor({
           contentCollapsed && "hidden",
           placement === "inline" && "mentor-companion__body",
         )}>
+            {placement === "floating" && onStuck && (
+              <section
+                className="rounded-md border border-primary/30 bg-primary/5 p-3"
+                aria-label={t.stuckTitle}
+                data-testid="mentor-atascado"
+              >
+                <p className="text-sm font-semibold text-foreground">{t.stuckTitle}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {([
+                    ["damage", t.stuckDamage, Swords],
+                    ["dying", t.stuckDying, HeartCrack],
+                    ["lost", t.stuckLost, Compass],
+                  ] as const).map(([kind, label, Icon]) => (
+                    <Button
+                      key={kind}
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => onStuck(kind)}
+                      data-testid={`mentor-atascado-${kind}`}
+                    >
+                      <Icon className="size-4" aria-hidden="true" />
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </section>
+            )}
             <span
               className={cn(
                 "w-fit border px-2 py-0.5 text-xs font-semibold",
