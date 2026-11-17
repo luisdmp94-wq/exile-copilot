@@ -18,6 +18,8 @@ export const VISIT_SOURCES = [
   "discord",
   "tiktok",
   "x",
+  "steam",
+  "foro",
   "buscador",
   "otro",
 ] as const;
@@ -30,6 +32,9 @@ const SOURCE_HOSTS: Array<[RegExp, VisitSource]> = [
   [/(^|\.)discord(app)?\.com$|(^|\.)discord\.gg$/, "discord"],
   [/(^|\.)tiktok\.com$/, "tiktok"],
   [/(^|\.)x\.com$|(^|\.)twitter\.com$|(^|\.)t\.co$/, "x"],
+  [/(^|\.)steamcommunity\.com$|(^|\.)steampowered\.com$/, "steam"],
+  // El foro oficial de Path of Exile (es.pathofexile.com, www.pathofexile.com…).
+  [/(^|\.)pathofexile\.com$/, "foro"],
   [/(^|\.)google\.[a-z.]+$|(^|\.)bing\.com$|(^|\.)duckduckgo\.com$|(^|\.)search\.brave\.com$|(^|\.)ecosia\.org$/, "buscador"],
 ];
 
@@ -99,6 +104,39 @@ export const USAGE_EVENTS = [
 ] as const;
 export type UsageEvent = (typeof USAGE_EVENTS)[number];
 
+/**
+ * Cabecera con la que la web dice de dónde llegó esta visita, para sumar cada
+ * uso en su origen («desde Twitch: 2 piezas leídas»). Solo lleva el nombre
+ * del origen, de la lista cerrada de arriba.
+ */
+export const VISIT_SOURCE_HEADER = "x-visit-source";
+
+/** Lee esa cabecera; cualquier cosa rara cuenta como «directo». */
+export function sourceFromHeader(value: string | undefined): VisitSource {
+  const wanted = value?.trim().toLowerCase() ?? "";
+  return (VISIT_SOURCES as readonly string[]).includes(wanted) ? (wanted as VisitSource) : "directo";
+}
+
+/** Las grandes áreas de la web; cada visita cuenta una vez cada área que abre. */
+export const VISIT_AREAS = ["expediente", "plan", "crafting", "guias"] as const;
+export type VisitArea = (typeof VISIT_AREAS)[number];
+
+export const AreaBeaconSchema = z
+  .object({
+    area: z.enum(VISIT_AREAS),
+    source: z.enum(VISIT_SOURCES),
+  })
+  .strict();
+export type AreaBeacon = z.infer<typeof AreaBeaconSchema>;
+
+/** Lo de un origen en un día: visitantes, áreas abiertas y usos. */
+export const SourceDaySchema = z.object({
+  visitors: z.number().int(),
+  areas: z.record(z.string(), z.number().int()),
+  uses: z.record(z.string(), z.number().int()),
+});
+export type SourceDay = z.infer<typeof SourceDaySchema>;
+
 export const StatsDaySchema = z.object({
   day: z.string(),
   visitors: z.number().int(),
@@ -107,6 +145,9 @@ export const StatsDaySchema = z.object({
   sources: z.record(z.string(), z.number().int()),
   pages: z.record(z.string(), z.number().int()),
   uses: z.record(z.string(), z.number().int()),
+  areas: z.record(z.string(), z.number().int()).default({}),
+  /** Lo mismo, separado por origen. Los días anterior a este cambio vienen vacíos. */
+  bySource: z.record(z.string(), SourceDaySchema).default({}),
 });
 export type StatsDay = z.infer<typeof StatsDaySchema>;
 

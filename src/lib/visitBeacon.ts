@@ -1,4 +1,11 @@
-import { classifySource, looksLikeBot, pageOf, type VisitBeacon } from "@shared/visitStats";
+import {
+  classifySource,
+  looksLikeBot,
+  pageOf,
+  type VisitArea,
+  type VisitBeacon,
+  type VisitSource,
+} from "@shared/visitStats";
 
 /**
  * Lo mínimo del navegador que hace falta. Se declara aquí para que el archivo
@@ -9,13 +16,19 @@ interface PageLocation {
   search: string;
   hostname: string;
 }
+interface KeyValueStore {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
 interface BrowserLike {
-  window?: { localStorage: { getItem(key: string): string | null; setItem(key: string, value: string): void } };
+  window?: { localStorage: KeyValueStore; sessionStorage?: KeyValueStore };
 }
 const browser = globalThis as BrowserLike;
 
 const FIRST_VISIT_KEY = "exile-copilot:visitado";
 const LAST_DAY_KEY = "exile-copilot:ultimo-dia";
+/** De dónde llegó esta visita. Dura lo que la pestaña: al cerrarla se olvida. */
+const SESSION_SOURCE_KEY = "exile-copilot:origen-visita";
 
 /** Día en UTC, igual que en el servidor. */
 function today(now: Date): string {
@@ -38,6 +51,40 @@ function write(key: string, value: string): void {
   }
 }
 
+function readSession(key: string): string | null {
+  try {
+    return browser.window?.sessionStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(key: string, value: string): void {
+  try {
+    browser.window?.sessionStorage?.setItem(key, value);
+  } catch {
+    // Sin almacenamiento, los usos de esta visita cuentan como «directo».
+  }
+}
+
+/**
+ * El origen de esta visita. Al recargar o pasar de una página a otra el
+ * navegador ya no dice de dónde vino la persona: se recuerda el primero.
+ */
+function rememberSource(found: VisitSource): VisitSource {
+  if (found !== "directo") {
+    writeSession(SESSION_SOURCE_KEY, found);
+    return found;
+  }
+  return visitSource();
+}
+
+/** De dónde llegó esta visita, para sumar cada uso en su origen. */
+export function visitSource(): VisitSource {
+  const stored = readSession(SESSION_SOURCE_KEY);
+  return stored === null ? "directo" : classifySource("", stored, "");
+}
+
 /**
  * Lo que se envía al cargar la web. Las marcas «ya visitado» y «último día»
  * se quedan en este navegador; al servidor solo le llegan sí/no.
@@ -50,10 +97,36 @@ export function buildVisitBeacon(location: PageLocation, referrer: string, now =
   write(LAST_DAY_KEY, day);
   return {
     page: pageOf(location.pathname),
-    source: classifySource(referrer, new URLSearchParams(location.search).get("ref"), location.hostname),
+    source: rememberSource(
+      classifySource(referrer, new URLSearchParams(location.search).get("ref"), location.hostname),
+    ),
     firstVisit,
     firstToday,
   };
+}
+
+const sentAreas = new Set<VisitArea>();
+
+/**
+ * Esta visita ha abierto un área (guías, plan…). Cuenta una vez por área y
+ * carga de la página; nunca a un programa. Si falla, no pasa nada.
+ */
+export function sendAreaBeacon(area: VisitArea): void {
+  try {
+    if (sentAreas.has(area)) return;
+    const page = globalThis as unknown as { navigator: { userAgent?: string; webdriver?: boolean } };
+    if (looksLikeBot(page.navigator.userAgent, page.navigator.webdriver === true)) return;
+    sentAreas.add(area);
+    void fetch("/api/visit/area", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ area, source: visitSource() }),
+      credentials: "same-origin",
+      keepalive: true,
+    }).catch(() => undefined);
+  } catch {
+    // El contador nunca debe estorbar a la web.
+  }
 }
 
 /** Cuánto tiene que estar una persona en la página para contar como visita. */

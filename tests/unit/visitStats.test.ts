@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { classifySource, looksLikeBot, pageOf } from "../../shared/visitStats.js";
+import { classifySource, looksLikeBot, pageOf, sourceFromHeader } from "../../shared/visitStats.js";
 import { createDatabase } from "../../server/db/database.js";
-import { readStats, recordUse, recordVisit } from "../../server/analytics.js";
-import { buildVisitBeacon } from "../../src/lib/visitBeacon.js";
+import { readStats, recordArea, recordUse, recordVisit } from "../../server/analytics.js";
+import { buildVisitBeacon, visitSource } from "../../src/lib/visitBeacon.js";
 
 describe("de dónde llega una visita", () => {
   const own = "exilecopilot.com";
@@ -13,6 +13,16 @@ describe("de dónde llega una visita", () => {
     expect(classifySource("https://www.twitch.tv/", null, own)).toBe("twitch");
     expect(classifySource("https://www.google.es/", null, own)).toBe("buscador");
     expect(classifySource("https://discord.com/channels/1/2", null, own)).toBe("discord");
+    expect(classifySource("https://steamcommunity.com/app/2694490/discussions/", null, own)).toBe("steam");
+    expect(classifySource("https://es.pathofexile.com/forum/view-thread/4016512", null, own)).toBe("foro");
+    expect(classifySource("https://www.pathofexile.com/forum", null, own)).toBe("foro");
+  });
+
+  it("la cabecera de origen solo acepta nombres de la lista", () => {
+    expect(sourceFromHeader("twitch")).toBe("twitch");
+    expect(sourceFromHeader(" Steam ")).toBe("steam");
+    expect(sourceFromHeader("mi-nombre")).toBe("directo");
+    expect(sourceFromHeader(undefined)).toBe("directo");
   });
 
   it("sin página anterior, o desde la propia web, es «directo»", () => {
@@ -58,26 +68,68 @@ describe("contador por día", () => {
       sources: { reddit: 1, twitch: 1 },
       pages: { inicio: 2, guias: 1 },
       uses: { gema: 2 },
+      areas: {},
+      bySource: {
+        reddit: { visitors: 1, areas: {}, uses: {} },
+        twitch: { visitors: 1, areas: {}, uses: {} },
+        directo: { visitors: 0, areas: {}, uses: { gema: 2 } },
+      },
     });
     expect(yesterday).toMatchObject({ day: "2026-11-15", visitors: 0, visits: 0 });
     const columns = (db.prepare("PRAGMA table_info(daily_counts)").all() as Array<{ name: string }>).map((c) => c.name);
     expect(columns).toEqual(["day", "kind", "label", "count"]);
   });
+
+  it("separa áreas y usos por el sitio del que llegó la visita", () => {
+    const db = createDatabase(":memory:");
+    recordVisit(db, { page: "inicio", source: "twitch", firstVisit: true, firstToday: true }, now);
+    recordArea(db, { area: "guias", source: "twitch" }, now);
+    recordArea(db, { area: "expediente", source: "twitch" }, now);
+    recordArea(db, { area: "guias", source: "steam" }, now);
+    recordUse(db, "pieza-leida", now, "twitch");
+    recordUse(db, "pieza-leida", now, "twitch");
+    recordUse(db, "mentor", now);
+    const [today] = readStats(db, 1, now);
+    expect(today.areas).toEqual({ guias: 2, expediente: 1 });
+    expect(today.uses).toEqual({ "pieza-leida": 2, mentor: 1 });
+    expect(today.bySource.twitch).toEqual({
+      visitors: 1,
+      areas: { guias: 1, expediente: 1 },
+      uses: { "pieza-leida": 2 },
+    });
+    expect(today.bySource.steam).toEqual({ visitors: 0, areas: { guias: 1 }, uses: {} });
+    expect(today.bySource.directo?.uses).toEqual({ mentor: 1 });
+  });
 });
 
 describe("aviso de visita del navegador", () => {
   const store = new Map<string, string>();
+  const session = new Map<string, string>();
   const fakeWindow = {
     localStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
+    },
+    sessionStorage: {
+      getItem: (key: string) => session.get(key) ?? null,
+      setItem: (key: string, value: string) => void session.set(key, value),
     },
   };
   const place = (href: string) => new URL(href);
 
   afterEach(() => {
     store.clear();
+    session.clear();
     delete (globalThis as { window?: unknown }).window;
+  });
+
+  it("recuerda de dónde llegó la visita aunque recargue o cambie de página", () => {
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    const day = new Date("2026-11-16T10:00:00Z");
+    expect(visitSource()).toBe("directo");
+    expect(buildVisitBeacon(place("https://exilecopilot.com/?ref=twitch"), "", day).source).toBe("twitch");
+    expect(buildVisitBeacon(place("https://exilecopilot.com/guias/acto-1"), "https://exilecopilot.com/", day).source).toBe("twitch");
+    expect(visitSource()).toBe("twitch");
   });
 
   it("la primera visita es nueva y de hoy; la siguiente del mismo día, no", () => {

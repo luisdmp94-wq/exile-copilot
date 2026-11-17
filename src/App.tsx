@@ -126,6 +126,7 @@ const FeaturedBuildsSection = lazy(() =>
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import { pageLang, texts, useLang, useText } from "@/i18n/lang";
 import { EnglishSoon } from "@/i18n/EnglishSoon";
+import { sendAreaBeacon } from "@/lib/visitBeacon";
 import { englishMentorCue } from "@/lib/contextualMentorEn";
 import {
   contextualMentorCue,
@@ -329,6 +330,10 @@ export default function App() {
   const [tab, setTab] = useState<WorkspaceTab>(() =>
     openedFromGuideUrl() ? "guias" : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
   );
+  // Contador anónimo: qué áreas abre cada visita (una vez cada una), en la web publicada.
+  useEffect(() => {
+    if (import.meta.env.PROD) sendAreaBeacon(tab);
+  }, [tab]);
   // Las áreas pesadas se descargan al visitarlas por primera vez y después
   // permanecen montadas para no perder formularios, selección ni sesiones.
   const [mountedWorkspaces, setMountedWorkspaces] = useState<Set<WorkspaceTab>>(

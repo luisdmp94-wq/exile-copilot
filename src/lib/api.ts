@@ -84,6 +84,8 @@ import {
   type ReconcileSessionRequest,
 } from "@shared/api.js";
 import { pageLang } from "../i18n/lang";
+import { VISIT_SOURCE_HEADER } from "@shared/visitStats.js";
+import { visitSource } from "./visitBeacon";
 
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
 
@@ -144,6 +146,15 @@ async function parseJsonSafe(res: Response): Promise<unknown> {
   }
 }
 
+/** Dice de dónde llegó esta visita, para sumar el uso en su origen. Sin datos de la persona. */
+function withVisitSource(init?: RequestInit): RequestInit | undefined {
+  const source = visitSource();
+  if (source === "directo") return init;
+  const headers = new Headers(init?.headers);
+  headers.set(VISIT_SOURCE_HEADER, source);
+  return { ...init, headers };
+}
+
 async function request<S extends z.ZodTypeAny>(
   path: string,
   schema: S,
@@ -180,7 +191,7 @@ async function request<S extends z.ZodTypeAny>(
 
   try {
     const fetchResponse = fetch(path, {
-      ...init,
+      ...withVisitSource(init),
       signal: timeoutController?.signal ?? sourceSignal,
     });
     const res = await (deadline === null

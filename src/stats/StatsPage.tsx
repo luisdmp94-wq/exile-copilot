@@ -14,6 +14,8 @@ const SOURCE_LABELS: Record<string, string> = {
   discord: "Discord",
   tiktok: "TikTok",
   x: "X",
+  steam: "Steam",
+  foro: "Foro oficial",
   buscador: "Buscadores",
   otro: "Otros",
 };
@@ -25,6 +27,46 @@ const USE_LABELS: Record<string, string> = {
   mentor: "Preguntas al Mentor",
   "personaje-guardado": "Personajes guardados",
 };
+
+const AREA_LABELS: Record<string, string> = {
+  expediente: "Personaje y mentor",
+  plan: "Plan y mercado",
+  crafting: "Crafting",
+  guias: "Guías",
+};
+
+/** Por cada origen de los últimos 7 días: visitantes, qué áreas abren y qué usan. */
+function bySourceWeek(days: StatsDay[]): Array<{
+  source: string;
+  visitors: number;
+  areas: Array<[string, number]>;
+  uses: Array<[string, number]>;
+}> {
+  const sources = new Set(days.flatMap((day) => Object.keys(day.bySource)));
+  return [...sources]
+    .map((source) => ({
+      source,
+      visitors: sum(days, (day) => day.bySource[source]?.visitors ?? 0),
+      areas: sumRecord(days, (day) => day.bySource[source]?.areas ?? {}),
+      uses: sumRecord(days, (day) => day.bySource[source]?.uses ?? {}),
+    }))
+    .filter((row) => row.visitors > 0 || row.areas.length > 0 || row.uses.length > 0)
+    .sort((a, b) => b.visitors - a.visitors);
+}
+
+function SourceRows({ rows, labels }: { rows: Array<[string, number]>; labels: Record<string, string> }) {
+  if (rows.length === 0) return <span className="text-muted-foreground">nada</span>;
+  return (
+    <>
+      {rows.map(([label, count], index) => (
+        <span key={label}>
+          {index > 0 && " · "}
+          {labels[label] ?? label} <span className="font-semibold tabular-nums text-foreground">{count}</span>
+        </span>
+      ))}
+    </>
+  );
+}
 
 function readKey(): string {
   try {
@@ -155,10 +197,37 @@ export function StatsPage() {
             ))}
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <Breakdown title="De dónde vienen (7 días)" rows={sumRecord(week, (day) => day.sources)} labels={SOURCE_LABELS} />
+            <Breakdown title="Qué abren (7 días)" rows={sumRecord(week, (day) => day.areas)} labels={AREA_LABELS} />
             <Breakdown title="Qué usan (7 días)" rows={sumRecord(week, (day) => day.uses)} labels={USE_LABELS} />
           </div>
+
+          <section className="mt-3 rounded-xl border border-border bg-card p-4" data-testid="estadisticas-por-origen">
+            <h2 className="text-sm font-semibold">Qué hace la gente de cada sitio (7 días)</h2>
+            {bySourceWeek(week).length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Nada todavía.</p>
+            ) : (
+              <ul className="mt-2 space-y-3 text-sm">
+                {bySourceWeek(week).map((row) => (
+                  <li key={row.source}>
+                    <p className="font-semibold text-foreground">
+                      {SOURCE_LABELS[row.source] ?? row.source}
+                      <span className="ml-2 font-normal text-muted-foreground">
+                        {row.visitors} {row.visitors === 1 ? "visitante" : "visitantes"}
+                      </span>
+                    </p>
+                    <p className="text-muted-foreground">
+                      Abren: <SourceRows rows={row.areas} labels={AREA_LABELS} />
+                    </p>
+                    <p className="text-muted-foreground">
+                      Usan: <SourceRows rows={row.uses} labels={USE_LABELS} />
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="mt-3 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-semibold">Día a día (30 días)</h2>

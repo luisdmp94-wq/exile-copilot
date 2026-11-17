@@ -148,8 +148,15 @@ import {
   type PatchFeatureId,
 } from "../shared/patchCompatibility.js";
 import { auditRuntimeReadiness } from "./runtimeReadiness.js";
-import { readStats, recordUse, recordVisit } from "./analytics.js";
-import { VisitBeaconSchema, looksLikeBot, type UsageEvent } from "../shared/visitStats.js";
+import { readStats, recordArea, recordUse, recordVisit } from "./analytics.js";
+import {
+  AreaBeaconSchema,
+  VISIT_SOURCE_HEADER,
+  VisitBeaconSchema,
+  looksLikeBot,
+  sourceFromHeader,
+  type UsageEvent,
+} from "../shared/visitStats.js";
 import { loadReleaseEvidenceCatalog } from "./releaseEvidenceCatalog.js";
 import { FeaturedBuildCatalogSchema } from "../shared/featuredBuilds.js";
 import {
@@ -513,10 +520,11 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   app.use((req, res, next) => {
     const event = USAGE_ROUTES[`${req.method} ${req.path}`];
     if (event) {
+      const source = sourceFromHeader(req.get(VISIT_SOURCE_HEADER));
       res.on("finish", () => {
         if (res.statusCode >= 400 || databaseClosed) return;
         try {
-          recordUse(db, event);
+          recordUse(db, event, new Date(), source);
         } catch {
           // El contador nunca debe romper una respuesta ya enviada.
         }
@@ -611,6 +619,17 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       patchId: config.defaultPatch,
       checks,
     });
+  });
+
+  // POST /visit/area — esta visita abrió un área (guías, plan…), sin datos de la persona.
+  app.post("/visit/area", (req, res, next) => {
+    try {
+      const beacon = AreaBeaconSchema.parse(req.body);
+      if (!looksLikeBot(req.get("user-agent"))) recordArea(db, beacon);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
   });
 
   // POST /visit — una visita a la web, sin datos de la persona.
