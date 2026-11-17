@@ -48,7 +48,7 @@ export interface RewardCheckInput {
 }
 
 /** Penalización de resistencias elementales según el acto en el que se está. */
-const ACT_PENALTY: Record<number, number> = { 1: 0, 2: 10, 3: 20 };
+const ACT_PENALTY: Record<number, number> = { 1: 0, 2: 10, 3: 20, 4: 30 };
 
 export type RewardLang = "es" | "en";
 
@@ -76,6 +76,7 @@ const REWARD_WORDS = {
     spiritSum: (gear: number, sheet: number) => `Tu equipo da ${gear} de espíritu y tu hoja dice ${sheet}.`,
     partial: " Pero no has pegado todo el equipo, así que la resta no vale.",
     spiritThere: (amount: number) => ` Los ${amount} de esta recompensa están ahí.`,
+    spiritEarlier: (amount: number) => ` De lo que sobra, ${amount} son de recompensas de actos anteriores.`,
     oddSpirit: (extra: number, amount: number) =>
       ` Sobran ${extra}, que no llega a ${amount}: no puedo asegurarlo. Mira que el cetro pegado sea el que llevas.`,
     tellPoints: "Dime cuántos puntos de set de armas tienes en total (árbol de pasivas, tecla P, arriba a la derecha).",
@@ -107,6 +108,7 @@ const REWARD_WORDS = {
     spiritSum: (gear: number, sheet: number) => `Your gear gives ${gear} spirit and your sheet says ${sheet}.`,
     partial: " But you haven't pasted all your gear, so the subtraction doesn't hold.",
     spiritThere: (amount: number) => ` The ${amount} from this reward are there.`,
+    spiritEarlier: (amount: number) => ` Of what's left over, ${amount} come from earlier acts' rewards.`,
     oddSpirit: (extra: number, amount: number) =>
       ` ${extra} are left over, which isn't ${amount}: I can't be sure. Check that the sceptre you pasted is the one you're using.`,
     tellPoints: "Tell me how many weapon set points you have in total (passive tree, P key, top right).",
@@ -122,6 +124,10 @@ const TOLERANCE = 2;
 
 function claveSteps(guide: ActGuide): GuideRouteStep[] {
   return (guide.route ?? []).filter((step) => step.priority === "clave" && step.proof);
+}
+
+function spiritOf(guide: ActGuide): number {
+  return claveSteps(guide).reduce((total, step) => total + (step.proof?.kind === "spirit" ? step.proof.amount : 0), 0);
 }
 
 function weaponSetPointsOf(guide: ActGuide): number {
@@ -148,8 +154,8 @@ export function checkRewards(
 ): RewardLine[] {
   const w = REWARD_WORDS[lang];
   const steps = claveSteps(guide);
-  const penalty = input.currentAct === null ? 0 : (ACT_PENALTY[input.currentAct] ?? ACT_PENALTY[3]);
-  const nextPenalty = (ACT_PENALTY[guide.act + 1] ?? ACT_PENALTY[3]) - (ACT_PENALTY[guide.act] ?? 0);
+  const penalty = input.currentAct === null ? 0 : (ACT_PENALTY[input.currentAct] ?? ACT_PENALTY[4]);
+  const nextPenalty = (ACT_PENALTY[guide.act + 1] ?? ACT_PENALTY[4]) - (ACT_PENALTY[guide.act] ?? 0);
   const gear = resistancesFromItems([...input.items]);
   const partialGear = input.items.length < input.expectedPieces;
   const lines: RewardLine[] = [];
@@ -254,8 +260,11 @@ export function checkRewards(
         continue;
       }
       const fromGear = input.items.reduce((total, item) => total + itemSpirit(item), 0);
-      const extra = input.sheetSpirit - fromGear;
-      const sum = w.spiritSum(fromGear, input.sheetSpirit);
+      // El espíritu de actos anteriores también sobra en la resta: se descuenta.
+      const spiritBefore = earlier.reduce((total, other) => total + spiritOf(other), 0);
+      const extra = input.sheetSpirit - fromGear - spiritBefore;
+      const sum =
+        w.spiritSum(fromGear, input.sheetSpirit) + (spiritBefore > 0 ? w.spiritEarlier(spiritBefore) : "");
       if (partialGear) {
         lines.push({ zone: step.zone, reward, status: "unsure", text: `${sum}${w.partial}` });
       } else if (extra >= proof.amount) {

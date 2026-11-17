@@ -22,7 +22,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
   description:
     "Guía en español del acto 2 de Path of Exile 2 para novatos: Rudja y Jamanra, resistencias al fuego y al rayo, y recompensas que no debes saltarte.",
   summary: "Lo justo para llegar vivo al acto 3. Si no tienes tiempo, lee solo el recuadro de abajo.",
-  status: "borrador",
+  status: "revisada",
   checkedPatch: "0.5.5",
   checkedOn: "24-10-2026",
   readMinutes: 3,

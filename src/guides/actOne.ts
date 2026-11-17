@@ -16,7 +16,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
   description:
     "Guía en español del acto 1 de Path of Exile 2 para novatos: cómo vencer al conde Geonor, qué resistencias llevar y mejoras baratas.",
   summary: "Lo justo para llegar vivo al acto 2. Si no tienes tiempo, lee solo el recuadro de abajo.",
-  status: "borrador",
+  status: "revisada",
   checkedPatch: "0.5.5",
   checkedOn: "24-10-2026",
   readMinutes: 3,

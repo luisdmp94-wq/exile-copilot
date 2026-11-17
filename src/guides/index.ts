@@ -1,23 +1,25 @@
 import type { ActGuide } from "./guide";
 import { ACT_ONE_GUIDE } from "./actOne";
 import { ACT_TWO_GUIDE } from "./actTwo";
+import { ACT_THREE_GUIDE } from "./actThree";
 import { ACT_ONE_GUIDE_EN } from "./actOneEn";
 import { ACT_TWO_GUIDE_EN } from "./actTwoEn";
+import { ACT_THREE_GUIDE_EN } from "./actThreeEn";
 
 export type GuideLang = "es" | "en";
 
 /** Guías publicadas, en orden de campaña. */
-export const GUIDES: ActGuide[] = [ACT_ONE_GUIDE, ACT_TWO_GUIDE];
+export const GUIDES: ActGuide[] = [ACT_ONE_GUIDE, ACT_TWO_GUIDE, ACT_THREE_GUIDE];
 /** Las mismas guías en inglés: mismas direcciones (/guias/acto-1), mismos datos. */
-export const GUIDES_EN: ActGuide[] = [ACT_ONE_GUIDE_EN, ACT_TWO_GUIDE_EN];
+export const GUIDES_EN: ActGuide[] = [ACT_ONE_GUIDE_EN, ACT_TWO_GUIDE_EN, ACT_THREE_GUIDE_EN];
 
 export function guidesFor(lang: GuideLang): ActGuide[] {
   return lang === "en" ? GUIDES_EN : GUIDES;
 }
 
 /** Actos que aún no tienen guía; se anuncian como «pronto». */
-export const UPCOMING_GUIDES = ["Acto 3"];
-export const UPCOMING_GUIDES_EN = ["Act 3"];
+export const UPCOMING_GUIDES = ["Acto 4"];
+export const UPCOMING_GUIDES_EN = ["Act 4"];
 
 export const DEFAULT_GUIDE_SLUG = GUIDES[0].slug;
 
