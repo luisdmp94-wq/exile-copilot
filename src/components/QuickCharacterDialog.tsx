@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { texts, useLang, useText } from "@/i18n/lang";
 
 /** Clases tal como las nombra el cliente en español. */
 export const CHARACTER_CLASSES = [
@@ -27,6 +28,81 @@ export const CHARACTER_CLASSES = [
   "Duelista",
   "Sombra",
 ] as const;
+
+/** Las mismas clases con su nombre en el cliente en inglés. */
+const CLASS_EN: Record<(typeof CHARACTER_CLASSES)[number], string> = {
+  Bruja: "Witch",
+  Hechicera: "Sorceress",
+  Guerrero: "Warrior",
+  Monje: "Monk",
+  Mercenario: "Mercenary",
+  Exploradora: "Ranger",
+  Cazadora: "Huntress",
+  Druida: "Druid",
+  Templario: "Templar",
+  Merodeador: "Marauder",
+  Duelista: "Duelist",
+  Sombra: "Shadow",
+};
+
+/** La clase guardada (en cualquiera de los dos idiomas) → su nombre en español, que es el que usa el formulario. */
+function classId(stored: string): string {
+  if ((CHARACTER_CLASSES as readonly string[]).includes(stored)) return stored;
+  return CHARACTER_CLASSES.find((option) => CLASS_EN[option].toLowerCase() === stored.trim().toLowerCase()) ?? "";
+}
+
+const TEXT = texts(
+  {
+    completeTitle: "Completa tu personaje",
+    newTitle: "Tu personaje, en tres datos",
+    completeLead: "Solo falta esto. El equipo y lo demás que ya tenías se quedan como están.",
+    newLead: "Con esto ya sé qué build llevas y te aconsejo pensando en ella. Lo demás lo completas cuando quieras.",
+    pickClass: "Elige la clase de tu personaje.",
+    badLevel: "El nivel va de 1 a 100. Si no lo sabes, déjalo en blanco.",
+    defaultName: (className: string) => `Mi ${className.toLocaleLowerCase("es")}`,
+    myCharacter: "Mi personaje",
+    classLegend: "1. Clase",
+    classGroup: "Clase del personaje",
+    buildLabel: "2. Tu build en una frase",
+    buildPlaceholder: "Brujo de caos con esbirros",
+    buildHelp: "Di con qué haces daño (caos, fuego, hielo, rayo o físico) y si llevas esbirros. Es lo que más me ayuda.",
+    skillsLabel: "3. Tus habilidades",
+    typeAndEnter: "Escribe una y pulsa Intro",
+    add: "Añadir",
+    skillsList: "Habilidades del personaje",
+    remove: (name: string) => `Quitar ${name}`,
+    name: "Nombre (opcional)",
+    level: "Nivel (opcional)",
+    fullForm: "Prefiero el formulario completo",
+    save: "Guardar",
+    saveCharacter: "Guardar personaje",
+  },
+  {
+    completeTitle: "Complete your character",
+    newTitle: "Your character, in three answers",
+    completeLead: "Just this is missing. Your gear and everything else you had stay as they are.",
+    newLead: "With this I'll know your build and advise you with it in mind. You can fill in the rest whenever you like.",
+    pickClass: "Pick your character's class.",
+    badLevel: "Level goes from 1 to 100. If you don't know it, leave it blank.",
+    defaultName: (className: string) => `My ${className}`,
+    myCharacter: "My character",
+    classLegend: "1. Class",
+    classGroup: "Character class",
+    buildLabel: "2. Your build in one sentence",
+    buildPlaceholder: "Chaos warlock with minions",
+    buildHelp: "Say what you deal damage with (chaos, fire, cold, lightning or physical) and whether you use minions. That helps me most.",
+    skillsLabel: "3. Your skills",
+    typeAndEnter: "Type one and press Enter",
+    add: "Add",
+    skillsList: "Character skills",
+    remove: (name: string) => `Remove ${name}`,
+    name: "Name (optional)",
+    level: "Level (optional)",
+    fullForm: "I'd rather use the full form",
+    save: "Save",
+    saveCharacter: "Save character",
+  },
+);
 
 const MAX_SKILLS = 8;
 const GEM_CARD_STORAGE_KEY = "exile-copilot:asistencia";
@@ -87,6 +163,7 @@ export function QuickCharacterDialog({
   onCreate,
   onOpenFullEditor,
 }: QuickCharacterDialogProps) {
+  const t = useText(TEXT);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -96,12 +173,10 @@ export function QuickCharacterDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserRoundPlus className="size-5 text-primary" aria-hidden="true" />
-            {initial ? "Completa tu personaje" : "Tu personaje, en tres datos"}
+            {initial ? t.completeTitle : t.newTitle}
           </DialogTitle>
           <DialogDescription>
-            {initial
-              ? "Solo falta esto. El equipo y lo demás que ya tenías se quedan como están."
-              : "Con esto ya sé qué build llevas y te aconsejo pensando en ella. Lo demás lo completas cuando quieras."}
+            {initial ? t.completeLead : t.newLead}
           </DialogDescription>
         </DialogHeader>
         {/* El formulario se monta al abrir: así empieza limpio cada vez. */}
@@ -132,12 +207,13 @@ function QuickCharacterForm({
   onOpenFullEditor,
   onDone,
 }: QuickCharacterFormProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const [name, setName] = useState(initial?.name ?? "");
-  const [characterClass, setCharacterClass] = useState(
-    (CHARACTER_CLASSES as readonly string[]).includes(initial?.characterClass ?? "")
-      ? (initial?.characterClass ?? "")
-      : "",
-  );
+  // Se elige por el nombre en español; se guarda el del idioma de la web.
+  const [characterClass, setCharacterClass] = useState(() => classId(initial?.characterClass ?? ""));
+  const shownClass = (option: string) =>
+    lang === "en" ? (CLASS_EN[option as (typeof CHARACTER_CLASSES)[number]] ?? option) : option;
   const [level, setLevel] = useState(initial?.level ? String(initial.level) : "");
   const [archetype, setArchetype] = useState(initial?.archetype ?? "");
   // Empieza con las habilidades del personaje o, si no tiene, con las que el
@@ -152,13 +228,13 @@ function QuickCharacterForm({
   useEffect(() => {
     let cancelled = false;
     api
-      .gemSkills()
+      .gemSkills(lang)
       .then((response) => {
         if (!cancelled)
           setSkillNames(
             response.skills
               .map((item) => item.name)
-              .sort((a, b) => a.localeCompare(b, "es")),
+              .sort((a, b) => a.localeCompare(b, lang)),
           );
       })
       .catch(() => {
@@ -167,7 +243,7 @@ function QuickCharacterForm({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lang]);
 
   const addSkill = () => {
     const next = draftSkill.trim();
@@ -185,7 +261,7 @@ function QuickCharacterForm({
 
   const submit = async () => {
     if (!characterClass) {
-      setError("Elige la clase de tu personaje.");
+      setError(t.pickClass);
       return;
     }
     const parsedLevel = level.trim() === "" ? null : Number(level);
@@ -193,7 +269,7 @@ function QuickCharacterForm({
       parsedLevel !== null &&
       (!Number.isInteger(parsedLevel) || parsedLevel < 1 || parsedLevel > 100)
     ) {
-      setError("El nivel va de 1 a 100. Si no lo sabes, déjalo en blanco.");
+      setError(t.badLevel);
       return;
     }
     const pending = draftSkill.trim();
@@ -203,8 +279,8 @@ function QuickCharacterForm({
         : skills;
     setError(null);
     const saved = await onCreate({
-      name: name.trim() || `Mi ${characterClass.toLocaleLowerCase("es")}`,
-      characterClass,
+      name: name.trim() || t.defaultName(shownClass(characterClass)),
+      characterClass: shownClass(characterClass),
       level: parsedLevel,
       archetype: archetype.trim(),
       skills: allSkills,
@@ -222,12 +298,12 @@ function QuickCharacterForm({
     >
       <fieldset>
         <legend className="text-sm font-medium text-foreground">
-          1. Clase
+          {t.classLegend}
         </legend>
         <div
           className="mt-2 flex flex-wrap gap-1.5"
           role="group"
-          aria-label="Clase del personaje"
+          aria-label={t.classGroup}
         >
           {CHARACTER_CLASSES.map((option) => (
             <Button
@@ -242,7 +318,7 @@ function QuickCharacterForm({
               }}
               data-testid={`alta-clase-${option}`}
             >
-              {option}
+              {shownClass(option)}
             </Button>
           ))}
         </div>
@@ -253,20 +329,19 @@ function QuickCharacterForm({
           htmlFor="alta-build"
           className="text-sm font-medium text-foreground"
         >
-          2. Tu build en una frase
+          {t.buildLabel}
         </Label>
         <Input
           id="alta-build"
           value={archetype}
           maxLength={200}
           onChange={(event) => setArchetype(event.target.value)}
-          placeholder="Brujo de caos con esbirros"
+          placeholder={t.buildPlaceholder}
           className="mt-2"
           data-testid="alta-build"
         />
         <p className="mt-1 text-xs text-muted-foreground">
-          Di con qué haces daño (caos, fuego, hielo, rayo o físico) y si llevas
-          esbirros. Es lo que más me ayuda.
+          {t.buildHelp}
         </p>
       </div>
 
@@ -275,7 +350,7 @@ function QuickCharacterForm({
           htmlFor="alta-habilidad"
           className="text-sm font-medium text-foreground"
         >
-          3. Tus habilidades
+          {t.skillsLabel}
         </Label>
         <div className="mt-2 flex gap-2">
           <Input
@@ -289,7 +364,7 @@ function QuickCharacterForm({
                 addSkill();
               }
             }}
-            placeholder="Escribe una y pulsa Intro"
+            placeholder={t.typeAndEnter}
             autoComplete="off"
             data-testid="alta-habilidad"
           />
@@ -299,7 +374,7 @@ function QuickCharacterForm({
             onClick={addSkill}
             data-testid="alta-anadir-habilidad"
           >
-            Añadir
+            {t.add}
           </Button>
         </div>
         <datalist id="alta-habilidades">
@@ -310,7 +385,7 @@ function QuickCharacterForm({
         {skills.length > 0 && (
           <ul
             className="mt-2 flex flex-wrap gap-1.5"
-            aria-label="Habilidades del personaje"
+            aria-label={t.skillsList}
             data-testid="alta-lista-habilidades"
           >
             {skills.map((item) => (
@@ -322,7 +397,7 @@ function QuickCharacterForm({
                 <button
                   type="button"
                   className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
-                  aria-label={`Quitar ${item}`}
+                  aria-label={t.remove(item)}
                   onClick={() =>
                     setSkills(skills.filter((skill) => skill !== item))
                   }
@@ -341,7 +416,7 @@ function QuickCharacterForm({
             htmlFor="alta-nombre"
             className="text-xs text-muted-foreground"
           >
-            Nombre (opcional)
+            {t.name}
           </Label>
           <Input
             id="alta-nombre"
@@ -349,9 +424,7 @@ function QuickCharacterForm({
             maxLength={60}
             onChange={(event) => setName(event.target.value)}
             placeholder={
-              characterClass
-                ? `Mi ${characterClass.toLocaleLowerCase("es")}`
-                : "Mi personaje"
+              characterClass ? t.defaultName(shownClass(characterClass)) : t.myCharacter
             }
             className="mt-1"
             data-testid="alta-nombre"
@@ -359,7 +432,7 @@ function QuickCharacterForm({
         </div>
         <div>
           <Label htmlFor="alta-nivel" className="text-xs text-muted-foreground">
-            Nivel (opcional)
+            {t.level}
           </Label>
           <Input
             id="alta-nivel"
@@ -393,13 +466,13 @@ function QuickCharacterForm({
           onClick={onOpenFullEditor}
           data-testid="alta-rapida-completo"
         >
-          Prefiero el formulario completo
+          {t.fullForm}
         </button>
         <Button type="submit" disabled={saving} data-testid="alta-guardar">
           {saving && (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           )}
-          {initial ? "Guardar" : "Guardar personaje"}
+          {initial ? t.save : t.saveCharacter}
         </Button>
       </div>
     </form>

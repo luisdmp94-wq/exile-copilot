@@ -126,6 +126,7 @@ const FeaturedBuildsSection = lazy(() =>
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import { texts, useLang, useText } from "@/i18n/lang";
 import { EnglishSoon } from "@/i18n/EnglishSoon";
+import { englishMentorCue } from "@/lib/contextualMentorEn";
 import {
   contextualMentorCue,
   type ContextualMentorAsk,
@@ -199,6 +200,9 @@ const APP_TEXT = texts(
     guides: "Guías",
     guidesHint: "Cómo pasar cada acto sin morir",
     pricesNote: "Los precios proceden de poe.ninja y las referencias de builds de la comunidad no están verificadas.",
+    patchBlocked: (patch: string) =>
+      `El parche ${patch} aún no está revisado. No analizaré mejoras ni acciones mecánicas con datos anteriores.`,
+    completeFirst: (what: string) => `Completa ${what} antes de pedirme una prioridad del personaje.`,
   },
   {
     backArea: "Back to the previous area",
@@ -220,6 +224,9 @@ const APP_TEXT = texts(
     guides: "Guides",
     guidesHint: "How to get through each act alive",
     pricesNote: "Prices come from poe.ninja, and community build references are not verified.",
+    patchBlocked: (patch: string) =>
+      `Patch ${patch} hasn't been reviewed yet. I won't analyse upgrades or mechanical actions with older data.`,
+    completeFirst: (what: string) => `Fill in ${what} before asking me for a character priority.`,
   },
 );
 
@@ -304,8 +311,12 @@ export default function App() {
     text: string;
     seq: number;
   } | null>(null);
-  const [contextualCue, setContextualCue] = useState(() =>
-    contextualMentorCue({ type: "welcome" }),
+  // Se guarda el último aviso y no su texto: así, al cambiar de idioma, la
+  // mascota repite el mismo aviso en el idioma nuevo.
+  const [contextualEvent, setContextualEvent] = useState<ContextualMentorEvent>({ type: "welcome" });
+  const contextualCue = useMemo(
+    () => (lang === "en" ? englishMentorCue(contextualEvent) : null) ?? contextualMentorCue(contextualEvent),
+    [contextualEvent, lang],
   );
   const [contextualAnswer, setContextualAnswer] = useState<MentorAnswer | null>(null);
   const [contextualError, setContextualError] = useState<string | null>(null);
@@ -388,7 +399,7 @@ export default function App() {
 
   const announceMentor = useCallback((event: ContextualMentorEvent) => {
     contextualSeqRef.current += 1;
-    setContextualCue(contextualMentorCue(event));
+    setContextualEvent(event);
     setContextualAnswer(null);
     setContextualError(null);
     setContextualLoadingSeq(null);
@@ -2255,14 +2266,12 @@ export default function App() {
         }
         blockedReason={
           patchGuidanceBlocked
-            ? `El parche ${activePatchCompatibility?.patchId} aún no está revisado. No analizaré mejoras ni acciones mecánicas con datos anteriores.`
+            ? t.patchBlocked(activePatchCompatibility?.patchId ?? "")
             : character.profile !== null &&
                 !mentorReadiness.ready &&
                 contextualCue.ask !== null &&
                 contextualCue.ask.craftingState === undefined
-              ? `Completa ${mentorReadiness.issues
-                  .map((issue) => issue.label.toLowerCase())
-                  .join(", ")} antes de pedirme una prioridad del personaje.`
+              ? t.completeFirst(mentorReadiness.issues.map((issue) => issue.label.toLowerCase()).join(", "))
               : null
         }
         collapsed={contextualCollapsed}

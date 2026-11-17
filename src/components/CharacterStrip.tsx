@@ -2,16 +2,44 @@ import { Heart } from "lucide-react";
 import type { CharacterProfile, ResistanceKind } from "@shared/domain.js";
 import { formatCharacterLevel, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    res: { fire: "Fuego", cold: "Hielo", lightning: "Rayo", chaos: "Caos" } as Record<ResistanceKind, string>,
+    unknown: (label: string) => `${label}: dato desconocido`,
+    short: (label: string, value: number, missing: number, cap: number) =>
+      `${label} ${value}%: te faltan ${missing} puntos para el tope del ${cap}%`,
+    level: (level: string) => `nivel ${level}`,
+    saved: "Guardado",
+    unsaved: "Sin guardar",
+    league: (league: string) => `liga ${league}`,
+    patch: (patch: string) => `parche ${patch}`,
+    unknownLeague: "desconocida",
+    unknownPatch: "desconocido",
+    life: "Vida",
+  },
+  {
+    res: { fire: "Fire", cold: "Cold", lightning: "Lightning", chaos: "Chaos" } as Record<ResistanceKind, string>,
+    unknown: (label: string) => `${label}: unknown`,
+    short: (label: string, value: number, missing: number, cap: number) =>
+      `${label} ${value}%: ${missing} points short of the ${cap}% cap`,
+    level: (level: string) => `level ${level}`,
+    saved: "Saved",
+    unsaved: "Not saved",
+    league: (league: string) => `league ${league}`,
+    patch: (patch: string) => `patch ${patch}`,
+    unknownLeague: "unknown",
+    unknownPatch: "unknown",
+    life: "Life",
+  },
+);
+type StripText = (typeof TEXT)["es"];
 
 /** Tope normal de resistencia elemental en PoE2. */
 const RESISTANCE_CAP = 75;
 
-const RESISTANCES: Array<{ kind: ResistanceKind; label: string }> = [
-  { kind: "fire", label: "Fuego" },
-  { kind: "cold", label: "Hielo" },
-  { kind: "lightning", label: "Rayo" },
-  { kind: "chaos", label: "Caos" },
-];
+const RESISTANCES: ResistanceKind[] = ["fire", "cold", "lightning", "chaos"];
 
 type Tone = "ok" | "warn" | "danger" | "unknown";
 
@@ -42,10 +70,10 @@ const TONE_VALUE: Record<Tone, string> = {
   unknown: "text-muted-foreground",
 };
 
-function resistanceTitle(label: string, kind: ResistanceKind, value: number | null): string {
-  if (value === null) return `${label}: dato desconocido`;
+function resistanceTitle(label: string, kind: ResistanceKind, value: number | null, t: StripText): string {
+  if (value === null) return t.unknown(label);
   if (kind !== "chaos" && value < RESISTANCE_CAP) {
-    return `${label} ${value}%: te faltan ${RESISTANCE_CAP - value} puntos para el tope del ${RESISTANCE_CAP}%`;
+    return t.short(label, value, RESISTANCE_CAP - value, RESISTANCE_CAP);
   }
   return `${label} ${value}%`;
 }
@@ -60,10 +88,11 @@ interface CharacterStripProps {
  * las tres áreas. Es solo lectura; editar sigue en «Editar expediente».
  */
 export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
+  const t = useText(TEXT);
   const subtitle = [
     profile.characterClass,
     profile.ascendancy,
-    `nivel ${formatCharacterLevel(profile)}`,
+    t.level(formatCharacterLevel(profile)),
   ]
     .filter((part) => part !== null && part !== undefined && part !== "")
     .join(" · ");
@@ -91,19 +120,20 @@ export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
             )}
             data-testid="estado-memoria-build"
           >
-            {persisted ? "Guardado" : "Sin guardar"}
+            {persisted ? t.saved : t.unsaved}
           </span>
         </div>
         <p className="mt-0.5 truncate text-sm text-muted-foreground">
           {subtitle}
           <span className="hidden 2xl:inline">
-            {" "}· liga {profile.league || "desconocida"} · parche {profile.patch || "desconocido"}
+            {" "}· {t.league(profile.league || t.unknownLeague)} · {t.patch(profile.patch || t.unknownPatch)}
           </span>
         </p>
       </div>
 
       <dl className="grid grid-cols-4 gap-3 sm:gap-4 md:w-[26rem] md:shrink-0 lg:w-[30rem] lg:grid-cols-5">
-        {RESISTANCES.map(({ kind, label }) => {
+        {RESISTANCES.map((kind) => {
+          const label = t.res[kind];
           const value = profile.resistances[kind];
           const tone = resistanceTone(kind, value);
           const fill = value === null ? 0 : Math.max(0, Math.min(100, (value / RESISTANCE_CAP) * 100));
@@ -111,7 +141,7 @@ export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
             <div
               key={kind}
               className="min-w-0"
-              title={resistanceTitle(label, kind, value)}
+              title={resistanceTitle(label, kind, value, t)}
               data-testid={`franja-resistencia-${kind}`}
               data-tone={tone}
             >
@@ -134,7 +164,7 @@ export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
           <div className="flex items-baseline justify-between gap-1 text-xs">
             <dt className="flex items-center gap-1 truncate text-muted-foreground">
               <Heart className="size-3 shrink-0" aria-hidden="true" />
-              Vida
+              {t.life}
             </dt>
             <dd className="font-semibold tabular-nums text-foreground">
               {profile.life === undefined ? "—" : formatNumber(profile.life)}

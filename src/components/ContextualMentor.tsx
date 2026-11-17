@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Bot, ChevronDown, ChevronUp, MessageCircleMore, Sparkles, X } from "lucide-react";
+import { texts, useText } from "@/i18n/lang";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -50,12 +51,84 @@ const SOURCE_STYLES: Record<ContextualMentorCue["source"], string> = {
   warning: "border-amber-400/40 bg-amber-400/10 text-amber-200",
 };
 
-function answerLabel(answer: MentorAnswer): string {
+const TEXT = texts(
+  {
+    groundedAi: "IA fundamentada",
+    rulesFallback: "Respaldo del motor de reglas",
+    engine: "Respuesta del motor",
+    thinking: "Pensando",
+    aiReady: "IA lista",
+    attention: "Atención",
+    copilot: "Copiloto",
+    news: "Novedad",
+    region: "Mentor contextual",
+    openExplanation: (title: string) => `Abrir explicación del Copiloto: ${title}`,
+    seeExplanation: "Ver explicación",
+    closeMessage: "Cerrar mensaje del Copiloto",
+    openContextual: "Abrir mentor contextual",
+    closeContextual: "Cerrar mentor contextual",
+    titleOpen: (title: string) => `${title}. Abrir explicación`,
+    openMentor: "Abrir mentor",
+    closeMentor: "Cerrar mentor",
+    openChat: "Abrir conversación con tu Copiloto",
+    talk: "Hablar con tu Copiloto",
+    yourCopilot: "Tu Copiloto",
+    expand: "Desplegar mentor contextual",
+    collapse: "Plegar mentor contextual",
+    thinkingDots: "Pensando…",
+    waiting: "Esperando revisión",
+    askAgain: "Preguntar de nuevo",
+    askHim: "Preguntarle",
+    analyse: "Analizar este contexto",
+    chat: "Abrir chat",
+    conversation: "Ver conversación",
+    checking: "Contrastando este contexto con tu personaje, el motor y el diario…",
+    answer: "Respuesta contextual",
+    aiCouldNot: (reason: string) => `La IA no pudo decidir: ${reason}`,
+  },
+  {
+    groundedAi: "Grounded AI",
+    rulesFallback: "Rules engine fallback",
+    engine: "Engine answer",
+    thinking: "Thinking",
+    aiReady: "AI ready",
+    attention: "Heads up",
+    copilot: "Copilot",
+    news: "New",
+    region: "Contextual mentor",
+    openExplanation: (title: string) => `Open the Copilot's explanation: ${title}`,
+    seeExplanation: "See explanation",
+    closeMessage: "Close the Copilot's message",
+    openContextual: "Open the contextual mentor",
+    closeContextual: "Close the contextual mentor",
+    titleOpen: (title: string) => `${title}. Open explanation`,
+    openMentor: "Open mentor",
+    closeMentor: "Close mentor",
+    openChat: "Open the conversation with your Copilot",
+    talk: "Talk to your Copilot",
+    yourCopilot: "Your Copilot",
+    expand: "Expand the contextual mentor",
+    collapse: "Collapse the contextual mentor",
+    thinkingDots: "Thinking…",
+    waiting: "Waiting for review",
+    askAgain: "Ask again",
+    askHim: "Ask",
+    analyse: "Analyse this context",
+    chat: "Open chat",
+    conversation: "See conversation",
+    checking: "Checking this context against your character, the engine and the journal…",
+    answer: "Contextual answer",
+    aiCouldNot: (reason: string) => `The AI couldn't decide: ${reason}`,
+  },
+);
+type MascotText = (typeof TEXT)["es"];
+
+function answerLabel(answer: MentorAnswer, t: MascotText): string {
   if (answer.responseMode === "ai") {
-    return answer.model ? `IA fundamentada · ${answer.model}` : "IA fundamentada";
+    return answer.model ? `${t.groundedAi} · ${answer.model}` : t.groundedAi;
   }
-  if (answer.responseMode === "rules_fallback") return "Respaldo del motor de reglas";
-  return "Respuesta del motor";
+  if (answer.responseMode === "rules_fallback") return t.rulesFallback;
+  return t.engine;
 }
 
 function mascotVisualState(
@@ -72,11 +145,11 @@ function mascotVisualState(
   return "ready";
 }
 
-function mascotStatusLabel(state: MascotVisualState): string {
-  if (state === "thinking") return "Pensando";
-  if (state === "ai") return "IA lista";
-  if (state === "warning" || state === "error") return "Atención";
-  return "Copiloto";
+function mascotStatusLabel(state: MascotVisualState, t: MascotText): string {
+  if (state === "thinking") return t.thinking;
+  if (state === "ai") return t.aiReady;
+  if (state === "warning" || state === "error") return t.attention;
+  return t.copilot;
 }
 
 function MentorRobot({
@@ -145,6 +218,7 @@ export function ContextualMentor({
   onOpenMentor,
   placement = "floating",
 }: ContextualMentorProps) {
+  const t = useText(TEXT);
   const requestLockedRef = useRef(false);
   const shellRef = useRef<HTMLElement>(null);
   const askButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -161,7 +235,7 @@ export function ContextualMentor({
     shouldSpeakAutomatically(cue, error) &&
     !acknowledgedSpeechKeys.has(speechKey);
   const visualState = mascotVisualState(cue, answer, loading, error, blockedReason);
-  const visualStatus = mascotStatusLabel(visualState);
+  const visualStatus = mascotStatusLabel(visualState, t);
 
   useEffect(() => {
     if (!loading) requestLockedRef.current = false;
@@ -275,7 +349,7 @@ export function ContextualMentor({
           ? "mentor-floating-shell fixed bottom-3 right-3 z-40 sm:bottom-5 sm:right-5"
           : "mentor-lens relative z-10 w-full",
       )}
-      aria-label="Mentor contextual"
+      aria-label={t.region}
       data-testid="mentor-contextual"
       data-placement={placement}
       data-version="4"
@@ -299,21 +373,21 @@ export function ContextualMentor({
             type="button"
             className="mentor-speech-bubble__open"
             onClick={openFromSpeech}
-            aria-label={`Abrir explicación del Copiloto: ${cue.title}`}
+            aria-label={t.openExplanation(cue.title)}
             data-testid="mentor-speech-open"
           >
             <span className="mentor-speech-bubble__speaker">
-              Copiloto · {speechPriority === "important" ? "Atención" : "Novedad"}
+              {t.copilot} · {speechPriority === "important" ? t.attention : t.news}
             </span>
             <strong>{cue.title}</strong>
             <span className="mentor-speech-bubble__message">{error ?? cue.message}</span>
-            <span className="mentor-speech-bubble__action">Ver explicación</span>
+            <span className="mentor-speech-bubble__action">{t.seeExplanation}</span>
           </button>
           <button
             type="button"
             className="mentor-speech-bubble__dismiss"
             onClick={acknowledgeSpeech}
-            aria-label="Cerrar mensaje del Copiloto"
+            aria-label={t.closeMessage}
             data-testid="mentor-speech-dismiss"
           >
             <X className="size-3.5" aria-hidden="true" />
@@ -330,14 +404,14 @@ export function ContextualMentor({
           data-source={cue.source}
           data-attention={speechVisible ? "true" : "false"}
           onClick={toggleFloatingMentor}
-          aria-label={collapsed ? "Abrir mentor contextual" : "Cerrar mentor contextual"}
+          aria-label={collapsed ? t.openContextual : t.closeContextual}
           aria-expanded={!collapsed}
           title={
             collapsed && speechVisible
-              ? `${cue.title}. Abrir explicación`
+              ? t.titleOpen(cue.title)
               : collapsed
-                ? "Abrir mentor"
-                : "Cerrar mentor"
+                ? t.openMentor
+                : t.closeMentor
           }
           data-testid="mentor-mascota"
         >
@@ -365,8 +439,8 @@ export function ContextualMentor({
             data-state={visualState}
             data-source={cue.source}
             onClick={onOpenMentor}
-            aria-label="Abrir conversación con tu Copiloto"
-            title="Hablar con tu Copiloto"
+            aria-label={t.openChat}
+            title={t.talk}
             data-testid="mentor-mascota"
           >
             <MentorRobot state={visualState} source={cue.source} />
@@ -396,7 +470,7 @@ export function ContextualMentor({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-primary/75">
-              {placement === "inline" ? "Tu Copiloto" : "Mentor contextual"}
+              {placement === "inline" ? t.yourCopilot : t.region}
             </p>
             <p
               className="truncate text-sm font-semibold text-foreground"
@@ -411,7 +485,7 @@ export function ContextualMentor({
               variant="ghost"
               size="icon"
               className="size-8 shrink-0"
-              aria-label={collapsed ? "Desplegar mentor contextual" : "Plegar mentor contextual"}
+              aria-label={collapsed ? t.expand : t.collapse}
               aria-expanded={!collapsed}
               data-testid="mentor-contextual-plegar"
               onClick={() => onCollapsedChange(!collapsed)}
@@ -483,44 +557,44 @@ export function ContextualMentor({
                 >
                   <Sparkles className={cn("size-4", loading && "animate-pulse")} aria-hidden="true" />
                   {loading
-                    ? "Pensando…"
+                    ? t.thinkingDots
                     : blockedReason
-                      ? "Esperando revisión"
+                      ? t.waiting
                     : answer
-                      ? "Preguntar de nuevo"
+                      ? t.askAgain
                       : placement === "inline"
-                        ? "Preguntarle"
-                        : "Analizar este contexto"}
+                        ? t.askHim
+                        : t.analyse}
                 </Button>
               )}
               <Button type="button" size="sm" variant="outline" onClick={onOpenMentor}>
                 <MessageCircleMore className="size-4" aria-hidden="true" />
-                {placement === "inline" ? "Abrir chat" : "Ver conversación"}
+                {placement === "inline" ? t.chat : t.conversation}
               </Button>
             </div>
 
             {loading && (
               <p className="text-xs text-muted-foreground" data-testid="mentor-contextual-cargando">
-                Contrastando este contexto con tu personaje, el motor y el diario…
+                {t.checking}
               </p>
             )}
 
             {answer !== null && !loading && (
               <section
                 className="border-l-2 border-emerald-400/50 bg-emerald-400/5 px-3 py-2"
-                aria-label="Respuesta contextual"
+                aria-label={t.answer}
                 data-testid="mentor-contextual-respuesta"
               >
                 <p
                   className="text-xs font-semibold text-emerald-200"
                   data-testid="mentor-contextual-modo"
                 >
-                  {answerLabel(answer)}
+                  {answerLabel(answer, t)}
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-foreground">{answer.answer}</p>
                 {answer.responseMode === "rules_fallback" && answer.fallbackReason && (
                   <p className="mt-1 text-xs text-amber-200">
-                    La IA no pudo decidir: {answer.fallbackReason}
+                    {t.aiCouldNot(answer.fallbackReason)}
                   </p>
                 )}
               </section>
