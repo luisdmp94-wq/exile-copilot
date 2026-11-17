@@ -49,6 +49,9 @@ export function cleanAiText(value: string, max = 400): string {
 }
 
 export function aiFailureReason(error: unknown): string {
+  // Causa real en el registro del servidor (sin datos del jugador), para
+  // distinguir caídas del proveedor, JSON roto o motivos sin respaldo.
+  console.warn(`[gemas-ia] se usaron las reglas: ${error instanceof Error ? error.message : String(error)}`);
   return error instanceof Error && error.name === "AbortError"
     ? "La IA tardó demasiado; se usaron las reglas."
     : "La IA no dio una respuesta válida; se usaron las reglas.";

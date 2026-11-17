@@ -17,6 +17,7 @@ import {
   assessPurposefulCraftBase,
   chooseNextStep,
   interpretCoachGoal,
+  looksLikeCharacterQuestion,
   readPurposefulCraftResult,
   suggestCraftingFocusFromContext,
   type CoachDirection,
@@ -149,6 +150,11 @@ interface CraftingCoachProps {
   /** El banco abierto ya muestra este mismo aviso junto a los controles bloqueados. */
   showInitialRepairBanner?: boolean;
   onMentorContext?: (event: ContextualMentorEvent) => void;
+  /**
+   * Lleva una pregunta sobre el personaje («¿por qué no hago daño?») al
+   * Mentor. Sin personaje no existe: entonces se ofrece crearlo.
+   */
+  onAskMentor?: (question: string) => void;
 }
 
 /** Cómo copiar el objeto, en una sola frase. */
@@ -564,6 +570,7 @@ export function CraftingCoach({
   onOpenPlanMarket,
   showInitialRepairBanner = true,
   onMentorContext,
+  onAskMentor,
 }: CraftingCoachProps) {
   const selectedItemSimulationMode = selectedItem && isCraftingExampleItem(selectedItem)
     ? "example" as const
@@ -581,6 +588,8 @@ export function CraftingCoach({
   const [direction, setDirection] = useState<CoachDirection | null>(initialProgress?.direction ?? null);
   const [focus, setFocus] = useState<CoachFocus | null>(initialProgress?.focus ?? null);
   const [goalText, setGoalText] = useState(initialProgress?.goalText ?? "");
+  /** Pregunta sobre el personaje detectada al pulsar; no se guarda en el progreso. */
+  const [characterQuestion, setCharacterQuestion] = useState<string | null>(null);
   const [goalIntent, setGoalIntent] = useState<CoachGoalIntent>(initialProgress?.goalIntent ?? "incremental");
   const [goalSource, setGoalSource] = useState<CoachGoalSource>(initialProgress?.goalSource ?? "player");
   const [directionChosen, setDirectionChosen] = useState(initialProgress?.directionChosen ?? false);
@@ -980,7 +989,13 @@ export function CraftingCoach({
   const targetFocuses =
     contextSuggestion.source === "target" ? contextSuggestion.focuses : [];
 
+  const goalIsCharacterQuestion = looksLikeCharacterQuestion(goalText);
   const submitGoal = () => {
+    if (goalIsCharacterQuestion) {
+      setCharacterQuestion(goalText.trim());
+      return;
+    }
+    setCharacterQuestion(null);
     setGoalSource("player");
     const interpretation = interpretCoachGoal(goalText, activeItem);
     setGoalIntent(interpretation.intent);
@@ -1359,6 +1374,7 @@ export function CraftingCoach({
                 maxLength={240}
                 onChange={(event) => {
                   setGoalText(event.target.value);
+                  setCharacterQuestion(null);
                   setGoalIntent("incremental");
                   setDirection(null);
                   setFocus(null);
@@ -1374,15 +1390,24 @@ export function CraftingCoach({
               <Button
                 className="mt-3 w-full sm:w-auto"
                 type="button"
-                variant={activeNeedsRepair || (noEvidence && focus === null) ? "secondary" : "default"}
-                disabled={activeNeedsRepair || goalText.trim() === "" || (noEvidence && focus === null)}
+                variant={
+                  !goalIsCharacterQuestion && (activeNeedsRepair || (noEvidence && focus === null))
+                    ? "secondary"
+                    : "default"
+                }
+                disabled={
+                  goalText.trim() === "" ||
+                  // Una pregunta sobre el personaje siempre puede pasar al Mentor,
+                  // aunque la pieza necesite reparación.
+                  (!goalIsCharacterQuestion && (activeNeedsRepair || (noEvidence && focus === null)))
+                }
                 onClick={submitGoal}
                 data-testid="coach-interpretar-objetivo"
               >
                 Dime el siguiente paso
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Button>
-              {(activeNeedsRepair || (noEvidence && focus === null)) && (
+              {!goalIsCharacterQuestion && (activeNeedsRepair || (noEvidence && focus === null)) && (
                 <span className="mt-2 block text-xs font-medium text-amber-300" role="status">
                   {activeNeedsRepair ? "Repara primero la lectura de la pieza." : "Elige un objetivo exacto."}
                 </span>
@@ -1453,6 +1478,39 @@ export function CraftingCoach({
                   }}
                 />
               </div>
+              {characterQuestion !== null && (
+                <div
+                  className="mt-3 rounded-md border border-sky-500/40 bg-sky-500/[0.07] p-3"
+                  data-testid="coach-pregunta-personaje"
+                  role="status"
+                >
+                  <p className="text-xs font-semibold text-sky-300">Pregunta sobre tu personaje</p>
+                  <h4 className="mt-1 text-base font-semibold text-foreground">
+                    Eso no se arregla con esta pieza
+                  </h4>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    Crafting solo mejora un objeto con monedas. Para saber por qué no haces daño o por qué te matan, el Mentor mira tu personaje entero: gemas, objetos y nivel.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {onAskMentor ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => onAskMentor(characterQuestion)}
+                        data-testid="coach-pregunta-al-mentor"
+                      >
+                        Preguntárselo al Mentor
+                        <ArrowRight className="size-4" aria-hidden="true" />
+                      </Button>
+                    ) : (
+                      <Button type="button" size="sm" onClick={onOpenCharacter}>
+                        Añade tu personaje primero
+                        <ArrowRight className="size-4" aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
               {noEvidence && goalIntent !== "incremental" && (
                 <div
                   className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/[0.07] p-3"

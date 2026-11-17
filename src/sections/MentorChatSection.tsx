@@ -60,9 +60,11 @@ const TEXT = texts(
     noProfileTitle: "Necesitas un personaje primero",
     noProfileBody:
       "Carga el ejemplo o importa tu build en «Mi personaje». Sin personaje no puedo responder nada con datos tuyos, y no voy a improvisar.",
-    readinessTitle: "Completa el expediente antes de pedir una prioridad",
+    readinessTitle: "Para responderte necesito más datos de tu personaje",
     readinessMissing: (missing: string) =>
-      `El Mentor no convertirá un plan parcial en datos de tu personaje real. Faltan: ${missing}.`,
+      `Falta: ${missing}. Complétalo y te respondo; no me invento lo que no sé de tu personaje.`,
+    readinessPending: (question: string) =>
+      `Tu pregunta queda guardada: «${question}». Te respondo en cuanto completes el expediente.`,
     readinessButton: "Completar expediente",
     patchTitle: (patchId: string) => `El mentor está esperando la revisión de ${patchId}`,
     patchBody: (summary: string) =>
@@ -118,9 +120,11 @@ const TEXT = texts(
     noProfileTitle: "You need a character first",
     noProfileBody:
       "Load the example or import your build in “My character”. Without a character I can't answer anything with your data, and I won't make things up.",
-    readinessTitle: "Finish your character file before asking for a priority",
+    readinessTitle: "To answer you, I need more about your character",
     readinessMissing: (missing: string) =>
-      `The Mentor won't treat a partial plan as your real character's data. Missing: ${missing}.`,
+      `Missing: ${missing}. Fill it in and I'll answer; I won't make up what I don't know about your character.`,
+    readinessPending: (question: string) =>
+      `Your question is saved: “${question}”. I'll answer as soon as you finish your character file.`,
     readinessButton: "Finish character file",
     patchTitle: (patchId: string) => `The mentor is waiting for the ${patchId} review`,
     patchBody: (summary: string) =>
@@ -256,12 +260,27 @@ export function MentorChatSection({
     setSeenPendingSeq(pendingQuestion.seq);
     if (!pendingAllowed) setQuestion(pendingQuestion.text);
   }
+  // Si al llegar faltaban datos del personaje, la pregunta espera y se envía
+  // sola en cuanto el expediente queda completo: el jugador no la repite.
   const askedPendingSeq = useRef<number | null>(null);
   useEffect(() => {
     if (pendingQuestion === null || askedPendingSeq.current === pendingQuestion.seq) return;
+    if (!pendingAllowed) return;
     askedPendingSeq.current = pendingQuestion.seq;
-    if (pendingAllowed) onAsk(pendingText);
+    onAsk(pendingText);
   }, [pendingQuestion, pendingAllowed, pendingText, onAsk]);
+  // Una vez enviada, la copia que esperaba en el campo ya sobra.
+  const [clearedPendingSeq, setClearedPendingSeq] = useState<number | null>(null);
+  if (pendingQuestion !== null && pendingAllowed && clearedPendingSeq !== pendingQuestion.seq) {
+    setClearedPendingSeq(pendingQuestion.seq);
+    if (question.trim() === pendingText) setQuestion("");
+  }
+  // Mientras falten datos, la pregunta llegada se copia al campo (arriba) y
+  // espera ahí: es la que se enseña como «guardada».
+  const waitingQuestion =
+    !pendingAllowed && pendingText.length > 0 && question.trim() === pendingText
+      ? pendingText
+      : null;
 
   return (
     /* El título («Habla con tu Mentor») lo pone la sección que envuelve a este
@@ -299,6 +318,11 @@ export function MentorChatSection({
                     .join(", "),
                 )}
               </p>
+              {waitingQuestion !== null && (
+                <p className="font-medium text-foreground" data-testid="mentor-pregunta-en-espera">
+                  {t.readinessPending(waitingQuestion)}
+                </p>
+              )}
               <Button type="button" variant="secondary" onClick={onEditProfile}>
                 <PencilLine className="size-4" aria-hidden="true" />
                 {t.readinessButton}

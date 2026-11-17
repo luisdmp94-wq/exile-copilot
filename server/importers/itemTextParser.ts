@@ -51,6 +51,12 @@ const BASE_PROPERTY_RE = /^(?:quality|calidad)(?:\s*\([^)]*\))?\s*:|^(?:physical
  * un objeto normal.
  */
 const FIXED_ASSIGNMENT_RE = /^(?:asigna|allocates?)\s+.+?\s+(?:—|–|-)\s*(?:valor fijo|fixed)\s*$/iu;
+/**
+ * «Otorga la habilidad: …» / «Grants Skill: …» es propio de la base (varitas,
+ * cetros, bastones…): no es un afijo ni ocupa prefijo o sufijo. Leído como
+ * explícito dejaba la pieza «sin clasificar» y bloqueaba el crafting.
+ */
+const GRANTED_SKILL_RE = /^(?:otorga la habilidad|grants skill)\s*:/iu;
 
 const RARITY_MAP: Record<string, ItemRarity> = {
   normal: "normal",
@@ -584,6 +590,17 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
           id: crypto.randomUUID(),
           text: structuralLine,
           kind: "enchant",
+          values: extractNumbers(structuralLine),
+          verified: false,
+        });
+        continue;
+      }
+
+      if (GRANTED_SKILL_RE.test(structuralLine)) {
+        result.modifiers.push({
+          id: crypto.randomUUID(),
+          text: structuralLine,
+          kind: "implicit",
           values: extractNumbers(structuralLine),
           verified: false,
         });

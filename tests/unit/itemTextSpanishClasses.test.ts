@@ -22,6 +22,37 @@ describe("clases de objeto del cliente en español", () => {
     expect(item.slot).toBe("weapon");
   });
 
+  it("la habilidad que otorga la varita no cuenta como afijo sin clasificar (17-11-2026)", () => {
+    const text = [
+      "Clase de objeto: Varitas",
+      "Rareza: Raro",
+      "Mordida de destino",
+      "Varita marchita",
+      "--------",
+      "Requiere: Nivel 14",
+      "--------",
+      "Nivel de objeto: 18",
+      "--------",
+      "Daño de hechizos aumentado un 20% (rune)",
+      "--------",
+      "Otorga la habilidad: Descarga de caos de nivel 6 ",
+      "--------",
+      '{ Mod. de prefijo "" (Grado: 6) — Daño, Elemental, Fuego }',
+      "Ganas el 14(13-15)% del daño como daño de fuego extra",
+      '{ Mod. de prefijo "nublada" (Grado: 6) — Daño, Caos }',
+      "Daño de caos aumentado un 47(45-54)%",
+      '{ Mod. de sufijo "de ira" (Grado: 6) — Lanzador de hechizos, Crítico }',
+      "Bonificación de daño crítico de los hechizos aumentada un 13(10-14)%",
+    ].join("\r\n");
+    const result = parseItemText(text);
+    const granted = result.item.modifiers.find((mod) => mod.text.startsWith("Otorga la habilidad"));
+    expect(granted?.kind).toBe("implicit");
+    expect(result.item.modifiers.filter((mod) => mod.kind === "explicit")).toHaveLength(3);
+    expect(result.item.modifiers.filter((mod) => mod.kind === "explicit").every((mod) => mod.affix)).toBe(true);
+    // Con todos los explícitos clasificados, el estado de crafting queda afirmado.
+    expect(result.item.craftingState).toBeDefined();
+  });
+
   it.each([
     ["Garras", "weapon"],
     ["Dagas", "weapon"],

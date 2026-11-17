@@ -2106,6 +2106,17 @@ export default function App() {
                   onApplyCraftingResult={character.replaceItemAndSave}
                   onMentorEvent={handleSessionMentorEvent}
                   onMentorContext={announceMentor}
+                  onAskMentor={
+                    character.profile
+                      ? (text) => {
+                          setMentorQuickQuestion((current) => ({
+                            text,
+                            seq: (current?.seq ?? 0) + 1,
+                          }));
+                          openMentorConversation();
+                        }
+                      : undefined
+                  }
                 />
               </Suspense>
             )}

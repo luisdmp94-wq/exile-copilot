@@ -338,6 +338,36 @@ function matchProtectedModifiers(
 }
 
 /**
+ * Preguntas sobre el PERSONAJE, no sobre la pieza abierta: «¿por qué no hago
+ * daño?», «me matan los jefes», «¿qué gemas uso?». Crafting no puede
+ * responderlas y debe mandar al Mentor en vez de forzar «daño o defensa».
+ * «Quiero más daño de caos» sigue siendo un objetivo de crafting válido.
+ */
+const CHARACTER_PROBLEM_PATTERNS: readonly RegExp[] = [
+  /\bno hago (?:nada de |mucho |suficiente |casi )?dano\b/,
+  /\bhago (?:muy )?poco dano\b/,
+  /\bme falta dano\b/,
+  /\bvoy (?:muy )?(?:por detras|flojo|corto) (?:en|de) dano\b/,
+  /\bme (?:matan|mata|revientan)\b/,
+  /\b(?:muero|me muero|morir) (?:mucho|siempre|todo el rato|en)\b/,
+  /\bno (?:mato|puedo matar|consigo matar)\b/,
+  /\bpor ?que (?:no |me |muero|hago)/,
+  /\b(?:que|cuales) (?:gemas?|habilidades|pasivas|apoyos|build)\b/,
+  /\b(?:arbol de pasivas|ascendencia|mis pasivas|mis gemas|mi build)\b/,
+  /\bwhy (?:do|am|can|don'?t|is) i\b/,
+  /\b(?:low|no|not enough) damage\b/,
+  /\bi (?:keep )?(?:die|dying)\b/,
+  /\b(?:which|what) (?:gems?|skills|passives|supports|build)\b/,
+  /\b(?:passive tree|ascendancy|my passives|my gems|my build)\b/,
+];
+
+export function looksLikeCharacterQuestion(value: string): boolean {
+  const normalized = normalizeGoalText(value).replace(/[¿?¡!.,;:]/g, " ").replace(/\s+/g, " ");
+  if (normalized === "") return false;
+  return CHARACTER_PROBLEM_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+/**
  * Interpreta únicamente la DIRECCIÓN general escrita por el jugador.
  *
  * No convierte texto libre en una receta ni adivina mods. Si aparecen dos

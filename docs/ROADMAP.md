@@ -274,6 +274,30 @@ El contrato completo está en `docs/POE2-1.0-READINESS.md`.
 Referencia para la decisión de skins:
 <https://www.pathofexile.com/legal/terms-of-use-and-privacy-policy>
 
+## Ideas apuntadas · sin empezar (17-11-2026)
+
+Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
+
+- [ ] **«¿Te has atascado?» con preguntas rápidas.** Sin PoB2 ni copiar
+  objetos: 3-4 preguntas y una respuesta en segundos. Empezar solo por
+  «No hago daño» (nivel del personaje, nivel del arma, nivel de la gema
+  principal, habilidad que usa), que detecta las causas típicas del novato:
+  arma muy por detrás, gema baja, habilidad que solo extiende daño (Contagio
+  sin Drenar esencia). Medir su uso con el contador por origen; si funciona,
+  hacer «Me matan» (resistencias, vida, frascos) y «No sé adónde ir».
+  Origen: partida de Luis del 17-11 y comentario en Steam («para novatos,
+  simplemente jugad»).
+- [ ] **Revisión del árbol de pasivas desde un código PoB2** (la importación
+  ya existe; falta poner nombre a cada pasiva y señalar las que no encajan con
+  el daño). Esperar al 1.0: el árbol cambiará y PoB2 publicará datos nuevos.
+  Ni PoB2 (versión publicada de julio, desarrollo del 10-09) ni el export de
+  GGG 0.5.5 traen todavía todos los nodos del juego (p. ej. «Entropía»).
+- [ ] **Leer una captura de la hoja de personaje** (tecla C) para sacar
+  nivel, vida y resistencias sin escribir nada.
+- [ ] **Botón «Conectar con tu cuenta de PoE»** (OAuth oficial). Bloqueado:
+  GGG no acepta aplicaciones nuevas ahora mismo («We are currently unable to
+  process new applications»). Revisar si reabren.
+
 ## 5. Regla de prioridad
 
 Una mejora entra en el trabajo inmediato solo si aumenta al menos una de estas

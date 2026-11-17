@@ -987,3 +987,27 @@ describe("guía de crafting — antes y después", () => {
     expect(reading.verdictText).toContain("No gastes otra moneda");
   });
 });
+
+describe("preguntas sobre el personaje en Crafting (17-11-2026)", () => {
+  it.each([
+    "¿Por qué no hago daño?",
+    "me matan los jefes del ritual",
+    "me falta daño para matar a un grupo de bosses",
+    "¿Qué gemas uso?",
+    "Why don't I do damage?",
+    "which gems should I use",
+  ])("«%s» va al Mentor, no a daño o defensa", async (text) => {
+    const { looksLikeCharacterQuestion } = await import("../../shared/craftingCoach.js");
+    expect(looksLikeCharacterQuestion(text)).toBe(true);
+  });
+
+  it.each([
+    "quiero más daño de caos",
+    "más vida y resistencia al fuego",
+    "subir el daño de hechizos sin perder el maná",
+    "more cold damage",
+  ])("«%s» sigue siendo un objetivo de crafting", async (text) => {
+    const { looksLikeCharacterQuestion } = await import("../../shared/craftingCoach.js");
+    expect(looksLikeCharacterQuestion(text)).toBe(false);
+  });
+});

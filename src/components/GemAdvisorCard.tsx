@@ -32,7 +32,9 @@ const TEXT = texts(
     costs: (value: string) => `La habilidad pasa a costar el ${value} de su maná.`,
     gradeOf: (grade: string, attribute: string) => `Grado ${grade}, de ${attribute}.`,
     rulesOnly: "Decidido por reglas, sin IA. ",
-    aiFallback: (reason: string) => `${reason} `,
+    // El motivo técnico queda en el registro del servidor; al jugador le basta
+    // saber que la explicación es de las reglas, igual que en inglés.
+    aiFallback: () => "Esta vez la IA no pudo explicarlo, así que lo explican las reglas. ",
     dataFrom: "Datos de",
     dataTail: (date: string) => ` del ${date}. Si el juego no te deja ponerla, manda el juego.`,
     tooMany: (max: number) => `Como mucho ${max} habilidades a la vez.`,
@@ -264,7 +266,7 @@ interface FooterProps {
 function Footer({ mode, aiRole, fallbackReason, source, fetchedAt, hasPick, t }: FooterProps) {
   return (
     <p className="mt-3 text-xs text-muted-foreground">
-      {hasPick && (mode === "ai" ? `${aiRole} ` : fallbackReason ? t.aiFallback(fallbackReason) : t.rulesOnly)}
+      {hasPick && (mode === "ai" ? `${aiRole} ` : fallbackReason ? t.aiFallback() : t.rulesOnly)}
       {t.dataFrom}{" "}
       <a href={source} target="_blank" rel="noreferrer" className="underline underline-offset-2">
         poe2db.tw

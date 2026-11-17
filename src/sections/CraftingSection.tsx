@@ -65,6 +65,8 @@ interface CraftingSectionProps {
   }) => void;
   onMentorContext?: (event: ContextualMentorEvent) => void;
   onSelectedItemChange?: (itemId: string) => void;
+  /** Pregunta sobre el personaje que Crafting no puede responder: va al Mentor. */
+  onAskMentor?: (question: string) => void;
 }
 
 type CraftingMode = CraftingWorkspaceMode;
@@ -217,6 +219,7 @@ export function CraftingSection({
   onMentorEvent,
   onMentorContext,
   onSelectedItemChange,
+  onAskMentor,
 }: CraftingSectionProps) {
   const [selectedItemSelection, setSelectedItemSelection] = useState<{
     profileId: string;
@@ -362,6 +365,7 @@ export function CraftingSection({
       onOpenPlanMarket={onOpenPlanMarket}
       showInitialRepairBanner={!advancedVisible}
       onMentorContext={onMentorContext}
+      onAskMentor={onAskMentor}
     />
   );
 
