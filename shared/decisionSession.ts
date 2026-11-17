@@ -689,7 +689,11 @@ export function conclusionForDecisionOutcome(
  */
 export function observationMethodForExpectedImpact(
   expectedImpact: string,
+  lang: "es" | "en" = "es",
 ): string {
+  if (lang === "en") {
+    return `Confirm the expected change: ${expectedImpact} Check which character stat changed and whether another stat or the feel got worse.`;
+  }
   return `Confirma el cambio esperado: ${expectedImpact} Revisa qué dato del personaje cambió y si otra estadística o sensación empeoró.`;
 }
 

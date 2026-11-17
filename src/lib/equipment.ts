@@ -106,13 +106,13 @@ export function rarityStyle(rarity: ItemRarity) {
 // ---------------------------------------------------------------------------
 
 /** Texto para un entero opcional: nunca convierte un desconocido en 0. */
-export function formatOptionalInt(value: number | undefined): string {
-  return typeof value === "number" ? String(value) : "Desconocido";
+export function formatOptionalInt(value: number | undefined, lang: "es" | "en" = "es"): string {
+  return typeof value === "number" ? String(value) : lang === "en" ? "Unknown" : "Desconocido";
 }
 
 /** Calidad: 0 es un dato real («sin calidad»), `undefined` es desconocido. */
-export function formatQuality(quality: number | undefined): string {
-  if (quality === undefined) return "Desconocido";
+export function formatQuality(quality: number | undefined, lang: "es" | "en" = "es"): string {
+  if (quality === undefined) return lang === "en" ? "Unknown" : "Desconocido";
   return `${quality}%`;
 }
 
@@ -155,6 +155,8 @@ const ORIGIN_BY_KIND: Array<{
   origin: ItemDataOrigin;
   label: string;
   detail: string;
+  labelEn: string;
+  detailEn: string;
   tone: ItemDataState["tone"];
 }> = [
   {
@@ -162,6 +164,8 @@ const ORIGIN_BY_KIND: Array<{
     origin: "oficial",
     label: "Fuente oficial (GGG)",
     detail: "Procede de datos oficiales de Grinding Gear Games.",
+    labelEn: "Official source (GGG)",
+    detailEn: "Comes from official Grinding Gear Games data.",
     tone: "oficial",
   },
   {
@@ -170,6 +174,8 @@ const ORIGIN_BY_KIND: Array<{
     label: "Datos internos verificados",
     detail:
       "Datos propios de Exile Copilot, versionados y verificados. No son datos oficiales de GGG.",
+    labelEn: "Verified internal data",
+    detailEn: "Exile Copilot's own data, versioned and verified. Not official GGG data.",
     tone: "interna",
   },
   {
@@ -178,6 +184,8 @@ const ORIGIN_BY_KIND: Array<{
     label: "Lo has indicado tú",
     detail:
       "Dato proporcionado manualmente o importado por ti: no está verificado contra una fuente oficial.",
+    labelEn: "You entered this",
+    detailEn: "Data you entered by hand or imported: not verified against an official source.",
     tone: "sin-verificar",
   },
   {
@@ -185,6 +193,8 @@ const ORIGIN_BY_KIND: Array<{
     origin: "mercado",
     label: "Dato de poe.ninja",
     detail: "Procede de la API económica pública de poe.ninja. No es una fuente oficial de GGG.",
+    labelEn: "poe.ninja data",
+    detailEn: "Comes from poe.ninja's public economy API. Not an official GGG source.",
     tone: "sin-verificar",
   },
   {
@@ -192,6 +202,8 @@ const ORIGIN_BY_KIND: Array<{
     origin: "comunidad",
     label: "Referencia comunitaria",
     detail: "Procede de una referencia de la comunidad: nunca es verdad absoluta ni oficial.",
+    labelEn: "Community reference",
+    detailEn: "Comes from a community reference: never absolute or official truth.",
     tone: "sin-verificar",
   },
   {
@@ -199,16 +211,19 @@ const ORIGIN_BY_KIND: Array<{
     origin: "calculo",
     label: "Calculado por Exile Copilot",
     detail: "Resultado de un cálculo determinista propio, no de una fuente externa.",
+    labelEn: "Calculated by Exile Copilot",
+    detailEn: "Result of our own deterministic calculation, not of an outside source.",
     tone: "sin-verificar",
   },
 ];
 
-export function describeItemDataState(item: Item): ItemDataState {
+export function describeItemDataState(item: Item, lang: "es" | "en" = "es"): ItemDataState {
+  const en = lang === "en";
   if (item.sources.length === 0) {
     return {
       origin: "sin-fuente",
-      label: "Fuente no disponible",
-      detail: "El objeto no registra ninguna procedencia.",
+      label: en ? "Source not available" : "Fuente no disponible",
+      detail: en ? "The item has no recorded origin." : "El objeto no registra ninguna procedencia.",
       tone: "sin-verificar",
     };
   }
@@ -218,17 +233,18 @@ export function describeItemDataState(item: Item): ItemDataState {
     // Tipo de fuente no contemplado: se declara sin verificar, nunca "oficial".
     return {
       origin: "sin-fuente",
-      label: "Fuente no disponible",
-      detail: `Procedencia no reconocida: ${[...kinds].join(", ")}.`,
+      label: en ? "Source not available" : "Fuente no disponible",
+      detail: en ? `Unrecognised origin: ${[...kinds].join(", ")}.` : `Procedencia no reconocida: ${[...kinds].join(", ")}.`,
       tone: "sin-verificar",
     };
   }
   // Con varias fuentes se muestra la de mayor autoridad y se enumeran todas.
+  const base = en ? match.detailEn : match.detail;
   const detail =
     kinds.size > 1
-      ? `${match.detail} Fuentes registradas: ${[...kinds].join(", ")}.`
-      : match.detail;
-  return { origin: match.origin, label: match.label, detail, tone: match.tone };
+      ? `${base} ${en ? "Recorded sources" : "Fuentes registradas"}: ${[...kinds].join(", ")}.`
+      : base;
+  return { origin: match.origin, label: en ? match.labelEn : match.label, detail, tone: match.tone };
 }
 
 /** Agrupa los modificadores por tipo conservando el orden original dentro de cada grupo. */
@@ -252,14 +268,15 @@ export function groupModifiersByKind(
 }
 
 /** Requisitos legibles; devuelve [] cuando el objeto no declara ninguno. */
-export function describeRequirements(item: Item): string[] {
+export function describeRequirements(item: Item, lang: "es" | "en" = "es"): string[] {
   const req = item.requirements;
   if (!req) return [];
+  const en = lang === "en";
   const out: string[] = [];
-  if (req.level !== undefined) out.push(`Nivel ${req.level}`);
-  if (req.str !== undefined) out.push(`Fuerza ${req.str}`);
-  if (req.dex !== undefined) out.push(`Destreza ${req.dex}`);
-  if (req.int !== undefined) out.push(`Inteligencia ${req.int}`);
+  if (req.level !== undefined) out.push(`${en ? "Level" : "Nivel"} ${req.level}`);
+  if (req.str !== undefined) out.push(`${en ? "Strength" : "Fuerza"} ${req.str}`);
+  if (req.dex !== undefined) out.push(`${en ? "Dexterity" : "Destreza"} ${req.dex}`);
+  if (req.int !== undefined) out.push(`${en ? "Intelligence" : "Inteligencia"} ${req.int}`);
   return out;
 }
 

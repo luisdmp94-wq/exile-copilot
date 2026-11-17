@@ -80,6 +80,16 @@ export function texts<T extends Record<string, unknown>>(es: T, en: { [K in keyo
   return { es, en };
 }
 
+/**
+ * El idioma que muestra la página ahora mismo (el `lang` de <html>). Sirve
+ * fuera del render —efectos, avisos, peticiones— sin volver a dispararlos al
+ * cambiar de idioma.
+ */
+export function pageLang(): Lang {
+  const html = (globalThis as { document?: { documentElement?: { lang?: string } } }).document?.documentElement;
+  return html?.lang === "en" ? "en" : "es";
+}
+
 /** Los textos de un componente en el idioma activo. */
 export function useText<T>(dictionary: Record<Lang, T>): T {
   return dictionary[useLang().lang];

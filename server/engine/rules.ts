@@ -106,11 +106,31 @@ export interface RuleCandidate {
   relatedItemIds?: string[];
 }
 
+export type RuleLang = "es" | "en";
+
 export interface RuleContext {
   profile: CharacterProfile;
   league: string;
   patch: string;
   target?: BuildTarget;
+  /** Idioma de las frases. Las reglas deciden igual en los dos; sin él, español. */
+  lang?: RuleLang;
+}
+
+/** Elige la frase del idioma pedido: `tr(lang)("hola", "hello")`. */
+export function tr(lang: RuleLang | undefined): (es: string, en: string) => string {
+  return (es, en) => (lang === "en" ? en : es);
+}
+
+const RESISTANCE_LABELS_EN: Record<ResistanceKind, string> = {
+  fire: "fire",
+  cold: "cold",
+  lightning: "lightning",
+  chaos: "chaos",
+};
+
+function resistanceLabel(kind: ResistanceKind, lang: RuleLang | undefined): string {
+  return lang === "en" ? RESISTANCE_LABELS_EN[kind] : RESISTANCE_LABELS[kind];
 }
 
 export type Rule = (ctx: RuleContext) => RuleCandidate[];
@@ -129,23 +149,36 @@ function dataGapCandidate(args: {
   what: string;
   detail: string;
   goalWeights?: Record<GoalKind, number>;
+  lang?: RuleLang;
 }): RuleCandidate {
+  const t = tr(args.lang);
   return {
     ruleId: args.ruleId,
-    title: `Completa los datos de tu personaje: ${args.what}`,
-    action: `El dato "${args.what}" es desconocido en tu perfil. Anótalo manualmente para poder evaluarlo.`,
-    reason: `Sin el dato "${args.what}" no se puede evaluar esta área sin inventar números.`,
+    title: t(`Completa los datos de tu personaje: ${args.what}`, `Fill in your character's data: ${args.what}`),
+    action: t(
+      `El dato "${args.what}" es desconocido en tu perfil. Anótalo manualmente para poder evaluarlo.`,
+      `"${args.what}" is unknown in your profile. Write it down by hand so it can be evaluated.`,
+    ),
+    reason: t(
+      `Sin el dato "${args.what}" no se puede evaluar esta área sin inventar números.`,
+      `Without "${args.what}" this area can't be evaluated without making up numbers.`,
+    ),
     impactMetric: args.what,
-    impactDescription: "Evaluación pendiente de datos (métrica parcial).",
+    impactDescription: t("Evaluación pendiente de datos (métrica parcial).", "Evaluation waiting for data (partial metric)."),
     magnitude: "low",
     riskLevel: "low",
-    riskDescription: "Solo es una corrección de datos.",
+    riskDescription: t("Solo es una corrección de datos.", "It's only a data correction."),
     mayLoseValuableMods: false,
     irreversible: false,
     priceQueries: [],
     goalWeights: args.goalWeights ?? { ...BALANCED, survival: 0.8 },
     confidenceBase: "low",
-    unverified: [`No verificado — falta el dato "${args.what}" en el perfil. ${args.detail}`],
+    unverified: [
+      t(
+        `No verificado — falta el dato "${args.what}" en el perfil. ${args.detail}`,
+        `Not verified — "${args.what}" is missing from the profile. ${args.detail}`,
+      ),
+    ],
     extraSources: [],
     relatedItemIds: [],
   };
@@ -155,8 +188,12 @@ function dataGapCandidate(args: {
  * «un 92% más» o «2,4 veces más»: el daño recibido de un tipo es proporcional
  * a (100 − resistencia), así que basta comparar ese factor con el del objetivo.
  */
-export function extraDamageTaken(resistance: number, target: number): string {
+export function extraDamageTaken(resistance: number, target: number, lang?: RuleLang): string {
   const ratio = (100 - resistance) / (100 - target);
+  if (lang === "en") {
+    if (ratio >= 2) return `${(Math.round(ratio * 10) / 10).toLocaleString("en-GB")} times more`;
+    return `${Math.round((ratio - 1) * 100)}% more`;
+  }
   if (ratio >= 2) return `${(Math.round(ratio * 10) / 10).toLocaleString("es-ES")} veces más`;
   return `un ${Math.round((ratio - 1) * 100)}% más`;
 }
@@ -169,11 +206,13 @@ export function extraDamageTaken(resistance: number, target: number): string {
  * Enumera resistencias en español para el texto del jugador. Las claves del
  * dominio (`fire`, `cold`, …) nunca salen a la superficie: solo su etiqueta.
  */
-function listarResistencias(kinds: ResistanceKind[]): string {
-  return kinds.map((k) => RESISTANCE_LABELS[k]).join(", ");
+function listarResistencias(kinds: ResistanceKind[], lang?: RuleLang): string {
+  return kinds.map((k) => resistanceLabel(k, lang)).join(", ");
 }
 
-export const elementalResistancesRule: Rule = ({ profile }) => {
+export const elementalResistancesRule: Rule = ({ profile, lang }) => {
+  const t = tr(lang);
+  const label = (kind: ResistanceKind) => resistanceLabel(kind, lang);
   const res = profile.resistances;
   const keys: ResistanceKind[] = ["fire", "cold", "lightning"];
   const unknown = keys.filter((k) => res[k] === null);
@@ -184,8 +223,9 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
     out.push(
       dataGapCandidate({
         ruleId: "datos-resistencias",
-        what: "resistencias",
-        detail: `Resistencias desconocidas: ${listarResistencias(unknown)}.`,
+        what: t("resistencias", "resistances"),
+        detail: t(`Resistencias desconocidas: ${listarResistencias(unknown)}.`, `Unknown resistances: ${listarResistencias(unknown, lang)}.`),
+        lang,
         // Para survival es el dato crítico: sin resistencias no se puede evaluar nada.
         goalWeights: { ...BALANCED, survival: 2.5 },
       }),
@@ -198,28 +238,53 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
   const worst = Math.min(...lows.map((k) => res[k] ?? 0));
   const worstKind = lows.find((k) => res[k] === worst) ?? lows[0];
   const labels = lows
-    .map((k) => `${RESISTANCE_LABELS[k]} ${res[k]}% (te faltan ${RESISTANCE_CAP - (res[k] ?? 0)} puntos)`)
+    .map((k) =>
+      t(
+        `${label(k)} ${res[k]}% (te faltan ${RESISTANCE_CAP - (res[k] ?? 0)} puntos)`,
+        `${label(k)} ${res[k]}% (${RESISTANCE_CAP - (res[k] ?? 0)} points short)`,
+      ),
+    )
     .join(", ");
-  const extraDamage = `Con ${RESISTANCE_LABELS[worstKind]} al ${worst}% recibes ${extraDamageTaken(worst, RESISTANCE_CAP)} daño de ${RESISTANCE_LABELS[worstKind]} que con el ${RESISTANCE_CAP}%.`;
+  const extraDamage = t(
+    `Con ${label(worstKind)} al ${worst}% recibes ${extraDamageTaken(worst, RESISTANCE_CAP)} daño de ${label(worstKind)} que con el ${RESISTANCE_CAP}%.`,
+    `With ${label(worstKind)} at ${worst}% you take ${extraDamageTaken(worst, RESISTANCE_CAP, "en")} ${label(worstKind)} damage than at ${RESISTANCE_CAP}%.`,
+  );
   out.push({
     ruleId: "resistencias-elementales",
-    title: "Cubrir resistencias elementales",
-    action: `Eleva hacia ${RESISTANCE_CAP}% las resistencias que ahora están así: ${labels}. Después vuelve a comprobar el límite que muestra el juego; ${RESISTANCE_CAP}% se usa aquí solo como objetivo provisional.`,
-    reason: `Tienes resistencias elementales conocidas por debajo del umbral provisional: ${labels}. ${extraDamage}`,
-    impactMetric: "resistencias",
-    impactDescription: "Impacto estimado en supervivencia (métrica parcial orientativa).",
+    title: t("Cubrir resistencias elementales", "Cover your elemental resistances"),
+    action: t(
+      `Eleva hacia ${RESISTANCE_CAP}% las resistencias que ahora están así: ${labels}. Después vuelve a comprobar el límite que muestra el juego; ${RESISTANCE_CAP}% se usa aquí solo como objetivo provisional.`,
+      `Raise these resistances towards ${RESISTANCE_CAP}%: ${labels}. Then check the cap the game shows again; ${RESISTANCE_CAP}% is only used here as a provisional target.`,
+    ),
+    reason: t(
+      `Tienes resistencias elementales conocidas por debajo del umbral provisional: ${labels}. ${extraDamage}`,
+      `Some known elemental resistances are below the provisional threshold: ${labels}. ${extraDamage}`,
+    ),
+    impactMetric: t("resistencias", "resistances"),
+    impactDescription: t("Impacto estimado en supervivencia (métrica parcial orientativa).", "Estimated impact on survival (partial, rough metric)."),
     magnitude: worst < 50 ? "high" : "medium",
     riskLevel: "medium",
-    riskDescription: "Sustituir piezas puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
+    riskDescription: t(
+      "Sustituir piezas puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
+      "Replacing items can make you lose other valuable mods; compare the whole item before changing it.",
+    ),
     mayLoseValuableMods: true,
     irreversible: false,
     priceQueries: [],
     goalWeights: { ...BALANCED, survival: 2, mapping: 1.3, bossing: 1.3, damage: 0.6 },
     confidenceBase: "medium",
     unverified: [
-      `No verificado — ${RESISTANCE_CAP}% es un umbral provisional; confirma el límite actual de cada resistencia dentro de PoE2.`,
+      t(
+        `No verificado — ${RESISTANCE_CAP}% es un umbral provisional; confirma el límite actual de cada resistencia dentro de PoE2.`,
+        `Not verified — ${RESISTANCE_CAP}% is a provisional threshold; confirm each resistance's current cap inside PoE2.`,
+      ),
       ...(unknown.length > 0
-        ? [`No verificado — resistencias desconocidas no evaluadas: ${listarResistencias(unknown)}.`]
+        ? [
+            t(
+              `No verificado — resistencias desconocidas no evaluadas: ${listarResistencias(unknown)}.`,
+              `Not verified — unknown resistances not evaluated: ${listarResistencias(unknown, lang)}.`,
+            ),
+          ]
         : []),
     ],
     extraSources: [],
@@ -230,21 +295,34 @@ export const elementalResistancesRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 // Regla 2: resistencia al caos negativa — null-safe
 // ---------------------------------------------------------------------------
-export const chaosResistanceRule: Rule = ({ profile }) => {
+export const chaosResistanceRule: Rule = ({ profile, lang }) => {
+  const t = tr(lang);
   const chaos = profile.resistances.chaos;
   if (chaos === null) return []; // desconocido: ya lo cubre la regla de datos
   if (chaos >= 0) return [];
   return [
     {
       ruleId: "resistencia-caos",
-      title: "Corregir la resistencia al caos negativa",
-      action: `Tu resistencia al caos es ${chaos}%. Busca al menos llegar a 0% con un mod de caos en anillo, amuleto o cinturón.`,
-      reason: "La resistencia al caos negativa amplifica el daño de caos recibido, cada vez más presente en mapas.",
-      impactMetric: "resistencias",
-      impactDescription: "Impacto estimado en supervivencia frente a daño de caos (métrica parcial).",
+      title: t("Corregir la resistencia al caos negativa", "Fix your negative chaos resistance"),
+      action: t(
+        `Tu resistencia al caos es ${chaos}%. Busca al menos llegar a 0% con un mod de caos en anillo, amuleto o cinturón.`,
+        `Your chaos resistance is ${chaos}%. Aim for at least 0% with a chaos mod on a ring, amulet or belt.`,
+      ),
+      reason: t(
+        "La resistencia al caos negativa amplifica el daño de caos recibido, cada vez más presente en mapas.",
+        "Negative chaos resistance amplifies the chaos damage you take, which shows up more and more in maps.",
+      ),
+      impactMetric: t("resistencias", "resistances"),
+      impactDescription: t(
+        "Impacto estimado en supervivencia frente a daño de caos (métrica parcial).",
+        "Estimated impact on survival against chaos damage (partial metric).",
+      ),
       magnitude: "medium",
       riskLevel: "medium",
-      riskDescription: "Sustituir una pieza puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
+      riskDescription: t(
+        "Sustituir una pieza puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
+        "Replacing an item can make you lose other valuable mods; compare the whole item before changing it.",
+      ),
       mayLoseValuableMods: true,
       irreversible: false,
       priceQueries: [],
@@ -259,7 +337,8 @@ export const chaosResistanceRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 // Regla 3: requisitos de atributos no cumplidos — null-safe
 // ---------------------------------------------------------------------------
-export const attributeRequirementsRule: Rule = ({ profile }) => {
+export const attributeRequirementsRule: Rule = ({ profile, lang }) => {
+  const t = tr(lang);
   const attrs = profile.attributes;
   const levelReading = readCharacterLevel(profile);
   const itemsWithReqs = profile.items.filter((i) => i.requirements !== undefined);
@@ -269,8 +348,9 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
     return [
       dataGapCandidate({
         ruleId: "datos-atributos",
-        what: "atributos",
-        detail: "Hay equipo con requisitos, pero tus atributos son desconocidos.",
+        what: t("atributos", "attributes"),
+        detail: t("Hay equipo con requisitos, pero tus atributos son desconocidos.", "Some gear has requirements, but your attributes are unknown."),
+        lang,
       }),
     ];
   }
@@ -282,14 +362,15 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
     const req = item.requirements;
     if (!req) continue;
     const unmet: string[] = [];
-    if (req.str !== undefined && req.str > (attrs.str ?? 0)) unmet.push(`Str ${req.str} (tienes ${attrs.str})`);
-    if (req.dex !== undefined && req.dex > (attrs.dex ?? 0)) unmet.push(`Dex ${req.dex} (tienes ${attrs.dex})`);
-    if (req.int !== undefined && req.int > (attrs.int ?? 0)) unmet.push(`Int ${req.int} (tienes ${attrs.int})`);
+    const have = (value: number | null) => t(`tienes ${value}`, `you have ${value}`);
+    if (req.str !== undefined && req.str > (attrs.str ?? 0)) unmet.push(`Str ${req.str} (${have(attrs.str)})`);
+    if (req.dex !== undefined && req.dex > (attrs.dex ?? 0)) unmet.push(`Dex ${req.dex} (${have(attrs.dex)})`);
+    if (req.int !== undefined && req.int > (attrs.int ?? 0)) unmet.push(`Int ${req.int} (${have(attrs.int)})`);
     if (req.level !== undefined) {
       if (!levelReading.known) {
         hasUnknownLevelRequirement = true;
       } else if (req.level > levelReading.level) {
-        unmet.push(`nivel ${req.level} (eres ${levelReading.level})`);
+        unmet.push(t(`nivel ${req.level} (eres ${levelReading.level})`, `level ${req.level} (you're ${levelReading.level})`));
       }
     }
     if (unmet.length > 0) {
@@ -302,8 +383,12 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
       ? [
           dataGapCandidate({
             ruleId: "datos-nivel-personaje",
-            what: "nivel del personaje",
-            detail: "Hay equipo con requisito de nivel, pero el nivel real del personaje no está declarado.",
+            what: t("nivel del personaje", "character level"),
+            detail: t(
+              "Hay equipo con requisito de nivel, pero el nivel real del personaje no está declarado.",
+              "Some gear has a level requirement, but the character's real level isn't stated.",
+            ),
+            lang,
           }),
         ]
       : [];
@@ -312,23 +397,37 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
   return [
     {
       ruleId: "requisitos-atributos",
-      title: "Resolver requisitos de atributos no cumplidos",
-      action: `Hay equipo con requisitos por encima de tus atributos: ${problems.join("; ")}. Añade atributos en amuleto/anillos o nodos de atributos.`,
-      reason: "Un objeto cuyos requisitos no cumples puede dejar de aplicar sus stats o impedir equipar mejoras.",
-      impactMetric: "requisitos",
-      impactDescription: "Desbloquea el uso efectivo del equipo actual (métrica parcial).",
+      title: t("Resolver requisitos de atributos no cumplidos", "Meet unmet attribute requirements"),
+      action: t(
+        `Hay equipo con requisitos por encima de tus atributos: ${problems.join("; ")}. Añade atributos en amuleto/anillos o nodos de atributos.`,
+        `Some gear needs more than your attributes: ${problems.join("; ")}. Add attributes on your amulet/rings or with attribute nodes.`,
+      ),
+      reason: t(
+        "Un objeto cuyos requisitos no cumples puede dejar de aplicar sus stats o impedir equipar mejoras.",
+        "An item whose requirements you don't meet may stop applying its stats or keep you from equipping upgrades.",
+      ),
+      impactMetric: t("requisitos", "requirements"),
+      impactDescription: t("Desbloquea el uso efectivo del equipo actual (métrica parcial).", "Unlocks the real use of your current gear (partial metric)."),
       magnitude: "medium",
       riskLevel: "low",
-      riskDescription: "Añadir atributos no destruye equipo existente.",
+      riskDescription: t("Añadir atributos no destruye equipo existente.", "Adding attributes doesn't destroy any existing gear."),
       mayLoseValuableMods: false,
       irreversible: false,
       priceQueries: [],
       goalWeights: { ...BALANCED, balanced: 1.2 },
       confidenceBase: "medium",
       unverified: [
-        "No verificado — los atributos del perfil dependen de lo importado; revísalos antes de comprar nada.",
+        t(
+          "No verificado — los atributos del perfil dependen de lo importado; revísalos antes de comprar nada.",
+          "Not verified — the profile's attributes depend on what was imported; check them before buying anything.",
+        ),
         ...(hasUnknownLevelRequirement
-          ? ["No verificado — falta el nivel real del personaje; no se evaluaron requisitos de nivel."]
+          ? [
+              t(
+                "No verificado — falta el nivel real del personaje; no se evaluaron requisitos de nivel.",
+                "Not verified — the character's real level is missing; level requirements weren't evaluated.",
+              ),
+            ]
           : []),
       ],
       extraSources: [],
@@ -341,7 +440,8 @@ export const attributeRequirementsRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 // Regla 4: arma (ballesta) sin quality o con pocos mods explícitos
 // ---------------------------------------------------------------------------
-export const weaponUpgradeRule: Rule = ({ profile }) => {
+export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
+  const t = tr(lang);
   const weapon = profile.items.find((i) => i.slot === "weapon");
   if (!weapon) return [];
 
@@ -350,8 +450,8 @@ export const weaponUpgradeRule: Rule = ({ profile }) => {
   if (quality > 0 && explicitCount >= MIN_WEAPON_EXPLICITS) return [];
 
   const issues: string[] = [];
-  if (quality === 0) issues.push("sin quality");
-  if (explicitCount < MIN_WEAPON_EXPLICITS) issues.push(`solo ${explicitCount} mods explícitos`);
+  if (quality === 0) issues.push(t("sin quality", "without quality"));
+  if (explicitCount < MIN_WEAPON_EXPLICITS) issues.push(t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit mods`));
 
   // Solo hay precio consultable para ÚNICOS (match exacto de nombre). Un rare
   // nunca se valora con precios de únicos aunque coincida la base.
@@ -360,21 +460,36 @@ export const weaponUpgradeRule: Rule = ({ profile }) => {
   const unverified: string[] = [];
   if (weapon.rarity !== "unique") {
     unverified.push(
-      `No verificado — "${weapon.name}" es ${weapon.rarity}: no existe precio de mercado consultable para objetos no únicos.`,
+      t(
+        `No verificado — "${weapon.name}" es ${weapon.rarity}: no existe precio de mercado consultable para objetos no únicos.`,
+        `Not verified — "${weapon.name}" is ${weapon.rarity}: there's no market price to look up for non-unique items.`,
+      ),
     );
   }
 
   return [
     {
       ruleId: "mejora-arma",
-      title: "Mejorar el arma",
-      action: `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca una ${weapon.baseType} o base similar con mejores mods dentro de tu presupuesto.`,
-      reason: "El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.",
-      impactMetric: "daño del arma",
-      impactDescription: "Impacto estimado en daño por mejora de base/mods del arma (métrica parcial orientativa).",
+      title: t("Mejorar el arma", "Upgrade your weapon"),
+      action: t(
+        `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca una ${weapon.baseType} o base similar con mejores mods dentro de tu presupuesto.`,
+        `Your weapon "${weapon.name}" (${weapon.baseType}) is ${issues.join(" and ")}. Look for a ${weapon.baseType} or a similar base with better mods within your budget.`,
+      ),
+      reason: t(
+        "El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.",
+        "Your weapon is the main damage lever in most attack builds; a better base is worth several smaller upgrades.",
+      ),
+      impactMetric: t("daño del arma", "weapon damage"),
+      impactDescription: t(
+        "Impacto estimado en daño por mejora de base/mods del arma (métrica parcial orientativa).",
+        "Estimated damage impact from a better weapon base/mods (partial, rough metric).",
+      ),
       magnitude: "high",
       riskLevel: "medium",
-      riskDescription: "Comprar o craftear un arma nueva puede consumir gran parte del presupuesto.",
+      riskDescription: t(
+        "Comprar o craftear un arma nueva puede consumir gran parte del presupuesto.",
+        "Buying or crafting a new weapon can eat a large part of your budget.",
+      ),
       mayLoseValuableMods: false,
       irreversible: false,
       priceQueries,
@@ -391,31 +506,55 @@ export const weaponUpgradeRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 // Regla 5: skill principal con pocos supports
 // ---------------------------------------------------------------------------
-export const skillLinksRule: Rule = ({ profile }) => {
+export const skillLinksRule: Rule = ({ profile, lang }) => {
+  const t = tr(lang);
   const main = profile.skills[0];
   if (!main) return [];
   if (main.supports.length >= MIN_MAIN_SUPPORTS) return [];
 
   const missing = MIN_MAIN_SUPPORTS - main.supports.length;
   const unverified = [
-    `No verificado — ${MIN_MAIN_SUPPORTS} supports es un umbral heurístico interno, no una regla universal de PoE2.`,
-    "No verificado — compatibilidad exacta de supports pendiente de validar en el juego o en una guía de referencia.",
-    "No verificado — coste de las gemas support no consultado.",
+    t(
+      `No verificado — ${MIN_MAIN_SUPPORTS} supports es un umbral heurístico interno, no una regla universal de PoE2.`,
+      `Not verified — ${MIN_MAIN_SUPPORTS} supports is an internal rule of thumb, not a universal PoE2 rule.`,
+    ),
+    t(
+      "No verificado — compatibilidad exacta de supports pendiente de validar en el juego o en una guía de referencia.",
+      "Not verified — exact support compatibility still needs checking in game or in a reference guide.",
+    ),
+    t("No verificado — coste de las gemas support no consultado.", "Not verified — support gem cost not looked up."),
   ];
   if (main.mainSkillGemId === null) {
-    unverified.push("No verificado — la skill principal no tiene id oficial de gema (mainSkillGemId null).");
+    unverified.push(
+      t(
+        "No verificado — la skill principal no tiene id oficial de gema (mainSkillGemId null).",
+        "Not verified — the main skill has no official gem id (mainSkillGemId null).",
+      ),
+    );
   }
   return [
     {
       ruleId: "enlaces-skill",
-      title: "Completar los supports de la skill principal",
-      action: `"${main.mainSkill}" tiene ${main.supports.length} support(s). Añade ${missing} support(s) compatible(s) con su tipo de daño (revisa las guías de referencia guardadas).`,
-      reason: `La skill principal tiene menos de ${MIN_MAIN_SUPPORTS} supports, que es un umbral heurístico del Copiloto. El efecto real depende de que cada support sea compatible y debe comprobarse en PoE2.`,
-      impactMetric: "enlaces de skill",
-      impactDescription: "Impacto estimado en daño de la skill principal (métrica parcial orientativa).",
+      title: t("Completar los supports de la skill principal", "Fill in your main skill's supports"),
+      action: t(
+        `"${main.mainSkill}" tiene ${main.supports.length} support(s). Añade ${missing} support(s) compatible(s) con su tipo de daño (revisa las guías de referencia guardadas).`,
+        `"${main.mainSkill}" has ${main.supports.length} support(s). Add ${missing} support(s) that fit its damage type (check your saved reference guides).`,
+      ),
+      reason: t(
+        `La skill principal tiene menos de ${MIN_MAIN_SUPPORTS} supports, que es un umbral heurístico del Copiloto. El efecto real depende de que cada support sea compatible y debe comprobarse en PoE2.`,
+        `Your main skill has fewer than ${MIN_MAIN_SUPPORTS} supports, which is a Copilot rule of thumb. The real effect depends on each support being compatible and must be checked in PoE2.`,
+      ),
+      impactMetric: t("enlaces de skill", "skill links"),
+      impactDescription: t(
+        "Impacto estimado en daño de la skill principal (métrica parcial orientativa).",
+        "Estimated damage impact on the main skill (partial, rough metric).",
+      ),
       magnitude: "medium",
       riskLevel: "low",
-      riskDescription: "Cambiar supports es reversible; su compatibilidad y coste todavía no están verificados.",
+      riskDescription: t(
+        "Cambiar supports es reversible; su compatibilidad y coste todavía no están verificados.",
+        "Changing supports is reversible; their compatibility and cost aren't verified yet.",
+      ),
       mayLoseValuableMods: false,
       irreversible: false,
       priceQueries: [],
@@ -430,14 +569,19 @@ export const skillLinksRule: Rule = ({ profile }) => {
 // ---------------------------------------------------------------------------
 // Regla 6: vida ausente o baja para el nivel
 // ---------------------------------------------------------------------------
-export const lifeRule: Rule = ({ profile }) => {
+export const lifeRule: Rule = ({ profile, lang }) => {
+  const t = tr(lang);
   if (profile.life === undefined) {
     return [
       dataGapCandidate({
         ruleId: "datos-vida",
-        what: "vida máxima",
-        detail: `Sin el dato no se puede evaluar la heurística de ${LIFE_PER_LEVEL} por nivel.`,
+        what: t("vida máxima", "maximum life"),
+        detail: t(
+          `Sin el dato no se puede evaluar la heurística de ${LIFE_PER_LEVEL} por nivel.`,
+          `Without it the rule of thumb of ${LIFE_PER_LEVEL} per level can't be evaluated.`,
+        ),
         goalWeights: { ...BALANCED, survival: 0.8 },
+        lang,
       }),
     ];
   }
@@ -446,9 +590,13 @@ export const lifeRule: Rule = ({ profile }) => {
     return [
       dataGapCandidate({
         ruleId: "datos-nivel-personaje",
-        what: "nivel del personaje",
-        detail: `Sin el nivel real no se puede evaluar la heurística de ${LIFE_PER_LEVEL} de vida por nivel.`,
+        what: t("nivel del personaje", "character level"),
+        detail: t(
+          `Sin el nivel real no se puede evaluar la heurística de ${LIFE_PER_LEVEL} de vida por nivel.`,
+          `Without the real level the rule of thumb of ${LIFE_PER_LEVEL} life per level can't be evaluated.`,
+        ),
         goalWeights: { ...BALANCED, survival: 0.8 },
+        lang,
       }),
     ];
   }
@@ -458,20 +606,37 @@ export const lifeRule: Rule = ({ profile }) => {
   return [
     {
       ruleId: "vida-baja",
-      title: "Subir la vida máxima",
-      action: `Tienes ${profile.life} de vida a nivel ${levelReading.level} (heurística orientativa: ${expected}). Prioriza mods de "+vida máxima" en casco, pecho y cinturón.`,
-      reason: `La heurística de ${LIFE_PER_LEVEL} de vida por nivel sugiere que estás por debajo de lo sostenible para tu nivel.`,
-      impactMetric: "vida",
-      impactDescription: "Impacto estimado en supervivencia (métrica parcial, basada en heurística no verificada).",
+      title: t("Subir la vida máxima", "Raise your maximum life"),
+      action: t(
+        `Tienes ${profile.life} de vida a nivel ${levelReading.level} (heurística orientativa: ${expected}). Prioriza mods de "+vida máxima" en casco, pecho y cinturón.`,
+        `You have ${profile.life} life at level ${levelReading.level} (rough rule of thumb: ${expected}). Prioritise "+maximum life" mods on your helmet, body armour and belt.`,
+      ),
+      reason: t(
+        `La heurística de ${LIFE_PER_LEVEL} de vida por nivel sugiere que estás por debajo de lo sostenible para tu nivel.`,
+        `The rule of thumb of ${LIFE_PER_LEVEL} life per level suggests you're below what's sustainable for your level.`,
+      ),
+      impactMetric: t("vida", "life"),
+      impactDescription: t(
+        "Impacto estimado en supervivencia (métrica parcial, basada en heurística no verificada).",
+        "Estimated impact on survival (partial metric, based on an unverified rule of thumb).",
+      ),
       magnitude: profile.life < expected * 0.7 ? "high" : "medium",
       riskLevel: "medium",
-      riskDescription: "Sustituir casco, pecho o cinturón puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
+      riskDescription: t(
+        "Sustituir casco, pecho o cinturón puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
+        "Replacing your helmet, body armour or belt can make you lose other valuable mods; compare the whole item before changing it.",
+      ),
       mayLoseValuableMods: true,
       irreversible: false,
       priceQueries: [],
       goalWeights: { ...BALANCED, survival: 1.5, bossing: 1.2, damage: 0.5 },
       confidenceBase: "medium",
-      unverified: ["No verificado — la heurística de vida por nivel es orientativa, no un dato oficial."],
+      unverified: [
+        t(
+          "No verificado — la heurística de vida por nivel es orientativa, no un dato oficial.",
+          "Not verified — the life-per-level rule of thumb is a rough guide, not official data.",
+        ),
+      ],
       extraSources: [],
     },
   ];
@@ -592,7 +757,8 @@ function normalizeModText(text: string): string {
     .trim();
 }
 
-export const targetGapsRule: Rule = ({ profile, target }) => {
+export const targetGapsRule: Rule = ({ profile, target, lang }) => {
+  const t = tr(lang);
   if (!target) return [];
 
   // Referencias del target: desiredMods explícitos + pistas de texto de los
@@ -637,12 +803,12 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
   // declara por número, nunca se oculta.
   const listed = missing.slice(0, MAX_LISTED_GAPS);
   const omitted = missing.length - listed.length;
-  const listedText = `${listed.join("; ")}${omitted > 0 ? ` (y ${omitted} más no enumeradas)` : ""}`;
+  const listedText = `${listed.join("; ")}${omitted > 0 ? t(` (y ${omitted} más no enumeradas)`, ` (and ${omitted} more not listed)`) : ""}`;
 
   const extraSources: SourceEvidence[] = [
     {
       kind: "community",
-      label: `Build de referencia (referenceOnly): ${target.name}`,
+      label: t(`Build de referencia (referenceOnly): ${target.name}`, `Reference build (referenceOnly): ${target.name}`),
       ...(target.sourceUrl !== undefined ? { url: target.sourceUrl } : {}),
       retrievedAt: new Date().toISOString(),
     },
@@ -650,7 +816,7 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
   if (target.plan) {
     extraSources.push({
       kind: "user",
-      label: `Plan oficial .build importado: ${target.plan.build.name}`,
+      label: t(`Plan oficial .build importado: ${target.plan.build.name}`, `Imported official .build plan: ${target.plan.build.name}`),
       retrievedAt: target.plan.importedAt,
     });
   }
@@ -658,23 +824,37 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
   return [
     {
       ruleId: "mods-objetivo",
-      title: "Acercarse a la build de referencia",
-      action: `La build de referencia "${target.name}" sugiere stats que no tienes: ${listedText}. Valora piezas que los cubran.`,
-      reason:
+      title: t("Acercarse a la build de referencia", "Get closer to the reference build"),
+      action: t(
+        `La build de referencia "${target.name}" sugiere stats que no tienes: ${listedText}. Valora piezas que los cubran.`,
+        `The reference build "${target.name}" suggests stats you don't have: ${listedText}. Consider items that cover them.`,
+      ),
+      reason: t(
         "Comparación de los mods de tu equipo con los desiredMods y las pistas del plan de referencia (matching por texto normalizado).",
-      impactMetric: "mods objetivo",
-      impactDescription: "Acercamiento a la build de referencia (métrica parcial orientativa).",
+        "Comparison of your gear's mods with the reference plan's desiredMods and hints (matching by normalised text).",
+      ),
+      impactMetric: t("mods objetivo", "target mods"),
+      impactDescription: t("Acercamiento a la build de referencia (métrica parcial orientativa).", "Getting closer to the reference build (partial, rough metric)."),
       magnitude: "medium",
       riskLevel: "medium",
-      riskDescription: "Cambiar piezas para perseguir la referencia puede no encajar en tu presupuesto real.",
+      riskDescription: t(
+        "Cambiar piezas para perseguir la referencia puede no encajar en tu presupuesto real.",
+        "Changing items to chase the reference may not fit your real budget.",
+      ),
       mayLoseValuableMods: true,
       irreversible: false,
       priceQueries: [],
       goalWeights: { damage: 1.4, survival: 1, mapping: 1.2, bossing: 1, balanced: 1.6 },
       confidenceBase: "low",
       unverified: [
-        "No verificado — la build objetivo es una referencia comunitaria/oficial (referenceOnly), nunca verdad absoluta.",
-        "No verificado — el matching de mods es por texto normalizado y puede producir falsos positivos/negativos.",
+        t(
+          "No verificado — la build objetivo es una referencia comunitaria/oficial (referenceOnly), nunca verdad absoluta.",
+          "Not verified — the target build is a community/official reference (referenceOnly), never absolute truth.",
+        ),
+        t(
+          "No verificado — el matching de mods es por texto normalizado y puede producir falsos positivos/negativos.",
+          "Not verified — mod matching uses normalised text and can give false positives/negatives.",
+        ),
       ],
       extraSources,
     },
@@ -687,37 +867,47 @@ export const targetGapsRule: Rule = ({ profile, target }) => {
 // ---------------------------------------------------------------------------
 
 /** Huecos que toda build lleva ocupados; la mano secundaria depende del arma. */
-const REQUIRED_SLOTS: Array<{ slot: CharacterProfile["items"][number]["slot"]; label: string }> = [
-  { slot: "weapon", label: "Arma" },
-  { slot: "helmet", label: "Casco" },
-  { slot: "body", label: "Pecho" },
-  { slot: "gloves", label: "Guantes" },
-  { slot: "boots", label: "Botas" },
-  { slot: "belt", label: "Cinturón" },
-  { slot: "amulet", label: "Amuleto" },
-  { slot: "ring1", label: "Anillo 1" },
-  { slot: "ring2", label: "Anillo 2" },
+const REQUIRED_SLOTS: Array<{ slot: CharacterProfile["items"][number]["slot"]; label: string; labelEn: string }> = [
+  { slot: "weapon", label: "Arma", labelEn: "Weapon" },
+  { slot: "helmet", label: "Casco", labelEn: "Helmet" },
+  { slot: "body", label: "Pecho", labelEn: "Body armour" },
+  { slot: "gloves", label: "Guantes", labelEn: "Gloves" },
+  { slot: "boots", label: "Botas", labelEn: "Boots" },
+  { slot: "belt", label: "Cinturón", labelEn: "Belt" },
+  { slot: "amulet", label: "Amuleto", labelEn: "Amulet" },
+  { slot: "ring1", label: "Anillo 1", labelEn: "Ring 1" },
+  { slot: "ring2", label: "Anillo 2", labelEn: "Ring 2" },
 ];
 
-export const emptySlotsRule: Rule = ({ profile }) => {
+export const emptySlotsRule: Rule = ({ profile, lang }) => {
+  const t = tr(lang);
   // Un perfil sin ningún objeto es un expediente sin equipo, no nueve huecos vacíos.
   if (profile.items.length === 0) return [];
   const occupied = new Set(profile.items.map((item) => item.slot));
   const empty = REQUIRED_SLOTS.filter(({ slot }) => !occupied.has(slot));
   if (empty.length === 0) return [];
-  const names = empty.map(({ label }) => label).join(", ");
+  const names = empty.map(({ label, labelEn }) => (lang === "en" ? labelEn : label)).join(", ");
   const missingCore = empty.some(({ slot }) => slot === "weapon" || slot === "body");
   return [
     {
       ruleId: "huecos-equipo",
-      title: "Rellenar los huecos de equipo vacíos",
-      action: `Tienes vacío: ${names}. Hasta un objeto raro barato con vida o resistencias ya ayuda.`,
-      reason: "Cada hueco vacío es vida, resistencias o daño que no estás recibiendo.",
-      impactMetric: "equipo",
-      impactDescription: "Impacto directo en supervivencia y daño: el hueco no aporta nada ahora mismo.",
+      title: t("Rellenar los huecos de equipo vacíos", "Fill your empty gear slots"),
+      action: t(
+        `Tienes vacío: ${names}. Hasta un objeto raro barato con vida o resistencias ya ayuda.`,
+        `Empty: ${names}. Even a cheap rare with life or resistances already helps.`,
+      ),
+      reason: t(
+        "Cada hueco vacío es vida, resistencias o daño que no estás recibiendo.",
+        "Every empty slot is life, resistances or damage you're not getting.",
+      ),
+      impactMetric: t("equipo", "gear"),
+      impactDescription: t(
+        "Impacto directo en supervivencia y daño: el hueco no aporta nada ahora mismo.",
+        "Direct impact on survival and damage: the slot gives nothing right now.",
+      ),
       magnitude: missingCore || empty.length >= 3 ? "high" : "medium",
       riskLevel: "low",
-      riskDescription: "No sustituyes nada: solo ocupas un hueco libre.",
+      riskDescription: t("No sustituyes nada: solo ocupas un hueco libre.", "You don't replace anything: you just fill a free slot."),
       mayLoseValuableMods: false,
       irreversible: false,
       priceQueries: [],

@@ -15,7 +15,49 @@ import {
 } from "lucide-react";
 import type { Item } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
-import { SLOT_LABELS, RARITY_LABELS } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    title: "Equipo de tu personaje",
+    counts: (equipped: number, empty: number) => `${equipped} equipado(s) · ${empty} vacío(s)`,
+    flasks: (count: number) => `Frascos (${count})`,
+    noFlasks: "Sin información de frascos.",
+    diagnosis: "Diagnóstico",
+    diagnosisSummary: (items: number, empty: number, unverified: number) =>
+      ` · ${items} objetos · ${empty} huecos · ${unverified} mods sin verificar`,
+    registered: "Objetos registrados",
+    emptySlots: "Ranuras vacías",
+    byYou: "Objetos indicados por ti",
+    noSource: "Objetos sin fuente",
+    unverifiedMods: "Modificadores sin verificar",
+    highlighted: "Señalados por recomendaciones",
+    scope: "Solo tu equipo real; sin puntuaciones, comparación con el meta ni objetos de una build objetivo.",
+    others: (count: number) => `Otros objetos (${count})`,
+    emptySlot: "Ranura vacía",
+    pointedOut: ". Señalado por una recomendación",
+  },
+  {
+    title: "Your character's gear",
+    counts: (equipped: number, empty: number) => `${equipped} equipped · ${empty} empty`,
+    flasks: (count: number) => `Flasks (${count})`,
+    noFlasks: "No flask information.",
+    diagnosis: "Diagnosis",
+    diagnosisSummary: (items: number, empty: number, unverified: number) =>
+      ` · ${items} items · ${empty} empty slots · ${unverified} unverified mods`,
+    registered: "Recorded items",
+    emptySlots: "Empty slots",
+    byYou: "Items you entered",
+    noSource: "Items without a source",
+    unverifiedMods: "Unverified modifiers",
+    highlighted: "Pointed out by recommendations",
+    scope: "Only your real gear; no scores, no meta comparison and no items from a target build.",
+    others: (count: number) => `Other items (${count})`,
+    emptySlot: "Empty slot",
+    pointedOut: ". Pointed out by a recommendation",
+  },
+);
 import {
   buildEquipmentLayout,
   computeEquipmentDiagnostics,
@@ -110,6 +152,7 @@ export function EquipmentPanel({
   activeItemId = null,
   onSelectItem,
 }: EquipmentPanelProps) {
+  const t = useText(TEXT);
   const layout = buildEquipmentLayout(items);
   const diagnostics = computeEquipmentDiagnostics(layout, highlightedItemIds);
 
@@ -123,10 +166,10 @@ export function EquipmentPanel({
           id="equipo-titulo"
           className="rotulo-seccion text-foreground"
         >
-          Equipo de tu personaje
+          {t.title}
         </h3>
         <Badge variant="outline" className="text-muted-foreground">
-          {diagnostics.equipped} equipado(s) · {diagnostics.emptySlots} vacío(s)
+          {t.counts(diagnostics.equipped, diagnostics.emptySlots)}
         </Badge>
       </div>
       {/* La paperdoll manda: ocupa todo el ancho y empieza cuanto antes, para
@@ -156,7 +199,7 @@ export function EquipmentPanel({
           {/* Frascos: grupo derivado de los datos reales, sin número fijo. */}
           <div className="mt-2 flex flex-col gap-1.5" data-testid="flask-group">
             <h4 className="rotulo-seccion text-muted-foreground">
-              Frascos ({layout.flaskItems.length})
+              {t.flasks(layout.flaskItems.length)}
             </h4>
             {layout.flaskItems.length > 0 ? (
               <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -179,7 +222,7 @@ export function EquipmentPanel({
                   SURFACE,
                 )}
               >
-                Sin información de frascos.
+                {t.noFlasks}
               </p>
             )}
           </div>
@@ -190,30 +233,29 @@ export function EquipmentPanel({
           data-testid="equipment-diagnostics"
         >
           <summary className="cursor-pointer list-none text-xs text-muted-foreground marker:content-none">
-            <span className="font-medium text-foreground">Diagnóstico</span>
-            {` · ${diagnostics.equipped} objetos · ${diagnostics.emptySlots} huecos · ${diagnostics.unverifiedModifiers} mods sin verificar`}
+            <span className="font-medium text-foreground">{t.diagnosis}</span>
+            {t.diagnosisSummary(diagnostics.equipped, diagnostics.emptySlots, diagnostics.unverifiedModifiers)}
           </summary>
           <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
-              <DiagnosticRow label="Objetos registrados" value={diagnostics.equipped} />
-              <DiagnosticRow label="Ranuras vacías" value={diagnostics.emptySlots} />
-              <DiagnosticRow label="Objetos indicados por ti" value={diagnostics.userProvided} />
-              <DiagnosticRow label="Objetos sin fuente" value={diagnostics.withoutSource} />
+              <DiagnosticRow label={t.registered} value={diagnostics.equipped} />
+              <DiagnosticRow label={t.emptySlots} value={diagnostics.emptySlots} />
+              <DiagnosticRow label={t.byYou} value={diagnostics.userProvided} />
+              <DiagnosticRow label={t.noSource} value={diagnostics.withoutSource} />
               <DiagnosticRow
-                label="Modificadores sin verificar"
+                label={t.unverifiedMods}
                 value={diagnostics.unverifiedModifiers}
               />
               {diagnostics.highlighted > 0 && (
                 <DiagnosticRow
-                  label="Señalados por recomendaciones"
+                  label={t.highlighted}
                   value={diagnostics.highlighted}
                   emphasis
                 />
               )}
             </dl>
             <p className="text-[11px] text-muted-foreground">
-              Solo tu equipo real; sin puntuaciones, comparación con el meta ni objetos de
-              una build objetivo.
+              {t.scope}
             </p>
           </div>
         </details>
@@ -222,7 +264,7 @@ export function EquipmentPanel({
       {layout.extraItems.length > 0 && (
         <div className="flex flex-col gap-2">
           <h4 className="rotulo-seccion text-muted-foreground">
-            Otros objetos ({layout.extraItems.length})
+            {t.others(layout.extraItems.length)}
           </h4>
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {layout.extraItems.map((item) => (
@@ -277,9 +319,12 @@ interface EquipmentCellButtonProps {
 }
 
 function EquipmentCellButton({ slot, item, highlighted, active, onSelect }: EquipmentCellButtonProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const labels = useFormatLabels();
   const Icon =
     slot === null ? Package : slot === "flask" ? FlaskConical : SLOT_ICONS[slot];
-  const slotLabel = slot === null ? SLOT_LABELS.other : SLOT_LABELS[slot];
+  const slotLabel = slot === null ? labels.slot.other : labels.slot[slot];
 
   // Hueco vacío: no es un botón, no hay nada que abrir.
   if (item === null) {
@@ -296,13 +341,13 @@ function EquipmentCellButton({ slot, item, highlighted, active, onSelect }: Equi
           <Icon className="size-3.5 shrink-0" aria-hidden="true" />
           {slotLabel}
         </span>
-        <span className="text-xs text-muted-foreground/80">Ranura vacía</span>
+        <span className="text-xs text-muted-foreground/80">{t.emptySlot}</span>
       </div>
     );
   }
 
   const rarity = rarityStyle(item.rarity);
-  const dataState = describeItemDataState(item);
+  const dataState = describeItemDataState(item, lang);
 
   return (
     <button
@@ -314,10 +359,10 @@ function EquipmentCellButton({ slot, item, highlighted, active, onSelect }: Equi
       data-active={active ? "true" : "false"}
       aria-pressed={active}
       onClick={(event) => onSelect(item, event.currentTarget)}
-      aria-label={`${slotLabel}: ${item.name}, ${item.baseType}, ${RARITY_LABELS[item.rarity]}. ${dataState.label}. ${dataState.detail}${
-        highlighted ? ". Señalado por una recomendación" : ""
+      aria-label={`${slotLabel}: ${item.name}, ${item.baseType}, ${labels.rarity[item.rarity]}. ${dataState.label}. ${dataState.detail}${
+        highlighted ? t.pointedOut : ""
       }`}
-      title={`${item.name} · ${item.baseType} · ${RARITY_LABELS[item.rarity]} · ${dataState.label}`}
+      title={`${item.name} · ${item.baseType} · ${labels.rarity[item.rarity]} · ${dataState.label}`}
       className={cn(
         "gear-slot flex h-full min-h-20 w-full flex-col gap-1 border p-2 text-left",
         SURFACE,

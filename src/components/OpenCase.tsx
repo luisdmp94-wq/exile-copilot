@@ -8,6 +8,62 @@ import {
 } from "@/components/ui/accordion";
 import type { OpenCaseSelection } from "@/lib/openCase";
 import type { CharacterReadiness } from "@shared/characterReadiness.js";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    partialAvailable: "Análisis parcial disponible",
+    readyToAnalyse: "Listo para analizar",
+    incompleteFile: "Expediente incompleto",
+    whatCanICheck: "¿Qué puedo comprobar ya?",
+    whatToImprove: "¿Qué mejoro ahora?",
+    completeCharacter: "Completa tu personaje",
+    partialIntro: (count: number) =>
+      `Solo vemos ${count} ${count === 1 ? "pieza" : "piezas"}. El Mentor puede usar las estadísticas y habilidades importadas, pero no tratará el equipo ausente como analizado.`,
+    readyIntro: "El mentor revisará tu personaje y elegirá una sola prioridad.",
+    needDataIntro: "Necesitamos datos observados de PoE2 antes de recomendar una mejora.",
+    addMoreItems:
+      "Añade más piezas para ampliar el análisis del equipo. La orientación actual seguirá marcada como parcial.",
+    nextStepPartial: (count: number) =>
+      `Tu siguiente paso · diagnóstico parcial, ${count} ${count === 1 ? "pieza observada" : "piezas observadas"}`,
+    nextStep: "Tu siguiente paso",
+    nextStepSr: "Una sola decisión cada vez; lo que hagas queda en tu diario.",
+    evidence: "Evidencia y limitaciones",
+    yourCopilot: "Tu copiloto",
+    talkToMentor: "Habla con tu Mentor",
+    openChat: "Abrir conversación",
+    close: "Cerrar",
+    checkDecision: "Comprobar una decisión",
+    decisionHistory: "Historial de decisiones",
+    otherOptions: "Otras posibilidades",
+  },
+  {
+    partialAvailable: "Partial analysis available",
+    readyToAnalyse: "Ready to analyse",
+    incompleteFile: "Character incomplete",
+    whatCanICheck: "What can I check already?",
+    whatToImprove: "What should I improve now?",
+    completeCharacter: "Complete your character",
+    partialIntro: (count: number) =>
+      `We only see ${count} ${count === 1 ? "item" : "items"}. The Mentor can use your imported stats and skills, but it won't treat the missing gear as analysed.`,
+    readyIntro: "The mentor will review your character and pick a single priority.",
+    needDataIntro: "We need data seen in PoE2 before we can suggest an upgrade.",
+    addMoreItems:
+      "Add more items to widen the gear analysis. The current advice will stay marked as partial.",
+    nextStepPartial: (count: number) =>
+      `Your next step · partial diagnosis, ${count} ${count === 1 ? "item seen" : "items seen"}`,
+    nextStep: "Your next step",
+    nextStepSr: "One decision at a time; whatever you do is saved in your journal.",
+    evidence: "Evidence and limits",
+    yourCopilot: "Your copilot",
+    talkToMentor: "Talk to your Mentor",
+    openChat: "Open chat",
+    close: "Close",
+    checkDecision: "Check a decision",
+    decisionHistory: "Decision history",
+    otherOptions: "Other options",
+  },
+);
 
 interface OpenCaseProps {
   selection: OpenCaseSelection;
@@ -45,6 +101,7 @@ export function OpenCase({
   evidenceSlot,
   mentorAskSlot,
 }: OpenCaseProps) {
+  const t = useText(TEXT);
   const isWaitingForDiagnosis = selection.kind === "generate";
   const profileReady = profileReadiness.ready;
   const partialAnalysis = profileReadiness.analysisScope === "partial";
@@ -94,34 +151,34 @@ export function OpenCase({
               <div className="min-w-0 max-w-prose">
               <p className="rotulo-seccion text-primary/70">
                 {partialAnalysis
-                  ? "Análisis parcial disponible"
+                  ? t.partialAvailable
                   : profileReady
-                    ? "Listo para analizar"
-                    : "Expediente incompleto"}
+                    ? t.readyToAnalyse
+                    : t.incompleteFile}
               </p>
               <h2
                 id="caso-abierto-titulo"
                 className="dossier-title mt-1.5 text-2xl font-semibold leading-tight text-primary"
               >
                 {partialAnalysis
-                  ? "¿Qué puedo comprobar ya?"
+                  ? t.whatCanICheck
                   : profileReady
-                    ? "¿Qué mejoro ahora?"
-                    : "Completa tu personaje"}
+                    ? t.whatToImprove
+                    : t.completeCharacter}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {partialAnalysis
-                  ? `Solo vemos ${profileReadiness.equippedItemCount} ${profileReadiness.equippedItemCount === 1 ? "pieza" : "piezas"}. El Mentor puede usar las estadísticas y habilidades importadas, pero no tratará el equipo ausente como analizado.`
+                  ? t.partialIntro(profileReadiness.equippedItemCount)
                   : profileReady
-                  ? "El mentor revisará tu personaje y elegirá una sola prioridad."
-                  : "Necesitamos datos observados de PoE2 antes de recomendar una mejora."}
+                  ? t.readyIntro
+                  : t.needDataIntro}
               </p>
               {partialAnalysis && (
                 <p
                   data-testid="profile-partial-analysis"
                   className="mt-3 border-l-2 border-amber-500/70 pl-3 text-xs leading-relaxed text-amber-200/80"
                 >
-                  Añade más piezas para ampliar el análisis del equipo. La orientación actual seguirá marcada como parcial.
+                  {t.addMoreItems}
                 </p>
               )}
               </div>
@@ -132,10 +189,10 @@ export function OpenCase({
                 <Bot className="size-4" aria-hidden="true" />
               </span>
               {partialAnalysis
-                ? `Tu siguiente paso · diagnóstico parcial, ${profileReadiness.equippedItemCount} ${profileReadiness.equippedItemCount === 1 ? "pieza observada" : "piezas observadas"}`
-                : "Tu siguiente paso"}
+                ? t.nextStepPartial(profileReadiness.equippedItemCount)
+                : t.nextStep}
               <span id="caso-abierto-titulo" className="sr-only">
-                Una sola decisión cada vez; lo que hagas queda en tu diario.
+                {t.nextStepSr}
               </span>
             </p>
           )}
@@ -152,7 +209,7 @@ export function OpenCase({
         <Accordion type="multiple" className="superficie-panel px-5">
           <AccordionItem value="evidencia">
             <AccordionTrigger data-testid="acordeon-evidencia">
-              Evidencia y limitaciones
+              {t.evidence}
             </AccordionTrigger>
             <AccordionContent forceMount>{evidenceSlot}</AccordionContent>
           </AccordionItem>
@@ -178,6 +235,7 @@ export function MentorBriefing({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useText(TEXT);
   return (
     <details
       id="mentor-briefing"
@@ -191,19 +249,19 @@ export function MentorBriefing({
         data-testid="mentor-briefing-toggle"
       >
         <span>
-          <span className="rotulo-seccion block text-primary/70">Tu copiloto</span>
+          <span className="rotulo-seccion block text-primary/70">{t.yourCopilot}</span>
           <span
             id="mentor-briefing-titulo"
             className="dossier-title mt-0.5 block text-lg font-semibold text-foreground"
           >
-            Habla con tu Mentor
+            {t.talkToMentor}
           </span>
         </span>
         <span className="shrink-0 text-xs text-muted-foreground group-open:hidden">
-          Abrir conversación
+          {t.openChat}
         </span>
         <span className="hidden shrink-0 text-xs text-muted-foreground group-open:inline">
-          Cerrar
+          {t.close}
         </span>
       </summary>
       <div className="border-t border-primary/15 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
@@ -235,6 +293,7 @@ export function OpenCaseSecondary({
   historySlot: ReactNode;
   othersSlot: ReactNode;
 }) {
+  const t = useText(TEXT);
   return (
     <Accordion
       type="multiple"
@@ -244,7 +303,7 @@ export function OpenCaseSecondary({
       {sessionSlot !== null && (
         <AccordionItem value="decision" className="border-border/70 px-2 sm:border-b-0 sm:border-r data-[state=open]:sm:col-span-3 data-[state=open]:sm:border-r-0">
           <AccordionTrigger className="min-h-11 py-2.5 hover:no-underline" data-testid="acordeon-decision">
-            Comprobar una decisión
+            {t.checkDecision}
           </AccordionTrigger>
           <AccordionContent forceMount>{sessionSlot}</AccordionContent>
         </AccordionItem>
@@ -252,14 +311,14 @@ export function OpenCaseSecondary({
 
       <AccordionItem value="historial" className="border-border/70 px-2 sm:border-b-0 sm:border-r data-[state=open]:sm:col-span-3 data-[state=open]:sm:border-r-0">
         <AccordionTrigger className="min-h-11 py-2.5 hover:no-underline" data-testid="acordeon-historial">
-          Historial de decisiones
+          {t.decisionHistory}
         </AccordionTrigger>
         <AccordionContent forceMount>{historySlot}</AccordionContent>
       </AccordionItem>
 
       <AccordionItem value="otras" className="border-border/70 px-2 data-[state=open]:sm:col-span-3">
         <AccordionTrigger className="min-h-11 py-2.5 hover:no-underline" data-testid="acordeon-otras">
-          Otras posibilidades
+          {t.otherOptions}
           {selection.otherRecommendations.length > 0 &&
             ` (${selection.otherRecommendations.length})`}
         </AccordionTrigger>

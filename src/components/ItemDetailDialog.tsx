@@ -10,13 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  MODIFIER_KIND_LABELS,
-  RARITY_LABELS,
-  SLOT_LABELS,
-  SOURCE_KIND_LABELS,
-  formatDateTime,
-} from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import {
   describeItemDataState,
   describeRequirements,
@@ -26,6 +20,49 @@ import {
   rarityStyle,
 } from "@/lib/equipment";
 import { cn } from "@/lib/utils";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    itemLevel: "Nivel de objeto",
+    quality: "Calidad",
+    craft: "Analizar y trabajar esta pieza",
+    requirements: "Requisitos",
+    noRequirements: "Sin requisitos registrados (desconocido).",
+    modifiers: (count: number) => `Modificadores (${count})`,
+    prefix: "Prefijo",
+    suffix: "Sufijo",
+    tier: (tier: string | number) => `· Grado ${tier}`,
+    crafted: "· Fabricado",
+    desecrated: "· Profanado",
+    unverified: "No verificado",
+    noModifiers: "Sin modificadores registrados (desconocido).",
+    origin: "Procedencia",
+    noSource: "Fuente no disponible.",
+    related: "Recomendaciones que evalúan este objeto",
+    seeRecommendations: "Ver recomendaciones",
+  },
+  {
+    itemLevel: "Item level",
+    quality: "Quality",
+    craft: "Analyse and work on this item",
+    requirements: "Requirements",
+    noRequirements: "No requirements recorded (unknown).",
+    modifiers: (count: number) => `Modifiers (${count})`,
+    prefix: "Prefix",
+    suffix: "Suffix",
+    tier: (tier: string | number) => `· Tier ${tier}`,
+    crafted: "· Crafted",
+    desecrated: "· Desecrated",
+    unverified: "Not verified",
+    noModifiers: "No modifiers recorded (unknown).",
+    origin: "Origin",
+    noSource: "Source not available.",
+    related: "Recommendations that evaluate this item",
+    seeRecommendations: "See recommendations",
+  },
+);
 
 /**
  * Detalle de un objeto del personaje. Diálogo accesible (Radix): atrapa el
@@ -116,9 +153,12 @@ function ItemDetailContent({
   onGoToCrafting?: ItemDetailDialogProps["onGoToCrafting"];
   getCloseFocusTarget?: (() => HTMLElement | null) | undefined;
 }) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const labels = useFormatLabels();
   const rarity = rarityStyle(item.rarity);
-  const dataState = describeItemDataState(item);
-  const requirements = describeRequirements(item);
+  const dataState = describeItemDataState(item, lang);
+  const requirements = describeRequirements(item, lang);
   const modifierGroups = groupModifiersByKind(item);
   return (
     <DialogContent
@@ -164,7 +204,7 @@ function ItemDetailContent({
           <div>
             <DialogTitle className={cn("text-lg", rarity.text)}>{item.name}</DialogTitle>
             <DialogDescription>
-              {item.baseType} · {SLOT_LABELS[item.slot]} · {RARITY_LABELS[item.rarity]}
+              {item.baseType} · {labels.slot[item.slot]} · {labels.rarity[item.rarity]}
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -172,7 +212,7 @@ function ItemDetailContent({
         <div className="flex flex-col gap-4 text-sm">
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className={cn(rarity.border, rarity.text)}>
-              {RARITY_LABELS[item.rarity]}
+              {labels.rarity[item.rarity]}
             </Badge>
             <Badge
               variant="outline"
@@ -185,12 +225,12 @@ function ItemDetailContent({
 
           <dl className="grid grid-cols-2 gap-3">
             <div>
-              <dt className="text-xs text-muted-foreground">Nivel de objeto</dt>
-              <dd data-testid="detalle-ilvl">{formatOptionalInt(item.itemLevel)}</dd>
+              <dt className="text-xs text-muted-foreground">{t.itemLevel}</dt>
+              <dd data-testid="detalle-ilvl">{formatOptionalInt(item.itemLevel, lang)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Calidad</dt>
-              <dd data-testid="detalle-calidad">{formatQuality(item.quality)}</dd>
+              <dt className="text-xs text-muted-foreground">{t.quality}</dt>
+              <dd data-testid="detalle-calidad">{formatQuality(item.quality, lang)}</dd>
             </div>
           </dl>
 
@@ -201,12 +241,12 @@ function ItemDetailContent({
               onClick={() => onGoToCrafting(item.id)}
               data-testid="trabajar-en-crafting"
             >
-              Analizar y trabajar esta pieza
+              {t.craft}
             </Button>
           )}
 
           <section className="flex flex-col gap-1">
-            <h4 className="text-xs font-medium text-muted-foreground">Requisitos</h4>
+            <h4 className="text-xs font-medium text-muted-foreground">{t.requirements}</h4>
             {requirements.length > 0 ? (
               <ul className="flex flex-wrap gap-2">
                 {requirements.map((req) => (
@@ -217,20 +257,20 @@ function ItemDetailContent({
               </ul>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Sin requisitos registrados (desconocido).
+                {t.noRequirements}
               </p>
             )}
           </section>
 
           <section className="flex flex-col gap-2">
             <h4 className="text-xs font-medium text-muted-foreground">
-              Modificadores ({item.modifiers.length})
+              {t.modifiers(item.modifiers.length)}
             </h4>
             {modifierGroups.length > 0 ? (
               modifierGroups.map((group) => (
                 <div key={group.kind} className="flex flex-col gap-1">
                   <p className="text-xs text-muted-foreground">
-                    {MODIFIER_KIND_LABELS[group.kind]}
+                    {labels.modifierKind[group.kind]}
                   </p>
                   <ul className="flex flex-col gap-1">
                     {group.mods.map((mod) => (
@@ -239,12 +279,12 @@ function ItemDetailContent({
                           {(mod.affix || mod.name || mod.tier || mod.crafted || mod.desecrated) && (
                             <span className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
                               {mod.affix && (
-                                <span>{mod.affix === "prefix" ? "Prefijo" : "Sufijo"}</span>
+                                <span>{mod.affix === "prefix" ? t.prefix : t.suffix}</span>
                               )}
                               {mod.name && <span>· «{mod.name}»</span>}
-                              {mod.tier && <span>· Grado {mod.tier}</span>}
-                              {mod.crafted && <span>· Fabricado</span>}
-                              {mod.desecrated && <span>· Profanado</span>}
+                              {mod.tier && <span>{t.tier(mod.tier)}</span>}
+                              {mod.crafted && <span>{t.crafted}</span>}
+                              {mod.desecrated && <span>{t.desecrated}</span>}
                             </span>
                           )}
                           <span className="whitespace-pre-line">{mod.text}</span>
@@ -256,7 +296,7 @@ function ItemDetailContent({
                         </div>
                         {!mod.verified && (
                           <span className="shrink-0 text-[11px] text-amber-300">
-                            No verificado
+                            {t.unverified}
                           </span>
                         )}
                       </li>
@@ -266,24 +306,24 @@ function ItemDetailContent({
               ))
             ) : (
               <p className="text-xs text-muted-foreground">
-                Sin modificadores registrados (desconocido).
+                {t.noModifiers}
               </p>
             )}
           </section>
 
           <section className="flex flex-col gap-1">
-            <h4 className="text-xs font-medium text-muted-foreground">Procedencia</h4>
+            <h4 className="text-xs font-medium text-muted-foreground">{t.origin}</h4>
             {item.sources.length > 0 ? (
               <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {item.sources.map((source, index) => (
                   <li key={`${source.kind}-${index}`}>
-                    {source.label} ({SOURCE_KIND_LABELS[source.kind]}) ·{" "}
+                    {source.label} ({labels.sourceKind[source.kind]}) ·{" "}
                     {formatDateTime(source.retrievedAt)}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-muted-foreground">Fuente no disponible.</p>
+              <p className="text-xs text-muted-foreground">{t.noSource}</p>
             )}
             <p className="text-xs text-muted-foreground">{dataState.detail}</p>
           </section>
@@ -291,7 +331,7 @@ function ItemDetailContent({
           {relatedRecommendations.length > 0 && (
             <section className="flex flex-col gap-2 rounded-md border border-primary/40 bg-primary/5 p-3">
               <h4 className="text-xs font-medium text-foreground">
-                Recomendaciones que evalúan este objeto
+                {t.related}
               </h4>
               <ul className="list-inside list-disc text-xs text-muted-foreground">
                 {relatedRecommendations.map((rec) => (
@@ -300,7 +340,7 @@ function ItemDetailContent({
               </ul>
               <div>
                 <Button type="button" variant="secondary" size="sm" onClick={onGoToRecommendations}>
-                  Ver recomendaciones
+                  {t.seeRecommendations}
                 </Button>
               </div>
             </section>

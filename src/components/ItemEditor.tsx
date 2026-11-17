@@ -11,10 +11,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { texts, useText } from "@/i18n/lang";
 import { RARITY_LABELS, SLOT_LABELS } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
 
 const SLOTS = Object.keys(SLOT_LABELS) as ItemSlot[];
 const RARITIES = Object.keys(RARITY_LABELS) as ItemRarity[];
+
+const TEXT = texts(
+  {
+    name: "Nombre",
+    base: "Base",
+    slot: "Ranura",
+    rarity: "Rareza",
+    removeItem: (label: string | number) => `Eliminar objeto ${label}`,
+    mods: "Mods (uno por línea)",
+    modsPlaceholder: "+45% de daño físico aumentado",
+  },
+  {
+    name: "Name",
+    base: "Base",
+    slot: "Slot",
+    rarity: "Rarity",
+    removeItem: (label: string | number) => `Remove item ${label}`,
+    mods: "Mods (one per line)",
+    modsPlaceholder: "45% increased Physical Damage",
+  },
+);
 
 interface ItemEditorProps {
   item: Item;
@@ -25,6 +48,8 @@ interface ItemEditorProps {
 
 /** Editor de un objeto del perfil: nombre, base, slot, rareza y mods (uno por línea). */
 export function ItemEditor({ item, index, onChange, onRemove }: ItemEditorProps) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   const idPrefix = `item-${index}`;
 
   const setModsFromText = (text: string) => {
@@ -49,7 +74,7 @@ export function ItemEditor({ item, index, onChange, onRemove }: ItemEditorProps)
       <div className="flex items-start justify-between gap-2">
         <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${idPrefix}-name`}>Nombre</Label>
+            <Label htmlFor={`${idPrefix}-name`}>{t.name}</Label>
             <Input
               id={`${idPrefix}-name`}
               value={item.name}
@@ -57,7 +82,7 @@ export function ItemEditor({ item, index, onChange, onRemove }: ItemEditorProps)
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${idPrefix}-base`}>Base</Label>
+            <Label htmlFor={`${idPrefix}-base`}>{t.base}</Label>
             <Input
               id={`${idPrefix}-base`}
               value={item.baseType}
@@ -65,7 +90,7 @@ export function ItemEditor({ item, index, onChange, onRemove }: ItemEditorProps)
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${idPrefix}-slot`}>Ranura</Label>
+            <Label htmlFor={`${idPrefix}-slot`}>{t.slot}</Label>
             <Select
               value={item.slot}
               onValueChange={(value) => onChange({ ...item, slot: value as ItemSlot })}
@@ -76,14 +101,14 @@ export function ItemEditor({ item, index, onChange, onRemove }: ItemEditorProps)
               <SelectContent>
                 {SLOTS.map((slot) => (
                   <SelectItem key={slot} value={slot}>
-                    {SLOT_LABELS[slot]}
+                    {labels.slot[slot]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${idPrefix}-rarity`}>Rareza</Label>
+            <Label htmlFor={`${idPrefix}-rarity`}>{t.rarity}</Label>
             <Select
               value={item.rarity}
               onValueChange={(value) =>
@@ -96,7 +121,7 @@ export function ItemEditor({ item, index, onChange, onRemove }: ItemEditorProps)
               <SelectContent>
                 {RARITIES.map((rarity) => (
                   <SelectItem key={rarity} value={rarity}>
-                    {RARITY_LABELS[rarity]}
+                    {labels.rarity[rarity]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -108,21 +133,21 @@ export function ItemEditor({ item, index, onChange, onRemove }: ItemEditorProps)
           variant="ghost"
           size="icon"
           onClick={onRemove}
-          aria-label={`Eliminar objeto ${item.name || index + 1}`}
+          aria-label={t.removeItem(item.name || index + 1)}
           className="text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="size-4" aria-hidden="true" />
         </Button>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`${idPrefix}-mods`}>Mods (uno por línea)</Label>
+        <Label htmlFor={`${idPrefix}-mods`}>{t.mods}</Label>
         <Textarea
           id={`${idPrefix}-mods`}
           value={item.modifiers.map((mod) => mod.text).join("\n")}
           onChange={(e) => setModsFromText(e.target.value)}
           rows={Math.min(6, Math.max(2, item.modifiers.length))}
           className="font-mono text-xs"
-          placeholder="+45% de daño físico aumentado"
+          placeholder={t.modsPlaceholder}
         />
       </div>
     </div>

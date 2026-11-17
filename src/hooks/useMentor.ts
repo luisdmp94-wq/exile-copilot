@@ -7,6 +7,7 @@ import {
 } from "@shared/mentorQuery.js";
 import { MAX_PERSISTED_MENTOR_TURNS } from "@shared/mentorThreadPersistence.js";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
+import { pageLang } from "@/i18n/lang";
 import {
   initialMentorThreadState,
   MENTOR_THREAD_STORAGE_KEY,
@@ -164,7 +165,13 @@ export function useMentor(): MentorState {
     try {
       const { answer } = await api.mentorQuery(request);
       if (activeRequestRef.current !== requestId) {
-        return { status: "error", message: "La consulta fue sustituida por otra más reciente." };
+        return {
+          status: "error",
+          message:
+            pageLang() === "en"
+              ? "That question was replaced by a newer one."
+              : "La consulta fue sustituida por otra más reciente.",
+        };
       }
       const mentorTurn: MentorTurn = {
         id: nextTurnId("mentor"),
@@ -213,7 +220,9 @@ export function useMentor(): MentorState {
         return { status: "journal-stale" };
       }
       dispatch({ type: "failed", message, requestId });
-      toast.error("No se pudo consultar al mentor", { description: message });
+      toast.error(pageLang() === "en" ? "Couldn't reach the mentor" : "No se pudo consultar al mentor", {
+        description: message,
+      });
       return { status: "error", message };
     }
   }, []);

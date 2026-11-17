@@ -10,12 +10,13 @@ import type {
   RiskLevel,
 } from "@shared/domain.js";
 import { readCharacterLevel } from "@shared/domain.js";
+import { pageLang } from "../i18n/lang";
 
 /** Etiquetas en español y formato de fechas para la interfaz. */
 
 export function formatCharacterLevel(profile: CharacterProfile): string {
   const reading = readCharacterLevel(profile);
-  return reading.known ? String(reading.level) : "desconocido";
+  return reading.known ? String(reading.level) : pageLang() === "en" ? "unknown" : "desconocido";
 }
 
 export const CURRENCY_LABELS: Record<CurrencyKind, string> = {
@@ -126,15 +127,22 @@ export const CONFIDENCE_BADGE_CLASSES: Record<ConfidenceLevel, string> = {
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return new Intl.DateTimeFormat("es-ES", {
+  return new Intl.DateTimeFormat(pageLang() === "en" ? "en-GB" : "es-ES", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
 }
 
 export function formatNumber(value: number): string {
-  return new Intl.NumberFormat("es-ES").format(value);
+  return new Intl.NumberFormat(pageLang() === "en" ? "en-GB" : "es-ES").format(value);
 }
+
+const CURRENCY_LABELS_EN: Record<CurrencyKind, string> = {
+  chaos: "Chaos",
+  exalted: "Exalted",
+  divine: "Divine",
+  gold: "Gold",
+};
 
 /** "50 Exaltado" → texto legible de coste con moneda. */
 export function formatCost(
@@ -143,12 +151,13 @@ export function formatCost(
   currency: CurrencyKind,
   known: boolean,
 ): string {
-  const label = CURRENCY_LABELS[currency];
-  if (min === null && max === null) return "No verificado";
+  const en = pageLang() === "en";
+  const label = en ? CURRENCY_LABELS_EN[currency] : CURRENCY_LABELS[currency];
+  if (min === null && max === null) return en ? "Not verified" : "No verificado";
   const range =
     min !== null && max !== null && min !== max
       ? `${formatNumber(min)}–${formatNumber(max)}`
       : formatNumber(min ?? max ?? 0);
-  const suffix = known ? "" : " (estimado)";
+  const suffix = known ? "" : en ? " (estimated)" : " (estimado)";
   return `${range} ${label}${suffix}`;
 }

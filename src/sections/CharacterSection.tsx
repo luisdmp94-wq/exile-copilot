@@ -53,6 +53,7 @@ import { ImportPanel } from "@/components/ImportPanel";
 import { ItemEditor } from "@/components/ItemEditor";
 import type { CharacterState } from "@/hooks/useCharacter";
 import type { EditorDrafts } from "@/hooks/useEditorDrafts";
+import { texts, useText } from "@/i18n/lang";
 
 interface CharacterSectionProps {
   character: CharacterState;
@@ -86,27 +87,176 @@ interface CharacterSectionProps {
   onGoToTargetImport?: () => void;
 }
 
-const RESISTANCE_FIELDS: { key: keyof Resistances; label: string }[] = [
-  { key: "fire", label: "Fuego" },
-  { key: "cold", label: "Hielo" },
-  { key: "lightning", label: "Rayo" },
-  { key: "chaos", label: "Caos" },
-];
+const TEXT = texts(
+  {
+    titleItem: "Analizar un objeto",
+    titleNew: "Crear personaje",
+    titleImport: "Añadir personaje",
+    titleMemory: "Guardar personaje",
+    titleFull: "Mi personaje",
+    origin: {
+      empty: "Sin personaje",
+      demo: "Ejemplo cargado",
+      imported: "Importado",
+      manual: "Creado aquí",
+    },
+    warningsCount: (count: number) => `${count} aviso(s)`,
+    unsavedChanges: "Cambios sin guardar",
+    startOver: "Cambiar o empezar de nuevo",
+    loadDemo: "Cargar ejemplo",
+    importWarnings: "Avisos de la importación",
+    restoring: "Restaurando tu último personaje…",
+    emptyTitle: "Todavía no hay personaje",
+    emptyDescription:
+      "Importa un archivo .build arriba o carga el ejemplo de Mercenario con ballesta para explorar la aplicación.",
+    memoryTitle: "Activa la memoria para continuar",
+    memoryLead: (name: string) =>
+      `Guardaremos «${name}» y después abriremos la comprobación que acabas de elegir. No tienes que volver a rellenar el personaje.`,
+    saveAndContinue: "Guardar y continuar",
+    itemTextLabel: "Analizar objeto copiado del juego (Ctrl+Alt+C sobre el objeto en PoE2)",
+    itemTextPlaceholder: "Clase de objeto: Ballestas\nRareza: Raro\nNúcleo de fénix\nBallesta barnizada\n…",
+    analyzeItem: "Analizar objeto",
+    saveCorrections: "Guardar correcciones",
+    slotTakenTitle: "Ese hueco ya está ocupado",
+    slotTakenLead: "no se añadirá ni sustituirá nada hasta que elijas qué hacer.",
+    replaceItem: (name: string) => `Sustituir ${name}`,
+    keepBoth: "Conservar ambos · guardar como extra",
+    cancelAndReview: "Cancelar y revisar",
+    // Editor del expediente
+    name: "Nombre",
+    characterClass: "Clase",
+    ascendancy: "Ascendencia (nombre visible)",
+    ascendancyPlaceholder: "Desconocida",
+    ascendancyId: "ID de ascendencia (oficial, opcional)",
+    ascendancyIdPlaceholder: "p. ej. Warrior1",
+    ascendancyIdHelp: "Solo si lo conoces; se exporta como id oficial en el archivo .build.",
+    archetype: "Arquetipo (opcional)",
+    archetypePlaceholder: "p. ej. mercenario con ballesta",
+    level: "Nivel",
+    unknown: "Desconocido",
+    league: "Liga",
+    pickLeague: "Elige una liga",
+    patch: "Parche",
+    pickPatch: "Elige un parche",
+    attributesLegend: "Atributos",
+    attributesHelp: "Deja el campo vacío si no lo sabes: «desconocido» no es lo mismo que 0.",
+    attributes: { str: "Fuerza", dex: "Destreza", int: "Inteligencia" },
+    resistancesLegend: "Resistencias (%)",
+    resistances: { fire: "Fuego", cold: "Hielo", lightning: "Rayo", chaos: "Caos" },
+    defensesLegend: "Defensas",
+    defenses: {
+      life: "Vida",
+      energyShield: "Escudo de energía",
+      evasion: "Evasión",
+      armour: "Armadura",
+    },
+    itemsLegend: (count: number) => `Objetos (${count})`,
+    noItems: "Sin objetos. Analiza un objeto copiado del juego con el panel de abajo.",
+    skillsLegend: (count: number) => `Habilidades (${count})`,
+    mainSkill: "Habilidad principal",
+    unverifiedId: "id no verificado",
+    supports: "Soportes (separados por comas)",
+    supportUnverified: (name: string) => `${name}: id no verificado`,
+    removeSkill: (name: string) => `Eliminar habilidad ${name || "sin nombre"}`,
+    addSkill: "Añadir habilidad",
+    passivesLegend: (count: number) => `Pasivas asignadas (${count})`,
+    noPassives: "Sin pasivas. Añade nodos del árbol por nombre o por id oficial.",
+    passive: (position: number) => `Pasiva ${position}`,
+    officialId: "id oficial",
+    unverifiedName: "nombre sin verificar",
+    removePassive: (label: string | number) => `Eliminar pasiva ${label}`,
+    addPassive: "Añadir pasiva",
+  },
+  {
+    titleItem: "Analyze an item",
+    titleNew: "Create character",
+    titleImport: "Add character",
+    titleMemory: "Save character",
+    titleFull: "My character",
+    origin: {
+      empty: "No character",
+      demo: "Example loaded",
+      imported: "Imported",
+      manual: "Created here",
+    },
+    warningsCount: (count: number) => (count === 1 ? "1 warning" : `${count} warnings`),
+    unsavedChanges: "Unsaved changes",
+    startOver: "Change or start over",
+    loadDemo: "Load example",
+    importWarnings: "Import warnings",
+    restoring: "Restoring your last character…",
+    emptyTitle: "No character yet",
+    emptyDescription:
+      "Import a .build file above or load the crossbow Mercenary example to explore the app.",
+    memoryTitle: "Turn on memory to continue",
+    memoryLead: (name: string) =>
+      `We'll save «${name}» and then open the check you just picked. You don't have to fill in the character again.`,
+    saveAndContinue: "Save and continue",
+    itemTextLabel: "Analyze an item copied from the game (Ctrl+Alt+C over the item in PoE2)",
+    itemTextPlaceholder: "Item Class: Crossbows\nRarity: Rare\nPhoenix Core\nVarnished Crossbow\n…",
+    analyzeItem: "Analyze item",
+    saveCorrections: "Save changes",
+    slotTakenTitle: "That slot is already taken",
+    slotTakenLead: "won't be added and won't replace anything until you choose what to do.",
+    replaceItem: (name: string) => `Replace ${name}`,
+    keepBoth: "Keep both · save as extra",
+    cancelAndReview: "Cancel and review",
+    // Character editor
+    name: "Name",
+    characterClass: "Class",
+    ascendancy: "Ascendancy (display name)",
+    ascendancyPlaceholder: "Unknown",
+    ascendancyId: "Ascendancy ID (official, optional)",
+    ascendancyIdPlaceholder: "e.g. Warrior1",
+    ascendancyIdHelp: "Only if you know it; it's exported as the official id in the .build file.",
+    archetype: "Archetype (optional)",
+    archetypePlaceholder: "e.g. crossbow Mercenary",
+    level: "Level",
+    unknown: "Unknown",
+    league: "League",
+    pickLeague: "Pick a league",
+    patch: "Patch",
+    pickPatch: "Pick a patch",
+    attributesLegend: "Attributes",
+    attributesHelp: "Leave the field empty if you don't know it: «unknown» is not the same as 0.",
+    attributes: { str: "Strength", dex: "Dexterity", int: "Intelligence" },
+    resistancesLegend: "Resistances (%)",
+    resistances: { fire: "Fire", cold: "Cold", lightning: "Lightning", chaos: "Chaos" },
+    defensesLegend: "Defences",
+    defenses: {
+      life: "Life",
+      energyShield: "Energy Shield",
+      evasion: "Evasion",
+      armour: "Armour",
+    },
+    itemsLegend: (count: number) => `Items (${count})`,
+    noItems: "No items. Analyze an item copied from the game with the panel below.",
+    skillsLegend: (count: number) => `Skills (${count})`,
+    mainSkill: "Main skill",
+    unverifiedId: "unverified id",
+    supports: "Supports (comma-separated)",
+    supportUnverified: (name: string) => `${name}: unverified id`,
+    removeSkill: (name: string) => `Remove skill ${name || "without a name"}`,
+    addSkill: "Add skill",
+    passivesLegend: (count: number) => `Allocated passives (${count})`,
+    noPassives: "No passives. Add tree nodes by name or by official id.",
+    passive: (position: number) => `Passive ${position}`,
+    officialId: "official id",
+    unverifiedName: "unverified name",
+    removePassive: (label: string | number) => `Remove passive ${label}`,
+    addPassive: "Add passive",
+  },
+);
 
-const ATTRIBUTE_FIELDS: { key: keyof Attributes; label: string }[] = [
-  { key: "str", label: "Fuerza" },
-  { key: "dex", label: "Destreza" },
-  { key: "int", label: "Inteligencia" },
-];
+const RESISTANCE_KEYS: (keyof Resistances)[] = ["fire", "cold", "lightning", "chaos"];
 
-const DEFENSE_FIELDS: {
-  key: "life" | "energyShield" | "evasion" | "armour";
-  label: string;
-}[] = [
-  { key: "life", label: "Vida" },
-  { key: "energyShield", label: "Escudo de energía" },
-  { key: "evasion", label: "Evasión" },
-  { key: "armour", label: "Armadura" },
+const ATTRIBUTE_KEYS: (keyof Attributes)[] = ["str", "dex", "int"];
+
+const DEFENSE_KEYS: ("life" | "energyShield" | "evasion" | "armour")[] = [
+  "life",
+  "energyShield",
+  "evasion",
+  "armour",
 ];
 
 /** number | null: "" → null (desconocido); nunca mostrar null como 0. */
@@ -126,20 +276,11 @@ function inputToOptional(value: string): number | undefined {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
-const ORIGIN_BADGES = {
-  empty: { label: "Sin personaje", className: "border-border text-muted-foreground" },
-  demo: {
-    label: "Ejemplo cargado",
-    className: "border-primary/50 bg-primary/10 text-primary",
-  },
-  imported: {
-    label: "Importado",
-    className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
-  },
-  manual: {
-    label: "Creado aquí",
-    className: "border-sky-500/40 bg-sky-500/15 text-sky-300",
-  },
+const ORIGIN_BADGE_CLASSES = {
+  empty: "border-border text-muted-foreground",
+  demo: "border-primary/50 bg-primary/10 text-primary",
+  imported: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+  manual: "border-sky-500/40 bg-sky-500/15 text-sky-300",
 } as const;
 
 export function CharacterSection({
@@ -157,10 +298,11 @@ export function CharacterSection({
   onStartOver,
   onGoToTargetImport,
 }: CharacterSectionProps) {
+  const t = useText(TEXT);
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const { itemText, setItemText } = drafts;
 
-  const originBadge = ORIGIN_BADGES[origin];
+  const originBadge = { label: t.origin[origin], className: ORIGIN_BADGE_CLASSES[origin] };
 
   useEffect(() => {
     const id =
@@ -186,14 +328,14 @@ export function CharacterSection({
           <div className="flex flex-wrap items-center gap-3">
             <CardTitle className="text-xl">
               {editorMode === "item"
-                ? "Analizar un objeto"
+                ? t.titleItem
                 : editorMode === "new"
-                  ? "Crear personaje"
+                  ? t.titleNew
                   : editorMode === "import"
-                    ? "Añadir personaje"
+                    ? t.titleImport
                     : editorMode === "memory"
-                      ? "Guardar personaje"
-                  : "Mi personaje"}
+                      ? t.titleMemory
+                  : t.titleFull}
             </CardTitle>
             {editorMode !== "item" && (
               <Badge variant="outline" className={originBadge.className}>
@@ -205,12 +347,12 @@ export function CharacterSection({
                 variant="outline"
                 className="border-amber-500/40 bg-amber-500/15 text-amber-300"
               >
-                {warnings.length} aviso(s)
+                {t.warningsCount(warnings.length)}
               </Badge>
             )}
             {dirty && (
               <Badge variant="outline" className="text-muted-foreground">
-                Cambios sin guardar
+                {t.unsavedChanges}
               </Badge>
             )}
           </div>
@@ -228,7 +370,7 @@ export function CharacterSection({
                 className="text-muted-foreground"
               >
                 <RotateCcw className="size-4" aria-hidden="true" />
-                Cambiar o empezar de nuevo
+                {t.startOver}
               </Button>
             )}
             {!hideEmptyState && editorMode !== "memory" && editorMode !== "item" && (
@@ -242,7 +384,7 @@ export function CharacterSection({
                 ) : (
                   <Sparkles className="size-4" aria-hidden="true" />
                 )}
-                Cargar ejemplo
+                {t.loadDemo}
               </Button>
             )}
           </div>
@@ -270,7 +412,7 @@ export function CharacterSection({
             data-testid="import-warnings"
             className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300"
           >
-            <AlertTitle>Avisos de la importación</AlertTitle>
+            <AlertTitle>{t.importWarnings}</AlertTitle>
             <AlertDescription>
               <ul className="list-inside list-disc">
                 {warnings.map((warning, i) => (
@@ -288,7 +430,7 @@ export function CharacterSection({
             <Skeleton className="h-24 w-full" />
             {restoring && (
               <p className="text-sm text-muted-foreground">
-                Restaurando tu último personaje…
+                {t.restoring}
               </p>
             )}
           </div>
@@ -296,10 +438,9 @@ export function CharacterSection({
           hideEmptyState ? null : (
             <Empty className="border border-dashed border-border">
               <EmptyHeader>
-                <EmptyTitle>Todavía no hay personaje</EmptyTitle>
+                <EmptyTitle>{t.emptyTitle}</EmptyTitle>
                 <EmptyDescription>
-                  Importa un archivo .build arriba o carga el ejemplo de Mercenario con
-                  ballesta para explorar la aplicación.
+                  {t.emptyDescription}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -309,7 +450,7 @@ export function CharacterSection({
                   disabled={busy !== null}
                 >
                   <Sparkles className="size-4" aria-hidden="true" />
-                  Cargar ejemplo
+                  {t.loadDemo}
                 </Button>
               </EmptyContent>
             </Empty>
@@ -317,10 +458,9 @@ export function CharacterSection({
         ) : editorMode === "memory" && profile ? (
           <div className="flex flex-col gap-4 rounded-md border border-primary/35 bg-primary/5 p-4">
             <div className="space-y-1">
-              <p className="font-medium text-foreground">Activa la memoria para continuar</p>
+              <p className="font-medium text-foreground">{t.memoryTitle}</p>
               <p className="text-sm text-muted-foreground">
-                Guardaremos «{profile.name}» y después abriremos la comprobación que acabas de elegir.
-                No tienes que volver a rellenar el personaje.
+                {t.memoryLead(profile.name)}
               </p>
             </div>
             <Button
@@ -339,7 +479,7 @@ export function CharacterSection({
               ) : (
                 <Save className="size-4" aria-hidden="true" />
               )}
-              Guardar y continuar
+              {t.saveAndContinue}
             </Button>
           </div>
         ) : editorMode !== "item" && editorMode !== "import" ? (
@@ -358,7 +498,7 @@ export function CharacterSection({
         {!restoring && editorMode !== "new" && editorMode !== "import" && editorMode !== "memory" && (profile || editorMode === "item") && (
           <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-4">
             <Label htmlFor="item-text">
-              Analizar objeto copiado del juego (Ctrl+Alt+C sobre el objeto en PoE2)
+              {t.itemTextLabel}
             </Label>
             <Textarea
               id="item-text"
@@ -367,9 +507,7 @@ export function CharacterSection({
               rows={5}
               maxLength={MAX_ITEM_TEXT_CHARACTERS}
               disabled={busy !== null}
-              placeholder={
-                "Clase de objeto: Ballestas\nRareza: Raro\nNúcleo de fénix\nBallesta barnizada\n…"
-              }
+              placeholder={t.itemTextPlaceholder}
               className="font-mono text-xs"
             />
             <div>
@@ -392,7 +530,7 @@ export function CharacterSection({
                 ) : (
                   <ScanSearch className="size-4" aria-hidden="true" />
                 )}
-                Analizar objeto
+                {t.analyzeItem}
               </Button>
             </div>
           </div>
@@ -415,7 +553,7 @@ export function CharacterSection({
               ) : (
                 <Save className="size-4" aria-hidden="true" />
               )}
-              Guardar correcciones
+              {t.saveCorrections}
             </Button>
           </div>
         )}
@@ -430,12 +568,12 @@ export function CharacterSection({
     >
       <AlertDialogContent data-testid="item-slot-collision-dialog">
         <AlertDialogHeader>
-          <AlertDialogTitle>Ese hueco ya está ocupado</AlertDialogTitle>
+          <AlertDialogTitle>{t.slotTakenTitle}</AlertDialogTitle>
           <AlertDialogDescription>
             <strong className="text-foreground">
               {character.pendingItemImport?.item.name}
             </strong>{" "}
-            no se añadirá ni sustituirá nada hasta que elijas qué hacer.
+            {t.slotTakenLead}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col gap-2">
@@ -455,7 +593,7 @@ export function CharacterSection({
                 });
               }}
             >
-              Sustituir {candidate.name}
+              {t.replaceItem(candidate.name)}
             </Button>
           ))}
           <Button
@@ -470,11 +608,11 @@ export function CharacterSection({
               });
             }}
           >
-            Conservar ambos · guardar como extra
+            {t.keepBoth}
           </Button>
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar y revisar</AlertDialogCancel>
+          <AlertDialogCancel>{t.cancelAndReview}</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -500,6 +638,7 @@ function ProfileEditor({
   supportsDrafts,
   setSupportsDrafts,
 }: ProfileEditorProps) {
+  const t = useText(TEXT);
   const levelReading = readCharacterLevel(profile);
 
   const addSkill = () => {
@@ -523,7 +662,7 @@ function ProfileEditor({
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-name">Nombre</Label>
+          <Label htmlFor="char-name">{t.name}</Label>
           <Input
             id="char-name"
             value={profile.name}
@@ -531,7 +670,7 @@ function ProfileEditor({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-class">Clase</Label>
+          <Label htmlFor="char-class">{t.characterClass}</Label>
           <Input
             id="char-class"
             value={profile.characterClass}
@@ -539,46 +678,46 @@ function ProfileEditor({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-ascendancy">Ascendencia (nombre visible)</Label>
+          <Label htmlFor="char-ascendancy">{t.ascendancy}</Label>
           <Input
             id="char-ascendancy"
             value={profile.ascendancy ?? ""}
-            placeholder="Desconocida"
+            placeholder={t.ascendancyPlaceholder}
             onChange={(e) => onUpdate({ ascendancy: e.target.value || null })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-ascendancy-id">ID de ascendencia (oficial, opcional)</Label>
+          <Label htmlFor="char-ascendancy-id">{t.ascendancyId}</Label>
           <Input
             id="char-ascendancy-id"
             value={profile.ascendancyId ?? ""}
-            placeholder="p. ej. Warrior1"
+            placeholder={t.ascendancyIdPlaceholder}
             aria-describedby="char-ascendancy-id-help"
             onChange={(e) => onUpdate({ ascendancyId: e.target.value || null })}
             className="font-mono text-xs"
           />
           <p id="char-ascendancy-id-help" className="text-xs text-muted-foreground">
-            Solo si lo conoces; se exporta como id oficial en el archivo .build.
+            {t.ascendancyIdHelp}
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-archetype">Arquetipo (opcional)</Label>
+          <Label htmlFor="char-archetype">{t.archetype}</Label>
           <Input
             id="char-archetype"
             value={profile.archetype ?? ""}
-            placeholder="p. ej. mercenario con ballesta"
+            placeholder={t.archetypePlaceholder}
             onChange={(e) => onUpdate({ archetype: e.target.value || null })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-level">Nivel</Label>
+          <Label htmlFor="char-level">{t.level}</Label>
           <Input
             id="char-level"
             type="number"
             min={1}
             max={100}
             value={levelReading.known ? levelReading.level : ""}
-            placeholder="Desconocido"
+            placeholder={t.unknown}
             onChange={(e) => {
               const parsed = inputToNullable(e.target.value);
               if (parsed === null) {
@@ -595,14 +734,14 @@ function ProfileEditor({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-league">Liga</Label>
+          <Label htmlFor="char-league">{t.league}</Label>
           {meta && meta.leagues.length > 0 ? (
             <Select
               value={meta.leagues.includes(profile.league) ? profile.league : ""}
               onValueChange={(value) => onUpdate({ league: value })}
             >
               <SelectTrigger id="char-league">
-                <SelectValue placeholder={profile.league || "Elige una liga"} />
+                <SelectValue placeholder={profile.league || t.pickLeague} />
               </SelectTrigger>
               <SelectContent>
                 {meta.leagues.map((league) => (
@@ -621,14 +760,14 @@ function ProfileEditor({
           )}
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="char-patch">Parche</Label>
+          <Label htmlFor="char-patch">{t.patch}</Label>
           {meta && meta.patches.length > 0 ? (
             <Select
               value={meta.patches.some((p) => p.id === profile.patch) ? profile.patch : ""}
               onValueChange={(value) => onUpdate({ patch: value })}
             >
               <SelectTrigger id="char-patch">
-                <SelectValue placeholder={profile.patch || "Elige un parche"} />
+                <SelectValue placeholder={profile.patch || t.pickPatch} />
               </SelectTrigger>
               <SelectContent>
                 {meta.patches.map((p) => (
@@ -653,20 +792,20 @@ function ProfileEditor({
       </div>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Atributos</legend>
+        <legend className="text-sm font-medium">{t.attributesLegend}</legend>
         <p className="text-xs text-muted-foreground">
-          Deja el campo vacío si no lo sabes: «desconocido» no es lo mismo que 0.
+          {t.attributesHelp}
         </p>
         <div className="grid grid-cols-3 gap-3">
-          {ATTRIBUTE_FIELDS.map(({ key, label }) => (
+          {ATTRIBUTE_KEYS.map((key) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <Label htmlFor={`attr-${key}`}>{label}</Label>
+              <Label htmlFor={`attr-${key}`}>{t.attributes[key]}</Label>
               <Input
                 id={`attr-${key}`}
                 type="number"
                 min={0}
                 value={nullableToInput(profile.attributes[key])}
-                placeholder="Desconocido"
+                placeholder={t.unknown}
                 onChange={(e) => {
                   const parsed = inputToNullable(e.target.value);
                   onUpdate({
@@ -683,16 +822,16 @@ function ProfileEditor({
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Resistencias (%)</legend>
+        <legend className="text-sm font-medium">{t.resistancesLegend}</legend>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {RESISTANCE_FIELDS.map(({ key, label }) => (
+          {RESISTANCE_KEYS.map((key) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <Label htmlFor={`res-${key}`}>{label}</Label>
+              <Label htmlFor={`res-${key}`}>{t.resistances[key]}</Label>
               <Input
                 id={`res-${key}`}
                 type="number"
                 value={nullableToInput(profile.resistances[key])}
-                placeholder="Desconocido"
+                placeholder={t.unknown}
                 onChange={(e) =>
                   onUpdate({
                     resistances: {
@@ -708,17 +847,17 @@ function ProfileEditor({
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Defensas</legend>
+        <legend className="text-sm font-medium">{t.defensesLegend}</legend>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {DEFENSE_FIELDS.map(({ key, label }) => (
+          {DEFENSE_KEYS.map((key) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <Label htmlFor={`def-${key}`}>{label}</Label>
+              <Label htmlFor={`def-${key}`}>{t.defenses[key]}</Label>
               <Input
                 id={`def-${key}`}
                 type="number"
                 min={0}
                 value={nullableToInput(profile[key])}
-                placeholder="Desconocido"
+                placeholder={t.unknown}
                 onChange={(e) => onUpdate({ [key]: inputToOptional(e.target.value) })}
               />
             </div>
@@ -728,11 +867,11 @@ function ProfileEditor({
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">
-          Objetos ({profile.items.length})
+          {t.itemsLegend(profile.items.length)}
         </legend>
         {profile.items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Sin objetos. Analiza un objeto copiado del juego con el panel de abajo.
+            {t.noItems}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -761,7 +900,7 @@ function ProfileEditor({
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">
-          Habilidades ({profile.skills.length})
+          {t.skillsLegend(profile.skills.length)}
         </legend>
         {profile.skills.map((skill) => (
           <div
@@ -771,7 +910,7 @@ function ProfileEditor({
             <div className="flex items-start gap-2">
               <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`skill-main-${skill.id}`}>Habilidad principal</Label>
+                  <Label htmlFor={`skill-main-${skill.id}`}>{t.mainSkill}</Label>
                   <Input
                     id={`skill-main-${skill.id}`}
                     value={skill.mainSkill}
@@ -787,13 +926,13 @@ function ProfileEditor({
                       variant="outline"
                       className="w-fit border-amber-500/40 bg-amber-500/10 text-amber-300"
                     >
-                      id no verificado
+                      {t.unverifiedId}
                     </Badge>
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`skill-supports-${skill.id}`}>
-                    Soportes (separados por comas)
+                    {t.supports}
                   </Label>
                   <Input
                     id={`skill-supports-${skill.id}`}
@@ -840,7 +979,7 @@ function ProfileEditor({
                             variant="outline"
                             className="border-amber-500/40 bg-amber-500/10 text-amber-300"
                           >
-                            {s.name}: id no verificado
+                            {t.supportUnverified(s.name)}
                           </Badge>
                         ))}
                     </div>
@@ -851,7 +990,7 @@ function ProfileEditor({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label={`Eliminar habilidad ${skill.mainSkill || "sin nombre"}`}
+                aria-label={t.removeSkill(skill.mainSkill)}
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() =>
                   onMutate((p) => ({
@@ -868,18 +1007,18 @@ function ProfileEditor({
         <div>
           <Button type="button" variant="outline" size="sm" onClick={addSkill}>
             <Plus className="size-4" aria-hidden="true" />
-            Añadir habilidad
+            {t.addSkill}
           </Button>
         </div>
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">
-          Pasivas asignadas ({profile.passives.allocated.length})
+          {t.passivesLegend(profile.passives.allocated.length)}
         </legend>
         {profile.passives.allocated.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Sin pasivas. Añade nodos del árbol por nombre o por id oficial.
+            {t.noPassives}
           </p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -887,7 +1026,7 @@ function ProfileEditor({
               <div key={`${node.ref}-${index}`} className="flex items-center gap-2">
                 <Input
                   value={node.ref}
-                  aria-label={`Pasiva ${index + 1}`}
+                  aria-label={t.passive(index + 1)}
                   onChange={(e) =>
                     onMutate((p) => ({
                       ...p,
@@ -905,21 +1044,21 @@ function ProfileEditor({
                     variant="outline"
                     className="shrink-0 border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
                   >
-                    id oficial
+                    {t.officialId}
                   </Badge>
                 ) : (
                   <Badge
                     variant="outline"
                     className="shrink-0 border-amber-500/40 bg-amber-500/10 text-amber-300"
                   >
-                    nombre sin verificar
+                    {t.unverifiedName}
                   </Badge>
                 )}
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`Eliminar pasiva ${node.ref || index + 1}`}
+                  aria-label={t.removePassive(node.ref || index + 1)}
                   className="shrink-0 text-muted-foreground hover:text-destructive"
                   onClick={() =>
                     onMutate((p) => ({
@@ -954,7 +1093,7 @@ function ProfileEditor({
             }
           >
             <Plus className="size-4" aria-hidden="true" />
-            Añadir pasiva
+            {t.addPassive}
           </Button>
         </div>
       </fieldset>

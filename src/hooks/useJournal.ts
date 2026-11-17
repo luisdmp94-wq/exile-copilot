@@ -18,6 +18,36 @@ import type {
 import type { BuildMemoryEntry, JournalEntry } from "@shared/domain.js";
 import type { JournalResponse } from "@shared/api.js";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
+import { pageLang, texts } from "@/i18n/lang";
+/** Avisos del diario, en el idioma que muestra la página. */
+const TEXT = texts(
+  {
+    memoryChanged: "La memoria del mentor cambió; la estamos recargando",
+    nextActionSaved: "Próxima acción guardada",
+    entrySaved: "Entrada guardada en el diario",
+    saveError: "No se pudo guardar en el diario",
+    ruleSaved: "Regla de build guardada",
+    ruleSaveError: "No se pudo guardar la regla de build",
+    ruleArchived: "Regla archivada",
+    ruleUpdated: "Regla actualizada",
+    ruleUpdateError: "No se pudo actualizar la regla de build",
+    decisionError: "No se pudo actualizar la decisión",
+  },
+  {
+    memoryChanged: "The mentor's memory changed; reloading it",
+    nextActionSaved: "Next action saved",
+    entrySaved: "Entry saved in the journal",
+    saveError: "Couldn't save to the journal",
+    ruleSaved: "Build rule saved",
+    ruleSaveError: "Couldn't save the build rule",
+    ruleArchived: "Rule archived",
+    ruleUpdated: "Rule updated",
+    ruleUpdateError: "Couldn't update the build rule",
+    decisionError: "Couldn't update the decision",
+  },
+);
+const tx = () => TEXT[pageLang()];
+
 
 export interface JournalState {
   journal: JournalResponse | null;
@@ -131,7 +161,7 @@ export function useJournal(characterId: string | null, autoLoad = true): Journal
             ? { ...previous, primaryEntry: null, primaryEntryId: null }
             : previous,
         );
-        toast.info("La memoria del mentor cambió; la estamos recargando");
+        toast.info(tx().memoryChanged);
         await load();
         return true;
       }
@@ -152,11 +182,11 @@ export function useJournal(characterId: string | null, autoLoad = true): Journal
         const response = await api.createJournalEntry(characterId, input);
         setJournal(response.journal);
         toast.success(
-          input.makePrimary ? "Próxima acción guardada" : "Entrada guardada en el diario",
+          input.makePrimary ? tx().nextActionSaved : tx().entrySaved,
         );
         return response.entry;
       } catch (err) {
-        await handleStale(err, "No se pudo guardar en el diario");
+        await handleStale(err, tx().saveError);
         return null;
       } finally {
         setSaving(false);
@@ -197,10 +227,10 @@ export function useJournal(characterId: string | null, autoLoad = true): Journal
       try {
         const response = await api.createBuildMemoryEntry(characterId, input);
         setJournal(response.journal);
-        toast.success("Regla de build guardada");
+        toast.success(tx().ruleSaved);
         return response.entry;
       } catch (err) {
-        await handleStale(err, "No se pudo guardar la regla de build");
+        await handleStale(err, tx().ruleSaveError);
         return null;
       } finally {
         setSaving(false);
@@ -220,10 +250,10 @@ export function useJournal(characterId: string | null, autoLoad = true): Journal
       try {
         const response = await api.updateBuildMemoryEntry(characterId, entryId, input);
         setJournal(response.journal);
-        toast.success(input.active === false ? "Regla archivada" : "Regla actualizada");
+        toast.success(input.active === false ? tx().ruleArchived : tx().ruleUpdated);
         return response.entry;
       } catch (err) {
-        await handleStale(err, "No se pudo actualizar la regla de build");
+        await handleStale(err, tx().ruleUpdateError);
         return null;
       } finally {
         setSaving(false);
@@ -246,7 +276,7 @@ export function useJournal(characterId: string | null, autoLoad = true): Journal
         toast.success(success);
         return next;
       } catch (err) {
-        await handleStale(err, "No se pudo actualizar la decisión");
+        await handleStale(err, tx().decisionError);
         return null;
       } finally {
         setSaving(false);

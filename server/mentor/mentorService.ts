@@ -109,6 +109,32 @@ const UNSUPPORTED_REASON =
   "Todavía no sé responder esa pregunta con seguridad. Solo respondo a partir de tu " +
   "personaje, tu build objetivo, tu presupuesto y tu diario: no invento estadísticas, " +
   "precios ni conocimiento del juego.";
+const UNSUPPORTED_REASON_EN =
+  "I can't answer that question safely yet. I only answer from your character, " +
+  "your target build, your budget and your journal: I don't make up stats, prices " +
+  "or game knowledge.";
+const MENTOR_SUGGESTIONS_EN = [
+  "What should I improve now?",
+  "What should I do first?",
+  "What's my main problem?",
+  "Why do you recommend this?",
+];
+const RISK_LEVEL_EN: Record<Recommendation["risk"]["level"], string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+};
+
+/** Idioma de la respuesta: el de la página, español si no llega. */
+type AnswerLang = "es" | "en";
+function langOf(options: { lang?: AnswerLang }): AnswerLang {
+  return options.lang ?? "es";
+}
+function unsupportedInfo(lang: AnswerLang) {
+  return lang === "en"
+    ? { reason: UNSUPPORTED_REASON_EN, examples: [...MENTOR_SUGGESTIONS_EN] }
+    : { reason: UNSUPPORTED_REASON, examples: [...MENTOR_SUGGESTIONS] };
+}
 
 function memoryImpactWithoutEngine(memory: RecommendationMemory): RecommendationMemoryImpact {
   return {
@@ -171,8 +197,11 @@ function unsupportedAnswer(
     intent: "unsupported",
     normalizedQuestion,
     answer:
-      "No he entendido esa pregunta como una consulta que pueda responder con datos tuyos. " +
-      "Prueba con una de las preguntas de ejemplo.",
+      langOf(options) === "en"
+        ? "I didn't understand that as a question I can answer with your data. " +
+          "Try one of the example questions."
+        : "No he entendido esa pregunta como una consulta que pueda responder con datos tuyos. " +
+          "Prueba con una de las preguntas de ejemplo.",
     nextAction: null,
     usedRecommendationIds: [],
     relatedItemIds: [],
@@ -181,7 +210,7 @@ function unsupportedAnswer(
     unverified: [],
     memoryImpact: memoryImpactWithoutEngine(options.memory),
     inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
-    unsupported: { reason: UNSUPPORTED_REASON, examples: [...MENTOR_SUGGESTIONS] },
+    unsupported: unsupportedInfo(langOf(options)),
     generatedAt: new Date().toISOString(),
     engineVersion: ENGINE_VERSION,
     responseMode: fallback ? "rules_fallback" : "rules",
@@ -196,8 +225,17 @@ function conversationFallback(
   fallback?: { model: string; reason: string },
 ): MentorAnswer {
   const identity = isMentorIdentityQuestion(normalizedQuestion);
-  const thanks = /\bgracias\b/.test(normalizedQuestion);
-  const answer = identity
+  const thanks = /\b(gracias|thanks|thank you|thx)\b/.test(normalizedQuestion);
+  const answer = langOf(options) === "en"
+    ? identity
+      ? "I'm the Exile Copilot Mentor, your PoE2 copilot. I use the character you " +
+        "imported, the item you're checking, your goal, budget and journal to help " +
+        "you pick the next step. I don't play or spend currency for you, and if I'm " +
+        "missing data I tell you instead of making it up."
+      : thanks
+        ? "You're welcome. Whenever you want, tell me which item or part of your character to check."
+        : "Hi! I can check your character, explain your current priority or help with the item you have open. What do you want to work on first?"
+    : identity
     ? "Soy el Mentor de Exile Copilot, tu copiloto para PoE2. Uso el personaje que has " +
       "importado, el objeto que estás revisando, tu objetivo, presupuesto y diario para " +
       "ayudarte a decidir el siguiente paso. No juego ni gasto monedas por ti y, si me " +
@@ -260,6 +298,7 @@ function answerFromRecommendation(
   result: EngineResult,
   answerMetadata: AnswerMetadata,
   focus: MentorQuestionFocus = null,
+  lang: AnswerLang = "es",
 ): MentorAnswer {
   const title = publicText(recommendation.title, [recommendation]);
   const reason = publicText(recommendation.reason, [recommendation]);
@@ -269,6 +308,13 @@ function answerFromRecommendation(
   const answer =
     recommendation.actionKind === "session_gate"
       ? `${title}. ${reason} ${action}`
+      : lang === "en"
+        ? focus === "survival"
+          ? `If you die often, the first thing I'd check is "${title}". ${reason}`
+          : intent === "explain_priority"
+            ? `Your main problem right now is "${title}". ${reason} ` +
+              `${impact} ${RISK_LEVEL_EN[recommendation.risk.level]} risk: ${risk}`
+            : `What I'd do next: ${title}. ${reason}`
       : focus === "survival"
         ? `Si mueres a menudo, lo primero que revisaría es «${title}». ${reason}`
         : intent === "explain_priority"
@@ -299,11 +345,17 @@ function survivalNothingFoundAnswer(
   normalizedQuestion: string,
   result: EngineResult,
   answerMetadata: AnswerMetadata,
+  lang: AnswerLang = "es",
 ): MentorAnswer {
   return MentorAnswerSchema.parse({
     intent: "explain_priority",
     normalizedQuestion,
-    answer:
+    answer: lang === "en"
+      ? "In what I can check (elemental resistances, chaos resistance, life and empty gear slots) " +
+        "I don't find a clear cause for your deaths. It may be something I don't check yet, like " +
+        "armour, evasion, energy shield or the exact mechanic that kills you. If you tell me what " +
+        "kills you (a boss, a damage type, a group of monsters), I'll keep it in mind in the journal."
+      :
       "En lo que puedo revisar —resistencias elementales, resistencia al caos, vida y huecos de equipo— " +
       "no encuentro una causa clara de tus muertes. Puede deberse a algo que todavía no compruebo, como " +
       "armadura, evasión, escudo de energía o la mecánica concreta que te mata. Si me dices qué te mata " +
@@ -328,13 +380,18 @@ function patchFeatureReviewAnswer(
   normalizedQuestion: string,
   block: NonNullable<MentorQueryOptions["patchFeatureBlock"]>,
 ): MentorAnswer {
-  const missingEvidence = `El área «${block.label}» todavía no está revisada para ${block.patch}.`;
+  const en = langOf(options) === "en";
+  const missingEvidence = en
+    ? `The "${block.label}" area isn't reviewed yet for ${block.patch}.`
+    : `El área «${block.label}» todavía no está revisada para ${block.patch}.`;
   return MentorAnswerSchema.parse({
     intent: "explain_priority",
     normalizedQuestion,
-    answer:
-      `${missingEvidence} ${block.note} ` +
-      "No te recomendaré esa mecánica hasta que exista evidencia compatible con este parche.",
+    answer: en
+      ? `${missingEvidence} ${block.note} ` +
+        "I won't recommend that mechanic until there's evidence that fits this patch."
+      : `${missingEvidence} ${block.note} ` +
+        "No te recomendaré esa mecánica hasta que exista evidencia compatible con este parche.",
     nextAction: null,
     usedRecommendationIds: [],
     relatedItemIds: [],
@@ -356,19 +413,24 @@ function incompleteProfileAnswer(
   intent: "next_improvement" | "explain_priority",
   readiness: CharacterReadiness,
 ): MentorAnswer {
-  const missing = readiness.issues.map((issue) => issue.label.toLowerCase()).join(", ");
+  const en = langOf(options) === "en";
+  const missing = readiness.issues
+    .map((issue) => (en ? issue.labelEn : issue.label).toLowerCase())
+    .join(", ");
   return MentorAnswerSchema.parse({
     intent,
     normalizedQuestion,
-    answer:
-      `Antes de elegir una mejora necesito completar tu personaje real. Faltan: ${missing}. ` +
-      "Abre «Completar expediente» y copia esos datos desde PoE2; no convertiré un plan parcial en estadísticas observadas.",
+    answer: en
+      ? `Before picking an improvement I need your real character. Missing: ${missing}. ` +
+        "Open \"Complete character\" and copy that data from PoE2; I won't turn a partial plan into observed stats."
+      : `Antes de elegir una mejora necesito completar tu personaje real. Faltan: ${missing}. ` +
+        "Abre «Completar expediente» y copia esos datos desde PoE2; no convertiré un plan parcial en estadísticas observadas.",
     nextAction: null,
     usedRecommendationIds: [],
     relatedItemIds: [],
     sources: [],
     confidence: null,
-    unverified: readiness.issues.map((issue) => issue.detail),
+    unverified: readiness.issues.map((issue) => (en ? issue.detailEn : issue.detail)),
     memoryImpact: memoryImpactWithoutEngine(options.memory),
     inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
     unsupported: null,
@@ -501,8 +563,13 @@ function recalledAnswer(
       : null;
 
   const primaryTitle = publicText(primaryEntry.title, result.recommendations);
-  const answer =
-    intent === "explain_priority"
+  const answer = langOf(options) === "en"
+    ? intent === "explain_priority"
+      ? `Your priority is still "${primaryTitle}", which you saved in the journal and is still ` +
+        "in progress. I won't suggest another decision until you record its result: one action at a time."
+      : `You already have an action in progress: "${primaryTitle}". Finish it and write the result in ` +
+        "the journal; then I'll work out the next step."
+    : intent === "explain_priority"
       ? `Tu prioridad sigue siendo «${primaryTitle}», que anotaste en el diario y aún está ` +
         "en curso. No propongo otra decisión hasta que registres su resultado: una sola acción a la vez."
       : `Ya tienes una acción en marcha: «${primaryTitle}». Termínala y anota el resultado en ` +
@@ -947,12 +1014,17 @@ function noSafeAction(
   result: EngineResult,
   selector: MentorDecisionSelector,
   copy: string | null = null,
+  lang: AnswerLang = "es",
 ): MentorAnswer {
   return MentorAnswerSchema.parse({
     intent: "unsupported",
     normalizedQuestion,
     answer:
       copy ??
+      (lang === "en"
+        ? "I can't find a safe action among the verified options to answer that question. " +
+          "I won't improvise a change outside the engine."
+        : null) ??
       "No encuentro una acción segura entre las opciones verificadas para responder a esa pregunta. " +
         "No voy a improvisar un cambio fuera del motor.",
     nextAction: null,
@@ -963,7 +1035,7 @@ function noSafeAction(
     unverified: [],
     memoryImpact: result.memoryImpact,
     inputFingerprint: result.inputFingerprint,
-    unsupported: { reason: UNSUPPORTED_REASON, examples: [...MENTOR_SUGGESTIONS] },
+    unsupported: unsupportedInfo(lang),
     generatedAt: result.generatedAt,
     engineVersion: result.engineVersion,
     ...metadata("ai", selector.name),
@@ -984,6 +1056,7 @@ async function buildAnswer(
   const classified = classifyMentorQuestion(options.question);
   const intent = options.intentHint ?? classified.intent;
   const { normalizedQuestion, focus } = classified;
+  const lang = langOf(options);
   // «¿Por qué muero?» se evalúa como supervivencia, sea cual sea el objetivo guardado.
   const engineGoal: Goal = focus === "survival" ? { ...options.goal, kind: "survival" } : options.goal;
   const selector = deps.selector ?? null;
@@ -1046,6 +1119,7 @@ async function buildAnswer(
       patch: options.patch,
       memory: options.memory,
       ...(options.target !== undefined ? { target: options.target } : {}),
+      ...(options.lang !== undefined ? { lang: options.lang } : {}),
     },
     { ...(deps.priceService !== undefined ? { priceService: deps.priceService } : {}) },
   );
@@ -1085,9 +1159,11 @@ async function buildAnswer(
     return MentorAnswerSchema.parse({
       intent: intent === "unsupported" ? "next_improvement" : intent,
       normalizedQuestion,
-      answer:
-        "Con los datos que tengo ahora mismo no encuentro una mejora clara que recomendarte. " +
-        "Completa los datos desconocidos de tu personaje o ajusta tu build objetivo y vuelve a preguntar.",
+      answer: lang === "en"
+        ? "With the data I have right now I can't find a clear improvement to recommend. " +
+          "Fill in your character's unknown data or adjust your target build and ask again."
+        : "Con los datos que tengo ahora mismo no encuentro una mejora clara que recomendarte. " +
+          "Completa los datos desconocidos de tu personaje o ajusta tu build objetivo y vuelve a preguntar.",
       nextAction: null,
       usedRecommendationIds: [],
       relatedItemIds: [],
@@ -1113,8 +1189,8 @@ async function buildAnswer(
         SURVIVAL_RECOMMENDATION_IDS.has(candidate.id),
       );
       return defensive
-        ? answerFromRecommendation(defensive, "explain_priority", normalizedQuestion, result, answerMetadata, focus)
-        : survivalNothingFoundAnswer(normalizedQuestion, result, answerMetadata);
+        ? answerFromRecommendation(defensive, "explain_priority", normalizedQuestion, result, answerMetadata, focus, lang)
+        : survivalNothingFoundAnswer(normalizedQuestion, result, answerMetadata, lang);
     }
     return answerFromRecommendation(
       recommendation,
@@ -1122,6 +1198,8 @@ async function buildAnswer(
       normalizedQuestion,
       result,
       answerMetadata,
+      null,
+      lang,
     );
   };
 
@@ -1177,6 +1255,8 @@ async function buildAnswer(
           normalizedQuestion,
           result,
           metadata("ai", selector.name),
+          null,
+          lang,
         ),
         copy,
       );
@@ -1191,7 +1271,9 @@ async function buildAnswer(
       const canonical = MentorAnswerSchema.parse({
         intent: intent === "explain_priority" ? "explain_priority" : "next_improvement",
         normalizedQuestion,
-        answer: `Antes de decidir necesito resolver este dato: ${fact.text}`,
+        answer: lang === "en"
+          ? `Before deciding I need to settle this: ${fact.text}`
+          : `Antes de decidir necesito resolver este dato: ${fact.text}`,
         nextAction: null,
         usedRecommendationIds: [...fact.recommendationIds],
         relatedItemIds: Array.from(
@@ -1211,7 +1293,7 @@ async function buildAnswer(
     }
 
     if (decision.kind === "explain_current_case") {
-      if (top === undefined) return noSafeAction(normalizedQuestion, result, selector, copy);
+      if (top === undefined) return noSafeAction(normalizedQuestion, result, selector, copy, lang);
       return withGeneratedCopy(
         answerFromRecommendation(
           top,
@@ -1219,12 +1301,14 @@ async function buildAnswer(
           normalizedQuestion,
           result,
           metadata("ai", selector.name),
+          null,
+          lang,
         ),
         copy,
       );
     }
 
-    return noSafeAction(normalizedQuestion, result, selector, copy);
+    return noSafeAction(normalizedQuestion, result, selector, copy, lang);
   } catch (error) {
     const reason =
       error instanceof MentorAiError

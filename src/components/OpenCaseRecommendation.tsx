@@ -15,16 +15,75 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   CONFIDENCE_BADGE_CLASSES,
-  CONFIDENCE_LABELS,
   formatCost,
-  MAGNITUDE_LABELS,
   RISK_BADGE_CLASSES,
-  RISK_LABELS,
-  SOURCE_KIND_LABELS,
 } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
 import { compactRecommendationReason } from "@/lib/journal";
 import { observationMethodForRecommendation } from "@/lib/sessionOutcome";
 import { cn } from "@/lib/utils";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    priority: (priority: number) => `Prioridad ${priority}`,
+    dataAction: "Acción de datos",
+    safetyStop: "Freno de seguridad",
+    action: "Acción",
+    whatToCheck: "Qué comprobar después",
+    overBudgetTitle: "Supera tu presupuesto",
+    overBudgetText: "Esta mejora supera tu presupuesto. Ahorra más moneda o considera una alternativa.",
+    loseModsTitle: "Puede perder mods valiosos",
+    loseModsText: "Revisa el objeto actual antes de sustituirlo.",
+    irreversibleTitle: "Acción irreversible",
+    irreversibleText: "Acción irreversible: no podrás deshacerla. Asegúrate antes de continuar.",
+    saveNextStep: "Guardar como próximo paso",
+    tryAndReturn: "Probar y volver",
+    editFile: "Editar expediente",
+    seeItem: "Ver el objeto evaluado",
+    gateNote:
+      "El mentor frena este paso hasta resolver el conflicto o la evidencia. Continúa en «Comprobar una decisión», más abajo.",
+    dataActionNote: "Acción de datos: no modifica el juego ni se incluye en el archivo .build.",
+    appliedLabel: "Ya la apliqué — incluir al exportar el .build",
+    data: "Datos",
+    cost: (cost: string) => `Coste ${cost}`,
+    risk: (risk: string) => `Riesgo ${risk}`,
+    confidence: (confidence: string) => `Confianza ${confidence}`,
+    impact: (impact: string) => `Impacto ${impact}`,
+    partialMetric: ". Métrica parcial: no es una estimación de DPS completa.",
+    noSources: "Sin fuentes declaradas",
+    origin: (kinds: string) => `Procedencia: ${kinds}`,
+  },
+  {
+    priority: (priority: number) => `Priority ${priority}`,
+    dataAction: "Data action",
+    safetyStop: "Safety stop",
+    action: "Action",
+    whatToCheck: "What to check afterwards",
+    overBudgetTitle: "Over your budget",
+    overBudgetText: "This upgrade costs more than your budget. Save up more currency or look at another option.",
+    loseModsTitle: "You may lose valuable mods",
+    loseModsText: "Check your current item before you replace it.",
+    irreversibleTitle: "Can't be undone",
+    irreversibleText: "This action can't be undone. Make sure before you go ahead.",
+    saveNextStep: "Save as next step",
+    tryAndReturn: "Try it and come back",
+    editFile: "Edit character",
+    seeItem: "See the item checked",
+    gateNote:
+      "The mentor holds this step until the conflict or the evidence is sorted out. Carry on in «Check a decision», further down.",
+    dataActionNote: "Data action: it doesn't change the game and isn't included in the .build file.",
+    appliedLabel: "I've done it — include it when exporting the .build",
+    data: "Data",
+    cost: (cost: string) => `Cost ${cost}`,
+    risk: (risk: string) => `Risk ${risk}`,
+    confidence: (confidence: string) => `Confidence ${confidence}`,
+    impact: (impact: string) => `Impact ${impact}`,
+    partialMetric: ". Partial metric: not a full DPS estimate.",
+    noSources: "No sources given",
+    origin: (kinds: string) => `Source: ${kinds}`,
+  },
+);
 
 interface OpenCaseRecommendationProps {
   recommendation: Recommendation;
@@ -71,6 +130,8 @@ export function OpenCaseRecommendation({
   onFocusItem,
   onEditExpediente,
 }: OpenCaseRecommendationProps) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   const overBudget =
     budget !== null &&
     rec.cost.currency === budget.currency &&
@@ -92,16 +153,16 @@ export function OpenCaseRecommendation({
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-primary">
-            Prioridad {rec.priority}
+            {t.priority(rec.priority)}
           </span>
           {rec.actionKind === "profile_sync" && (
             <Badge variant="outline" className="border-sky-500/40 text-sky-200">
-              Acción de datos
+              {t.dataAction}
             </Badge>
           )}
           {rec.actionKind === "session_gate" && (
             <Badge variant="outline" className="border-sky-500/40 text-sky-200">
-              Freno de seguridad
+              {t.safetyStop}
             </Badge>
           )}
         </div>
@@ -112,7 +173,7 @@ export function OpenCaseRecommendation({
 
       <div>
         <p className="text-xs font-semibold text-muted-foreground">
-          Acción
+          {t.action}
         </p>
         <p
           className="mt-1 text-base leading-relaxed text-foreground"
@@ -133,7 +194,7 @@ export function OpenCaseRecommendation({
       >
         <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 rotulo-seccion text-muted-foreground marker:content-none hover:text-foreground">
           <FlaskConical className="size-4 shrink-0 text-primary/70" aria-hidden="true" />
-          Qué comprobar después
+          {t.whatToCheck}
           <span className="ml-auto text-base leading-none transition-transform group-open:rotate-45 motion-reduce:transition-none" aria-hidden="true">
             +
           </span>
@@ -154,24 +215,24 @@ export function OpenCaseRecommendation({
             <CriticalAlert
               tone="warning"
               icon={AlertTriangle}
-              title="Supera tu presupuesto"
-              text="Esta mejora supera tu presupuesto. Ahorra más moneda o considera una alternativa."
+              title={t.overBudgetTitle}
+              text={t.overBudgetText}
             />
           )}
           {rec.mayLoseValuableMods && (
             <CriticalAlert
               tone="warning"
               icon={AlertTriangle}
-              title="Puede perder mods valiosos"
-              text="Revisa el objeto actual antes de sustituirlo."
+              title={t.loseModsTitle}
+              text={t.loseModsText}
             />
           )}
           {rec.irreversible && (
             <CriticalAlert
               tone="danger"
               icon={OctagonAlert}
-              title="Acción irreversible"
-              text="Acción irreversible: no podrás deshacerla. Asegúrate antes de continuar."
+              title={t.irreversibleTitle}
+              text={t.irreversibleText}
             />
           )}
         </div>
@@ -183,7 +244,7 @@ export function OpenCaseRecommendation({
           {rec.actionKind !== "session_gate" && (
             <Button type="button" onClick={() => onTrack(rec)} disabled={tracking}>
               <BookMarked className="size-4" aria-hidden="true" />
-              Guardar como próximo paso
+              {t.saveNextStep}
             </Button>
           )}
           {onStartSession && rec.actionKind !== "session_gate" && (
@@ -193,13 +254,13 @@ export function OpenCaseRecommendation({
               onClick={() => onStartSession(rec)}
               disabled={startingSession}
             >
-              Probar y volver
+              {t.tryAndReturn}
             </Button>
           )}
           {rec.actionKind === "profile_sync" && (
             <Button type="button" variant="outline" onClick={onEditExpediente}>
               <Pencil className="size-4" aria-hidden="true" />
-              Editar expediente
+              {t.editFile}
             </Button>
           )}
           {rec.relatedItemIds.length > 0 && (
@@ -213,7 +274,7 @@ export function OpenCaseRecommendation({
               }}
             >
               <PackageSearch className="size-4" aria-hidden="true" />
-              Ver el objeto evaluado
+              {t.seeItem}
               {rec.relatedItemIds.length > 1 && ` (${rec.relatedItemIds.length})`}
             </Button>
           )}
@@ -222,13 +283,12 @@ export function OpenCaseRecommendation({
         {rec.actionKind === "session_gate" ? (
           <p className="flex items-start gap-2 text-sm text-muted-foreground">
             <FileWarning className="mt-0.5 size-4 shrink-0 text-sky-300" aria-hidden="true" />
-            El mentor frena este paso hasta resolver el conflicto o la evidencia.
-            Continúa en «Comprobar una decisión», más abajo.
+            {t.gateNote}
           </p>
         ) : rec.actionKind === "profile_sync" ? (
           <p className="flex items-start gap-2 text-sm text-muted-foreground">
             <FileWarning className="mt-0.5 size-4 shrink-0 text-sky-300" aria-hidden="true" />
-            Acción de datos: no modifica el juego ni se incluye en el archivo .build.
+            {t.dataActionNote}
           </p>
         ) : (
           <div className="flex items-center gap-2">
@@ -242,7 +302,7 @@ export function OpenCaseRecommendation({
               className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-normal"
             >
               <Undo2 className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              Ya la apliqué — incluir al exportar el .build
+              {t.appliedLabel}
             </Label>
           </div>
         )}
@@ -263,7 +323,7 @@ export function OpenCaseRecommendation({
             contornos del mismo tamaño que los botones, y ahora leen como el
             pie de datos que son. */}
         <div className="flex flex-wrap items-center gap-1.5" data-testid="caso-datos-clave">
-          <span className="rotulo-seccion mr-0.5 text-muted-foreground/70">Datos</span>
+          <span className="rotulo-seccion mr-0.5 text-muted-foreground/70">{t.data}</span>
           <Badge
             variant="outline"
             className={cn(
@@ -272,31 +332,29 @@ export function OpenCaseRecommendation({
               overBudget && "border-amber-500/50 bg-amber-500/10 text-amber-200",
             )}
           >
-            Coste {formatCost(rec.cost.min, rec.cost.max, rec.cost.currency, rec.cost.known)}
+            {t.cost(formatCost(rec.cost.min, rec.cost.max, rec.cost.currency, rec.cost.known))}
           </Badge>
           <Badge variant="outline" className={cn(CASE_DATA_BADGE, RISK_BADGE_CLASSES[rec.risk.level])}>
-            Riesgo {RISK_LABELS[rec.risk.level]}
+            {t.risk(labels.risk[rec.risk.level])}
           </Badge>
           <Badge variant="outline" className={cn(CASE_DATA_BADGE, CONFIDENCE_BADGE_CLASSES[rec.confidence])}>
-            Confianza {CONFIDENCE_LABELS[rec.confidence]}
+            {t.confidence(labels.confidence[rec.confidence])}
           </Badge>
           <Badge
             variant="outline"
             className={cn(CASE_DATA_BADGE, "border-border/60 text-muted-foreground")}
             title={`${rec.impact.description} (${rec.impact.metric})${
               rec.impact.isPartialMetric
-                ? ". Métrica parcial: no es una estimación de DPS completa."
+                ? t.partialMetric
                 : ""
             }`}
           >
-            Impacto {MAGNITUDE_LABELS[rec.impact.magnitude]}
+            {t.impact(labels.magnitude[rec.impact.magnitude])}
           </Badge>
           <Badge variant="outline" className={cn(CASE_DATA_BADGE, "border-border/60 text-muted-foreground")}>
             {rec.sources.length === 0
-              ? "Sin fuentes declaradas"
-              : `Procedencia: ${sourceKinds
-                  .map((kind) => SOURCE_KIND_LABELS[kind])
-                  .join(", ")}`}
+              ? t.noSources
+              : t.origin(sourceKinds.map((kind) => labels.sourceKind[kind]).join(", "))}
           </Badge>
         </div>
       </div>

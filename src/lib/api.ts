@@ -83,6 +83,7 @@ import {
   type ReopenSessionRequest,
   type ReconcileSessionRequest,
 } from "@shared/api.js";
+import { pageLang } from "../i18n/lang";
 
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
 
@@ -121,11 +122,11 @@ export function getErrorMessage(err: unknown): string {
   if (err instanceof ApiRequestError) {
     const message = err.detail ? `${err.message}: ${err.detail}` : err.message;
     return err.status !== null && err.status >= 500 && err.requestId
-      ? `${message} · Referencia ${err.requestId}`
+      ? `${message} · ${pageLang() === "en" ? "Reference" : "Referencia"} ${err.requestId}`
       : message;
   }
   if (err instanceof Error) return err.message;
-  return "Error desconocido";
+  return pageLang() === "en" ? "Unknown error" : "Error desconocido";
 }
 
 async function parseJsonSafe(res: Response): Promise<unknown> {
@@ -243,8 +244,7 @@ async function request<S extends z.ZodTypeAny>(
  * para redactar en inglés; en español no se envía nada.
  */
 function pageLangField(): { lang?: "en" } {
-  const html = (globalThis as { document?: { documentElement?: { lang?: string } } }).document?.documentElement;
-  return html?.lang === "en" ? { lang: "en" } : {};
+  return pageLang() === "en" ? { lang: "en" } : {};
 }
 
 function jsonInit(
@@ -509,7 +509,7 @@ export const api = {
     ),
 
   recommendations: (payload: RecommendationsRequest): Promise<RecommendationsResponse> =>
-    request("/api/recommendations", RecommendationsResponseSchema, jsonInit(payload)),
+    request("/api/recommendations", RecommendationsResponseSchema, jsonInit({ ...payload, ...pageLangField() })),
 
   /**
    * Exporta la build al formato oficial GGG Build Planner v1.

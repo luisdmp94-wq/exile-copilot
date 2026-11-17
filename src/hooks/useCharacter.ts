@@ -16,6 +16,96 @@ import {
   replaceImportedItem,
 } from "@/lib/importedItemPlacement";
 import { isCraftingExampleProfile } from "@/lib/craftingSimulation";
+import { pageLang, texts } from "@/i18n/lang";
+
+/** Avisos del personaje. Se leen al momento, en el idioma que muestra la página. */
+const TEXT = texts(
+  {
+    recovered: (name: string) => `Expediente recuperado: ${name}`,
+    recoveredDetail: "El servidor conservaba tu personaje aunque faltara su referencia local.",
+    listError: "No se pudieron cargar los expedientes anteriores",
+    demoLoaded: (name: string) => `Ejemplo cargado: ${name}`,
+    demoError: "No se pudo cargar el ejemplo",
+    saved: (name: string) => `Personaje guardado: ${name}`,
+    saveError: "No se pudo guardar el personaje",
+    noteError: "No se pudo apuntar en tu personaje",
+    planImported: "Archivo de plan importado como build objetivo — no es tu personaje actual",
+    readNotSaved: "Se leyó el personaje, pero no se pudo guardar",
+    stillInImporter: " El contenido sigue en el importador para que puedas reintentarlo.",
+    importedSaved: (name: string) => `Personaje importado y guardado: ${name}`,
+    otherVersion: "Personaje guardado, pero pertenece a otra versión",
+    plannerFile: "Ese archivo .build es un plan, no una captura completa",
+    draftSaved: (count: number) => `Borrador guardado: faltan ${count} dato(s)`,
+    keepWhatItHas: (pending: string) =>
+      `Conservamos lo que sí contiene. Completa ${pending} antes de pedir recomendaciones.`,
+    unreadable: "No se pudo interpretar el contenido del archivo",
+    importError: "No se pudo importar la build",
+    slotTaken: "Ese hueco ya está ocupado",
+    slotTakenDetail: "Elige qué pieza sustituir o conserva el objeto como extra.",
+    itemNotSaved: "Se leyó el objeto, pero no se pudo guardar",
+    textInImporter: " El texto sigue en el importador para que puedas reintentarlo.",
+    itemWarnings: (name: string) => `Objeto analizado con avisos: ${name}`,
+    itemAddedSaved: (name: string) => `Objeto añadido y guardado: ${name}`,
+    itemAdded: (name: string) => `Objeto añadido: ${name}`,
+    itemError: "No se pudo analizar el objeto",
+    replacedGone: "La pieza que querías sustituir ya no está en el expediente",
+    replacedSaved: (name: string) => `Pieza sustituida y guardada: ${name}`,
+    extraSaved: (name: string) => `Objeto guardado como extra: ${name}`,
+    pieceError: "No se pudo guardar la pieza; el importador sigue abierto",
+    replaced: (name: string) => `Pieza sustituida: ${name}`,
+    fixesSaved: "Correcciones guardadas",
+    fixesError: "No se pudieron guardar las correcciones",
+    originalGone: "El objeto original ya no está en el expediente",
+    itemUpdated: (name: string) => `Objeto actualizado: ${name}`,
+    updateError: "No se pudo actualizar el expediente; la sesión sigue abierta",
+    setAside: "Expediente apartado. Puedes recuperarlo desde la bienvenida.",
+    draftDiscarded: "Borrador descartado. Puedes empezar de nuevo.",
+    restoreError: "No se pudo recuperar el expediente",
+  },
+  {
+    recovered: (name: string) => `Character recovered: ${name}`,
+    recoveredDetail: "The server still had your character even though this browser had lost track of it.",
+    listError: "Couldn't load your previous characters",
+    demoLoaded: (name: string) => `Example loaded: ${name}`,
+    demoError: "Couldn't load the example",
+    saved: (name: string) => `Character saved: ${name}`,
+    saveError: "Couldn't save the character",
+    noteError: "Couldn't write that on your character",
+    planImported: "Plan file imported as your target build — it isn't your current character",
+    readNotSaved: "The character was read, but couldn't be saved",
+    stillInImporter: " The content is still in the importer so you can try again.",
+    importedSaved: (name: string) => `Character imported and saved: ${name}`,
+    otherVersion: "Character saved, but it belongs to another version",
+    plannerFile: "That .build file is a plan, not a full snapshot",
+    draftSaved: (count: number) => `Draft saved: ${count} detail(s) missing`,
+    keepWhatItHas: (pending: string) =>
+      `We kept what it does contain. Fill in ${pending} before asking for recommendations.`,
+    unreadable: "Couldn't read the file's content",
+    importError: "Couldn't import the build",
+    slotTaken: "That slot is already taken",
+    slotTakenDetail: "Choose which item to replace, or keep this one as an extra.",
+    itemNotSaved: "The item was read, but couldn't be saved",
+    textInImporter: " The text is still in the importer so you can try again.",
+    itemWarnings: (name: string) => `Item read with warnings: ${name}`,
+    itemAddedSaved: (name: string) => `Item added and saved: ${name}`,
+    itemAdded: (name: string) => `Item added: ${name}`,
+    itemError: "Couldn't read the item",
+    replacedGone: "The item you wanted to replace is no longer on your character",
+    replacedSaved: (name: string) => `Item replaced and saved: ${name}`,
+    extraSaved: (name: string) => `Item saved as an extra: ${name}`,
+    pieceError: "Couldn't save the item; the importer is still open",
+    replaced: (name: string) => `Item replaced: ${name}`,
+    fixesSaved: "Fixes saved",
+    fixesError: "Couldn't save the fixes",
+    originalGone: "The original item is no longer on your character",
+    itemUpdated: (name: string) => `Item updated: ${name}`,
+    updateError: "Couldn't update your character; the session is still open",
+    setAside: "Character put aside. You can bring it back from the welcome screen.",
+    draftDiscarded: "Draft discarded. You can start again.",
+    restoreError: "Couldn't recover the character",
+  },
+);
+const tx = () => TEXT[pageLang()];
 
 export type CharacterOrigin = "empty" | "demo" | "imported" | "manual";
 export type CharacterBusy = "demo" | "build" | "item" | "save" | "restore" | null;
@@ -212,8 +302,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       setDirty(false);
       setPersisted(true);
       if (discovered) {
-        toast.success(`Expediente recuperado: ${restored.name}`, {
-          description: "El servidor conservaba tu personaje aunque faltara su referencia local.",
+        toast.success(tx().recovered(restored.name), {
+          description: tx().recoveredDetail,
         });
       }
     };
@@ -304,7 +394,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       });
       setSavedCharactersTotal(res.total);
     } catch (err) {
-      toast.error("No se pudieron cargar los expedientes anteriores", {
+      toast.error(tx().listError, {
         description: getErrorMessage(err),
       });
     } finally {
@@ -395,9 +485,9 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       // guardarse aunque el jugador no cambie ningún campo manualmente.
       setDirty(true);
       setPersisted(false);
-      toast.success(`Ejemplo cargado: ${res.profile.name}`);
+      toast.success(tx().demoLoaded(res.profile.name));
     } catch (err) {
-      toast.error("No se pudo cargar el ejemplo", { description: getErrorMessage(err) });
+      toast.error(tx().demoError, { description: getErrorMessage(err) });
     } finally {
       setBusy(null);
     }
@@ -473,10 +563,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         void refreshSavedCharacters().catch(() => {
           // El guardado es autoritativo aunque el resumen no se refresque ahora.
         });
-        toast.success(`Personaje guardado: ${res.profile.name}`);
+        toast.success(tx().saved(res.profile.name));
         return res.profile;
       } catch (err) {
-        toast.error("No se pudo guardar el personaje", { description: getErrorMessage(err) });
+        toast.error(tx().saveError, { description: getErrorMessage(err) });
         return null;
       } finally {
         setBusy(null);
@@ -522,10 +612,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         void refreshSavedCharacters().catch(() => {
           // El guardado es autoritativo aunque el resumen no se refresque ahora.
         });
-        toast.success(`Personaje guardado: ${res.profile.name}`);
+        toast.success(tx().saved(res.profile.name));
         return res.profile;
       } catch (err) {
-        toast.error("No se pudo guardar el personaje", { description: getErrorMessage(err) });
+        toast.error(tx().saveError, { description: getErrorMessage(err) });
         return null;
       } finally {
         setBusy(null);
@@ -555,7 +645,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         setPersisted(true);
         return true;
       } catch (err) {
-        toast.error("No se pudo apuntar en tu personaje", { description: getErrorMessage(err) });
+        toast.error(tx().noteError, { description: getErrorMessage(err) });
         return false;
       }
     },
@@ -571,7 +661,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           // Solo ocurre cuando la pantalla solicitó explícitamente un objetivo.
           options?.onPlanImported?.(res.plan, res.warnings, res.resolution ?? null);
           toast.warning(
-            "Archivo de plan importado como build objetivo — no es tu personaje actual",
+            tx().planImported,
             { description: res.warnings[0] },
           );
           return "plan" as const;
@@ -584,8 +674,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
             const savedResponse = await api.saveCharacter(res.profile);
             saved = savedResponse.profile;
           } catch (saveError) {
-            toast.error("Se leyó el personaje, pero no se pudo guardar", {
-              description: `${getErrorMessage(saveError)} El contenido sigue en el importador para que puedas reintentarlo.`,
+            toast.error(tx().readNotSaved, {
+              description: `${getErrorMessage(saveError)}${tx().stillInImporter}`,
             });
             return null;
           }
@@ -606,20 +696,22 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
             warning.startsWith("Incompatibilidad de versión"),
           );
           if (readiness.ready) {
-            toast.success(`Personaje importado y guardado: ${saved.name}`);
+            toast.success(tx().importedSaved(saved.name));
             return "profile-ready" as const;
           } else {
-            const pending = readiness.issues.map((issue) => issue.label.toLowerCase()).join(", ");
+            const pending = readiness.issues
+              .map((issue) => (pageLang() === "en" ? issue.labelEn : issue.label).toLowerCase())
+              .join(", ");
             const isBuildPlanner = res.detectedFormat === "ggg-build-planner-v1";
             toast.warning(
               versionMismatch
-                ? "Personaje guardado, pero pertenece a otra versión"
+                ? tx().otherVersion
                 : isBuildPlanner
-                ? "Ese archivo .build es un plan, no una captura completa"
-                : `Borrador guardado: faltan ${readiness.issues.length} dato(s)`,
+                ? tx().plannerFile
+                : tx().draftSaved(readiness.issues.length),
               {
                 description: versionMismatch ?? (pending
-                    ? `Conservamos lo que sí contiene. Completa ${pending} antes de pedir recomendaciones.`
+                    ? tx().keepWhatItHas(pending)
                     : undefined),
               },
             );
@@ -627,13 +719,13 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           }
         } else {
           setWarnings(res.warnings);
-          toast.warning("No se pudo interpretar el contenido del archivo", {
+          toast.warning(tx().unreadable, {
             description: res.warnings[0],
           });
           return null;
         }
       } catch (err) {
-        toast.error("No se pudo importar la build", {
+        toast.error(tx().importError, {
           description: getErrorMessage(err),
         });
         return null;
@@ -667,8 +759,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
               warnings: res.warnings,
               persistImmediately: importOptions?.persistImmediately === true,
             });
-            toast.info("Ese hueco ya está ocupado", {
-              description: "Elige qué pieza sustituir o conserva el objeto como extra.",
+            toast.info(tx().slotTaken, {
+              description: tx().slotTakenDetail,
             });
             return null;
           }
@@ -679,8 +771,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
               const savedResponse = await api.saveCharacter(nextProfile);
               saved = savedResponse.profile;
             } catch (saveError) {
-              toast.error("Se leyó el objeto, pero no se pudo guardar", {
-                description: `${getErrorMessage(saveError)} El texto sigue en el importador para que puedas reintentarlo.`,
+              toast.error(tx().itemNotSaved, {
+                description: `${getErrorMessage(saveError)}${tx().textInImporter}`,
               });
               return null;
             }
@@ -694,11 +786,11 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
               // El expediente ya contiene la pieza; la lista es una vista auxiliar.
             });
             if (res.warnings.length > 0) {
-              toast.warning(`Objeto analizado con avisos: ${placement.item.name}`, {
+              toast.warning(tx().itemWarnings(placement.item.name), {
                 description: res.warnings[0],
               });
             } else {
-              toast.success(`Objeto añadido y guardado: ${placement.item.name}`);
+              toast.success(tx().itemAddedSaved(placement.item.name));
             }
             return placement.item;
           }
@@ -708,8 +800,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
               const savedResponse = await api.saveCharacter(nextProfile);
               saved = savedResponse.profile;
             } catch (saveError) {
-              toast.error("Se leyó el objeto, pero no se pudo guardar", {
-                description: `${getErrorMessage(saveError)} El texto sigue en el importador para que puedas reintentarlo.`,
+              toast.error(tx().itemNotSaved, {
+                description: `${getErrorMessage(saveError)}${tx().textInImporter}`,
               });
               return null;
             }
@@ -724,11 +816,11 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
               // El borrador con la pieza ya está guardado; la lista es auxiliar.
             });
             if (res.warnings.length > 0) {
-              toast.warning(`Objeto analizado con avisos: ${placement.item.name}`, {
+              toast.warning(tx().itemWarnings(placement.item.name), {
                 description: res.warnings[0],
               });
             } else {
-              toast.success(`Objeto añadido: ${placement.item.name}`);
+              toast.success(tx().itemAdded(placement.item.name));
             }
             return placement.item;
           }
@@ -737,11 +829,11 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           setWarnings(res.warnings);
           setDirty(true);
           if (res.warnings.length > 0) {
-            toast.warning(`Objeto analizado con avisos: ${placement.item.name}`, {
+            toast.warning(tx().itemWarnings(placement.item.name), {
               description: res.warnings[0],
             });
           } else {
-            toast.success(`Objeto añadido: ${placement.item.name}`);
+            toast.success(tx().itemAdded(placement.item.name));
           }
           return placement.item;
         }
@@ -753,8 +845,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
             const savedResponse = await api.saveCharacter(draft);
             saved = savedResponse.profile;
           } catch (saveError) {
-            toast.error("Se leyó el objeto, pero no se pudo guardar", {
-              description: `${getErrorMessage(saveError)} El texto sigue en el importador para que puedas reintentarlo.`,
+            toast.error(tx().itemNotSaved, {
+              description: `${getErrorMessage(saveError)}${tx().textInImporter}`,
             });
             return null;
           }
@@ -772,15 +864,15 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         setWarnings(res.warnings);
         if (!importingStandaloneItem) setDirty(true);
         if (res.warnings.length > 0) {
-          toast.warning(`Objeto analizado con avisos: ${item.name}`, {
+          toast.warning(tx().itemWarnings(item.name), {
             description: res.warnings[0],
           });
         } else {
-          toast.success(`Objeto añadido: ${item.name}`);
+          toast.success(tx().itemAdded(item.name));
         }
         return item;
       } catch (err) {
-        toast.error("No se pudo analizar el objeto", {
+        toast.error(tx().itemError, {
           description: getErrorMessage(err),
         });
         return null;
@@ -804,7 +896,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           decision.targetItemId,
         );
         if (!result) {
-          toast.error("La pieza que querías sustituir ya no está en el expediente");
+          toast.error(tx().replacedGone);
           setPendingItemImport(null);
           return null;
         }
@@ -831,12 +923,12 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           });
           toast.success(
             decision.mode === "replace"
-              ? `Pieza sustituida y guardada: ${acceptedItem.name}`
-              : `Objeto guardado como extra: ${acceptedItem.name}`,
+              ? tx().replacedSaved(acceptedItem.name)
+              : tx().extraSaved(acceptedItem.name),
           );
           return acceptedItem;
         } catch (err) {
-          toast.error("No se pudo guardar la pieza; el importador sigue abierto", {
+          toast.error(tx().pieceError, {
             description: getErrorMessage(err),
           });
           return null;
@@ -851,8 +943,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       setPendingItemImport(null);
       toast.success(
         decision.mode === "replace"
-          ? `Pieza sustituida: ${acceptedItem.name}`
-          : `Objeto guardado como extra: ${acceptedItem.name}`,
+          ? tx().replaced(acceptedItem.name)
+          : tx().extraSaved(acceptedItem.name),
       );
       return acceptedItem;
     },
@@ -888,10 +980,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       void refreshSavedCharacters().catch(() => {
         // El guardado es autoritativo aunque el resumen no se refresque ahora.
       });
-      toast.success("Correcciones guardadas");
+      toast.success(tx().fixesSaved);
       return res.profile;
     } catch (err) {
-      toast.error("No se pudieron guardar las correcciones", {
+      toast.error(tx().fixesError, {
         description: getErrorMessage(err),
       });
       return null;
@@ -905,7 +997,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       if (!profile) return false;
       const original = profile.items.find((item) => item.id === originalItemId);
       if (!original) {
-        toast.error("El objeto original ya no está en el expediente");
+        toast.error(tx().originalGone);
         return false;
       }
       const replacement: Item = {
@@ -933,10 +1025,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         void refreshSavedCharacters().catch(() => {
           // El expediente ya se actualizó; la lista es una vista auxiliar.
         });
-        toast.success(`Objeto actualizado: ${replacement.name}`);
+        toast.success(tx().itemUpdated(replacement.name));
         return true;
       } catch (err) {
-        toast.error("No se pudo actualizar el expediente; la sesión sigue abierta", {
+        toast.error(tx().updateError, {
           description: getErrorMessage(err),
         });
         return false;
@@ -963,8 +1055,8 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     setPersisted(false);
     toast.info(
       profile && persisted
-        ? "Expediente apartado. Puedes recuperarlo desde la bienvenida."
-        : "Borrador descartado. Puedes empezar de nuevo.",
+        ? tx().setAside
+        : tx().draftDiscarded,
     );
   }, [persisted, profile]);
 
@@ -982,7 +1074,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         localStorage.removeItem(PREVIOUS_STORAGE_KEY);
         setPreviousCharacter(null);
       }
-      toast.success(`Expediente recuperado: ${res.profile.name}`);
+      toast.success(tx().recovered(res.profile.name));
       return true;
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 404) {
@@ -995,7 +1087,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           setPreviousCharacter(null);
         }
       }
-      toast.error("No se pudo recuperar el expediente", {
+      toast.error(tx().restoreError, {
         description: getErrorMessage(err),
       });
       return false;

@@ -7,7 +7,24 @@ import { EquipmentPanel } from "@/components/EquipmentPanel";
 import { ItemDetailDialog } from "@/components/ItemDetailDialog";
 import { BuildMemorySection } from "@/components/BuildMemorySection";
 import type { JournalState } from "@/hooks/useJournal";
-import { useLang } from "@/i18n/lang";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    equipment: "Equipo",
+    unverified: (count: number) =>
+      `${count} dato(s) sin verificar — ver «Evidencia y limitaciones»`,
+    editProfile: "Editar expediente",
+    restoring: "Restaurando tu último personaje…",
+  },
+  {
+    equipment: "Equipment",
+    unverified: (count: number) =>
+      `${count} unverified detail(s) — see “Evidence and limits”`,
+    editProfile: "Edit character",
+    restoring: "Restoring your last character…",
+  },
+);
 
 interface ExpedienteSectionProps {
   profile: CharacterProfile | null;
@@ -64,6 +81,7 @@ export function ExpedienteSection({
   onOpenCrafting,
   mentorContextId,
 }: ExpedienteSectionProps) {
+  const t = useText(TEXT);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const items = profile?.items ?? [];
@@ -129,7 +147,7 @@ export function ExpedienteSection({
           id="expediente-equipo-titulo"
           className="dossier-title text-lg font-semibold leading-tight text-foreground"
         >
-          Equipo
+          {t.equipment}
         </h2>
         {limitations.length > 0 && (
           <p
@@ -137,10 +155,7 @@ export function ExpedienteSection({
             data-testid="expediente-limitaciones"
           >
             <Info className="size-3.5 shrink-0" aria-hidden="true" />
-            <span>
-              {limitations.length} dato(s) sin verificar — ver «Evidencia y
-              limitaciones»
-            </span>
+            <span>{t.unverified(limitations.length)}</span>
           </p>
         )}
       </div>
@@ -172,7 +187,7 @@ export function ExpedienteSection({
           data-testid="abrir-editor-expediente"
         >
           <Pencil className="size-4" aria-hidden="true" />
-          Editar expediente
+          {t.editProfile}
         </Button>
       </div>
 
@@ -198,10 +213,6 @@ export function ExpedienteSection({
 }
 
 function RestoringText() {
-  const { lang } = useLang();
-  return (
-    <p className="text-sm text-muted-foreground">
-      {lang === "en" ? "Restoring your last character…" : "Restaurando tu último personaje…"}
-    </p>
-  );
+  const t = useText(TEXT);
+  return <p className="text-sm text-muted-foreground">{t.restoring}</p>;
 }

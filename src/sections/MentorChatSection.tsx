@@ -13,14 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import type { MentorState } from "@/hooks/useMentor";
 import type { MentorTurn } from "@/lib/mentorThread";
 import { savableNextAction } from "@/lib/mentorThread";
-import {
-  CONFIDENCE_BADGE_CLASSES,
-  CONFIDENCE_LABELS,
-  SOURCE_KIND_LABELS,
-  formatDateTime,
-} from "@/lib/format";
+import { CONFIDENCE_BADGE_CLASSES, formatDateTime } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
+import { texts, useLang, useText } from "@/i18n/lang";
 import {
   allowsPatchGuidance,
   type PatchCompatibilityRecord,
@@ -43,13 +40,124 @@ import {
  * como TEXTO mediante JSX: React escapa el contenido y nunca interpreta HTML.
  */
 
-/** Tipo de consulta en español; el id interno nunca se muestra. */
-const INTENT_LABELS: Record<MentorAnswer["intent"], string> = {
-  conversation: "Conversación",
-  next_improvement: "Qué mejorar ahora",
-  explain_priority: "Por qué esa es tu prioridad",
-  unsupported: "Fuera de lo que sé responder",
-};
+/**
+ * Textos en los dos idiomas. El tipo de consulta se muestra con palabras; el
+ * id interno nunca. Las preguntas de ejemplo en inglés son las que reconoce
+ * el clasificador del servidor cuando la página está en inglés.
+ */
+const TEXT = texts(
+  {
+    intentLabels: {
+      conversation: "Conversación",
+      next_improvement: "Qué mejorar ahora",
+      explain_priority: "Por qué esa es tu prioridad",
+      unsupported: "Fuera de lo que sé responder",
+    } as Record<MentorAnswer["intent"], string>,
+    suggestions: [...MENTOR_SUGGESTIONS] as string[],
+    modeAi: "IA fundamentada",
+    modeFallback: "Respaldo por reglas",
+    modeRules: "Reglas verificables",
+    noProfileTitle: "Necesitas un personaje primero",
+    noProfileBody:
+      "Carga el ejemplo o importa tu build en «Mi personaje». Sin personaje no puedo responder nada con datos tuyos, y no voy a improvisar.",
+    readinessTitle: "Completa el expediente antes de pedir una prioridad",
+    readinessMissing: (missing: string) =>
+      `El Mentor no convertirá un plan parcial en datos de tu personaje real. Faltan: ${missing}.`,
+    readinessButton: "Completar expediente",
+    patchTitle: (patchId: string) => `El mentor está esperando la revisión de ${patchId}`,
+    patchBody: (summary: string) =>
+      `${summary} No propondrá mejoras ni acciones mecánicas usando datos del parche anterior.`,
+    loading: "Consultando tu personaje, tu diario y el motor…",
+    errorTitle: "No se pudo responder",
+    questionLabel: "Tu pregunta",
+    questionPlaceholder: "Pregúntale algo sobre tu personaje",
+    ask: "Preguntar",
+    recalled: "Esta acción ya está registrada en tu diario: termínala y anota el resultado.",
+    saveAction: "Guardar esta acción en el diario",
+    saveHint: "Queda como tu única acción activa hasta que registres el resultado.",
+    you: "Tú",
+    mentor: "Mentor",
+    unsupportedTitle: "Todavía no sé responder eso",
+    tryWith: "Prueba con:",
+    nextActionTitle: "Tu única próxima acción",
+    confidence: (label: string) => `Confianza ${label}`,
+    journalBusy: "Diario: acción en curso",
+    journalRepeated: (count: number) => `Diario: ${count} ya intentada(s)`,
+    relatedItems: "Objetos implicados:",
+    viewItem: "Ver objeto",
+    evidenceSummary: "Ver evidencia y limitaciones",
+    sources: "Fuentes",
+    unverified: "Falta por verificar",
+    evidenceNote:
+      "Las fechas y la evidencia pueden cambiar: los precios proceden del servicio documentado de poe.ninja cuando el motor los necesita, y el diario se actualiza con lo que vas registrando.",
+    queryType: (label: string) => `Tipo de consulta: ${label}`,
+    engine: (version: string) => `· Motor ${version}`,
+    responseAi: "IA fundamentada",
+    responseFallback: "reglas de respaldo",
+    responseRules: "reglas",
+    response: (mode: string) => `· Respuesta: ${mode}`,
+    model: (model: string) => `· Modelo ${model}`,
+    answeredAt: (date: string) => `· Respondido el ${date}`,
+  },
+  {
+    intentLabels: {
+      conversation: "Conversation",
+      next_improvement: "What to improve now",
+      explain_priority: "Why that is your priority",
+      unsupported: "Outside what I can answer",
+    },
+    suggestions: [
+      "What should I improve now?",
+      "What should I do first?",
+      "What's my main problem?",
+      "Why do you recommend this?",
+    ],
+    modeAi: "Grounded AI",
+    modeFallback: "Rules fallback",
+    modeRules: "Checkable rules",
+    noProfileTitle: "You need a character first",
+    noProfileBody:
+      "Load the example or import your build in “My character”. Without a character I can't answer anything with your data, and I won't make things up.",
+    readinessTitle: "Finish your character file before asking for a priority",
+    readinessMissing: (missing: string) =>
+      `The Mentor won't treat a partial plan as your real character's data. Missing: ${missing}.`,
+    readinessButton: "Finish character file",
+    patchTitle: (patchId: string) => `The mentor is waiting for the ${patchId} review`,
+    patchBody: (summary: string) =>
+      `${summary} It won't suggest upgrades or mechanical actions using data from the previous patch.`,
+    loading: "Checking your character, your journal and the engine…",
+    errorTitle: "Couldn't answer",
+    questionLabel: "Your question",
+    questionPlaceholder: "Ask something about your character",
+    ask: "Ask",
+    recalled: "This action is already in your journal: finish it and log the result.",
+    saveAction: "Save this action to the journal",
+    saveHint: "It stays as your only active action until you log the result.",
+    you: "You",
+    mentor: "Mentor",
+    unsupportedTitle: "I can't answer that yet",
+    tryWith: "Try:",
+    nextActionTitle: "Your one next action",
+    confidence: (label: string) => `${label} confidence`,
+    journalBusy: "Journal: action in progress",
+    journalRepeated: (count: number) => `Journal: ${count} already tried`,
+    relatedItems: "Items involved:",
+    viewItem: "View item",
+    evidenceSummary: "See evidence and limits",
+    sources: "Sources",
+    unverified: "Still to check",
+    evidenceNote:
+      "Dates and evidence can change: prices come from poe.ninja's documented service when the engine needs them, and the journal updates with what you log.",
+    queryType: (label: string) => `Question type: ${label}`,
+    engine: (version: string) => `· Engine ${version}`,
+    responseAi: "grounded AI",
+    responseFallback: "fallback rules",
+    responseRules: "rules",
+    response: (mode: string) => `· Answer: ${mode}`,
+    model: (model: string) => `· Model ${model}`,
+    answeredAt: (date: string) => `· Answered on ${date}`,
+  },
+);
 
 interface MentorChatSectionProps {
   profile: CharacterProfile | null;
@@ -82,16 +190,18 @@ export function MentorChatSection({
   onEditProfile,
   pendingQuestion = null,
 }: MentorChatSectionProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const [question, setQuestion] = useState("");
   const { turns, loading, error } = mentor;
   const threadRef = useRef<HTMLDivElement | null>(null);
   const latestAnswer = [...turns].reverse().find((turn) => turn.answer !== null)?.answer ?? null;
   const modeLabel =
     latestAnswer?.responseMode === "ai"
-      ? "IA fundamentada"
+      ? t.modeAi
       : latestAnswer?.responseMode === "rules_fallback"
-        ? "Respaldo por reglas"
-        : "Reglas verificables";
+        ? t.modeFallback
+        : t.modeRules;
 
   const patchBlocked =
     patchCompatibility !== null && !allowsPatchGuidance(patchCompatibility);
@@ -104,8 +214,8 @@ export function MentorChatSection({
     !loading;
   const visibleSuggestions =
     turns.length === 0
-      ? [MENTOR_SUGGESTIONS[0], MENTOR_SUGGESTIONS[2]]
-      : [MENTOR_SUGGESTIONS[0], MENTOR_SUGGESTIONS[3]];
+      ? [t.suggestions[0], t.suggestions[2]]
+      : [t.suggestions[0], t.suggestions[3]];
 
   // Cada pregunta, respuesta o estado de carga deja el ÚLTIMO turno a la vista.
   // Se desplaza el CONTENEDOR del hilo (`scrollTo` sobre el propio elemento),
@@ -175,32 +285,30 @@ export function MentorChatSection({
         </Badge>
         {profile === null ? (
           <Alert>
-            <AlertTitle>Necesitas un personaje primero</AlertTitle>
-            <AlertDescription>
-              Carga el ejemplo o importa tu build en «Mi personaje». Sin personaje no puedo
-              responder nada con datos tuyos, y no voy a improvisar.
-            </AlertDescription>
+            <AlertTitle>{t.noProfileTitle}</AlertTitle>
+            <AlertDescription>{t.noProfileBody}</AlertDescription>
           </Alert>
         ) : !readiness.ready ? (
           <Alert data-testid="mentor-profile-readiness-gate">
-            <AlertTitle>Completa el expediente antes de pedir una prioridad</AlertTitle>
+            <AlertTitle>{t.readinessTitle}</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>
-                El Mentor no convertirá un plan parcial en datos de tu personaje real.
-                Faltan: {readiness.issues.map((issue) => issue.label.toLowerCase()).join(", ")}.
+                {t.readinessMissing(
+                  readiness.issues
+                    .map((issue) => (lang === "en" ? issue.labelEn : issue.label).toLowerCase())
+                    .join(", "),
+                )}
               </p>
               <Button type="button" variant="secondary" onClick={onEditProfile}>
                 <PencilLine className="size-4" aria-hidden="true" />
-                Completar expediente
+                {t.readinessButton}
               </Button>
             </AlertDescription>
           </Alert>
         ) : patchBlocked ? (
           <Alert data-testid="mentor-chat-patch-review-gate">
-            <AlertTitle>El mentor está esperando la revisión de {patchCompatibility.patchId}</AlertTitle>
-            <AlertDescription>
-              {patchCompatibility.summary} No propondrá mejoras ni acciones mecánicas usando datos del parche anterior.
-            </AlertDescription>
+            <AlertTitle>{t.patchTitle(patchCompatibility.patchId)}</AlertTitle>
+            <AlertDescription>{t.patchBody(patchCompatibility.summary)}</AlertDescription>
           </Alert>
         ) : (
           <>
@@ -235,7 +343,7 @@ export function MentorChatSection({
                   data-testid="mentor-cargando"
                 >
                   <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                  Consultando tu personaje, tu diario y el motor…
+                  {t.loading}
                 </p>
               )}
             </div>
@@ -249,7 +357,7 @@ export function MentorChatSection({
 
             {error !== null && (
               <Alert variant="destructive">
-                <AlertTitle>No se pudo responder</AlertTitle>
+                <AlertTitle>{t.errorTitle}</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
@@ -262,13 +370,13 @@ export function MentorChatSection({
               }}
             >
               <div className="min-w-0 flex-1">
-                <Label htmlFor="mentor-pregunta" className="sr-only">Tu pregunta</Label>
+                <Label htmlFor="mentor-pregunta" className="sr-only">{t.questionLabel}</Label>
                 <Textarea
                   id="mentor-pregunta"
                   value={question}
                   rows={1}
                   maxLength={MAX_MENTOR_QUESTION_LENGTH}
-                  placeholder="Pregúntale algo sobre tu personaje"
+                  placeholder={t.questionPlaceholder}
                   className="min-h-10 resize-none"
                   disabled={loading}
                   onChange={(event) => setQuestion(event.target.value)}
@@ -291,7 +399,7 @@ export function MentorChatSection({
                   ) : (
                     <Send className="size-4" aria-hidden="true" />
                   )}
-                  Preguntar
+                  {t.ask}
                 </Button>
               </div>
             </form>
@@ -312,6 +420,7 @@ function LastActionActions({
   savingNextAction: boolean;
   onSaveNextAction: (answer: MentorAnswer) => void;
 }) {
+  const t = useText(TEXT);
   const savable = savableNextAction(turns);
 
   if (savable === null) {
@@ -321,7 +430,7 @@ function LastActionActions({
     if (recalled === null || recalled.nextAction === null) return null;
     return (
       <p className="text-xs text-muted-foreground" data-testid="mentor-accion-recordada">
-        Esta acción ya está registrada en tu diario: termínala y anota el resultado.
+        {t.recalled}
       </p>
     );
   }
@@ -341,11 +450,9 @@ function LastActionActions({
         ) : (
           <BookmarkPlus className="size-4" aria-hidden="true" />
         )}
-        Guardar esta acción en el diario
+        {t.saveAction}
       </Button>
-      <span className="text-xs text-muted-foreground">
-        Queda como tu única acción activa hasta que registres el resultado.
-      </span>
+      <span className="text-xs text-muted-foreground">{t.saveHint}</span>
     </div>
   );
 }
@@ -357,6 +464,7 @@ function MentorTurnView({
   turn: MentorTurn;
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
 }) {
+  const t = useText(TEXT);
   const esJugador = turn.role === "player";
   return (
     <div
@@ -369,7 +477,7 @@ function MentorTurnView({
       )}
     >
       <p className="mb-1 text-xs font-medium text-muted-foreground">
-        {esJugador ? "Tú" : "Mentor"}
+        {esJugador ? t.you : t.mentor}
       </p>
       {/* Texto plano: React escapa el contenido, nunca se interpreta HTML. */}
       <p className="whitespace-pre-wrap break-words text-foreground">{turn.text}</p>
@@ -385,14 +493,16 @@ function MentorAnswerDetail({
   answer: MentorAnswer;
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
 }) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   return (
     <div className="mt-3 flex flex-col gap-3">
       {answer.unsupported !== null && (
         <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200">
-          <AlertTitle>Todavía no sé responder eso</AlertTitle>
+          <AlertTitle>{t.unsupportedTitle}</AlertTitle>
           <AlertDescription className="flex flex-col gap-1">
             <span>{answer.unsupported.reason}</span>
-            <span className="text-xs">Prueba con:</span>
+            <span className="text-xs">{t.tryWith}</span>
             <ul className="list-inside list-disc text-xs">
               {answer.unsupported.examples.map((ejemplo) => (
                 <li key={ejemplo}>{ejemplo}</li>
@@ -408,37 +518,35 @@ function MentorAnswerDetail({
           className="rounded-md border border-primary/40 bg-primary/5 p-2"
           data-testid="mentor-proxima-accion"
         >
-          <p className="text-xs font-medium text-muted-foreground">
-            Tu única próxima acción
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">{t.nextActionTitle}</p>
           <p className="whitespace-pre-wrap break-words text-foreground">
             {answer.nextAction.text}
           </p>
         </div>
       )}
 
-      {/* 2) Confianza (siempre en español) y estado del diario. */}
+      {/* 2) Confianza (en el idioma de la página) y estado del diario. */}
       <div className="flex flex-wrap items-center gap-2">
         {answer.confidence !== null && (
           <Badge variant="outline" className={CONFIDENCE_BADGE_CLASSES[answer.confidence]}>
-            Confianza {CONFIDENCE_LABELS[answer.confidence]}
+            {t.confidence(labels.confidence[answer.confidence])}
           </Badge>
         )}
         {answer.memoryImpact.blockedByPrimaryEntryId !== null && (
           <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-300">
-            Diario: acción en curso
+            {t.journalBusy}
           </Badge>
         )}
         {answer.memoryImpact.repeatedRecommendationIds.length > 0 && (
           <Badge variant="outline" className="text-muted-foreground">
-            Diario: {answer.memoryImpact.repeatedRecommendationIds.length} ya intentada(s)
+            {t.journalRepeated(answer.memoryImpact.repeatedRecommendationIds.length)}
           </Badge>
         )}
       </div>
 
       {answer.relatedItemIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Objetos implicados:</span>
+          <span className="text-xs text-muted-foreground">{t.relatedItems}</span>
           {answer.relatedItemIds.map((itemId) => (
             <Button
               key={itemId}
@@ -449,7 +557,7 @@ function MentorAnswerDetail({
               onClick={(event) => onFocusItem(itemId, event.currentTarget)}
             >
               <PackageSearch className="size-3.5" aria-hidden="true" />
-              Ver objeto
+              {t.viewItem}
             </Button>
           ))}
         </div>
@@ -472,25 +580,25 @@ function MentorAnswerDetail({
  * con teclado y los lectores de pantalla lo anuncian como grupo desplegable.
  */
 function MentorEvidence({ answer }: { answer: MentorAnswer }) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   return (
     <details
       className="rounded-md border border-border/60 bg-background/40"
       data-testid="mentor-evidencia"
     >
       <summary className="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground">
-        Ver evidencia y limitaciones
+        {t.evidenceSummary}
       </summary>
 
       <div className="flex flex-col gap-3 px-2 pb-2 pt-1">
         {answer.sources.length > 0 && (
           <div className="flex flex-col gap-1" data-testid="mentor-fuentes">
-            <p className="text-xs font-medium text-muted-foreground">
-              Fuentes
-            </p>
+            <p className="text-xs font-medium text-muted-foreground">{t.sources}</p>
             <ul className="list-inside list-disc text-xs text-muted-foreground">
               {answer.sources.map((source, index) => (
                 <li key={`${source.kind}-${index}`}>
-                  {source.label} · {SOURCE_KIND_LABELS[source.kind]} ·{" "}
+                  {source.label} · {labels.sourceKind[source.kind]} ·{" "}
                   {formatDateTime(source.retrievedAt)}
                 </li>
               ))}
@@ -500,9 +608,7 @@ function MentorEvidence({ answer }: { answer: MentorAnswer }) {
 
         {answer.unverified.length > 0 && (
           <div className="flex flex-col gap-1" data-testid="mentor-no-verificado">
-            <p className="text-xs font-medium text-amber-300">
-              Falta por verificar
-            </p>
+            <p className="text-xs font-medium text-amber-300">{t.unverified}</p>
             <ul className="list-inside list-disc text-xs text-amber-200/90">
               {answer.unverified.map((nota, index) => (
                 <li key={index}>{nota}</li>
@@ -511,20 +617,22 @@ function MentorEvidence({ answer }: { answer: MentorAnswer }) {
           </div>
         )}
 
-        <p className="text-[11px] text-muted-foreground">
-          Las fechas y la evidencia pueden cambiar: los precios proceden del servicio
-          documentado de poe.ninja cuando el motor los necesita, y el diario se actualiza
-          con lo que vas registrando.
-        </p>
+        <p className="text-[11px] text-muted-foreground">{t.evidenceNote}</p>
 
         <p className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
-          <span>Tipo de consulta: {INTENT_LABELS[answer.intent]}</span>
-          <span>· Motor {answer.engineVersion}</span>
+          <span>{t.queryType(t.intentLabels[answer.intent])}</span>
+          <span>{t.engine(answer.engineVersion)}</span>
           <span>
-            · Respuesta: {answer.responseMode === "ai" ? "IA fundamentada" : answer.responseMode === "rules_fallback" ? "reglas de respaldo" : "reglas"}
+            {t.response(
+              answer.responseMode === "ai"
+                ? t.responseAi
+                : answer.responseMode === "rules_fallback"
+                  ? t.responseFallback
+                  : t.responseRules,
+            )}
           </span>
-          {answer.model != null && <span>· Modelo {answer.model}</span>}
-          <span>· Respondido el {formatDateTime(answer.generatedAt)}</span>
+          {answer.model != null && <span>{t.model(answer.model)}</span>}
+          <span>{t.answeredAt(formatDateTime(answer.generatedAt))}</span>
         </p>
 
         {answer.fallbackReason != null && (

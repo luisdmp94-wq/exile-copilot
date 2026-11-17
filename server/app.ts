@@ -1521,6 +1521,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           patch: body.patch,
           memory,
           ...(body.target !== undefined ? { target: body.target } : {}),
+          ...(body.lang !== undefined ? { lang: body.lang } : {}),
         },
         { priceService },
       );
@@ -1532,9 +1533,12 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           reason: await explainer.explain(rec, {
             budgetText:
               body.budget === null
-                ? "sin presupuesto declarado"
+                ? body.lang === "en"
+                  ? "no budget set"
+                  : "sin presupuesto declarado"
                 : `${body.budget.amount} ${body.budget.currency}`,
             goalKind: body.goal.kind,
+            ...(body.lang !== undefined ? { lang: body.lang } : {}),
           }),
         })),
       );

@@ -2,15 +2,58 @@ import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import type { JournalEntry, Recommendation, SourceEvidence } from "@shared/domain.js";
 import { readJournalCharacterLevel } from "@shared/domain.js";
-import {
-  CONFIDENCE_LABELS,
-  GOAL_LABELS,
-  formatCost,
-  formatDateTime,
-  MAGNITUDE_LABELS,
-  RISK_LABELS,
-  SOURCE_KIND_LABELS,
-} from "@/lib/format";
+import { formatCost, formatDateTime } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    reason: "Motivo",
+    risk: "Riesgo",
+    confidence: "Confianza",
+    cost: "Coste",
+    impact: "Impacto",
+    patch: "Parche",
+    dataUpdated: "Datos actualizados",
+    toVerify: "Falta por verificar",
+    nothingToVerify: "El motor no declaró datos pendientes de verificar para este caso.",
+    noSnapshot:
+      "Esta entrada no guarda el detalle de la recomendación original: solo quedan sus fuentes y el contexto en que se decidió.",
+    savedContext: "Contexto guardado con la decisión",
+    level: "Nivel",
+    league: "Liga",
+    goal: "Objetivo",
+    budget: "Presupuesto",
+    unknownMasc: "Desconocido",
+    unknownFem: "Desconocida",
+    sources: "Fuentes",
+    newTab: "(se abre en una pestaña nueva)",
+    noSources: "Sin fuentes declaradas.",
+  },
+  {
+    reason: "Reason",
+    risk: "Risk",
+    confidence: "Confidence",
+    cost: "Cost",
+    impact: "Impact",
+    patch: "Patch",
+    dataUpdated: "Data updated",
+    toVerify: "Still to verify",
+    nothingToVerify: "The engine didn't list anything left to verify for this case.",
+    noSnapshot:
+      "This entry doesn't keep the details of the original recommendation: only its sources and the context it was decided in remain.",
+    savedContext: "Context saved with the decision",
+    level: "Level",
+    league: "League",
+    goal: "Goal",
+    budget: "Budget",
+    unknownMasc: "Unknown",
+    unknownFem: "Unknown",
+    sources: "Sources",
+    newTab: "(opens in a new tab)",
+    noSources: "No sources given.",
+  },
+);
 
 /**
  * Evidencia y limitaciones del Caso Abierto (nivel 2 de la evidencia
@@ -30,6 +73,8 @@ interface OpenCaseEvidenceProps {
 }
 
 export function OpenCaseEvidence({ recommendation, entry }: OpenCaseEvidenceProps) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   const snapshot = recommendation ?? entry?.recommendationSnapshot ?? null;
   const storedLevel = entry === null ? null : readJournalCharacterLevel(entry.context);
 
@@ -38,12 +83,12 @@ export function OpenCaseEvidence({ recommendation, entry }: OpenCaseEvidenceProp
       {snapshot !== null ? (
         <>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-            <Row label="Motivo">{snapshot.reason}</Row>
-            <Row label="Riesgo">
-              {RISK_LABELS[snapshot.risk.level]} — {snapshot.risk.description}
+            <Row label={t.reason}>{snapshot.reason}</Row>
+            <Row label={t.risk}>
+              {labels.risk[snapshot.risk.level]} — {snapshot.risk.description}
             </Row>
-            <Row label="Confianza">{CONFIDENCE_LABELS[snapshot.confidence]}</Row>
-            <Row label="Coste">
+            <Row label={t.confidence}>{labels.confidence[snapshot.confidence]}</Row>
+            <Row label={t.cost}>
               {formatCost(
                 snapshot.cost.min,
                 snapshot.cost.max,
@@ -51,18 +96,18 @@ export function OpenCaseEvidence({ recommendation, entry }: OpenCaseEvidenceProp
                 snapshot.cost.known,
               )}
             </Row>
-            <Row label="Impacto">
+            <Row label={t.impact}>
               {snapshot.impact.description} ({snapshot.impact.metric}:{" "}
-              {MAGNITUDE_LABELS[snapshot.impact.magnitude]})
+              {labels.magnitude[snapshot.impact.magnitude]})
             </Row>
-            <Row label="Parche">{snapshot.patch}</Row>
-            <Row label="Datos actualizados">{formatDateTime(snapshot.dataUpdatedAt)}</Row>
+            <Row label={t.patch}>{snapshot.patch}</Row>
+            <Row label={t.dataUpdated}>{formatDateTime(snapshot.dataUpdatedAt)}</Row>
           </dl>
 
           <SourceList sources={snapshot.sources} />
 
           <div>
-            <p className="font-medium text-foreground">Falta por verificar</p>
+            <p className="font-medium text-foreground">{t.toVerify}</p>
             {snapshot.unverified.length > 0 ? (
               <ul className="list-inside list-disc text-muted-foreground">
                 {snapshot.unverified.map((item, index) => (
@@ -71,33 +116,32 @@ export function OpenCaseEvidence({ recommendation, entry }: OpenCaseEvidenceProp
               </ul>
             ) : (
               <p className="text-muted-foreground">
-                El motor no declaró datos pendientes de verificar para este caso.
+                {t.nothingToVerify}
               </p>
             )}
           </div>
         </>
       ) : (
         <p className="text-muted-foreground">
-          Esta entrada no guarda el detalle de la recomendación original: solo
-          quedan sus fuentes y el contexto en que se decidió.
+          {t.noSnapshot}
         </p>
       )}
 
       {entry !== null && (
         <div className="flex flex-col gap-3 border-t border-border pt-3">
-          <p className="font-medium text-foreground">Contexto guardado con la decisión</p>
+          <p className="font-medium text-foreground">{t.savedContext}</p>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-            <Row label="Nivel">{storedLevel ?? "Desconocido"}</Row>
-            <Row label="Liga">{entry.context.league ?? "Desconocida"}</Row>
-            <Row label="Parche">{entry.context.patch ?? "Desconocido"}</Row>
-            <Row label="Objetivo">
+            <Row label={t.level}>{storedLevel ?? t.unknownMasc}</Row>
+            <Row label={t.league}>{entry.context.league ?? t.unknownFem}</Row>
+            <Row label={t.patch}>{entry.context.patch ?? t.unknownMasc}</Row>
+            <Row label={t.goal}>
               {entry.context.goal === null
-                ? "Desconocido"
-                : GOAL_LABELS[entry.context.goal]}
+                ? t.unknownMasc
+                : labels.goal[entry.context.goal]}
             </Row>
-            <Row label="Presupuesto">
+            <Row label={t.budget}>
               {entry.context.budget === null
-                ? "Desconocido"
+                ? t.unknownMasc
                 : `${entry.context.budget.amount} ${entry.context.budget.currency}`}
             </Row>
           </dl>
@@ -118,9 +162,11 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function SourceList({ sources }: { sources: SourceEvidence[] }) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   return (
     <div>
-      <p className="font-medium text-foreground">Fuentes</p>
+      <p className="font-medium text-foreground">{t.sources}</p>
       {sources.length > 0 ? (
         <ul className="list-inside list-disc text-muted-foreground">
           {sources.map((source, index) => (
@@ -134,17 +180,17 @@ function SourceList({ sources }: { sources: SourceEvidence[] }) {
                 >
                   {source.label}
                   <ExternalLink className="size-3" aria-hidden="true" />
-                  <span className="sr-only">(se abre en una pestaña nueva)</span>
+                  <span className="sr-only">{t.newTab}</span>
                 </a>
               ) : (
                 source.label
               )}{" "}
-              <span className="text-xs">({SOURCE_KIND_LABELS[source.kind]})</span>
+              <span className="text-xs">({labels.sourceKind[source.kind]})</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-muted-foreground">Sin fuentes declaradas.</p>
+        <p className="text-muted-foreground">{t.noSources}</p>
       )}
     </div>
   );

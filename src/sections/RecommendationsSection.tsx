@@ -27,6 +27,108 @@ import { buildTargetFromDraft } from "@/lib/buildTarget";
 import { buildRecommendationsRequest } from "@/lib/recommendationsRequest";
 import { selectAppliedRecommendationIds } from "@/lib/appliedRecommendations";
 import { formatDateTime } from "@/lib/format";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    title: "Próximas mejoras",
+    generate: "Generar recomendaciones",
+    activeStepTitle: "El mentor ya te ha dado un siguiente paso",
+    activeStepBody: (title: string) =>
+      `Termina «${title}» e informa del resultado antes de generar tareas nuevas. Así evitamos recomendaciones paralelas o crafts encadenados a ciegas.`,
+    versionIssueTitle: "La build pertenece a otra versión",
+    incompleteTitle: (count: number) => `Expediente incompleto: faltan ${count} dato(s)`,
+    versionIssueBody:
+      "No generaremos recomendaciones hasta que el árbol pasivo coincida con el parche del expediente.",
+    incompleteBody:
+      "El archivo ha servido como borrador, pero todavía no permite comparar tu personaje real sin inventar información.",
+    completeProfile: "Completar expediente",
+    needCharacterTitle: "Necesitas un personaje primero",
+    needCharacterBody:
+      "Carga el ejemplo o importa tu build en «Editar expediente» para poder generar recomendaciones.",
+    loadDemo: "Cargar ejemplo",
+    errorTitle: "Error al generar recomendaciones",
+    emptyTitle: "Sin recomendaciones todavía",
+    emptyBody:
+      "Pulsa «Generar recomendaciones» para recibir hasta 3 mejoras ordenadas por impacto, coste y riesgo según tu presupuesto y objetivo.",
+    generatedAt: (date: string) => `Generadas el ${date} · motor `,
+    journalInfluenceTitle: "El diario influyó en esta decisión",
+    journalInfluenceUsed: (count: number) => `Se usaron ${count} entrada(s) del historial. `,
+    journalInfluenceRepeated:
+      "El perfil todavía activa una mejora ya intentada; primero se pide reconciliar el resultado guardado con los datos actuales.",
+    journalInfluenceBlocked: "La memoria activa impidió generar tareas paralelas.",
+    noMoreOptions:
+      "No hay más posibilidades: el motor solo devolvió la que ya estás viendo en el caso abierto.",
+    appliedCount: (count: number) => `${count} mejora(s) marcada(s) como aplicada(s)`,
+    appliedHint: "Marca las mejoras que ya aplicaste para incluirlas en el archivo",
+    download: "Descargar .build",
+  },
+  {
+    title: "Next upgrades",
+    generate: "Get recommendations",
+    activeStepTitle: "Your mentor already gave you a next step",
+    activeStepBody: (title: string) =>
+      `Finish "${title}" and report how it went before asking for new tasks. That way you don't get parallel recommendations or blind chains of crafts.`,
+    versionIssueTitle: "This build is from a different game version",
+    incompleteTitle: (count: number) => `Character file incomplete: ${count} detail(s) missing`,
+    versionIssueBody:
+      "We won't make recommendations until the passive tree matches the patch in your character file.",
+    incompleteBody:
+      "The file works as a draft, but it isn't enough yet to compare your real character without making things up.",
+    completeProfile: "Complete character file",
+    needCharacterTitle: "You need a character first",
+    needCharacterBody:
+      "Load the example or import your build in “Edit character” to get recommendations.",
+    loadDemo: "Load example",
+    errorTitle: "Couldn't get recommendations",
+    emptyTitle: "No recommendations yet",
+    emptyBody:
+      "Press “Get recommendations” to receive up to 3 upgrades, sorted by impact, cost and risk for your budget and goal.",
+    generatedAt: (date: string) => `Generated on ${date} · engine `,
+    journalInfluenceTitle: "Your journal shaped this decision",
+    journalInfluenceUsed: (count: number) =>
+      `${count} past journal ${count === 1 ? "entry was" : "entries were"} used. `,
+    journalInfluenceRepeated:
+      "Your character still triggers an upgrade you already tried; first, match the saved result with your current data.",
+    journalInfluenceBlocked: "Active memory stopped parallel tasks from being created.",
+    noMoreOptions:
+      "No other options: the engine only returned the one you're already seeing in the open case.",
+    appliedCount: (count: number) => `${count} upgrade(s) marked as applied`,
+    appliedHint: "Mark the upgrades you've already applied to include them in the file",
+    download: "Download .build",
+  },
+);
+
+const EXPORT_TEXT = texts(
+  {
+    buildName: "Nombre de la build",
+    ascendancy: "Ascendencia",
+    passives: (count: number) => `${count} pasiva(s)`,
+    skills: (count: number) => `${count} habilidad(es)`,
+    inventorySlots: (count: number) => `${count} hueco(s) de inventario`,
+    summary: "Ver informe de exportación de ",
+    validSchema: "Archivo válido contra el esquema GGG Build Planner v1.",
+    contains: "Qué contiene el archivo",
+    emptyFile: "El archivo se generó vacío de contenido exportable.",
+    plannedIncluded: (count: number) => `Mejoras planificadas incluidas en el archivo: ${count}`,
+    notExportable: "Lo que el formato oficial NO puede guardar",
+    skipped: "Omitido por falta de id oficial",
+  },
+  {
+    buildName: "Build name",
+    ascendancy: "Ascendancy",
+    passives: (count: number) => `${count} passive(s)`,
+    skills: (count: number) => `${count} skill(s)`,
+    inventorySlots: (count: number) => `${count} inventory slot(s)`,
+    summary: "See export report for ",
+    validSchema: "File is valid against the GGG Build Planner v1 schema.",
+    contains: "What the file contains",
+    emptyFile: "The file was created with no exportable content.",
+    plannedIncluded: (count: number) => `Planned upgrades included in the file: ${count}`,
+    notExportable: "What the official format CAN'T save",
+    skipped: "Skipped: no official id",
+  },
+);
 
 interface RecommendationsSectionProps {
   /** Identificador único del bloque; permite convivir a las vistas generar y otras. */
@@ -106,6 +208,8 @@ export function RecommendationsSection({
   view = "completo",
   showGenerate: showGenerateProp,
 }: RecommendationsSectionProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const { result, exportResult, loading, exporting, error } = recommendations;
 
   const activeJournalEntry = journal?.primaryEntry ?? null;
@@ -143,7 +247,7 @@ export function RecommendationsSection({
     >
       <CardHeader className={compactGenerate ? "px-0 pb-3 pt-0" : undefined}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {!compactGenerate && <CardTitle className="text-xl">Próximas mejoras</CardTitle>}
+          {!compactGenerate && <CardTitle className="text-xl">{t.title}</CardTitle>}
           {showGenerate && (
           <Button
             type="button"
@@ -172,7 +276,7 @@ export function RecommendationsSection({
             ) : (
               <Lightbulb className="size-4" aria-hidden="true" />
             )}
-            Generar recomendaciones
+            {t.generate}
           </Button>
           )}
         </div>
@@ -180,12 +284,8 @@ export function RecommendationsSection({
       <CardContent className={`flex flex-col gap-4 ${compactGenerate ? "px-0 pb-0" : ""}`}>
         {showGenerate && activeJournalEntry && (
           <Alert className="border-primary/40 bg-primary/5">
-            <AlertTitle>El mentor ya te ha dado un siguiente paso</AlertTitle>
-            <AlertDescription>
-              Termina «{activeJournalEntry.title}» e informa del resultado antes de
-              generar tareas nuevas. Así evitamos recomendaciones paralelas o crafts
-              encadenados a ciegas.
-            </AlertDescription>
+            <AlertTitle>{t.activeStepTitle}</AlertTitle>
+            <AlertDescription>{t.activeStepBody(activeJournalEntry.title)}</AlertDescription>
           </Alert>
         )}
         {showGenerate && profile && !readiness.ready && (
@@ -195,26 +295,24 @@ export function RecommendationsSection({
           >
             <AlertTitle>
               {versionIssue
-                ? "La build pertenece a otra versión"
-                : `Expediente incompleto: faltan ${readiness.issues.length} dato(s)`}
+                ? t.versionIssueTitle
+                : t.incompleteTitle(readiness.issues.length)}
             </AlertTitle>
             <AlertDescription className="space-y-3">
               <p>
-                {versionIssue
-                  ? "No generaremos recomendaciones hasta que el árbol pasivo coincida con el parche del expediente."
-                  : "El archivo ha servido como borrador, pero todavía no permite comparar tu personaje real sin inventar información."}
+                {versionIssue ? t.versionIssueBody : t.incompleteBody}
               </p>
               <ul className="space-y-1 text-sm">
                 {readiness.issues.map((issue) => (
                   <li key={issue.id}>
-                    <span className="font-medium text-foreground">{issue.label}:</span>{" "}
-                    {issue.detail}
+                    <span className="font-medium text-foreground">{lang === "en" ? issue.labelEn : issue.label}:</span>{" "}
+                    {lang === "en" ? issue.detailEn : issue.detail}
                   </li>
                 ))}
               </ul>
               <Button type="button" variant="secondary" onClick={onEditProfile}>
                 <PencilLine className="size-4" aria-hidden="true" />
-                Completar expediente
+                {t.completeProfile}
               </Button>
             </AlertDescription>
           </Alert>
@@ -223,11 +321,8 @@ export function RecommendationsSection({
           showGenerate ? (
             <Empty className="border border-dashed border-border">
               <EmptyHeader>
-                <EmptyTitle>Necesitas un personaje primero</EmptyTitle>
-                <EmptyDescription>
-                  Carga el ejemplo o importa tu build en «Editar expediente» para poder
-                  generar recomendaciones.
-                </EmptyDescription>
+                <EmptyTitle>{t.needCharacterTitle}</EmptyTitle>
+                <EmptyDescription>{t.needCharacterBody}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button
@@ -236,7 +331,7 @@ export function RecommendationsSection({
                   onClick={() => void onLoadDemo()}
                 >
                   <Sparkles className="size-4" aria-hidden="true" />
-                  Cargar ejemplo
+                  {t.loadDemo}
                 </Button>
               </EmptyContent>
             </Empty>
@@ -249,7 +344,7 @@ export function RecommendationsSection({
           </div>
         ) : error ? (
           <Alert variant="destructive">
-            <AlertTitle>Error al generar recomendaciones</AlertTitle>
+            <AlertTitle>{t.errorTitle}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : !result ? (
@@ -257,11 +352,8 @@ export function RecommendationsSection({
             compactGenerate ? null : (
               <Empty className="border border-dashed border-border">
                 <EmptyHeader>
-                  <EmptyTitle>Sin recomendaciones todavía</EmptyTitle>
-                  <EmptyDescription>
-                    Pulsa «Generar recomendaciones» para recibir hasta 3 mejoras ordenadas
-                    por impacto, coste y riesgo según tu presupuesto y objetivo.
-                  </EmptyDescription>
+                  <EmptyTitle>{t.emptyTitle}</EmptyTitle>
+                  <EmptyDescription>{t.emptyBody}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             )
@@ -269,25 +361,22 @@ export function RecommendationsSection({
         ) : !showList ? null : (
           <>
             <p className="text-sm text-muted-foreground">
-              Generadas el {formatDateTime(result.generatedAt)} · motor{" "}
+              {t.generatedAt(formatDateTime(result.generatedAt))}
               {result.engineVersion}
             </p>
             {result.memoryImpact.usedEntryIds.length > 0 && (
               <Alert className="border-primary/40 bg-primary/5">
-                <AlertTitle>El diario influyó en esta decisión</AlertTitle>
+                <AlertTitle>{t.journalInfluenceTitle}</AlertTitle>
                 <AlertDescription>
-                  Se usaron {result.memoryImpact.usedEntryIds.length} entrada(s) del
-                  historial. {result.memoryImpact.repeatedRecommendationIds.length > 0
-                    ? "El perfil todavía activa una mejora ya intentada; primero se pide reconciliar el resultado guardado con los datos actuales."
-                    : "La memoria activa impidió generar tareas paralelas."}
+                  {t.journalInfluenceUsed(result.memoryImpact.usedEntryIds.length)}
+                  {result.memoryImpact.repeatedRecommendationIds.length > 0
+                    ? t.journalInfluenceRepeated
+                    : t.journalInfluenceBlocked}
                 </AlertDescription>
               </Alert>
             )}
             {listed.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No hay más posibilidades: el motor solo devolvió la que ya estás viendo
-                en el caso abierto.
-              </p>
+              <p className="text-sm text-muted-foreground">{t.noMoreOptions}</p>
             ) : (
               listed.map((rec) => (
                 <RecommendationCard
@@ -311,9 +400,7 @@ export function RecommendationsSection({
             )}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <p className="text-sm text-muted-foreground">
-                {selectedCount > 0
-                  ? `${selectedCount} mejora(s) marcada(s) como aplicada(s)`
-                  : "Marca las mejoras que ya aplicaste para incluirlas en el archivo"}
+                {selectedCount > 0 ? t.appliedCount(selectedCount) : t.appliedHint}
               </p>
               <Button
                 type="button"
@@ -337,7 +424,7 @@ export function RecommendationsSection({
                 ) : (
                   <Download className="size-4" aria-hidden="true" />
                 )}
-                Descargar .build
+                {t.download}
               </Button>
             </div>
           </>
@@ -362,14 +449,15 @@ function ExportReportView({
   exportResult: ExportBuildResponse;
   appliedCount: number;
 }) {
+  const t = useText(EXPORT_TEXT);
   const { report, fileName } = exportResult;
   const exportedItems: string[] = [
-    report.exported.name ? "Nombre de la build" : "",
-    report.exported.ascendancy ? "Ascendencia" : "",
-    report.exported.passives > 0 ? `${report.exported.passives} pasiva(s)` : "",
-    report.exported.skills > 0 ? `${report.exported.skills} habilidad(es)` : "",
+    report.exported.name ? t.buildName : "",
+    report.exported.ascendancy ? t.ascendancy : "",
+    report.exported.passives > 0 ? t.passives(report.exported.passives) : "",
+    report.exported.skills > 0 ? t.skills(report.exported.skills) : "",
     report.exported.inventorySlots > 0
-      ? `${report.exported.inventorySlots} hueco(s) de inventario`
+      ? t.inventorySlots(report.exported.inventorySlots)
       : "",
   ].filter((item) => item.length > 0);
 
@@ -379,15 +467,15 @@ function ExportReportView({
       data-testid="informe-exportacion"
     >
       <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-        Ver informe de exportación de <span className="font-mono">{fileName}</span>
+        {t.summary}<span className="font-mono">{fileName}</span>
       </summary>
       <div className="flex flex-col gap-3 border-t border-primary/30 p-4">
         <p className="text-xs text-muted-foreground">
-          Archivo válido contra el esquema GGG Build Planner v1.
+          {t.validSchema}
         </p>
 
       <div>
-        <p className="text-sm font-medium text-foreground">Qué contiene el archivo</p>
+        <p className="text-sm font-medium text-foreground">{t.contains}</p>
         {exportedItems.length > 0 ? (
           <ul className="list-inside list-disc text-sm text-muted-foreground">
             {exportedItems.map((item) => (
@@ -396,19 +484,19 @@ function ExportReportView({
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">
-            El archivo se generó vacío de contenido exportable.
+            {t.emptyFile}
           </p>
         )}
         {appliedCount > 0 && (
           <p className="mt-1 text-sm text-muted-foreground">
-            Mejoras planificadas incluidas en el archivo: {appliedCount}
+            {t.plannedIncluded(appliedCount)}
           </p>
         )}
       </div>
 
       {report.notExportable.length > 0 && (
         <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
-          <AlertTitle>Lo que el formato oficial NO puede guardar</AlertTitle>
+          <AlertTitle>{t.notExportable}</AlertTitle>
           <AlertDescription>
             <ul className="list-inside list-disc">
               {report.notExportable.map((item, i) => (
@@ -421,7 +509,7 @@ function ExportReportView({
 
       {report.skippedUnverified.length > 0 && (
         <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>svg]:text-amber-300">
-          <AlertTitle>Omitido por falta de id oficial</AlertTitle>
+          <AlertTitle>{t.skipped}</AlertTitle>
           <AlertDescription>
             <ul className="list-inside list-disc">
               {report.skippedUnverified.map((item, i) => (

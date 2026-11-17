@@ -58,7 +58,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api, getErrorMessage } from "@/lib/api";
-import { SLOT_LABELS } from "@/lib/format";
 import { compactRecommendationReason } from "@/lib/journal";
 import {
   appendCraftingProjectAttempt,
@@ -71,10 +70,352 @@ import {
   saveCraftingSessionDraft,
 } from "@/lib/craftingSessionDraft";
 import {
-  DECISION_OUTCOME_OPTIONS,
+  decisionOutcomeOptions,
   observationMethodForRecommendation,
   outcomeResultText,
 } from "@/lib/sessionOutcome";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    titleCraftingOpen: "Paso preparado para PoE2",
+    titleOpen: "Prueba en curso",
+    titleIdle: "Comprobar una decisión",
+    introCraftingOpen:
+      "Exile Copilot no modifica el objeto: haz la acción dentro de PoE2, copia el resultado completo y vuelve para compararlo.",
+    introOpen:
+      "Haz una sola prueba, vuelve con lo que ocurrió y el mentor decidirá si cerramos o mantenemos el caso.",
+    introIdle: "El mentor recuerda qué estamos intentando, qué falta por ver y una sola acción.",
+    staleTitle: "La decisión anterior ya no vale",
+    staleBody:
+      "Otra pestaña cambió la memoria. Los botones viejos se han desactivado. Revisa el estado actual antes de seguir.",
+    pausedEyebrow: "Aparcadas",
+    pausedCount: (count: number) =>
+      count === 1 ? "1 comprobación guardada" : `${count} comprobaciones guardadas`,
+    pausedHint: "Cierra o pausa la actual para reanudar otra.",
+    pausedFallback: "Guardada para continuar después.",
+    resumeNote: "Reanudamos esta comprobación pausada.",
+    resume: "Reanudar",
+    objectiveLabel: "Qué quieres conseguir",
+    objectivePlaceholder: "Por ejemplo: subir supervivencia sin tocar mi habilidad core",
+    hypothesisLabel: "Qué vamos a comprobar",
+    methodLabel: "Cómo lo comprobarás en PoE2",
+    methodPlaceholder:
+      "Ej.: compara el objeto antes y después; o anota cuántos golpes sobrevives al mismo ataque.",
+    methodHint:
+      "Describe una observación que responda a esta decisión. El Copiloto no asumirá que siempre debes jugar un mapa.",
+    unknownLabel: "Dato que aún no tenemos (opcional)",
+    unknownPlaceholder: "Tooltip exacto de una herramienta, un mod, un coste…",
+    coreLabel: "Pieza o habilidad intocable (opcional)",
+    corePlaceholder: "Barrera voltaica",
+    replaceLabel: "Pieza que vas a sustituir pronto (opcional)",
+    none: "Ninguna",
+    startButton: "Empezar a comprobar",
+    startFromRecommendation: "Comprobar la recomendación actual",
+    manualExpectedResult: "El cambio que quieres comprobar.",
+    pauseReason: "Pausa para conservar el recurso o esperar un mejor momento.",
+    abandonCraftReason: "Craft cerrado sin actualizar el expediente con el resultado de PoE2.",
+    abandonReason: "Comprobación cerrada por decisión del jugador.",
+    importWarnings: (warnings: string) => `Importación con avisos: ${warnings}`,
+    characterNotUpdated:
+      "No se actualizó el expediente. La sesión sigue abierta: puedes reintentar sin volver a gastar ninguna moneda.",
+    craftUseful: (outcome: string) => `El jugador indica que el resultado sirve para «${outcome}».`,
+    craftNotUseful: (outcome: string) =>
+      `El jugador indica que el resultado no sirve para «${outcome}».`,
+    resultAccepted: "Resultado aceptado",
+    resultDiscarded: "Resultado descartado",
+    notClosed: (message: string) =>
+      `${message} La sesión no se ha dado por cerrada; revisa el expediente y reintenta.`,
+    kindLabels: SESSION_KIND_LABELS,
+    statusLabels: SESSION_STATUS_LABELS,
+    conclusionLabels: CONCLUSION_LABELS,
+    outcomeLabels: DECISION_OUTCOME_LABELS,
+    evidenceKindLabels: EVIDENCE_KIND_LABELS,
+    reconcileTitle: "El personaje ya no es el mismo",
+    reconcileBody:
+      "Cambió el nivel, la liga, el parche o el equipo desde que empezó esta decisión. Confirma si sigue aplicando o empieza otra.",
+    reconcileButton: "Sigue aplicando a este personaje",
+    whatWeTry: "Qué intentamos",
+    whyHelp: "Por qué creemos que ayudará",
+    untouchable: "Intocable",
+    stillUnknown: "Aún no sabemos",
+    craftStepsAria: "Dónde ocurre cada paso del crafting",
+    step1: "1. Aquí: paso preparado ✓",
+    step2: "2. En PoE2: ejecuta y copia",
+    step3: "3. Aquí: compara y guarda",
+    closeLoop: "Cerrar el ciclo",
+    pasteTitle: "Pega lo que salió en PoE2",
+    pasteBody: (action: string) =>
+      `Usa ${action} dentro del juego y copia allí el objeto completo con Ctrl+Alt+C. Al volver, Exile Copilot solo comparará ese texto con el snapshot guardado; nunca ejecuta la moneda por ti.`,
+    summaryItem: "Objeto",
+    summaryCurrency: "Moneda registrada",
+    summaryGoal: "Objetivo",
+    guaranteedEffect: "Efecto garantizado declarado",
+    minimumTooltip: "Mínimo mostrado en su tooltip",
+    notRecorded: "No registrado",
+    variantNotRecorded: "Variante no registrada en esta sesión antigua",
+    noMinimum: "El tooltip observado no muestra un mínimo",
+    modifierLevel: (level: number) => `Nivel de modificador ${level}`,
+    declaredProtection: "Protección declarada",
+    protectedCount: (count: number) => `${count} modificador${count === 1 ? "" : "es"}`,
+    stopWhen: "Pararé cuando",
+    pastedLabel: "Objeto actual copiado desde PoE2",
+    pastePlaceholder: "Pega aquí el texto copiado con Ctrl+Alt+C desde PoE2",
+    compareButton: "Comparar con el snapshot anterior",
+    importReviewTitle: "La importación necesita revisión",
+    protectedKept: (count: number) => `Los ${count} modificadores protegidos siguen presentes.`,
+    appearsNow: "Aparece ahora",
+    noLongerAppears: "Ya no aparece",
+    stopPoint: "Tu punto de parada",
+    criterionFulfilled: "Cumplida",
+    criterionNotSeen: "No aparece",
+    criterionUnknown: "No comprobable",
+    recommendedDecision: "Decisión recomendada",
+    characterReading: "Lectura del personaje",
+    whySays: "Por qué dice esto",
+    closeWithDecision: "Cierra este paso con la decisión delante",
+    doesItWork: (outcome: string) => `¿El cambio resultante sirve para «${outcome}»?`,
+    saveContinue: "Guardar y preparar el siguiente paso",
+    saveRestart: "Guardar y replantear",
+    saveStop: "Guardar y parar",
+    yesWorks: "Sí, me sirve",
+    notWhatIWanted: "No era lo que buscaba",
+    saveForLater: "Guardar para seguir más tarde",
+    discardNoUpdate: "Descartar sin actualizar el expediente",
+    confirmNote:
+      "Al confirmar solo se guarda la comparación y se actualiza tu copia del expediente. El objeto de PoE2 ya cambió dentro del juego.",
+    discardCheck: "Descartar esta comprobación",
+    nextAction: "Próxima acción",
+    thenObserve: "Después, observa",
+    beforeContinue: "Antes de continuar:",
+    backFromPlaying: "Volví de jugar",
+    reopensIf: (when: string) => ` Se reabre si: ${when}`,
+    lastResult: "Último resultado",
+    subjectiveNote: " (experiencia del jugador, no medición)",
+    protectedItems: "Piezas protegidas",
+    releaseProtection: "Retirar esta protección",
+    closedTitle: "Esta decisión está cerrada",
+    closedBody:
+      "Ya no admite resultado, evidencia ni pausa. Puedes reabrirla como candidata o empezar otra decisión desde cero.",
+    startAnother: "Empezar otra decisión",
+    returnEyebrow: "Regreso de la prueba",
+    whatHappened: "¿Qué ocurrió?",
+    returnBody:
+      "Elige una respuesta. Puedes terminar en unos segundos y añadir detalles solo si hacen falta.",
+    keepPlaying: "Seguir jugando",
+    testResultLegend: "Resultado de la prueba",
+    tellMe: "Cuéntame lo importante (opcional)",
+    tellMePlaceholder:
+      "Por ejemplo: aguanto mejor, pero los bosses siguen acercándose demasiado.",
+    subjectiveCheckbox:
+      "Es mi experiencia al jugar, no una medición. Desmárcalo solo si has actualizado el expediente con datos comprobados.",
+    updateCharacter: "Actualizar expediente antes de cerrar",
+    unexpectedSummary: "Resultado inesperado o condición de reapertura",
+    valuablePlaceholder: "Si salió otra cosa valiosa, nómbrala para protegerla",
+    reopenPlaceholder: "Reevaluar si esa condición pasa a ser consistente",
+    saveResult: "Guardar resultado",
+    advancedSummary: "Protecciones y evidencia avanzada",
+    addProtected: "Añadir pieza protegida",
+    protect: "Proteger",
+    addEvidence: "Añadir evidencia (sin cerrar el paso)",
+    whichUnknown: "¿Qué dato pendiente resuelve?",
+    noneInParticular: "Ninguno en concreto",
+    saveEvidence: "Guardar evidencia",
+    pause: "Pausar",
+    reopenNote: "Reabrimos como candidata.",
+    reopenAsCandidate: "Reabrir como candidata",
+    evidence: "Evidencia",
+    whyChanged: "Por qué hemos cambiado de plan",
+    discardDialogTitle: "¿Descartar esta comprobación?",
+    discardDialogBody:
+      "Se cerrará el proyecto sin actualizar tu expediente con el resultado de PoE2. Si solo quieres continuar otro día, vuelve y elige «Guardar para seguir más tarde».",
+    keepChecking: "Seguir con la comprobación",
+    yesDiscard: "Sí, descartar",
+  },
+  {
+    titleCraftingOpen: "Step ready for PoE2",
+    titleOpen: "Test in progress",
+    titleIdle: "Check a decision",
+    introCraftingOpen:
+      "Exile Copilot doesn't change the item: do the action inside PoE2, copy the full result and come back to compare it.",
+    introOpen:
+      "Do one test, come back with what happened and the mentor will decide whether to close the case or keep it open.",
+    introIdle: "The mentor remembers what we're trying, what we still need to see and one single action.",
+    staleTitle: "The previous decision is out of date",
+    staleBody:
+      "Another tab changed the memory. The old buttons have been turned off. Check the current state before you go on.",
+    pausedEyebrow: "Parked",
+    pausedCount: (count: number) => (count === 1 ? "1 saved check" : `${count} saved checks`),
+    pausedHint: "Close or pause the current one to resume another.",
+    pausedFallback: "Saved to continue later.",
+    resumeNote: "Resuming this paused check.",
+    resume: "Resume",
+    objectiveLabel: "What you want to achieve",
+    objectivePlaceholder: "For example: more survivability without touching my main skill",
+    hypothesisLabel: "What we're going to check",
+    methodLabel: "How you'll check it in PoE2",
+    methodPlaceholder:
+      "E.g. compare the item before and after; or count how many hits of the same attack you survive.",
+    methodHint:
+      "Describe something you can observe that answers this decision. The Copilot won't assume you always have to run a map.",
+    unknownLabel: "Something we don't know yet (optional)",
+    unknownPlaceholder: "The exact tooltip of a currency item, a mod, a cost…",
+    coreLabel: "Item or skill you won't touch (optional)",
+    corePlaceholder: "Spark",
+    replaceLabel: "Item you'll replace soon (optional)",
+    none: "None",
+    startButton: "Start checking",
+    startFromRecommendation: "Check the current recommendation",
+    manualExpectedResult: "The change you want to check.",
+    pauseReason: "Paused to save the resource or wait for a better moment.",
+    abandonCraftReason: "Craft closed without updating the character with the PoE2 result.",
+    abandonReason: "Check closed by the player's choice.",
+    importWarnings: (warnings: string) => `Imported with warnings: ${warnings}`,
+    characterNotUpdated:
+      "Your character wasn't updated. The session is still open: you can try again without spending any more currency.",
+    craftUseful: (outcome: string) => `The player says the result works for "${outcome}".`,
+    craftNotUseful: (outcome: string) => `The player says the result doesn't work for "${outcome}".`,
+    resultAccepted: "Result accepted",
+    resultDiscarded: "Result discarded",
+    notClosed: (message: string) =>
+      `${message} The session hasn't been closed; check your character and try again.`,
+    kindLabels: {
+      skill_experiment: "Skill experiment",
+      equipment_investment: "Gear investment",
+      guided_decision: "Guided decision",
+    },
+    statusLabels: {
+      active: "In progress",
+      waiting_result: "Waiting for what you see",
+      paused: "Paused",
+      completed: "Completed",
+      discarded: "Discarded",
+      reopening: "Candidate to review",
+    },
+    conclusionLabels: {
+      continue: "We keep checking the same thing",
+      change_strategy: "We change the plan",
+      pause: "Paused: we keep the resource",
+      discard: "Discarded, with a reason",
+      complete: "This step is done",
+      reopen: "A candidate again",
+    },
+    outcomeLabels: {
+      resolved: "Problem solved",
+      improved: "Better, but not fixed",
+      unchanged: "No change",
+      worse: "Got worse",
+      different: "Something different happened",
+    },
+    evidenceKindLabels: {
+      confirmed: "Something you confirmed",
+      inferred: "A hint, not measured",
+      unverified: "Not verified yet",
+      player_subjective: "Your feeling, not a measurement",
+    },
+    reconcileTitle: "Your character has changed",
+    reconcileBody:
+      "The level, league, patch or gear changed since this decision started. Confirm it still applies or start a new one.",
+    reconcileButton: "It still applies to this character",
+    whatWeTry: "What we're trying",
+    whyHelp: "Why we think it will help",
+    untouchable: "Don't touch",
+    stillUnknown: "We don't know yet",
+    craftStepsAria: "Where each crafting step happens",
+    step1: "1. Here: step ready ✓",
+    step2: "2. In PoE2: do it and copy",
+    step3: "3. Here: compare and save",
+    closeLoop: "Close the loop",
+    pasteTitle: "Paste what you got in PoE2",
+    pasteBody: (action: string) =>
+      `Use ${action} in the game and copy the full item there with Ctrl+Alt+C. When you're back, Exile Copilot will only compare that text with the saved snapshot; it never uses the currency for you.`,
+    summaryItem: "Item",
+    summaryCurrency: "Currency recorded",
+    summaryGoal: "Goal",
+    guaranteedEffect: "Declared guaranteed effect",
+    minimumTooltip: "Minimum shown on its tooltip",
+    notRecorded: "Not recorded",
+    variantNotRecorded: "Variant not recorded in this older session",
+    noMinimum: "The tooltip you saw shows no minimum",
+    modifierLevel: (level: number) => `Modifier level ${level}`,
+    declaredProtection: "Declared protection",
+    protectedCount: (count: number) => `${count} modifier${count === 1 ? "" : "s"}`,
+    stopWhen: "I'll stop when",
+    pastedLabel: "Current item copied from PoE2",
+    pastePlaceholder: "Paste the text you copied with Ctrl+Alt+C in PoE2 here",
+    compareButton: "Compare with the previous snapshot",
+    importReviewTitle: "The import needs a look",
+    protectedKept: (count: number) => `All ${count} protected modifiers are still there.`,
+    appearsNow: "New now",
+    noLongerAppears: "Gone now",
+    stopPoint: "Your stopping point",
+    criterionFulfilled: "Met",
+    criterionNotSeen: "Not there",
+    criterionUnknown: "Can't be checked",
+    recommendedDecision: "Recommended decision",
+    characterReading: "What it means for your character",
+    whySays: "Why it says this",
+    closeWithDecision: "Close this step with the decision in front of you",
+    doesItWork: (outcome: string) => `Does the resulting change work for "${outcome}"?`,
+    saveContinue: "Save and prepare the next step",
+    saveRestart: "Save and rethink",
+    saveStop: "Save and stop",
+    yesWorks: "Yes, it works for me",
+    notWhatIWanted: "Not what I was looking for",
+    saveForLater: "Save to continue later",
+    discardNoUpdate: "Discard without updating the character",
+    confirmNote:
+      "Confirming only saves the comparison and updates your copy of the character. The item has already changed inside PoE2.",
+    discardCheck: "Discard this check",
+    nextAction: "Next action",
+    thenObserve: "Then, watch for",
+    beforeContinue: "Before you go on:",
+    backFromPlaying: "I'm back from playing",
+    reopensIf: (when: string) => ` Reopens if: ${when}`,
+    lastResult: "Last result",
+    subjectiveNote: " (player experience, not a measurement)",
+    protectedItems: "Protected items",
+    releaseProtection: "Remove this protection",
+    closedTitle: "This decision is closed",
+    closedBody:
+      "It no longer takes results, evidence or pauses. You can reopen it as a candidate or start a new decision from scratch.",
+    startAnother: "Start another decision",
+    returnEyebrow: "Back from the test",
+    whatHappened: "What happened?",
+    returnBody: "Pick an answer. You can finish in a few seconds and add details only if needed.",
+    keepPlaying: "Keep playing",
+    testResultLegend: "Test result",
+    tellMe: "Tell me what matters (optional)",
+    tellMePlaceholder: "For example: I survive better, but bosses still get too close.",
+    subjectiveCheckbox:
+      "This is how it felt while playing, not a measurement. Untick it only if you updated your character with checked data.",
+    updateCharacter: "Update the character before closing",
+    unexpectedSummary: "Unexpected result or reopen condition",
+    valuablePlaceholder: "If something else valuable came up, name it to protect it",
+    reopenPlaceholder: "Re-check if that condition becomes consistent",
+    saveResult: "Save result",
+    advancedSummary: "Protections and advanced evidence",
+    addProtected: "Add a protected item",
+    protect: "Protect",
+    addEvidence: "Add evidence (without closing the step)",
+    whichUnknown: "Which open question does it answer?",
+    noneInParticular: "None in particular",
+    saveEvidence: "Save evidence",
+    pause: "Pause",
+    reopenNote: "Reopened as a candidate.",
+    reopenAsCandidate: "Reopen as a candidate",
+    evidence: "Evidence",
+    whyChanged: "Why we changed the plan",
+    discardDialogTitle: "Discard this check?",
+    discardDialogBody:
+      "The project will close without updating your character with the PoE2 result. If you just want to continue another day, go back and choose \"Save to continue later\".",
+    keepChecking: "Keep checking",
+    yesDiscard: "Yes, discard",
+  },
+);
+
+type DecisionText = (typeof TEXT)["es"];
 
 interface DecisionSessionSectionProps {
   /** Identificador único cuando la sesión se presenta en más de un workspace montado. */
@@ -105,6 +446,7 @@ async function inspectCraftingResult(
   resultText: string,
   patch: string,
   experiment: CraftingExperiment,
+  t: DecisionText,
 ): Promise<{
   item: Item;
   comparison: CraftingComparison;
@@ -132,7 +474,7 @@ async function inspectCraftingResult(
     comparison,
     warning:
       imported.warnings.length > 0
-        ? `Importación con avisos: ${imported.warnings.join(" ")}`
+        ? t.importWarnings(imported.warnings.join(" "))
         : null,
   };
 }
@@ -185,6 +527,8 @@ export function DecisionSessionSection({
   const [savingCrafting, setSavingCrafting] = useState(false);
   const [confirmingCraftingDiscard, setConfirmingCraftingDiscard] = useState(false);
   const savingCraftingRef = useRef(false);
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
 
   /** Una sesión cerrada ya no admite resultados ni borradores pendientes. */
   const isOpen = session !== null && sessionIsOpen(session.status);
@@ -238,7 +582,7 @@ export function DecisionSessionSection({
       }
 
       setComparingCrafting(true);
-      void inspectCraftingResult(restoredText, craftingDraftPatch, experiment)
+      void inspectCraftingResult(restoredText, craftingDraftPatch, experiment, t)
         .then((inspected) => {
           if (cancelled) return;
           setCraftingResultItem(inspected.item);
@@ -262,6 +606,7 @@ export function DecisionSessionSection({
     craftingDraftProfileId,
     craftingDraftSessionId,
     isOpen,
+    t,
   ]);
 
   if (!profile) return null;
@@ -375,7 +720,7 @@ export function DecisionSessionSection({
       kind: "guided_decision",
       objective: objective.trim(),
       hypothesis: hypothesis.trim(),
-      expectedResult: "El cambio que quieres comprobar.",
+      expectedResult: t.manualExpectedResult,
       // Una decisión manual puede tratar de crafting, mercado, equipo o
       // combate. El jugador declara la comprobación concreta; la app no la
       // sustituye por el consejo genérico de «juega un encuentro».
@@ -404,7 +749,7 @@ export function DecisionSessionSection({
       ...guard,
       journalRevision: revision,
       idempotencyKey: newKey(),
-      reason: "Pausa para conservar el recurso o esperar un mejor momento.",
+      reason: t.pauseReason,
     });
     if (next) onMentorEvent?.({ type: "paused", title: session.objective });
   };
@@ -416,8 +761,8 @@ export function DecisionSessionSection({
       journalRevision: revision,
       idempotencyKey: newKey(),
       reason: session.craftingExperiment
-        ? "Craft cerrado sin actualizar el expediente con el resultado de PoE2."
-        : "Comprobación cerrada por decisión del jugador.",
+        ? t.abandonCraftReason
+        : t.abandonReason,
     });
     if (next && session.craftingExperiment) {
       clearCraftingSessionDraft({ profileId: profile.id, sessionId: session.id });
@@ -437,6 +782,7 @@ export function DecisionSessionSection({
         craftingResultText,
         profile.patch,
         experiment,
+        t,
       );
       setCraftingResultItem(inspected.item);
       setCraftingComparison(inspected.comparison);
@@ -495,9 +841,7 @@ export function DecisionSessionSection({
         craftingResultItem,
       );
       if (!applied) {
-        setCraftingError(
-          "No se actualizó el expediente. La sesión sigue abierta: puedes reintentar sin volver a gastar ninguna moneda.",
-        );
+        setCraftingError(t.characterNotUpdated);
         return;
       }
 
@@ -510,8 +854,8 @@ export function DecisionSessionSection({
         profile,
       });
       const result = useful
-        ? `El jugador indica que el resultado sirve para «${experiment.desiredOutcome}».`
-        : `El jugador indica que el resultado no sirve para «${experiment.desiredOutcome}».`;
+        ? t.craftUseful(experiment.desiredOutcome)
+        : t.craftNotUseful(experiment.desiredOutcome);
       await api.recordSessionResult(profile.id, {
         journalRevision: buildRecommendationMemory(reconciled, reconciled.session).revision,
         idempotencyKey: newKey(),
@@ -539,7 +883,7 @@ export function DecisionSessionSection({
             protectedStatus: craftingComparison.protectionStatus,
           }),
           decisionKind,
-          decisionTitle: craftingNextDecision?.title ?? (useful ? "Resultado aceptado" : "Resultado descartado"),
+          decisionTitle: craftingNextDecision?.title ?? (useful ? t.resultAccepted : t.resultDiscarded),
           addedModifiers: craftingComparison.addedModifiers.map((modifier) => modifier.text),
           removedModifiers: craftingComparison.removedModifiers.map((modifier) => modifier.text),
           protectedStatus: craftingComparison.protectionStatus,
@@ -549,9 +893,7 @@ export function DecisionSessionSection({
       await journal.reload();
       onMentorEvent?.({ type: "result", title: experiment.actionLabel });
     } catch (error) {
-      setCraftingError(
-        `${getErrorMessage(error)} La sesión no se ha dado por cerrada; revisa el expediente y reintenta.`,
-      );
+      setCraftingError(t.notClosed(getErrorMessage(error)));
     } finally {
       savingCraftingRef.current = false;
       setSavingCrafting(false);
@@ -569,27 +911,24 @@ export function DecisionSessionSection({
         <CardTitle className="flex items-center gap-2 text-xl">
           <FlaskConical className="size-5 text-primary" aria-hidden="true" />
           {isCraftingSession && isOpen
-            ? "Paso preparado para PoE2"
+            ? t.titleCraftingOpen
             : isOpen
-              ? "Prueba en curso"
-              : "Comprobar una decisión"}
+              ? t.titleOpen
+              : t.titleIdle}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           {isCraftingSession && isOpen
-            ? "Exile Copilot no modifica el objeto: haz la acción dentro de PoE2, copia el resultado completo y vuelve para compararlo."
+            ? t.introCraftingOpen
             : isOpen
-            ? "Haz una sola prueba, vuelve con lo que ocurrió y el mentor decidirá si cerramos o mantenemos el caso."
-            : "El mentor recuerda qué estamos intentando, qué falta por ver y una sola acción."}
+            ? t.introOpen
+            : t.introIdle}
         </p>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 break-words">
         {journal.stale && (
           <Alert>
-            <AlertTitle>La decisión anterior ya no vale</AlertTitle>
-            <AlertDescription>
-              Otra pestaña cambió la memoria. Los botones viejos se han desactivado.
-              Revisa el estado actual antes de seguir.
-            </AlertDescription>
+            <AlertTitle>{t.staleTitle}</AlertTitle>
+            <AlertDescription>{t.staleBody}</AlertDescription>
           </Alert>
         )}
 
@@ -602,16 +941,14 @@ export function DecisionSessionSection({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold text-amber-200/80">
-                  Aparcadas
+                  {t.pausedEyebrow}
                 </p>
                 <h3 id={`${instanceId}-paused-title`} className="font-semibold">
-                  {pausedSessions.length === 1
-                    ? "1 comprobación guardada"
-                    : `${pausedSessions.length} comprobaciones guardadas`}
+                  {t.pausedCount(pausedSessions.length)}
                 </h3>
               </div>
               {session !== null && (
-                <span className="text-xs text-muted-foreground">Cierra o pausa la actual para reanudar otra.</span>
+                <span className="text-xs text-muted-foreground">{t.pausedHint}</span>
               )}
             </div>
             <ul className="mt-3 grid gap-2">
@@ -625,7 +962,7 @@ export function DecisionSessionSection({
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {paused.craftingExperiment
                         ? `${paused.craftingExperiment.originalItem.name} · ${paused.craftingExperiment.actionLabel}`
-                        : paused.conclusion?.reason ?? "Guardada para continuar después."}
+                        : paused.conclusion?.reason ?? t.pausedFallback}
                     </p>
                   </div>
                   <Button
@@ -640,14 +977,14 @@ export function DecisionSessionSection({
                         journalRevision: revision!,
                         idempotencyKey: newKey(),
                         sessionId: paused.id,
-                        note: "Reanudamos esta comprobación pausada.",
+                        note: t.resumeNote,
                       }).then((next) => {
                         if (next) onMentorEvent?.({ type: "reopened", title: paused.objective });
                       });
                     }}
                   >
                     <RotateCcw className="size-4" aria-hidden="true" />
-                    Reanudar
+                    {t.resume}
                   </Button>
                 </li>
               ))}
@@ -658,17 +995,17 @@ export function DecisionSessionSection({
         {showStartForm && (
           <form className="space-y-3" onSubmit={startManual} data-testid="decision-form-inicio">
             <div className="space-y-1">
-              <Label htmlFor="decision-objetivo">Qué quieres conseguir</Label>
+              <Label htmlFor="decision-objetivo">{t.objectiveLabel}</Label>
               <Input
                 id="decision-objetivo"
                 value={objective}
                 onChange={(event) => setObjective(event.target.value)}
                 maxLength={500}
-                placeholder="Por ejemplo: subir supervivencia sin tocar mi habilidad core"
+                placeholder={t.objectivePlaceholder}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="decision-hipotesis">Qué vamos a comprobar</Label>
+              <Label htmlFor="decision-hipotesis">{t.hypothesisLabel}</Label>
               <Textarea
                 id="decision-hipotesis"
                 value={hypothesis}
@@ -678,7 +1015,7 @@ export function DecisionSessionSection({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="decision-metodo">Cómo lo comprobarás en PoE2</Label>
+              <Label htmlFor="decision-metodo">{t.methodLabel}</Label>
               <Textarea
                 id="decision-metodo"
                 value={manualObservationMethod}
@@ -686,44 +1023,42 @@ export function DecisionSessionSection({
                 maxLength={1000}
                 rows={2}
                 required
-                placeholder="Ej.: compara el objeto antes y después; o anota cuántos golpes sobrevives al mismo ataque."
+                placeholder={t.methodPlaceholder}
               />
-              <p className="text-xs text-muted-foreground">
-                Describe una observación que responda a esta decisión. El Copiloto no asumirá que siempre debes jugar un mapa.
-              </p>
+              <p className="text-xs text-muted-foreground">{t.methodHint}</p>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="decision-incognita">Dato que aún no tenemos (opcional)</Label>
+              <Label htmlFor="decision-incognita">{t.unknownLabel}</Label>
               <Input
                 id="decision-incognita"
                 value={unknown}
                 onChange={(event) => setUnknown(event.target.value)}
                 maxLength={400}
-                placeholder="Tooltip exacto de una herramienta, un mod, un coste…"
+                placeholder={t.unknownPlaceholder}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="decision-core">Pieza o habilidad intocable (opcional)</Label>
+              <Label htmlFor="decision-core">{t.coreLabel}</Label>
               <Input
                 id="decision-core"
                 value={constraint}
                 onChange={(event) => setConstraint(event.target.value)}
                 maxLength={200}
-                placeholder="Barrera voltaica"
+                placeholder={t.corePlaceholder}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="decision-reemplazo">Pieza que vas a sustituir pronto (opcional)</Label>
+              <Label htmlFor="decision-reemplazo">{t.replaceLabel}</Label>
               <select
                 id="decision-reemplazo"
                 className="h-9 w-full min-w-0 max-w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
                 value={soonReplaced}
                 onChange={(event) => setSoonReplaced(event.target.value)}
               >
-                <option value="">Ninguna</option>
+                <option value="">{t.none}</option>
                 {profile.items.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} ({SLOT_LABELS[item.slot]})
+                    {item.name} ({labels.slot[item.slot]})
                   </option>
                 ))}
               </select>
@@ -741,7 +1076,7 @@ export function DecisionSessionSection({
                 }
               >
                 {journal.saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-                Empezar a comprobar
+                {t.startButton}
               </Button>
               {pendingRecommendation && (
                 <Button
@@ -751,7 +1086,7 @@ export function DecisionSessionSection({
                   onClick={() => void startFromRecommendation()}
                 >
                   <Sparkles className="size-4" aria-hidden="true" />
-                  Comprobar la recomendación actual
+                  {t.startFromRecommendation}
                 </Button>
               )}
             </div>
@@ -760,20 +1095,17 @@ export function DecisionSessionSection({
         {session !== null && (
           <div className="space-y-4">
             {!isCraftingSession && <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{SESSION_KIND_LABELS[session.kind]}</Badge>
-              <Badge>{SESSION_STATUS_LABELS[session.status]}</Badge>
+              <Badge variant="secondary">{t.kindLabels[session.kind]}</Badge>
+              <Badge>{t.statusLabels[session.status]}</Badge>
               {session.conclusion && (
-                <Badge variant="outline">{CONCLUSION_LABELS[session.conclusion.kind]}</Badge>
+                <Badge variant="outline">{t.conclusionLabels[session.conclusion.kind]}</Badge>
               )}
             </div>}
             {needsReconcile && (
               <Alert>
-                <AlertTitle>El personaje ya no es el mismo</AlertTitle>
+                <AlertTitle>{t.reconcileTitle}</AlertTitle>
                 <AlertDescription className="space-y-2">
-                  <p>
-                    Cambió el nivel, la liga, el parche o el equipo desde que empezó
-                    esta decisión. Confirma si sigue aplicando o empieza otra.
-                  </p>
+                  <p>{t.reconcileBody}</p>
                   <Button
                     type="button"
                     size="sm"
@@ -788,22 +1120,22 @@ export function DecisionSessionSection({
                       });
                     }}
                   >
-                    Sigue aplicando a este personaje
+                    {t.reconcileButton}
                   </Button>
                 </AlertDescription>
               </Alert>
             )}
             {!isCraftingSession && <div>
-              <h3 className="font-medium">Qué intentamos</h3>
+              <h3 className="font-medium">{t.whatWeTry}</h3>
               <p>{session.objective}</p>
             </div>}
             {!isCraftingSession && <div>
-              <h3 className="font-medium">Por qué creemos que ayudará</h3>
+              <h3 className="font-medium">{t.whyHelp}</h3>
               <p>{compactRecommendationReason(session.hypothesis)}</p>
             </div>}
             {!isCraftingSession && session.constraints.length > 0 && (
               <div>
-                <h3 className="font-medium">Intocable</h3>
+                <h3 className="font-medium">{t.untouchable}</h3>
                 <ul className="list-disc pl-5">
                   {session.constraints.map((item) => (
                     <li key={item.id}>{item.label}</li>
@@ -813,7 +1145,7 @@ export function DecisionSessionSection({
             )}
             {!isCraftingSession && session.unknowns.some((item) => !item.resolved) && (
               <div>
-                <h3 className="font-medium">Aún no sabemos</h3>
+                <h3 className="font-medium">{t.stillUnknown}</h3>
                 <ul className="list-disc pl-5">
                   {session.unknowns
                     .filter((item) => !item.resolved)
@@ -831,40 +1163,39 @@ export function DecisionSessionSection({
               >
                 <ol
                   className="grid gap-2 text-xs sm:grid-cols-3"
-                  aria-label="Dónde ocurre cada paso del crafting"
+                  aria-label={t.craftStepsAria}
                   data-testid="crafting-location-steps"
                 >
                   <li className="rounded border border-emerald-500/35 bg-emerald-500/[0.07] px-3 py-2 text-emerald-100">
-                    1. Aquí: paso preparado ✓
+                    {t.step1}
                   </li>
                   <li className={`rounded border px-3 py-2 ${
                     craftingComparison?.status === "confirmed"
                       ? "border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-100"
                       : "border-sky-500/45 bg-sky-500/[0.08] text-sky-100"
                   }`}>
-                    2. En PoE2: ejecuta y copia{craftingComparison?.status === "confirmed" ? " ✓" : ""}
+                    {t.step2}{craftingComparison?.status === "confirmed" ? " ✓" : ""}
                   </li>
                   <li className={`rounded border px-3 py-2 ${
                     craftingComparison?.status === "confirmed"
                       ? "border-primary/50 bg-primary/[0.08] text-foreground"
                       : "border-border text-muted-foreground"
                   }`}>
-                    3. Aquí: compara y guarda
+                    {t.step3}
                   </li>
                 </ol>
                 {craftingComparison?.status !== "confirmed" && <div>
                   <p className="text-xs font-semibold text-sky-200">
-                    Cerrar el ciclo
+                    {t.closeLoop}
                   </p>
                   <h3
                     id={`${instanceId}-crafting-resultado-titulo`}
                     className="mt-1 text-lg font-semibold"
                   >
-                    Pega lo que salió en PoE2
+                    {t.pasteTitle}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Usa {session.craftingExperiment.actionLabel} dentro del juego y copia allí el objeto completo con Ctrl+Alt+C.
-                    Al volver, Exile Copilot solo comparará ese texto con el snapshot guardado; nunca ejecuta la moneda por ti.
+                    {t.pasteBody(session.craftingExperiment.actionLabel)}
                   </p>
                 </div>}
                 {craftingComparison?.status !== "confirmed" && <dl
@@ -872,47 +1203,46 @@ export function DecisionSessionSection({
                   data-testid="crafting-experiment-summary"
                 >
                   <div>
-                    <dt className="text-[11px] text-muted-foreground">Objeto</dt>
+                    <dt className="text-[11px] text-muted-foreground">{t.summaryItem}</dt>
                     <dd className="font-medium">{session.craftingExperiment.originalItem.name}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] text-muted-foreground">Moneda registrada</dt>
+                    <dt className="text-[11px] text-muted-foreground">{t.summaryCurrency}</dt>
                     <dd className="font-medium">{session.craftingExperiment.actionLabel}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] text-muted-foreground">Objetivo</dt>
+                    <dt className="text-[11px] text-muted-foreground">{t.summaryGoal}</dt>
                     <dd className="font-medium">{session.craftingExperiment.desiredOutcome}</dd>
                   </div>
                   <div>
                     <dt className="text-[11px] text-muted-foreground">
                       {session.craftingExperiment.actionId === "essence" ||
                       session.craftingExperiment.actionId === "alloy"
-                        ? "Efecto garantizado declarado"
-                        : "Mínimo mostrado en su tooltip"}
+                        ? t.guaranteedEffect
+                        : t.minimumTooltip}
                     </dt>
                     <dd className="font-medium">
                       {session.craftingExperiment.actionId === "essence" ||
                       session.craftingExperiment.actionId === "alloy"
-                        ? session.craftingExperiment.guaranteedModifierText ?? "No registrado"
+                        ? session.craftingExperiment.guaranteedModifierText ?? t.notRecorded
                         : session.craftingExperiment.minimumModifierLevel === undefined
-                          ? "Variante no registrada en esta sesión antigua"
+                          ? t.variantNotRecorded
                           : session.craftingExperiment.minimumModifierLevel === null
-                            ? "El tooltip observado no muestra un mínimo"
-                            : `Nivel de modificador ${session.craftingExperiment.minimumModifierLevel}`}
+                            ? t.noMinimum
+                            : t.modifierLevel(session.craftingExperiment.minimumModifierLevel)}
                     </dd>
                   </div>
                   {session.craftingExperiment.protectedModifierIds.length > 0 && (
                     <div>
-                      <dt className="text-[11px] text-muted-foreground">Protección declarada</dt>
+                      <dt className="text-[11px] text-muted-foreground">{t.declaredProtection}</dt>
                       <dd className="font-medium">
-                        {session.craftingExperiment.protectedModifierIds.length} modificador
-                        {session.craftingExperiment.protectedModifierIds.length === 1 ? "" : "es"}
+                        {t.protectedCount(session.craftingExperiment.protectedModifierIds.length)}
                       </dd>
                     </div>
                   )}
                   {session.craftingExperiment.successCriteria.length > 0 && (
                     <div className="sm:col-span-2">
-                      <dt className="text-[11px] text-muted-foreground">Pararé cuando</dt>
+                      <dt className="text-[11px] text-muted-foreground">{t.stopWhen}</dt>
                       <dd className="mt-1 flex flex-wrap gap-1.5">
                         {session.craftingExperiment.successCriteria.map((criterion) => (
                           <span
@@ -928,7 +1258,7 @@ export function DecisionSessionSection({
                 </dl>}
                 {craftingComparison?.status !== "confirmed" && <div className="space-y-1">
                   <Label htmlFor={`${instanceId}-crafting-result-${session.id}`}>
-                    Objeto actual copiado desde PoE2
+                    {t.pastedLabel}
                   </Label>
                   <Textarea
                     id={`${instanceId}-crafting-result-${session.id}`}
@@ -946,7 +1276,7 @@ export function DecisionSessionSection({
                     }}
                     rows={7}
                     maxLength={50_000}
-                    placeholder="Pega aquí el texto copiado con Ctrl+Alt+C desde PoE2"
+                    placeholder={t.pastePlaceholder}
                   />
                 </div>}
                 {craftingComparison?.status !== "confirmed" && <Button
@@ -964,12 +1294,12 @@ export function DecisionSessionSection({
                   ) : (
                     <ClipboardCheck className="size-4" aria-hidden="true" />
                   )}
-                  Comparar con el snapshot anterior
+                  {t.compareButton}
                 </Button>}
 
                 {craftingError && (
                   <Alert>
-                    <AlertTitle>La importación necesita revisión</AlertTitle>
+                    <AlertTitle>{t.importReviewTitle}</AlertTitle>
                     <AlertDescription>{craftingError}</AlertDescription>
                   </Alert>
                 )}
@@ -1012,13 +1342,13 @@ export function DecisionSessionSection({
                     <p className="mt-1 text-sm">{craftingComparison.summary}</p>
                     {craftingComparison.protectionStatus === "preserved" && (
                       <p className="mt-3 rounded border border-emerald-500/30 bg-emerald-500/[0.06] p-2 text-sm text-emerald-100">
-                        Los {craftingComparison.protectedModifiers.length} modificadores protegidos siguen presentes.
+                        {t.protectedKept(craftingComparison.protectedModifiers.length)}
                       </p>
                     )}
                     {craftingComparison.addedModifiers.length > 0 && (
                       <div className="mt-3">
                         <p className="text-xs font-semibold text-muted-foreground">
-                          Aparece ahora
+                          {t.appearsNow}
                         </p>
                         <ul className="mt-1 list-disc pl-5 text-sm">
                           {craftingComparison.addedModifiers.map((modifier) => (
@@ -1030,7 +1360,7 @@ export function DecisionSessionSection({
                     {craftingComparison.removedModifiers.length > 0 && (
                       <div className="mt-3">
                         <p className="text-xs font-semibold text-muted-foreground">
-                          Ya no aparece
+                          {t.noLongerAppears}
                         </p>
                         <ul className="mt-1 list-disc pl-5 text-sm">
                           {craftingComparison.removedModifiers.map((modifier) => (
@@ -1064,7 +1394,7 @@ export function DecisionSessionSection({
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
                                 <p className="text-xs font-semibold text-emerald-200/80">
-                                  Tu punto de parada
+                                  {t.stopPoint}
                                 </p>
                                 <h4 className="mt-1 font-semibold">{craftingSuccessAssessment.title}</h4>
                               </div>
@@ -1082,10 +1412,10 @@ export function DecisionSessionSection({
                                 >
                                   <span className="font-medium">
                                     {entry.status === "fulfilled"
-                                      ? "Cumplida"
+                                      ? t.criterionFulfilled
                                       : entry.status === "not-seen"
-                                        ? "No aparece"
-                                        : "No comprobable"}
+                                        ? t.criterionNotSeen
+                                        : t.criterionUnknown}
                                   </span>
                                   <span className="mt-0.5 block text-muted-foreground">{entry.label}</span>
                                 </li>
@@ -1121,7 +1451,7 @@ export function DecisionSessionSection({
                               </span>
                               <div className="min-w-0">
                                 <p className="text-xs font-semibold opacity-75">
-                                  Decisión recomendada
+                                  {t.recommendedDecision}
                                 </p>
                                 <h4 className="mt-1 text-lg font-semibold">
                                   {craftingNextDecision.title}
@@ -1149,7 +1479,7 @@ export function DecisionSessionSection({
                             data-context-verdict={craftingCharacterContext.verdict}
                           >
                             <p className="text-xs font-semibold opacity-75">
-                              Lectura del personaje
+                              {t.characterReading}
                             </p>
                             <p className="mt-1 font-semibold">{craftingCharacterContext.title}</p>
                             <p className="mt-1 leading-relaxed">{craftingCharacterContext.summary}</p>
@@ -1173,7 +1503,7 @@ export function DecisionSessionSection({
                             {(craftingCharacterContext.facts.length > 0 ||
                               craftingCharacterContext.limitations.length > 0) && (
                               <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
-                                <summary className="cursor-pointer font-medium">Por qué dice esto</summary>
+                                <summary className="cursor-pointer font-medium">{t.whySays}</summary>
                                 <ul className="mt-2 list-disc space-y-1 pl-4">
                                   {craftingCharacterContext.facts.map((fact) => (
                                     <li key={fact}>{fact}</li>
@@ -1188,8 +1518,8 @@ export function DecisionSessionSection({
                         )}
                         <p className="text-sm font-medium">
                           {craftingNextDecision
-                            ? "Cierra este paso con la decisión delante"
-                            : `¿El cambio resultante sirve para «${session.craftingExperiment.desiredOutcome}»?`}
+                            ? t.closeWithDecision
+                            : t.doesItWork(session.craftingExperiment.desiredOutcome)}
                         </p>
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -1200,12 +1530,12 @@ export function DecisionSessionSection({
                             disabled={savingCrafting || journal.saving}
                           >
                             {craftingNextDecision?.kind === "continue"
-                              ? "Guardar y preparar el siguiente paso"
+                              ? t.saveContinue
                               : craftingNextDecision?.kind === "restart"
-                                ? "Guardar y replantear"
+                                ? t.saveRestart
                                 : craftingNextDecision
-                                  ? "Guardar y parar"
-                                  : "Sí, me sirve"}
+                                  ? t.saveStop
+                                  : t.yesWorks}
                           </Button>
                           {!craftingNextDecision && (
                             <Button
@@ -1214,7 +1544,7 @@ export function DecisionSessionSection({
                               onClick={() => void finishCraftingResult(false)}
                               disabled={savingCrafting || journal.saving}
                             >
-                              No era lo que buscaba
+                              {t.notWhatIWanted}
                             </Button>
                           )}
                           <Button
@@ -1223,7 +1553,7 @@ export function DecisionSessionSection({
                             onClick={() => void pauseCurrentSession()}
                             disabled={savingCrafting || journal.saving}
                           >
-                            Guardar para seguir más tarde
+                            {t.saveForLater}
                           </Button>
                           <Button
                             type="button"
@@ -1232,11 +1562,11 @@ export function DecisionSessionSection({
                             disabled={savingCrafting || journal.saving}
                           >
                             <CircleX className="size-4" aria-hidden="true" />
-                            Descartar sin actualizar el expediente
+                            {t.discardNoUpdate}
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Al confirmar solo se guarda la comparación y se actualiza tu copia del expediente. El objeto de PoE2 ya cambió dentro del juego.
+                          {t.confirmNote}
                         </p>
                       </div>
                     )}
@@ -1252,7 +1582,7 @@ export function DecisionSessionSection({
                       disabled={journal.saving || journal.stale || !revision}
                     >
                       <CirclePause className="size-4" aria-hidden="true" />
-                      Guardar para seguir más tarde
+                      {t.saveForLater}
                     </Button>
                     <Button
                       type="button"
@@ -1262,7 +1592,7 @@ export function DecisionSessionSection({
                       disabled={journal.saving || journal.stale || !revision}
                     >
                       <CircleX className="size-4" aria-hidden="true" />
-                      Descartar esta comprobación
+                      {t.discardCheck}
                     </Button>
                   </div>
                 )}
@@ -1275,14 +1605,14 @@ export function DecisionSessionSection({
                 data-testid="prueba-activa"
               >
                 <p className="text-xs font-semibold text-primary/75">
-                  Próxima acción
+                  {t.nextAction}
                 </p>
                 <h3 id="prueba-activa-titulo" className="mt-2 text-lg font-semibold">
                   {session.activeAction.summary}
                 </h3>
                 <div className="mt-4 rounded-md border border-sky-500/30 bg-sky-500/[0.06] p-3">
                   <p className="text-xs font-semibold text-sky-200">
-                    Después, observa
+                    {t.thenObserve}
                   </p>
                   <p className="mt-1 text-sm leading-relaxed">
                     {session.activeAction.observationMethod}
@@ -1290,7 +1620,7 @@ export function DecisionSessionSection({
                 </div>
                 {session.activeAction.blockedReason && (
                   <p className="mt-3 text-sm text-amber-200">
-                    <strong>Antes de continuar:</strong>{" "}
+                    <strong>{t.beforeContinue}</strong>{" "}
                     {session.activeAction.blockedReason}
                   </p>
                 )}
@@ -1303,7 +1633,7 @@ export function DecisionSessionSection({
                     disabled={journal.saving || journal.stale || needsReconcile}
                   >
                     <ClipboardCheck className="size-4" aria-hidden="true" />
-                    Volví de jugar
+                    {t.backFromPlaying}
                   </Button>
                 )}
               </section>
@@ -1312,22 +1642,22 @@ export function DecisionSessionSection({
               <p className="text-sm">
                 {session.conclusion.reason}
                 {session.conclusion.reopenWhen
-                  ? ` Se reabre si: ${session.conclusion.reopenWhen}`
+                  ? t.reopensIf(session.conclusion.reopenWhen)
                   : ""}
               </p>
             )}
             {!isCraftingSession && session.lastResult && (
               <div className="rounded-md border border-border bg-muted/20 p-3 text-sm">
                 <p className="font-medium text-foreground">
-                  Último resultado
+                  {t.lastResult}
                   {session.lastResult.outcome
-                    ? ` · ${DECISION_OUTCOME_LABELS[session.lastResult.outcome]}`
+                    ? ` · ${t.outcomeLabels[session.lastResult.outcome]}`
                     : ""}
                 </p>
                 <p className="mt-1 text-muted-foreground">
                   {session.lastResult.text}
                   {session.lastResult.subjective
-                    ? " (experiencia del jugador, no medición)"
+                    ? t.subjectiveNote
                     : ""}
                 </p>
               </div>
@@ -1337,7 +1667,7 @@ export function DecisionSessionSection({
                 es justo lo que propone el texto del conflicto. */}
             {!isCraftingSession && activeConstraints.length > 0 && (
               <div className="space-y-1" data-testid="decision-protecciones">
-                <h3 className="font-medium">Piezas protegidas</h3>
+                <h3 className="font-medium">{t.protectedItems}</h3>
                 <ul className="space-y-1 text-sm">
                   {activeConstraints.map((item) => (
                     <li key={item.id} className="flex flex-wrap items-center gap-2">
@@ -1358,7 +1688,7 @@ export function DecisionSessionSection({
                             })
                           }
                         >
-                          Retirar esta protección
+                          {t.releaseProtection}
                         </Button>
                       )}
                     </li>
@@ -1369,12 +1699,9 @@ export function DecisionSessionSection({
 
             {!isOpen && (
               <Alert data-testid="decision-cerrada">
-                <AlertTitle>Esta decisión está cerrada</AlertTitle>
+                <AlertTitle>{t.closedTitle}</AlertTitle>
                 <AlertDescription className="space-y-2">
-                  <p>
-                    Ya no admite resultado, evidencia ni pausa. Puedes reabrirla como
-                    candidata o empezar otra decisión desde cero.
-                  </p>
+                  <p>{t.closedBody}</p>
                   {!startingNew && (
                     <Button
                       type="button"
@@ -1382,7 +1709,7 @@ export function DecisionSessionSection({
                       onClick={() => setStartingNew(true)}
                     >
                       <Sparkles className="size-4" aria-hidden="true" />
-                      Empezar otra decisión
+                      {t.startAnother}
                     </Button>
                   )}
                 </AlertDescription>
@@ -1428,13 +1755,10 @@ export function DecisionSessionSection({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold text-primary/75">
-                      Regreso de la prueba
+                      {t.returnEyebrow}
                     </p>
-                    <h3 className="mt-1 text-lg font-semibold">¿Qué ocurrió?</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Elige una respuesta. Puedes terminar en unos segundos y añadir
-                      detalles solo si hacen falta.
-                    </p>
+                    <h3 className="mt-1 text-lg font-semibold">{t.whatHappened}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{t.returnBody}</p>
                   </div>
                   <Button
                     type="button"
@@ -1443,13 +1767,13 @@ export function DecisionSessionSection({
                     onClick={() => setShowReturnForm(false)}
                   >
                     <ArrowLeft className="size-4" aria-hidden="true" />
-                    Seguir jugando
+                    {t.keepPlaying}
                   </Button>
                 </div>
 
                 <fieldset className="grid gap-2 sm:grid-cols-2">
-                  <legend className="sr-only">Resultado de la prueba</legend>
-                  {DECISION_OUTCOME_OPTIONS.map((option) => (
+                  <legend className="sr-only">{t.testResultLegend}</legend>
+                  {decisionOutcomeOptions().map((option) => (
                     <label
                       key={option.value}
                       className={`cursor-pointer rounded-md border p-3 transition-colors ${
@@ -1475,14 +1799,14 @@ export function DecisionSessionSection({
                 </fieldset>
 
                 <div className="space-y-1">
-                  <Label htmlFor="session-result">Cuéntame lo importante (opcional)</Label>
+                  <Label htmlFor="session-result">{t.tellMe}</Label>
                   <Textarea
                     id="session-result"
                     value={resultText}
                     onChange={(event) => setResultText(event.target.value)}
                     maxLength={4000}
                     rows={3}
-                    placeholder="Por ejemplo: aguanto mejor, pero los bosses siguen acercándose demasiado."
+                    placeholder={t.tellMePlaceholder}
                   />
                 </div>
 
@@ -1493,31 +1817,30 @@ export function DecisionSessionSection({
                     onChange={(event) => setSubjective(event.target.checked)}
                     className="mt-0.5"
                   />
-                  Es mi experiencia al jugar, no una medición. Desmárcalo solo si
-                  has actualizado el expediente con datos comprobados.
+                  {t.subjectiveCheckbox}
                 </label>
                 {onEditExpediente && (
                   <Button type="button" variant="outline" size="sm" onClick={onEditExpediente}>
-                    Actualizar expediente antes de cerrar
+                    {t.updateCharacter}
                   </Button>
                 )}
 
                 <details className="rounded-md border border-border px-3 py-2">
                   <summary className="cursor-pointer text-sm font-medium">
-                    Resultado inesperado o condición de reapertura
+                    {t.unexpectedSummary}
                   </summary>
                   <div className="mt-3 space-y-2">
                     <Input
                       value={valuable}
                       onChange={(event) => setValuable(event.target.value)}
                       maxLength={400}
-                      placeholder="Si salió otra cosa valiosa, nómbrala para protegerla"
+                      placeholder={t.valuablePlaceholder}
                     />
                     <Input
                       value={reopenWhen}
                       onChange={(event) => setReopenWhen(event.target.value)}
                       maxLength={1000}
-                      placeholder="Reevaluar si esa condición pasa a ser consistente"
+                      placeholder={t.reopenPlaceholder}
                     />
                   </div>
                 </details>
@@ -1529,14 +1852,14 @@ export function DecisionSessionSection({
                   {journal.saving && (
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   )}
-                  Guardar resultado
+                  {t.saveResult}
                 </Button>
               </form>
             )}
 
             <details className="rounded-md border border-border px-3 py-2">
               <summary className="cursor-pointer text-sm font-medium">
-                Protecciones y evidencia avanzada
+                {t.advancedSummary}
               </summary>
               <div className="mt-3 space-y-4">
             <form
@@ -1554,7 +1877,7 @@ export function DecisionSessionSection({
                 setConstraint("");
               }}
             >
-              <Label htmlFor="add-core">Añadir pieza protegida</Label>
+              <Label htmlFor="add-core">{t.addProtected}</Label>
               <div className="flex flex-wrap gap-2">
                 <Input
                   id="add-core"
@@ -1564,7 +1887,7 @@ export function DecisionSessionSection({
                 />
                 <Button type="submit" variant="outline" disabled={journal.saving || journal.stale}>
                   <Shield className="size-4" aria-hidden="true" />
-                  Proteger
+                  {t.protect}
                 </Button>
               </div>
             </form>
@@ -1589,7 +1912,7 @@ export function DecisionSessionSection({
                 setResolvesUnknownId("");
               }}
             >
-              <Label htmlFor="session-evidence">Añadir evidencia (sin cerrar el paso)</Label>
+              <Label htmlFor="session-evidence">{t.addEvidence}</Label>
               <Input
                 id="session-evidence"
                 value={evidenceText}
@@ -1602,7 +1925,7 @@ export function DecisionSessionSection({
               {unresolvedUnknowns.length > 0 && (
                 <div className="space-y-1">
                   <Label htmlFor="session-evidence-unknown">
-                    ¿Qué dato pendiente resuelve?
+                    {t.whichUnknown}
                   </Label>
                   <select
                     id="session-evidence-unknown"
@@ -1611,7 +1934,7 @@ export function DecisionSessionSection({
                     value={resolvesUnknownId}
                     onChange={(event) => setResolvesUnknownId(event.target.value)}
                   >
-                    <option value="">Ninguno en concreto</option>
+                    <option value="">{t.noneInParticular}</option>
                     {unresolvedUnknowns.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.label}
@@ -1621,7 +1944,7 @@ export function DecisionSessionSection({
                 </div>
               )}
               <Button type="submit" variant="outline" disabled={journal.saving || journal.stale}>
-                Guardar evidencia
+                {t.saveEvidence}
               </Button>
             </form>
               </div>
@@ -1641,7 +1964,7 @@ export function DecisionSessionSection({
                 }}
               >
                 <CirclePause className="size-4" aria-hidden="true" />
-                Pausar
+                {t.pause}
               </Button>
               )}
               <Button
@@ -1661,24 +1984,24 @@ export function DecisionSessionSection({
                     journalRevision: revision!,
                     idempotencyKey: newKey(),
                     sessionId: session.id,
-                    note: "Reabrimos como candidata.",
+                    note: t.reopenNote,
                   }).then((next) => {
                     if (next) onMentorEvent?.({ type: "reopened", title: session.objective });
                   });
                 }}
               >
                 <RotateCcw className="size-4" aria-hidden="true" />
-                Reabrir como candidata
+                {t.reopenAsCandidate}
               </Button>
             </div>}
 
             {!isCraftingSession && session.evidence.length > 0 && (
               <div>
-                <h3 className="font-medium">Evidencia</h3>
+                <h3 className="font-medium">{t.evidence}</h3>
                 <ul className="space-y-1 text-sm">
                   {session.evidence.map((item) => (
                     <li key={item.id}>
-                      {EVIDENCE_KIND_LABELS[item.kind]}: {item.text}
+                      {t.evidenceKindLabels[item.kind]}: {item.text}
                     </li>
                   ))}
                 </ul>
@@ -1687,7 +2010,7 @@ export function DecisionSessionSection({
 
             {!isCraftingSession && events.length > 0 && (
               <div>
-                <h3 className="font-medium">Por qué hemos cambiado de plan</h3>
+                <h3 className="font-medium">{t.whyChanged}</h3>
                 <ol className="list-decimal space-y-1 pl-5 text-sm">
                   {events.map((event) => (
                     <li key={event.id}>{compactRecommendationReason(event.summary)}</li>
@@ -1702,22 +2025,19 @@ export function DecisionSessionSection({
     <AlertDialog open={confirmingCraftingDiscard} onOpenChange={setConfirmingCraftingDiscard}>
       <AlertDialogContent data-testid="crafting-discard-dialog">
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Descartar esta comprobación?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Se cerrará el proyecto sin actualizar tu expediente con el resultado de PoE2. Si solo
-            quieres continuar otro día, vuelve y elige «Guardar para seguir más tarde».
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t.discardDialogTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{t.discardDialogBody}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel data-testid="crafting-discard-cancel">
-            Seguir con la comprobación
+            {t.keepChecking}
           </AlertDialogCancel>
           <AlertDialogAction
             data-testid="crafting-discard-confirm"
             disabled={journal.saving || journal.stale || !revision}
             onClick={() => void abandonCurrentSession()}
           >
-            Sí, descartar
+            {t.yesDiscard}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

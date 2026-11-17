@@ -289,6 +289,8 @@ export const RecommendationsRequestSchema = z.object({
   patch: z.string(),
   /** Revisión que vio la UI; el servidor carga el diario autoritativo. */
   journalRevision: z.string().min(1).max(4000).nullable().optional(),
+  /** Idioma de las frases. No cambia ninguna decisión. */
+  lang: z.enum(["es", "en"]).optional(),
 });
 export const RecommendationsResponseSchema = z.object({
   recommendations: z.array(RecommendationSchema).max(3),

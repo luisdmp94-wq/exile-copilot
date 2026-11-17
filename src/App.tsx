@@ -124,7 +124,7 @@ const FeaturedBuildsSection = lazy(() =>
   })),
 );
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
-import { texts, useLang, useText } from "@/i18n/lang";
+import { pageLang, texts, useLang, useText } from "@/i18n/lang";
 import { EnglishSoon } from "@/i18n/EnglishSoon";
 import { englishMentorCue } from "@/lib/contextualMentorEn";
 import {
@@ -203,6 +203,24 @@ const APP_TEXT = texts(
     patchBlocked: (patch: string) =>
       `El parche ${patch} aún no está revisado. No analizaré mejoras ni acciones mecánicas con datos anteriores.`,
     completeFirst: (what: string) => `Completa ${what} antes de pedirme una prioridad del personaje.`,
+    journalChanged: "El diario cambió en otra pestaña. He retirado el diagnóstico anterior.",
+    targetAdded: "Build añadida como objetivo",
+    targetAddedDetail: "Tu personaje actual no se ha modificado.",
+    regenerate: "Los datos han cambiado — vuelve a generar las recomendaciones",
+    mentorReset: "Los datos han cambiado — la conversación con el mentor se ha reiniciado",
+    completeToSave: "Completa el expediente antes de guardar esta acción",
+    completeToCheck: "Completa el expediente antes de comprobar esta mejora",
+    missing: (what: string) => `Faltan ${what}.`,
+    memoryError: "El personaje se guardó, pero no pude abrir su memoria",
+    memoryErrorDetail: "La acción elegida no se ha ejecutado. Vuelve a intentarlo desde el caso abierto.",
+    restoreTitle: "No pudimos abrir tu expediente guardado",
+    restoreKeep: " No crees otro personaje todavía: tus datos no se han descartado.",
+    restoring: "Recuperando…",
+    restoreRetry: "Reintentar recuperación",
+    craftingRunning: "Crafting en curso",
+    craftingChecking: (action: string, item: string) =>
+      `Estás comprobando ${action} en ${item}. El preflight y el resultado viven en el banco de Crafting para no duplicar la sesión.`,
+    craftingContinue: "Continuar en Crafting",
   },
   {
     backArea: "Back to the previous area",
@@ -227,6 +245,24 @@ const APP_TEXT = texts(
     patchBlocked: (patch: string) =>
       `Patch ${patch} hasn't been reviewed yet. I won't analyse upgrades or mechanical actions with older data.`,
     completeFirst: (what: string) => `Fill in ${what} before asking me for a character priority.`,
+    journalChanged: "Your journal changed in another tab. I removed the previous diagnosis.",
+    targetAdded: "Build added as your target",
+    targetAddedDetail: "Your current character hasn't changed.",
+    regenerate: "Your data changed — generate the recommendations again",
+    mentorReset: "Your data changed — the mentor conversation was restarted",
+    completeToSave: "Complete your character before saving this action",
+    completeToCheck: "Complete your character before checking this upgrade",
+    missing: (what: string) => `Missing: ${what}.`,
+    memoryError: "Your character was saved, but I couldn't open its memory",
+    memoryErrorDetail: "The chosen action didn't run. Try again from the open case.",
+    restoreTitle: "We couldn't open your saved character",
+    restoreKeep: " Don't create another character yet: your data hasn't been thrown away.",
+    restoring: "Recovering…",
+    restoreRetry: "Retry recovery",
+    craftingRunning: "Crafting in progress",
+    craftingChecking: (action: string, item: string) =>
+      `You're checking ${action} on ${item}. The preflight and the result live in the Crafting bench so the session isn't duplicated.`,
+    craftingContinue: "Continue in Crafting",
   },
 );
 
@@ -432,7 +468,7 @@ export default function App() {
         announceMentor({
           type: "error",
           area: "diario",
-          message: "El diario cambió en otra pestaña. He retirado el diagnóstico anterior.",
+          message: APP_TEXT[pageLang()].journalChanged,
         });
       }
     });
@@ -462,8 +498,8 @@ export default function App() {
     setTargetWarnings([]);
     setTargetResolution(null);
     announceMentor({ type: "planImported", name: build.title });
-    toast.success("Build añadida como objetivo", {
-      description: "Tu personaje actual no se ha modificado.",
+    toast.success(APP_TEXT[pageLang()].targetAdded, {
+      description: APP_TEXT[pageLang()].targetAddedDetail,
     });
   }, [announceMentor]);
 
@@ -546,7 +582,7 @@ export default function App() {
           return;
         }
         clear();
-        toast.info("Los datos han cambiado — vuelve a generar las recomendaciones");
+        toast.info(APP_TEXT[pageLang()].regenerate);
         announceMentor({ type: "invalidated" });
       }
     });
@@ -625,7 +661,7 @@ export default function App() {
       mentorThreadKey !== currentMentorInputsKey
     ) {
       clearMentor();
-      toast.info("Los datos han cambiado — la conversación con el mentor se ha reiniciado");
+      toast.info(APP_TEXT[pageLang()].mentorReset);
       return;
     }
     if (
@@ -779,7 +815,7 @@ export default function App() {
       announceMentor({
         type: "profileIncomplete",
         profileName: character.profile.name,
-        missing: mentorReadiness.issues.map((issue) => issue.label.toLowerCase()),
+        missing: mentorReadiness.issues.map((issue) => (pageLang() === "en" ? issue.labelEn : issue.label).toLowerCase()),
       });
     } else if (tab === "plan") {
       announceMentor({ type: "workspace", workspace: "plan" });
@@ -914,10 +950,12 @@ export default function App() {
   const trackRecommendation = (recommendation: Recommendation) => {
     if (!character.profile) return;
     if (!profileReadiness.ready) {
-      toast.warning("Completa el expediente antes de guardar esta acción", {
-        description: `Faltan ${profileReadiness.issues
-          .map((issue) => issue.label.toLowerCase())
-          .join(", ")}.`,
+      toast.warning(t.completeToSave, {
+        description: t.missing(
+          profileReadiness.issues
+            .map((issue) => (lang === "en" ? issue.labelEn : issue.label).toLowerCase())
+            .join(", "),
+        ),
       });
       openEditor();
       return;
@@ -940,10 +978,12 @@ export default function App() {
   const startSession = (recommendation: Recommendation) => {
     if (!character.profile) return;
     if (!profileReadiness.ready) {
-      toast.warning("Completa el expediente antes de comprobar esta mejora", {
-        description: `Faltan ${profileReadiness.issues
-          .map((issue) => issue.label.toLowerCase())
-          .join(", ")}.`,
+      toast.warning(t.completeToCheck, {
+        description: t.missing(
+          profileReadiness.issues
+            .map((issue) => (lang === "en" ? issue.labelEn : issue.label).toLowerCase())
+            .join(", "),
+        ),
       });
       openEditor();
       return;
@@ -991,8 +1031,8 @@ export default function App() {
     if (pending === null) return;
     const currentJournal = await journal.reload();
     if (currentJournal === null) {
-      toast.error("El personaje se guardó, pero no pude abrir su memoria", {
-        description: "La acción elegida no se ha ejecutado. Vuelve a intentarlo desde el caso abierto.",
+      toast.error(t.memoryError, {
+        description: t.memoryErrorDetail,
       });
       return;
     }
@@ -1384,7 +1424,7 @@ export default function App() {
           announceMentor({
             type: "profileIncomplete",
             profileName: contextualProfileName,
-            missing: mentorReadiness.issues.map((issue) => issue.label.toLowerCase()),
+            missing: mentorReadiness.issues.map((issue) => (pageLang() === "en" ? issue.labelEn : issue.label).toLowerCase()),
           });
         }
       } else if (!character.restoring) {
@@ -1601,14 +1641,13 @@ export default function App() {
 
           {/* --- Área 1: Expediente y mentor -------------------------------- */}
           <TabsContent value="expediente" forceMount className={PANEL_CLASSES}>
-            {hasProfile && <EnglishSoon area={t.dossier} />}
             {character.restorationError !== null ? (
               <Alert variant="destructive" data-testid="character-restore-error">
-                <AlertTitle>No pudimos abrir tu expediente guardado</AlertTitle>
+                <AlertTitle>{t.restoreTitle}</AlertTitle>
                 <AlertDescription>
                   <p>
-                    {character.restorationError} No crees otro personaje todavía: tus
-                    datos no se han descartado.
+                    {character.restorationError}
+                    {t.restoreKeep}
                   </p>
                   <Button
                     type="button"
@@ -1623,7 +1662,7 @@ export default function App() {
                       className={`size-4 ${character.restoring ? "animate-spin" : ""}`}
                       aria-hidden="true"
                     />
-                    {character.restoring ? "Recuperando…" : "Reintentar recuperación"}
+                    {character.restoring ? t.restoring : t.restoreRetry}
                   </Button>
                 </AlertDescription>
               </Alert>
@@ -1691,13 +1730,15 @@ export default function App() {
                     sessionSlot={
                       activeCraftingExperiment ? (
                         <div className="space-y-3" data-testid="crafting-session-redirect">
-                          <h3 className="text-xl font-semibold">Crafting en curso</h3>
+                          <h3 className="text-xl font-semibold">{t.craftingRunning}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Estás comprobando {activeCraftingExperiment.actionLabel} en {activeCraftingExperiment.originalItem.name}.
-                            El preflight y el resultado viven en el banco de Crafting para no duplicar la sesión.
+                            {t.craftingChecking(
+                              activeCraftingExperiment.actionLabel,
+                              activeCraftingExperiment.originalItem.name,
+                            )}
                           </p>
                           <Button type="button" onClick={() => navigateWorkspace("crafting")}>
-                            Continuar en Crafting
+                            {t.craftingContinue}
                           </Button>
                         </div>
                       ) : (
@@ -2271,7 +2312,7 @@ export default function App() {
                 !mentorReadiness.ready &&
                 contextualCue.ask !== null &&
                 contextualCue.ask.craftingState === undefined
-              ? t.completeFirst(mentorReadiness.issues.map((issue) => issue.label.toLowerCase()).join(", "))
+              ? t.completeFirst(mentorReadiness.issues.map((issue) => (lang === "en" ? issue.labelEn : issue.label).toLowerCase()).join(", "))
               : null
         }
         collapsed={contextualCollapsed}

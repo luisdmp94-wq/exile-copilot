@@ -17,6 +17,8 @@ import type {
 import { compactJournalTitle } from "../../shared/domain.js";
 import type { MarketRates } from "../../shared/api.js";
 import {
+  tr,
+  type RuleLang,
   ENGINE_VERSION,
   RULES,
   type Magnitude,
@@ -52,6 +54,8 @@ export interface EngineOptions {
   patch: string;
   target?: BuildTarget;
   memory?: RecommendationMemory;
+  /** Idioma de las frases. No cambia ninguna decisión; sin él, español. */
+  lang?: RuleLang;
 }
 
 export interface EngineResult {
@@ -115,38 +119,58 @@ const MEMORY_GOAL_WEIGHTS: RuleCandidate["goalWeights"] = {
 function reconcileCandidateWithMemory(
   candidate: RuleCandidate,
   memoryEntry: RecommendationMemoryEntry,
+  lang?: RuleLang,
 ): RuleCandidate {
+  const t = tr(lang);
   const originalRecommendationId = `rec-${candidate.ruleId}`;
   return {
     ruleId: `memoria-${candidate.ruleId}`,
-    title: compactJournalTitle(`Actualizar el perfil tras «${memoryEntry.title}»`),
-    action:
+    title: compactJournalTitle(
+      t(`Actualizar el perfil tras «${memoryEntry.title}»`, `Update your profile after «${memoryEntry.title}»`),
+    ),
+    action: t(
       `Actualiza en «Mi personaje» los datos afectados por «${memoryEntry.title}» ` +
-      "usando el resultado que guardaste; después vuelve a generar recomendaciones.",
-    reason:
+        "usando el resultado que guardaste; después vuelve a generar recomendaciones.",
+      `In «My character», update the data affected by «${memoryEntry.title}» ` +
+        "using the result you saved; then generate recommendations again.",
+    ),
+    reason: t(
       `El diario registra que ya completaste «${memoryEntry.title}», pero el perfil ` +
-      `actual todavía activa «${candidate.title}». El mentor no repetirá esa mejora ` +
-      "hasta reconciliar el resultado con los datos actuales.",
-    impactMetric: "calidad de los datos del personaje",
-    impactDescription:
+        `actual todavía activa «${candidate.title}». El mentor no repetirá esa mejora ` +
+        "hasta reconciliar el resultado con los datos actuales.",
+      `The journal says you already completed «${memoryEntry.title}», but the current ` +
+        `profile still triggers «${candidate.title}». The mentor won't repeat that upgrade ` +
+        "until the result matches the current data.",
+    ),
+    impactMetric: t("calidad de los datos del personaje", "character data quality"),
+    impactDescription: t(
       "Evita repetir una acción basándose en un perfil que puede haber quedado desactualizado.",
+      "Avoids repeating an action based on a profile that may be out of date.",
+    ),
     magnitude: "high",
     riskLevel: "low",
-    riskDescription: "Solo actualiza la memoria estructurada; no modifica objetos del juego.",
+    riskDescription: t(
+      "Solo actualiza la memoria estructurada; no modifica objetos del juego.",
+      "It only updates the structured memory; it doesn't change any in-game items.",
+    ),
     mayLoseValuableMods: false,
     irreversible: false,
     priceQueries: [],
     goalWeights: MEMORY_GOAL_WEIGHTS,
     confidenceBase: "high",
     unverified: [
-      `No verificado — el resultado guardado no se convierte automáticamente en estadísticas. ` +
-        `La recomendación ${originalRecommendationId} sigue activándose con el perfil actual.`,
+      t(
+        `No verificado — el resultado guardado no se convierte automáticamente en estadísticas. ` +
+          `La recomendación ${originalRecommendationId} sigue activándose con el perfil actual.`,
+        `Not verified — the saved result isn't turned into stats automatically. ` +
+          `Recommendation ${originalRecommendationId} still triggers with the current profile.`,
+      ),
     ],
     extraSources: [
       ...candidate.extraSources,
       {
         kind: "user",
-        label: `Resultado del diario informado por el jugador: ${memoryEntry.title}`,
+        label: t(`Resultado del diario informado por el jugador: ${memoryEntry.title}`, `Journal result reported by the player: ${memoryEntry.title}`),
         retrievedAt: memoryEntry.updatedAt,
         ...(memoryEntry.patch ? { patch: memoryEntry.patch } : {}),
       },
@@ -208,14 +232,25 @@ async function resolveCost(
     overBudget: false,
   };
 
+  const t = tr(options.lang);
   if (candidate.priceQueries.length === 0) {
-    if (!unverified.some((u) => u.includes("coste"))) {
-      unverified.push("No verificado — coste no estimado: esta acción no tiene un precio consultable.");
+    if (!unverified.some((u) => u.includes("coste") || u.includes("cost"))) {
+      unverified.push(
+        t(
+          "No verificado — coste no estimado: esta acción no tiene un precio consultable.",
+          "Not verified — cost not estimated: this action has no price to look up.",
+        ),
+      );
     }
     return unknownCost;
   }
   if (!priceService) {
-    unverified.push("No verificado — servicio de precios no disponible para valorar la mejora.");
+    unverified.push(
+      t(
+        "No verificado — servicio de precios no disponible para valorar la mejora.",
+        "Not verified — the price service isn't available to value the upgrade.",
+      ),
+    );
     return unknownCost;
   }
 
@@ -223,7 +258,10 @@ async function resolveCost(
   const usable = quotes.find((q) => q.verified && q.value !== null);
   if (!usable || usable.value === null) {
     unverified.push(
-      `No verificado — no hay precio confirmado en poe.ninja para: ${candidate.priceQueries.map((q) => q.name).join(", ")}.`,
+      t(
+        `No verificado — no hay precio confirmado en poe.ninja para: ${candidate.priceQueries.map((q) => q.name).join(", ")}.`,
+        `Not verified — no confirmed poe.ninja price for: ${candidate.priceQueries.map((q) => q.name).join(", ")}.`,
+      ),
     );
     return { ...unknownCost, quote: quotes[0] ?? null };
   }
@@ -233,7 +271,10 @@ async function resolveCost(
 
   if (options.budget === null) {
     unverified.push(
-      "No verificado si entra en el presupuesto: el jugador todavía no ha declarado ningún límite.",
+      t(
+        "No verificado si entra en el presupuesto: el jugador todavía no ha declarado ningún límite.",
+        "Not verified whether it fits the budget: the player hasn't set any limit yet.",
+      ),
     );
     return { cost, quote: usable, overBudget: false };
   }
@@ -242,7 +283,10 @@ async function resolveCost(
   const budgetConverted = convertBudget(options.budget, usable.currency, rates);
   if (budgetConverted === null) {
     unverified.push(
-      `No verificado si entra en el presupuesto: el coste cotiza en ${usable.currency} y no hay tasas de conversión verificadas desde ${options.budget.currency}.`,
+      t(
+        `No verificado si entra en el presupuesto: el coste cotiza en ${usable.currency} y no hay tasas de conversión verificadas desde ${options.budget.currency}.`,
+        `Not verified whether it fits the budget: the cost is quoted in ${usable.currency} and there are no verified conversion rates from ${options.budget.currency}.`,
+      ),
     );
     return { cost, quote: usable, overBudget: false };
   }
@@ -299,6 +343,7 @@ export async function generateRecommendations(
     league: options.league,
     patch: options.patch,
     ...(options.target !== undefined ? { target: options.target } : {}),
+    ...(options.lang !== undefined ? { lang: options.lang } : {}),
   };
 
   // `recentCompleted` llega de más reciente a más antiguo. Conservamos la
@@ -319,7 +364,7 @@ export async function generateRecommendations(
     if (!memoryEntry) return candidate;
     memoryImpact.usedEntryIds.push(memoryEntry.entryId);
     memoryImpact.repeatedRecommendationIds.push(recommendationId);
-    return reconcileCandidateWithMemory(candidate, memoryEntry);
+    return reconcileCandidateWithMemory(candidate, memoryEntry, options.lang);
   });
   memoryImpact.usedEntryIds = Array.from(new Set(memoryImpact.usedEntryIds));
   memoryImpact.repeatedRecommendationIds = Array.from(
@@ -362,21 +407,26 @@ export async function generateRecommendations(
     const { candidate, cost, quote, unverified, confidence, extraSources } = entry;
     const relatedItemIds = (candidate.relatedItemIds ?? []).slice(0, 100);
     if ((candidate.relatedItemIds?.length ?? 0) > relatedItemIds.length) {
+      const omitted = (candidate.relatedItemIds?.length ?? 0) - relatedItemIds.length;
       unverified.push(
-        `No verificado — se omitieron ${(candidate.relatedItemIds?.length ?? 0) - relatedItemIds.length} vínculos de objeto por el límite de 100.`,
+        tr(options.lang)(
+          `No verificado — se omitieron ${omitted} vínculos de objeto por el límite de 100.`,
+          `Not verified — ${omitted} item links were left out because of the limit of 100.`,
+        ),
       );
     }
 
+    const t = tr(options.lang);
     const sources: SourceEvidence[] = [
       {
         kind: "calculation",
-        label: `Motor de reglas determinista Exile Copilot v${ENGINE_VERSION}`,
+        label: t(`Motor de reglas determinista Exile Copilot v${ENGINE_VERSION}`, `Exile Copilot deterministic rules engine v${ENGINE_VERSION}`),
         retrievedAt: generatedAt,
         patch: options.patch,
       },
       {
         kind: "user",
-        label: "Perfil del personaje importado por el usuario",
+        label: t("Perfil del personaje importado por el usuario", "Character profile imported by the user"),
         retrievedAt: profile.importedAt,
         patch: profile.patch,
       },
@@ -385,7 +435,7 @@ export async function generateRecommendations(
     if (quote) {
       sources.push({
         kind: "poe.ninja",
-        label: "API económica pública documentada de poe.ninja (PoE2)",
+        label: t("API económica pública documentada de poe.ninja (PoE2)", "poe.ninja's documented public economy API (PoE2)"),
         url: "https://poe.ninja/",
         retrievedAt: quote.fetchedAt,
       });
@@ -421,7 +471,7 @@ export async function generateRecommendations(
     };
   });
 
-  const gated = applySessionGates(recommendations, options.memory, options.budget, generatedAt);
+  const gated = applySessionGates(recommendations, options.memory, options.budget, generatedAt, options.lang);
 
   return {
     recommendations: gated,
@@ -448,8 +498,10 @@ function sessionGateRecommendation(
   generatedAt: string,
   patch: string,
   relatedItemIds: string[],
-  sourceLabel = "Restricción o evidencia de la sesión de decisión",
+  sourceLabel: string | null = null,
+  lang?: RuleLang,
 ): Recommendation {
+  const t = tr(lang);
   return {
     id,
     priority: 1,
@@ -459,26 +511,31 @@ function sessionGateRecommendation(
     actionKind: "session_gate",
     cost: { min: null, max: null, currency: "exalted", known: false },
     impact: {
-      metric: "decisión",
-      description: "El mentor frena o redirige el plan; no es una compra.",
+      metric: t("decisión", "decision"),
+      description: t("El mentor frena o redirige el plan; no es una compra.", "The mentor stops or redirects the plan; it's not a purchase."),
       magnitude: "medium",
       isPartialMetric: true,
     },
-    risk: { level: "low", description: "No se ejecuta un cambio irreversible." },
+    risk: { level: "low", description: t("No se ejecuta un cambio irreversible.", "No irreversible change is made.") },
     mayLoseValuableMods: false,
     irreversible: false,
     patch,
     sources: [
       {
         kind: "user",
-        label: sourceLabel,
+        label: sourceLabel ?? t("Restricción o evidencia de la sesión de decisión", "Constraint or evidence from the decision session"),
         retrievedAt: generatedAt,
         patch,
       },
     ],
     dataUpdatedAt: generatedAt,
     confidence: "medium",
-    unverified: ["El mentor no autoriza este paso hasta que se resuelva el conflicto o la evidencia."],
+    unverified: [
+      t(
+        "El mentor no autoriza este paso hasta que se resuelva el conflicto o la evidencia.",
+        "The mentor won't approve this step until the conflict or the evidence is resolved.",
+      ),
+    ],
     relatedItemIds,
   };
 }
@@ -492,7 +549,9 @@ function applySessionGates(
   memory: RecommendationMemory | undefined,
   budget: Budget | null,
   generatedAt: string,
+  lang?: RuleLang,
 ): Recommendation[] {
+  const t = tr(lang);
   if (recommendations.length === 0) return recommendations;
   const first = recommendations[0];
   if (!first) return recommendations;
@@ -514,13 +573,20 @@ function applySessionGates(
     return [
       sessionGateRecommendation(
         "rec-memoria-build-core",
-        "Conflicto con la identidad de la build",
-        `No toques «${coreConflict.label}». Está marcado como Core en la memoria de esta build.`,
-        `La prioridad calculada choca con «${coreConflict.label}». El mentor se detiene en vez de romper una pieza esencial.`,
+        t("Conflicto con la identidad de la build", "Conflict with the build's identity"),
+        t(
+          `No toques «${coreConflict.label}». Está marcado como Core en la memoria de esta build.`,
+          `Don't touch «${coreConflict.label}». It's marked as Core in this build's memory.`,
+        ),
+        t(
+          `La prioridad calculada choca con «${coreConflict.label}». El mentor se detiene en vez de romper una pieza esencial.`,
+          `The calculated priority clashes with «${coreConflict.label}». The mentor stops instead of breaking an essential piece.`,
+        ),
         generatedAt,
         first.patch,
         first.relatedItemIds,
-        "Identidad Core declarada por el jugador en la memoria de la build",
+        t("Identidad Core declarada por el jugador en la memoria de la build", "Core identity declared by the player in the build memory"),
+        lang,
       ),
     ];
   }
@@ -549,27 +615,42 @@ function applySessionGates(
   > = {
     irreversible_missing_evidence: {
       id: "rec-sesion-evidencia-critica",
-      title: "Falta un dato crítico",
-      action: `Anota exactamente: ${gate.label}. No uses todavía el paso irreversible.`,
-      reason: `Sin «${gate.label}» el mentor no autoriza una acción que no se puede deshacer.`,
+      title: t("Falta un dato crítico", "A critical fact is missing"),
+      action: t(
+        `Anota exactamente: ${gate.label}. No uses todavía el paso irreversible.`,
+        `Write down exactly: ${gate.label}. Don't use the irreversible step yet.`,
+      ),
+      reason: t(
+        `Sin «${gate.label}» el mentor no autoriza una acción que no se puede deshacer.`,
+        `Without «${gate.label}» the mentor won't approve an action that can't be undone.`,
+      ),
     },
     protected_constraint: {
       id: "rec-sesion-restriccion-core",
-      title: "Conflicto con una pieza protegida",
-      action: `No toques «${gate.label}». Está marcada como intocable.`,
-      reason: `La mejor puntuación del motor chocaba con «${gate.label}». No se sustituye por otra compra en silencio.`,
+      title: t("Conflicto con una pieza protegida", "Conflict with a protected item"),
+      action: t(`No toques «${gate.label}». Está marcada como intocable.`, `Don't touch «${gate.label}». It's marked as untouchable.`),
+      reason: t(
+        `La mejor puntuación del motor chocaba con «${gate.label}». No se sustituye por otra compra en silencio.`,
+        `The engine's best score clashed with «${gate.label}». It isn't silently swapped for another purchase.`,
+      ),
     },
     opportunity_cost: {
       id: "rec-sesion-oportunidad",
-      title: "Mejor conservar el recurso",
-      action: "No gastes en esa pieza: se sustituirá pronto.",
-      reason: "Una mejora estadística sigue siendo mala si el objeto no se va a quedar.",
+      title: t("Mejor conservar el recurso", "Better to keep the resource"),
+      action: t("No gastes en esa pieza: se sustituirá pronto.", "Don't spend on that item: it'll be replaced soon."),
+      reason: t(
+        "Una mejora estadística sigue siendo mala si el objeto no se va a quedar.",
+        "A stat upgrade is still a bad idea if the item isn't staying.",
+      ),
     },
     over_budget: {
       id: "rec-sesion-presupuesto",
-      title: "Pausa por presupuesto",
-      action: "No fuerces esta compra: el coste conocido supera lo que aceptaste.",
-      reason: "Superar el presupuesto no es un fracaso del plan; es una pausa.",
+      title: t("Pausa por presupuesto", "Paused for budget"),
+      action: t(
+        "No fuerces esta compra: el coste conocido supera lo que aceptaste.",
+        "Don't force this purchase: the known cost is above what you accepted.",
+      ),
+      reason: t("Superar el presupuesto no es un fracaso del plan; es una pausa.", "Going over budget isn't the plan failing; it's a pause."),
     },
   };
   const text = copy[gate.kind];
@@ -582,6 +663,8 @@ function applySessionGates(
       generatedAt,
       first.patch,
       first.relatedItemIds,
+      null,
+      lang,
     ),
   ];
 }

@@ -4,6 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    label: "Pregúntale al mentor",
+    placeholder: "Pregúntale al mentor, p. ej. ¿por qué muero?",
+    ask: "Preguntar",
+  },
+  {
+    label: "Ask the mentor",
+    placeholder: "Ask the mentor, e.g. why do I keep dying?",
+    ask: "Ask",
+  },
+);
 
 /**
  * Pregunta rápida al pie de «Tu siguiente paso». No responde aquí: entrega el
@@ -11,6 +25,7 @@ import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
  * guarda el hilo.
  */
 export function MentorQuickAsk({ onAsk }: { onAsk: (question: string) => void }) {
+  const t = useText(TEXT);
   const [question, setQuestion] = useState("");
   const canSend = question.trim().length > 0;
 
@@ -26,19 +41,19 @@ export function MentorQuickAsk({ onAsk }: { onAsk: (question: string) => void })
       }}
     >
       <Label htmlFor="mentor-pregunta-rapida" className="sr-only">
-        Pregúntale al mentor
+        {t.label}
       </Label>
       <Input
         id="mentor-pregunta-rapida"
         value={question}
         maxLength={MAX_MENTOR_QUESTION_LENGTH}
-        placeholder="Pregúntale al mentor, p. ej. ¿por qué muero?"
+        placeholder={t.placeholder}
         className="h-10 min-w-0 flex-1"
         onChange={(event) => setQuestion(event.target.value)}
       />
       <Button type="submit" variant="secondary" disabled={!canSend} className="h-10 shrink-0">
         <Send className="size-4" aria-hidden="true" />
-        Preguntar
+        {t.ask}
       </Button>
     </form>
   );

@@ -10,6 +10,9 @@ export interface CharacterReadinessIssue {
   id: CharacterReadinessIssueId;
   label: string;
   detail: string;
+  /** Las mismas frases en inglés, para la web en inglés. */
+  labelEn: string;
+  detailEn: string;
 }
 
 export interface CharacterReadiness {
@@ -74,6 +77,8 @@ export function assessCharacterReadiness(
       id: "class",
       label: "Clase",
       detail: "Indica la clase real que aparece en tu personaje.",
+      labelEn: "Class",
+      detailEn: "Enter the real class shown on your character.",
     });
   }
 
@@ -82,6 +87,8 @@ export function assessCharacterReadiness(
       id: "level",
       label: "Nivel",
       detail: "Escribe el nivel que ves dentro de PoE2.",
+      labelEn: "Level",
+      detailEn: "Type the level you see in PoE2.",
     });
   }
 
@@ -93,6 +100,8 @@ export function assessCharacterReadiness(
       id: "version",
       label: "Versión de árbol",
       detail: `El árbol pasivo importado es ${treeVersion} (familia ${treeFamily}), pero el expediente usa ${profile.patch}. Convierte la build en PoB2 y vuelve a importarla.`,
+      labelEn: "Tree version",
+      detailEn: `The imported passive tree is ${treeVersion} (family ${treeFamily}), but your character file uses ${profile.patch}. Convert the build in PoB2 and import it again.`,
     });
   }
 
@@ -104,6 +113,8 @@ export function assessCharacterReadiness(
       id: "equipment",
       label: "Equipo",
       detail: "Añade al menos un objeto equipado copiado desde PoE2.",
+      labelEn: "Gear",
+      detailEn: "Add at least one equipped item copied from PoE2.",
     });
   }
 

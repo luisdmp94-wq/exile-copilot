@@ -16,7 +16,7 @@ import { compactJournalTitle, readCharacterLevel } from "@shared/domain.js";
  * snapshot estructurado de la recomendación.
  */
 export function compactRecommendationReason(reason: string): string {
-  const beforeMetadata = reason.split(/\bImpacto esperado\b/i)[0]?.trim() ?? reason.trim();
+  const beforeMetadata = reason.split(/\b(?:Impacto esperado|Expected impact)\b/i)[0]?.trim() ?? reason.trim();
   if (beforeMetadata.length <= 600) return beforeMetadata;
   return `${beforeMetadata.slice(0, 597).trimEnd()}…`;
 }

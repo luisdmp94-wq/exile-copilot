@@ -13,6 +13,8 @@ import type { ServerConfig } from "../config.js";
 export interface ExplainerContext {
   budgetText?: string;
   goalKind?: string;
+  /** Idioma de la explicación; sin él, español. */
+  lang?: "es" | "en";
 }
 
 export interface ExplainerProvider {
@@ -20,17 +22,19 @@ export interface ExplainerProvider {
   explain(rec: Recommendation, ctx: ExplainerContext): Promise<string>;
 }
 
-function costText(rec: Recommendation): string {
+function costText(rec: Recommendation, en: boolean): string {
   const c = rec.cost;
-  if (!c.known || c.min === null) return "Coste: No verificado.";
+  if (!c.known || c.min === null) return en ? "Cost: not verified." : "Coste: No verificado.";
   const range = c.max !== null && c.max !== c.min ? `${c.min}–${c.max}` : `${c.min}`;
-  return `Coste estimado: ${range} ${c.currency} (poe.ninja).`;
+  return en ? `Estimated cost: ${range} ${c.currency} (poe.ninja).` : `Coste estimado: ${range} ${c.currency} (poe.ninja).`;
 }
 
-function riskText(rec: Recommendation): string {
-  const parts = [`Riesgo ${rec.risk.level}: ${rec.risk.description}`];
-  if (rec.mayLoseValuableMods) parts.push("Puede implicar perder mods valiosos de tu equipo actual.");
-  if (rec.irreversible) parts.push("Es una acción irreversible.");
+function riskText(rec: Recommendation, en: boolean): string {
+  const parts = [en ? `Risk ${rec.risk.level}: ${rec.risk.description}` : `Riesgo ${rec.risk.level}: ${rec.risk.description}`];
+  if (rec.mayLoseValuableMods) {
+    parts.push(en ? "It may mean losing valuable mods from your current gear." : "Puede implicar perder mods valiosos de tu equipo actual.");
+  }
+  if (rec.irreversible) parts.push(en ? "It's an irreversible action." : "Es una acción irreversible.");
   return parts.join(" ");
 }
 
@@ -38,16 +42,23 @@ export class DeterministicExplainer implements ExplainerProvider {
   readonly name = "deterministic";
 
   explain(rec: Recommendation, ctx: ExplainerContext): Promise<string> {
+    const en = ctx.lang === "en";
     const lines = [
       rec.reason,
-      `Impacto esperado (${rec.impact.magnitude}): ${rec.impact.description}`,
-      costText(rec),
-      riskText(rec),
-      `Confianza: ${rec.confidence}. Datos actualizados: ${rec.dataUpdatedAt}. Parche: ${rec.patch}.`,
+      en
+        ? `Expected impact (${rec.impact.magnitude}): ${rec.impact.description}`
+        : `Impacto esperado (${rec.impact.magnitude}): ${rec.impact.description}`,
+      costText(rec, en),
+      riskText(rec, en),
+      en
+        ? `Confidence: ${rec.confidence}. Data updated: ${rec.dataUpdatedAt}. Patch: ${rec.patch}.`
+        : `Confianza: ${rec.confidence}. Datos actualizados: ${rec.dataUpdatedAt}. Parche: ${rec.patch}.`,
     ];
-    if (ctx.goalKind) lines.push(`Esta recomendación pondera tu objetivo: ${ctx.goalKind}.`);
+    if (ctx.goalKind) {
+      lines.push(en ? `This recommendation weighs your goal: ${ctx.goalKind}.` : `Esta recomendación pondera tu objetivo: ${ctx.goalKind}.`);
+    }
     if (rec.unverified.length > 0) {
-      lines.push(`Pendiente de verificar: ${rec.unverified.join(" ")}`);
+      lines.push(en ? `Still to verify: ${rec.unverified.join(" ")}` : `Pendiente de verificar: ${rec.unverified.join(" ")}`);
     }
     return Promise.resolve(lines.join("\n"));
   }

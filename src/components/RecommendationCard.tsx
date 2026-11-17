@@ -17,16 +17,77 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   CONFIDENCE_BADGE_CLASSES,
-  CONFIDENCE_LABELS,
   formatCost,
   formatDateTime,
-  MAGNITUDE_LABELS,
   RISK_BADGE_CLASSES,
-  RISK_LABELS,
-  SOURCE_KIND_LABELS,
 } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
 import { compactRecommendationReason } from "@/lib/journal";
 import { cn } from "@/lib/utils";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    priority: (priority: number) => `Prioridad ${priority}`,
+    risk: (risk: string) => `Riesgo ${risk}`,
+    confidence: (confidence: string) => `Confianza ${confidence}`,
+    patch: (patch: string) => `Parche ${patch}`,
+    hasIrreversible: "Incluye una acción irreversible",
+    mayAffectMods: "Puede afectar modificadores valiosos",
+    overBudgetShort: "Supera el presupuesto indicado",
+    hideDetails: "Ocultar detalles",
+    showDetails: "Ver detalles",
+    action: "Acción",
+    reason: "Motivo",
+    cost: "Coste",
+    expectedImpact: "Impacto esperado",
+    partialMetric: "Métrica parcial: no es una estimación de DPS completa.",
+    riskTitle: "Riesgo",
+    overBudget: "Esta mejora supera tu presupuesto. Ahorra más moneda o considera una alternativa.",
+    loseMods: "Puede perder mods valiosos del objeto actual.",
+    irreversible: "Acción irreversible: no podrás deshacerla. Asegúrate antes de continuar.",
+    sources: "Fuentes",
+    newTab: "(se abre en una pestaña nueva)",
+    toVerify: "Falta por verificar",
+    dataUpdated: (date: string) => `Datos actualizados: ${date}`,
+    saveNextStep: "Guardar como próximo paso",
+    tryAndReturn: "Probar y volver",
+    seeItem: "Ver el objeto evaluado",
+    gateNote: "El mentor frena este paso hasta resolver el conflicto o la evidencia.",
+    dataActionNote: "Acción de datos: no modifica el juego ni se incluye en el archivo .build.",
+    appliedLabel: "Ya la apliqué — incluir al exportar el .build",
+  },
+  {
+    priority: (priority: number) => `Priority ${priority}`,
+    risk: (risk: string) => `Risk ${risk}`,
+    confidence: (confidence: string) => `Confidence ${confidence}`,
+    patch: (patch: string) => `Patch ${patch}`,
+    hasIrreversible: "Includes an action that can't be undone",
+    mayAffectMods: "May affect valuable modifiers",
+    overBudgetShort: "Over the budget you set",
+    hideDetails: "Hide details",
+    showDetails: "See details",
+    action: "Action",
+    reason: "Reason",
+    cost: "Cost",
+    expectedImpact: "Expected impact",
+    partialMetric: "Partial metric: not a full DPS estimate.",
+    riskTitle: "Risk",
+    overBudget: "This upgrade costs more than your budget. Save up more currency or look at another option.",
+    loseMods: "You may lose valuable mods from your current item.",
+    irreversible: "This action can't be undone. Make sure before you go ahead.",
+    sources: "Sources",
+    newTab: "(opens in a new tab)",
+    toVerify: "Still to verify",
+    dataUpdated: (date: string) => `Data updated: ${date}`,
+    saveNextStep: "Save as next step",
+    tryAndReturn: "Try it and come back",
+    seeItem: "See the item checked",
+    gateNote: "The mentor holds this step until the conflict or the evidence is sorted out.",
+    dataActionNote: "Data action: it doesn't change the game and isn't included in the .build file.",
+    appliedLabel: "I've done it — include it when exporting the .build",
+  },
+);
 
 interface RecommendationCardProps {
   recommendation: Recommendation;
@@ -74,6 +135,8 @@ export function RecommendationCard({
   expanded = false,
   onExpandedChange,
 }: RecommendationCardProps) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   const detailsId = useId();
   const isAlternative = presentation === "alternative";
   const overBudget =
@@ -97,23 +160,23 @@ export function RecommendationCard({
             variant="outline"
             className={PRIORITY_CLASSES[rec.priority] ?? PRIORITY_CLASSES[3]}
           >
-            Prioridad {rec.priority}
+            {t.priority(rec.priority)}
           </Badge>
           <Badge
             variant="outline"
             className={RISK_BADGE_CLASSES[rec.risk.level]}
             title={rec.risk.description}
           >
-            Riesgo {RISK_LABELS[rec.risk.level]}
+            {t.risk(labels.risk[rec.risk.level])}
           </Badge>
           <Badge
             variant="outline"
             className={CONFIDENCE_BADGE_CLASSES[rec.confidence]}
           >
-            Confianza {CONFIDENCE_LABELS[rec.confidence]}
+            {t.confidence(labels.confidence[rec.confidence])}
           </Badge>
           <Badge variant="outline" className="text-muted-foreground">
-            Parche {rec.patch}
+            {t.patch(rec.patch)}
           </Badge>
         </div>
         <CardTitle className="text-lg">{rec.title}</CardTitle>
@@ -126,10 +189,10 @@ export function RecommendationCard({
               <p className="flex items-center gap-2 text-xs font-medium text-amber-300">
                 <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
                 {rec.irreversible
-                  ? "Incluye una acción irreversible"
+                  ? t.hasIrreversible
                   : rec.mayLoseValuableMods
-                    ? "Puede afectar modificadores valiosos"
-                    : "Supera el presupuesto indicado"}
+                    ? t.mayAffectMods
+                    : t.overBudgetShort}
               </p>
             )}
             <Button
@@ -141,7 +204,7 @@ export function RecommendationCard({
               aria-controls={detailsId}
               onClick={() => onExpandedChange?.(!expanded)}
             >
-              {expanded ? "Ocultar detalles" : "Ver detalles"}
+              {expanded ? t.hideDetails : t.showDetails}
               <ChevronDown
                 className={cn(
                   "size-4 transition-transform",
@@ -162,18 +225,18 @@ export function RecommendationCard({
         )}
       >
         <div>
-          <p className="font-medium text-foreground">Acción</p>
+          <p className="font-medium text-foreground">{t.action}</p>
           <p className="text-muted-foreground">{rec.action}</p>
         </div>
         <div>
-          <p className="font-medium text-foreground">Motivo</p>
+          <p className="font-medium text-foreground">{t.reason}</p>
           <p className="text-muted-foreground">
             {compactRecommendationReason(rec.reason)}
           </p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p className="font-medium text-foreground">Coste</p>
+            <p className="font-medium text-foreground">{t.cost}</p>
             <p
               className={cn(
                 "text-muted-foreground",
@@ -184,20 +247,20 @@ export function RecommendationCard({
             </p>
           </div>
           <div>
-            <p className="font-medium text-foreground">Impacto esperado</p>
+            <p className="font-medium text-foreground">{t.expectedImpact}</p>
             <p className="text-muted-foreground">
               {rec.impact.description} ({rec.impact.metric}:{" "}
-              {MAGNITUDE_LABELS[rec.impact.magnitude]})
+              {labels.magnitude[rec.impact.magnitude]})
             </p>
             {rec.impact.isPartialMetric && (
               <p className="text-xs italic text-muted-foreground/80">
-                Métrica parcial: no es una estimación de DPS completa.
+                {t.partialMetric}
               </p>
             )}
           </div>
         </div>
         <div>
-          <p className="font-medium text-foreground">Riesgo</p>
+          <p className="font-medium text-foreground">{t.riskTitle}</p>
           <p className="text-muted-foreground">{rec.risk.description}</p>
         </div>
 
@@ -209,10 +272,7 @@ export function RecommendationCard({
                 className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2.5 text-amber-200"
               >
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span>
-                  Esta mejora supera tu presupuesto. Ahorra más moneda o considera una
-                  alternativa.
-                </span>
+                <span>{t.overBudget}</span>
               </div>
             )}
             {rec.mayLoseValuableMods && (
@@ -221,7 +281,7 @@ export function RecommendationCard({
                 className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2.5 text-amber-200"
               >
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span>Puede perder mods valiosos del objeto actual.</span>
+                <span>{t.loseMods}</span>
               </div>
             )}
             {rec.irreversible && (
@@ -230,10 +290,7 @@ export function RecommendationCard({
                 className="flex items-start gap-2 rounded-md border border-red-500/50 bg-red-500/10 p-2.5 text-red-200"
               >
                 <OctagonAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span>
-                  Acción irreversible: no podrás deshacerla. Asegúrate antes de
-                  continuar.
-                </span>
+                <span>{t.irreversible}</span>
               </div>
             )}
           </div>
@@ -241,7 +298,7 @@ export function RecommendationCard({
 
         {rec.sources.length > 0 && (
           <div>
-            <p className="font-medium text-foreground">Fuentes</p>
+            <p className="font-medium text-foreground">{t.sources}</p>
             <ul className="list-inside list-disc text-muted-foreground">
               {rec.sources.map((source, i) => (
                 <li key={`${source.label}-${i}`}>
@@ -254,12 +311,12 @@ export function RecommendationCard({
                     >
                       {source.label}
                       <ExternalLink className="size-3" aria-hidden="true" />
-                      <span className="sr-only">(se abre en una pestaña nueva)</span>
+                      <span className="sr-only">{t.newTab}</span>
                     </a>
                   ) : (
                     source.label
                   )}{" "}
-                  <span className="text-xs">({SOURCE_KIND_LABELS[source.kind]})</span>
+                  <span className="text-xs">({labels.sourceKind[source.kind]})</span>
                 </li>
               ))}
             </ul>
@@ -268,7 +325,7 @@ export function RecommendationCard({
 
         {rec.unverified.length > 0 && (
           <div>
-            <p className="font-medium text-foreground">Falta por verificar</p>
+            <p className="font-medium text-foreground">{t.toVerify}</p>
             <ul className="list-inside list-disc text-muted-foreground">
               {rec.unverified.map((item, i) => (
                 <li key={i}>{item}</li>
@@ -278,7 +335,7 @@ export function RecommendationCard({
         )}
 
         <p className="text-xs text-muted-foreground/80">
-          Datos actualizados: {formatDateTime(rec.dataUpdatedAt)}
+          {t.dataUpdated(formatDateTime(rec.dataUpdatedAt))}
         </p>
 
         {/* Solo con vínculo estructurado del motor (relatedItemIds). Sin él no
@@ -291,7 +348,7 @@ export function RecommendationCard({
             disabled={tracking || rec.actionKind === "session_gate"}
           >
             <BookMarked className="size-3.5" aria-hidden="true" />
-            Guardar como próximo paso
+            {t.saveNextStep}
           </Button>
           {onStartSession && rec.actionKind !== "session_gate" && (
             <Button
@@ -301,7 +358,7 @@ export function RecommendationCard({
               onClick={() => onStartSession(rec)}
               disabled={startingSession}
             >
-              Probar y volver
+              {t.tryAndReturn}
             </Button>
           )}
           {rec.relatedItemIds.length > 0 && (
@@ -316,7 +373,7 @@ export function RecommendationCard({
               }}
             >
               <PackageSearch className="size-3.5" aria-hidden="true" />
-              Ver el objeto evaluado
+              {t.seeItem}
               {rec.relatedItemIds.length > 1 && ` (${rec.relatedItemIds.length})`}
             </Button>
           )}
@@ -325,12 +382,12 @@ export function RecommendationCard({
         {rec.actionKind === "session_gate" ? (
           <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
             <FileWarning className="size-4 text-sky-300" aria-hidden="true" />
-            El mentor frena este paso hasta resolver el conflicto o la evidencia.
+            {t.gateNote}
           </div>
         ) : rec.actionKind === "profile_sync" ? (
           <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
             <FileWarning className="size-4 text-sky-300" aria-hidden="true" />
-            Acción de datos: no modifica el juego ni se incluye en el archivo .build.
+            {t.dataActionNote}
           </div>
         ) : (
           <div className="flex items-center gap-2 border-t border-border pt-3">
@@ -344,7 +401,7 @@ export function RecommendationCard({
               className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-normal"
             >
               <Undo2 className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              Ya la apliqué — incluir al exportar el .build
+              {t.appliedLabel}
             </Label>
           </div>
         )}

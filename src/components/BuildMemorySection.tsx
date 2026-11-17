@@ -11,21 +11,79 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SLOT_LABELS } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useText } from "@/i18n/lang";
 
-const KIND_LABELS: Record<BuildMemoryKind, string> = {
-  core: "Core",
-  flexible: "Flexible",
-  experimental: "Experimental",
-  discarded: "Descartado",
-};
-
-const KIND_HELP: Record<BuildMemoryKind, string> = {
-  core: "El mentor debe detenerse antes de recomendar algo que lo rompa.",
-  flexible: "Forma parte del plan actual, pero puede cambiarse.",
-  experimental: "Lo estás probando; todavía no es una conclusión.",
-  discarded: "No funcionó o no encaja. Conserva el motivo para no repetirlo.",
-};
+const TEXT = texts(
+  {
+    kindLabels: {
+      core: "Core",
+      flexible: "Flexible",
+      experimental: "Experimental",
+      discarded: "Descartado",
+    } as Record<BuildMemoryKind, string>,
+    kindHelp: {
+      core: "El mentor debe detenerse antes de recomendar algo que lo rompa.",
+      flexible: "Forma parte del plan actual, pero puede cambiarse.",
+      experimental: "Lo estás probando; todavía no es una conclusión.",
+      discarded: "No funcionó o no encaja. Conserva el motivo para no repetirlo.",
+    } as Record<BuildMemoryKind, string>,
+    eyebrow: "Identidad de la build",
+    title: "Lo que el mentor debe recordar",
+    addRule: "Añadir regla",
+    inactive: "Memoria inactiva",
+    saveAndActivate: "Guardar personaje y activar memoria",
+    empty: "Aún no has marcado qué es esencial, flexible, experimental o descartado.",
+    reconsiderIf: "Reconsiderar si:",
+    classificationOf: (label: string) => `Clasificación de ${label}`,
+    archive: "Archivar",
+    kindField: "Cómo debe recordarlo",
+    labelField: "Qué quieres recordar",
+    labelPlaceholder: "Por ejemplo: Barrera voltaica",
+    reasonField: "Por qué",
+    reasonPlaceholder: "Qué aporta a la identidad o por qué no funcionó",
+    itemField: "Objeto relacionado (opcional)",
+    none: "Ninguno",
+    reconsiderField: "Reconsiderar si (opcional)",
+    reconsiderPlaceholder: "Qué tendría que cambiar para probarlo de nuevo",
+    save: "Guardar en la memoria",
+    cancel: "Cancelar",
+  },
+  {
+    kindLabels: {
+      core: "Core",
+      flexible: "Flexible",
+      experimental: "Experimental",
+      discarded: "Discarded",
+    } as Record<BuildMemoryKind, string>,
+    kindHelp: {
+      core: "Your mentor must stop before recommending anything that breaks it.",
+      flexible: "Part of the current plan, but it can change.",
+      experimental: "You're testing it; it's not a conclusion yet.",
+      discarded: "Didn't work or doesn't fit. Keep the reason so you don't repeat it.",
+    } as Record<BuildMemoryKind, string>,
+    eyebrow: "Build identity",
+    title: "What your mentor should remember",
+    addRule: "Add rule",
+    inactive: "Memory off",
+    saveAndActivate: "Save character and turn on memory",
+    empty: "You haven't marked what's core, flexible, experimental or discarded yet.",
+    reconsiderIf: "Reconsider if:",
+    classificationOf: (label: string) => `Classification of ${label}`,
+    archive: "Archive",
+    kindField: "How it should remember it",
+    labelField: "What you want it to remember",
+    labelPlaceholder: "For example: Spark",
+    reasonField: "Why",
+    reasonPlaceholder: "What it adds to the build's identity, or why it didn't work",
+    itemField: "Related item (optional)",
+    none: "None",
+    reconsiderField: "Reconsider if (optional)",
+    reconsiderPlaceholder: "What would need to change to try it again",
+    save: "Save to memory",
+    cancel: "Cancel",
+  },
+);
 
 interface BuildMemorySectionProps {
   profile: CharacterProfile;
@@ -42,6 +100,8 @@ export function BuildMemorySection({
   savingProfile,
   onSaveProfile,
 }: BuildMemorySectionProps) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   const [showForm, setShowForm] = useState(false);
   const [kind, setKind] = useState<BuildMemoryKind>("core");
   const [label, setLabel] = useState("");
@@ -86,10 +146,10 @@ export function BuildMemorySection({
         <div>
           <p className="flex items-center gap-1.5 text-xs font-semibold text-primary/75">
             <Brain className="size-3.5" aria-hidden="true" />
-            Identidad de la build
+            {t.eyebrow}
           </p>
           <h3 id="memoria-build-titulo" className="mt-1 font-semibold text-foreground">
-            Lo que el mentor debe recordar
+            {t.title}
           </h3>
         </div>
         <Button
@@ -100,13 +160,13 @@ export function BuildMemorySection({
           disabled={journal.saving || !revision || !profilePersisted}
         >
           <Plus className="size-3.5" aria-hidden="true" />
-          Añadir regla
+          {t.addRule}
         </Button>
       </div>
 
       {!profilePersisted && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-amber-500/25 pt-3 text-xs">
-          <span className="font-medium text-amber-200">Memoria inactiva</span>
+          <span className="font-medium text-amber-200">{t.inactive}</span>
           <Button
             type="button"
             size="sm"
@@ -114,14 +174,14 @@ export function BuildMemorySection({
             disabled={savingProfile}
             onClick={onSaveProfile}
           >
-            Guardar personaje y activar memoria
+            {t.saveAndActivate}
           </Button>
         </div>
       )}
 
       {profilePersisted && memory.length === 0 && !showForm && (
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          Aún no has marcado qué es esencial, flexible, experimental o descartado.
+          {t.empty}
         </p>
       )}
 
@@ -134,19 +194,19 @@ export function BuildMemorySection({
                   {entry.kind === "core" && (
                     <ShieldCheck className="mr-1 size-3" aria-hidden="true" />
                   )}
-                  {KIND_LABELS[entry.kind]}
+                  {t.kindLabels[entry.kind]}
                 </Badge>
                 <strong className="text-foreground">{entry.label}</strong>
               </div>
               <p className="mt-1 leading-relaxed text-muted-foreground">{entry.reason}</p>
               {entry.reconsiderWhen && (
                 <p className="mt-1 text-sky-200">
-                  Reconsiderar si: {entry.reconsiderWhen}
+                  {t.reconsiderIf} {entry.reconsiderWhen}
                 </p>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <select
-                  aria-label={`Clasificación de ${entry.label}`}
+                  aria-label={t.classificationOf(entry.label)}
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                   value={entry.kind}
                   disabled={journal.saving || !revision}
@@ -158,7 +218,7 @@ export function BuildMemorySection({
                     });
                   }}
                 >
-                  {Object.entries(KIND_LABELS).map(([value, text]) => (
+                  {Object.entries(t.kindLabels).map(([value, text]) => (
                     <option key={value} value={value}>
                       {text}
                     </option>
@@ -177,7 +237,7 @@ export function BuildMemorySection({
                   }
                 >
                   <Archive className="size-3" aria-hidden="true" />
-                  Archivar
+                  {t.archive}
                 </Button>
               </div>
             </li>
@@ -188,67 +248,67 @@ export function BuildMemorySection({
       {profilePersisted && showForm && (
         <form className="mt-4 space-y-3 border-t border-border pt-3" onSubmit={submit}>
           <div className="space-y-1">
-            <Label htmlFor="build-memory-kind">Cómo debe recordarlo</Label>
+            <Label htmlFor="build-memory-kind">{t.kindField}</Label>
             <select
               id="build-memory-kind"
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={kind}
               onChange={(event) => setKind(event.target.value as BuildMemoryKind)}
             >
-              {Object.entries(KIND_LABELS).map(([value, text]) => (
+              {Object.entries(t.kindLabels).map(([value, text]) => (
                 <option key={value} value={value}>
                   {text}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">{KIND_HELP[kind]}</p>
+            <p className="text-xs text-muted-foreground">{t.kindHelp[kind]}</p>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="build-memory-label">Qué quieres recordar</Label>
+            <Label htmlFor="build-memory-label">{t.labelField}</Label>
             <Input
               id="build-memory-label"
               value={label}
               maxLength={200}
               onChange={(event) => setLabel(event.target.value)}
-              placeholder="Por ejemplo: Barrera voltaica"
+              placeholder={t.labelPlaceholder}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="build-memory-reason">Por qué</Label>
+            <Label htmlFor="build-memory-reason">{t.reasonField}</Label>
             <Textarea
               id="build-memory-reason"
               value={reason}
               maxLength={1000}
               rows={2}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="Qué aporta a la identidad o por qué no funcionó"
+              placeholder={t.reasonPlaceholder}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="build-memory-item">Objeto relacionado (opcional)</Label>
+            <Label htmlFor="build-memory-item">{t.itemField}</Label>
             <select
               id="build-memory-item"
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={relatedItemId}
               onChange={(event) => setRelatedItemId(event.target.value)}
             >
-              <option value="">Ninguno</option>
+              <option value="">{t.none}</option>
               {profile.items.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} ({SLOT_LABELS[item.slot]})
+                  {item.name} ({labels.slot[item.slot]})
                 </option>
               ))}
             </select>
           </div>
           {kind === "discarded" && (
             <div className="space-y-1">
-              <Label htmlFor="build-memory-reconsider">Reconsiderar si (opcional)</Label>
+              <Label htmlFor="build-memory-reconsider">{t.reconsiderField}</Label>
               <Input
                 id="build-memory-reconsider"
                 value={reconsiderWhen}
                 maxLength={1000}
                 onChange={(event) => setReconsiderWhen(event.target.value)}
-                placeholder="Qué tendría que cambiar para probarlo de nuevo"
+                placeholder={t.reconsiderPlaceholder}
               />
             </div>
           )}
@@ -257,10 +317,10 @@ export function BuildMemorySection({
               type="submit"
               disabled={journal.saving || !revision || !label.trim() || !reason.trim()}
             >
-              Guardar en la memoria
+              {t.save}
             </Button>
             <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
-              Cancelar
+              {t.cancel}
             </Button>
           </div>
         </form>
