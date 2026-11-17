@@ -61,14 +61,17 @@ function hasUnverifiedSpecialState(item: Item): boolean {
 export function assessCraftingImportIssue(
   item: Item,
   diagnosis: CraftingItemDiagnosis = diagnoseCraftingItem(item),
+  lang: "es" | "en" = "es",
 ): CraftingImportIssue {
+  const en = lang === "en";
   if (hasVerifiedLegalBlocker(item)) {
     return {
       kind: "verified-blocker",
-      label: "Bloqueo verificado",
-      title: "Esta pieza no admite este craft",
-      summary:
-        "El tooltip sí se ha leído, pero declara un estado que bloquea esta ruta. Volver a copiarlo no lo hará modificable.",
+      label: en ? "Verified block" : "Bloqueo verificado",
+      title: en ? "This item can't take this craft" : "Esta pieza no admite este craft",
+      summary: en
+        ? "The tooltip was read fine, but it shows a state that blocks this route. Copying it again won't make it modifiable."
+        : "El tooltip sí se ha leído, pero declara un estado que bloquea esta ruta. Volver a copiarlo no lo hará modificable.",
       retryCopy: false,
     };
   }
@@ -76,10 +79,11 @@ export function assessCraftingImportIssue(
   if (hasUnverifiedSpecialState(item)) {
     return {
       kind: "mechanic-unverified",
-      label: "Mecánica no verificada",
-      title: "Esta interacción aún no está verificada",
-      summary:
-        "La pieza tiene un estado especial cuya interacción no está demostrada para este parche. No gastes moneda sobre ella.",
+      label: en ? "Unverified mechanic" : "Mecánica no verificada",
+      title: en ? "This interaction isn't verified yet" : "Esta interacción aún no está verificada",
+      summary: en
+        ? "The item has a special state whose interaction isn't proven for this patch. Don't spend currency on it."
+        : "La pieza tiene un estado especial cuya interacción no está demostrada para este parche. No gastes moneda sobre ella.",
       retryCopy: false,
     };
   }
@@ -87,10 +91,11 @@ export function assessCraftingImportIssue(
   if (!["normal", "magic", "rare"].includes(item.rarity)) {
     return {
       kind: "unsupported-item",
-      label: "Objeto fuera de cobertura",
-      title: "Este tipo de objeto todavía no está cubierto",
-      summary:
-        "La lectura inicial de crafting solo está verificada para objetos normales, mágicos y raros.",
+      label: en ? "Item not covered" : "Objeto fuera de cobertura",
+      title: en ? "This kind of item isn't covered yet" : "Este tipo de objeto todavía no está cubierto",
+      summary: en
+        ? "The first crafting reading is only verified for normal, magic and rare items."
+        : "La lectura inicial de crafting solo está verificada para objetos normales, mágicos y raros.",
       retryCopy: false,
     };
   }
@@ -102,10 +107,11 @@ export function assessCraftingImportIssue(
   if (inconsistentStructure) {
     return {
       kind: "inconsistent-reading",
-      label: "Lectura inconsistente",
-      title: "La estructura copiada no cuadra",
-      summary:
-        "Rareza y modificadores se contradicen. Vuelve a copiar la pieza completa; si se repite, conserva el informe para revisar el importador.",
+      label: en ? "Inconsistent reading" : "Lectura inconsistente",
+      title: en ? "The copied structure doesn't add up" : "La estructura copiada no cuadra",
+      summary: en
+        ? "Rarity and mods contradict each other. Copy the full item again; if it keeps happening, keep the report so the importer can be checked."
+        : "Rareza y modificadores se contradicen. Vuelve a copiar la pieza completa; si se repite, conserva el informe para revisar el importador.",
       retryCopy: true,
     };
   }
@@ -116,10 +122,13 @@ export function assessCraftingImportIssue(
   ) {
     return {
       kind: "parser-gap",
-      label: "Límite del importador",
-      title: "El texto parece completo, pero falta clasificar una línea",
-      summary:
-        "El tooltip contiene cabeceras avanzadas y aun así una línea quedó sin clasificar. Copia el informe para poder reproducir y corregir el caso.",
+      label: en ? "Importer limit" : "Límite del importador",
+      title: en
+        ? "The text looks complete, but one line isn't classified"
+        : "El texto parece completo, pero falta clasificar una línea",
+      summary: en
+        ? "The tooltip has advanced headers and still one line wasn't classified. Copy the report so the case can be reproduced and fixed."
+        : "El tooltip contiene cabeceras avanzadas y aun así una línea quedó sin clasificar. Copia el informe para poder reproducir y corregir el caso.",
       retryCopy: true,
     };
   }
@@ -131,20 +140,22 @@ export function assessCraftingImportIssue(
   ) {
     return {
       kind: "copy-incomplete",
-      label: "Copia incompleta",
-      title: "Faltan datos del tooltip avanzado",
-      summary:
-        "La copia no contiene toda la estructura necesaria. Repite Ctrl+Alt+C sobre la pieza antes de gastar otra moneda.",
+      label: en ? "Incomplete copy" : "Copia incompleta",
+      title: en ? "Advanced tooltip data is missing" : "Faltan datos del tooltip avanzado",
+      summary: en
+        ? "The copy doesn't have the full structure. Press Ctrl+Alt+C on the item again before spending more currency."
+        : "La copia no contiene toda la estructura necesaria. Repite Ctrl+Alt+C sobre la pieza antes de gastar otra moneda.",
       retryCopy: true,
     };
   }
 
   return {
     kind: "parser-gap",
-    label: "Lectura pendiente",
-    title: "El importador necesita revisar este caso",
-    summary:
-      "La pieza sigue bloqueada aunque no falta un dato reconocible. El informe conserva la entrada exacta para poder reproducirlo.",
+    label: en ? "Reading pending" : "Lectura pendiente",
+    title: en ? "The importer needs to review this case" : "El importador necesita revisar este caso",
+    summary: en
+      ? "The item is still blocked even though no known field is missing. The report keeps the exact input so it can be reproduced."
+      : "La pieza sigue bloqueada aunque no falta un dato reconocible. El informe conserva la entrada exacta para poder reproducirlo.",
     retryCopy: true,
   };
 }
@@ -157,34 +168,42 @@ export function assessCraftingImportIssue(
 export function summarizeCraftingImportEvidence(
   item: Item,
   diagnosis: CraftingItemDiagnosis = diagnoseCraftingItem(item),
+  lang: "es" | "en" = "es",
 ): CraftingImportEvidenceSummary {
+  const en = lang === "en";
   const recognized: string[] = [];
   const missing: string[] = [];
 
   if (item.baseType && !/^desconocid[oa]$/i.test(item.baseType)) {
-    recognized.push(`Base: ${item.baseType}`);
+    recognized.push(en ? `Base type: ${item.baseType}` : `Base: ${item.baseType}`);
   } else {
-    missing.push("Tipo base");
+    missing.push(en ? "Base type" : "Tipo base");
   }
 
-  if (item.itemClass) recognized.push(`Clase: ${item.itemClass}`);
-  else missing.push("Clase de objeto");
+  if (item.itemClass) recognized.push(en ? `Class: ${item.itemClass}` : `Clase: ${item.itemClass}`);
+  else missing.push(en ? "Item class" : "Clase de objeto");
 
-  recognized.push(`Rareza leída: ${item.rarity}`);
+  recognized.push(en ? `Rarity read: ${item.rarity}` : `Rareza leída: ${item.rarity}`);
 
-  if (item.itemLevel !== undefined) recognized.push(`Nivel de objeto: ${item.itemLevel}`);
-  else missing.push("Nivel de objeto");
+  if (item.itemLevel !== undefined) {
+    recognized.push(en ? `Item level: ${item.itemLevel}` : `Nivel de objeto: ${item.itemLevel}`);
+  } else missing.push(en ? "Item level" : "Nivel de objeto");
 
-  if (item.craftingState !== undefined) recognized.push("Estados especiales comprobados");
-  else missing.push("Estados especiales del tooltip");
+  if (item.craftingState !== undefined) {
+    recognized.push(en ? "Special states checked" : "Estados especiales comprobados");
+  } else missing.push(en ? "Tooltip special states" : "Estados especiales del tooltip");
 
   if (diagnosis.unclassifiedExplicitCount > 0) {
     missing.push(
-      `Posición de ${diagnosis.unclassifiedExplicitCount} modificador(es)`,
+      en
+        ? `Position of ${diagnosis.unclassifiedExplicitCount} mod(s)`
+        : `Posición de ${diagnosis.unclassifiedExplicitCount} modificador(es)`,
     );
   } else if (item.modifiers.some((modifier) => modifier.kind === "explicit")) {
     recognized.push(
-      `Afijos clasificados: ${diagnosis.prefixCount} prefijo(s) · ${diagnosis.suffixCount} sufijo(s)`,
+      en
+        ? `Classified affixes: ${diagnosis.prefixCount} prefix(es) · ${diagnosis.suffixCount} suffix(es)`
+        : `Afijos clasificados: ${diagnosis.prefixCount} prefijo(s) · ${diagnosis.suffixCount} sufijo(s)`,
     );
   }
 
@@ -217,21 +236,67 @@ export function craftingTooltipFingerprint(value: string | undefined): string {
 export function buildCraftingImportReport(input: {
   item: Item;
   patch: string;
-}): string {
-  const diagnosis = diagnoseCraftingItem(input.item);
-  const issue = assessCraftingImportIssue(input.item, diagnosis);
-  const evidence = summarizeCraftingImportEvidence(input.item, diagnosis);
+}, lang: "es" | "en" = "es"): string {
+  const en = lang === "en";
+  const diagnosis = diagnoseCraftingItem(input.item, lang);
+  const issue = assessCraftingImportIssue(input.item, diagnosis, lang);
+  const evidence = summarizeCraftingImportEvidence(input.item, diagnosis, lang);
   const rawText = normalizeTooltip(input.item.rawText);
   const modifiers = input.item.modifiers.length > 0
     ? input.item.modifiers.map((modifier, index) =>
-        `${index + 1}. ${modifier.kind} · ${modifier.affix ?? "sin posición"} · ${
-          modifier.verified ? "verificado" : "sin verificar"
-        } · ${modifier.text.replace(/\s+/g, " ").trim()}`,
+        en
+          ? `${index + 1}. ${modifier.kind} · ${modifier.affix ?? "no position"} · ${
+              modifier.verified ? "verified" : "not verified"
+            } · ${modifier.text.replace(/\s+/g, " ").trim()}`
+          : `${index + 1}. ${modifier.kind} · ${modifier.affix ?? "sin posición"} · ${
+              modifier.verified ? "verificado" : "sin verificar"
+            } · ${modifier.text.replace(/\s+/g, " ").trim()}`,
       )
-    : ["- Ninguno interpretado"];
+    : [en ? "- None read" : "- Ninguno interpretado"];
   const blockers = diagnosis.blockers.length > 0
     ? diagnosis.blockers.map((blocker) => `- ${blocker}`)
-    : ["- Ninguno"];
+    : [en ? "- None" : "- Ninguno"];
+
+  if (en) {
+    return [
+      "EXILE COPILOT — LOCAL ITEM READING REPORT",
+      `Format: ${CRAFTING_IMPORT_REPORT_VERSION}`,
+      `Tooltip fingerprint: ${craftingTooltipFingerprint(input.item.rawText)}`,
+      `Stated patch: ${input.patch.trim() || "Unknown"}`,
+      `Category: ${issue.kind} · ${issue.label}`,
+      `Diagnosis state: ${diagnosis.state}`,
+      "",
+      "ITEM AS READ",
+      `Name: ${input.item.name || "Unknown"}`,
+      `Class: ${input.item.itemClass ?? "Unknown"}`,
+      `Base type: ${input.item.baseType || "Unknown"}`,
+      `Rarity: ${input.item.rarity}`,
+      `Slot: ${input.item.slot}`,
+      `Item level: ${input.item.itemLevel ?? "Unknown"}`,
+      `Structure: ${diagnosis.prefixCount} prefixes · ${diagnosis.suffixCount} suffixes · ${diagnosis.unclassifiedExplicitCount} unclassified`,
+      "",
+      "PARTIAL READING",
+      ...evidence.recognized.map((fact) => `- Recognized: ${fact}`),
+      ...(evidence.missing.length > 0
+        ? evidence.missing.map((fact) => `- Missing: ${fact}`)
+        : ["- Missing: block needs review, no known field is missing"]),
+      "",
+      "BLOCKS FOUND",
+      ...blockers,
+      `Next check: ${diagnosis.nextAction}`,
+      "",
+      "MODS AS READ",
+      ...modifiers,
+      "",
+      "ORIGINAL TOOLTIP TEXT",
+      "--- start ---",
+      rawText || "[The saved item doesn't keep the original text]",
+      "--- end ---",
+      "",
+      "PRIVACY",
+      "Generated locally. It doesn't include your character, build or budget. Nothing has been sent.",
+    ].join("\n");
+  }
 
   return [
     "EXILE COPILOT — INFORME LOCAL DE LECTURA DE OBJETO",

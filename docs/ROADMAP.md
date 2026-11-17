@@ -292,6 +292,15 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
   el daño). Esperar al 1.0: el árbol cambiará y PoB2 publicará datos nuevos.
   Ni PoB2 (versión publicada de julio, desarrollo del 10-09) ni el export de
   GGG 0.5.5 traen todavía todos los nodos del juego (p. ej. «Entropía»).
+- [x] **Comparador «¿Cuál de estas dos es mejor?» con el personaje en cuenta**
+  (hecho el 17-11: resistencias del personaje descontando la pieza puesta,
+  tope del 75 % y botón «Llevo esbirros»).
+  (`src/lib/itemCompare.ts`). Hoy compara en el vacío: no mira qué
+  resistencias le faltan al personaje guardado ni distingue esbirros de
+  hechizos. Caso real (17-11): bruja con esbirros al 28 % de fuego y 44 % de
+  rayo; la web eligió la pieza con +12 % de rayo y +30 de vida frente a la de
+  +14 % de fuego y +33 de Espíritu. Ideas: valorar cada resistencia por lo que
+  le falta al personaje; preguntar «¿usas esbirros?» y dar más peso al Espíritu.
 - [ ] **Leer una captura de la hoja de personaje** (tecla C) para sacar
   nivel, vida y resistencias sin escribir nada.
 - [ ] **Botón «Conectar con tu cuenta de PoE»** (OAuth oficial). Bloqueado:

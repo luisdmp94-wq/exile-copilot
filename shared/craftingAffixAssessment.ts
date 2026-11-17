@@ -1,5 +1,6 @@
 import {
   CRAFTING_GOAL_LABELS,
+  CRAFTING_GOAL_LABELS_EN,
   evaluateCraftingGoalSignal,
   type CraftingGoalCategory,
 } from "./craftingGoal.js";
@@ -67,19 +68,23 @@ function assessModifier(
   modifier: Modifier,
   goalCategory: CraftingGoalCategory,
   protectedIds: ReadonlySet<string>,
+  lang: "es" | "en",
 ): CraftingAffixAssessmentEntry {
+  const en = lang === "en";
   const signal = evaluateCraftingGoalSignal(goalCategory, [modifier]);
   const leadingGrade = modifier.tier !== undefined && modifier.tier <= 2;
   const protectedModifier = protectedIds.has(modifier.id);
-  const rollQuality = assessObservedModifierRoll(modifier);
+  const rollQuality = assessObservedModifierRoll(modifier, lang);
 
   if (signal.status === "direct" && leadingGrade) {
     return {
       modifier,
       kind: "protect-first",
       protected: protectedModifier,
-      label: "Protege primero",
-      reason: `Coincide con el objetivo y el juego muestra grado ${modifier.tier}.`,
+      label: en ? "Protect first" : "Protege primero",
+      reason: en
+        ? `It matches the goal and the game shows tier ${modifier.tier}.`
+        : `Coincide con el objetivo y el juego muestra grado ${modifier.tier}.`,
       matchedTags: signal.matchedTags,
       rollQuality,
     };
@@ -90,9 +95,12 @@ function assessModifier(
       modifier,
       kind: "goal-aligned",
       protected: protectedModifier,
-      label: "Aporta al objetivo",
-      reason:
-        modifier.tier === undefined
+      label: en ? "Helps the goal" : "Aporta al objetivo",
+      reason: en
+        ? modifier.tier === undefined
+          ? "Its tags match, but the tier isn't shown."
+          : `Its tags match; the game shows tier ${modifier.tier}.`
+        : modifier.tier === undefined
           ? "Sus etiquetas coinciden, pero el grado no está disponible."
           : `Sus etiquetas coinciden; el juego muestra grado ${modifier.tier}.`,
       matchedTags: signal.matchedTags,
@@ -105,8 +113,10 @@ function assessModifier(
       modifier,
       kind: "review-fit",
       protected: protectedModifier,
-      label: "Revisa su encaje",
-      reason: `El juego muestra grado ${modifier.tier}, pero sus etiquetas no coinciden directamente con este objetivo.`,
+      label: en ? "Check its fit" : "Revisa su encaje",
+      reason: en
+        ? `The game shows tier ${modifier.tier}, but its tags don't match this goal directly.`
+        : `El juego muestra grado ${modifier.tier}, pero sus etiquetas no coinciden directamente con este objetivo.`,
       matchedTags: [],
       rollQuality,
     };
@@ -116,9 +126,12 @@ function assessModifier(
     modifier,
     kind: "contextual",
     protected: protectedModifier,
-    label: "Depende de la build",
-    reason:
-      signal.status === "unknown"
+    label: en ? "Depends on the build" : "Depende de la build",
+    reason: en
+      ? signal.status === "unknown"
+        ? "The text doesn't have enough tags to classify it."
+        : "No direct match; there may be an indirect link."
+      : signal.status === "unknown"
         ? "El texto no aporta etiquetas suficientes para clasificarlo."
         : "No hay coincidencia literal; puede existir una interacción indirecta.",
     matchedTags: [],
@@ -136,11 +149,13 @@ export function assessCraftingAffixes(
   item: Item,
   goalCategory: CraftingGoalCategory,
   protectedModifierIds: readonly string[] = [],
+  lang: "es" | "en" = "es",
 ): CraftingAffixAssessment {
+  const en = lang === "en";
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const protectedIds = new Set(protectedModifierIds);
   const entries = explicit.map((modifier) =>
-    assessModifier(modifier, goalCategory, protectedIds),
+    assessModifier(modifier, goalCategory, protectedIds, lang),
   );
   const aligned = entries.filter(
     (entry) => entry.kind === "protect-first" || entry.kind === "goal-aligned",
@@ -174,20 +189,32 @@ export function assessCraftingAffixes(
     .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag, "es"))
     .slice(0, 3);
 
-  const goalLabel = CRAFTING_GOAL_LABELS[goalCategory].toLocaleLowerCase("es");
-  let headline = "Define qué quieres conseguir";
-  let summary = "La pieza se puede leer, pero falta una categoría para valorar su dirección.";
+  const goalLabel = en
+    ? CRAFTING_GOAL_LABELS_EN[goalCategory].toLocaleLowerCase("en")
+    : CRAFTING_GOAL_LABELS[goalCategory].toLocaleLowerCase("es");
+  let headline = en ? "Decide what you want to get" : "Define qué quieres conseguir";
+  let summary = en
+    ? "The item can be read, but it needs a category to judge its direction."
+    : "La pieza se puede leer, pero falta una categoría para valorar su dirección.";
   if (goalCategory !== "other" && aligned.length === 0) {
-    headline = `Sin núcleo directo de ${goalLabel}`;
-    summary =
-      "Ningún afijo aporta etiquetas literales del objetivo. Esto no demuestra que la pieza sea inútil.";
+    headline = en ? `No direct ${goalLabel} core` : `Sin núcleo directo de ${goalLabel}`;
+    summary = en
+      ? "No affix carries the goal's tags. That doesn't prove the item is useless."
+      : "Ningún afijo aporta etiquetas literales del objetivo. Esto no demuestra que la pieza sea inútil.";
   } else if (goalCategory !== "other" && aligned.length === 1) {
-    headline = `1 afijo apunta a ${goalLabel}`;
-    summary = "Hay una señal aislada; el resto necesita contexto de la build antes de gastar más.";
+    headline = en ? `1 affix points to ${goalLabel}` : `1 afijo apunta a ${goalLabel}`;
+    summary = en
+      ? "There is one lone signal; the rest needs build context before you spend more."
+      : "Hay una señal aislada; el resto necesita contexto de la build antes de gastar más.";
   } else if (goalCategory !== "other") {
-    headline = `${aligned.length} afijos apuntan a ${goalLabel}`;
-    summary =
-      clusters.length > 0
+    headline = en
+      ? `${aligned.length} affixes point to ${goalLabel}`
+      : `${aligned.length} afijos apuntan a ${goalLabel}`;
+    summary = en
+      ? clusters.length > 0
+        ? "Several signals point the same visible way."
+        : "Several lines match the goal, though they don't share another specific tag."
+      : clusters.length > 0
         ? "Hay varias señales que convergen en la misma dirección observable."
         : "Hay varias coincidencias con el objetivo, aunque no comparten una etiqueta específica adicional.";
   }
@@ -201,7 +228,11 @@ export function assessCraftingAffixes(
     unknownTierCount,
     clusters,
     entries,
-    limitations: [
+    limitations: en ? [
+      "The tier shown doesn't measure on its own how much the affix is worth to this build.",
+      "Without a full mod pool, weights and chances aren't worked out.",
+      "Matching tags don't replace an actual damage or defence measurement.",
+    ] : [
       "El grado mostrado no mide por sí solo el valor del afijo para esta build.",
       "Sin un pool completo no se calculan pesos ni probabilidades.",
       "La coincidencia de etiquetas no sustituye una medición de daño o defensa.",

@@ -34,6 +34,8 @@ export interface CraftingComparison {
 /** Incógnita canónica de la sesión; evita resolverla mediante literales duplicados. */
 export const CRAFTING_RESULT_UNKNOWN_LABEL =
   "El modificador resultante es aleatorio y no puede conocerse de antemano.";
+export const CRAFTING_RESULT_UNKNOWN_LABEL_EN =
+  "The resulting mod is random and can't be known in advance.";
 
 /**
  * Rareza que el objeto tiene DESPUÉS de cada acción observada. Se exporta para
@@ -155,12 +157,16 @@ export function compareCraftingResult(
   result: Item,
   actionId: CraftingComparisonActionId,
   options: CraftingComparisonOptions = {},
+  lang: "es" | "en" = "es",
 ): CraftingComparison {
+  const en = lang === "en";
   const warnings: string[] = [];
   const baseTypeMatches = baseIdentityMatches(original, result, actionId);
   if (!baseTypeMatches) {
     warnings.push(
-      `La base cambió de «${original.baseType}» a «${result.baseType}»: no parece el mismo objeto.`,
+      en
+        ? `The base changed from "${original.baseType}" to "${result.baseType}": it doesn't look like the same item.`
+        : `La base cambió de «${original.baseType}» a «${result.baseType}»: no parece el mismo objeto.`,
     );
   }
   const itemLevelMatches =
@@ -168,12 +174,22 @@ export function compareCraftingResult(
     result.itemLevel !== undefined &&
     original.itemLevel === result.itemLevel;
   if (original.itemLevel === undefined) {
-    warnings.push("El snapshot anterior no conserva el nivel de objeto.");
+    warnings.push(
+      en
+        ? "The earlier snapshot doesn't keep the item level."
+        : "El snapshot anterior no conserva el nivel de objeto.",
+    );
   } else if (result.itemLevel === undefined) {
-    warnings.push("El resultado no incluye el nivel de objeto; no se puede confirmar la identidad.");
+    warnings.push(
+      en
+        ? "The result doesn't include the item level, so it can't be confirmed as the same item."
+        : "El resultado no incluye el nivel de objeto; no se puede confirmar la identidad.",
+    );
   } else if (!itemLevelMatches) {
     warnings.push(
-      `El nivel de objeto cambió de ${original.itemLevel} a ${result.itemLevel}.`,
+      en
+        ? `The item level changed from ${original.itemLevel} to ${result.itemLevel}.`
+        : `El nivel de objeto cambió de ${original.itemLevel} a ${result.itemLevel}.`,
     );
   }
   const identityMatches = baseTypeMatches && itemLevelMatches;
@@ -184,7 +200,9 @@ export function compareCraftingResult(
   const rarityMatches = result.rarity === expectedRarity;
   if (!rarityMatches) {
     warnings.push(
-      `La rareza resultante es «${result.rarity}»; para esta acción se esperaba «${expectedRarity}».`,
+      en
+        ? `The resulting rarity is "${result.rarity}"; this action should give "${expectedRarity}".`
+        : `La rareza resultante es «${result.rarity}»; para esta acción se esperaba «${expectedRarity}».`,
     );
   }
 
@@ -222,15 +240,23 @@ export function compareCraftingResult(
   const expectedRemovedModifierCount = options.expectedRemovedModifierCount ?? 0;
   if (removedExplicit.length !== expectedRemovedModifierCount) {
     warnings.push(
-      `Se esperaba que desaparecieran ${expectedRemovedModifierCount} modificadores explícitos y se detectaron ${removedExplicit.length}.`,
+      en
+        ? `Expected ${expectedRemovedModifierCount} explicit mods to disappear, but found ${removedExplicit.length}.`
+        : `Se esperaba que desaparecieran ${expectedRemovedModifierCount} modificadores explícitos y se detectaron ${removedExplicit.length}.`,
     );
   }
   if (removedAuxiliary.length > 0) {
-    warnings.push("También desaparecieron líneas no explícitas; revisa que no se aplicara otra acción.");
+    warnings.push(
+      en
+        ? "Non-explicit lines also disappeared; check that no other action was used."
+        : "También desaparecieron líneas no explícitas; revisa que no se aplicara otra acción.",
+    );
   }
   if (addedExplicit.length !== 1) {
     warnings.push(
-      `Se esperaba 1 modificador explícito nuevo y se detectaron ${addedExplicit.length}.`,
+      en
+        ? `Expected 1 new explicit mod, but found ${addedExplicit.length}.`
+        : `Se esperaba 1 modificador explícito nuevo y se detectaron ${addedExplicit.length}.`,
     );
   }
   if (
@@ -240,23 +266,33 @@ export function compareCraftingResult(
   ) {
     warnings.push(
       options.expectedAddedCrafted
-        ? "El modificador nuevo no está identificado como fabricado en el texto avanzado."
-        : "El modificador nuevo aparece como fabricado cuando no se esperaba.",
+        ? en
+          ? "The new mod isn't marked as crafted in the advanced text."
+          : "El modificador nuevo no está identificado como fabricado en el texto avanzado."
+        : en
+          ? "The new mod shows as crafted when that wasn't expected."
+          : "El modificador nuevo aparece como fabricado cuando no se esperaba.",
     );
   }
   if (!addedTextMatches) {
     warnings.push(
-      "El modificador nuevo no contiene el efecto garantizado que se copió del tooltip.",
+      en
+        ? "The new mod doesn't contain the guaranteed effect copied from the tooltip."
+        : "El modificador nuevo no contiene el efecto garantizado que se copió del tooltip.",
     );
   }
   if (unknownProtectedIds.length > 0) {
     warnings.push(
-      "La selección de modificadores protegidos no coincide por completo con el snapshot original.",
+      en
+        ? "The protected mods you picked don't fully match the original snapshot."
+        : "La selección de modificadores protegidos no coincide por completo con el snapshot original.",
     );
   }
   if (lostProtectedModifiers.length > 0) {
     warnings.push(
-      `Se perdió ${lostProtectedModifiers.length} modificador protegido: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}`,
+      en
+        ? `Lost ${lostProtectedModifiers.length} protected mod${lostProtectedModifiers.length === 1 ? "" : "s"}: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}`
+        : `Se perdió ${lostProtectedModifiers.length} modificador protegido: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}`,
     );
   }
   if (
@@ -264,11 +300,17 @@ export function compareCraftingResult(
     craftedResultCount > options.maximumCraftedModifierCount
   ) {
     warnings.push(
-      `El resultado contiene ${craftedResultCount} modificadores fabricados; el máximo permitido es ${options.maximumCraftedModifierCount}.`,
+      en
+        ? `The result has ${craftedResultCount} crafted mods; the maximum allowed is ${options.maximumCraftedModifierCount}.`
+        : `El resultado contiene ${craftedResultCount} modificadores fabricados; el máximo permitido es ${options.maximumCraftedModifierCount}.`,
     );
   }
   if (addedModifiers.length !== addedExplicit.length) {
-    warnings.push("También cambiaron líneas no explícitas; revisa que no se aplicara otra acción.");
+    warnings.push(
+      en
+        ? "Non-explicit lines also changed; check that no other action was used."
+        : "También cambiaron líneas no explícitas; revisa que no se aplicara otra acción.",
+    );
   }
 
   const structurallyConfirmed =
@@ -288,14 +330,24 @@ export function compareCraftingResult(
     const protectedLost = protectionStatus === "lost";
     return {
       status: "confirmed",
-      title: protectedLost
-        ? "Cambio confirmado, pero se perdió algo protegido"
-        : "Cambio estructural confirmado",
-      summary: protectedLost
-        ? `La moneda produjo la estructura esperada, pero desapareció: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}.`
-        : expectedRemovedModifierCount === 1
-          ? `El texto resultante es compatible: desaparece 1 modificador explícito y aparece 1 nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`
-          : `El texto resultante es compatible con el snapshot anterior y aparece 1 modificador explícito nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`,
+      title: en
+        ? protectedLost
+          ? "Change confirmed, but something protected was lost"
+          : "Structural change confirmed"
+        : protectedLost
+          ? "Cambio confirmado, pero se perdió algo protegido"
+          : "Cambio estructural confirmado",
+      summary: en
+        ? protectedLost
+          ? `The currency gave the expected structure, but this disappeared: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}.`
+          : expectedRemovedModifierCount === 1
+            ? `The resulting text fits: 1 explicit mod is gone and 1 new one appears: ${addedExplicit[0]?.text ?? "text not available"}.`
+            : `The resulting text fits the earlier snapshot and 1 new explicit mod appears: ${addedExplicit[0]?.text ?? "text not available"}.`
+        : protectedLost
+          ? `La moneda produjo la estructura esperada, pero desapareció: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}.`
+          : expectedRemovedModifierCount === 1
+            ? `El texto resultante es compatible: desaparece 1 modificador explícito y aparece 1 nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`
+            : `El texto resultante es compatible con el snapshot anterior y aparece 1 modificador explícito nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`,
       identityMatches,
       itemLevelMatches,
       rarityMatches,
@@ -323,10 +375,18 @@ export function compareCraftingResult(
     !addedTextMatches;
   return {
     status: mismatch ? "mismatch" : "inconclusive",
-    title: mismatch ? "El resultado no coincide con el paso esperado" : "No se puede confirmar todavía",
+    title: en
+      ? mismatch
+        ? "The result doesn't match the expected step"
+        : "Can't confirm it yet"
+      : mismatch
+        ? "El resultado no coincide con el paso esperado"
+        : "No se puede confirmar todavía",
     summary:
       warnings[0] ??
-      "El texto no aporta una diferencia suficientemente clara para confirmar el resultado.",
+      (en
+        ? "The text doesn't show a clear enough difference to confirm the result."
+        : "El texto no aporta una diferencia suficientemente clara para confirmar el resultado."),
     identityMatches,
     itemLevelMatches,
     rarityMatches,
@@ -348,14 +408,16 @@ export function compareCraftingResult(
 export function requireCompleteCraftingResult(
   result: Item,
   comparison: CraftingComparison,
+  lang: "es" | "en" = "es",
 ): CraftingComparison {
-  const diagnosis = diagnoseCraftingItem(result);
+  const en = lang === "en";
+  const diagnosis = diagnoseCraftingItem(result, lang);
   if (diagnosis.state === "complete") return comparison;
 
   return {
     ...comparison,
     status: "inconclusive",
-    title: "La lectura del resultado está incompleta",
+    title: en ? "The result reading is incomplete" : "La lectura del resultado está incompleta",
     summary: diagnosis.nextAction,
     protectionStatus:
       comparison.protectionStatus === "not-requested" ? "not-requested" : "unverifiable",
@@ -363,21 +425,31 @@ export function requireCompleteCraftingResult(
       ...new Set([
         ...comparison.warnings,
         ...diagnosis.blockers,
-        "El resultado no se confirmará hasta que el importador lea la pieza completa.",
+        en
+          ? "The result won't be confirmed until the importer reads the full item."
+          : "El resultado no se confirmará hasta que el importador lea la pieza completa.",
       ]),
     ],
   };
 }
 
-export function craftingComparisonEvidence(comparison: CraftingComparison): string {
+export function craftingComparisonEvidence(
+  comparison: CraftingComparison,
+  lang: "es" | "en" = "es",
+): string {
+  const en = lang === "en";
   const added = comparison.addedModifiers.map((modifier) => modifier.text).join(" | ");
   const removed = comparison.removedModifiers.map((modifier) => modifier.text).join(" | ");
   return [
     comparison.title,
     comparison.summary,
-    added ? `Añadido: ${added}` : null,
-    removed ? `Ya no aparece: ${removed}` : null,
-    comparison.warnings.length > 0 ? `Advertencias: ${comparison.warnings.join(" ")}` : null,
+    added ? (en ? `Added: ${added}` : `Añadido: ${added}`) : null,
+    removed ? (en ? `No longer there: ${removed}` : `Ya no aparece: ${removed}`) : null,
+    comparison.warnings.length > 0
+      ? en
+        ? `Warnings: ${comparison.warnings.join(" ")}`
+        : `Advertencias: ${comparison.warnings.join(" ")}`
+      : null,
   ]
     .filter((value): value is string => value !== null)
     .join("\n")

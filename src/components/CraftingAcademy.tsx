@@ -7,12 +7,8 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import {
-  CRAFTING_ACADEMY_EVIDENCE,
-  CRAFTING_ACADEMY_LESSONS,
-  type AcademyOption,
-  type AcademyScenario,
-} from "@shared/craftingAcademy.js";
+import { type AcademyOption, type AcademyScenario } from "@shared/craftingAcademy.js";
+import { craftingAcademyEvidence, craftingAcademyLessons } from "@shared/craftingAcademyEn.js";
 import { AcademyItemBoard } from "@/components/AcademyItemBoard";
 import { CraftingAdvancedAcademy } from "@/components/CraftingAdvancedAcademy";
 import { CraftingMediumAcademy } from "@/components/CraftingMediumAcademy";
@@ -28,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useCraftingAcademy } from "@/hooks/useCraftingAcademy";
+import { texts, useLang, useText } from "@/i18n/lang";
 import {
   loadCraftingAcademyLevel,
   saveCraftingAcademyLevel,
@@ -42,6 +39,99 @@ interface CraftingAcademyProps {
 
 type CraftingAcademyPracticeProps = Pick<CraftingAcademyProps, "onPracticeWithMyItem">;
 
+const TEXT = texts(
+  {
+    correctAnswerAria: "Respuesta correcta",
+    wrongAnswerAria: "Tu respuesta, incorrecta",
+    answerOptionsAria: "Opciones de respuesta",
+    correct: "Correcto",
+    notThatOne: "No era esa",
+    why: "Por qué",
+    restartLevel: "Reiniciar nivel",
+    restartTitle: "¿Reiniciar el nivel básico?",
+    restartBody:
+      "Se borra tu progreso de la Academia y vuelves a la primera lección. No afecta a tu personaje, a tus objetos ni a ninguna sesión de crafting guardada.",
+    keepGoing: "Seguir donde estaba",
+    yesRestart: "Sí, reiniciar",
+    practiceWithMyItem: "Practicar con mi objeto",
+    introTitle: "Academia de crafting · Nivel básico",
+    introSubtitle: "Cinco lecciones cortas y un desafío. Miras un objeto, decides y te corrijo.",
+    resume: "Seguir donde lo dejé",
+    start: "Empezar",
+    basicDone: "Nivel básico completado",
+    almost: "Casi: te quedan un par de cosas",
+    score: (correct: number, total: number) =>
+      `Acertaste ${correct} de ${total}. Es solo lo que has entendido de estas lecciones: no es una probabilidad de crafting ni una valoración de ningún objeto.`,
+    toReview: "Lo que conviene repasar",
+    allClear:
+      "Sabes leer la rareza, contar prefijos y sufijos, reconocer un hueco y elegir entre las cuatro monedas observadas o parar.",
+    reviewPending: (count: number) => `Repasar solo lo pendiente (${count})`,
+    nothingToShow: "No hay ninguna situación que mostrar.",
+    backToStart: "Volver al principio",
+    retryRun: "Repaso de lo pendiente",
+    finalChallenge: "Desafío final",
+    lessonHeader: (order: number | undefined, title: string | undefined) => `Lección ${order} · ${title}`,
+    challengeProgress: "Progreso del desafío",
+    lessonsProgress: "Progreso de las lecciones",
+    stepDone: "completada",
+    stepReview: "pendiente de repaso",
+    stepPending: "pendiente",
+    seeMyResult: "Ver mi resultado",
+    toFinalChallenge: "Ir al desafío final",
+    nextSituation: "Siguiente situación",
+    levelNavAria: "Nivel de la Academia",
+    levelNavTitle: "Cambia de nivel sin tocar tu personaje",
+    basic: "Básico",
+    medium: "Medio",
+    advanced: "Avanzado · Nuevo",
+  },
+  {
+    correctAnswerAria: "Correct answer",
+    wrongAnswerAria: "Your answer, incorrect",
+    answerOptionsAria: "Answer options",
+    correct: "Correct",
+    notThatOne: "Not that one",
+    why: "Why",
+    restartLevel: "Restart level",
+    restartTitle: "Restart the basic level?",
+    restartBody:
+      "Your Academy progress is cleared and you go back to the first lesson. It doesn't affect your character, your items or any saved crafting session.",
+    keepGoing: "Stay where I was",
+    yesRestart: "Yes, restart",
+    practiceWithMyItem: "Practice with my item",
+    introTitle: "Crafting Academy · Basic level",
+    introSubtitle: "Five short lessons and a challenge. You look at an item, decide, and I correct you.",
+    resume: "Pick up where I left off",
+    start: "Start",
+    basicDone: "Basic level complete",
+    almost: "Almost there: a couple of things left",
+    score: (correct: number, total: number) =>
+      `You got ${correct} of ${total} right. It only shows what you understood from these lessons: it's not a crafting chance or a rating of any item.`,
+    toReview: "Worth reviewing",
+    allClear:
+      "You can read rarity, count prefixes and suffixes, spot an open slot and choose between the four observed currencies or stopping.",
+    reviewPending: (count: number) => `Review only what's pending (${count})`,
+    nothingToShow: "There's no situation to show.",
+    backToStart: "Back to the start",
+    retryRun: "Reviewing what's pending",
+    finalChallenge: "Final challenge",
+    lessonHeader: (order: number | undefined, title: string | undefined) => `Lesson ${order} · ${title}`,
+    challengeProgress: "Challenge progress",
+    lessonsProgress: "Lesson progress",
+    stepDone: "done",
+    stepReview: "needs review",
+    stepPending: "pending",
+    seeMyResult: "See my result",
+    toFinalChallenge: "Go to the final challenge",
+    nextSituation: "Next situation",
+    levelNavAria: "Academy level",
+    levelNavTitle: "Switch level without touching your character",
+    basic: "Basic",
+    medium: "Medium",
+    advanced: "Advanced · New",
+  },
+);
+
 function OptionButton({
   option,
   answered,
@@ -55,6 +145,7 @@ function OptionButton({
   isExpected: boolean;
   onChoose: () => void;
 }) {
+  const t = useText(TEXT);
   const state = !answered ? "abierta" : isExpected ? "correcta" : chosen ? "fallada" : "descartada";
   return (
     <button
@@ -90,10 +181,10 @@ function OptionButton({
         )}
       </span>
       {answered && isExpected && (
-        <CheckCircle2 className="size-5 shrink-0 text-emerald-300" aria-label="Respuesta correcta" />
+        <CheckCircle2 className="size-5 shrink-0 text-emerald-300" aria-label={t.correctAnswerAria} />
       )}
       {answered && chosen && !isExpected && (
-        <XCircle className="size-5 shrink-0 text-rose-300" aria-label="Tu respuesta, incorrecta" />
+        <XCircle className="size-5 shrink-0 text-rose-300" aria-label={t.wrongAnswerAria} />
       )}
     </button>
   );
@@ -114,6 +205,8 @@ function ScenarioView({
   header: React.ReactNode;
   nextLabel: string;
 }) {
+  const { lang } = useLang();
+  const t = TEXT[lang];
   const questionRef = useRef<HTMLHeadingElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
   const answered = answeredOptionId !== null;
@@ -162,7 +255,7 @@ function ScenarioView({
             {scenario.question}
           </h3>
 
-          <div className="grid min-w-0 gap-2" role="group" aria-label="Opciones de respuesta">
+          <div className="grid min-w-0 gap-2" role="group" aria-label={t.answerOptionsAria}>
             {scenario.options.map((option) => (
               <OptionButton
                 key={option.id}
@@ -196,7 +289,7 @@ function ScenarioView({
               <XCircle className="size-4 shrink-0 text-rose-300" aria-hidden="true" />
             )}
             <span className={wasRight ? "text-emerald-200" : "text-rose-200"}>
-              {wasRight ? "Correcto" : "No era esa"}
+              {wasRight ? t.correct : t.notThatOne}
             </span>
           </p>
           <p className="mt-1.5 text-sm leading-relaxed">{scenario.explanation}</p>
@@ -206,13 +299,13 @@ function ScenarioView({
             </p>
           )}
           <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
-            <summary className="cursor-pointer font-medium">Por qué</summary>
+            <summary className="cursor-pointer font-medium">{t.why}</summary>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
               {scenario.why.map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
-            <p className="mt-2 text-[11px] text-muted-foreground">{CRAFTING_ACADEMY_EVIDENCE}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">{craftingAcademyEvidence(lang)}</p>
           </details>
           <Button className="mt-3 w-full sm:w-auto" type="button" onClick={onNext} data-testid="academia-continuar">
             {nextLabel}
@@ -229,6 +322,8 @@ function ScenarioView({
 /** Nivel básico de la Academia: una situación, una pregunta, una corrección. */
 function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeProps) {
   const academy = useCraftingAcademy();
+  const { lang } = useLang();
+  const t = TEXT[lang];
   const [confirmingRestart, setConfirmingRestart] = useState(false);
 
   const restartButton = (
@@ -241,7 +336,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
       onClick={() => setConfirmingRestart(true)}
     >
       <RotateCcw className="size-3.5" aria-hidden="true" />
-      Reiniciar nivel
+      {t.restartLevel}
     </Button>
   );
 
@@ -249,14 +344,11 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
     <AlertDialog open={confirmingRestart} onOpenChange={setConfirmingRestart}>
       <AlertDialogContent data-testid="academia-reiniciar-dialogo">
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Reiniciar el nivel básico?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Se borra tu progreso de la Academia y vuelves a la primera lección. No afecta a tu
-            personaje, a tus objetos ni a ninguna sesión de crafting guardada.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t.restartTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{t.restartBody}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel data-testid="academia-reiniciar-cancelar">Seguir donde estaba</AlertDialogCancel>
+          <AlertDialogCancel data-testid="academia-reiniciar-cancelar">{t.keepGoing}</AlertDialogCancel>
           <AlertDialogAction
             data-testid="academia-reiniciar-confirmar"
             onClick={() => {
@@ -264,7 +356,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
               setConfirmingRestart(false);
             }}
           >
-            Sí, reiniciar
+            {t.yesRestart}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -278,7 +370,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
       data-testid="academia-practicar"
       onClick={onPracticeWithMyItem}
     >
-      Practicar con mi objeto
+      {t.practiceWithMyItem}
       <ArrowRight className="size-4" aria-hidden="true" />
     </Button>
   );
@@ -297,16 +389,16 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
           </span>
           <div className="min-w-0">
             <h2 id="academia-titulo" className="dossier-title text-2xl font-semibold">
-              Academia de crafting · Nivel básico
+              {t.introTitle}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Cinco lecciones cortas y un desafío. Miras un objeto, decides y te corrijo.
+              {t.introSubtitle}
             </p>
           </div>
         </div>
 
         <ol className="mt-5 grid gap-2 sm:grid-cols-2" data-testid="academia-indice">
-          {CRAFTING_ACADEMY_LESSONS.map((lesson) => (
+          {craftingAcademyLessons(lang).map((lesson) => (
             <li
               key={lesson.id}
               className="flex min-w-0 items-start gap-2.5 rounded-md border border-border/70 bg-muted/[0.06] px-3 py-2"
@@ -324,7 +416,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button type="button" onClick={academy.start} data-testid="academia-empezar">
-            {academy.hasProgress ? "Seguir donde lo dejé" : "Empezar"}
+            {academy.hasProgress ? t.resume : t.start}
             <ArrowRight className="size-4" aria-hidden="true" />
           </Button>
           {practiceButton}
@@ -332,7 +424,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
         </div>
 
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          {CRAFTING_ACADEMY_EVIDENCE}
+          {craftingAcademyEvidence(lang)}
         </p>
         {restartDialog}
       </section>
@@ -350,16 +442,15 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
         aria-labelledby="academia-resultado-titulo"
       >
         <h2 id="academia-resultado-titulo" className="dossier-title text-2xl font-semibold">
-          {pending.length === 0 ? "Nivel básico completado" : "Casi: te quedan un par de cosas"}
+          {pending.length === 0 ? t.basicDone : t.almost}
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground" data-testid="academia-resultado-resumen">
-          Acertaste {correct} de {total}. Es solo lo que has entendido de estas lecciones: no es
-          una probabilidad de crafting ni una valoración de ningún objeto.
+          {t.score(correct, total)}
         </p>
 
         {pending.length > 0 ? (
           <div className="mt-4" data-testid="academia-pendientes">
-            <h3 className="text-sm font-semibold">Lo que conviene repasar</h3>
+            <h3 className="text-sm font-semibold">{t.toReview}</h3>
             <ul className="mt-2 grid gap-2">
               {pending.map((concept) => (
                 <li
@@ -379,8 +470,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
         ) : (
           <p className="mt-4 flex items-center gap-2 rounded-md border border-emerald-400/45 bg-emerald-500/[0.08] px-3 py-2 text-sm text-emerald-100">
             <CheckCircle2 className="size-4 shrink-0 text-emerald-300" aria-hidden="true" />
-            Sabes leer la rareza, contar prefijos y sufijos, reconocer un hueco y elegir entre las
-            cuatro monedas observadas o parar.
+            {t.allClear}
           </p>
         )}
 
@@ -391,7 +481,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
               onClick={academy.retryPendingConcepts}
               data-testid="academia-repasar"
             >
-              Repasar solo lo pendiente ({pending.length})
+              {t.reviewPending(pending.length)}
               <ArrowRight className="size-4" aria-hidden="true" />
             </Button>
           )}
@@ -408,9 +498,9 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
     // Estado imposible por construcción; se resuelve sin bloquear al jugador.
     return (
       <section className="superficie-panel p-4" data-testid="academia-crafting" data-stage="vacio">
-        <p className="text-sm text-muted-foreground">No hay ninguna situación que mostrar.</p>
+        <p className="text-sm text-muted-foreground">{t.nothingToShow}</p>
         <Button className="mt-3" type="button" onClick={academy.restart}>
-          Volver al principio
+          {t.backToStart}
         </Button>
       </section>
     );
@@ -429,9 +519,9 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
         <p className="text-xs font-semibold text-primary/80">
           {isExam
             ? academy.isRetry
-              ? "Repaso de lo pendiente"
-              : "Desafío final"
-            : `Lección ${step.lesson?.order} · ${step.lesson?.title}`}
+              ? t.retryRun
+              : t.finalChallenge
+            : t.lessonHeader(step.lesson?.order, step.lesson?.title)}
         </p>
       </div>
       <div
@@ -440,7 +530,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
         aria-valuemin={0}
         aria-valuemax={step.total}
         aria-valuenow={step.position}
-        aria-label={isExam ? "Progreso del desafío" : "Progreso de las lecciones"}
+        aria-label={isExam ? t.challengeProgress : t.lessonsProgress}
       >
         {academy.stepStatuses.map((entry, index) => (
           <span
@@ -455,7 +545,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
                     : "border-muted-foreground/45 bg-transparent"
             }`}
             title={entry.label}
-            aria-label={`${entry.label}: ${entry.status === "correct" ? "completada" : entry.status === "incorrect" ? "pendiente de repaso" : "pendiente"}`}
+            aria-label={`${entry.label}: ${entry.status === "correct" ? t.stepDone : entry.status === "incorrect" ? t.stepReview : t.stepPending}`}
           />
         ))}
       </div>
@@ -481,9 +571,9 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
         nextLabel={
           lastOfRun
             ? isExam
-              ? "Ver mi resultado"
-              : "Ir al desafío final"
-            : "Siguiente situación"
+              ? t.seeMyResult
+              : t.toFinalChallenge
+            : t.nextSituation
         }
       />
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3">
@@ -497,6 +587,7 @@ function BasicCraftingAcademy({ onPracticeWithMyItem }: CraftingAcademyPracticeP
 
 /** Selector de niveles: cada recorrido es independiente y no altera el personaje. */
 export function CraftingAcademy({ profileId, onPracticeWithMyItem }: CraftingAcademyProps) {
+  const t = useText(TEXT);
   const [level, setLevel] = useState<CraftingAcademyLevel>(() =>
     loadCraftingAcademyLevel(profileId),
   );
@@ -509,9 +600,9 @@ export function CraftingAcademy({ profileId, onPracticeWithMyItem }: CraftingAca
     <div className="min-w-0 space-y-3">
       <nav
         className="flex flex-wrap items-center gap-1 rounded-md border border-border/70 bg-background/65 p-1"
-        aria-label="Nivel de la Academia"
+        aria-label={t.levelNavAria}
         data-testid="academia-niveles"
-        title="Cambia de nivel sin tocar tu personaje"
+        title={t.levelNavTitle}
       >
         <button
           type="button"
@@ -521,7 +612,7 @@ export function CraftingAcademy({ profileId, onPracticeWithMyItem }: CraftingAca
           aria-current={level === "basic" ? "page" : undefined}
           className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${level === "basic" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
         >
-          <span aria-hidden="true">{level === "basic" ? "◔" : "○"}</span> Básico
+          <span aria-hidden="true">{level === "basic" ? "◔" : "○"}</span> {t.basic}
         </button>
         <button
           type="button"
@@ -531,7 +622,7 @@ export function CraftingAcademy({ profileId, onPracticeWithMyItem }: CraftingAca
           aria-current={level === "medium" ? "page" : undefined}
           className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${level === "medium" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
         >
-          <span aria-hidden="true">{level === "medium" ? "◔" : "○"}</span> Medio
+          <span aria-hidden="true">{level === "medium" ? "◔" : "○"}</span> {t.medium}
         </button>
         <button
           type="button"
@@ -541,7 +632,7 @@ export function CraftingAcademy({ profileId, onPracticeWithMyItem }: CraftingAca
           aria-current={level === "advanced" ? "page" : undefined}
           className={`rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${level === "advanced" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
         >
-          <span aria-hidden="true">{level === "advanced" ? "◔" : "○"}</span> Avanzado · Nuevo
+          <span aria-hidden="true">{level === "advanced" ? "◔" : "○"}</span> {t.advanced}
         </button>
       </nav>
 

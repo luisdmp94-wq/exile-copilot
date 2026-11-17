@@ -38,7 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { formatCharacterLevel, formatCost, formatDateTime } from "@/lib/format";
+import { displayProfileValue, formatCharacterLevel, formatCost, formatDateTime } from "@/lib/format";
 import { useFormatLabels } from "@/lib/formatLabels";
 import { cn } from "@/lib/utils";
 import { texts, useText } from "@/i18n/lang";
@@ -422,7 +422,7 @@ export function JournalSection({
           </div>
           {profile && (
             <span className="text-sm text-muted-foreground">
-              {t.nameAndLevel(profile.name, formatCharacterLevel(profile))}
+              {t.nameAndLevel(displayProfileValue(profile.name), formatCharacterLevel(profile))}
             </span>
           )}
         </div>

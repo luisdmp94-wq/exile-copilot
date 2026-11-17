@@ -36,7 +36,8 @@ export function decideCraftingNextStep(input: {
   goalCategory: CraftingGoalCategory | undefined;
   successAssessment?: CraftingSuccessAssessment | null;
   addedRollQuality?: ObservedModifierRollQuality | null;
-}): CraftingNextDecision {
+}, lang: "es" | "en" = "es"): CraftingNextDecision {
+  const en = lang === "en";
   const {
     resultItem,
     comparison,
@@ -46,7 +47,7 @@ export function decideCraftingNextStep(input: {
     successAssessment,
     addedRollQuality,
   } = input;
-  const diagnosis = diagnoseCraftingItem(resultItem);
+  const diagnosis = diagnoseCraftingItem(resultItem, lang);
   const explicitModifiers = resultItem.modifiers.filter(
     (modifier) => modifier.kind === "explicit",
   );
@@ -57,9 +58,13 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "stop",
       tone: "danger",
-      title: "Detente: el resultado no está confirmado",
-      summary: "La comparación todavía no demuestra que sea el mismo objeto con el cambio esperado.",
-      nextAction: "No gastes otra moneda. Repite la copia del objeto y confirma su identidad.",
+      title: en ? "Stop: the result isn't confirmed" : "Detente: el resultado no está confirmado",
+      summary: en
+        ? "The comparison doesn't prove yet that it's the same item with the expected change."
+        : "La comparación todavía no demuestra que sea el mismo objeto con el cambio esperado.",
+      nextAction: en
+        ? "Don't spend another orb. Copy the item again and confirm it's the same one."
+        : "No gastes otra moneda. Repite la copia del objeto y confirma su identidad.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -71,7 +76,9 @@ export function decideCraftingNextStep(input: {
       tone: "danger",
       title: characterContext.title,
       summary: characterContext.summary,
-      nextAction: "No gastes otra moneda hasta resolver el bloqueo indicado.",
+      nextAction: en
+        ? "Don't spend another orb until the block above is solved."
+        : "No gastes otra moneda hasta resolver el bloqueo indicado.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -81,7 +88,9 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "stop",
       tone: "danger",
-      title: "Detente: la nueva pieza no se puede leer completa",
+      title: en
+        ? "Stop: the new item can't be read in full"
+        : "Detente: la nueva pieza no se puede leer completa",
       summary: diagnosis.summary,
       nextAction: diagnosis.nextAction,
       observedOpenSlots,
@@ -93,11 +102,13 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "stop",
       tone: "caution",
-      title: "Coincide, pero la tirada observada es baja",
-      summary:
-        "El afijo apunta al objetivo, pero sus valores están en el tramo bajo del rango que muestra el juego.",
-      nextAction:
-        "No encadenes otra moneda todavía: decide si esta tirada cumple tu condición de parada.",
+      title: en ? "It matches, but the roll is low" : "Coincide, pero la tirada observada es baja",
+      summary: en
+        ? "The affix points at your goal, but its values sit in the low part of the range the game shows."
+        : "El afijo apunta al objetivo, pero sus valores están en el tramo bajo del rango que muestra el juego.",
+      nextAction: en
+        ? "Don't chain another orb yet: decide whether this roll meets your stop condition."
+        : "No encadenes otra moneda todavía: decide si esta tirada cumple tu condición de parada.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -107,11 +118,13 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "stop",
       tone: "positive",
-      title: "Punto de parada alcanzado",
-      summary:
-        "El resultado cumple las condiciones observables que elegiste antes de gastar.",
-      nextAction:
-        "Conserva este resultado y reevalúa la pieza en el personaje antes de iniciar otro objetivo.",
+      title: en ? "Stop point reached" : "Punto de parada alcanzado",
+      summary: en
+        ? "The result meets the visible conditions you picked before spending."
+        : "El resultado cumple las condiciones observables que elegiste antes de gastar.",
+      nextAction: en
+        ? "Keep this result and check the item on your character before starting another goal."
+        : "Conserva este resultado y reevalúa la pieza en el personaje antes de iniciar otro objetivo.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -121,10 +134,13 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "continue",
       tone: "positive",
-      title: "Puedes continuar, de uno en uno",
-      summary:
-        "El cambio apunta al objetivo y la estructura observada aún conserva espacio. Esto no demuestra que el valor del afijo sea suficiente.",
-      nextAction: "Guarda este resultado y vuelve al banco para comprobar la siguiente acción legal.",
+      title: en ? "You can keep going, one at a time" : "Puedes continuar, de uno en uno",
+      summary: en
+        ? "The change points at your goal and the item still has room. This doesn't prove the affix value is good enough."
+        : "El cambio apunta al objetivo y la estructura observada aún conserva espacio. Esto no demuestra que el valor del afijo sea suficiente.",
+      nextAction: en
+        ? "Save this result and go back to the bench to check the next allowed action."
+        : "Guarda este resultado y vuelve al banco para comprobar la siguiente acción legal.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -134,10 +150,13 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "stop",
       tone: "positive",
-      title: "Para y conserva este resultado",
-      summary:
-        "El cambio apunta al objetivo y la pieza está llena. Seguir exigiría una operación de reemplazo con riesgo para lo que ya existe.",
-      nextAction: "Pruébala en el personaje antes de considerar una Essence o un Alloy verificados.",
+      title: en ? "Stop and keep this result" : "Para y conserva este resultado",
+      summary: en
+        ? "The change points at your goal and the item is full. Going on would need a replacing operation that risks what's already there."
+        : "El cambio apunta al objetivo y la pieza está llena. Seguir exigiría una operación de reemplazo con riesgo para lo que ya existe.",
+      nextAction: en
+        ? "Try it on your character before considering a verified Essence or Alloy."
+        : "Pruébala en el personaje antes de considerar una Essence o un Alloy verificados.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -147,10 +166,13 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "stop",
       tone: "caution",
-      title: "No gastes otra moneda todavía",
-      summary:
-        "La pieza conserva señales de tu objetivo, pero el cambio nuevo no aporta una señal directa. La app no puede declarar progreso por su magnitud o interacción.",
-      nextAction: "Decide si el nuevo afijo te sirve en juego antes de aceptar o abandonar esta ruta.",
+      title: en ? "Don't spend another orb yet" : "No gastes otra moneda todavía",
+      summary: en
+        ? "The item still shows signs of your goal, but the new change doesn't add a direct one. The app can't call it progress based on size or interactions."
+        : "La pieza conserva señales de tu objetivo, pero el cambio nuevo no aporta una señal directa. La app no puede declarar progreso por su magnitud o interacción.",
+      nextAction: en
+        ? "Decide whether the new affix helps you in game before keeping or dropping this route."
+        : "Decide si el nuevo afijo te sirve en juego antes de aceptar o abandonar esta ruta.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -160,11 +182,13 @@ export function decideCraftingNextStep(input: {
     return {
       kind: "restart",
       tone: "caution",
-      title: "Replantea esta ruta",
-      summary:
-        "La pieza está llena y sus etiquetas explícitas no muestran una relación directa con el objetivo elegido.",
-      nextAction:
-        "No destruyas nada automáticamente: compara otra base o una herramienta de reemplazo cuyo tooltip hayas verificado.",
+      title: en ? "Rethink this route" : "Replantea esta ruta",
+      summary: en
+        ? "The item is full and its explicit tags show no direct link to the goal you picked."
+        : "La pieza está llena y sus etiquetas explícitas no muestran una relación directa con el objetivo elegido.",
+      nextAction: en
+        ? "Don't destroy anything on autopilot: compare another base or a replacing tool whose tooltip you've checked."
+        : "No destruyas nada automáticamente: compara otra base o una herramienta de reemplazo cuyo tooltip hayas verificado.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -173,10 +197,13 @@ export function decideCraftingNextStep(input: {
   return {
     kind: "stop",
     tone: "caution",
-    title: "No gastes otra moneda todavía",
-    summary:
-      "El cambio nuevo no muestra una relación directa con el objetivo. Tener hueco libre no demuestra que continuar compense.",
-    nextAction: "Prueba el resultado o redefine el objetivo antes de elegir otra moneda.",
+    title: en ? "Don't spend another orb yet" : "No gastes otra moneda todavía",
+    summary: en
+      ? "The new change shows no direct link to your goal. Having free room doesn't prove it's worth going on."
+      : "El cambio nuevo no muestra una relación directa con el objetivo. Tener hueco libre no demuestra que continuar compense.",
+    nextAction: en
+      ? "Try the result or rethink your goal before picking another orb."
+      : "Prueba el resultado o redefine el objetivo antes de elegir otra moneda.",
     observedOpenSlots,
     resultGoalSignal,
   };

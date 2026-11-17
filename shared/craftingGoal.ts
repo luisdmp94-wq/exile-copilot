@@ -20,6 +20,23 @@ export const CRAFTING_GOAL_LABELS: Record<CraftingGoalCategory, string> = {
   other: "Otro objetivo",
 };
 
+export const CRAFTING_GOAL_LABELS_EN: Record<CraftingGoalCategory, string> = {
+  damage: "Damage",
+  defence: "Defence or survival",
+  attributes: "Attributes or requirements",
+  speed: "Speed",
+  skills: "Levels or skills",
+  other: "Something else",
+};
+
+/** Nombre de la categoría en el idioma pedido. */
+export function craftingGoalLabel(
+  category: CraftingGoalCategory,
+  lang: "es" | "en" = "es",
+): string {
+  return (lang === "en" ? CRAFTING_GOAL_LABELS_EN : CRAFTING_GOAL_LABELS)[category];
+}
+
 const GOAL_TAGS: Record<Exclude<CraftingGoalCategory, "other">, Set<string>> = {
   damage: new Set([
     "damage",
@@ -104,7 +121,9 @@ export interface CraftingGoalSignal {
 export function evaluateCraftingGoalSignal(
   category: CraftingGoalCategory | undefined,
   addedModifiers: readonly Modifier[],
+  lang: "es" | "en" = "es",
 ): CraftingGoalSignal {
+  const en = lang === "en";
   const observedTags = [...new Set(
     addedModifiers.flatMap((modifier) => modifier.tags ?? []).map(normalizeTag),
   )];
@@ -112,9 +131,10 @@ export function evaluateCraftingGoalSignal(
   if (category === undefined || category === "other") {
     return {
       status: "unknown",
-      title: "Sin categoría comparable",
-      summary:
-        "El objetivo quedó como libre. La app conserva el resultado, pero no intenta clasificarlo.",
+      title: en ? "No category to compare" : "Sin categoría comparable",
+      summary: en
+        ? "The goal was left open. The app keeps the result but does not try to classify it."
+        : "El objetivo quedó como libre. La app conserva el resultado, pero no intenta clasificarlo.",
       matchedTags: [],
       observedTags,
     };
@@ -123,9 +143,10 @@ export function evaluateCraftingGoalSignal(
   if (observedTags.length === 0) {
     return {
       status: "unknown",
-      title: "El tooltip no aporta etiquetas comparables",
-      summary:
-        "No se puede relacionar directamente el cambio con el objetivo. Esto no significa que el modificador sea inútil.",
+      title: en ? "The tooltip has no tags to compare" : "El tooltip no aporta etiquetas comparables",
+      summary: en
+        ? "The change can't be linked directly to the goal. That doesn't mean the modifier is useless."
+        : "No se puede relacionar directamente el cambio con el objetivo. Esto no significa que el modificador sea inútil.",
       matchedTags: [],
       observedTags: [],
     };
@@ -136,9 +157,12 @@ export function evaluateCraftingGoalSignal(
   if (matchedTags.length > 0) {
     return {
       status: "direct",
-      title: `Señal directa de ${CRAFTING_GOAL_LABELS[category].toLocaleLowerCase("es")}`,
-      summary:
-        "Las etiquetas del cliente coinciden con la categoría elegida. Falta decidir si la magnitud y el encaje real compensan el coste.",
+      title: en
+        ? `Direct ${CRAFTING_GOAL_LABELS_EN[category].toLocaleLowerCase("en")} signal`
+        : `Señal directa de ${CRAFTING_GOAL_LABELS[category].toLocaleLowerCase("es")}`,
+      summary: en
+        ? "The game's tags match the chosen category. You still need to decide if the size and real fit are worth the cost."
+        : "Las etiquetas del cliente coinciden con la categoría elegida. Falta decidir si la magnitud y el encaje real compensan el coste.",
       matchedTags,
       observedTags,
     };
@@ -146,9 +170,10 @@ export function evaluateCraftingGoalSignal(
 
   return {
     status: "no-direct-signal",
-    title: "No aparece una señal directa del objetivo",
-    summary:
-      "Las etiquetas observadas apuntan a otra categoría. Puede existir una interacción indirecta con la build; la app no la descarta.",
+    title: en ? "No direct signal for the goal" : "No aparece una señal directa del objetivo",
+    summary: en
+      ? "The tags seen point to another category. There may be an indirect link with the build; the app doesn't rule it out."
+      : "Las etiquetas observadas apuntan a otra categoría. Puede existir una interacción indirecta con la build; la app no la descarta.",
     matchedTags: [],
     observedTags,
   };

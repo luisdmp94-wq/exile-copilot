@@ -41,15 +41,19 @@ export function extractObservedModifierRolls(
  */
 export function assessObservedModifierRoll(
   modifier: Pick<Modifier, "text" | "observedRolls">,
+  lang: "es" | "en" = "es",
 ): ObservedModifierRollQuality {
+  const en = lang === "en";
   const rolls = modifier.observedRolls ?? extractObservedModifierRolls(modifier.text);
   if (rolls.length === 0) {
     return {
       band: "unknown",
       positionPercent: null,
       observedCount: 0,
-      label: "Rango no visible",
-      detail: "El texto no muestra un rango numérico comparable para esta línea.",
+      label: en ? "Range not visible" : "Rango no visible",
+      detail: en
+        ? "The text doesn't show a numeric range to compare for this line."
+        : "El texto no muestra un rango numérico comparable para esta línea.",
     };
   }
 
@@ -59,8 +63,10 @@ export function assessObservedModifierRoll(
       band: "fixed",
       positionPercent: null,
       observedCount: rolls.length,
-      label: "Valor fijo",
-      detail: "Los valores observados no varían dentro del rango mostrado.",
+      label: en ? "Fixed value" : "Valor fijo",
+      detail: en
+        ? "The values shown don't vary within the range."
+        : "Los valores observados no varían dentro del rango mostrado.",
     };
   }
 
@@ -71,8 +77,13 @@ export function assessObservedModifierRoll(
   const positionPercent = Math.round(average * 100);
   const band: ObservedRollBand =
     positionPercent >= 75 ? "high" : positionPercent >= 35 ? "middle" : "low";
-  const label =
-    band === "high"
+  const label = en
+    ? band === "high"
+      ? `High roll · ${positionPercent}% of the range`
+      : band === "middle"
+        ? `Mid roll · ${positionPercent}% of the range`
+        : `Low roll · ${positionPercent}% of the range`
+    : band === "high"
       ? `Tirada alta · ${positionPercent}% del rango`
       : band === "middle"
         ? `Tirada media · ${positionPercent}% del rango`
@@ -83,6 +94,8 @@ export function assessObservedModifierRoll(
     positionPercent,
     observedCount: rolls.length,
     label,
-    detail: `Posición media de los valores variables dentro de los rangos impresos: ${positionPercent}%.`,
+    detail: en
+      ? `Average position of the variable values within the printed ranges: ${positionPercent}%.`
+      : `Posición media de los valores variables dentro de los rangos impresos: ${positionPercent}%.`,
   };
 }

@@ -1,7 +1,22 @@
 import {
   CRAFTING_GOAL_LABELS,
+  CRAFTING_GOAL_LABELS_EN,
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    defaultHelper: "Ejemplo: “más daño sin perder velocidad ni +niveles”.",
+    question: "¿Qué quieres mejorar primero?",
+    groupAria: "Tipo de mejora que buscas",
+  },
+  {
+    defaultHelper: "Example: “more damage without losing speed or +levels”.",
+    question: "What do you want to improve first?",
+    groupAria: "Kind of upgrade you're after",
+  },
+);
 
 interface CraftingGoalPickerProps {
   category: CraftingGoalCategory;
@@ -17,6 +32,9 @@ interface CraftingGoalPickerProps {
 const GOAL_OPTIONS = Object.entries(CRAFTING_GOAL_LABELS) as Array<
   [CraftingGoalCategory, string]
 >;
+const GOAL_OPTIONS_EN = Object.entries(CRAFTING_GOAL_LABELS_EN) as Array<
+  [CraftingGoalCategory, string]
+>;
 
 /**
  * Captura una categoría comparable sin sustituir el objetivo libre del jugador.
@@ -30,18 +48,21 @@ export function CraftingGoalPicker({
   idPrefix,
   label,
   placeholder,
-  helperText = "Ejemplo: “más daño sin perder velocidad ni +niveles”.",
+  helperText,
 }: CraftingGoalPickerProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const goalOptions = lang === "en" ? GOAL_OPTIONS_EN : GOAL_OPTIONS;
   return (
     <div className="space-y-3">
       <fieldset className="space-y-2">
-        <legend className="text-xs font-medium text-foreground">¿Qué quieres mejorar primero?</legend>
+        <legend className="text-xs font-medium text-foreground">{t.question}</legend>
         <div
           className="grid grid-cols-2 gap-2 sm:grid-cols-3"
           role="radiogroup"
-          aria-label="Tipo de mejora que buscas"
+          aria-label={t.groupAria}
         >
-          {GOAL_OPTIONS.map(([value, optionLabel]) => {
+          {goalOptions.map(([value, optionLabel]) => {
             const selected = category === value;
             return (
               <button
@@ -75,7 +96,7 @@ export function CraftingGoalPicker({
           placeholder={placeholder}
         />
         <p className="text-[11px] text-muted-foreground">
-          {helperText}
+          {helperText ?? t.defaultHelper}
         </p>
       </div>
     </div>

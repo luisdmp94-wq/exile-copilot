@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { api, getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { texts, useLang, useText } from "@/i18n/lang";
+import { displayProfileValue } from "@/lib/format";
 
 const STORAGE_KEY = "exile-copilot:asistencia";
 const MAX_SKILLS = 8;
@@ -543,7 +544,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-1.5 font-semibold text-foreground">
                 <UserCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                {t.useCharacter(profile.name)}
+                {t.useCharacter(displayProfileValue(profile.name))}
               </span>
               {useCharacter && (
                 <span className="block text-xs text-muted-foreground" data-testid="asistencia-build">

@@ -119,7 +119,9 @@ function result(
 export function evaluateObservedCraftingActions(
   item: Item,
   actions: readonly ObservedCraftingAction[] = OBSERVED_CRAFTING_ACTIONS,
+  lang: "es" | "en" = "es",
 ): CraftingActionEvaluation[] {
+  const en = lang === "en";
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const unclassified = explicit.filter((modifier) => modifier.affix === undefined).length;
 
@@ -128,7 +130,9 @@ export function evaluateObservedCraftingActions(
       return result(
         action,
         "blocked",
-        `Requiere un objeto ${action.targetRarity === "normal" ? "normal" : action.targetRarity === "magic" ? "mágico" : "raro"}.`,
+        en
+          ? `Needs a ${action.targetRarity} item.`
+          : `Requiere un objeto ${action.targetRarity === "normal" ? "normal" : action.targetRarity === "magic" ? "mágico" : "raro"}.`,
       );
     }
 
@@ -137,31 +141,53 @@ export function evaluateObservedCraftingActions(
       return result(
         action,
         "needs-data",
-        "La procedencia del objeto no confirma corrupción, reflejado, división ni identificación.",
+        en
+          ? "The item's source doesn't confirm whether it's corrupted, mirrored, split or identified."
+          : "La procedencia del objeto no confirma corrupción, reflejado, división ni identificación.",
       );
     }
     if (state.corrupted) {
       return result(
         action,
         "blocked",
-        state.doubleCorrupted
-          ? "El texto copiado declara que el objeto tiene doble corrupción."
-          : "El texto copiado declara que el objeto está corrupto.",
+        en
+          ? state.doubleCorrupted
+            ? "The copied text says the item is double corrupted."
+            : "The copied text says the item is corrupted."
+          : state.doubleCorrupted
+            ? "El texto copiado declara que el objeto tiene doble corrupción."
+            : "El texto copiado declara que el objeto está corrupto.",
       );
     }
     if (state.mirrored) {
-      return result(action, "blocked", "El texto copiado declara que el objeto está reflejado.");
+      return result(
+        action,
+        "blocked",
+        en
+          ? "The copied text says the item is mirrored."
+          : "El texto copiado declara que el objeto está reflejado.",
+      );
     }
     if (state.sanctified) {
-      return result(action, "blocked", "El texto copiado declara que el objeto está santificado.");
+      return result(
+        action,
+        "blocked",
+        en
+          ? "The copied text says the item is sanctified."
+          : "El texto copiado declara que el objeto está santificado.",
+      );
     }
     if (state.unmodifiable || state.unmodifiableExceptChaos) {
       return result(
         action,
         "blocked",
-        state.unmodifiableExceptChaos
-          ? "El objeto declara que solo puede modificarse mediante una acción de caos; esta moneda no lo es."
-          : "El texto copiado declara que el objeto no puede modificarse.",
+        en
+          ? state.unmodifiableExceptChaos
+            ? "The item says it can only be modified by a chaos action; this orb isn't one."
+            : "The copied text says the item can't be modified."
+          : state.unmodifiableExceptChaos
+            ? "El objeto declara que solo puede modificarse mediante una acción de caos; esta moneda no lo es."
+            : "El texto copiado declara que el objeto no puede modificarse.",
       );
     }
     const specialModifiers = explicit.filter(
@@ -169,26 +195,30 @@ export function evaluateObservedCraftingActions(
     );
     if (state.mutated || state.desecrated || state.fractured || specialModifiers.length > 0) {
       const specialStates = [
-        state.mutated ? "mutado" : null,
-        state.desecrated ? "profanado" : null,
-        state.fractured ? "fracturado" : null,
-        specialModifiers.length > 0 ? "con modificadores especiales" : null,
+        state.mutated ? (en ? "mutated" : "mutado") : null,
+        state.desecrated ? (en ? "desecrated" : "profanado") : null,
+        state.fractured ? (en ? "fractured" : "fracturado") : null,
+        specialModifiers.length > 0 ? (en ? "special-modifier" : "con modificadores especiales") : null,
       ].filter((value): value is string => value !== null);
       return result(
         action,
         "needs-data",
-        `No se ha verificado la interacción de esta moneda con un objeto ${specialStates.join(" y ")}.`,
+        en
+          ? `How this orb interacts with a ${specialStates.join(" and ")} item hasn't been verified.`
+          : `No se ha verificado la interacción de esta moneda con un objeto ${specialStates.join(" y ")}.`,
       );
     }
     if (state.split || state.unidentified) {
       const unknownStates = [
-        state.split ? "dividido" : null,
-        state.unidentified ? "sin identificar" : null,
+        state.split ? (en ? "split" : "dividido") : null,
+        state.unidentified ? (en ? "unidentified" : "sin identificar") : null,
       ].filter((value): value is string => value !== null);
       return result(
         action,
         "needs-data",
-        `No se ha verificado la interacción con un objeto ${unknownStates.join(" y ")}.`,
+        en
+          ? `How it interacts with a ${unknownStates.join(" and ")} item hasn't been verified.`
+          : `No se ha verificado la interacción con un objeto ${unknownStates.join(" y ")}.`,
       );
     }
 
@@ -197,13 +227,17 @@ export function evaluateObservedCraftingActions(
         return result(
           action,
           "needs-data",
-          "El objeto figura como normal pero contiene modificadores explícitos; hay una inconsistencia que revisar.",
+          en
+            ? "The item is listed as normal but has explicit modifiers; there's an inconsistency to check."
+            : "El objeto figura como normal pero contiene modificadores explícitos; hay una inconsistencia que revisar.",
         );
       }
       return result(
         action,
         "compatible",
-        "La rareza encaja y el texto importado no contiene un bloqueo conocido para esta acción observada.",
+        en
+          ? "The rarity fits and the imported text has no known block for this observed action."
+          : "La rareza encaja y el texto importado no contiene un bloqueo conocido para esta acción observada.",
       );
     }
 
@@ -211,9 +245,13 @@ export function evaluateObservedCraftingActions(
       return result(
         action,
         "needs-data",
-        explicit.length === 0
-          ? "No hay modificadores explícitos registrados."
-          : `${unclassified} modificador${unclassified === 1 ? "" : "es"} sin clasificar como prefijo o sufijo.`,
+        en
+          ? explicit.length === 0
+            ? "No explicit modifiers are recorded."
+            : `${unclassified} modifier${unclassified === 1 ? "" : "s"} not classified as prefix or suffix.`
+          : explicit.length === 0
+            ? "No hay modificadores explícitos registrados."
+            : `${unclassified} modificador${unclassified === 1 ? "" : "es"} sin clasificar como prefijo o sufijo.`,
       );
     }
 
@@ -222,14 +260,18 @@ export function evaluateObservedCraftingActions(
       return result(
         action,
         "blocked",
-        `Ya tiene ${explicit.length} modificadores explícitos; el límite total observado es ${effectiveTotalLimit} para esta pieza.`,
+        en
+          ? `It already has ${explicit.length} explicit modifiers; the observed total limit for this item is ${effectiveTotalLimit}.`
+          : `Ya tiene ${explicit.length} modificadores explícitos; el límite total observado es ${effectiveTotalLimit} para esta pieza.`,
       );
     }
 
     return result(
       action,
       "compatible",
-      "La rareza y el hueco total encajan; el texto importado no contiene un bloqueo conocido.",
+      en
+        ? "The rarity and total room fit; the imported text has no known block."
+        : "La rareza y el hueco total encajan; el texto importado no contiene un bloqueo conocido.",
     );
   });
 }

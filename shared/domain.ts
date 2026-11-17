@@ -275,6 +275,13 @@ export const RESISTANCE_LABELS: Record<ResistanceKind, string> = {
   chaos: "caos",
 };
 
+export const RESISTANCE_LABELS_EN: Record<ResistanceKind, string> = {
+  fire: "fire",
+  cold: "cold",
+  lightning: "lightning",
+  chaos: "chaos",
+};
+
 export const AttributesSchema = z.object({
   /** null = desconocido. */
   str: z.number().int().nullable().default(null),

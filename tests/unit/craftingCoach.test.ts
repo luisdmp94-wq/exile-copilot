@@ -490,6 +490,22 @@ describe("guía de crafting — objetivo escrito como jugador", () => {
     expect(interpretCoachGoal("Quiero mas evasion").direction).toBe("defence");
   });
 
+  it("reconoce un objetivo escrito en inglés y responde en inglés", () => {
+    const damage = interpretCoachGoal("I want more physical damage", undefined, "en");
+    expect(damage.direction).toBe("damage");
+    expect(damage.focus).toBe("physical");
+    expect(damage.reason).toBe("Got it: first you want physical damage.");
+
+    expect(interpretCoachGoal("more crit", undefined, "en").focus).toBe("critical");
+    expect(interpretCoachGoal("I need life and res", undefined, "en").direction).toBe("defence");
+    expect(interpretCoachGoal("more armor", undefined, "en").focus).toBe("armour");
+    expect(interpretCoachGoal("I want to improve maximum life", undefined, "en").focus).toBe(
+      "maximum-life",
+    );
+    // «crit» dentro de una palabra española no cuenta como objetivo de daño.
+    expect(interpretCoachGoal("Lo he escrito mal").direction).toBeNull();
+  });
+
   it("pide elegir una prioridad cuando el objetivo mezcla dos direcciones", () => {
     const result = interpretCoachGoal("Quiero más daño pero también resistencias");
     expect(result.direction).toBeNull();

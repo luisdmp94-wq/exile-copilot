@@ -2,6 +2,7 @@ import { Check, Flag, Plus, X } from "lucide-react";
 import type { Item } from "@shared/domain.js";
 import {
   CRAFTING_GOAL_LABELS,
+  CRAFTING_GOAL_LABELS_EN,
   evaluateCraftingGoalSignal,
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
@@ -13,6 +14,60 @@ import {
   suggestObservedCraftingTargets,
   type CraftingTargetObservation,
 } from "@shared/craftingTargetEvidence.js";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    description: "Las condiciones se comprueban con el texto avanzado; el objetivo libre no se interpreta como evidencia.",
+    title: "¿Cuándo paras?",
+    count: (count: number) => `${count}/3 condiciones`,
+    oneMoreGoalAffix: (category: CraftingGoalCategory) =>
+      `Un afijo de ${CRAFTING_GOAL_LABELS[category].toLocaleLowerCase("es")} más`,
+    nowAndStop: (current: number, target: number) => `Ahora hay ${current}; para al llegar a ${target}.`,
+    goalCountAria: "Cantidad mínima de afijos del objetivo",
+    recommended: "Recomendado",
+    addTarget: "Añadir mod objetivo",
+    addTargetHint: "Línea exacta y grado mínimo.",
+    moreAffixes: "Completar más afijos",
+    explicitCountAria: "Cantidad mínima de afijos explícitos",
+    pickObserved: (count: number) => `Elegir entre tus líneas observadas · ${count}`,
+    tierHidden: "grado no visible",
+    tierShort: (tier: number) => `G${tier}`,
+    observedNote: "Usa la línea literal observada. No identifica una familia de mods ni demuestra su probabilidad.",
+    targetLabel: (index: number) => `Mod objetivo ${index}`,
+    targetPlaceholder: "Pega la línea exacta del modificador",
+    minimumTier: "Grado mínimo",
+    anyTier: "Cualquier grado",
+    tierOrBetter: (tier: number) => `G${tier} o mejor`,
+    removeTarget: (index: number) => `Eliminar mod objetivo ${index}`,
+    tierNote: "G1 es mejor que G2. La app solo confirma el grado si aparece en el texto avanzado pegado.",
+  },
+  {
+    description: "Conditions are checked against the advanced text; your free-text goal isn't treated as evidence.",
+    title: "When do you stop?",
+    count: (count: number) => `${count}/3 conditions`,
+    oneMoreGoalAffix: (category: CraftingGoalCategory) =>
+      `One more ${CRAFTING_GOAL_LABELS_EN[category].toLocaleLowerCase("en")} affix`,
+    nowAndStop: (current: number, target: number) => `Now there are ${current}; stop when you reach ${target}.`,
+    goalCountAria: "Minimum number of goal affixes",
+    recommended: "Recommended",
+    addTarget: "Add target mod",
+    addTargetHint: "Exact line and minimum tier.",
+    moreAffixes: "Fill more affixes",
+    explicitCountAria: "Minimum number of explicit affixes",
+    pickObserved: (count: number) => `Pick from lines you've seen · ${count}`,
+    tierHidden: "tier not shown",
+    tierShort: (tier: number) => `T${tier}`,
+    observedNote: "Uses the exact line you've seen. It doesn't identify a mod family or prove its chance.",
+    targetLabel: (index: number) => `Target mod ${index}`,
+    targetPlaceholder: "Paste the exact modifier line",
+    minimumTier: "Minimum tier",
+    anyTier: "Any tier",
+    tierOrBetter: (tier: number) => `T${tier} or better`,
+    removeTarget: (index: number) => `Remove target mod ${index}`,
+    tierNote: "T1 is better than T2. The app only confirms the tier if it shows in the pasted advanced text.",
+  },
+);
 
 interface CraftingSuccessCriteriaPickerProps {
   item: Item;
@@ -38,6 +93,7 @@ export function CraftingSuccessCriteriaPicker({
   onChange,
   observedTargets = [],
 }: CraftingSuccessCriteriaPickerProps) {
+  const t = useText(TEXT);
   const explicitCount = item.modifiers.filter((modifier) => modifier.kind === "explicit").length;
   const currentGoalCount =
     goalCategory === "other"
@@ -85,17 +141,17 @@ export function CraftingSuccessCriteriaPicker({
       className="rounded-md border border-emerald-500/25 bg-emerald-500/[0.035] px-3 py-2"
       data-testid="crafting-success-criteria"
       aria-labelledby={`crafting-success-title-${item.id}`}
-      aria-description="Las condiciones se comprueban con el texto avanzado; el objetivo libre no se interpreta como evidencia."
+      aria-description={t.description}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Flag className="size-4 text-emerald-300" aria-hidden="true" />
           <h5 id={`crafting-success-title-${item.id}`} className="text-sm font-semibold text-foreground">
-            ¿Cuándo paras?
+            {t.title}
           </h5>
         </div>
         <span className="text-xs text-emerald-200" data-testid="crafting-success-count">
-          {value.length}/3 condiciones
+          {t.count(value.length)}
         </span>
       </div>
       <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
@@ -113,16 +169,16 @@ export function CraftingSuccessCriteriaPicker({
               <Check className={`mt-0.5 size-3.5 shrink-0 ${goalCriterion ? "opacity-100" : "opacity-25"}`} aria-hidden="true" />
               <span>
                 <strong className="block text-foreground">
-                  Un afijo de {CRAFTING_GOAL_LABELS[goalCategory].toLocaleLowerCase("es")} más
+                  {t.oneMoreGoalAffix(goalCategory)}
                 </strong>
                 <span className="mt-0.5 block text-[11px] leading-snug">
-                  Ahora hay {currentGoalCount}; para al llegar a {recommendedGoalCriterion?.minimumCount ?? 6}.
+                  {t.nowAndStop(currentGoalCount, recommendedGoalCriterion?.minimumCount ?? 6)}
                 </span>
               </span>
             </button>
             {goalCriterion?.kind === "goal-affix-count" && (
               <select
-                aria-label="Cantidad mínima de afijos del objetivo"
+                aria-label={t.goalCountAria}
                 value={goalCriterion.minimumCount}
                 onChange={(event) =>
                   replace({
@@ -138,7 +194,7 @@ export function CraftingSuccessCriteriaPicker({
             )}
             {!goalCriterion && (
               <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
-                Recomendado
+                {t.recommended}
               </span>
             )}
           </div>
@@ -155,9 +211,9 @@ export function CraftingSuccessCriteriaPicker({
           >
             <Plus className={`mt-0.5 size-3.5 shrink-0 ${exactCriteria.length ? "opacity-100" : "opacity-50"}`} aria-hidden="true" />
             <span>
-              <strong className="block text-foreground">Añadir mod objetivo</strong>
+              <strong className="block text-foreground">{t.addTarget}</strong>
               <span className="mt-0.5 block text-[11px] leading-snug">
-                Línea exacta y grado mínimo.
+                {t.addTargetHint}
               </span>
             </span>
           </button>
@@ -174,12 +230,12 @@ export function CraftingSuccessCriteriaPicker({
             >
               <Check className={`mt-0.5 size-3.5 shrink-0 ${countCriterion ? "opacity-100" : "opacity-25"}`} aria-hidden="true" />
               <span>
-                <strong className="block text-foreground">Completar más afijos</strong>
+                <strong className="block text-foreground">{t.moreAffixes}</strong>
               </span>
             </button>
             {countCriterion?.kind === "explicit-count" && (
               <select
-                aria-label="Cantidad mínima de afijos explícitos"
+                aria-label={t.explicitCountAria}
                 value={countCriterion.minimumCount}
                 onChange={(event) =>
                   replace({ ...countCriterion, minimumCount: Number(event.target.value) })
@@ -199,7 +255,7 @@ export function CraftingSuccessCriteriaPicker({
           data-testid="crafting-observed-targets"
         >
           <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-cyan-100">
-            Elegir entre tus líneas observadas · {observedSuggestions.length}
+            {t.pickObserved(observedSuggestions.length)}
           </summary>
           <div className="grid gap-1.5 border-t border-cyan-500/20 p-2 sm:grid-cols-2">
             {observedSuggestions.map((suggestion, index) => (
@@ -220,13 +276,13 @@ export function CraftingSuccessCriteriaPicker({
               >
                 <strong className="line-clamp-2 text-foreground">{suggestion.text}</strong>
                 <span className="mt-1 block text-[10px] text-muted-foreground">
-                  {suggestion.itemName} · ilvl {suggestion.itemLevel ?? "?"} · {suggestion.maximumTier === undefined ? "grado no visible" : `G${suggestion.maximumTier}`}
+                  {suggestion.itemName} · ilvl {suggestion.itemLevel ?? "?"} · {suggestion.maximumTier === undefined ? t.tierHidden : t.tierShort(suggestion.maximumTier)}
                 </span>
               </button>
             ))}
           </div>
           <p className="border-t border-cyan-500/15 px-3 py-2 text-[10px] text-muted-foreground">
-            Usa la línea literal observada. No identifica una familia de mods ni demuestra su probabilidad.
+            {t.observedNote}
           </p>
         </details>
       )}
@@ -241,17 +297,17 @@ export function CraftingSuccessCriteriaPicker({
                 className="grid gap-2 rounded border border-emerald-500/30 bg-background/35 p-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end"
               >
                 <label className="block text-xs font-medium text-foreground">
-                  Mod objetivo {exactCriteria.indexOf(criterion) + 1}
+                  {t.targetLabel(exactCriteria.indexOf(criterion) + 1)}
                   <input
                     value={criterion.text}
                     maxLength={500}
                     onChange={(event) => replaceAt(index, { ...criterion, text: event.target.value })}
-                    placeholder="Pega la línea exacta del modificador"
+                    placeholder={t.targetPlaceholder}
                     className="mt-1 h-9 w-full rounded border border-emerald-500/35 bg-background px-2 text-xs"
                   />
                 </label>
                 <label className="block text-xs font-medium text-foreground">
-                  Grado mínimo
+                  {t.minimumTier}
                   <select
                     value={criterion.maximumTier ?? ""}
                     onChange={(event) =>
@@ -262,15 +318,15 @@ export function CraftingSuccessCriteriaPicker({
                     }
                     className="mt-1 h-9 w-full rounded border border-emerald-500/35 bg-background px-2 text-xs"
                   >
-                    <option value="">Cualquier grado</option>
+                    <option value="">{t.anyTier}</option>
                     {Array.from({ length: 10 }, (_, tier) => tier + 1).map((tier) => (
-                      <option key={tier} value={tier}>G{tier} o mejor</option>
+                      <option key={tier} value={tier}>{t.tierOrBetter(tier)}</option>
                     ))}
                   </select>
                 </label>
                 <button
                   type="button"
-                  aria-label={`Eliminar mod objetivo ${exactCriteria.indexOf(criterion) + 1}`}
+                  aria-label={t.removeTarget(exactCriteria.indexOf(criterion) + 1)}
                   className="grid size-9 place-items-center rounded border border-border text-muted-foreground hover:border-rose-500/40 hover:text-rose-200"
                   onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
                 >
@@ -280,7 +336,7 @@ export function CraftingSuccessCriteriaPicker({
             );
           })}
           <p className="text-[11px] text-muted-foreground">
-            G1 es mejor que G2. La app solo confirma el grado si aparece en el texto avanzado pegado.
+            {t.tierNote}
           </p>
         </div>
       )}

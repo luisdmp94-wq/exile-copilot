@@ -32,6 +32,7 @@ import {
 import { readPobCodeInBrowser } from "@/lib/pobBrowser";
 import { cn } from "@/lib/utils";
 import { texts, useLang, useText } from "@/i18n/lang";
+import { displayProfileValue } from "@/lib/format";
 
 const TEXT = texts(
   {
@@ -344,7 +345,7 @@ export function GuideCharacterCheck({
             }}
             data-testid="guia-modo-expediente"
           >
-            {t.useProfile(profile.name)}
+            {t.useProfile(displayProfileValue(profile.name))}
           </Button>
         )}
       </div>

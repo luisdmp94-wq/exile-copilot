@@ -8,6 +8,7 @@ import {
   type NumberedCraftingProjectAttempt,
 } from "@/lib/craftingProject";
 import { Button } from "@/components/ui/button";
+import { texts, useLang, useText, type Lang } from "@/i18n/lang";
 
 const RISK_STYLE: Record<ExpertCraftingRouteCandidate["risk"], string> = {
   controlled: "border-emerald-500/35 bg-emerald-500/[0.06] text-emerald-100",
@@ -15,11 +16,6 @@ const RISK_STYLE: Record<ExpertCraftingRouteCandidate["risk"], string> = {
   replacement: "border-rose-500/35 bg-rose-500/[0.06] text-rose-100",
 };
 
-const RISK_LABEL: Record<ExpertCraftingRouteCandidate["risk"], string> = {
-  controlled: "Añade",
-  "stage-change": "Cambia etapa",
-  replacement: "Reemplaza",
-};
 
 const STATUS_STYLE: Record<ExpertCraftingBlueprint["status"], string> = {
   "needs-item-data": "border-rose-500/40 bg-rose-500/[0.07] text-rose-50",
@@ -30,14 +26,6 @@ const STATUS_STYLE: Record<ExpertCraftingBlueprint["status"], string> = {
   ready: "border-primary/40 bg-primary/[0.07] text-foreground",
 };
 
-const PHASE_LABEL: Record<ExpertCraftingBlueprint["projectPhase"], string> = {
-  blocked: "Bloqueado",
-  base: "Base",
-  foundation: "Fundación",
-  finishing: "Cierre",
-  recovery: "Recuperación",
-  finished: "Terminado",
-};
 
 const BASE_DECISION_STYLE: Record<ExpertCraftingBlueprint["baseDecision"]["kind"], string> = {
   hold: "border-amber-500/40 bg-amber-500/[0.07] text-amber-50",
@@ -53,11 +41,114 @@ const BRANCH_STYLE = {
   failure: "border-rose-500/30 bg-rose-500/[0.055]",
 } as const;
 
-const ATTEMPT_LABEL: Record<CraftingProjectAttempt["branch"], string> = {
-  success: "Objetivo alcanzado",
-  salvage: "Resultado aprovechable",
-  failure: "Ruta agotada",
-};
+const TEXT = texts(
+  {
+    risk: {
+      controlled: "Añade",
+      "stage-change": "Cambia etapa",
+      replacement: "Reemplaza",
+    } as Record<ExpertCraftingRouteCandidate["risk"], string>,
+    phase: {
+      blocked: "Bloqueado",
+      base: "Base",
+      foundation: "Fundación",
+      finishing: "Cierre",
+      recovery: "Recuperación",
+      finished: "Terminado",
+    } as Record<ExpertCraftingBlueprint["projectPhase"], string>,
+    attempt: {
+      success: "Objetivo alcanzado",
+      salvage: "Resultado aprovechable",
+      failure: "Ruta agotada",
+    } as Record<CraftingProjectAttempt["branch"], string>,
+    noDate: "Fecha no disponible",
+    attemptHeader: (number: number, action: string) => `Intento ${number} · ${action}`,
+    protectedLost: "Se perdió una línea protegida.",
+    noLineMarked: "Ninguna línea marcada",
+    noExit: "Sin condición de salida",
+    phaseChip: (phase: string) => `Fase · ${phase}`,
+    capChip: (budget: string) => `Tope · ${budget}`,
+    contractAria: "Contrato del craft",
+    wantedResult: "Resultado buscado",
+    pendingGoal: "Objetivo pendiente",
+    dontSacrifice: "No sacrificar",
+    stopWhen: "Parar cuando",
+    baseDecision: "Decisión sobre la base",
+    resultMap: "Mapa del resultado",
+    recalculates: "Se recalcula al pegar la pieza",
+    projectMemory: "Memoria del proyecto",
+    attemptsSaved: (count: number) => `${count} ${count === 1 ? "intento registrado" : "intentos registrados"}`,
+    recentFour: "4 recientes",
+    allVisible: "Todos visibles",
+    seeOlder: (count: number) => `Ver ${count} ${count === 1 ? "intento anterior" : "intentos anteriores"}`,
+    routesTitle: "Rutas desde el estado actual",
+    safeOrder: "Orden conservador",
+    noWinner: "Sin ganador demostrable",
+    first: "Primero",
+    underReview: "En revisión",
+    tooltipMissing: "Falta tooltip",
+    keepsAndRisks: "Qué conserva y qué arriesga",
+    demoOnly: "Solo demostración",
+    waitingPatch: "Esperando revisión del parche",
+    stopReached: "Parada ya cumplida",
+    prepare: (label: string) => `Preparar ${label}`,
+    evaluate: (label: string) => `Evaluar ${label}`,
+    planLimits: "Límites del plan",
+  },
+  {
+    risk: {
+      controlled: "Adds",
+      "stage-change": "Changes stage",
+      replacement: "Replaces",
+    },
+    phase: {
+      blocked: "Blocked",
+      base: "Base",
+      foundation: "Foundation",
+      finishing: "Finishing",
+      recovery: "Recovery",
+      finished: "Finished",
+    },
+    attempt: {
+      success: "Goal reached",
+      salvage: "Usable result",
+      failure: "Route used up",
+    },
+    noDate: "Date not available",
+    attemptHeader: (number: number, action: string) => `Attempt ${number} · ${action}`,
+    protectedLost: "A protected line was lost.",
+    noLineMarked: "No line marked",
+    noExit: "No exit condition",
+    phaseChip: (phase: string) => `Stage · ${phase}`,
+    capChip: (budget: string) => `Cap · ${budget}`,
+    contractAria: "Craft plan",
+    wantedResult: "Result you want",
+    pendingGoal: "Goal pending",
+    dontSacrifice: "Don't sacrifice",
+    stopWhen: "Stop when",
+    baseDecision: "Decision on the base",
+    resultMap: "Result map",
+    recalculates: "Updates when you paste the item",
+    projectMemory: "Project history",
+    attemptsSaved: (count: number) => `${count} ${count === 1 ? "attempt saved" : "attempts saved"}`,
+    recentFour: "4 most recent",
+    allVisible: "All shown",
+    seeOlder: (count: number) => `See ${count} ${count === 1 ? "earlier attempt" : "earlier attempts"}`,
+    routesTitle: "Routes from the current state",
+    safeOrder: "Safe order",
+    noWinner: "No clear winner",
+    first: "First",
+    underReview: "Under review",
+    tooltipMissing: "Tooltip missing",
+    keepsAndRisks: "What it keeps and what it risks",
+    demoOnly: "Demo only",
+    waitingPatch: "Waiting for the patch review",
+    stopReached: "Stop already reached",
+    prepare: (label: string) => `Prepare ${label}`,
+    evaluate: (label: string) => `Check ${label}`,
+    planLimits: "Plan limits",
+  },
+);
 
 const ATTEMPT_STYLE: Record<CraftingProjectAttempt["branch"], string> = {
   success: "border-emerald-500/35 bg-emerald-500/[0.06] text-emerald-100",
@@ -86,10 +177,10 @@ function ContractCell({
   );
 }
 
-function attemptDate(value: string): string {
+function attemptDate(value: string, lang: Lang): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
-  return new Intl.DateTimeFormat("es-ES", {
+  if (Number.isNaN(date.getTime())) return TEXT[lang].noDate;
+  return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "es-ES", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -101,6 +192,8 @@ function ProjectAttemptCard({
 }: {
   entry: NumberedCraftingProjectAttempt;
 }) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const { attempt, number } = entry;
   return (
     <li
@@ -111,10 +204,10 @@ function ProjectAttemptCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <span className="text-xs font-semibold opacity-70">
-            Intento {number} · {attempt.actionLabel}
+            {t.attemptHeader(number, attempt.actionLabel)}
           </span>
           <strong className="mt-1 block text-sm text-foreground">
-            {ATTEMPT_LABEL[attempt.branch]}
+            {t.attempt[attempt.branch]}
           </strong>
         </div>
         <span className="shrink-0 rounded-full border border-current/25 px-2 py-0.5 text-[10px]">
@@ -122,13 +215,13 @@ function ProjectAttemptCard({
         </span>
       </div>
       <p className="mt-1 truncate text-[11px] opacity-70" title={attempt.resultName}>
-        {attempt.resultName} · {attemptDate(attempt.recordedAt)}
+        {attempt.resultName} · {attemptDate(attempt.recordedAt, lang)}
       </p>
       <p className="mt-1 line-clamp-2 text-xs leading-relaxed opacity-85">
         {attempt.decisionTitle}
       </p>
       {attempt.protectedStatus === "lost" && (
-        <p className="mt-2 text-[11px] font-semibold">Se perdió una línea protegida.</p>
+        <p className="mt-2 text-[11px] font-semibold">{t.protectedLost}</p>
       )}
     </li>
   );
@@ -154,14 +247,15 @@ export function CraftingExpertBlueprint({
   /** El laboratorio ya muestra el contrato paso a paso; evita repetirlo aquí. */
   showContract?: boolean;
 }) {
+  const t = useText(TEXT);
   const protectedSummary =
     blueprint.protectedLines.length > 0
       ? blueprint.protectedLines.join(" · ")
-      : "Ninguna línea marcada";
+      : t.noLineMarked;
   const stopSummary =
     blueprint.stopConditions.length > 0
       ? blueprint.stopConditions.join(" · ")
-      : "Sin condición de salida";
+      : t.noExit;
   const unavailableRoutes = new Set(unavailableRouteIds);
   const attemptHistory = splitCraftingProjectAttemptHistory(attempts);
 
@@ -182,11 +276,11 @@ export function CraftingExpertBlueprint({
           </h4>
           <div className="flex flex-wrap items-center justify-end gap-1.5 text-[11px]">
             <span className="rounded-full border border-current/25 px-2 py-0.5">
-              Fase · {PHASE_LABEL[blueprint.projectPhase]}
+              {t.phaseChip(t.phase[blueprint.projectPhase])}
             </span>
             {blueprint.budgetLabel && (
               <span className="rounded-full border border-current/25 px-2 py-0.5">
-                Tope · {blueprint.budgetLabel}
+                {t.capChip(blueprint.budgetLabel)}
               </span>
             )}
           </div>
@@ -195,19 +289,19 @@ export function CraftingExpertBlueprint({
       </div>
 
       {showContract && (
-        <div className="grid gap-px bg-border/50 sm:grid-cols-3" aria-label="Contrato del craft">
+        <div className="grid gap-px bg-border/50 sm:grid-cols-3" aria-label={t.contractAria}>
           <ContractCell
-            label="Resultado buscado"
-            value={blueprint.objective ?? "Objetivo pendiente"}
+            label={t.wantedResult}
+            value={blueprint.objective ?? t.pendingGoal}
             empty={blueprint.objective === null}
           />
           <ContractCell
-            label="No sacrificar"
+            label={t.dontSacrifice}
             value={protectedSummary}
             empty={blueprint.protectedLines.length === 0}
           />
           <ContractCell
-            label="Parar cuando"
+            label={t.stopWhen}
             value={stopSummary}
             empty={blueprint.stopConditions.length === 0}
           />
@@ -221,7 +315,7 @@ export function CraftingExpertBlueprint({
           data-decision={blueprint.baseDecision.kind}
         >
           <span className="text-xs font-semibold opacity-70">
-            Decisión sobre la base
+            {t.baseDecision}
           </span>
           <strong className="mt-1 block text-sm">{blueprint.baseDecision.label}</strong>
           <p className="mt-1 text-xs leading-relaxed opacity-85">{blueprint.baseDecision.detail}</p>
@@ -229,8 +323,8 @@ export function CraftingExpertBlueprint({
 
         <section data-testid="crafting-project-branches" aria-labelledby="crafting-project-branches-title">
           <div className="flex items-center justify-between gap-2">
-            <strong id="crafting-project-branches-title" className="text-sm">Mapa del resultado</strong>
-            <span className="text-[11px] text-muted-foreground">Se recalcula al pegar la pieza</span>
+            <strong id="crafting-project-branches-title" className="text-sm">{t.resultMap}</strong>
+            <span className="text-[11px] text-muted-foreground">{t.recalculates}</span>
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {blueprint.branches.map((branch) => (
@@ -258,14 +352,14 @@ export function CraftingExpertBlueprint({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs font-semibold text-primary/75">
-                Memoria del proyecto
+                {t.projectMemory}
               </p>
               <strong id="crafting-project-history-title" className="text-sm">
-                {attempts.length} {attempts.length === 1 ? "intento registrado" : "intentos registrados"}
+                {t.attemptsSaved(attempts.length)}
               </strong>
             </div>
             <span className="text-[11px] text-muted-foreground">
-              {attemptHistory.previous.length > 0 ? "4 recientes" : "Todos visibles"}
+              {attemptHistory.previous.length > 0 ? t.recentFour : t.allVisible}
             </span>
           </div>
           <ol
@@ -282,10 +376,7 @@ export function CraftingExpertBlueprint({
               data-testid="crafting-project-older-attempts"
             >
               <summary className="cursor-pointer select-none text-xs font-medium text-foreground hover:text-primary">
-                Ver {attemptHistory.previous.length}{" "}
-                {attemptHistory.previous.length === 1
-                  ? "intento anterior"
-                  : "intentos anteriores"}
+                {t.seeOlder(attemptHistory.previous.length)}
               </summary>
               <ol
                 className="mt-2 grid gap-2 border-t border-border/60 pt-2 sm:grid-cols-2"
@@ -303,9 +394,9 @@ export function CraftingExpertBlueprint({
       {blueprint.routes.length > 0 && (
         <div className="p-3" data-testid="crafting-route-comparison">
           <div className="flex items-center justify-between gap-2">
-            <strong className="text-sm">Rutas desde el estado actual</strong>
+            <strong className="text-sm">{t.routesTitle}</strong>
             <span className="text-[11px] text-muted-foreground">
-              {blueprint.recommendedRouteId ? "Orden conservador" : "Sin ganador demostrable"}
+              {blueprint.recommendedRouteId ? t.safeOrder : t.noWinner}
             </span>
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -323,22 +414,22 @@ export function CraftingExpertBlueprint({
                     <strong className="text-sm text-foreground">{route.label}</strong>
                     {route.recommended && (
                       <span className="ml-2 rounded-full border border-primary/35 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                        Primero
+                        {t.first}
                       </span>
                     )}
                   </div>
                   <span className="shrink-0 text-xs font-semibold">
                     {patchBlocked
-                      ? "En revisión"
+                      ? t.underReview
                       : route.availability === "legal"
-                        ? RISK_LABEL[route.risk]
-                        : "Falta tooltip"}
+                        ? t.risk[route.risk]
+                        : t.tooltipMissing}
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-foreground/90">{route.consequence}</p>
                 <details className="mt-2 text-[11px] text-muted-foreground">
                   <summary className="cursor-pointer select-none font-medium hover:text-foreground">
-                    Qué conserva y qué arriesga
+                    {t.keepsAndRisks}
                   </summary>
                   <div className="mt-2 space-y-1 border-t border-current/15 pt-2">
                     <p>{route.preserves}</p>
@@ -354,14 +445,14 @@ export function CraftingExpertBlueprint({
                   onClick={() => onChooseRoute(route)}
                 >
                   {simulation
-                    ? "Solo demostración"
+                    ? t.demoOnly
                     : patchBlocked
-                    ? "Esperando revisión del parche"
+                    ? t.waitingPatch
                     : blueprint.status === "already-complete"
-                    ? "Parada ya cumplida"
+                    ? t.stopReached
                     : route.availability === "legal"
-                      ? `Preparar ${route.label}`
-                      : `Evaluar ${route.label}`}
+                      ? t.prepare(route.label)
+                      : t.evaluate(route.label)}
                 </Button>
               </article>
               );
@@ -372,7 +463,7 @@ export function CraftingExpertBlueprint({
 
       <details className="border-t border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
         <summary className="cursor-pointer select-none font-medium hover:text-foreground">
-          Límites del plan
+          {t.planLimits}
         </summary>
         <ul className="mt-2 list-inside list-disc space-y-1">
           {blueprint.limitations.map((limitation) => (

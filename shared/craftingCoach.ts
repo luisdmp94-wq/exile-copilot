@@ -19,6 +19,7 @@ import {
 import {
   COACH_FOCUS_DIRECTION,
   COACH_FOCUS_LABELS,
+  COACH_FOCUS_LABELS_EN,
   evaluateCoachFocus,
   inferCoachFocus,
   type CoachFocus,
@@ -79,6 +80,51 @@ const RARITY_WORD: Partial<Record<ItemRarity, string>> = {
   rare: "raro",
 };
 
+const RARITY_WORD_EN: Partial<Record<ItemRarity, string>> = {
+  normal: "normal",
+  magic: "magic",
+  rare: "rare",
+};
+
+type CoachLang = "es" | "en";
+
+function rarityWordFor(rarity: ItemRarity, lang: CoachLang): string | undefined {
+  return (lang === "en" ? RARITY_WORD_EN : RARITY_WORD)[rarity];
+}
+
+/**
+ * Nombres oficiales en inglés de las monedas observadas. El catálogo
+ * `OBSERVED_CRAFTING_ACTIONS` está redactado en español; aquí solo se
+ * traduce por id, sin tocar el catálogo ni su evidencia.
+ */
+const ACTION_LABEL_EN: Record<CraftingActionId, string> = {
+  transmutation: "Orb of Transmutation",
+  augmentation: "Orb of Augmentation",
+  regal: "Regal Orb",
+  exalted: "Exalted Orb",
+};
+
+const ACTION_EFFECT_EN: Record<CraftingActionId, string> = {
+  transmutation: "Turns a normal item into a magic item with 1 modifier.",
+  augmentation: "Adds 1 random modifier to a magic item.",
+  regal: "Turns a magic item into a rare item, keeps its modifiers and adds 1.",
+  exalted: "Adds 1 random modifier to a rare item.",
+};
+
+const RESISTANCE_LABEL_EN: Record<"fire" | "cold" | "lightning", string> = {
+  fire: "fire resistance",
+  cold: "cold resistance",
+  lightning: "lightning resistance",
+};
+
+function capitalizeFirst(value: string): string {
+  return value.charAt(0).toLocaleUpperCase("en") + value.slice(1);
+}
+
+function focusLabelFor(focus: CoachFocus, lang: CoachLang): string {
+  return lang === "en" ? COACH_FOCUS_LABELS_EN[focus] : COACH_FOCUS_LABELS[focus];
+}
+
 export interface CoachItemReading {
   rarityWord: string;
   explicitCount: number;
@@ -98,7 +144,8 @@ function plural(count: number, one: string, many: string): string {
 }
 
 /** Resumen del objeto en lenguaje natural, sin contadores sueltos ni enums. */
-export function readItemInPlainWords(item: Item): CoachItemReading {
+export function readItemInPlainWords(item: Item, lang: "es" | "en" = "es"): CoachItemReading {
+  if (lang === "en") return readItemInPlainWordsEn(item);
   const diagnosis = diagnoseCraftingItem(item);
   const rarityWord = RARITY_WORD[item.rarity] ?? "de un tipo que todavía no sé leer";
   const {
@@ -176,6 +223,84 @@ export function readItemInPlainWords(item: Item): CoachItemReading {
   };
 }
 
+/** Misma lectura que `readItemInPlainWords`, redactada en inglés. */
+function readItemInPlainWordsEn(item: Item): CoachItemReading {
+  const diagnosis = diagnoseCraftingItem(item);
+  const rarityWord = RARITY_WORD_EN[item.rarity] ?? "of a kind I can't read yet";
+  const {
+    prefixCount,
+    suffixCount,
+    unclassifiedExplicitCount,
+    explicitCount,
+    observedTotalLimit,
+    observedOpenSlots,
+  } = diagnosis;
+
+  const prefixes = `${prefixCount} ${plural(prefixCount, "prefix", "prefixes")}`;
+  const suffixes = `${suffixCount} ${plural(suffixCount, "suffix", "suffixes")}`;
+  const structure =
+    prefixCount === 0 && suffixCount === 0
+      ? "it has no prefixes or suffixes"
+      : prefixCount === 0
+        ? `it has no prefixes and ${suffixes}`
+        : suffixCount === 0
+          ? `it has ${prefixes} and no suffixes`
+          : `it has ${prefixes} and ${suffixes}`;
+  const presentableOpenSlots = unclassifiedExplicitCount > 0 ? null : observedOpenSlots;
+  const itemWord = RARITY_WORD_EN[item.rarity] === undefined
+    ? `an item ${rarityWord}`
+    : `a ${rarityWord} item`;
+
+  let sentence: string;
+  if (item.rarity === "normal" && explicitCount === 0) {
+    const assignedPassives = item.modifiers.filter(
+      (modifier) =>
+        modifier.kind === "enchant" && /^(?:asigna|allocates?)\s+/iu.test(modifier.text),
+    ).length;
+    const implicitCount = item.modifiers.filter((modifier) => modifier.kind === "implicit").length;
+    const fixedEffects = [
+      assignedPassives > 0
+        ? `${assignedPassives} ${plural(assignedPassives, "allocated passive", "allocated passives")}`
+        : null,
+      implicitCount > 0
+        ? `${implicitCount} ${plural(implicitCount, "implicit", "implicits")}`
+        : null,
+    ].filter((value): value is string => value !== null);
+    sentence = "It's a normal item: it has no explicit affixes yet.";
+    if (fixedEffects.length > 0) {
+      sentence += ` Its fixed effects (${fixedEffects.join(" and ")}) don't take up prefixes or suffixes.`;
+    }
+  } else if (unclassifiedExplicitCount > 0) {
+    sentence =
+      `It's ${itemWord} and I read ${explicitCount} ${plural(explicitCount, "modifier", "modifiers")}: ` +
+      `${structure}, but ${unclassifiedExplicitCount} ${plural(unclassifiedExplicitCount, "line is", "lines are")} still unclassified. ` +
+      "I can't confirm the open slots until you copy it again with Ctrl+Alt+C.";
+  } else if (presentableOpenSlots === null) {
+    sentence = `It's ${itemWord} with ${explicitCount} ${plural(explicitCount, "modifier", "modifiers")}.`;
+  } else if (presentableOpenSlots === 0) {
+    sentence = `It's ${itemWord}: ${structure}. It's full: nothing else fits.`;
+  } else {
+    sentence =
+      `It's ${itemWord}: ${structure}. ` +
+      `${plural(presentableOpenSlots, "One more fits", `${presentableOpenSlots} more fit`)}.`;
+  }
+
+  return {
+    rarityWord,
+    explicitCount,
+    prefixCount,
+    suffixCount,
+    observedTotalLimit,
+    openSlots: presentableOpenSlots,
+    sentence,
+    keepsSentence:
+      explicitCount === 0
+        ? "There's nothing to keep yet."
+        : "What it already has stays: these orbs only add, they never remove.",
+    readable: diagnosis.state === "complete",
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Qué quiere el jugador
 // ---------------------------------------------------------------------------
@@ -226,6 +351,18 @@ const DEFENCE_GOAL_WORDS = [
   "tanque",
 ] as const;
 
+/**
+ * Las mismas direcciones escritas en inglés. Van como palabras completas
+ * (\b…\b) porque varias son lo bastante cortas para aparecer dentro de una
+ * palabra española («crit» en «escrito»). Se reconocen en los dos idiomas:
+ * un jugador puede escribir en inglés aunque tenga la web en español.
+ */
+const DAMAGE_GOAL_WORDS_EN =
+  /\b(?:damage|dps|attacks?|attack speed|crits?|critical|accuracy|projectiles?|arrows?|offen[cs]e|offensive)\b/;
+
+const DEFENCE_GOAL_WORDS_EN =
+  /\b(?:defen[cs]e|defensive|life|hp|armou?r|evasion|energy shield|resists?|resistances?|res|survive|survival|survivability|tank|tanky)\b/;
+
 function normalizeGoalText(value: string): string {
   return value
     .normalize("NFD")
@@ -236,7 +373,7 @@ function normalizeGoalText(value: string): string {
 }
 
 const PROTECTION_MARKER =
-  /\b(?:sin\s+(?:perder|sacrificar)|(?:no\s+)?quiero\s+perder|manteniendo|mantener|conservando|conservar|protegiendo|proteger)\b/i;
+  /\b(?:sin\s+(?:perder|sacrificar)|(?:no\s+)?quiero\s+perder|manteniendo|mantener|conservando|conservar|protegiendo|proteger|without\s+(?:losing|sacrificing)|(?:(?:do\s+not|don'?t)\s+)?want\s+to\s+lose|keeping|keep|protecting|protect)\b/i;
 
 const PROTECTION_STOP_WORDS = new Set([
   "a",
@@ -262,6 +399,16 @@ const PROTECTION_STOP_WORDS = new Set([
   "un",
   "una",
   "y",
+  // Inglés: mismas palabras de relleno.
+  "and",
+  "current",
+  "line",
+  "lines",
+  "modifier",
+  "modifiers",
+  "the",
+  "this",
+  "with",
 ]);
 
 const CANONICAL_PROTECTION_TOKEN: Record<string, string> = {
@@ -270,6 +417,11 @@ const CANONICAL_PROTECTION_TOKEN: Record<string, string> = {
   resistencias: "resistencia",
   ataques: "ataque",
   atributos: "atributo",
+  skills: "skill",
+  projectiles: "projectile",
+  resistances: "resistance",
+  attacks: "attack",
+  attributes: "attribute",
 };
 
 function protectionTokens(value: string): string[] {
@@ -289,7 +441,7 @@ function protectionSegments(value: string): { primary: string; requested: string
   return {
     primary,
     requested: tail
-      .split(/\s+(?:y|ni)\s+|[,;]/)
+      .split(/\s+(?:y|ni|and|or|nor)\s+|[,;]/)
       .map((segment) => segment.trim())
       .filter(Boolean),
   };
@@ -377,7 +529,9 @@ export function looksLikeCharacterQuestion(value: string): boolean {
 export function interpretCoachGoal(
   value: string,
   item?: Pick<Item, "modifiers">,
+  lang: "es" | "en" = "es",
 ): CoachGoalInterpretation {
+  const en = lang === "en";
   const normalized = normalizeGoalText(value);
   const { primary, requested } = protectionSegments(value);
   const protections = matchProtectedModifiers(requested, item);
@@ -386,7 +540,9 @@ export function interpretCoachGoal(
       intent: "incremental",
       direction: null,
       focus: null,
-      reason: "Cuéntame qué te gustaría conseguir con esta pieza.",
+      reason: en
+        ? "Tell me what you'd like to get out of this item."
+        : "Cuéntame qué te gustaría conseguir con esta pieza.",
       ...protections,
     };
   }
@@ -405,16 +561,19 @@ export function interpretCoachGoal(
       intent: "unique-acquisition",
       direction: null,
       focus: null,
-      reason:
-        "Has pedido un objeto único, no una mejora incremental de esta pieza. Primero necesito saber qué único concreto buscas y compararlo con tu personaje; no gastes monedas en esta pieza por inercia.",
+      reason: en
+        ? "You asked for a unique item, not a step-by-step upgrade of this item. First I need to know which unique you're after and compare it with your character; don't spend orbs on this item just out of habit."
+        : "Has pedido un objeto único, no una mejora incremental de esta pieza. Primero necesito saber qué único concreto buscas y compararlo con tu personaje; no gastes monedas en esta pieza por inercia.",
       ...protections,
     };
   }
 
   const intent: CoachGoalIntent = asksForEndgame ? "endgame-project" : "incremental";
 
-  const damage = DAMAGE_GOAL_WORDS.some((word) => primary.includes(word));
-  const defence = DEFENCE_GOAL_WORDS.some((word) => primary.includes(word));
+  const damage =
+    DAMAGE_GOAL_WORDS.some((word) => primary.includes(word)) || DAMAGE_GOAL_WORDS_EN.test(primary);
+  const defence =
+    DEFENCE_GOAL_WORDS.some((word) => primary.includes(word)) || DEFENCE_GOAL_WORDS_EN.test(primary);
   const explicitFocus = inferCoachFocus(primary);
   const explicitDirection = explicitFocus === null ? null : COACH_FOCUS_DIRECTION[explicitFocus];
   const asksForDamage = damage || explicitDirection === "damage";
@@ -425,7 +584,9 @@ export function interpretCoachGoal(
       intent,
       direction: null,
       focus: null,
-      reason: "Veo un objetivo de daño y otro de defensa. Elige cuál quieres trabajar primero.",
+      reason: en
+        ? "I see a damage goal and a defence goal. Pick which one you want to work on first."
+        : "Veo un objetivo de daño y otro de defensa. Elige cuál quieres trabajar primero.",
       ...protections,
     };
   }
@@ -435,9 +596,13 @@ export function interpretCoachGoal(
       intent,
       direction: "damage",
       focus,
-      reason: focus === null
-        ? "Sé que buscas daño, pero necesito saber qué tipo para juzgar cada resultado."
-        : `He entendido que primero buscas ${COACH_FOCUS_LABELS[focus]}.`,
+      reason: en
+        ? focus === null
+          ? "I know you want damage, but I need to know which kind to judge each result."
+          : `Got it: first you want ${COACH_FOCUS_LABELS_EN[focus]}.`
+        : focus === null
+          ? "Sé que buscas daño, pero necesito saber qué tipo para juzgar cada resultado."
+          : `He entendido que primero buscas ${COACH_FOCUS_LABELS[focus]}.`,
       ...protections,
     };
   }
@@ -447,9 +612,13 @@ export function interpretCoachGoal(
       intent,
       direction: "defence",
       focus,
-      reason: focus === null
-        ? "Sé que buscas defensa, pero necesito saber cuál para juzgar cada resultado."
-        : `He entendido que primero buscas ${COACH_FOCUS_LABELS[focus]}.`,
+      reason: en
+        ? focus === null
+          ? "I know you want defence, but I need to know which kind to judge each result."
+          : `Got it: first you want ${COACH_FOCUS_LABELS_EN[focus]}.`
+        : focus === null
+          ? "Sé que buscas defensa, pero necesito saber cuál para juzgar cada resultado."
+          : `He entendido que primero buscas ${COACH_FOCUS_LABELS[focus]}.`,
       ...protections,
     };
   }
@@ -457,8 +626,11 @@ export function interpretCoachGoal(
     intent,
     direction: null,
     focus: null,
-    reason:
-      intent === "endgame-project"
+    reason: en
+      ? intent === "endgame-project"
+        ? "You asked for an endgame project. One matching affix isn't enough to call it finished: I need the character, the equipped item, the budget and the full list of requirements."
+        : "I understand your words, but I can't safely turn them into a crafting direction. Let's first settle whether you want damage or defence."
+      : intent === "endgame-project"
         ? "Has pedido un proyecto de endgame. Un afijo que coincida no basta para darlo por terminado: necesito el personaje, la pieza equipada, el presupuesto y la lista completa de requisitos."
         : "Entiendo tus palabras, pero no puedo convertirlas con seguridad en una dirección de crafting. Aclaremos primero si buscas daño o defensa.",
     ...protections,
@@ -482,6 +654,26 @@ export const COACH_DIRECTION_NOUNS: Record<CoachDirection, string> = {
   defence: "defensa",
 };
 
+/** Versión inglesa de `COACH_DIRECTION_LABELS` («You want to improve damage»). */
+export const COACH_DIRECTION_LABELS_EN: Record<CoachDirection, string> = {
+  damage: "damage",
+  defence: "defence",
+};
+
+/** Versión inglesa de `COACH_DIRECTION_NOUNS` («damage tags»). */
+export const COACH_DIRECTION_NOUNS_EN: Record<CoachDirection, string> = {
+  damage: "damage",
+  defence: "defence",
+};
+
+export function coachDirectionLabel(direction: CoachDirection, lang: "es" | "en" = "es"): string {
+  return (lang === "en" ? COACH_DIRECTION_LABELS_EN : COACH_DIRECTION_LABELS)[direction];
+}
+
+export function coachDirectionNoun(direction: CoachDirection, lang: "es" | "en" = "es"): string {
+  return (lang === "en" ? COACH_DIRECTION_NOUNS_EN : COACH_DIRECTION_NOUNS)[direction];
+}
+
 /**
  * «No sé qué necesita».
  *
@@ -495,11 +687,16 @@ export const COACH_DIRECTION_NOUNS: Record<CoachDirection, string> = {
  */
 export function suggestDirectionFromCharacter(
   profile: Pick<CharacterProfile, "resistances"> | null,
+  lang: "es" | "en" = "es",
 ): CoachDirectionGuess {
+  const en = lang === "en";
+  const cannotDecide = en
+    ? "I can't decide that by looking at this item alone."
+    : "No puedo decidirlo mirando solo esta pieza.";
   if (profile === null) {
     return {
       direction: null,
-      reason: "No puedo decidirlo mirando solo esta pieza.",
+      reason: cannotDecide,
     };
   }
 
@@ -512,16 +709,18 @@ export function suggestDirectionFromCharacter(
   if (bajas.length === 0) {
     return {
       direction: null,
-      reason: "No puedo decidirlo mirando solo esta pieza.",
+      reason: cannotDecide,
     };
   }
 
   const detalle = bajas
-    .map((entry) => `${RESISTANCE_LABELS[entry.kind]} ${entry.value}%`)
+    .map((entry) => `${(en ? RESISTANCE_LABEL_EN : RESISTANCE_LABELS)[entry.kind]} ${entry.value}%`)
     .join(", ");
   return {
     direction: "defence",
-    reason: `Tu expediente declara ${detalle}, por debajo de ${LOW_ELEMENTAL_RESISTANCE}%.`,
+    reason: en
+      ? `Your character file shows ${detalle}, below ${LOW_ELEMENTAL_RESISTANCE}%.`
+      : `Tu expediente declara ${detalle}, por debajo de ${LOW_ELEMENTAL_RESISTANCE}%.`,
   };
 }
 
@@ -580,6 +779,16 @@ export const COACH_ROLL_MINIMUM_LABELS: Record<CoachRollMinimum, string> = {
   high: "tirada alta",
 };
 
+export const COACH_ROLL_MINIMUM_LABELS_EN: Record<CoachRollMinimum, string> = {
+  any: "any roll",
+  middle: "a middle or high roll",
+  high: "a high roll",
+};
+
+export function coachRollMinimumLabel(minimum: CoachRollMinimum, lang: "es" | "en" = "es"): string {
+  return (lang === "en" ? COACH_ROLL_MINIMUM_LABELS_EN : COACH_ROLL_MINIMUM_LABELS)[minimum];
+}
+
 /**
  * Compara exclusivamente la posición dentro del rango visible del tooltip.
  * No convierte el porcentaje observado en probabilidad ni lo compara con el
@@ -589,7 +798,9 @@ export function assessCoachRollMinimum(
   minimum: CoachRollMinimum,
   modifiers: readonly import("./domain.js").Modifier[],
   focus: CoachFocus | null,
+  lang: "es" | "en" = "es",
 ): CoachRollMinimumAssessment {
+  const en = lang === "en";
   const matching = modifiers.filter(
     (modifier) => evaluateCoachFocus(focus, [modifier]).status === "direct",
   );
@@ -597,14 +808,18 @@ export function assessCoachRollMinimum(
     return {
       status: "not-applicable",
       minimum,
-      label: "El resultado no contiene un afijo que coincida con el objetivo.",
+      label: en
+        ? "The result has no affix that matches the goal."
+        : "El resultado no contiene un afijo que coincida con el objetivo.",
     };
   }
   if (minimum === "any") {
     return {
       status: "fulfilled",
       minimum,
-      label: "El afijo coincide; aceptaste cualquier tirada observable.",
+      label: en
+        ? "The affix matches; you accepted any roll you can see."
+        : "El afijo coincide; aceptaste cualquier tirada observable.",
     };
   }
 
@@ -617,7 +832,9 @@ export function assessCoachRollMinimum(
     return {
       status: "unverifiable",
       minimum,
-      label: "El tooltip no muestra un rango con el que comprobar tu tirada mínima.",
+      label: en
+        ? "The tooltip doesn't show a range to check your minimum roll against."
+        : "El tooltip no muestra un rango con el que comprobar tu tirada mínima.",
     };
   }
   const fulfilled = comparable.some(
@@ -626,9 +843,13 @@ export function assessCoachRollMinimum(
   return {
     status: fulfilled ? "fulfilled" : "below",
     minimum,
-    label: fulfilled
-      ? `La tirada alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`
-      : `El afijo coincide, pero no alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`,
+    label: en
+      ? fulfilled
+        ? `The roll reaches your minimum: ${COACH_ROLL_MINIMUM_LABELS_EN[minimum]}.`
+        : `The affix matches, but it doesn't reach your minimum: ${COACH_ROLL_MINIMUM_LABELS_EN[minimum]}.`
+      : fulfilled
+        ? `La tirada alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`
+        : `El afijo coincide, pero no alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`,
   };
 }
 
@@ -678,7 +899,8 @@ export type CoachNextStep =
 
 const ACTION_BY_ID = new Map(OBSERVED_CRAFTING_ACTIONS.map((action) => [action.id, action]));
 
-function actionLabel(actionId: CraftingActionId): string {
+function actionLabel(actionId: CraftingActionId, lang: CoachLang = "es"): string {
+  if (lang === "en") return ACTION_LABEL_EN[actionId] ?? actionId;
   return ACTION_BY_ID.get(actionId)?.label ?? actionId;
 }
 
@@ -715,16 +937,35 @@ const RANDOMNESS_NOTICE: Record<Exclude<CoachSteering, "directed">, string> = {
   "undeclared": "No se puede saber qué modificador añadirá.",
 };
 
-function whatCanHappen(item: Item, actionId: CraftingActionId): string[] {
-  const lines = [
-    "El modificador que salga es aleatorio: no se puede saber cuál antes de usar la moneda.",
-    "Exile Copilot no tiene una lista verificada de lo que puede aparecer, así que no te dirá cuál es más probable.",
-  ];
+const RANDOMNESS_NOTICE_EN: Record<Exclude<CoachSteering, "directed">, string> = {
+  "random-declared": "The modifier it adds is random.",
+  "undeclared": "There's no way to know which modifier it will add.",
+};
+
+function whatCanHappen(item: Item, actionId: CraftingActionId, lang: CoachLang = "es"): string[] {
+  const en = lang === "en";
+  const lines = en
+    ? [
+        "The modifier you get is random: there's no way to know which one before using the orb.",
+        "Exile Copilot has no verified list of what can appear, so it won't tell you which one is more likely.",
+      ]
+    : [
+        "El modificador que salga es aleatorio: no se puede saber cuál antes de usar la moneda.",
+        "Exile Copilot no tiene una lista verificada de lo que puede aparecer, así que no te dirá cuál es más probable.",
+      ];
   const resultRarity = EXPECTED_RESULT_RARITY[actionId];
   if (resultRarity !== item.rarity) {
-    lines.push(`La pieza pasará de ${RARITY_WORD[item.rarity] ?? item.rarity} a ${RARITY_WORD[resultRarity] ?? resultRarity}.`);
+    lines.push(
+      en
+        ? `The item will go from ${RARITY_WORD_EN[item.rarity] ?? item.rarity} to ${RARITY_WORD_EN[resultRarity] ?? resultRarity}.`
+        : `La pieza pasará de ${RARITY_WORD[item.rarity] ?? item.rarity} a ${RARITY_WORD[resultRarity] ?? resultRarity}.`,
+    );
   }
-  lines.push("Lo que ya tiene seguirá ahí: esta acción añade, no reemplaza.");
+  lines.push(
+    en
+      ? "What it already has stays: this action adds, it doesn't replace."
+      : "Lo que ya tiene seguirá ahí: esta acción añade, no reemplaza.",
+  );
   return lines;
 }
 
@@ -733,14 +974,18 @@ function structuralWarning(
   item: Item,
   actionId: CraftingActionId,
   diagnosis: CraftingItemDiagnosis,
+  lang: CoachLang = "es",
 ): string | null {
+  const en = lang === "en";
   const resultRarity = EXPECTED_RESULT_RARITY[actionId];
   if (resultRarity !== item.rarity) {
     const lost = OBSERVED_CRAFTING_ACTIONS.filter(
       (action) => action.targetRarity === item.rarity && action.id !== actionId,
-    ).map((action) => action.label);
+    ).map((action) => actionLabel(action.id, lang));
     if (lost.length > 0) {
-      return `Al cambiar de rareza dejarás de poder usar ${lost.join(" y ")} sobre esta pieza.`;
+      return en
+        ? `Once the rarity changes, you won't be able to use ${lost.join(" or ")} on this item anymore.`
+        : `Al cambiar de rareza dejarás de poder usar ${lost.join(" y ")} sobre esta pieza.`;
     }
   }
   if (
@@ -749,7 +994,9 @@ function structuralWarning(
     diagnosis.observedOpenSlots === 1 &&
     resultRarity === item.rarity
   ) {
-    return `Con esto llegas al límite observado de ${diagnosis.observedTotalLimit}. Después no cabrá nada más.`;
+    return en
+      ? `This takes you to the observed limit of ${diagnosis.observedTotalLimit}. After that, nothing else will fit.`
+      : `Con esto llegas al límite observado de ${diagnosis.observedTotalLimit}. Después no cabrá nada más.`;
   }
   return null;
 }
@@ -763,15 +1010,17 @@ export function chooseNextStep(
   item: Item,
   /** Lo que el jugador busca. NO cambia qué es legal; solo qué se le advierte. */
   direction: CoachDirection | null = null,
+  lang: "es" | "en" = "es",
 ): CoachNextStep {
-  const diagnosis = diagnoseCraftingItem(item);
-  const evaluations = evaluateObservedCraftingActions(item);
+  const en = lang === "en";
+  const diagnosis = diagnoseCraftingItem(item, lang);
+  const evaluations = evaluateObservedCraftingActions(item, undefined, lang);
   const compatible = evaluations
     .filter((entry) => entry.status === "compatible")
     .map((entry) => entry.action.id);
 
   if (diagnosis.state !== "complete") {
-    const importIssue = assessCraftingImportIssue(item, diagnosis);
+    const importIssue = assessCraftingImportIssue(item, diagnosis, lang);
     return {
       kind: "needs-data",
       legality: "needs-data",
@@ -784,6 +1033,23 @@ export function chooseNextStep(
 
   if (compatible.length === 0) {
     const full = item.rarity === "rare" && diagnosis.observedOpenSlots === 0;
+    if (en) {
+      return {
+        kind: "stop",
+        legality: "blocked",
+        headline: full ? "Stop: this item is already full" : "Stop: no compatible action",
+        instruction: full
+          ? "Keep it and try it on your character. These four orbs can't add anything else."
+          : "Don't spend any orb on this item yet.",
+        why: full
+          ? `It has the ${diagnosis.observedTotalLimit} modifiers of the observed limit. Adding another would mean replacing one, which is a different operation and carries risk.`
+          : evaluations.find((entry) => entry.status !== "compatible")?.reason ??
+            "None of the observed orbs fits the item's current state.",
+        reviewInExpediente: false,
+        needsAdvancedTools: full,
+        evidence: evaluations.map((entry) => `${actionLabel(entry.action.id, lang)}: ${entry.reason}`),
+      };
+    }
     return {
       kind: "stop",
       legality: "blocked",
@@ -809,15 +1075,50 @@ export function chooseNextStep(
       const resultRarity = EXPECTED_RESULT_RARITY[candidate];
       return {
         actionId: candidate,
-        label: actionLabel(candidate),
-        difference:
-          resultRarity === item.rarity
+        label: actionLabel(candidate, lang),
+        difference: en
+          ? resultRarity === item.rarity
+            ? "Keeps the current rarity and adds a modifier."
+            : `Besides adding, it turns the item ${RARITY_WORD_EN[resultRarity] ?? resultRarity}.`
+          : resultRarity === item.rarity
             ? "Mantiene la rareza actual y añade un modificador."
             : `Además de añadir, convierte la pieza en ${RARITY_WORD[resultRarity] ?? resultRarity}.`,
       };
     });
 
   const steering = steeringOf(actionId);
+  if (en) {
+    const labelEn = actionLabel(actionId, lang);
+    const rarityEn = rarityWordFor(item.rarity, lang) ?? item.rarity;
+    return {
+      kind: "use-currency",
+      legality: "legal",
+      steering,
+      goalFit: direction === null ? "not-evaluable" : "not-confirmed",
+      actionId,
+      label: labelEn,
+      instruction: `Use one ${labelEn} on "${item.name}".`,
+      why:
+        alternatives.length > 0
+          ? `It's the only one you can use while the item stays ${rarityEn}. The other option will still be there afterwards.`
+          : "It's the only one that fits the item right now.",
+      randomnessNotice: RANDOMNESS_NOTICE_EN[steering === "directed" ? "undeclared" : steering],
+      directionNotice:
+        direction === null
+          ? null
+          : `This orb can add a modifier, but I can't steer it towards ${COACH_DIRECTION_NOUNS_EN[direction]}.`,
+      warning: structuralWarning(item, actionId, diagnosis, lang),
+      whatCanHappen: whatCanHappen(item, actionId, lang),
+      alternatives,
+      evidence: [
+        `${labelEn}: ${ACTION_EFFECT_EN[actionId] ?? action.effect}`,
+        action.evidence,
+        ...(diagnosis.observedTotalLimit === null
+          ? []
+          : [`Observed total limit for this rarity: ${diagnosis.observedTotalLimit}.`]),
+      ],
+    };
+  }
   return {
     kind: "use-currency",
     // Legal significa «se puede aplicar», no «conviene» ni «sirve para tu
@@ -880,7 +1181,20 @@ function stopForSatisfiedGoal(
   item: Item,
   focus: CoachFocus,
   why: string,
+  lang: CoachLang = "es",
 ): Extract<CoachNextStep, { kind: "stop" }> {
+  if (lang === "en") {
+    return {
+      kind: "stop",
+      legality: "blocked",
+      headline: "Stop: the item already has the goal",
+      instruction: `Don't add another orb to "${item.name || item.baseType}" until you check the current roll and decide whether you already accept it.`,
+      why,
+      reviewInExpediente: true,
+      needsAdvancedTools: false,
+      evidence: [`The item already has a line that matches ${COACH_FOCUS_LABELS_EN[focus]}.`],
+    };
+  }
   return {
     kind: "stop",
     legality: "blocked",
@@ -896,8 +1210,30 @@ function stopForSatisfiedGoal(
 function stopForProjectDefinition(
   item: Item,
   intent: Exclude<CoachGoalIntent, "incremental">,
+  lang: CoachLang = "es",
 ): Extract<CoachNextStep, { kind: "stop" }> {
   const unique = intent === "unique-acquisition";
+  if (lang === "en") {
+    const name = item.name || item.baseType;
+    return {
+      kind: "stop",
+      legality: "blocked",
+      headline: unique ? "First, identify the unique" : "First, define the whole project",
+      instruction: unique
+        ? `Don't spend orbs on "${name}" chasing a unique you haven't identified and compared.`
+        : `Don't call "${name}" finished because of a single affix; first list every requirement for the endgame item.`,
+      why: unique
+        ? "Looking for or judging a unique item isn't a step-by-step upgrade of the open item."
+        : "An endgame item is judged as a whole and against your character, not because it shares one tag.",
+      reviewInExpediente: false,
+      needsAdvancedTools: !unique,
+      evidence: [
+        unique
+          ? "The written goal asks for unique rarity."
+          : "The written goal asks for an endgame or final item.",
+      ],
+    };
+  }
   return {
     kind: "stop",
     legality: "blocked",
@@ -921,7 +1257,25 @@ function stopForProjectDefinition(
 function stopForUnverifiedContextGoal(
   item: Item,
   focus: CoachFocus,
+  lang: CoachLang = "es",
 ): Extract<CoachNextStep, { kind: "stop" }> {
+  if (lang === "en") {
+    const focusLabelEn = COACH_FOCUS_LABELS_EN[focus];
+    return {
+      kind: "stop",
+      legality: "blocked",
+      headline: "Don't spend blindly on this item",
+      instruction: `Your character file says your character needs ${focusLabelEn}, but "${item.name || item.baseType}" shows no line I recognise for that goal. Switch items or check a suitable base inside PoE2 before using any orb.`,
+      why: "A gap in your character doesn't prove this item can fill it. Without verified mod pools or odds, recommending an orb would turn a suggestion into a gamble you didn't ask for.",
+      reviewInExpediente: false,
+      needsAdvancedTools: false,
+      evidence: [
+        `Your character's context points to ${focusLabelEn}.`,
+        `The copied item has no line I recognise as ${focusLabelEn}.`,
+        "There are no verified mod pools or odds to steer the next result.",
+      ],
+    };
+  }
   const focusLabel = COACH_FOCUS_LABELS[focus];
   return {
     kind: "stop",
@@ -958,7 +1312,8 @@ export function assessPurposefulCraftBase(input: {
    * apuesta aleatoria sobre la pieza abierta.
    */
   goalSource?: CoachGoalSource;
-}): CoachBaseAssessment {
+}, lang: "es" | "en" = "es"): CoachBaseAssessment {
+  const en = lang === "en";
   const {
     item,
     direction,
@@ -968,7 +1323,7 @@ export function assessPurposefulCraftBase(input: {
     goalIntent = "incremental",
     goalSource = "player",
   } = input;
-  const structuralStep = chooseNextStep(item, direction);
+  const structuralStep = chooseNextStep(item, direction, lang);
   const hasCharacter = hasCraftingCharacterContext(profile);
   const linked = Boolean(
     hasCharacter &&
@@ -981,14 +1336,36 @@ export function assessPurposefulCraftBase(input: {
     : hasCharacter
       ? "known-unlinked"
       : "missing";
-  const characterLabel = linked
-    ? `Vinculada al expediente de ${profile?.name ?? "tu personaje"}.`
-    : hasCharacter
-      ? `${profile?.name ?? "Tu personaje"} está cargado; esta pieza no está equipada.`
-      : "Sin expediente: usaré solo el objetivo que has escrito.";
+  const characterLabel = en
+    ? linked
+      ? `Linked to ${profile?.name ?? "your character"}'s character file.`
+      : hasCharacter
+        ? `${profile?.name ?? "Your character"} is loaded; this item isn't equipped.`
+        : "No character file: I'll only use the goal you wrote."
+    : linked
+      ? `Vinculada al expediente de ${profile?.name ?? "tu personaje"}.`
+      : hasCharacter
+        ? `${profile?.name ?? "Tu personaje"} está cargado; esta pieza no está equipada.`
+        : "Sin expediente: usaré solo el objetivo que has escrito.";
 
   if (goalIntent !== "incremental") {
     const unique = goalIntent === "unique-acquisition";
+    if (en) {
+      return {
+        status: "needs-data",
+        title: unique ? "This isn't a step-by-step craft" : "This is an endgame project",
+        summary: unique
+          ? "First identify the unique item and compare it with your character. The open item doesn't prove that's where it's headed."
+          : "One matching affix doesn't prove the weapon is finished. You need to check the whole item against your character, their current weapon, the budget and every requirement you listed.",
+        characterContext,
+        characterLabel,
+        targetLabel: unique
+          ? "Missing: the exact unique and its comparison."
+          : "Missing: the full plan for the endgame item.",
+        decisionLabel: unique ? "Go to search and compare." : "Open the Advanced workshop.",
+        nextStep: stopForProjectDefinition(item, goalIntent, lang),
+      };
+    }
     return {
       status: "needs-data",
       title: unique ? "Esto no es un craft incremental" : "Esto es un proyecto de endgame",
@@ -1008,27 +1385,36 @@ export function assessPurposefulCraftBase(input: {
   if (focus === null || direction === null) {
     return {
       status: "needs-data",
-      title: "Falta concretar el objetivo",
-      summary: "Elige una sola propiedad observable antes de decidir si esta base merece una moneda.",
+      title: en ? "The goal still needs to be specific" : "Falta concretar el objetivo",
+      summary: en
+        ? "Pick one property you can see on the item before deciding whether this base is worth an orb."
+        : "Elige una sola propiedad observable antes de decidir si esta base merece una moneda.",
       characterContext,
       characterLabel,
-      targetLabel: "Objetivo todavía sin concretar.",
-      decisionLabel: "No gastar.",
+      targetLabel: en ? "Goal not specific yet." : "Objetivo todavía sin concretar.",
+      decisionLabel: en ? "Don't spend." : "No gastar.",
       nextStep: structuralStep,
     };
   }
 
-  const focusLabel = COACH_FOCUS_LABELS[focus];
+  const focusLabel = focusLabelFor(focus, lang);
+  const rollMinimumLabel = coachRollMinimumLabel(rollMinimum, lang);
   const explicitModifiers = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const signal = evaluateCoachFocus(focus, explicitModifiers);
-  const targetLabel = signal.status === "direct"
-    ? `Ya contiene una línea de ${focusLabel}.`
-    : signal.status === "no-direct-signal" || explicitModifiers.length === 0
-      ? `Aún no contiene una línea reconocible de ${focusLabel}.`
-      : `No puedo comprobar todavía si contiene ${focusLabel}.`;
+  const targetLabel = en
+    ? signal.status === "direct"
+      ? `It already has a ${focusLabel} line.`
+      : signal.status === "no-direct-signal" || explicitModifiers.length === 0
+        ? `It doesn't have a ${focusLabel} line I recognise yet.`
+        : `I can't check yet whether it has ${focusLabel}.`
+    : signal.status === "direct"
+      ? `Ya contiene una línea de ${focusLabel}.`
+      : signal.status === "no-direct-signal" || explicitModifiers.length === 0
+        ? `Aún no contiene una línea reconocible de ${focusLabel}.`
+        : `No puedo comprobar todavía si contiene ${focusLabel}.`;
 
   if (structuralStep.kind === "needs-data") {
-    const importIssue = assessCraftingImportIssue(item);
+    const importIssue = assessCraftingImportIssue(item, undefined, lang);
     return {
       status: "needs-data",
       title: importIssue.title,
@@ -1036,53 +1422,71 @@ export function assessPurposefulCraftBase(input: {
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: importIssue.retryCopy
-        ? "Volver a copiar con Ctrl+Alt+C."
-        : "No gastar moneda sobre esta pieza.",
+      decisionLabel: en
+        ? importIssue.retryCopy
+          ? "Copy it again with Ctrl+Alt+C."
+          : "Don't spend orbs on this item."
+        : importIssue.retryCopy
+          ? "Volver a copiar con Ctrl+Alt+C."
+          : "No gastar moneda sobre esta pieza.",
       nextStep: structuralStep,
     };
   }
 
-  const currentRoll = assessCoachRollMinimum(rollMinimum, explicitModifiers, focus);
+  const currentRoll = assessCoachRollMinimum(rollMinimum, explicitModifiers, focus, lang);
   if (signal.status === "direct" && currentRoll.status === "fulfilled") {
-    const why = `La pieza ya aporta ${focusLabel} y alcanza ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]} dentro del rango visible.`;
+    const why = en
+      ? `The item already gives ${focusLabel} and reaches ${rollMinimumLabel} within the visible range.`
+      : `La pieza ya aporta ${focusLabel} y alcanza ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]} dentro del rango visible.`;
     return {
       status: "already-satisfied",
-      title: "Tu parada ya se cumple",
-      summary: `${why} Antes de arriesgar otro hueco, revisa la tirada actual en tu expediente.`,
+      title: en ? "Your stop point is already met" : "Tu parada ya se cumple",
+      summary: en
+        ? `${why} Before risking another slot, check the current roll in your character file.`
+        : `${why} Antes de arriesgar otro hueco, revisa la tirada actual en tu expediente.`,
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: "Parar y revisar.",
-      nextStep: stopForSatisfiedGoal(item, focus, why),
+      decisionLabel: en ? "Stop and check." : "Parar y revisar.",
+      nextStep: stopForSatisfiedGoal(item, focus, why, lang),
     };
   }
 
   if (signal.status === "direct" && currentRoll.status === "unverifiable") {
-    const why = `La pieza ya aporta ${focusLabel}, pero el texto no permite comprobar la tirada mínima elegida.`;
+    const why = en
+      ? `The item already gives ${focusLabel}, but the text doesn't let me check the minimum roll you picked.`
+      : `La pieza ya aporta ${focusLabel}, pero el texto no permite comprobar la tirada mínima elegida.`;
     return {
       status: "review-current",
-      title: "Revisa primero lo que ya tienes",
-      summary: `${why} No gastes para buscar una línea que quizá ya aceptarías.`,
+      title: en ? "First check what you already have" : "Revisa primero lo que ya tienes",
+      summary: en
+        ? `${why} Don't spend to chase a line you might already accept.`
+        : `${why} No gastes para buscar una línea que quizá ya aceptarías.`,
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: "Revisar la tirada actual.",
-      nextStep: stopForSatisfiedGoal(item, focus, why),
+      decisionLabel: en ? "Check the current roll." : "Revisar la tirada actual.",
+      nextStep: stopForSatisfiedGoal(item, focus, why, lang),
     };
   }
 
   if (structuralStep.kind === "stop") {
     return {
       status: "change-base",
-      title: signal.status === "direct" ? "Esta base no admite otro paso básico" : "No inviertas más en esta base",
-      summary: signal.status === "direct"
-        ? `La pieza apunta a ${focusLabel}, pero las monedas básicas observadas ya no pueden añadir nada.`
-        : `La pieza no muestra ${focusLabel} y las monedas básicas observadas ya no pueden añadir nada. Busca otra base.`,
+      title: en
+        ? signal.status === "direct" ? "This base can't take another basic step" : "Don't invest more in this base"
+        : signal.status === "direct" ? "Esta base no admite otro paso básico" : "No inviertas más en esta base",
+      summary: en
+        ? signal.status === "direct"
+          ? `The item points to ${focusLabel}, but the observed basic orbs can't add anything else.`
+          : `The item doesn't show ${focusLabel} and the observed basic orbs can't add anything else. Look for another base.`
+        : signal.status === "direct"
+          ? `La pieza apunta a ${focusLabel}, pero las monedas básicas observadas ya no pueden añadir nada.`
+          : `La pieza no muestra ${focusLabel} y las monedas básicas observadas ya no pueden añadir nada. Busca otra base.`,
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: "Cambiar de base.",
+      decisionLabel: en ? "Switch to another base." : "Cambiar de base.",
       nextStep: structuralStep,
     };
   }
@@ -1090,37 +1494,47 @@ export function assessPurposefulCraftBase(input: {
   if (goalSource === "context" && signal.status !== "direct") {
     return {
       status: "change-base",
-      title: "Esta necesidad no valida esta pieza",
-      summary: `El personaje necesita ${focusLabel}, pero la pieza no demuestra ese objetivo. No conviertas una carencia global en un gasto aleatorio.`,
+      title: en ? "This need doesn't make this item the right one" : "Esta necesidad no valida esta pieza",
+      summary: en
+        ? `Your character needs ${focusLabel}, but this item doesn't show that goal. Don't turn a general gap into a random spend.`
+        : `El personaje necesita ${focusLabel}, pero la pieza no demuestra ese objetivo. No conviertas una carencia global en un gasto aleatorio.`,
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: "Cambiar de pieza sin gastar.",
-      nextStep: stopForUnverifiedContextGoal(item, focus),
+      decisionLabel: en ? "Switch items without spending." : "Cambiar de pieza sin gastar.",
+      nextStep: stopForUnverifiedContextGoal(item, focus, lang),
     };
   }
 
   if (signal.status === "direct") {
     return {
       status: "aligned",
-      title: `La base ya apunta a ${focusLabel}`,
-      summary: `La línea existe, pero todavía no cumple tu parada. El siguiente gasto sigue siendo aleatorio y debe respetar tu límite.`,
+      title: en ? `The base already points to ${focusLabel}` : `La base ya apunta a ${focusLabel}`,
+      summary: en
+        ? "The line is there, but it doesn't meet your stop point yet. The next spend is still random and must stay within your limit."
+        : `La línea existe, pero todavía no cumple tu parada. El siguiente gasto sigue siendo aleatorio y debe respetar tu límite.`,
       characterContext,
       characterLabel,
       targetLabel,
-      decisionLabel: `Como máximo, ${structuralStep.label} dentro del contrato.`,
+      decisionLabel: en
+        ? `At most, ${structuralStep.label} within your plan.`
+        : `Como máximo, ${structuralStep.label} dentro del contrato.`,
       nextStep: structuralStep,
     };
   }
 
   return {
     status: "controlled-attempt",
-    title: "Solo merece un intento controlado",
-    summary: `La base todavía no demuestra ${focusLabel}. La siguiente moneda es legal, pero no puede dirigirse hacia ese objetivo.`,
+    title: en ? "Only worth one controlled try" : "Solo merece un intento controlado",
+    summary: en
+      ? `The base doesn't show ${focusLabel} yet. The next orb can be used, but it can't be steered towards that goal.`
+      : `La base todavía no demuestra ${focusLabel}. La siguiente moneda es legal, pero no puede dirigirse hacia ese objetivo.`,
     characterContext,
     characterLabel,
     targetLabel,
-    decisionLabel: `${structuralStep.label}: una apuesta limitada, no una receta.`,
+    decisionLabel: en
+      ? `${structuralStep.label}: a limited gamble, not a recipe.`
+      : `${structuralStep.label}: una apuesta limitada, no una receta.`,
     nextStep: structuralStep,
   };
 }
@@ -1186,7 +1600,9 @@ export interface CoachContextSuggestion {
 export function suggestCraftingFocusFromContext(
   profile: Pick<CharacterProfile, "resistances"> | null,
   target: Pick<BuildTarget, "name" | "desiredMods"> | null | undefined,
+  lang: "es" | "en" = "es",
 ): CoachContextSuggestion {
+  const en = lang === "en";
   const declared = (target?.desiredMods ?? [])
     .map((line) => ({ line: line.trim(), focus: inferCoachFocus(line) }))
     .filter(
@@ -1198,15 +1614,18 @@ export function suggestCraftingFocusFromContext(
     return {
       source: "target",
       focuses: targetFocuses,
-      reason:
-        targetFocuses.length === 1
+      reason: en
+        ? targetFocuses.length === 1
+          ? `Your plan "${target?.name || "Target build"}" lists one priority I recognise.`
+          : `Your plan "${target?.name || "Target build"}" lists several priorities. Pick which one to work on first.`
+        : targetFocuses.length === 1
           ? `Tu plan «${target?.name || "Build objetivo"}» declara una prioridad reconocible.`
           : `Tu plan «${target?.name || "Build objetivo"}» declara varias prioridades. Elige cuál trabajar primero.`,
       evidence: declared.map((entry) => entry.line),
     };
   }
 
-  const direction = suggestDirectionFromCharacter(profile);
+  const direction = suggestDirectionFromCharacter(profile, lang);
   if (direction.direction === "defence") {
     return {
       source: "resistances",
@@ -1219,8 +1638,11 @@ export function suggestCraftingFocusFromContext(
   return {
     source: "none",
     focuses: [],
-    reason:
-      target && target.desiredMods.length === 0
+    reason: en
+      ? target && target.desiredMods.length === 0
+        ? `Your plan "${target.name || "Target build"}" doesn't list any wanted mods yet that I can link to this item.`
+        : "I can't find a clear priority in your plan or a measurable gap in your character file."
+      : target && target.desiredMods.length === 0
         ? `Tu plan «${target.name || "Build objetivo"}» todavía no declara mods deseados que pueda relacionar con esta pieza.`
         : "No encuentro una prioridad concreta en tu plan ni una carencia medible en el expediente.",
     evidence: [],
@@ -1230,9 +1652,10 @@ export function suggestCraftingFocusFromContext(
 function readObservedAffixes(
   modifiers: readonly import("./domain.js").Modifier[],
   fit: (modifier: import("./domain.js").Modifier) => CraftingGoalSignal["status"],
+  lang: CoachLang = "es",
 ): CoachResultReading["observedAffixes"] {
   return modifiers.map((modifier) => {
-    const roll = assessObservedModifierRoll(modifier);
+    const roll = assessObservedModifierRoll(modifier, lang);
     const signal = fit(modifier);
     return {
       id: modifier.id,
@@ -1259,22 +1682,27 @@ export function readCraftResult(input: {
   comparison: CraftingComparison;
   resultItem: Item;
   direction: CoachDirection | null;
-}): CoachResultReading {
+}, lang: "es" | "en" = "es"): CoachResultReading {
+  const en = lang === "en";
   const { comparison, resultItem, direction } = input;
 
   if (comparison.status !== "confirmed") {
     const reason = comparison.summary.trim();
     return {
-      headline:
-        comparison.status === "mismatch"
+      headline: en
+        ? comparison.status === "mismatch"
+          ? "This doesn't match the previous item"
+          : "I can't confirm the change yet"
+        : comparison.status === "mismatch"
           ? "Esto no cuadra con la pieza anterior"
           : "Todavía no puedo confirmar el cambio",
       changed: [],
       kept: "",
       verdict: "stop",
       decisionKind: "stop",
-      verdictText:
-        `${reason} No gastes otra moneda. Revisa el texto pegado y vuelve a comprobarlo.`,
+      verdictText: en
+        ? `${reason} Don't spend another orb. Check the pasted text and compare again.`
+        : `${reason} No gastes otra moneda. Revisa el texto pegado y vuelve a comprobarlo.`,
       nextStep: null,
       goalFit: "not-evaluable",
       directionNote: null,
@@ -1285,13 +1713,16 @@ export function readCraftResult(input: {
   }
 
   const changed = comparison.addedModifiers.map((modifier) => modifier.text);
-  const observedAffixes = readObservedAffixes(comparison.addedModifiers, (modifier) =>
-    direction === null
-      ? "unknown"
-      : evaluateCraftingGoalSignal(DIRECTION_CATEGORY[direction], [modifier]).status,
+  const observedAffixes = readObservedAffixes(
+    comparison.addedModifiers,
+    (modifier) =>
+      direction === null
+        ? "unknown"
+        : evaluateCraftingGoalSignal(DIRECTION_CATEGORY[direction], [modifier]).status,
+    lang,
   );
   const removed = comparison.removedModifiers.length;
-  const nextStep = chooseNextStep(resultItem, direction);
+  const nextStep = chooseNextStep(resultItem, direction, lang);
 
   let directionNote: string | null = null;
   let goalFit: CoachGoalFit = "not-evaluable";
@@ -1301,20 +1732,27 @@ export function readCraftResult(input: {
       DIRECTION_CATEGORY[direction],
       comparison.addedModifiers,
     );
-    const noun = COACH_DIRECTION_NOUNS[direction];
+    const noun = coachDirectionNoun(direction, lang);
     if (signal.status === "direct") {
       goalFit = "confirmed";
-      directionNote = `El nuevo modificador está relacionado con ${noun}.`;
+      directionNote = en
+        ? `The new modifier is related to ${noun}.`
+        : `El nuevo modificador está relacionado con ${noun}.`;
     } else if (signal.status === "no-direct-signal") {
       goalFit = "not-confirmed";
-      directionNote = `El nuevo modificador no está relacionado con ${noun}.`;
+      directionNote = en
+        ? `The new modifier isn't related to ${noun}.`
+        : `El nuevo modificador no está relacionado con ${noun}.`;
     } else {
       goalFit = "not-evaluable";
-      directionNote = `El texto no trae etiquetas de ${noun} que yo pueda comparar.`;
+      directionNote = en
+        ? `The text has no ${noun} tags I can compare.`
+        : `El texto no trae etiquetas de ${noun} que yo pueda comparar.`;
     }
     // Compartir etiqueta no es una mejora demostrada, en ningún caso.
-    improvementCaveat =
-      "Esto no demuestra todavía que la pieza completa sea mejor para tu personaje. Pruébala o compárala en el personaje.";
+    improvementCaveat = en
+      ? "This doesn't prove yet that the whole item is better for your character. Try it or compare it on your character."
+      : "Esto no demuestra todavía que la pieza completa sea mejor para tu personaje. Pruébala o compárala en el personaje.";
   }
 
   const protectedLineLost = comparison.protectionStatus === "lost";
@@ -1325,6 +1763,44 @@ export function readCraftResult(input: {
       : nextStep.kind === "stop"
         ? "stop"
         : "unclear";
+
+  if (en) {
+    return {
+      headline:
+        changed.length === 0
+          ? "The change is confirmed, but I don't see any new modifier"
+          : plural(changed.length, "A new modifier appeared", `${changed.length} new modifiers appeared`),
+      changed,
+      kept: protectedLineLost
+        ? `A line you asked to keep is gone: ${comparison.lostProtectedModifiers.map((modifier) => modifier.text).join(" · ")}.`
+        : removed === 0
+          ? "Nothing you already had was lost."
+          : `${removed} ${plural(removed, "modifier is", "modifiers are")} gone. Check it before going on.`,
+      verdict,
+      decisionKind:
+        protectedLineLost || verdict === "stop"
+          ? "stop"
+          : verdict === "continue"
+            ? "continue"
+            : null,
+      verdictText:
+        protectedLineLost
+          ? "Stop: the result lost something you marked as untouchable. Don't spend another orb."
+          : verdict === "continue"
+          ? "You can keep going if you want, one orb at a time."
+          : verdict === "stop"
+            ? nextStep.kind === "stop"
+              ? nextStep.instruction
+              : "Stop and get the missing information."
+            : "Get the missing information before spending again.",
+      nextStep,
+      goalFit,
+      directionNote,
+      improvementCaveat,
+      observedAffixes,
+      weaponPerformance: null,
+    };
+  }
 
   return {
     headline:
@@ -1379,7 +1855,8 @@ export function readPurposefulCraftResult(input: {
   rollMinimum?: CoachRollMinimum;
   attemptNumber?: number;
   attemptLimit?: number;
-}): CoachResultReading {
+}, lang: "es" | "en" = "es"): CoachResultReading {
+  const en = lang === "en";
   const {
     comparison,
     originalItem,
@@ -1392,7 +1869,7 @@ export function readPurposefulCraftResult(input: {
     attemptNumber = 1,
     attemptLimit = 1,
   } = input;
-  const base = readCraftResult({ comparison, resultItem, direction });
+  const base = readCraftResult({ comparison, resultItem, direction }, lang);
   if (comparison.status !== "confirmed" || comparison.protectionStatus === "lost") {
     return base;
   }
@@ -1402,31 +1879,44 @@ export function readPurposefulCraftResult(input: {
     resultItem,
     profile,
     focus,
-  });
+  }, lang);
 
-  const signal = evaluateCoachFocus(focus, comparison.addedModifiers);
-  const focusLabel = focus === null ? null : COACH_FOCUS_LABELS[focus];
+  const signal = evaluateCoachFocus(focus, comparison.addedModifiers, lang);
+  const focusLabel = focus === null ? null : focusLabelFor(focus, lang);
+  const rollMinimumLabel = coachRollMinimumLabel(rollMinimum, lang);
   const goalFit: CoachGoalFit = signal.status === "direct"
     ? "confirmed"
     : signal.status === "no-direct-signal"
       ? "not-confirmed"
       : "not-evaluable";
-  const directionNote = focusLabel === null
-    ? "Todavía no has concretado qué resultado buscas."
-    : signal.status === "direct"
-      ? `El nuevo modificador coincide con tu objetivo: ${focusLabel}.`
-      : signal.status === "no-direct-signal"
-        ? `El nuevo modificador no coincide con tu objetivo principal: ${focusLabel}.`
-        : `No puedo comprobar si el nuevo modificador aporta ${focusLabel}.`;
-  const improvementCaveat =
-    "El grado y el rango solo describen este afijo; esto no demuestra por sí solo que la pieza completa mejore tu personaje.";
-  const observedAffixes = readObservedAffixes(comparison.addedModifiers, (modifier) =>
-    evaluateCoachFocus(focus, [modifier]).status,
+  const directionNote = en
+    ? focusLabel === null
+      ? "You haven't said yet which result you're after."
+      : signal.status === "direct"
+        ? `The new modifier matches your goal: ${focusLabel}.`
+        : signal.status === "no-direct-signal"
+          ? `The new modifier doesn't match your main goal: ${focusLabel}.`
+          : `I can't check whether the new modifier gives ${focusLabel}.`
+    : focusLabel === null
+      ? "Todavía no has concretado qué resultado buscas."
+      : signal.status === "direct"
+        ? `El nuevo modificador coincide con tu objetivo: ${focusLabel}.`
+        : signal.status === "no-direct-signal"
+          ? `El nuevo modificador no coincide con tu objetivo principal: ${focusLabel}.`
+          : `No puedo comprobar si el nuevo modificador aporta ${focusLabel}.`;
+  const improvementCaveat = en
+    ? "The tier and range only describe this affix; on their own they don't prove the whole item makes your character better."
+    : "El grado y el rango solo describen este afijo; esto no demuestra por sí solo que la pieza completa mejore tu personaje.";
+  const observedAffixes = readObservedAffixes(
+    comparison.addedModifiers,
+    (modifier) => evaluateCoachFocus(focus, [modifier]).status,
+    lang,
   );
   const rollMinimumAssessment = assessCoachRollMinimum(
     rollMinimum,
     comparison.addedModifiers,
     focus,
+    lang,
   );
   const safeAttemptLimit = Math.max(1, Math.floor(attemptLimit));
   const safeAttemptNumber = Math.max(1, Math.min(Math.floor(attemptNumber), safeAttemptLimit));
@@ -1441,7 +1931,9 @@ export function readPurposefulCraftResult(input: {
       ...base,
       verdict: "stop",
       decisionKind: "stop",
-      verdictText: "No gastes otra moneda: concreta primero el objetivo que debe cumplir el siguiente afijo.",
+      verdictText: en
+        ? "Don't spend another orb: first decide exactly what the next affix has to give."
+        : "No gastes otra moneda: concreta primero el objetivo que debe cumplir el siguiente afijo.",
       nextStep: null,
       goalFit,
       directionNote,
@@ -1460,9 +1952,13 @@ export function readPurposefulCraftResult(input: {
           ...base,
           verdict: "stop",
           decisionKind: attemptProgress.remaining === 0 ? "restart" : "stop",
-          verdictText: attemptProgress.remaining === 0
-            ? `Límite alcanzado: apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Aunque es un objeto suelto, el contrato escrito basta para cerrar este intento; cambia de base o acepta conscientemente la tirada.`
-            : `Apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Como es un objeto suelto no puedo compararlo con tu equipo; decide si aceptas la tirada antes de gastar otra moneda.`,
+          verdictText: en
+            ? attemptProgress.remaining === 0
+              ? `Limit reached: ${focusLabel} appeared, but it doesn't reach ${rollMinimumLabel}. Even for a loose item, your written plan is enough to close this try; switch bases or knowingly accept the roll.`
+              : `${capitalizeFirst(focusLabel ?? "")} appeared, but it doesn't reach ${rollMinimumLabel}. Since it's a loose item I can't compare it with your gear; decide whether you accept the roll before spending another orb.`
+            : attemptProgress.remaining === 0
+              ? `Límite alcanzado: apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Aunque es un objeto suelto, el contrato escrito basta para cerrar este intento; cambia de base o acepta conscientemente la tirada.`
+              : `Apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Como es un objeto suelto no puedo compararlo con tu equipo; decide si aceptas la tirada antes de gastar otra moneda.`,
           nextStep: null,
           goalFit,
           directionNote,
@@ -1478,8 +1974,9 @@ export function readPurposefulCraftResult(input: {
           ...base,
           verdict: "stop",
           decisionKind: "stop",
-          verdictText:
-            `El resultado coincide con ${focusLabel}, pero el tooltip no permite comprobar ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Como es un objeto suelto, detente y decide si aceptas el valor antes de gastar otra moneda.`,
+          verdictText: en
+            ? `The result matches ${focusLabel}, but the tooltip doesn't let me check ${rollMinimumLabel}. Since it's a loose item, stop and decide whether you accept the value before spending another orb.`
+            : `El resultado coincide con ${focusLabel}, pero el tooltip no permite comprobar ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Como es un objeto suelto, detente y decide si aceptas el valor antes de gastar otra moneda.`,
           nextStep: null,
           goalFit,
           directionNote,
@@ -1494,8 +1991,9 @@ export function readPurposefulCraftResult(input: {
         ...base,
         verdict: "stop",
         decisionKind: "stop",
-        verdictText:
-          `Punto de parada alcanzado: apareció ${focusLabel} con ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Detén el gasto. Como es un objeto suelto, todavía falta compararlo con tu equipo antes de llamarlo mejora.`,
+        verdictText: en
+          ? `Stop point reached: ${focusLabel} appeared with ${rollMinimumLabel}. Stop spending. Since it's a loose item, you still need to compare it with your gear before calling it an upgrade.`
+          : `Punto de parada alcanzado: apareció ${focusLabel} con ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Detén el gasto. Como es un objeto suelto, todavía falta compararlo con tu equipo antes de llamarlo mejora.`,
         nextStep: null,
         goalFit,
         directionNote,
@@ -1512,8 +2010,9 @@ export function readPurposefulCraftResult(input: {
         ...base,
         verdict: "continue",
         decisionKind: "continue",
-        verdictText:
-          `El resultado no aporta ${focusLabel}. Como es un objeto suelto no puedo juzgar su encaje con la build, pero el contrato escrito permite ${attemptProgress.remaining === 1 ? "1 paso más" : `${attemptProgress.remaining} pasos más`}. Revisa la siguiente acción legal; no la repitas automáticamente.`,
+        verdictText: en
+          ? `The result doesn't give ${focusLabel}. Since it's a loose item I can't judge how it fits your build, but your written plan allows ${attemptProgress.remaining === 1 ? "1 more step" : `${attemptProgress.remaining} more steps`}. Check the next allowed action; don't repeat it on autopilot.`
+          : `El resultado no aporta ${focusLabel}. Como es un objeto suelto no puedo juzgar su encaje con la build, pero el contrato escrito permite ${attemptProgress.remaining === 1 ? "1 paso más" : `${attemptProgress.remaining} pasos más`}. Revisa la siguiente acción legal; no la repitas automáticamente.`,
         nextStep: base.nextStep,
         goalFit,
         directionNote,
@@ -1529,8 +2028,9 @@ export function readPurposefulCraftResult(input: {
       ...base,
       verdict: "stop",
       decisionKind: "restart",
-      verdictText:
-        `Límite alcanzado: el resultado no aporta ${focusLabel}. Aunque es un objeto suelto, el objetivo escrito basta para cerrar este intento. No gastes otra moneda por inercia: prueba otra base o redefine el contrato.`,
+      verdictText: en
+        ? `Limit reached: the result doesn't give ${focusLabel}. Even for a loose item, your written goal is enough to close this try. Don't spend another orb out of habit: try another base or rethink your plan.`
+        : `Límite alcanzado: el resultado no aporta ${focusLabel}. Aunque es un objeto suelto, el objetivo escrito basta para cerrar este intento. No gastes otra moneda por inercia: prueba otra base o redefine el contrato.`,
       nextStep: null,
       goalFit,
       directionNote,
@@ -1551,7 +2051,7 @@ export function readPurposefulCraftResult(input: {
     comparison,
     goalCategory: category,
     goalSignal: signal,
-  });
+  }, lang);
   const decision = decideCraftingNextStep({
     resultItem,
     comparison,
@@ -1561,26 +2061,34 @@ export function readPurposefulCraftResult(input: {
     addedRollQuality:
       rollMinimum === "any" || comparison.addedModifiers[0] === undefined
         ? null
-        : assessObservedModifierRoll(comparison.addedModifiers[0]),
+        : assessObservedModifierRoll(comparison.addedModifiers[0], lang),
     successAssessment:
       signal.status === "direct" && rollMinimumAssessment.status === "fulfilled"
         ? {
             status: "fulfilled",
-            title: "Objetivo del paso observado",
-            summary: `El modificador nuevo coincide con ${focusLabel}.`,
+            title: en ? "Step goal seen" : "Objetivo del paso observado",
+            summary: en
+              ? `The new modifier matches ${focusLabel}.`
+              : `El modificador nuevo coincide con ${focusLabel}.`,
             entries: [],
           }
         : null,
-  });
+  }, lang);
 
   const focusComparison = weaponPerformance?.focusComparison ?? null;
   const visibleComparisonText = focusComparison === null
     ? ""
-    : focusComparison.outcome === "higher"
-      ? ` En cifras visibles, ${focusComparison.label} sube de ${focusComparison.before} a ${focusComparison.after}.`
-      : focusComparison.outcome === "lower"
-        ? ` En cifras visibles, ${focusComparison.label} baja de ${focusComparison.before} a ${focusComparison.after}.`
-        : ` En cifras visibles, ${focusComparison.label} no mejora: sigue en ${focusComparison.after}.`;
+    : en
+      ? focusComparison.outcome === "higher"
+        ? ` In visible numbers, ${focusComparison.label} goes up from ${focusComparison.before} to ${focusComparison.after}.`
+        : focusComparison.outcome === "lower"
+          ? ` In visible numbers, ${focusComparison.label} goes down from ${focusComparison.before} to ${focusComparison.after}.`
+          : ` In visible numbers, ${focusComparison.label} doesn't improve: it stays at ${focusComparison.after}.`
+      : focusComparison.outcome === "higher"
+        ? ` En cifras visibles, ${focusComparison.label} sube de ${focusComparison.before} a ${focusComparison.after}.`
+        : focusComparison.outcome === "lower"
+          ? ` En cifras visibles, ${focusComparison.label} baja de ${focusComparison.before} a ${focusComparison.after}.`
+          : ` En cifras visibles, ${focusComparison.label} no mejora: sigue en ${focusComparison.after}.`;
   const visibleGoalFailed =
     weaponPerformance?.comparedToEquipped === true &&
     focusComparison !== null &&
@@ -1598,9 +2106,13 @@ export function readPurposefulCraftResult(input: {
         ...base,
         verdict: "stop",
         decisionKind: limitReached ? "restart" : "stop",
-        verdictText: limitReached
-          ? `Límite alcanzado: la línea coincide, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Cierra este intento y cambia de base o redefine el objetivo.`
-          : `La línea coincide, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. No gastes otra moneda automáticamente: decide si aceptas la tirada o cambias de base.`,
+        verdictText: en
+          ? limitReached
+            ? `Limit reached: the line matches, but it doesn't reach ${rollMinimumLabel}. Close this try and switch bases or rethink the goal.`
+            : `The line matches, but it doesn't reach ${rollMinimumLabel}. Don't spend another orb on autopilot: decide whether you accept the roll or switch bases.`
+          : limitReached
+            ? `Límite alcanzado: la línea coincide, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Cierra este intento y cambia de base o redefine el objetivo.`
+            : `La línea coincide, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. No gastes otra moneda automáticamente: decide si aceptas la tirada o cambias de base.`,
         nextStep: null,
         goalFit,
         directionNote,
@@ -1616,8 +2128,9 @@ export function readPurposefulCraftResult(input: {
         ...base,
         verdict: "stop",
         decisionKind: "stop",
-        verdictText:
-          "El afijo coincide, pero el tooltip no permite comprobar la tirada mínima que elegiste. No gastes otra moneda hasta decidir si aceptas ese valor sin compararlo.",
+        verdictText: en
+          ? "The affix matches, but the tooltip doesn't let me check the minimum roll you picked. Don't spend another orb until you decide whether you accept that value without comparing it."
+          : "El afijo coincide, pero el tooltip no permite comprobar la tirada mínima que elegiste. No gastes otra moneda hasta decidir si aceptas ese valor sin compararlo.",
         nextStep: null,
         goalFit,
         directionNote,
@@ -1639,8 +2152,9 @@ export function readPurposefulCraftResult(input: {
       ...base,
       verdict: "stop",
       decisionKind: "restart",
-      verdictText:
-        "Límite alcanzado: este resultado no cumple el objetivo. Cierra el intento y cambia de base o redefine el contrato; no añadas otra moneda por inercia.",
+      verdictText: en
+        ? "Limit reached: this result doesn't meet the goal. Close the try and switch bases or rethink your plan; don't add another orb out of habit."
+        : "Límite alcanzado: este resultado no cumple el objetivo. Cierra el intento y cambia de base o redefine el contrato; no añadas otra moneda por inercia.",
       nextStep: null,
       goalFit,
       directionNote,
@@ -1662,8 +2176,9 @@ export function readPurposefulCraftResult(input: {
       ...base,
       verdict: "continue",
       decisionKind: "continue",
-      verdictText:
-        `El paso no cumple el objetivo. Te ${attemptProgress.remaining === 1 ? "queda 1 paso" : `quedan ${attemptProgress.remaining} pasos`} dentro del límite: vuelve a comprobar la siguiente acción legal y decide; no la repitas automáticamente.`,
+      verdictText: en
+        ? `This step doesn't meet the goal. You have ${attemptProgress.remaining === 1 ? "1 step" : `${attemptProgress.remaining} steps`} left within your limit: check the next allowed action again and decide; don't repeat it on autopilot.`
+        : `El paso no cumple el objetivo. Te ${attemptProgress.remaining === 1 ? "queda 1 paso" : `quedan ${attemptProgress.remaining} pasos`} dentro del límite: vuelve a comprobar la siguiente acción legal y decide; no la repitas automáticamente.`,
       nextStep: base.nextStep,
       goalFit,
       directionNote,
@@ -1680,7 +2195,9 @@ export function readPurposefulCraftResult(input: {
     verdict: visibleBlocksContinuation ? "stop" : decision.kind === "continue" ? "continue" : "stop",
     decisionKind: visibleBlocksContinuation ? "stop" : decision.kind,
     verdictText: visibleBlocksContinuation
-      ? `Para aquí: no supera ${weaponPerformance.baselineLabel} en ${focusComparison.label}.${visibleComparisonText}`
+      ? en
+        ? `Stop here: it doesn't beat ${weaponPerformance.baselineLabel} in ${focusComparison.label}.${visibleComparisonText}`
+        : `Para aquí: no supera ${weaponPerformance.baselineLabel} en ${focusComparison.label}.${visibleComparisonText}`
       : `${decision.title}. ${decision.summary} ${decision.nextAction}${visibleComparisonText}`,
     nextStep:
       !visibleBlocksContinuation && decision.kind === "continue" ? base.nextStep : null,

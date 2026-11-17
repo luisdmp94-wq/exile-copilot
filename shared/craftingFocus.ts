@@ -39,6 +39,22 @@ export const COACH_FOCUS_LABELS: Record<CoachFocus, string> = {
   "energy-shield": "escudo de energía",
 };
 
+export const COACH_FOCUS_LABELS_EN: Record<CoachFocus, string> = {
+  physical: "physical damage",
+  fire: "fire damage",
+  cold: "cold damage",
+  lightning: "lightning damage",
+  chaos: "chaos damage",
+  "attack-speed": "attack speed",
+  critical: "critical hits",
+  "projectile-levels": "projectile skill levels",
+  "maximum-life": "maximum life",
+  resistances: "resistances",
+  armour: "armour",
+  evasion: "evasion",
+  "energy-shield": "energy shield",
+};
+
 export type CoachFocusDirection = "damage" | "defence";
 
 export const COACH_FOCUS_DIRECTION: Record<CoachFocus, CoachFocusDirection> = {
@@ -88,14 +104,20 @@ function normalize(value: string): string {
 /** Solo reconoce una intención que el jugador haya escrito de forma explícita. */
 export function inferCoachFocus(value: string): CoachFocus | null {
   const text = normalize(value);
-  if (/vida maxima|maximum life/.test(text)) return "maximum-life";
-  if (/resistencia|resistencias/.test(text)) return "resistances";
+  // Español e inglés a la vez: el jugador puede escribir en cualquiera de los
+  // dos, y las palabras inglesas cortas van como palabra completa (\b).
+  if (/vida maxima|maximum life|\bmax life\b/.test(text)) return "maximum-life";
+  if (/resistencia|resistencias|\bresist(?:s|ance|ances)?\b|\bres\b/.test(text)) return "resistances";
   if (/escudo de energia|energy shield/.test(text)) return "energy-shield";
-  if (/armadura|armour/.test(text)) return "armour";
+  if (/armadura|armour|\barmor\b/.test(text)) return "armour";
   if (/evasion/.test(text)) return "evasion";
   if (/velocidad de ataque|attack speed/.test(text)) return "attack-speed";
-  if (/critico|critical|crit\b/.test(text)) return "critical";
-  if (/(?:nivel|niveles).*(?:proyectil|projectile)|habilidades? de proyectiles?/.test(text)) {
+  if (/critico|critical|crit\b|\bcrits\b/.test(text)) return "critical";
+  if (
+    /(?:nivel|niveles|\blevels?\b).*(?:proyectil|projectile)|habilidades? de proyectiles?|\bprojectile skills?\b/.test(
+      text,
+    )
+  ) {
     return "projectile-levels";
   }
   if (/fisico|physical/.test(text)) return "physical";
@@ -154,15 +176,19 @@ function matchesFocus(focus: CoachFocus, modifier: Modifier): boolean {
 export function evaluateCoachFocus(
   focus: CoachFocus | null,
   modifiers: readonly Modifier[],
+  lang: "es" | "en" = "es",
 ): CoachFocusSignal {
+  const en = lang === "en";
   const observedTags = [...new Set(
     modifiers.flatMap((modifier) => modifier.tags ?? []).map(normalize),
   )];
   if (focus === null) {
     return {
       status: "unknown",
-      title: "Falta concretar el objetivo",
-      summary: "Daño o defensa es demasiado amplio para decidir si un afijo sirve.",
+      title: en ? "Your goal isn't specific yet" : "Falta concretar el objetivo",
+      summary: en
+        ? "Damage or defence is too broad to tell whether an affix helps."
+        : "Daño o defensa es demasiado amplio para decidir si un afijo sirve.",
       matchedTags: [],
       observedTags,
     };
@@ -171,8 +197,12 @@ export function evaluateCoachFocus(
   if (matches.length > 0) {
     return {
       status: "direct",
-      title: `Coincide con ${COACH_FOCUS_LABELS[focus]}`,
-      summary: "El texto observado coincide con tu objetivo principal. Esto no puntúa su magnitud.",
+      title: en
+        ? `Matches ${COACH_FOCUS_LABELS_EN[focus]}`
+        : `Coincide con ${COACH_FOCUS_LABELS[focus]}`,
+      summary: en
+        ? "The text matches your main goal. This doesn't rate how strong it is."
+        : "El texto observado coincide con tu objetivo principal. Esto no puntúa su magnitud.",
       matchedTags: [...new Set(matches.flatMap((modifier) => modifier.tags ?? []).map(normalize))],
       observedTags,
     };
@@ -180,16 +210,22 @@ export function evaluateCoachFocus(
   if (modifiers.length === 0 || (observedTags.length === 0 && modifiers.every((modifier) => !modifier.text.trim()))) {
     return {
       status: "unknown",
-      title: "Sin texto comparable",
-      summary: "El resultado no aporta texto suficiente para comprobar el objetivo.",
+      title: en ? "No text to compare" : "Sin texto comparable",
+      summary: en
+        ? "The result doesn't have enough text to check your goal."
+        : "El resultado no aporta texto suficiente para comprobar el objetivo.",
       matchedTags: [],
       observedTags,
     };
   }
   return {
     status: "no-direct-signal",
-    title: `No coincide con ${COACH_FOCUS_LABELS[focus]}`,
-    summary: "El afijo nuevo no coincide de forma literal con el objetivo principal elegido.",
+    title: en
+      ? `Doesn't match ${COACH_FOCUS_LABELS_EN[focus]}`
+      : `No coincide con ${COACH_FOCUS_LABELS[focus]}`,
+    summary: en
+      ? "The new affix doesn't literally match the main goal you picked."
+      : "El afijo nuevo no coincide de forma literal con el objetivo principal elegido.",
     matchedTags: [],
     observedTags,
   };

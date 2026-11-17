@@ -1,11 +1,19 @@
 import { useMemo, useState } from "react";
 import { Loader2, Scale, Trophy, X } from "lucide-react";
-import type { Item } from "@shared/domain.js";
+import type { CharacterProfile, Item } from "@shared/domain.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
 import { looksLikeItemText } from "@/lib/guideCheck";
-import { COMPARE_STYLES, compareItems, type CompareSide, type CompareStyle } from "@/lib/itemCompare";
+import {
+  COMPARE_STYLES,
+  compareItems,
+  contextFromProfile,
+  profileUsesMinions,
+  type CompareSide,
+  type CompareStyle,
+} from "@/lib/itemCompare";
+import { displayProfileValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { texts, useLang, useText } from "@/i18n/lang";
 
@@ -28,6 +36,10 @@ const TEXT = texts(
     tie: "Muy parejas: no hay una ganadora clara.",
     best: (name: string) => `Mejor para ti: ${name}`,
     wasted: "No lo aprovechas con ese estilo:",
+    minions: "Llevo esbirros",
+    minionsHelp: "El Espíritu te da más esbirros: pesa tanto como un +1 a sus gemas.",
+    usingCharacter: (name: string) =>
+      `Tengo en cuenta las resistencias de ${name}: no cuento la que te pasaría del 75 %.`,
     disclaimer:
       "Comparo solo lo que pone en las dos piezas. No miro tu árbol de pasivas ni tus gemas: si tu personaje depende de algo muy concreto, manda eso.",
   },
@@ -49,12 +61,27 @@ const TEXT = texts(
     tie: "Very close: there's no clear winner.",
     best: (name: string) => `Best for you: ${name}`,
     wasted: "Not useful for that play style:",
+    minions: "I use minions",
+    minionsHelp: "Spirit gives you more minions: it weighs as much as +1 to their gems.",
+    usingCharacter: (name: string) =>
+      `I'm using ${name}'s resistances: anything above 75% doesn't count.`,
     disclaimer:
       "I only compare what's written on the two items. I don't look at your passive tree or gems: if your character relies on something very specific, that comes first.",
   },
 );
 
 const STYLE_STORAGE_KEY = "exile-copilot:comparar-estilo";
+const MINIONS_STORAGE_KEY = "exile-copilot:comparar-esbirros";
+
+/** Lo que el jugador marcó; si nunca lo tocó, null y manda su personaje. */
+function readStoredMinions(): boolean | null {
+  try {
+    const stored = window.localStorage.getItem(MINIONS_STORAGE_KEY);
+    return stored === "si" ? true : stored === "no" ? false : null;
+  } catch {
+    return null;
+  }
+}
 
 function readStoredStyle(): CompareStyle {
   try {
@@ -76,17 +103,21 @@ const EMPTY_SLOT: SlotState = { item: null, draft: "", busy: false, error: null 
 
 interface ItemCompareCardProps {
   patch: string;
+  /** Personaje guardado: sus resistencias y si lleva esbirros afinan el veredicto. */
+  profile?: CharacterProfile | null;
 }
 
 /**
  * «¿Cuál de estas dos es mejor?»: se pegan dos piezas copiadas del juego y la
  * tarjeta dice cuál conviene según el estilo de juego, fila a fila.
  */
-export function ItemCompareCard({ patch }: ItemCompareCardProps) {
+export function ItemCompareCard({ patch, profile = null }: ItemCompareCardProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
   const [slots, setSlots] = useState<Record<CompareSide, SlotState>>({ a: EMPTY_SLOT, b: EMPTY_SLOT });
   const [style, setStyle] = useState<CompareStyle>(readStoredStyle);
+  const [storedMinions, setStoredMinions] = useState<boolean | null>(readStoredMinions);
+  const minions = storedMinions ?? profileUsesMinions(profile);
 
   const patchSlot = (side: CompareSide, next: Partial<SlotState>) =>
     setSlots((current) => ({ ...current, [side]: { ...current[side], ...next } }));
@@ -125,10 +156,26 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
     }
   };
 
+  const toggleMinions = () => {
+    const next = !minions;
+    setStoredMinions(next);
+    try {
+      window.localStorage.setItem(MINIONS_STORAGE_KEY, next ? "si" : "no");
+    } catch {
+      // Sin almacenamiento la elección vale para esta visita.
+    }
+  };
+
   const { a, b } = slots;
+  // Solo se descuenta la pieza puesta si las dos candidatas van en el mismo hueco.
+  const sharedSlot = a.item && b.item && a.item.slot === b.item.slot ? a.item.slot : null;
+  const characterContext = useMemo(() => contextFromProfile(profile, sharedSlot), [profile, sharedSlot]);
   const result = useMemo(
-    () => (a.item && b.item ? compareItems(a.item, b.item, style, lang) : null),
-    [a.item, b.item, style, lang],
+    () =>
+      a.item && b.item
+        ? compareItems(a.item, b.item, style, lang, { ...characterContext, minions: style === "caster" && minions })
+        : null,
+    [a.item, b.item, style, lang, characterContext, minions],
   );
   const names: Record<CompareSide, string> = { a: a.item?.name ?? t.pieceA, b: b.item?.name ?? t.pieceB };
 
@@ -224,6 +271,19 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
             {t.styles[option.id]}
           </Button>
         ))}
+        {style === "caster" && (
+          <Button
+            type="button"
+            size="sm"
+            variant={minions ? "secondary" : "outline"}
+            aria-pressed={minions}
+            title={t.minionsHelp}
+            onClick={toggleMinions}
+            data-testid="comparar-esbirros"
+          >
+            {t.minions}
+          </Button>
+        )}
       </div>
 
       {result && (
@@ -283,6 +343,11 @@ export function ItemCompareCard({ patch }: ItemCompareCardProps) {
                   ),
               )}
             </div>
+          )}
+          {characterContext.resistances && profile && (
+            <p className="mt-3 text-xs text-muted-foreground" data-testid="comparar-con-personaje">
+              {t.usingCharacter(displayProfileValue(profile.name))}
+            </p>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
             {t.disclaimer}

@@ -3,6 +3,21 @@ import { readItemInPlainWords } from "@shared/craftingCoach.js";
 import type { Item, ItemRarity } from "@shared/domain.js";
 import { ItemArtwork } from "@/components/ItemArtwork";
 import { cn } from "@/lib/utils";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useLang, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    keptMods: (count: number) => `Lo que ya tiene y se conserva (${count})`,
+    openSlot: "Sitio libre",
+    missingInfo: "Falta información del texto copiado.",
+  },
+  {
+    keptMods: (count: number) => `What it already has and keeps (${count})`,
+    openSlot: "Open slot",
+    missingInfo: "Some information is missing from the copied text.",
+  },
+);
 
 const RARITY_CLASS: Partial<Record<ItemRarity, string>> = {
   normal: "border-slate-400/45 bg-slate-400/10 text-slate-200",
@@ -10,11 +25,8 @@ const RARITY_CLASS: Partial<Record<ItemRarity, string>> = {
   rare: "border-amber-300/50 bg-amber-300/10 text-amber-200",
 };
 
-const RARITY_WORD: Partial<Record<ItemRarity, string>> = {
-  normal: "Normal",
-  magic: "Mágico",
-  rare: "Raro",
-};
+/** Solo estas rarezas llevan nombre en la tarjeta; el resto enseña el valor tal cual. */
+const NAMED_RARITIES: ReadonlySet<ItemRarity> = new Set(["normal", "magic", "rare"]);
 
 /**
  * La pieza real del jugador, como protagonista.
@@ -32,8 +44,11 @@ export function CoachItemCard({
   className?: string;
   compact?: boolean;
 }) {
-  const reading = readItemInPlainWords(item);
-  const diagnosis = diagnoseCraftingItem(item);
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const labels = useFormatLabels();
+  const reading = readItemInPlainWords(item, lang);
+  const diagnosis = diagnoseCraftingItem(item, lang);
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const openSlots = reading.openSlots ?? 0;
 
@@ -63,7 +78,7 @@ export function CoachItemCard({
               RARITY_CLASS[item.rarity] ?? "border-border text-muted-foreground",
             )}
           >
-            {RARITY_WORD[item.rarity] ?? item.rarity}
+            {NAMED_RARITIES.has(item.rarity) ? labels.rarity[item.rarity] : item.rarity}
           </span>
         </div>
       </div>
@@ -80,7 +95,7 @@ export function CoachItemCard({
       {!compact && explicit.length > 0 && (
         <details className="border-t border-border/70 p-3 sm:p-4">
           <summary className="cursor-pointer text-xs font-medium">
-            Lo que ya tiene y se conserva ({explicit.length})
+            {t.keptMods(explicit.length)}
           </summary>
           <ul className="mt-2 flex flex-col gap-1.5" data-testid="coach-modificadores">
           {explicit.map((modifier) => (
@@ -100,7 +115,7 @@ export function CoachItemCard({
                 data-testid="coach-hueco-libre"
               >
                 <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground/45" />
-                <span className="min-w-0 flex-1">Sitio libre</span>
+                <span className="min-w-0 flex-1">{t.openSlot}</span>
               </li>
             ))}
           </ul>
@@ -112,7 +127,7 @@ export function CoachItemCard({
           className="border-t border-amber-500/30 bg-amber-500/[0.06] px-3 py-2.5 text-xs leading-relaxed text-amber-100 sm:px-4"
           data-testid="coach-objeto-incompleto"
         >
-          {diagnosis.blockers[0] ?? "Falta información del texto copiado."}
+          {diagnosis.blockers[0] ?? t.missingInfo}
         </p>
       )}
     </div>

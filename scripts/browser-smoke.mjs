@@ -1967,10 +1967,10 @@ async function runFlow(mode, port) {
       /^Act \d/.test(await page.locator("#guia-titulo").innerText()) &&
         (await page.locator('[data-testid="english-soon"]:visible').count()) === 0,
     );
-    // Las áreas sin traducir (Plan, Crafting…) llevan el aviso aunque estén ocultas.
+    // Desde el 17-11-2026 toda la web está en inglés: no queda ningún aviso.
     check(
-      `[${mode}] en inglés, lo que falta por traducir lo avisa`,
-      (await page.getByTestId("english-soon").count()) >= 1,
+      `[${mode}] en inglés, ninguna área avisa de que falta traducir`,
+      (await page.getByTestId("english-soon").count()) === 0,
     );
     await page.getByTestId("idioma-es").click();
     check(

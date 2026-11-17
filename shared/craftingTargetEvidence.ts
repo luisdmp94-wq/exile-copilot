@@ -135,7 +135,8 @@ export function buildCraftingTargetEvidence(input: {
   goalCategory: CraftingGoalCategory;
   successCriteria: readonly CraftingSuccessCriterion[];
   modPoolCoverage: CraftingModPoolCoverage;
-}): CraftingTargetEvidence {
+}, lang: "es" | "en" = "es"): CraftingTargetEvidence {
+  const en = lang === "en";
   const {
     selectedItem,
     items,
@@ -183,6 +184,27 @@ export function buildCraftingTargetEvidence(input: {
   else if (observations.length > 0) status = "partial-local-evidence";
   else status = "unobserved";
 
+  const copyEn: Record<
+    CraftingTargetEvidenceStatus,
+    Pick<CraftingTargetEvidence, "headline" | "summary">
+  > = {
+    "target-on-current": {
+      headline: "The goal already shows on this base",
+      summary: "This item already meets the project's conditions. Keep it before planning any more spending.",
+    },
+    "target-observed-locally": {
+      headline: "Your own items already show this goal",
+      summary: "Another imported item of the same class meets the plan. Use it as a visible reference, not as a recipe to copy.",
+    },
+    "partial-local-evidence": {
+      headline: "There are signs, but not the full goal",
+      summary: "Your imported items have lines from the chosen category. They don't prove yet that the full plan is reachable on this base.",
+    },
+    unobserved: {
+      headline: "The goal isn't proven yet",
+      summary: "No comparable imported item shows a visible match. The workshop can only allow controlled structural tests.",
+    },
+  };
   const copy: Record<
     CraftingTargetEvidenceStatus,
     Pick<CraftingTargetEvidence, "headline" | "summary">
@@ -207,12 +229,22 @@ export function buildCraftingTargetEvidence(input: {
 
   return {
     status,
-    ...copy[status],
+    ...(en ? copyEn : copy)[status],
     comparableItemCount: comparable.length,
     fulfilledItemIds,
     observations,
     modPoolCoverage,
-    limitations: [
+    limitations: en ? [
+      "A line you've seen doesn't prove the full mod pool or how often it rolls.",
+      "The ilvl shown describes that item; it isn't the modifier's minimum level.",
+      modPoolCoverage === "available-complete"
+        ? "The mod pool is complete, but this local reading doesn't pick candidates by a visible name."
+        : modPoolCoverage === "available-partial"
+          ? "The available mod pool is partial, so chances can't be worked out."
+          : modPoolCoverage === "unknown"
+            ? "Still checking the mod pool coverage."
+            : "No approved mod pool is available to work out access or chances.",
+    ] : [
       "Una línea observada no demuestra el pool completo ni su peso de aparición.",
       "El ilvl observado describe esa pieza; no se presenta como nivel mínimo del modificador.",
       modPoolCoverage === "available-complete"

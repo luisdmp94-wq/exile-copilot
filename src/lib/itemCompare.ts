@@ -1,4 +1,4 @@
-import type { Item } from "@shared/domain.js";
+import type { CharacterProfile, Item } from "@shared/domain.js";
 import { resistancesFromItems } from "./guideCheck";
 
 /**
@@ -271,6 +271,82 @@ const WEIGHTS: Record<CompareStyle, Record<string, number>> = {
   ranged: { skills: 5, move: 3, life: 3, res: 3, spirit: 1, damage: 2, es: 1, armour: 1, evasion: 2, mana: 1, regen: 1, attr: 1 },
 };
 
+/**
+ * Lo que se sabe del personaje que va a llevar la pieza. Todo es opcional:
+ * sin personaje, el comparador funciona igual que siempre.
+ */
+export interface CompareContext {
+  /** Resistencias actuales del personaje (hoja del juego o suma de su equipo). */
+  resistances?: Partial<Record<ResKey, number | null>>;
+  /**
+   * La pieza que lleva ahora en ese mismo hueco. Su resistencia ya está dentro
+   * de las actuales: se descuenta para saber desde dónde parte cada candidata.
+   */
+  equipped?: Item | null;
+  /** Usa esbirros: el Espíritu le da más esbirros y pesa como un +1 a sus gemas. */
+  minions?: boolean;
+}
+
+const MINION_SKILL =
+  /esqueleto|skeleton|espectro|spectre|zombi|zombie|exhumar|unearth|esbirro|minion|g[oó]lem|resucitad|revenant|arconte|bind spectre|vincular espectro/i;
+
+/** ¿El personaje lleva esbirros? Lo dicen sus habilidades o su arquetipo. */
+export function profileUsesMinions(profile: Pick<CharacterProfile, "skills" | "archetype"> | null | undefined): boolean {
+  if (!profile) return false;
+  if (profile.archetype && MINION_SKILL.test(profile.archetype)) return true;
+  return profile.skills.some((skill) => MINION_SKILL.test(`${skill.mainSkill} ${skill.label}`));
+}
+
+/**
+ * Contexto del personaje guardado: sus resistencias (las de la hoja si las
+ * apuntó, si no la suma de su equipo) y la pieza que lleva en ese hueco.
+ */
+export function contextFromProfile(
+  profile: Pick<CharacterProfile, "resistances" | "items"> | null | undefined,
+  slot: Item["slot"] | null,
+): Pick<CompareContext, "resistances" | "equipped"> {
+  if (!profile) return {};
+  const sheet = profile.resistances;
+  const fromSheet = RES_ORDER.some((key) => sheet[key] !== null && sheet[key] !== undefined);
+  const resistances = fromSheet
+    ? sheet
+    : profile.items.length > 0
+      ? resistancesFromItems(profile.items)
+      : undefined;
+  // Con anillos no se sabe cuál de los dos se cambia: no se descuenta ninguno.
+  const equipped =
+    slot && slot !== "ring1" && slot !== "ring2" ? (profile.items.find((item) => item.slot === slot) ?? null) : null;
+  return { ...(resistances ? { resistances } : {}), equipped };
+}
+
+/** Tope normal de resistencia elemental en PoE2. */
+const RESISTANCE_CAP = 75;
+/** Con esbirros, el Espíritu es tan valioso como subir de nivel sus gemas. */
+const MINION_SPIRIT_WEIGHT = 5;
+
+/**
+ * Resistencia que de verdad aprovecha el personaje: la que no le pasa del
+ * 75 %. Sin datos del personaje, cuenta toda.
+ */
+function usefulResistance(gain: Record<ResKey, number>, base: Record<ResKey, number> | null): number {
+  if (base === null) return RES_ORDER.reduce((total, key) => total + gain[key], 0);
+  return RES_ORDER.reduce((total, key) => {
+    const room = Math.max(0, RESISTANCE_CAP - base[key]);
+    return total + Math.min(Math.max(0, gain[key]), room);
+  }, 0);
+}
+
+function startingResistances(context: CompareContext): Record<ResKey, number> | null {
+  const known = context.resistances;
+  if (!known || RES_ORDER.every((key) => known[key] === null || known[key] === undefined)) return null;
+  const worn = context.equipped ? resistancesFromItems([context.equipped]) : null;
+  const base = {} as Record<ResKey, number>;
+  for (const key of RES_ORDER) {
+    base[key] = (known[key] ?? 0) - (worn?.[key] ?? 0);
+  }
+  return base;
+}
+
 type Words = (typeof WORDS)[CompareLang];
 
 function amount(words: Words, value: number, unit = ""): string {
@@ -314,11 +390,21 @@ function joinList(items: string[], and: string): string {
   return `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]}`;
 }
 
-export function compareItems(a: Item, b: Item, style: CompareStyle, lang: CompareLang = "es"): CompareResult {
+export function compareItems(
+  a: Item,
+  b: Item,
+  style: CompareStyle,
+  lang: CompareLang = "es",
+  context: CompareContext = {},
+): CompareResult {
   const words = WORDS[lang];
   const ra = read(a);
   const rb = read(b);
-  const weights = WEIGHTS[style];
+  const weights =
+    context.minions && style === "caster"
+      ? { ...WEIGHTS[style], spirit: MINION_SPIRIT_WEIGHT }
+      : WEIGHTS[style];
+  const resBase = startingResistances(context);
   const damageA = style === "caster" ? ra.spellLines : ra.attackLines;
   const damageB = style === "caster" ? rb.spellLines : rb.attackLines;
 
@@ -347,8 +433,8 @@ export function compareItems(a: Item, b: Item, style: CompareStyle, lang: Compar
       words.rows.res,
       resistanceText(words, ra.resistanceBy) || words.none,
       resistanceText(words, rb.resistanceBy) || words.none,
-      ra.resistances,
-      rb.resistances,
+      usefulResistance(ra.resistanceBy, resBase),
+      usefulResistance(rb.resistanceBy, resBase),
       weights.res,
     ),
     row("spirit", words.rows.spirit, amount(words, ra.spirit), amount(words, rb.spirit), ra.spirit, rb.spirit, weights.spirit),

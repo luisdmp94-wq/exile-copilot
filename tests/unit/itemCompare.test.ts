@@ -319,3 +319,72 @@ describe("compareItems", () => {
     expect(result.rows.find((row) => row.id === "move")).toMatchObject({ a: "nada", b: "+10 %", winner: "b" });
   });
 });
+
+describe("con el personaje en cuenta: pecheras y cascos de Luis (17-11-2026)", () => {
+  const RAPTURE = parse(
+    [
+      "Clase de objeto: Armaduras corporales",
+      "Rareza: Raro",
+      "Capa de arrebato",
+      "Toga de seda",
+      "--------",
+      "Escudo de energía: 118 (augmented)",
+      "--------",
+      "Nivel de objeto: 25",
+      "--------",
+      "+13(8-13) al escudo de energía máximo",
+      "Escudo de energía aumentado un 36(27-42)%",
+      "+30(30-39) a la vida máxima",
+      "+16(13-16) a la inteligencia",
+      "+12(11-15)% a la resistencia al rayo",
+    ].join("\n"),
+  );
+  const VICTORY = parse(
+    [
+      "Clase de objeto: Armaduras corporales",
+      "Rareza: Raro",
+      "Guardián de victoria",
+      "Chaleco de seda",
+      "--------",
+      "Evasión: 253 (augmented)",
+      "Escudo de energía: 83 (augmented)",
+      "--------",
+      "Nivel de objeto: 30",
+      "--------",
+      "+33 al espíritu",
+      "+14(11-15)% a la resistencia al fuego",
+    ].join("\n"),
+  );
+  const LICH = {
+    name: "Likewow",
+    archetype: null,
+    resistances: { fire: 28, cold: 23, lightning: 44, chaos: 0 },
+    items: [RAPTURE],
+    skills: [{ id: "s1", label: "Guerrero esqueleto", mainSkill: "Guerrero esqueleto", mainSkillGemId: null, supports: [] }],
+  };
+
+  it("sin personaje, gana la de más vida y escudo (lo de siempre)", () => {
+    expect(compareItems(RAPTURE, VICTORY, "caster").winner).toBe("a");
+  });
+
+  it("con esbirros, el Espíritu da la victoria a la pechera con +33", async () => {
+    const { contextFromProfile, profileUsesMinions } = await import("../../src/lib/itemCompare.js");
+    expect(profileUsesMinions(LICH)).toBe(true);
+    const context = { ...contextFromProfile(LICH, "body"), minions: true };
+    const result = compareItems(RAPTURE, VICTORY, "caster", "es", context);
+    expect(result.winner).toBe("b");
+  });
+
+  it("descuenta la pieza que lleva puesta: su +12 % de rayo ya estaba en el 44 %", async () => {
+    const { contextFromProfile } = await import("../../src/lib/itemCompare.js");
+    const context = contextFromProfile(LICH, "body");
+    expect(context.equipped?.name).toBe("Capa de arrebato");
+  });
+
+  it("no cuenta la resistencia que pasaría del 75 %", () => {
+    const capped = { resistances: { fire: 75, cold: 23, lightning: 44, chaos: 0 } };
+    const res = compareItems(RAPTURE, VICTORY, "caster", "es", capped).rows.find((row) => row.id === "res");
+    // El +14 % de fuego no cabe: gana el +12 % de rayo.
+    expect(res?.winner).toBe("a");
+  });
+});

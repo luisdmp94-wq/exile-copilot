@@ -16,6 +16,7 @@ import {
 import {
   ESSENCE_RESULT_UNKNOWN_LABEL,
   ESSENCE_TIER_LABELS,
+  ESSENCE_TIER_LABELS_EN,
   type EssenceEvaluation,
   type EssencePlanInput,
 } from "@shared/craftingEssences.js";
@@ -125,7 +126,7 @@ const FeaturedBuildsSection = lazy(() =>
 );
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import { pageLang, texts, useLang, useText } from "@/i18n/lang";
-import { EnglishSoon } from "@/i18n/EnglishSoon";
+import { CRAFTING_DECISION_TEXT } from "@/lib/craftingDecisionText";
 import { sendAreaBeacon } from "@/lib/visitBeacon";
 import { englishMentorCue } from "@/lib/contextualMentorEn";
 import {
@@ -1098,39 +1099,38 @@ export default function App() {
     const currentJournal = await ensureCraftingJournal();
     if (!currentJournal) return false;
     const currencyLabel = craftingCurrencyLabel(action, variant);
-    const title = `Comprobar ${currencyLabel} en ${item.name}`;
+    const dt = CRAFTING_DECISION_TEXT[pageLang()];
+    const title = dt.check(currencyLabel, item.name);
     const next = await journal.startSession({
       journalRevision: buildRecommendationMemory(currentJournal).revision,
       idempotencyKey: crypto.randomUUID(),
       kind: "guided_decision",
       objective: `${title}: ${objective.desiredOutcome}`,
-      hypothesis:
-        "La acción es compatible con la estructura observada; se comprobará una sola vez sin asumir el modificador resultante.",
+      hypothesis: dt.currency.hypothesis,
       expectedResult: action.effect,
-      observationMethod:
-        "Conserva el texto actual. Si decides aplicar la moneda, no realices otra acción: copia inmediatamente el objeto resultante y vuelve a importarlo.",
+      observationMethod: dt.currency.observation,
       unknowns: [
         {
           label: CRAFTING_RESULT_UNKNOWN_LABEL,
           blockingIrreversible: false,
         },
         {
-          label: "No hay pesos ni probabilidades verificadas para estimar el resultado.",
+          label: dt.currency.noWeights,
           blockingIrreversible: false,
         },
       ],
       constraints: [
         {
-          label: "No realizar otra acción de crafting antes de copiar el resultado.",
+          label: dt.currency.noOtherAction,
           relatedItemIds: [item.id],
         },
         {
-          label: "El objeto debe seguir coincidiendo con el snapshot importado.",
+          label: dt.sameSnapshot,
           relatedItemIds: [item.id],
         },
         ...(objective.protectedModifierIds.length > 0
           ? [{
-              label: "Los modificadores marcados como imprescindibles deben seguir presentes en el resultado.",
+              label: dt.currency.protectedStay,
               relatedItemIds: [item.id],
             }]
           : []),
@@ -1171,45 +1171,44 @@ export default function App() {
     const currentJournal = await ensureCraftingJournal();
     if (!currentJournal) return false;
     const essenceLabel = plan.essenceName.trim();
-    const tierLabel = ESSENCE_TIER_LABELS[plan.tier];
-    const title = `Comprobar ${essenceLabel} en ${item.name}`;
+    const lang = pageLang();
+    const dt = CRAFTING_DECISION_TEXT[lang];
+    const tierLabel = (lang === "en" ? ESSENCE_TIER_LABELS_EN : ESSENCE_TIER_LABELS)[plan.tier];
+    const title = dt.check(essenceLabel, item.name);
     const randomRemovalConstraint = evaluation.randomRemoval
-      ? `Se retirará al azar 1 de los ${item.modifiers.filter((modifier) => modifier.kind === "explicit").length} modificadores explícitos observados.`
-      : "Los modificadores actuales deberían conservarse durante la mejora de mágico a raro.";
+      ? dt.essence.randomRemoval(item.modifiers.filter((modifier) => modifier.kind === "explicit").length)
+      : dt.essence.keepMods;
     const next = await journal.startSession({
       journalRevision: buildRecommendationMemory(currentJournal).revision,
       idempotencyKey: crypto.randomUUID(),
       kind: "guided_decision",
       objective: `${title}: ${objective.desiredOutcome}`,
-      hypothesis: evaluation.randomRemoval
-        ? "La Essence retirará un modificador explícito al azar y añadirá el efecto garantizado copiado de su tooltip."
-        : "La Essence elevará el objeto mágico a raro y añadirá el efecto garantizado copiado de su tooltip.",
-      expectedResult: `Efecto garantizado declarado: ${plan.guaranteedModifierText}`,
-      observationMethod:
-        "Conserva este snapshot. Si aplicas la Essence, no realices ninguna otra acción: copia inmediatamente el objeto resultante y vuelve a importarlo.",
+      hypothesis: evaluation.randomRemoval ? dt.essence.hypothesisRemoval : dt.essence.hypothesisUpgrade,
+      expectedResult: dt.essence.expected(plan.guaranteedModifierText),
+      observationMethod: dt.essence.observation,
       unknowns: [
         {
           label: ESSENCE_RESULT_UNKNOWN_LABEL,
           blockingIrreversible: false,
         },
         {
-          label: "No existe un pool completo y redistribuible para estimar probabilidades de afijos.",
+          label: dt.essence.noPool,
           blockingIrreversible: false,
         },
       ],
       constraints: [
         { label: randomRemovalConstraint, relatedItemIds: [item.id] },
         {
-          label: "El nombre y el efecto deben coincidir con el tooltip de la Essence que vas a gastar.",
+          label: dt.essence.matchTooltip,
           relatedItemIds: [item.id],
         },
         {
-          label: "El objeto debe seguir coincidiendo con el snapshot importado.",
+          label: dt.sameSnapshot,
           relatedItemIds: [item.id],
         },
         ...(objective.protectedModifierIds.length > 0
           ? [{
-              label: "La comparación debe comprobar uno por uno los modificadores protegidos.",
+              label: dt.essence.checkProtected,
               relatedItemIds: [item.id],
             }]
           : []),
@@ -1253,26 +1252,25 @@ export default function App() {
     const currentJournal = await ensureCraftingJournal();
     if (!currentJournal) return false;
     const alloyLabel = plan.alloyName.trim();
-    const title = `Comprobar ${alloyLabel} en ${item.name}`;
+    const dt = CRAFTING_DECISION_TEXT[pageLang()];
+    const title = dt.check(alloyLabel, item.name);
     const next = await journal.startSession({
       journalRevision: buildRecommendationMemory(currentJournal).revision,
       idempotencyKey: crypto.randomUUID(),
       kind: "guided_decision",
       objective: `${title}: ${objective.desiredOutcome}`,
-      hypothesis:
-        "El Alloy reemplazará un modificador explícito y añadirá el modificador fabricado garantizado copiado del tooltip.",
-      expectedResult: `Modificador fabricado garantizado declarado: ${plan.guaranteedModifierText}`,
-      observationMethod:
-        "Conserva este snapshot. Si aplicas el Alloy, no realices ninguna otra acción: copia inmediatamente el objeto resultante y vuelve a importarlo.",
+      hypothesis: dt.alloy.hypothesis,
+      expectedResult: dt.alloy.expected(plan.guaranteedModifierText),
+      observationMethod: dt.alloy.observation,
       unknowns: [
         { label: ALLOY_RESULT_UNKNOWN_LABEL, blockingIrreversible: false },
         {
-          label: "No existe una matriz pública completa Alloy × tipo de objeto para validar el efecto por nombre.",
+          label: dt.alloy.noMatrix,
           blockingIrreversible: false,
         },
         ...(plan.removalSelection === "unspecified"
           ? [{
-              label: "No está verificado cómo se elige el modificador reemplazado.",
+              label: dt.alloy.selectionUnverified,
               blockingIrreversible: false,
             }]
           : []),
@@ -1281,27 +1279,27 @@ export default function App() {
         {
           label:
             plan.removalSelection === "random"
-              ? `Cualquiera de los ${item.modifiers.filter((modifier) => modifier.kind === "explicit").length} modificadores explícitos observados puede ser reemplazado.`
+              ? dt.alloy.anyReplaced(item.modifiers.filter((modifier) => modifier.kind === "explicit").length)
               : plan.removalSelection === "player-selected"
-                ? "Elige dentro del juego únicamente el modificador que aceptaste reemplazar."
-                : "GGG confirma el reemplazo de un modificador, pero el criterio de selección no está verificado.",
+                ? dt.alloy.playerSelected
+                : dt.alloy.criterionUnverified,
           relatedItemIds: [item.id],
         },
         {
-          label: `El tooltip declara estas clases: ${plan.declaredItemClasses.join(", ")}. El jugador confirmó que la pieza seleccionada pertenece a una de ellas.`,
+          label: dt.alloy.classes(plan.declaredItemClasses.join(", ")),
           relatedItemIds: [item.id],
         },
         {
-          label: "El Alloy y su efecto deben coincidir con el tooltip completo registrado en esta sesión.",
+          label: dt.alloy.matchTooltip,
           relatedItemIds: [item.id],
         },
         {
-          label: "El objeto debe seguir coincidiendo con el snapshot importado y no contener otro modificador fabricado.",
+          label: dt.alloy.sameSnapshotNoCrafted,
           relatedItemIds: [item.id],
         },
         ...(objective.protectedModifierIds.length > 0
           ? [{
-              label: "Ningún modificador marcado como imprescindible puede desaparecer sin quedar señalado.",
+              label: dt.alloy.protectedFlagged,
               relatedItemIds: [item.id],
             }]
           : []),
@@ -2064,7 +2062,6 @@ export default function App() {
 
           {/* --- Área 3: Crafting ----------------------------------------- */}
           <TabsContent value="crafting" forceMount className={PANEL_CLASSES}>
-            <EnglishSoon area={t.crafting} />
             {mountedWorkspaces.has("crafting") && (
               <Suspense
                 fallback={

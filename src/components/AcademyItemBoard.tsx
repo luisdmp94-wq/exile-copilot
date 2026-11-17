@@ -1,14 +1,54 @@
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
-import { CRAFTING_ACADEMY_EXERCISE_NOTICE } from "@shared/craftingAcademy.js";
+import { craftingAcademyExerciseNotice } from "@shared/craftingAcademyEn.js";
 import type { Item, ItemRarity } from "@shared/domain.js";
 import { ItemArtwork } from "@/components/ItemArtwork";
+import { texts, useLang, useText } from "@/i18n/lang";
 import { cn } from "@/lib/utils";
 
-const RARITY_LABEL: Partial<Record<ItemRarity, string>> = {
-  normal: "Normal",
-  magic: "Mágico",
-  rare: "Raro",
-};
+const TEXT = texts(
+  {
+    rarity: { normal: "Normal", magic: "Mágico", rare: "Raro" } as Partial<Record<ItemRarity, string>>,
+    prefix: "Prefijo",
+    suffix: "Sufijo",
+    notConfirmed: "No confirmado",
+    openSlot: "Hueco disponible",
+    visualExample: "Ejemplo visual · no interactivo",
+    itemLevel: (level: number | string) => `nivel de objeto ${level}`,
+    unknownLevel: "desconocido",
+    readRarity: "Rareza: léela tú",
+    modifiers: (count: number, limit: number | null) =>
+      `${count}${limit === null ? "" : `/${limit}`} modificador${count === 1 ? "" : "es"}`,
+    noSlots: "Sin huecos",
+    freeSlots: (open: number) => `${open} hueco${open === 1 ? "" : "s"} libre${open === 1 ? "" : "s"}`,
+    normalNote:
+      "Un objeto normal no tiene modificadores explícitos: no hay prefijos ni sufijos que leer todavía.",
+    prefixes: "Prefijos",
+    suffixes: "Sufijos",
+    slotsLeft: (free: number) =>
+      `Quedan ${free} hueco${free === 1 ? "" : "s"} en total. Un hueco dice que cabe algo más, no que vaya a servirte.`,
+  },
+  {
+    rarity: { normal: "Normal", magic: "Magic", rare: "Rare" },
+    prefix: "Prefix",
+    suffix: "Suffix",
+    notConfirmed: "Not confirmed",
+    openSlot: "Open slot",
+    visualExample: "Visual example · not interactive",
+    itemLevel: (level: number | string) => `item level ${level}`,
+    unknownLevel: "unknown",
+    readRarity: "Rarity: read it yourself",
+    modifiers: (count: number, limit: number | null) =>
+      `${count}${limit === null ? "" : `/${limit}`} modifier${count === 1 && limit === null ? "" : "s"}`,
+    noSlots: "No open slots",
+    freeSlots: (open: number) => `${open} open slot${open === 1 ? "" : "s"}`,
+    normalNote:
+      "A normal item has no explicit modifiers: there are no prefixes or suffixes to read yet.",
+    prefixes: "Prefixes",
+    suffixes: "Suffixes",
+    slotsLeft: (free: number) =>
+      `${free} open slot${free === 1 ? "" : "s"} left in total. A slot says something else fits, not that it will help you.`,
+  },
+);
 
 const RARITY_CLASS: Partial<Record<ItemRarity, string>> = {
   normal: "border-slate-400/45 bg-slate-400/10 text-slate-200",
@@ -23,9 +63,10 @@ function AffixSlot({
   unknown = false,
 }: {
   text: string | null;
-  family: "Prefijo" | "Sufijo";
+  family: string;
   unknown?: boolean;
 }) {
+  const t = useText(TEXT);
   const filled = text !== null;
   return (
     <li
@@ -42,7 +83,7 @@ function AffixSlot({
       />
       <span className="sr-only">{family}: </span>
       <span className="min-w-0 flex-1 break-words">
-        {filled ? text : unknown ? "No confirmado" : "Hueco disponible"}
+        {filled ? text : unknown ? t.notConfirmed : t.openSlot}
       </span>
     </li>
   );
@@ -69,6 +110,8 @@ export function AcademyItemBoard({
   concealCounters?: boolean;
   className?: string;
 }) {
+  const { lang } = useLang();
+  const t = TEXT[lang];
   const diagnosis = diagnoseCraftingItem(item);
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const prefixes = explicit.filter((modifier) => modifier.affix === "prefix");
@@ -87,7 +130,7 @@ export function AcademyItemBoard({
       data-open-slots={concealCounters || open === null ? "desconocido" : String(open)}
     >
       <p className="border-b border-border/70 bg-primary/[0.06] px-3 py-1.5 text-xs font-semibold text-primary/80">
-        Ejemplo visual · no interactivo
+        {t.visualExample}
       </p>
 
       <div className="flex min-w-0 items-center gap-3 p-3 sm:p-4">
@@ -95,7 +138,7 @@ export function AcademyItemBoard({
         <div className="min-w-0 flex-1">
           <h3 className="dossier-title text-lg font-semibold leading-tight sm:text-xl">{item.name}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {item.baseType} · nivel de objeto {item.itemLevel ?? "desconocido"}
+            {item.baseType} · {t.itemLevel(item.itemLevel ?? t.unknownLevel)}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {concealCounters ? (
@@ -103,7 +146,7 @@ export function AcademyItemBoard({
                 data-testid="academia-rareza"
                 className="rounded-sm border border-dashed border-border/70 px-2 py-0.5 text-[11px] text-muted-foreground"
               >
-                Rareza: léela tú
+                {t.readRarity}
               </span>
             ) : (
               <>
@@ -111,20 +154,17 @@ export function AcademyItemBoard({
                   data-testid="academia-rareza"
                   className={`rounded-sm border px-2 py-0.5 text-[11px] font-semibold ${RARITY_CLASS[item.rarity] ?? "border-border text-muted-foreground"}`}
                 >
-                  {RARITY_LABEL[item.rarity] ?? item.rarity}
+                  {t.rarity[item.rarity] ?? item.rarity}
                 </span>
                 <span className="rounded-sm border border-border/70 px-2 py-0.5 text-[11px] text-muted-foreground">
-                  {explicit.length}
-                  {limit === null ? "" : `/${limit}`} modificador{explicit.length === 1 ? "" : "es"}
+                  {t.modifiers(explicit.length, limit)}
                 </span>
                 {open !== null && (
                   <span
                     data-testid="academia-huecos"
                     className="rounded-sm border border-border/70 px-2 py-0.5 text-[11px] text-muted-foreground"
                   >
-                    {open === 0
-                      ? "Sin huecos"
-                      : `${open} hueco${open === 1 ? "" : "s"} libre${open === 1 ? "" : "s"}`}
+                    {open === 0 ? t.noSlots : t.freeSlots(open)}
                   </span>
                 )}
               </>
@@ -135,7 +175,7 @@ export function AcademyItemBoard({
 
       {item.rarity === "normal" ? (
         <p className="border-t border-border/70 px-3 py-3 text-xs text-muted-foreground sm:px-4">
-          Un objeto normal no tiene modificadores explícitos: no hay prefijos ni sufijos que leer todavía.
+          {t.normalNote}
         </p>
       ) : (
         <div className="grid gap-3 border-t border-border/70 p-3 sm:p-4">
@@ -144,14 +184,14 @@ export function AcademyItemBoard({
               id={`prefijos-${item.id}`}
               className="mb-1.5 text-xs font-semibold text-muted-foreground"
             >
-              Prefijos{concealCounters ? "" : ` · ${prefixes.length}`}
+              {t.prefixes}{concealCounters ? "" : ` · ${prefixes.length}`}
             </h4>
             <ul className="flex min-w-0 flex-col gap-1.5" data-testid="academia-prefijos">
               {prefixes.map((modifier) => (
-                <AffixSlot key={modifier.id} text={modifier.text} family="Prefijo" />
+                <AffixSlot key={modifier.id} text={modifier.text} family={t.prefix} />
               ))}
               {prefixes.length === 0 && (
-                <AffixSlot text={null} family="Prefijo" unknown={concealCounters} />
+                <AffixSlot text={null} family={t.prefix} unknown={concealCounters} />
               )}
             </ul>
           </section>
@@ -160,28 +200,25 @@ export function AcademyItemBoard({
               id={`sufijos-${item.id}`}
               className="mb-1.5 text-xs font-semibold text-muted-foreground"
             >
-              Sufijos{concealCounters ? "" : ` · ${suffixes.length}`}
+              {t.suffixes}{concealCounters ? "" : ` · ${suffixes.length}`}
             </h4>
             <ul className="flex min-w-0 flex-col gap-1.5" data-testid="academia-sufijos">
               {suffixes.map((modifier) => (
-                <AffixSlot key={modifier.id} text={modifier.text} family="Sufijo" />
+                <AffixSlot key={modifier.id} text={modifier.text} family={t.suffix} />
               ))}
               {suffixes.length === 0 && (
-                <AffixSlot text={null} family="Sufijo" unknown={concealCounters} />
+                <AffixSlot text={null} family={t.suffix} unknown={concealCounters} />
               )}
             </ul>
           </section>
           {!concealCounters && freeSlots > 0 && (
-            <p className="text-[11px] text-muted-foreground">
-              Quedan {freeSlots} hueco{freeSlots === 1 ? "" : "s"} en total. Un hueco dice que cabe algo
-              más, no que vaya a servirte.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t.slotsLeft(freeSlots)}</p>
           )}
         </div>
       )}
 
       <p className="border-t border-border/70 px-3 py-2 text-[10px] leading-relaxed text-muted-foreground sm:px-4">
-        {CRAFTING_ACADEMY_EXERCISE_NOTICE}
+        {craftingAcademyExerciseNotice(lang)}
       </p>
     </div>
   );

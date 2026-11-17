@@ -65,7 +65,11 @@ export function hasContradictoryAffixStructure(item: Item): boolean {
   );
 }
 
-export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
+export function diagnoseCraftingItem(
+  item: Item,
+  lang: "es" | "en" = "es",
+): CraftingItemDiagnosis {
+  const t = (es: string, en: string): string => (lang === "en" ? en : es);
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const prefixCount = explicit.filter((modifier) => modifier.affix === "prefix").length;
   const suffixCount = explicit.filter((modifier) => modifier.affix === "suffix").length;
@@ -81,57 +85,96 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
 
   if (itemState === undefined) {
     blockers.push(
-      "El texto no confirma todavía los estados especiales que pueden impedir el crafting.",
+      t(
+        "El texto no confirma todavía los estados especiales que pueden impedir el crafting.",
+        "The copied text doesn't confirm yet whether a special state blocks crafting.",
+      ),
     );
   }
 
   if (itemState?.doubleCorrupted || itemState?.corrupted) {
-    blockers.push(itemState.doubleCorrupted ? "El objeto tiene doble corrupción." : "El objeto está corrupto.");
+    blockers.push(
+      itemState.doubleCorrupted
+        ? t("El objeto tiene doble corrupción.", "The item is double corrupted.")
+        : t("El objeto está corrupto.", "The item is corrupted."),
+    );
   }
-  if (itemState?.mirrored) blockers.push("El objeto está reflejado.");
-  if (itemState?.sanctified) blockers.push("El objeto está santificado.");
+  if (itemState?.mirrored) blockers.push(t("El objeto está reflejado.", "The item is mirrored."));
+  if (itemState?.sanctified) blockers.push(t("El objeto está santificado.", "The item is sanctified."));
   if (itemState?.unmodifiable || itemState?.unmodifiableExceptChaos) {
     blockers.push(
       itemState.unmodifiableExceptChaos
-        ? "El objeto solo admite modificaciones mediante acciones de caos."
-        : "El objeto declara que no puede modificarse.",
+        ? t(
+            "El objeto solo admite modificaciones mediante acciones de caos.",
+            "The item can only be changed with Chaos actions.",
+          )
+        : t("El objeto declara que no puede modificarse.", "The item says it can't be modified."),
     );
   }
   const hasSpecialModifier = explicit.some(
     (modifier) => modifier.fractured || modifier.mutated || modifier.desecrated,
   );
   if (itemState?.mutated || itemState?.desecrated || itemState?.fractured || hasSpecialModifier) {
-    blockers.push("El objeto tiene un estado especial cuya interacción todavía no está verificada.");
+    blockers.push(
+      t(
+        "El objeto tiene un estado especial cuya interacción todavía no está verificada.",
+        "The item has a special state whose interaction isn't verified yet.",
+      ),
+    );
   }
   if (itemState?.split || itemState?.unidentified) {
     blockers.push(
       itemState.split && itemState.unidentified
-        ? "El objeto está dividido y sin identificar; su interacción todavía no está verificada."
+        ? t(
+            "El objeto está dividido y sin identificar; su interacción todavía no está verificada.",
+            "The item is split and unidentified; its interaction isn't verified yet.",
+          )
         : itemState.split
-          ? "El objeto está dividido; su interacción todavía no está verificada."
-          : "El objeto está sin identificar; su interacción todavía no está verificada.",
+          ? t(
+              "El objeto está dividido; su interacción todavía no está verificada.",
+              "The item is split; its interaction isn't verified yet.",
+            )
+          : t(
+              "El objeto está sin identificar; su interacción todavía no está verificada.",
+              "The item is unidentified; its interaction isn't verified yet.",
+            ),
     );
   }
 
   if (!SUPPORTED_CRAFTING_RARITIES.has(item.rarity)) {
-    blockers.push("La lectura inicial solo cubre objetos normales, mágicos y raros.");
+    blockers.push(
+      t(
+        "La lectura inicial solo cubre objetos normales, mágicos y raros.",
+        "The first reading only covers normal, magic and rare items.",
+      ),
+    );
   }
   if (item.itemLevel === undefined) {
-    blockers.push("Falta el nivel de objeto.");
+    blockers.push(t("Falta el nivel de objeto.", "Item level is missing."));
   }
   if (item.rarity !== "normal" && explicit.length === 0) {
-    blockers.push("No hay modificadores explícitos registrados.");
+    blockers.push(t("No hay modificadores explícitos registrados.", "No explicit mods were found."));
   } else if (item.rarity === "normal" && explicit.length > 0) {
     blockers.push(
-      "El objeto figura como normal, pero contiene modificadores explícitos; hay una inconsistencia que revisar.",
+      t(
+        "El objeto figura como normal, pero contiene modificadores explícitos; hay una inconsistencia que revisar.",
+        "The item shows as normal but has explicit mods; something doesn't add up.",
+      ),
     );
   } else if (unclassifiedExplicitCount > 0) {
     blockers.push(
-      `${unclassifiedExplicitCount} modificador${unclassifiedExplicitCount === 1 ? "" : "es"} ` +
-        `explícito${unclassifiedExplicitCount === 1 ? "" : "s"} sin clasificar como prefijo o sufijo.`,
+      lang === "en"
+        ? `${unclassifiedExplicitCount} explicit mod${unclassifiedExplicitCount === 1 ? "" : "s"} ` +
+            "not classified as prefix or suffix."
+        : `${unclassifiedExplicitCount} modificador${unclassifiedExplicitCount === 1 ? "" : "es"} ` +
+            `explícito${unclassifiedExplicitCount === 1 ? "" : "s"} sin clasificar como prefijo o sufijo.`,
     );
     for (const modifier of explicit.filter((candidate) => candidate.affix === undefined)) {
-      blockers.push(`Línea sin clasificar: «${modifier.text}».`);
+      blockers.push(
+        lang === "en"
+          ? `Unclassified line: "${modifier.text}".`
+          : `Línea sin clasificar: «${modifier.text}».`,
+      );
     }
   }
 
@@ -164,59 +207,102 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
     : specialStateNeedsData || unclassifiedExplicitCount > 0
       ? "partial"
       : "complete";
-  const structure = `${prefixCount} prefijo${prefixCount === 1 ? "" : "s"} y ` +
-    `${suffixCount} sufijo${suffixCount === 1 ? "" : "s"}`;
+  const structure =
+    lang === "en"
+      ? `${prefixCount} prefix${prefixCount === 1 ? "" : "es"} and ` +
+        `${suffixCount} suffix${suffixCount === 1 ? "" : "es"}`
+      : `${prefixCount} prefijo${prefixCount === 1 ? "" : "s"} y ` +
+        `${suffixCount} sufijo${suffixCount === 1 ? "" : "s"}`;
 
   let summary: string;
   if (state === "complete" && item.rarity === "normal") {
-    summary =
-      "Objeto normal sin modificadores explícitos. Su estructura permite evaluar una Transmutación sin atribuirle todavía un resultado concreto.";
+    summary = t(
+      "Objeto normal sin modificadores explícitos. Su estructura permite evaluar una Transmutación sin atribuirle todavía un resultado concreto.",
+      "Normal item with no explicit mods. You can consider an Orb of Transmutation, but the result can't be predicted.",
+    );
   } else if (state === "complete" && observedOpenSlots !== null) {
-    summary =
-      observedOpenSlots === 0
-        ? `Se distinguen ${structure}. No quedan huecos totales según el límite observado.`
-        : `Se distinguen ${structure}. Queda${observedOpenSlots === 1 ? "" : "n"} ` +
-          `${observedOpenSlots} hueco${observedOpenSlots === 1 ? "" : "s"} total${observedOpenSlots === 1 ? "" : "es"} ` +
-          `según el límite observado.`;
+    if (lang === "en") {
+      summary =
+        observedOpenSlots === 0
+          ? `Found ${structure}. No open slots left under the observed limit.`
+          : `Found ${structure}. ${observedOpenSlots} open slot${observedOpenSlots === 1 ? "" : "s"} ` +
+            "left under the observed limit.";
+    } else {
+      summary =
+        observedOpenSlots === 0
+          ? `Se distinguen ${structure}. No quedan huecos totales según el límite observado.`
+          : `Se distinguen ${structure}. Queda${observedOpenSlots === 1 ? "" : "n"} ` +
+            `${observedOpenSlots} hueco${observedOpenSlots === 1 ? "" : "s"} total${observedOpenSlots === 1 ? "" : "es"} ` +
+            `según el límite observado.`;
+    }
   } else if (explicit.length > 0) {
-    summary = `Se leen ${explicit.length} modificadores explícitos, pero la estructura no está completa.`;
+    summary =
+      lang === "en"
+        ? `Read ${explicit.length} explicit mods, but the structure isn't complete.`
+        : `Se leen ${explicit.length} modificadores explícitos, pero la estructura no está completa.`;
   } else {
-    summary = "Todavía no hay datos suficientes para leer la estructura de crafting.";
+    summary = t(
+      "Todavía no hay datos suficientes para leer la estructura de crafting.",
+      "There isn't enough data yet to read the crafting structure.",
+    );
   }
 
   let nextAction: string;
   if (item.itemLevel === undefined) {
-    nextAction =
-      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C; necesito que aparezca «Nivel de objeto».";
+    nextAction = t(
+      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C; necesito que aparezca «Nivel de objeto».",
+      "In PoE2, hover this item and press Ctrl+Alt+C; I need to see \"Item Level\".",
+    );
   } else if (unclassifiedExplicitCount > 0) {
-    nextAction =
-      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C; así podré distinguir cada prefijo y sufijo.";
+    nextAction = t(
+      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C; así podré distinguir cada prefijo y sufijo.",
+      "In PoE2, hover this item and press Ctrl+Alt+C; that way I can tell each prefix and suffix apart.",
+    );
   } else if (itemState === undefined) {
-    nextAction =
-      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C para confirmar si puede modificarse.";
+    nextAction = t(
+      "En PoE2, pasa el ratón por esta pieza y pulsa Ctrl+Alt+C para confirmar si puede modificarse.",
+      "In PoE2, hover this item and press Ctrl+Alt+C to confirm whether it can be modified.",
+    );
   } else if (specialStateNeedsData) {
-    nextAction =
-      "Esta pieza tiene un estado especial que todavía no sé resolver con seguridad. No gastes moneda sobre ella.";
+    nextAction = t(
+      "Esta pieza tiene un estado especial que todavía no sé resolver con seguridad. No gastes moneda sobre ella.",
+      "This item has a special state I can't handle safely yet. Don't spend currency on it.",
+    );
   } else if (item.rarity !== "normal" && explicit.length === 0) {
-    nextAction = "Importa el texto completo del objeto antes de evaluar una moneda.";
+    nextAction = t(
+      "Importa el texto completo del objeto antes de evaluar una moneda.",
+      "Import the item's full text before judging any currency.",
+    );
   } else if (item.rarity === "normal" && explicit.length === 0) {
-    nextAction = "Comprueba una Transmutación para convertirlo en mágico con un solo modificador.";
+    nextAction = t(
+      "Comprueba una Transmutación para convertirlo en mágico con un solo modificador.",
+      "Consider an Orb of Transmutation to make it magic with one mod.",
+    );
   } else if (state === "complete" && observedOpenSlots === 0) {
-    nextAction = "El asesor debe bloquear acciones que añadan otro modificador hasta verificar una vía legal.";
+    nextAction = t(
+      "El asesor debe bloquear acciones que añadan otro modificador hasta verificar una vía legal.",
+      "Actions that add another mod stay blocked until a legal route is verified.",
+    );
   } else if (state === "complete") {
-    nextAction = "Indica qué resultado buscas; después se comprobará qué acciones son legales y seguras.";
+    nextAction = t(
+      "Indica qué resultado buscas; después se comprobará qué acciones son legales y seguras.",
+      "Tell me what result you're after; then we'll check which actions are legal and safe.",
+    );
   } else {
-    nextAction = "Completa los datos señalados antes de elegir una moneda.";
+    nextAction = t(
+      "Completa los datos señalados antes de elegir una moneda.",
+      "Fill in the flagged data before picking a currency.",
+    );
   }
 
   return {
     state,
     label:
       state === "complete"
-        ? "Estructura lista"
+        ? t("Estructura lista", "Structure ready")
         : state === "partial"
-          ? "Lectura parcial"
-          : "Diagnóstico bloqueado",
+          ? t("Lectura parcial", "Partial reading")
+          : t("Diagnóstico bloqueado", "Diagnosis blocked"),
     summary,
     prefixCount,
     suffixCount,
@@ -226,11 +312,18 @@ export function diagnoseCraftingItem(item: Item): CraftingItemDiagnosis {
     observedTotalLimit,
     observedOpenSlots,
     blockers,
-    limitations: [
-      "Un hueco libre no garantiza que una moneda concreta pueda o deba usarse.",
-      "No se muestran probabilidades, pesos ni costes porque todavía no están verificados.",
-      "Los límites totales y las transiciones proceden de evidencia local observada el 22/08/2026 y pueden cambiar con un parche.",
-    ],
+    limitations:
+      lang === "en"
+        ? [
+            "An open slot doesn't mean a given currency can or should be used.",
+            "No chances, weights or costs are shown because they aren't verified yet.",
+            "Total limits and transitions come from local evidence seen on 22 Aug 2026 and may change with a patch.",
+          ]
+        : [
+            "Un hueco libre no garantiza que una moneda concreta pueda o deba usarse.",
+            "No se muestran probabilidades, pesos ni costes porque todavía no están verificados.",
+            "Los límites totales y las transiciones proceden de evidencia local observada el 22/08/2026 y pueden cambiar con un parche.",
+          ],
     nextAction,
   };
 }

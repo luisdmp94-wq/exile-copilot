@@ -24,7 +24,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { JournalState } from "@/hooks/useJournal";
-import { SLOT_LABELS } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useLang, useText } from "@/i18n/lang";
 import {
   loadCraftingSelection,
   saveCraftingSelection,
@@ -42,6 +43,93 @@ import {
   patchFeatureCoverage,
   type PatchCompatibilityRecord,
 } from "@shared/patchCompatibility.js";
+
+const TEXT = texts(
+  {
+    academyTitle: "Aprender crafting",
+    academyCompact: "Aprender",
+    academyDetail: "Lecciones y desafíos para entender cada etapa.",
+    coachTitle: "Ayuda en vivo",
+    coachCompact: "En vivo",
+    coachDetail: "Te digo qué hacer dentro de PoE2; tú ejecutas cada paso.",
+    laboratoryTitle: "Taller avanzado",
+    laboratoryCompact: "Avanzado",
+    laboratoryDetail: "Planifica aquí un proyecto para ejecutarlo dentro de PoE2.",
+    chooserLabel: "Cómo quieres usar Crafting",
+    advancedTools: "Herramientas avanzadas",
+    activeCraftBelow: "Tienes un craft en marcha aquí abajo.",
+    pausedCraftBelow: "Tienes un craft guardado aquí abajo.",
+    advancedToolsDetail: "Control manual de objetivos, protecciones y monedas.",
+    patchCoverageLoading: "La cobertura del parche todavía no se ha cargado.",
+    patchStopped: "Crafting detenido por seguridad",
+    patchNeedsReview: (patchId: string) => `El parche ${patchId} necesita revisión`,
+    patchNoAdvice: "No recomendaré monedas ni rutas hasta contrastar de nuevo las mecánicas y los datos de esta versión.",
+    patchKeepImporting: "Puedes seguir importando tu personaje y tus objetos; lo que queda pausado es el consejo dependiente del parche.",
+    laboratoryLocked: "Flujo avanzado bloqueado",
+    needRealItem: "Primero necesito una pieza real",
+    needRealItemDetail: "Pega el texto de una pieza para leer su estructura real y planear con precisión.",
+    pasteGameItem: "Pegar un objeto del juego",
+    craftingBench: "Banco de crafting",
+    laboratoryFlow: "Planifica aquí · ejecuta en PoE2 · registra lo que ocurrió.",
+    benchFlow: "Prepara aquí · ejecuta en PoE2 · vuelve y compara.",
+    itemCount: (count: number) => `${count} pieza(s)`,
+    otherDecisionTitle: "Ya hay otra decisión en curso",
+    otherDecisionDetail: "Termina o pausa el caso abierto del expediente antes de empezar un craft. Nunca mantenemos dos próximas acciones simultáneas.",
+    savedWithoutBlocking: "Guardado sin bloquear el banco",
+    pausedCount: (count: number) => (count === 1 ? "Tienes un craft pausado" : `Tienes ${count} crafts pausados`),
+    resumeNote: "Reanudamos este craft pausado.",
+    resume: "Reanudar",
+    noItemsTitle: "No hay piezas analizables",
+    noItemsDetail: "Pega un objeto normal, mágico o raro para entrar en modo IA. Luego elige acción y objetivo.",
+    addItem: "Añadir un objeto",
+    items: "Piezas",
+    unknownLevel: "desconocido",
+    slot: "Ranura:",
+    notDiagnosed: "Sin diagnosticar",
+  },
+  {
+    academyTitle: "Learn crafting",
+    academyCompact: "Learn",
+    academyDetail: "Lessons and challenges to understand each step.",
+    coachTitle: "Live help",
+    coachCompact: "Live",
+    coachDetail: "I tell you what to do in PoE2; you do each step.",
+    laboratoryTitle: "Advanced workshop",
+    laboratoryCompact: "Advanced",
+    laboratoryDetail: "Plan a project here, then carry it out in PoE2.",
+    chooserLabel: "How you want to use Crafting",
+    advancedTools: "Advanced tools",
+    activeCraftBelow: "You have a craft in progress below.",
+    pausedCraftBelow: "You have a saved craft below.",
+    advancedToolsDetail: "Manual control of goals, protections and currency.",
+    patchCoverageLoading: "Patch coverage hasn't loaded yet.",
+    patchStopped: "Crafting paused for safety",
+    patchNeedsReview: (patchId: string) => `Patch ${patchId} needs a review`,
+    patchNoAdvice: "I won't recommend currency or routes until the mechanics and data for this version are checked again.",
+    patchKeepImporting: "You can keep importing your character and items; only the patch-dependent advice is paused.",
+    laboratoryLocked: "Advanced flow locked",
+    needRealItem: "First I need a real item",
+    needRealItemDetail: "Paste an item's text so I can read how it really is and plan precisely.",
+    pasteGameItem: "Paste an item from the game",
+    craftingBench: "Crafting bench",
+    laboratoryFlow: "Plan here · do it in PoE2 · record what happened.",
+    benchFlow: "Prepare here · do it in PoE2 · come back and compare.",
+    itemCount: (count: number) => `${count} item(s)`,
+    otherDecisionTitle: "Another decision is already in progress",
+    otherDecisionDetail: "Finish or pause the open case in your file before starting a craft. We never keep two next actions at the same time.",
+    savedWithoutBlocking: "Saved without blocking the bench",
+    pausedCount: (count: number) => (count === 1 ? "You have a paused craft" : `You have ${count} paused crafts`),
+    resumeNote: "We're resuming this paused craft.",
+    resume: "Resume",
+    noItemsTitle: "No items to analyse",
+    noItemsDetail: "Paste a normal, magic or rare item to start. Then pick an action and a goal.",
+    addItem: "Add an item",
+    items: "Items",
+    unknownLevel: "unknown",
+    slot: "Slot:",
+    notDiagnosed: "Not diagnosed",
+  },
+);
 
 interface CraftingSectionProps {
   profile: CharacterProfile | null;
@@ -78,30 +166,31 @@ function CraftingModeChooser({
   mode: CraftingMode;
   onSelect: (next: CraftingMode) => void;
 }) {
+  const t = useText(TEXT);
   const options = [
     {
       id: "academy" as const,
       testId: "crafting-mode-academy",
       icon: GraduationCap,
-      title: "Aprender crafting",
-      compactTitle: "Aprender",
-      detail: "Lecciones y desafíos para entender cada etapa.",
+      title: t.academyTitle,
+      compactTitle: t.academyCompact,
+      detail: t.academyDetail,
     },
     {
       id: "coach" as const,
       testId: "crafting-mode-coach",
       icon: Hammer,
-      title: "Ayuda en vivo",
-      compactTitle: "En vivo",
-      detail: "Te digo qué hacer dentro de PoE2; tú ejecutas cada paso.",
+      title: t.coachTitle,
+      compactTitle: t.coachCompact,
+      detail: t.coachDetail,
     },
     {
       id: "laboratory" as const,
       testId: "crafting-mode-laboratory",
       icon: FlaskConical,
-      title: "Taller avanzado",
-      compactTitle: "Avanzado",
-      detail: "Planifica aquí un proyecto para ejecutarlo dentro de PoE2.",
+      title: t.laboratoryTitle,
+      compactTitle: t.laboratoryCompact,
+      detail: t.laboratoryDetail,
     },
   ];
 
@@ -109,7 +198,7 @@ function CraftingModeChooser({
     <div
       className="grid min-w-0 grid-cols-3 gap-2"
       role="group"
-      aria-label="Cómo quieres usar Crafting"
+      aria-label={t.chooserLabel}
       data-testid="crafting-mode-chooser"
       data-mode={mode}
     >
@@ -168,6 +257,7 @@ function AdvancedToolsToggle({
   sessionState: "active" | "paused" | null;
   onToggle: () => void;
 }) {
+  const t = useText(TEXT);
   const locked = sessionState !== null;
   return (
     <button
@@ -182,13 +272,13 @@ function AdvancedToolsToggle({
     >
       <Wrench className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">Herramientas avanzadas</span>
+        <span className="block text-sm font-medium">{t.advancedTools}</span>
         <span className="block text-xs text-muted-foreground">
           {locked
             ? sessionState === "active"
-              ? "Tienes un craft en marcha aquí abajo."
-              : "Tienes un craft guardado aquí abajo."
-            : "Control manual de objetivos, protecciones y monedas."}
+              ? t.activeCraftBelow
+              : t.pausedCraftBelow
+            : t.advancedToolsDetail}
         </span>
       </span>
       <ChevronDown
@@ -221,6 +311,9 @@ export function CraftingSection({
   onSelectedItemChange,
   onAskMentor,
 }: CraftingSectionProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const labels = useFormatLabels();
   const [selectedItemSelection, setSelectedItemSelection] = useState<{
     profileId: string;
     itemId: string;
@@ -273,7 +366,7 @@ export function CraftingSection({
     laboratoryFallback ??
     craftableItems[0] ??
     null;
-  const selectedItemState = selectedItem ? diagnoseCraftingItem(selectedItem) : null;
+  const selectedItemState = selectedItem ? diagnoseCraftingItem(selectedItem, lang) : null;
   const selectItem = (itemId: string) => {
     if (profile) {
       setSelectedItemSelection({ profileId: profile.id, itemId });
@@ -309,7 +402,7 @@ export function CraftingSection({
     allowsPatchFeature(patchCompatibility, "advanced-crafting");
   const advancedCraftingNote = patchCompatibility
     ? patchFeatureCoverage(patchCompatibility, "advanced-crafting").note
-    : "La cobertura del parche todavía no se ha cargado.";
+    : t.patchCoverageLoading;
 
   const selectMode = (nextMode: CraftingMode) => {
     // Entrar desde el selector es una navegación manual. Solo el CTA del guía
@@ -382,16 +475,16 @@ export function CraftingSection({
           aria-labelledby="crafting-patch-review-title"
         >
           <p className="text-xs font-semibold text-amber-300/85">
-            Crafting detenido por seguridad
+            {t.patchStopped}
           </p>
           <h2 id="crafting-patch-review-title" className="dossier-title mt-1 text-2xl font-semibold">
-            El parche {patchCompatibility.patchId} necesita revisión
+            {t.patchNeedsReview(patchCompatibility.patchId)}
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {patchCompatibility.summary} No recomendaré monedas ni rutas hasta contrastar de nuevo las mecánicas y los datos de esta versión.
+            {patchCompatibility.summary} {t.patchNoAdvice}
           </p>
           <p className="mt-3 text-xs text-amber-100/85">
-            Puedes seguir importando tu personaje y tus objetos; lo que queda pausado es el consejo dependiente del parche.
+            {t.patchKeepImporting}
           </p>
         </section>
       </div>
@@ -411,14 +504,14 @@ export function CraftingSection({
         ) : mode === "laboratory" ? (
           <section className="superficie-panel p-6" data-testid="crafting-laboratory-needs-profile">
             <p className="text-xs font-semibold text-primary/75">
-              Flujo avanzado bloqueado
+              {t.laboratoryLocked}
             </p>
-            <h2 className="dossier-title text-2xl font-semibold">Primero necesito una pieza real</h2>
+            <h2 className="dossier-title text-2xl font-semibold">{t.needRealItem}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Pega el texto de una pieza para leer su estructura real y planear con precisión.
+              {t.needRealItemDetail}
             </p>
             <Button className="mt-4" type="button" onClick={onEditExpediente}>
-              Pegar un objeto del juego
+              {t.pasteGameItem}
             </Button>
           </section>
         ) : (
@@ -464,25 +557,25 @@ export function CraftingSection({
           </span>
           <div>
             <h2 id="crafting-workspace-title" className="dossier-title text-2xl font-semibold">
-              {mode === "laboratory" ? "Taller avanzado" : "Banco de crafting"}
+              {mode === "laboratory" ? t.laboratoryTitle : t.craftingBench}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {mode === "laboratory"
-                ? "Planifica aquí · ejecuta en PoE2 · registra lo que ocurrió."
-                : "Prepara aquí · ejecuta en PoE2 · vuelve y compara."}
+                ? t.laboratoryFlow
+                : t.benchFlow}
             </p>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          {craftableItems.length} pieza(s)
+          {t.itemCount(craftableItems.length)}
         </p>
       </section>
 
       {hasOpenSession && !activeCrafting && (
         <Alert>
-          <AlertTitle>Ya hay otra decisión en curso</AlertTitle>
+          <AlertTitle>{t.otherDecisionTitle}</AlertTitle>
           <AlertDescription>
-            Termina o pausa el caso abierto del expediente antes de empezar un craft. Nunca mantenemos dos próximas acciones simultáneas.
+            {t.otherDecisionDetail}
           </AlertDescription>
         </Alert>
       )}
@@ -497,10 +590,10 @@ export function CraftingSection({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-amber-200/80">
-                Guardado sin bloquear el banco
+                {t.savedWithoutBlocking}
               </p>
               <h3 id="crafting-paused-title" className="font-semibold">
-                {pausedCrafts.length === 1 ? "Tienes un craft pausado" : `Tienes ${pausedCrafts.length} crafts pausados`}
+                {t.pausedCount(pausedCrafts.length)}
               </h3>
             </div>
           </div>
@@ -532,7 +625,7 @@ export function CraftingSection({
                       ).revision,
                       idempotencyKey: crypto.randomUUID(),
                       sessionId: paused.id,
-                      note: "Reanudamos este craft pausado.",
+                      note: t.resumeNote,
                       profile,
                     }).then((next) => {
                       if (!next) return;
@@ -542,7 +635,7 @@ export function CraftingSection({
                   }}
                 >
                   <RotateCcw className="size-4" aria-hidden="true" />
-                  Reanudar
+                  {t.resume}
                 </Button>
               </li>
             ))}
@@ -567,19 +660,19 @@ export function CraftingSection({
       <div hidden={Boolean(activeCrafting)} aria-hidden={activeCrafting ? "true" : undefined}>
       {craftableItems.length === 0 ? (
         <section className="superficie-panel p-6" data-testid="crafting-no-items">
-          <h3 className="text-xl font-semibold">No hay piezas analizables</h3>
+          <h3 className="text-xl font-semibold">{t.noItemsTitle}</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Pega un objeto normal, mágico o raro para entrar en modo IA. Luego elige acción y objetivo.
+            {t.noItemsDetail}
           </p>
           <Button className="mt-4" type="button" variant="outline" onClick={onEditExpediente}>
-            Añadir un objeto
+            {t.addItem}
           </Button>
         </section>
       ) : (
         <div className="grid min-w-0 gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
           <aside className="superficie-panel min-w-0 p-3 lg:sticky lg:top-24" aria-labelledby="crafting-items-title">
             <div className="flex items-center justify-between gap-2 px-1">
-              <h3 id="crafting-items-title" className="text-sm font-semibold">Piezas</h3>
+              <h3 id="crafting-items-title" className="text-sm font-semibold">{t.items}</h3>
               <Badge variant="outline" className="text-[10px] text-muted-foreground">
                 {craftableItems.length}
               </Badge>
@@ -590,7 +683,7 @@ export function CraftingSection({
             >
               {craftableItems.map((item) => {
                 const active = item.id === selectedItem?.id;
-                const diagnosis = diagnoseCraftingItem(item);
+                const diagnosis = diagnoseCraftingItem(item, lang);
                 const needsAttention = diagnosis.state !== "complete";
                 return (
                   <li key={item.id} className="min-w-44 snap-start lg:min-w-0">
@@ -599,7 +692,7 @@ export function CraftingSection({
                       data-testid={`crafting-item-${item.id}`}
                       data-active={active ? "true" : "false"}
                       aria-pressed={active}
-                      aria-label={`${item.name}, ${item.baseType}, ${SLOT_LABELS[item.slot]}. ${diagnosis.label}`}
+                      aria-label={`${item.name}, ${item.baseType}, ${labels.slot[item.slot]}. ${diagnosis.label}`}
                       title={`${item.baseType} · ${diagnosis.label}`}
                       className={`crafting-mode-card flex min-h-11 w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-all ${
                         active
@@ -614,7 +707,7 @@ export function CraftingSection({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{item.name}</span>
                         <span className="block truncate text-[11px] text-muted-foreground">
-                          {SLOT_LABELS[item.slot]}
+                          {labels.slot[item.slot]}
                         </span>
                       </span>
                       {needsAttention ? (
@@ -637,16 +730,16 @@ export function CraftingSection({
                   <div className="min-w-0">
                   <h3 className="dossier-title text-2xl font-semibold">{selectedItem.name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {selectedItem.baseType} · ilvl {selectedItem.itemLevel ?? "desconocido"}
+                    {selectedItem.baseType} · ilvl {selectedItem.itemLevel ?? t.unknownLevel}
                   </p>
                   </div>
                 </div>
                 <div className="flex min-w-0 flex-wrap gap-2">
-                  <span className="gamer-chip gamer-chip--neutral">Ranura: {SLOT_LABELS[selectedItem.slot]}</span>
+                  <span className="gamer-chip gamer-chip--neutral">{t.slot} {labels.slot[selectedItem.slot]}</span>
                   <span
                     className={`gamer-chip ${selectedItemState?.state === "complete" ? "gamer-chip--ok" : "gamer-chip--warn"}`}
                   >
-                    <span aria-hidden="true">●</span> {selectedItemState ? selectedItemState.label : "Sin diagnosticar"}
+                    <span aria-hidden="true">●</span> {selectedItemState ? selectedItemState.label : t.notDiagnosed}
                   </span>
                 </div>
               </div>

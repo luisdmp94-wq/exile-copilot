@@ -54,6 +54,7 @@ import { ItemEditor } from "@/components/ItemEditor";
 import type { CharacterState } from "@/hooks/useCharacter";
 import type { EditorDrafts } from "@/hooks/useEditorDrafts";
 import { texts, useText } from "@/i18n/lang";
+import { displayProfileValue } from "@/lib/format";
 
 interface CharacterSectionProps {
   character: CharacterState;
@@ -460,7 +461,7 @@ export function CharacterSection({
             <div className="space-y-1">
               <p className="font-medium text-foreground">{t.memoryTitle}</p>
               <p className="text-sm text-muted-foreground">
-                {t.memoryLead(profile.name)}
+                {t.memoryLead(displayProfileValue(profile.name))}
               </p>
             </div>
             <Button

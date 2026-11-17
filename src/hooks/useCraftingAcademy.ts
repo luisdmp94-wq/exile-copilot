@@ -1,14 +1,17 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  ACADEMY_CONCEPTS,
   CRAFTING_ACADEMY_EXAM,
-  CRAFTING_ACADEMY_LESSONS,
-  allAcademyScenarios,
   pendingAcademyConcepts,
   type AcademyConceptId,
   type AcademyLesson,
   type AcademyScenario,
 } from "@shared/craftingAcademy.js";
+import {
+  academyConcepts,
+  craftingAcademyLessons,
+  craftingAcademyScenarios,
+} from "@shared/craftingAcademyEn.js";
+import { LANGS, useLang, type Lang } from "@/i18n/lang";
 import {
   discardAcademyProgress,
   emptyAcademyProgress,
@@ -59,16 +62,34 @@ export interface CraftingAcademyState {
   restart: () => void;
 }
 
-const LESSON_ROUTE: AcademyStep[] = CRAFTING_ACADEMY_LESSONS.flatMap((lesson) =>
-  lesson.scenarios.map((scenario) => ({ scenario, lesson, position: 0, total: 0 })),
-).map((entry, index, all) => ({ ...entry, position: index + 1, total: all.length }));
+/**
+ * Recorrido y escenarios por idioma. Los ids son los mismos en los dos, así que
+ * el progreso guardado sirve igual al cambiar de idioma.
+ */
+function lessonRoute(lang: Lang): AcademyStep[] {
+  return craftingAcademyLessons(lang)
+    .flatMap((lesson) =>
+      lesson.scenarios.map((scenario) => ({ scenario, lesson, position: 0, total: 0 })),
+    )
+    .map((entry, index, all) => ({ ...entry, position: index + 1, total: all.length }));
+}
+
+const LESSON_ROUTES = Object.fromEntries(
+  LANGS.map((lang) => [lang, lessonRoute(lang)]),
+) as Record<Lang, AcademyStep[]>;
+const LESSON_ROUTE = LESSON_ROUTES.es;
 
 const ALL_EXAM_IDS = CRAFTING_ACADEMY_EXAM.map((scenario) => scenario.id);
-const SCENARIOS_BY_ID = new Map(allAcademyScenarios().map((scenario) => [scenario.id, scenario]));
+const SCENARIOS_BY_ID = Object.fromEntries(
+  LANGS.map((lang) => [
+    lang,
+    new Map(craftingAcademyScenarios(lang).map((scenario) => [scenario.id, scenario])),
+  ]),
+) as Record<Lang, Map<string, AcademyScenario>>;
 
-function examSteps(ids: readonly string[]): AcademyStep[] {
+function examSteps(ids: readonly string[], lang: Lang): AcademyStep[] {
   const scenarios = ids
-    .map((id) => SCENARIOS_BY_ID.get(id))
+    .map((id) => SCENARIOS_BY_ID[lang].get(id))
     .filter((scenario): scenario is AcademyScenario => scenario !== undefined);
   return scenarios.map((scenario, index) => ({
     scenario,
@@ -87,6 +108,8 @@ function examSteps(ids: readonly string[]): AcademyStep[] {
  * cada componente se monta dos veces.
  */
 export function useCraftingAcademy(): CraftingAcademyState {
+  const { lang } = useLang();
+  const route = LESSON_ROUTES[lang];
   const [progress, setProgress] = useState<AcademyProgress>(
     () => loadAcademyProgress() ?? emptyAcademyProgress([...ALL_EXAM_IDS]),
   );
@@ -98,15 +121,16 @@ export function useCraftingAcademy(): CraftingAcademyState {
   }, []);
 
   const currentExamSteps = useMemo(
-    () => examSteps(progress.examScenarioIds.length > 0 ? progress.examScenarioIds : ALL_EXAM_IDS),
-    [progress.examScenarioIds],
+    () =>
+      examSteps(progress.examScenarioIds.length > 0 ? progress.examScenarioIds : ALL_EXAM_IDS, lang),
+    [progress.examScenarioIds, lang],
   );
 
   const step = useMemo<AcademyStep | null>(() => {
-    if (progress.stage === "lesson") return LESSON_ROUTE[progress.cursor] ?? null;
+    if (progress.stage === "lesson") return route[progress.cursor] ?? null;
     if (progress.stage === "exam") return currentExamSteps[progress.cursor] ?? null;
     return null;
-  }, [progress.stage, progress.cursor, currentExamSteps]);
+  }, [progress.stage, progress.cursor, currentExamSteps, route]);
 
   const currentAnswer = step ? (progress.answers[step.scenario.id] ?? null) : null;
 
@@ -118,23 +142,22 @@ export function useCraftingAcademy(): CraftingAcademyState {
     };
   }, [currentExamSteps, progress.answers]);
 
-  const pendingConcepts = useMemo<AcademyPendingConcept[]>(
-    () =>
-      pendingAcademyConcepts(
-        progress.answers,
-        currentExamSteps.map((entry) => entry.scenario),
-      ).map((id) => ({
-        id,
-        label: ACADEMY_CONCEPTS[id].label,
-        recap: ACADEMY_CONCEPTS[id].recap,
-      })),
-    [currentExamSteps, progress.answers],
-  );
+  const pendingConcepts = useMemo<AcademyPendingConcept[]>(() => {
+    const concepts = academyConcepts(lang);
+    return pendingAcademyConcepts(
+      progress.answers,
+      currentExamSteps.map((entry) => entry.scenario),
+    ).map((id) => ({
+      id,
+      label: concepts[id].label,
+      recap: concepts[id].recap,
+    }));
+  }, [currentExamSteps, progress.answers, lang]);
 
   const lessonsAnswered = LESSON_ROUTE.filter(
     (entry) => progress.answers[entry.scenario.id] !== undefined,
   ).length;
-  const activeRoute = progress.stage === "lesson" ? LESSON_ROUTE : currentExamSteps;
+  const activeRoute = progress.stage === "lesson" ? route : currentExamSteps;
   const stepStatuses = activeRoute.map((entry) => {
     const answer = progress.answers[entry.scenario.id];
     return {

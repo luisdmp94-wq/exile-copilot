@@ -567,7 +567,7 @@ export function GuidesSection({
           onCreateCharacter={onCreateCharacter}
           onOwnSupport={onOwnSupport}
         />
-        <ItemCompareCard patch={patch} />
+        <ItemCompareCard patch={patch} profile={profile} />
       </div>
     </article>
   );

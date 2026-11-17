@@ -1,10 +1,12 @@
 import { suggestCraftingFocusFromContext } from "./craftingCoach.js";
 import {
   COACH_FOCUS_LABELS,
+  COACH_FOCUS_LABELS_EN,
   type CoachFocus,
 } from "./craftingFocus.js";
 import {
   CRAFTING_GOAL_LABELS,
+  CRAFTING_GOAL_LABELS_EN,
   type CraftingGoalCategory,
 } from "./craftingGoal.js";
 import type { BuildTarget, CharacterProfile, GoalKind } from "./domain.js";
@@ -100,14 +102,20 @@ export function deriveCraftingBuildIntent(input: {
   };
 }
 
-export function craftingBuildIntentLabel(intent: CraftingBuildIntent): string {
+export function craftingBuildIntentLabel(
+  intent: CraftingBuildIntent,
+  lang: "es" | "en" = "es",
+): string {
+  const en = lang === "en";
   if (intent.focuses.length > 0) {
-    return intent.focuses.map((focus) => COACH_FOCUS_LABELS[focus]).join(" · ");
+    return intent.focuses
+      .map((focus) => (en ? COACH_FOCUS_LABELS_EN : COACH_FOCUS_LABELS)[focus])
+      .join(" · ");
   }
   if (intent.suggestedCategories.length > 0) {
     return intent.suggestedCategories
-      .map((category) => CRAFTING_GOAL_LABELS[category])
+      .map((category) => (en ? CRAFTING_GOAL_LABELS_EN : CRAFTING_GOAL_LABELS)[category])
       .join(" · ");
   }
-  return "sin prioridad demostrada";
+  return en ? "no proven priority" : "sin prioridad demostrada";
 }

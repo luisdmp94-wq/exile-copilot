@@ -22,7 +22,9 @@ export function buildCraftingMentorReading(
   item: Item,
   diagnosis: CraftingItemDiagnosis,
   goalCategory: CraftingGoalCategory,
+  lang: "es" | "en" = "es",
 ): CraftingMentorReading {
+  const en = lang === "en";
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const matchingModifiers = explicit.filter(
     (modifier) => evaluateCraftingGoalSignal(goalCategory, [modifier]).status === "direct",
@@ -40,8 +42,8 @@ export function buildCraftingMentorReading(
   if (diagnosis.state !== "complete") {
     return {
       verdict: "wait",
-      verdictLabel: "Espera",
-      verdictDetail: "Faltan datos antes de gastar.",
+      verdictLabel: en ? "Wait" : "Espera",
+      verdictDetail: en ? "Some data is missing before you spend." : "Faltan datos antes de gastar.",
       matchingModifiers,
       unmatchedModifiers,
       protectCandidates,
@@ -50,8 +52,10 @@ export function buildCraftingMentorReading(
   if (goalCategory === "other") {
     return {
       verdict: "define",
-      verdictLabel: "Define el objetivo",
-      verdictDetail: "Sin objetivo no puedo separar progreso de ruido.",
+      verdictLabel: en ? "Set the goal" : "Define el objetivo",
+      verdictDetail: en
+        ? "Without a goal I can't tell progress from noise."
+        : "Sin objetivo no puedo separar progreso de ruido.",
       matchingModifiers,
       unmatchedModifiers,
       protectCandidates,
@@ -60,9 +64,14 @@ export function buildCraftingMentorReading(
   if (diagnosis.observedOpenSlots === 0) {
     return {
       verdict: "protect",
-      verdictLabel: protectCandidates.length > 0 ? "No arriesgues aún" : "Pieza llena",
-      verdictDetail:
-        protectCandidates.length > 0
+      verdictLabel: en
+        ? protectCandidates.length > 0 ? "Don't risk it yet" : "Item is full"
+        : protectCandidates.length > 0 ? "No arriesgues aún" : "Pieza llena",
+      verdictDetail: en
+        ? protectCandidates.length > 0
+          ? `${protectCandidates.length} tier 1–2 affix${protectCandidates.length === 1 ? "" : "es"} could be at risk.`
+          : "To go on you would have to replace, not add."
+        : protectCandidates.length > 0
           ? `${protectCandidates.length} afijo${protectCandidates.length === 1 ? "" : "s"} de grado 1–2 puede${protectCandidates.length === 1 ? "" : "n"} quedar en riesgo.`
           : "Para continuar habría que reemplazar, no añadir.",
       matchingModifiers,
@@ -73,8 +82,10 @@ export function buildCraftingMentorReading(
   if (matchingModifiers.length > 0) {
     return {
       verdict: "controlled-test",
-      verdictLabel: "Prueba controlada",
-      verdictDetail: `${matchingModifiers.length} mod(s) ya encajan con tu objetivo.`,
+      verdictLabel: en ? "Controlled test" : "Prueba controlada",
+      verdictDetail: en
+        ? `${matchingModifiers.length} mod(s) already fit your goal.`
+        : `${matchingModifiers.length} mod(s) ya encajan con tu objetivo.`,
       matchingModifiers,
       unmatchedModifiers,
       protectCandidates,
@@ -82,8 +93,10 @@ export function buildCraftingMentorReading(
   }
   return {
     verdict: "review",
-    verdictLabel: "Revisa primero",
-    verdictDetail: "No hay una coincidencia literal con tu objetivo.",
+    verdictLabel: en ? "Check first" : "Revisa primero",
+    verdictDetail: en
+      ? "Nothing matches your goal directly."
+      : "No hay una coincidencia literal con tu objetivo.",
     matchingModifiers,
     unmatchedModifiers,
     protectCandidates,

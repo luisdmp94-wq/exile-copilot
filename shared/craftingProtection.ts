@@ -37,7 +37,8 @@ export function evaluateCraftingProtection(input: {
   protectedModifierIds: string[];
   removedModifierCount: number;
   removalSelection: RemovalSelection;
-}): CraftingProtectionEvaluation {
+}, lang: "es" | "en" = "es"): CraftingProtectionEvaluation {
+  const en = lang === "en";
   const ids = [...new Set(input.protectedModifierIds)];
   const explicit = input.item.modifiers.filter((modifier) => modifier.kind === "explicit");
   const protectedModifiers = explicit.filter((modifier) => ids.includes(modifier.id));
@@ -49,7 +50,9 @@ export function evaluateCraftingProtection(input: {
     return {
       status: "needs-data",
       risk: "unknown",
-      reason: "La selección protegida ya no coincide con el snapshot del objeto. Vuelve a elegirla antes de gastar.",
+      reason: en
+        ? "Your protected lines no longer match the saved item. Pick them again before spending."
+        : "La selección protegida ya no coincide con el snapshot del objeto. Vuelve a elegirla antes de gastar.",
       protectedModifiers,
       unprotectedExplicitCount,
       unknownModifierIds,
@@ -59,8 +62,11 @@ export function evaluateCraftingProtection(input: {
     return {
       status: "safe",
       risk: "none",
-      reason:
-        protectedModifiers.length === 0
+      reason: en
+        ? protectedModifiers.length === 0
+          ? "You haven't marked any must-keep modifiers for this step."
+          : "This action doesn't say it removes any current modifiers."
+        : protectedModifiers.length === 0
           ? "No has marcado modificadores imprescindibles para este paso."
           : "La acción registrada no declara la retirada de modificadores actuales.",
       protectedModifiers,
@@ -74,7 +80,9 @@ export function evaluateCraftingProtection(input: {
     return {
       status: "blocked",
       risk: "certain",
-      reason: `La acción retira ${input.removedModifierCount} modificador${input.removedModifierCount === 1 ? "" : "es"} y no quedan suficientes modificadores sin proteger: se perdería al menos uno marcado como imprescindible.`,
+      reason: en
+        ? `The action removes ${input.removedModifierCount} modifier${input.removedModifierCount === 1 ? "" : "s"} and there aren't enough unprotected ones left: you would lose at least one you marked as must-keep.`
+        : `La acción retira ${input.removedModifierCount} modificador${input.removedModifierCount === 1 ? "" : "es"} y no quedan suficientes modificadores sin proteger: se perdería al menos uno marcado como imprescindible.`,
       protectedModifiers,
       unprotectedExplicitCount,
       unknownModifierIds: [],
@@ -85,7 +93,9 @@ export function evaluateCraftingProtection(input: {
     return {
       status: "safe",
       risk: "none",
-      reason: "El tooltip permite elegir la retirada y existe al menos un modificador no protegido que puede seleccionarse.",
+      reason: en
+        ? "The tooltip lets you choose what is removed, and at least one unprotected modifier can be picked."
+        : "El tooltip permite elegir la retirada y existe al menos un modificador no protegido que puede seleccionarse.",
       protectedModifiers,
       unprotectedExplicitCount,
       unknownModifierIds: [],
@@ -95,7 +105,9 @@ export function evaluateCraftingProtection(input: {
     return {
       status: "warning",
       risk: "possible",
-      reason: `La retirada es aleatoria: cualquiera de los ${protectedModifiers.length} modificadores protegidos podría desaparecer.`,
+      reason: en
+        ? `The removal is random: any of the ${protectedModifiers.length} protected modifiers could disappear.`
+        : `La retirada es aleatoria: cualquiera de los ${protectedModifiers.length} modificadores protegidos podría desaparecer.`,
       protectedModifiers,
       unprotectedExplicitCount,
       unknownModifierIds: [],
@@ -104,7 +116,9 @@ export function evaluateCraftingProtection(input: {
   return {
     status: "needs-data",
     risk: "unknown",
-    reason: "No está verificado cómo se elige la retirada; no se puede prometer que los modificadores protegidos sobrevivan.",
+    reason: en
+      ? "It isn't confirmed how the removed modifier is chosen, so there's no promise your protected modifiers survive."
+      : "No está verificado cómo se elige la retirada; no se puede prometer que los modificadores protegidos sobrevivan.",
     protectedModifiers,
     unprotectedExplicitCount,
     unknownModifierIds: [],

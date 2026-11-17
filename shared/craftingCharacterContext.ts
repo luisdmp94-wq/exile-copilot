@@ -2,6 +2,7 @@ import type { CraftingComparison } from "./craftingComparison.js";
 import type { CraftingGoalCategory, CraftingGoalSignal } from "./craftingGoal.js";
 import {
   RESISTANCE_LABELS,
+  RESISTANCE_LABELS_EN,
   readCharacterLevel,
   type CharacterProfile,
   type GoalKind,
@@ -75,17 +76,23 @@ function requirementCheck(
   profile: CharacterProfile,
   resultItem: Item,
   comparison: CraftingComparison,
+  lang: "es" | "en",
 ): Pick<CraftingCharacterContext, "requirementStatus" | "requirementLabel"> & {
   facts: string[];
   limitations: string[];
 } {
+  const en = lang === "en";
   const requirements = resultItem.requirements;
   if (!requirements || Object.keys(requirements).length === 0) {
     return {
       requirementStatus: "not-declared",
-      requirementLabel: "Sin requisitos declarados",
+      requirementLabel: en ? "No requirements listed" : "Sin requisitos declarados",
       facts: [],
-      limitations: ["El texto resultante no declara requisitos que comprobar."],
+      limitations: [
+        en
+          ? "The resulting text doesn't list any requirements to check."
+          : "El texto resultante no declara requisitos que comprobar.",
+      ],
     };
   }
 
@@ -104,17 +111,19 @@ function requirementCheck(
     if (!reading.known) {
       levelUnknown = true;
       limitations.push(
-        "No se puede comprobar el requisito de nivel porque no conocemos el nivel de tu personaje.",
+        en
+          ? "The level requirement can't be checked because we don't know your character's level."
+          : "No se puede comprobar el requisito de nivel porque no conocemos el nivel de tu personaje.",
       );
     } else if (reading.level < requirements.level) {
-      missing.push(`nivel ${reading.level}/${requirements.level}`);
+      missing.push(`${en ? "level" : "nivel"} ${reading.level}/${requirements.level}`);
     }
   }
 
   const attributes = [
-    ["Fuerza", requirements.str, profile.attributes.str],
-    ["Destreza", requirements.dex, profile.attributes.dex],
-    ["Inteligencia", requirements.int, profile.attributes.int],
+    [en ? "Strength" : "Fuerza", requirements.str, profile.attributes.str],
+    [en ? "Dexterity" : "Destreza", requirements.dex, profile.attributes.dex],
+    [en ? "Intelligence" : "Inteligencia", requirements.int, profile.attributes.int],
   ] as const;
   for (const [label, required, current] of attributes) {
     if (required === undefined) continue;
@@ -128,10 +137,10 @@ function requirementCheck(
   }
 
   if (missing.length > 0) {
-    facts.push(`No cumple: ${missing.join(", ")}.`);
+    facts.push(en ? `Doesn't meet: ${missing.join(", ")}.` : `No cumple: ${missing.join(", ")}.`);
     return {
       requirementStatus: "unmet",
-      requirementLabel: "Requisitos no cumplidos",
+      requirementLabel: en ? "Requirements not met" : "Requisitos no cumplidos",
       facts,
       limitations,
     };
@@ -139,13 +148,17 @@ function requirementCheck(
 
   if (unknown.length > 0) {
     limitations.push(
-      attributeChanged
-        ? "El craft cambió atributos: el total del expediente todavía describe el objeto anterior."
-        : `Faltan estos atributos del personaje: ${unknown.join(", ")}.`,
+      en
+        ? attributeChanged
+          ? "The craft changed attributes: the character file's total still describes the previous item."
+          : `These character attributes are missing: ${unknown.join(", ")}.`
+        : attributeChanged
+          ? "El craft cambió atributos: el total del expediente todavía describe el objeto anterior."
+          : `Faltan estos atributos del personaje: ${unknown.join(", ")}.`,
     );
     return {
       requirementStatus: "unknown",
-      requirementLabel: "Requisitos por confirmar",
+      requirementLabel: en ? "Requirements to confirm" : "Requisitos por confirmar",
       facts,
       limitations,
     };
@@ -154,16 +167,20 @@ function requirementCheck(
   if (levelUnknown) {
     return {
       requirementStatus: "unknown",
-      requirementLabel: "Nivel del personaje desconocido",
+      requirementLabel: en ? "Character level unknown" : "Nivel del personaje desconocido",
       facts,
       limitations,
     };
   }
 
-  facts.push("El nivel y los atributos conocidos cumplen los requisitos mostrados.");
+  facts.push(
+    en
+      ? "The known level and attributes meet the requirements shown."
+      : "El nivel y los atributos conocidos cumplen los requisitos mostrados.",
+  );
   return {
     requirementStatus: "met",
-    requirementLabel: "Requisitos cumplidos",
+    requirementLabel: en ? "Requirements met" : "Requisitos cumplidos",
     facts,
     limitations,
   };
@@ -188,7 +205,8 @@ export function evaluateCraftingCharacterContext(input: {
   comparison: CraftingComparison;
   goalCategory: CraftingGoalCategory | undefined;
   goalSignal: CraftingGoalSignal | null;
-}): CraftingCharacterContext {
+}, lang: "es" | "en" = "es"): CraftingCharacterContext {
+  const en = lang === "en";
   const {
     profile,
     profileGoal,
@@ -198,7 +216,7 @@ export function evaluateCraftingCharacterContext(input: {
     goalCategory,
     goalSignal,
   } = input;
-  const requirements = requirementCheck(profile, resultItem, comparison);
+  const requirements = requirementCheck(profile, resultItem, comparison, lang);
   const facts = [...requirements.facts];
   const limitations = [...requirements.limitations];
   const equipped =
@@ -206,13 +224,25 @@ export function evaluateCraftingCharacterContext(input: {
     profile.items.some((item) => item.id === originalItem.id && item.slot === originalItem.slot);
 
   if (equipped) {
-    facts.push("El resultado corresponde a una pieza vinculada al equipo actual.");
+    facts.push(
+      en
+        ? "The result is an item linked to your current gear."
+        : "El resultado corresponde a una pieza vinculada al equipo actual.",
+    );
   } else {
-    limitations.push("La pieza no está vinculada a un hueco equipado; falta comparar el reemplazo real.");
+    limitations.push(
+      en
+        ? "The item isn't linked to an equipped slot; it still needs comparing with what it would replace."
+        : "La pieza no está vinculada a un hueco equipado; falta comparar el reemplazo real.",
+    );
   }
 
   if (goalMatchesProfile(profileGoal, goalCategory)) {
-    facts.push("La categoría elegida coincide con el objetivo general del personaje.");
+    facts.push(
+      en
+        ? "The category you picked matches your character's overall goal."
+        : "La categoría elegida coincide con el objetivo general del personaje.",
+    );
   }
 
   const observedTags = new Set(goalSignal?.observedTags ?? []);
@@ -225,16 +255,28 @@ export function evaluateCraftingCharacterContext(input: {
         const value = profile.resistances[kind];
         return value !== null && value < LOW_ELEMENTAL_RESISTANCE;
       })
-      .map((kind) => `${RESISTANCE_LABELS[kind]} ${profile.resistances[kind]}%`);
+      .map(
+        (kind) =>
+          `${(en ? RESISTANCE_LABELS_EN : RESISTANCE_LABELS)[kind]} ${profile.resistances[kind]}%`,
+      );
     if (lowElemental.length > 0) {
       facts.push(
-        `El expediente tiene resistencias elementales bajo ${LOW_ELEMENTAL_RESISTANCE}%: ${lowElemental.join(", ")}.`,
+        en
+          ? `Your character file has elemental resistances below ${LOW_ELEMENTAL_RESISTANCE}%: ${lowElemental.join(", ")}.`
+          : `El expediente tiene resistencias elementales bajo ${LOW_ELEMENTAL_RESISTANCE}%: ${lowElemental.join(", ")}.`,
       );
     }
   }
 
-  const protectionLabel =
-    comparison.protectionStatus === "lost"
+  const protectionLabel = en
+    ? comparison.protectionStatus === "lost"
+      ? "Protection lost"
+      : comparison.protectionStatus === "preserved"
+        ? "Protections intact"
+        : comparison.protectionStatus === "unverifiable"
+          ? "Protection can't be checked"
+          : "No protection set"
+    : comparison.protectionStatus === "lost"
       ? "Protección perdida"
       : comparison.protectionStatus === "preserved"
         ? "Protecciones intactas"
@@ -245,9 +287,10 @@ export function evaluateCraftingCharacterContext(input: {
   if (comparison.protectionStatus === "lost") {
     return {
       verdict: "stop",
-      title: "Detente: se perdió algo protegido",
-      summary:
-        "El craft ocurrió, pero contradice un límite que marcaste antes de gastar. Revísalo antes de aceptar el resultado.",
+      title: en ? "Stop: something protected was lost" : "Detente: se perdió algo protegido",
+      summary: en
+        ? "The craft happened, but it breaks a limit you set before spending. Check it before accepting the result."
+        : "El craft ocurrió, pero contradice un límite que marcaste antes de gastar. Revísalo antes de aceptar el resultado.",
       requirementStatus: requirements.requirementStatus,
       requirementLabel: requirements.requirementLabel,
       protectionLabel,
@@ -259,9 +302,12 @@ export function evaluateCraftingCharacterContext(input: {
   if (requirements.requirementStatus === "unmet") {
     return {
       verdict: "stop",
-      title: "Detente: el resultado no cumple requisitos",
-      summary:
-        "Con los datos actuales, el personaje no puede usar esta pieza. No la marques como mejora sin resolver el déficit.",
+      title: en
+        ? "Stop: the result doesn't meet the requirements"
+        : "Detente: el resultado no cumple requisitos",
+      summary: en
+        ? "With the current data, your character can't use this item. Don't mark it as an upgrade until the shortfall is solved."
+        : "Con los datos actuales, el personaje no puede usar esta pieza. No la marques como mejora sin resolver el déficit.",
       requirementStatus: requirements.requirementStatus,
       requirementLabel: requirements.requirementLabel,
       protectionLabel,
@@ -276,9 +322,12 @@ export function evaluateCraftingCharacterContext(input: {
   ) {
     return {
       verdict: "candidate",
-      title: "Candidato coherente con lo que buscabas",
-      summary:
-        "Las etiquetas apuntan al objetivo y no aparece un bloqueo conocido. Aún debes juzgar la magnitud y el encaje real.",
+      title: en
+        ? "A candidate that fits what you wanted"
+        : "Candidato coherente con lo que buscabas",
+      summary: en
+        ? "The tags point at your goal and there's no known block. You still have to judge how strong it is and how well it really fits."
+        : "Las etiquetas apuntan al objetivo y no aparece un bloqueo conocido. Aún debes juzgar la magnitud y el encaje real.",
       requirementStatus: requirements.requirementStatus,
       requirementLabel: requirements.requirementLabel,
       protectionLabel,
@@ -288,15 +337,20 @@ export function evaluateCraftingCharacterContext(input: {
   }
 
   limitations.push(
-    goalSignal?.status === "no-direct-signal"
-      ? "Las etiquetas nuevas no muestran una relación directa con la categoría elegida."
-      : "No hay etiquetas suficientes para relacionar el resultado con el objetivo.",
+    en
+      ? goalSignal?.status === "no-direct-signal"
+        ? "The new tags show no direct link to the category you picked."
+        : "There aren't enough tags to link the result to your goal."
+      : goalSignal?.status === "no-direct-signal"
+        ? "Las etiquetas nuevas no muestran una relación directa con la categoría elegida."
+        : "No hay etiquetas suficientes para relacionar el resultado con el objetivo.",
   );
   return {
     verdict: "review",
-    title: "Aún no hay base para juzgarlo",
-    summary:
-      "El cambio está confirmado, pero el expediente no demuestra que resuelva tu objetivo. Decide con la prueba en juego.",
+    title: en ? "Not enough to judge it yet" : "Aún no hay base para juzgarlo",
+    summary: en
+      ? "The change is confirmed, but your character file doesn't show it solves your goal. Decide by trying it in game."
+      : "El cambio está confirmado, pero el expediente no demuestra que resuelva tu objetivo. Decide con la prueba en juego.",
     requirementStatus: requirements.requirementStatus,
     requirementLabel: requirements.requirementLabel,
     protectionLabel,

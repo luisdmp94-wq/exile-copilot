@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CraftingActionIdSchema,
-  craftingCurrencyLabel,
   evaluateObservedCraftingActions,
   type CraftingCurrencyVariant,
   type StartCraftingDecision,
@@ -21,6 +20,7 @@ import {
 import {
   ESSENCE_MECHANIC_SOURCE,
   ESSENCE_TIER_LABELS,
+  ESSENCE_TIER_LABELS_EN,
   evaluateEssencePlan,
   type EssencePlanInput,
   type EssenceTier,
@@ -37,6 +37,7 @@ import { CraftingProtectionPicker } from "@/components/CraftingProtectionPicker"
 import { CraftingSuccessCriteriaPicker } from "@/components/CraftingSuccessCriteriaPicker";
 import {
   CRAFTING_GOAL_LABELS,
+  craftingGoalLabel,
   evaluateCraftingGoalSignal,
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
@@ -64,6 +65,14 @@ import { craftingLaboratoryRouteLabel } from "@shared/craftingProjectRoute.js";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
 import type { MentorCraftingState } from "@shared/mentorContext.js";
 import { buildCraftingTargetEvidence } from "@shared/craftingTargetEvidence.js";
+import {
+  craftingActionEffect,
+  craftingActionEvidence,
+  craftingActionLabel,
+  craftingCurrencyLabelFor,
+  craftingVariantLabel,
+} from "@shared/craftingWorkshopText.js";
+import { texts, useLang, useText, type Lang } from "@/i18n/lang";
 
 const CRAFTING_STATE_STYLE = {
   complete: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
@@ -81,48 +90,47 @@ const BUILD_ALIGNMENT_STYLE: Record<CraftingBuildIntent["alignment"], string> = 
 function buildIntentCopy(
   intent: CraftingBuildIntent,
   currentGoal: CraftingGoalCategory,
+  lang: Lang,
 ): { title: string; detail: string } {
-  const label = craftingBuildIntentLabel(intent);
+  const t = TEXT[lang];
+  const label = craftingBuildIntentLabel(intent, lang);
   if (intent.alignment === "aligned") {
     return {
-      title: `Alineado con ${label}`,
+      title: t.alignedTitle(label),
       detail:
         intent.source === "target"
-          ? "Tu build objetivo declara esta prioridad; aún falta confirmar que esta base pueda cubrirla."
+          ? t.alignedTarget
           : intent.source === "resistances"
-            ? "El expediente demuestra la carencia, pero no que esta pieza sea la mejor ranura para resolverla."
-            : "Coincide con el objetivo general que elegiste para el personaje.",
+            ? t.alignedResistances
+            : t.alignedProfile,
     };
   }
   if (intent.alignment === "choice-required") {
     return {
-      title: `El personaje apunta a ${label}`,
-      detail: "Elige qué necesidad quieres trabajar primero; el Mentor no ordenará prioridades por ti.",
+      title: t.choiceTitle(label),
+      detail: t.choiceDetail,
     };
   }
   if (intent.alignment === "conflict") {
     return {
-      title: `Revisa el objetivo: el contexto apunta a ${label}`,
-      detail: `Ahora has elegido ${CRAFTING_GOAL_LABELS[currentGoal]}. Puedes mantenerlo, pero el expediente no demuestra esa prioridad.`,
+      title: t.conflictTitle(label),
+      detail: t.conflictDetail(craftingGoalLabel(currentGoal, lang)),
     };
   }
   return {
-    title: "Sin prioridad demostrada por el expediente",
-    detail: "Puedes diseñar el craft, pero la app no afirmará que resuelve una necesidad de tu personaje.",
+    title: t.unknownTitle,
+    detail: t.unknownDetail,
   };
 }
 
 const ACTION_STATUS = {
   compatible: {
-    label: "Compatible con la estructura",
     style: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
   },
   blocked: {
-    label: "Bloqueada",
     style: "border-rose-500/40 bg-rose-500/10 text-rose-300",
   },
   "needs-data": {
-    label: "Faltan datos",
     style: "border-amber-500/40 bg-amber-500/10 text-amber-300",
   },
 } as const;
@@ -183,31 +191,398 @@ function useProtectedModifiers(item: Item, initialIds: string[] = []) {
   return [value, update] as const;
 }
 
-const CRAFTING_TOOLS: Array<{
-  id: CraftingTool;
-  label: string;
-  eyebrow: string;
-  description: string;
-}> = [
+const CRAFTING_TOOLS: CraftingTool[] = ["currency", "essence", "alloy"];
+
+const TEXT = texts(
   {
-    id: "currency",
-    label: "Monedas",
-    eyebrow: "Paso básico",
-    description: "Transmutación, Aumento, Regio y Exaltado.",
+    alignedTitle: (label: string) => `Alineado con ${label}`,
+    alignedTarget: "Tu build objetivo declara esta prioridad; aún falta confirmar que esta base pueda cubrirla.",
+    alignedResistances: "El expediente demuestra la carencia, pero no que esta pieza sea la mejor ranura para resolverla.",
+    alignedProfile: "Coincide con el objetivo general que elegiste para el personaje.",
+    choiceTitle: (label: string) => `El personaje apunta a ${label}`,
+    choiceDetail: "Elige qué necesidad quieres trabajar primero; el Mentor no ordenará prioridades por ti.",
+    conflictTitle: (label: string) => `Revisa el objetivo: el contexto apunta a ${label}`,
+    conflictDetail: (goal: string) =>
+      `Ahora has elegido ${goal}. Puedes mantenerlo, pero el expediente no demuestra esa prioridad.`,
+    unknownTitle: "Sin prioridad demostrada por el expediente",
+    unknownDetail: "Puedes diseñar el craft, pero la app no afirmará que resuelve una necesidad de tu personaje.",
+    actionStatus: {
+      compatible: "Compatible con la estructura",
+      blocked: "Bloqueada",
+      "needs-data": "Faltan datos",
+    } as Record<keyof typeof ACTION_STATUS, string>,
+    tools: {
+      currency: {
+        label: "Monedas",
+        eyebrow: "Paso básico",
+        description: "Transmutación, Aumento, Regio y Exaltado.",
+      },
+      essence: {
+        label: "Essences",
+        eyebrow: "Mod garantizado",
+        description: "Añade un efecto conocido y comprueba el reemplazo.",
+      },
+      alloy: {
+        label: "Alloys",
+        eyebrow: "Fabricación",
+        description: "Reemplaza un mod por uno fabricado del tooltip.",
+      },
+    } as Record<CraftingTool, { label: string; eyebrow: string; description: string }>,
+    baseDecision: "Decisión sobre la base",
+    dontSpendYet: "No gastes todavía",
+    declaredNoEvidence: "Objetivo declarado, todavía sin evidencia observable",
+    tellMeFirst: "Primero dime qué quieres conseguir",
+    declaredDetail: (outcome: string) =>
+      `Has definido «${outcome}», pero los datos disponibles no permiten comprobar qué afijos de esta base lo cumplen. No gastes hasta aportar una señal observable o una fuente de modificadores compatible.`,
+    noGoalDetail: "Sin un objetivo observable no puedo separar una mejora de un mod que solo ocupa espacio.",
+    stopCondition: "Condición de parada",
+    goalMet: "Tu objetivo ya está cumplido",
+    goalMetDetail: "La pieza actual ya cumple todas las condiciones observables que acabas de fijar. No gastes otra moneda para perseguir el mismo final.",
+    dontReplace: "No reemplaces nada todavía",
+    worthTest: "Sí: merece una prueba controlada",
+    alsoProfile: " Además, este objetivo coincide con el plan general del personaje.",
+    unprovenBase: "Base aún sin demostrar",
+    doubtfulBase: "Base dudosa para este objetivo",
+    normalDetail: "La estructura permite empezar, pero el objeto todavía no muestra afijos que justifiquen una inversión larga.",
+    normalNoMods: "Objeto normal · sin modificadores explícitos",
+    unclassified: (count: number) => `${count} modificador${count === 1 ? "" : "es"} sin clasificar`,
+    structure: (prefixes: number, suffixes: number, open: number) =>
+      `${prefixes} prefijo${prefixes === 1 ? "" : "s"} · ${suffixes} sufijo${suffixes === 1 ? "" : "s"} · ${open} hueco${open === 1 ? "" : "s"} total${open === 1 ? "" : "es"}`,
+    missingData: "Faltan datos para leer esta pieza",
+    promptObjective: "Define una sola mejora para esta pieza.",
+    promptBase: "Comprueba si esta es la base correcta antes de gastar.",
+    promptProtect: "Marca lo que no estás dispuesto a perder.",
+    promptStop: "Decide qué resultado hará que dejes de gastar.",
+    promptRouteDone: "La condición ya se cumple: conserva la pieza.",
+    promptRouteReady: "Contrato listo: elige una ruta verificable.",
+    stepObjective: "Objetivo",
+    chooseOne: "Elige uno",
+    stepBase: "Base",
+    imported: (count: number) => `${count} importadas`,
+    finishReading: "Completa la lectura de la pieza",
+    stepProtect: "Protege",
+    nothingMarked: "Nada marcado",
+    markedCount: (count: number) => `${count} marcada${count === 1 ? "" : "s"}`,
+    stepStop: "Parada",
+    met: "Cumplida",
+    definedCount: (count: number) => `${count} definida${count === 1 ? "" : "s"}`,
+    pickOne: "Elige una",
+    stepRoute: "Ruta",
+    finishContract: "Completa el contrato",
+    craftProject: "Proyecto de craft",
+    currencyAvailable: (available: number, total: number) =>
+      `Monedas · ${available} de ${total} disponibles`,
+    autosave: "Autoguardado local",
+    trackerAria: "Estado del plan avanzado",
+    itemState: "Estado de la pieza",
+    yourPlan: "Tu plan para esta pieza",
+    yourContract: "Tu contrato",
+    goalChip: (goal: string, count: number) => `${goal} · ${count} intocable${count === 1 ? "" : "s"}`,
+    describeGoal: "Describe el objetivo",
+    addNuance: "Añade un matiz (opcional)",
+    goalPlaceholder: "Ej.: más daño sin perder velocidad ni +niveles",
+    describeResult: "Describe qué resultado buscas.",
+    emptyUses: (goal: string) => `Si lo dejas vacío, el plan usará «${goal}».`,
+    protectReplace: "Antes de reemplazar: protege lo importante",
+    protectOptional: "¿Hay algo que no quieres perder? (opcional)",
+    characterSuggestion: "Sugerencia del personaje",
+    useGoal: (goal: string) => `Usar ${goal}`,
+    saveGoal: "Guardar objetivo y continuar",
+    confirmBase: "Confirmar esta base",
+    baseNeedsReading: "La base necesita una lectura completa. Puedes definir el objetivo y la parada sin gastar nada.",
+    continueUnmarked: "Continuar sin marcar",
+    saveProtections: "Guardar protecciones",
+    saveStop: "Guardar parada y continuar",
+    stopSaved: "Parada guardada. Completa la lectura para abrir la ruta.",
+    whyPath: "Ver por qué el mentor propone este camino",
+    alignedCount: (aligned: number, total: number) => `${aligned}/${total} alineados`,
+    worthGoingOn: "¿Compensa seguir?",
+    inFavour: "A favor",
+    pickCategory: "Elige una categoría",
+    noDirectTag: "Ningún tag directo",
+    noDirectSignal: "Sin señal directa",
+    pendingGoal: "Pendiente del objetivo",
+    nothingFlagged: "Nada señalado",
+    keepCandidates: "Candidatos a conservar",
+    noTopTiers: "No hay grados 1–2 observados",
+    affixCore: "Núcleo de afijos",
+    mustKeepCount: (count: number) => `${count} intocable${count === 1 ? "" : "s"}`,
+    highlightsAria: "Señales destacadas de los afijos",
+    leadingAligned: (count: number) => `${count} alineado${count === 1 ? "" : "s"} de grado 1–2`,
+    seeReading: (count: number) => `Ver lectura de ${count} afijos`,
+    tierShort: (tier: number | undefined) => (tier ? `G${tier}` : "G?"),
+    mustKeepForPlan: "Intocable para este plan",
+    readingNote: "Lectura del texto observado: no estima DPS, precio, peso ni probabilidad.",
+    demoOnly: "Solo demostración",
+    defineGoal: "Define tu objetivo",
+    chooseStop: "Elige cuándo parar",
+    goalAlreadyMet: "Objetivo ya cumplido",
+    prepareAction: (label: string, single: boolean) => `${single ? "Preparar " : "Elegir "}${label}`,
+    reviewRisky: "Revisar opciones con riesgo",
+    reviewEssence: "Revisar una Essence",
+    reviewAlloy: "Revisar un Alloy",
+    repaste: "Pegar el objeto de nuevo",
+    demoProject: "Proyecto de demostración: sin gasto real",
+    demoDetail: "Puedes estudiar la base, la parada y las rutas, pero esta pieza no existe en tu cuenta. El Taller no preparará monedas ni pedirá un resultado.",
+    pasteMyOwn: "Pegar mi propia pieza",
+    checkingKnowledge: "Verificando conocimiento…",
+    knowledgeUnavailable: "Conocimiento no disponible",
+    verifiedRules: (count: number) => `${count} reglas verificadas`,
+    noChances: "Sin probabilidades verificables",
+    noKnowledge: "Sin conocimiento cargado",
+    evidenceLimits: (count: number) => `Ver evidencia y límites (${count})`,
+    explicitSeen: "Explícitos registrados",
+    prefixes: "Prefijos",
+    suffixes: "Sufijos",
+    undetermined: "Sin determinar",
+    openSlots: "Huecos totales",
+    unknown: "Desconocido",
+    pending: "Pendiente",
+    knowledgeUsed: (count: number, asOf: string) =>
+      `Conocimiento utilizado: ${count} acciones · corte de datos ${asOf}.`,
+    noFullData: "Sin datos completos para calcular probabilidades.",
+    whatTool: "¿Con qué vas a intentarlo?",
+    toolsAria: "Herramientas de crafting",
+    advancedGate: "Essences y Alloys en revisión para este parche. Las monedas básicas siguen disponibles.",
+    availableCurrency: "Monedas disponibles",
+    onlyCompatible: "La app solo habilita acciones compatibles con los datos que has pegado.",
+    noActions: "El registro no contiene acciones compatibles con este módulo.",
+    hideUnavailable: "Ocultar acciones no aplicables",
+    showUnavailable: (count: number) => `Ver acciones no aplicables (${count})`,
+    evaluation: "Evaluación: ",
+    variantMinimum: (label: string, minimum: number | null) =>
+      `${label}: ${minimum === null ? "mínimo no mostrado" : `nivel mínimo de modificador ${minimum}`}`,
+    exactVariant: "Variante exacta que vas a usar",
+    noMinimum: "El tooltip observado no muestra un mínimo.",
+    minimumSeen: (minimum: number) => `Nivel mínimo de modificador observado: ${minimum}.`,
+    minimumNote: "Este mínimo reproduce el tooltip observado; no garantiza un afijo concreto ni su probabilidad.",
+    preflightConfirm: "El objeto sigue igual, aún no gasté la moneda y acepto que el resultado es aleatorio.",
+    preparing: "Preparando…",
+    prepareCraft: "Preparar este craft",
+    cancel: "Cancelar",
+    chooseAction: "Elegir esta acción",
+    essenceEyebrow: "Mecánica guiada P1",
+    essenceIntro:
+      "Introduce la Essence real que tienes delante. El asesor valida el tipo de operación y prepara una comparación antes/después; no adivina el efecto por su nombre.",
+    essenceType: "Tipo de Essence",
+    exactName: "Nombre exacto",
+    namePlaceholder: "Ej.: Essence of…",
+    guaranteedEffect: "Efecto garantizado exacto del tooltip",
+    effectPlaceholder: "Copia únicamente lo que la Essence declara que añadirá a este tipo de objeto",
+    plan: "Plan:",
+    planMustKeep: (count: number) => ` · ${count} intocable${count === 1 ? "" : "s"}`,
+    noneMustKeep: " · nada marcado como intocable",
+    stopConditions: (count: number) => ` · ${count} condición${count === 1 ? "" : "es"} de parada`,
+    editIntention: "Editar intención",
+    protection: "Protección del snapshot",
+    magicToRare: "Mágico → raro, conservando lo existente",
+    rareToRare: "Raro → raro, reemplazando 1 modificador al azar",
+    anyAtRisk: "No elijas qué modificador desaparece: cualquiera de los explícitos actuales está en riesgo.",
+    confirmSnapshot: "Confirmo que el objeto sigue igual que el snapshot importado.",
+    confirmEssenceTooltip: "He copiado el nombre y el efecto desde la Essence que voy a usar, no desde una guía antigua.",
+    confirmRandomRemoval: "Acepto que se retirará al azar un modificador explícito actual.",
+    confirmEssenceNotSpent: "Confirmo que todavía no he aplicado la Essence.",
+    createEssence: "Crear comprobación de Essence",
+    openCraftingTab: "Abre la pestaña Crafting para iniciar una comprobación persistente.",
+    essenceSourceBefore: (patch: string) => `Regla estructural verificada desde el parche ${patch}: `,
+    essenceSourceLink: "notas oficiales de GGG",
+    essenceSourceAfter: ". La tabla exhaustiva de efectos por Essence y tipo de objeto no está incorporada.",
   },
   {
-    id: "essence",
-    label: "Essences",
-    eyebrow: "Mod garantizado",
-    description: "Añade un efecto conocido y comprueba el reemplazo.",
+    alignedTitle: (label: string) => `In line with ${label}`,
+    alignedTarget: "Your target build lists this priority; it still needs confirming that this base can cover it.",
+    alignedResistances: "Your character file shows the gap, but not that this item is the best slot to fix it.",
+    alignedProfile: "It matches the overall goal you chose for the character.",
+    choiceTitle: (label: string) => `Your character points to ${label}`,
+    choiceDetail: "Choose which need to work on first; the Mentor won't rank priorities for you.",
+    conflictTitle: (label: string) => `Check the goal: the context points to ${label}`,
+    conflictDetail: (goal: string) =>
+      `You've chosen ${goal}. You can keep it, but your character file doesn't show that priority.`,
+    unknownTitle: "No priority shown by your character file",
+    unknownDetail: "You can plan the craft, but the app won't claim it fixes a need of your character.",
+    actionStatus: {
+      compatible: "Fits the item",
+      blocked: "Blocked",
+      "needs-data": "Data missing",
+    },
+    tools: {
+      currency: {
+        label: "Currency",
+        eyebrow: "Basic step",
+        description: "Transmutation, Augmentation, Regal and Exalted.",
+      },
+      essence: {
+        label: "Essences",
+        eyebrow: "Guaranteed mod",
+        description: "Adds a known effect and checks the replacement.",
+      },
+      alloy: {
+        label: "Alloys",
+        eyebrow: "Crafting",
+        description: "Replaces a mod with a crafted one from the tooltip.",
+      },
+    },
+    baseDecision: "Decision on the base",
+    dontSpendYet: "Don't spend yet",
+    declaredNoEvidence: "Goal set, but no visible evidence yet",
+    tellMeFirst: "First tell me what you want to get",
+    declaredDetail: (outcome: string) =>
+      `You set “${outcome}”, but the data available can't check which affixes on this base meet it. Don't spend until you add a visible signal or a compatible modifier source.`,
+    noGoalDetail: "Without a visible goal I can't tell an upgrade from a mod that just takes up space.",
+    stopCondition: "Stop condition",
+    goalMet: "Your goal is already met",
+    goalMetDetail: "This item already meets every condition you just set. Don't spend another currency chasing the same finish.",
+    dontReplace: "Don't replace anything yet",
+    worthTest: "Yes: worth a controlled test",
+    alsoProfile: " This goal also matches the character's overall plan.",
+    unprovenBase: "Base not proven yet",
+    doubtfulBase: "Doubtful base for this goal",
+    normalDetail: "The structure lets you start, but the item doesn't show affixes yet that justify a long investment.",
+    normalNoMods: "Normal item · no explicit modifiers",
+    unclassified: (count: number) => `${count} unclassified modifier${count === 1 ? "" : "s"}`,
+    structure: (prefixes: number, suffixes: number, open: number) =>
+      `${prefixes} prefix${prefixes === 1 ? "" : "es"} · ${suffixes} suffix${suffixes === 1 ? "" : "es"} · ${open} open slot${open === 1 ? "" : "s"} in total`,
+    missingData: "Not enough data to read this item",
+    promptObjective: "Set one single upgrade for this item.",
+    promptBase: "Check whether this is the right base before spending.",
+    promptProtect: "Mark what you're not willing to lose.",
+    promptStop: "Decide which result will make you stop spending.",
+    promptRouteDone: "The condition is already met: keep the item.",
+    promptRouteReady: "Plan ready: pick a route you can check.",
+    stepObjective: "Goal",
+    chooseOne: "Pick one",
+    stepBase: "Base",
+    imported: (count: number) => `${count} imported`,
+    finishReading: "Finish reading the item",
+    stepProtect: "Protect",
+    nothingMarked: "Nothing marked",
+    markedCount: (count: number) => `${count} marked`,
+    stepStop: "Stop",
+    met: "Met",
+    definedCount: (count: number) => `${count} set`,
+    pickOne: "Pick one",
+    stepRoute: "Route",
+    finishContract: "Finish the plan",
+    craftProject: "Craft project",
+    currencyAvailable: (available: number, total: number) =>
+      `Currency · ${available} of ${total} available`,
+    autosave: "Saved on this device",
+    trackerAria: "Advanced plan status",
+    itemState: "Item status",
+    yourPlan: "Your plan for this item",
+    yourContract: "Your terms",
+    goalChip: (goal: string, count: number) => `${goal} · ${count} must-keep`,
+    describeGoal: "Describe the goal",
+    addNuance: "Add a detail (optional)",
+    goalPlaceholder: "E.g. more damage without losing speed or +levels",
+    describeResult: "Describe the result you want.",
+    emptyUses: (goal: string) => `If you leave it empty, the plan will use “${goal}”.`,
+    protectReplace: "Before replacing: protect what matters",
+    protectOptional: "Anything you don't want to lose? (optional)",
+    characterSuggestion: "Suggestion from your character",
+    useGoal: (goal: string) => `Use ${goal}`,
+    saveGoal: "Save goal and continue",
+    confirmBase: "Confirm this base",
+    baseNeedsReading: "The base needs a full reading. You can set the goal and the stop without spending anything.",
+    continueUnmarked: "Continue without marking",
+    saveProtections: "Save protections",
+    saveStop: "Save stop and continue",
+    stopSaved: "Stop saved. Finish the reading to open the route.",
+    whyPath: "See why the mentor suggests this path",
+    alignedCount: (aligned: number, total: number) => `${aligned}/${total} aligned`,
+    worthGoingOn: "Worth going on?",
+    inFavour: "In favour",
+    pickCategory: "Pick a category",
+    noDirectTag: "No direct tag",
+    noDirectSignal: "No direct signal",
+    pendingGoal: "Waiting for the goal",
+    nothingFlagged: "Nothing flagged",
+    keepCandidates: "Worth keeping",
+    noTopTiers: "No tier 1–2 seen",
+    affixCore: "Affix core",
+    mustKeepCount: (count: number) => `${count} must-keep`,
+    highlightsAria: "Key affix signals",
+    leadingAligned: (count: number) => `${count} aligned at tier 1–2`,
+    seeReading: (count: number) => `See the reading of ${count} affixes`,
+    tierShort: (tier: number | undefined) => (tier ? `T${tier}` : "T?"),
+    mustKeepForPlan: "Must-keep for this plan",
+    readingNote: "Reading of the visible text: it doesn't estimate DPS, price, weight or chance.",
+    demoOnly: "Demo only",
+    defineGoal: "Set your goal",
+    chooseStop: "Choose when to stop",
+    goalAlreadyMet: "Goal already met",
+    prepareAction: (label: string, single: boolean) => `${single ? "Prepare " : "Choose "}${label}`,
+    reviewRisky: "Review risky options",
+    reviewEssence: "Check an Essence",
+    reviewAlloy: "Check an Alloy",
+    repaste: "Paste the item again",
+    demoProject: "Demo project: no real spending",
+    demoDetail: "You can study the base, the stop and the routes, but this item isn't in your account. The workshop won't prepare currency or ask for a result.",
+    pasteMyOwn: "Paste my own item",
+    checkingKnowledge: "Checking knowledge…",
+    knowledgeUnavailable: "Knowledge not available",
+    verifiedRules: (count: number) => `${count} verified rules`,
+    noChances: "No verifiable chances",
+    noKnowledge: "No knowledge loaded",
+    evidenceLimits: (count: number) => `See evidence and limits (${count})`,
+    explicitSeen: "Explicit mods found",
+    prefixes: "Prefixes",
+    suffixes: "Suffixes",
+    undetermined: "Unknown",
+    openSlots: "Open slots in total",
+    unknown: "Unknown",
+    pending: "Pending",
+    knowledgeUsed: (count: number, asOf: string) =>
+      `Knowledge used: ${count} actions · data as of ${asOf}.`,
+    noFullData: "Not enough data to work out chances.",
+    whatTool: "What will you try it with?",
+    toolsAria: "Crafting tools",
+    advancedGate: "Essences and Alloys are under review for this patch. Basic currency is still available.",
+    availableCurrency: "Available currency",
+    onlyCompatible: "The app only enables actions that fit the data you pasted.",
+    noActions: "The registry has no compatible actions for this module.",
+    hideUnavailable: "Hide actions that don't apply",
+    showUnavailable: (count: number) => `Show actions that don't apply (${count})`,
+    evaluation: "Assessment: ",
+    variantMinimum: (label: string, minimum: number | null) =>
+      `${label}: ${minimum === null ? "no minimum shown" : `minimum modifier level ${minimum}`}`,
+    exactVariant: "Exact version you'll use",
+    noMinimum: "The tooltip you saw shows no minimum.",
+    minimumSeen: (minimum: number) => `Minimum modifier level seen: ${minimum}.`,
+    minimumNote: "This minimum copies the tooltip you saw; it doesn't guarantee a specific affix or its chance.",
+    preflightConfirm: "The item is unchanged, I haven't spent the currency yet, and I accept the result is random.",
+    preparing: "Preparing…",
+    prepareCraft: "Prepare this craft",
+    cancel: "Cancel",
+    chooseAction: "Choose this action",
+    essenceEyebrow: "Guided mechanic P1",
+    essenceIntro:
+      "Enter the real Essence you have in front of you. The advisor checks the kind of operation and prepares a before/after comparison; it doesn't guess the effect from its name.",
+    essenceType: "Essence type",
+    exactName: "Exact name",
+    namePlaceholder: "E.g. Essence of…",
+    guaranteedEffect: "Exact guaranteed effect from the tooltip",
+    effectPlaceholder: "Copy only what the Essence says it will add to this kind of item",
+    plan: "Plan:",
+    planMustKeep: (count: number) => ` · ${count} must-keep`,
+    noneMustKeep: " · nothing marked as must-keep",
+    stopConditions: (count: number) => ` · ${count} stop condition${count === 1 ? "" : "s"}`,
+    editIntention: "Edit plan",
+    protection: "Snapshot protection",
+    magicToRare: "Magic → rare, keeping what's there",
+    rareToRare: "Rare → rare, replacing 1 random modifier",
+    anyAtRisk: "You don't choose which modifier goes: any current explicit modifier is at risk.",
+    confirmSnapshot: "I confirm the item is still the same as the imported snapshot.",
+    confirmEssenceTooltip: "I copied the name and effect from the Essence I'm going to use, not from an old guide.",
+    confirmRandomRemoval: "I accept that one current explicit modifier will be removed at random.",
+    confirmEssenceNotSpent: "I confirm I haven't applied the Essence yet.",
+    createEssence: "Create Essence check",
+    openCraftingTab: "Open the Crafting tab to start a saved check.",
+    essenceSourceBefore: (patch: string) => `Structural rule confirmed since patch ${patch}: `,
+    essenceSourceLink: "GGG's official notes",
+    essenceSourceAfter: ". The full table of effects per Essence and item type isn't included.",
   },
-  {
-    id: "alloy",
-    label: "Alloys",
-    eyebrow: "Fabricación",
-    description: "Reemplaza un mod por uno fabricado del tooltip.",
-  },
-];
+);
 
 export interface CraftingActionPlannerProps {
   item: Item;
@@ -264,17 +639,20 @@ export function CraftingActionPlanner({
   onSelectCandidate,
   onAddCandidate,
 }: CraftingActionPlannerProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const laboratoryStorageKey = craftingProjectStorageKey(profile?.id ?? null, item.id);
   const laboratoryProject = useMemo(
     () => experience === "laboratory" ? readCraftingProject(laboratoryStorageKey) : emptyCraftingProject(),
     [experience, laboratoryStorageKey],
   );
-  const crafting = diagnoseCraftingItem(item);
+  const crafting = diagnoseCraftingItem(item, lang);
   const isExampleItem = isCraftingExampleItem(item);
   const knowledge = useCraftingKnowledge(item, patch);
   const craftingActions = evaluateObservedCraftingActions(
     item,
     knowledge.data?.actions ?? [],
+    lang,
   );
   const [preparedActionId, setPreparedActionId] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] =
@@ -390,7 +768,7 @@ export function CraftingActionPlanner({
     (entry) => entry.status === "compatible",
   ).length;
   const unavailableActionCount = craftingActions.length - compatibleActionCount;
-  const route = buildCraftingRoute(item, crafting, craftingActions);
+  const route = buildCraftingRoute(item, crafting, craftingActions, lang);
   const resetCurrencyPreflight = () => {
     setPreflightConfirmed(false);
   };
@@ -420,7 +798,8 @@ export function CraftingActionPlanner({
     onMentorContext?.({
       type: "craftingAction",
       itemName: item.name,
-      actionLabel: action.label,
+      // El Mentor contextual sigue redactado en español: recibe el nombre del catálogo.
+      actionLabel: evaluation.action.label,
     });
     revealRouteTarget(`crafting-action-${item.id}-${action.id}`);
   };
@@ -430,7 +809,7 @@ export function CraftingActionPlanner({
   };
   const resolvedDesiredOutcome =
     desiredOutcome.trim() ||
-    (goalCategory === "other" ? "" : CRAFTING_GOAL_LABELS[goalCategory]);
+    (goalCategory === "other" ? "" : craftingGoalLabel(goalCategory, lang));
   const successCriteriaReady =
     successCriteria.length > 0 &&
     successCriteria.every(
@@ -449,8 +828,8 @@ export function CraftingActionPlanner({
       modPoolCoverage: knowledge.loading || knowledge.error
         ? "unknown"
         : knowledge.data?.modPool.status ?? "unknown",
-    }),
-    [candidateItems, goalCategory, item, knowledge.data?.modPool.status, knowledge.error, knowledge.loading, successCriteria],
+    }, lang),
+    [candidateItems, goalCategory, item, knowledge.data?.modPool.status, knowledge.error, knowledge.loading, lang, successCriteria],
   );
   const stopAlreadyReached = currentSuccessAssessment.status === "fulfilled";
   const objectiveReady = resolvedDesiredOutcome.length >= 3;
@@ -463,7 +842,7 @@ export function CraftingActionPlanner({
     protectedModifierIds,
     successCriteria,
     budget,
-  });
+  }, lang);
   const confirmationReady =
     !isExampleItem &&
     resolvedDesiredOutcome.length >= 3 &&
@@ -480,7 +859,7 @@ export function CraftingActionPlanner({
       }),
     [goalCategory, profile, profileGoal, target],
   );
-  const buildIntentPresentation = buildIntentCopy(buildIntent, goalCategory);
+  const buildIntentPresentation = buildIntentCopy(buildIntent, goalCategory, lang);
   const projectPhase: Extract<MentorCraftingState, { mode: "advanced" }>["projectPhase"] =
     crafting.state !== "complete"
       ? "blocked"
@@ -628,8 +1007,8 @@ export function CraftingActionPlanner({
     );
     onSelectCandidate(itemId);
   };
-  const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory);
-  const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds);
+  const mentorReading = buildCraftingMentorReading(item, crafting, goalCategory, lang);
+  const affixAssessment = assessCraftingAffixes(item, goalCategory, protectedModifierIds, lang);
   const profileGoalAligned =
     (profileGoal === "damage" && goalCategory === "damage") ||
     (profileGoal === "survival" && goalCategory === "defence");
@@ -637,8 +1016,8 @@ export function CraftingActionPlanner({
     if (crafting.state !== "complete") {
       return {
         tone: "danger" as const,
-        eyebrow: "Decisión sobre la base",
-        title: "No gastes todavía",
+        eyebrow: t.baseDecision,
+        title: t.dontSpendYet,
         detail: crafting.nextAction,
       };
     }
@@ -646,48 +1025,48 @@ export function CraftingActionPlanner({
       const declaredOutcome = desiredOutcome.trim();
       return {
         tone: "neutral" as const,
-        eyebrow: "Decisión sobre la base",
+        eyebrow: t.baseDecision,
         title: declaredOutcome
-          ? "Objetivo declarado, todavía sin evidencia observable"
-          : "Primero dime qué quieres conseguir",
+          ? t.declaredNoEvidence
+          : t.tellMeFirst,
         detail: declaredOutcome
-          ? `Has definido «${declaredOutcome}», pero los datos disponibles no permiten comprobar qué afijos de esta base lo cumplen. No gastes hasta aportar una señal observable o una fuente de modificadores compatible.`
-          : "Sin un objetivo observable no puedo separar una mejora de un mod que solo ocupa espacio.",
+          ? t.declaredDetail(declaredOutcome)
+          : t.noGoalDetail,
       };
     }
     if (stopAlreadyReached) {
       return {
         tone: "positive" as const,
-        eyebrow: "Condición de parada",
-        title: "Tu objetivo ya está cumplido",
-        detail: "La pieza actual ya cumple todas las condiciones observables que acabas de fijar. No gastes otra moneda para perseguir el mismo final.",
+        eyebrow: t.stopCondition,
+        title: t.goalMet,
+        detail: t.goalMetDetail,
       };
     }
     if (mentorReading.verdict === "protect") {
       return {
         tone: "caution" as const,
-        eyebrow: "Decisión sobre la base",
-        title: "No reemplaces nada todavía",
+        eyebrow: t.baseDecision,
+        title: t.dontReplace,
         detail: mentorReading.verdictDetail,
       };
     }
     if (mentorReading.verdict === "controlled-test") {
       return {
         tone: "positive" as const,
-        eyebrow: "Decisión sobre la base",
-        title: "Sí: merece una prueba controlada",
+        eyebrow: t.baseDecision,
+        title: t.worthTest,
         detail: `${mentorReading.verdictDetail}${
-          profileGoalAligned ? " Además, este objetivo coincide con el plan general del personaje." : ""
+          profileGoalAligned ? t.alsoProfile : ""
         }`,
       };
     }
     return {
       tone: "caution" as const,
-      eyebrow: "Decisión sobre la base",
-      title: item.rarity === "normal" ? "Base aún sin demostrar" : "Base dudosa para este objetivo",
+      eyebrow: t.baseDecision,
+      title: item.rarity === "normal" ? t.unprovenBase : t.doubtfulBase,
       detail:
         item.rarity === "normal"
-          ? "La estructura permite empezar, pero el objeto todavía no muestra afijos que justifiquen una inversión larga."
+          ? t.normalDetail
           : mentorReading.verdictDetail,
     };
   })();
@@ -709,78 +1088,70 @@ export function CraftingActionPlanner({
         : "text-amber-200";
   const diagnosisHeadline =
     crafting.state === "complete" && item.rarity === "normal"
-      ? "Objeto normal · sin modificadores explícitos"
+      ? t.normalNoMods
       : crafting.unclassifiedExplicitCount > 0
-      ? `${crafting.unclassifiedExplicitCount} modificador${
-          crafting.unclassifiedExplicitCount === 1 ? "" : "es"
-        } sin clasificar`
+      ? t.unclassified(crafting.unclassifiedExplicitCount)
       : crafting.state === "complete"
-        ? `${crafting.prefixCount} prefijo${crafting.prefixCount === 1 ? "" : "s"} · ${
-            crafting.suffixCount
-          } sufijo${crafting.suffixCount === 1 ? "" : "s"} · ${
-            crafting.observedOpenSlots ?? 0
-          } hueco${crafting.observedOpenSlots === 1 ? "" : "s"} total${
-            crafting.observedOpenSlots === 1 ? "" : "es"
-          }`
-        : "Faltan datos para leer esta pieza";
+        ? t.structure(crafting.prefixCount, crafting.suffixCount, crafting.observedOpenSlots ?? 0)
+        : t.missingData;
   const evidenceCount =
     crafting.blockers.length +
     crafting.limitations.length +
     (knowledge.data?.modPool.reasons.length ?? 0) +
     (knowledge.data?.modPool.limitations.length ?? 0);
   const laboratoryPrompt: Record<LaboratoryStepId, string> = {
-    objective: "Define una sola mejora para esta pieza.",
-    base: "Comprueba si esta es la base correcta antes de gastar.",
-    protect: "Marca lo que no estás dispuesto a perder.",
-    stop: "Decide qué resultado hará que dejes de gastar.",
+    objective: t.promptObjective,
+    base: t.promptBase,
+    protect: t.promptProtect,
+    stop: t.promptStop,
     route: stopAlreadyReached
-      ? "La condición ya se cumple: conserva la pieza."
-      : "Contrato listo: elige una ruta verificable.",
+      ? t.promptRouteDone
+      : t.promptRouteReady,
   };
   const laboratoryCompleted = currentLaboratoryNavigation.completed;
   const laboratoryStepDefinitions: Array<Omit<LaboratoryStep, "state">> = [
     {
       id: "objective",
-      label: "Objetivo",
-      value: objectiveReady ? CRAFTING_GOAL_LABELS[goalCategory] : "Elige uno",
+      label: t.stepObjective,
+      value: objectiveReady ? craftingGoalLabel(goalCategory, lang) : t.chooseOne,
     },
     {
       id: "base",
-      label: "Base",
-      value: candidateItems.length > 1 ? `${candidateItems.length} importadas` : item.baseType,
-      reason: crafting.state !== "complete" ? "Completa la lectura de la pieza" : undefined,
+      label: t.stepBase,
+      value: candidateItems.length > 1 ? t.imported(candidateItems.length) : item.baseType,
+      reason: crafting.state !== "complete" ? t.finishReading : undefined,
     },
     {
       id: "protect",
-      label: "Protege",
+      label: t.stepProtect,
       value:
         protectedModifierIds.length === 0
-          ? "Nada marcado"
-          : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`,
+          ? t.nothingMarked
+          : t.markedCount(protectedModifierIds.length),
     },
     {
       id: "stop",
-      label: "Parada",
+      label: t.stepStop,
       value: stopAlreadyReached
-        ? "Cumplida"
+        ? t.met
         : successCriteriaReady
-          ? `${successCriteria.length} definida${successCriteria.length === 1 ? "" : "s"}`
-          : "Elige una",
+          ? t.definedCount(successCriteria.length)
+          : t.pickOne,
     },
     {
       id: "route",
-      label: "Ruta",
+      label: t.stepRoute,
       value: craftingLaboratoryRouteLabel({
         diagnosisState: crafting.state,
         objectiveReady,
         successCriteriaReady,
         stopAlreadyReached,
-      }),
+      }, lang),
       reason:
         crafting.state !== "complete"
-          ? "Completa la lectura de la pieza"
+          ? t.finishReading
           : !objectiveReady || !successCriteriaReady
-            ? "Completa el contrato"
+            ? t.finishContract
             : undefined,
     },
   ];
@@ -802,10 +1173,10 @@ export function CraftingActionPlanner({
           patch={patch}
         />
         <section className="pointer-events-none rounded-md border border-border/60 bg-background/30 p-4 opacity-55" aria-hidden="true">
-          <p className="text-xs font-semibold text-cyan-300/70">Proyecto de craft</p>
+          <p className="text-xs font-semibold text-cyan-300/70">{t.craftProject}</p>
           <h3 className="mt-1 text-lg font-semibold">{item.name || item.baseType}</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Monedas · {availableActions} de {craftingActions.length} disponibles
+            {t.currencyAvailable(availableActions, craftingActions.length)}
           </p>
         </section>
       </div>
@@ -830,7 +1201,7 @@ export function CraftingActionPlanner({
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-cyan-500/20 px-4 py-3">
             <div>
-              <p className="text-xs font-semibold text-cyan-300/80">Proyecto de craft</p>
+              <p className="text-xs font-semibold text-cyan-300/80">{t.craftProject}</p>
               <h3 id={`crafting-laboratory-title-${item.id}`} className="mt-1 text-lg font-semibold">
                 {laboratoryPrompt[laboratoryActiveStep]}
               </h3>
@@ -842,13 +1213,13 @@ export function CraftingActionPlanner({
                 className="border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-200"
                 data-testid="crafting-project-saved"
               >
-                Autoguardado local
+                {t.autosave}
               </Badge>
             </div>
           </div>
           <ol
             className="sticky top-0 z-20 grid grid-cols-5 gap-px overflow-hidden rounded-b-md border-t border-cyan-500/20 bg-background/95 shadow-lg backdrop-blur"
-            aria-label="Estado del plan avanzado"
+            aria-label={t.trackerAria}
             data-testid="crafting-laboratory-tracker"
           >
             {laboratorySteps.map((step, index) => (
@@ -909,7 +1280,7 @@ export function CraftingActionPlanner({
         {showStatusLabel && (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 id={`crafting-diagnosis-title-${item.id}`} className="text-sm font-medium text-foreground">
-              Estado de la pieza
+              {t.itemState}
             </h3>
             <Badge variant="outline" className={CRAFTING_STATE_STYLE[crafting.state]}>
               {crafting.label}
@@ -918,7 +1289,7 @@ export function CraftingActionPlanner({
         )}
         {!showStatusLabel && (
           <h3 id={`crafting-diagnosis-title-${item.id}`} className="sr-only">
-            Estado de la pieza
+            {t.itemState}
           </h3>
         )}
         <p className="text-lg font-semibold text-foreground">{diagnosisHeadline}</p>
@@ -932,13 +1303,12 @@ export function CraftingActionPlanner({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs font-semibold text-primary/75">
-                Tu plan para esta pieza
+                {t.yourPlan}
               </p>
-              <h4 id={`crafting-intention-title-${item.id}`} className="mt-1 text-base font-semibold text-foreground">Tu contrato</h4>
+              <h4 id={`crafting-intention-title-${item.id}`} className="mt-1 text-base font-semibold text-foreground">{t.yourContract}</h4>
             </div>
             <span className={`rounded-full border border-primary/30 bg-primary/[0.08] px-2.5 py-1 text-xs text-primary ${experience === "laboratory" ? "hidden sm:inline" : ""}`}>
-              {CRAFTING_GOAL_LABELS[goalCategory]} · {protectedModifierIds.length} intocable
-              {protectedModifierIds.length === 1 ? "" : "s"}
+              {t.goalChip(craftingGoalLabel(goalCategory, lang), protectedModifierIds.length)}
             </span>
           </div>
           {experience !== "laboratory" && <>
@@ -948,9 +1318,9 @@ export function CraftingActionPlanner({
               outcome={desiredOutcome}
               onOutcomeChange={setDesiredOutcome}
               idPrefix={`crafting-goal-${item.id}`}
-              label={goalCategory === "other" ? "Describe el objetivo" : "Añade un matiz (opcional)"}
-              placeholder="Ej.: más daño sin perder velocidad ni +niveles"
-              helperText={goalCategory === "other" ? "Describe qué resultado buscas." : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`}
+              label={goalCategory === "other" ? t.describeGoal : t.addNuance}
+              placeholder={t.goalPlaceholder}
+              helperText={goalCategory === "other" ? t.describeResult : t.emptyUses(craftingGoalLabel(goalCategory, lang))}
             />
             <details
               className="group rounded-md border border-border/70 bg-background/20"
@@ -965,8 +1335,8 @@ export function CraftingActionPlanner({
               }}
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-foreground">
-                <span>{route.state === "replacement-tools" ? "Antes de reemplazar: protege lo importante" : "¿Hay algo que no quieres perder? (opcional)"}</span>
-                <span className="text-xs font-normal text-muted-foreground">{protectedModifierIds.length === 0 ? "Nada marcado" : `${protectedModifierIds.length} marcada${protectedModifierIds.length === 1 ? "" : "s"}`}</span>
+                <span>{route.state === "replacement-tools" ? t.protectReplace : t.protectOptional}</span>
+                <span className="text-xs font-normal text-muted-foreground">{protectedModifierIds.length === 0 ? t.nothingMarked : t.markedCount(protectedModifierIds.length)}</span>
               </summary>
               <div className="border-t border-border/60 p-2">
                 <CraftingProtectionPicker item={item} value={protectedModifierIds} onChange={setProtectedModifierIds} idPrefix={`crafting-protected-${item.id}`} compact />
@@ -982,19 +1352,19 @@ export function CraftingActionPlanner({
               outcome={desiredOutcome}
               onOutcomeChange={setDesiredOutcome}
               idPrefix={`crafting-goal-${item.id}`}
-              label={goalCategory === "other" ? "Describe el objetivo" : "Añade un matiz (opcional)"}
-              placeholder="Ej.: más daño sin perder velocidad ni +niveles"
-              helperText={goalCategory === "other" ? "Describe qué resultado buscas." : `Si lo dejas vacío, el plan usará «${CRAFTING_GOAL_LABELS[goalCategory]}».`}
+              label={goalCategory === "other" ? t.describeGoal : t.addNuance}
+              placeholder={t.goalPlaceholder}
+              helperText={goalCategory === "other" ? t.describeResult : t.emptyUses(craftingGoalLabel(goalCategory, lang))}
             />
             <div className={`flex flex-col gap-2 rounded-md border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between ${BUILD_ALIGNMENT_STYLE[buildIntent.alignment]}`} data-testid="crafting-build-intent" data-alignment={buildIntent.alignment} role="status">
               <div className="min-w-0">
-                <span className="block text-xs font-semibold opacity-70">Sugerencia del personaje</span>
+                <span className="block text-xs font-semibold opacity-70">{t.characterSuggestion}</span>
                 <strong className="mt-0.5 block text-sm">{buildIntentPresentation.title}</strong>
                 <span className="mt-0.5 block text-xs leading-relaxed opacity-80">{buildIntentPresentation.detail}</span>
               </div>
               {(buildIntent.alignment === "choice-required" || buildIntent.alignment === "conflict") && buildIntent.suggestedCategories.length > 0 && (
                 <div className="flex shrink-0 flex-wrap gap-1.5">
-                  {buildIntent.suggestedCategories.map((category) => <Button key={category} type="button" size="sm" variant="outline" onClick={() => changeGoalCategory(category)} data-testid={`crafting-use-build-intent-${category}`}>Usar {CRAFTING_GOAL_LABELS[category]}</Button>)}
+                  {buildIntent.suggestedCategories.map((category) => <Button key={category} type="button" size="sm" variant="outline" onClick={() => changeGoalCategory(category)} data-testid={`crafting-use-build-intent-${category}`}>{t.useGoal(craftingGoalLabel(category, lang))}</Button>)}
                 </div>
               )}
             </div>
@@ -1006,7 +1376,7 @@ export function CraftingActionPlanner({
                   ? "route"
                   : "base",
             )}>
-              Guardar objetivo y continuar
+              {t.saveGoal}
             </Button>
           </>}
 
@@ -1024,8 +1394,8 @@ export function CraftingActionPlanner({
               <Button type="button" size="sm" className="min-h-11 self-start" onClick={() => completeLaboratoryStep(
                 "base",
                 laboratoryCompleted.includes("protect") && laboratoryCompleted.includes("stop") ? "route" : "protect",
-              )}>Confirmar esta base</Button>
-            </> : <p className="rounded-md border border-dashed border-rose-500/40 bg-rose-500/[0.06] p-3 text-sm text-rose-100">La base necesita una lectura completa. Puedes definir el objetivo y la parada sin gastar nada.</p>
+              )}>{t.confirmBase}</Button>
+            </> : <p className="rounded-md border border-dashed border-rose-500/40 bg-rose-500/[0.06] p-3 text-sm text-rose-100">{t.baseNeedsReading}</p>
           )}
 
           {experience === "laboratory" && laboratoryActiveStep === "protect" && <>
@@ -1035,15 +1405,15 @@ export function CraftingActionPlanner({
             <Button type="button" size="sm" className="min-h-11 self-start" onClick={() => completeLaboratoryStep(
               "protect",
               laboratoryCompleted.includes("stop") ? "route" : "stop",
-            )}>{protectedModifierIds.length === 0 ? "Continuar sin marcar" : "Guardar protecciones"}</Button>
+            )}>{protectedModifierIds.length === 0 ? t.continueUnmarked : t.saveProtections}</Button>
           </>}
 
           {experience === "laboratory" && laboratoryActiveStep === "stop" && <>
             <div id={`crafting-success-${item.id}`}>
               <CraftingSuccessCriteriaPicker item={item} goalCategory={goalCategory} value={successCriteria} onChange={changeSuccessCriteria} observedTargets={targetEvidence.observations} />
             </div>
-            {!laboratoryCompleted.includes("stop") && <Button type="button" size="sm" className="min-h-11 self-start" disabled={!successCriteriaReady} onClick={() => completeLaboratoryStep("stop", crafting.state === "complete" ? "route" : "stop")}>Guardar parada y continuar</Button>}
-            {laboratoryCompleted.includes("stop") && crafting.state !== "complete" && <p className="text-sm font-medium text-emerald-200">Parada guardada. Completa la lectura para abrir la ruta.</p>}
+            {!laboratoryCompleted.includes("stop") && <Button type="button" size="sm" className="min-h-11 self-start" disabled={!successCriteriaReady} onClick={() => completeLaboratoryStep("stop", crafting.state === "complete" ? "route" : "stop")}>{t.saveStop}</Button>}
+            {laboratoryCompleted.includes("stop") && crafting.state !== "complete" && <p className="text-sm font-medium text-emerald-200">{t.stopSaved}</p>}
           </>}
 
           {experience !== "laboratory" && <div
@@ -1064,37 +1434,37 @@ export function CraftingActionPlanner({
           data-testid="crafting-reading-details"
         >
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-medium text-muted-foreground hover:text-foreground">
-            <span>Ver por qué el mentor propone este camino</span>
+            <span>{t.whyPath}</span>
             <span className={verdictTone}>
-              {mentorReading.verdictLabel} · {affixAssessment.alignedCount}/{affixAssessment.entries.length} alineados
+              {mentorReading.verdictLabel} · {t.alignedCount(affixAssessment.alignedCount, affixAssessment.entries.length)}
             </span>
           </summary>
           <div className="mt-3 grid gap-2 border-t border-border/60 pt-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="crafting-mentor-reading">
           <div className="crafting-signal-card">
-            <span className="crafting-signal-label">¿Compensa seguir?</span>
+            <span className="crafting-signal-label">{t.worthGoingOn}</span>
             <strong className={verdictTone}>{mentorReading.verdictLabel}</strong>
             <span>{mentorReading.verdictDetail}</span>
           </div>
           <div className="crafting-signal-card">
-            <span className="crafting-signal-label">A favor</span>
+            <span className="crafting-signal-label">{t.inFavour}</span>
             <strong>{mentorReading.matchingModifiers.length}</strong>
             <span>
               {mentorReading.matchingModifiers[0]?.text ??
-                (goalCategory === "other" ? "Elige una categoría" : "Ningún tag directo")}
+                (goalCategory === "other" ? t.pickCategory : t.noDirectTag)}
             </span>
           </div>
           <div className="crafting-signal-card">
-            <span className="crafting-signal-label">Sin señal directa</span>
+            <span className="crafting-signal-label">{t.noDirectSignal}</span>
             <strong>{mentorReading.unmatchedModifiers.length}</strong>
             <span>
               {mentorReading.unmatchedModifiers[0]?.text ??
-                (goalCategory === "other" ? "Pendiente del objetivo" : "Nada señalado")}
+                (goalCategory === "other" ? t.pendingGoal : t.nothingFlagged)}
             </span>
           </div>
           <div className="crafting-signal-card">
-            <span className="crafting-signal-label">Candidatos a conservar</span>
+            <span className="crafting-signal-label">{t.keepCandidates}</span>
             <strong>{mentorReading.protectCandidates.length}</strong>
-            <span>{mentorReading.protectCandidates[0]?.text ?? "No hay grados 1–2 observados"}</span>
+            <span>{mentorReading.protectCandidates[0]?.text ?? t.noTopTiers}</span>
           </div>
           </div>
           {affixAssessment.entries.length > 0 && (
@@ -1106,7 +1476,7 @@ export function CraftingActionPlanner({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-primary/75">
-                  Núcleo de afijos
+                  {t.affixCore}
                 </p>
                 <h4 className="mt-1 text-base font-semibold text-foreground">
                   {affixAssessment.headline}
@@ -1117,18 +1487,17 @@ export function CraftingActionPlanner({
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
-                  {affixAssessment.alignedCount}/{affixAssessment.entries.length} alineados
+                  {t.alignedCount(affixAssessment.alignedCount, affixAssessment.entries.length)}
                 </span>
                 {affixAssessment.protectedCount > 0 && (
                   <span className="rounded-full border border-emerald-500/35 bg-emerald-500/[0.08] px-2.5 py-1 text-xs text-emerald-200">
-                    {affixAssessment.protectedCount} intocable
-                    {affixAssessment.protectedCount === 1 ? "" : "s"}
+                    {t.mustKeepCount(affixAssessment.protectedCount)}
                   </span>
                 )}
               </div>
             </div>
             {(affixAssessment.clusters.length > 0 || affixAssessment.leadingAlignedCount > 0) && (
-              <div className="mt-3 flex flex-wrap gap-2" aria-label="Señales destacadas de los afijos">
+              <div className="mt-3 flex flex-wrap gap-2" aria-label={t.highlightsAria}>
                 {affixAssessment.clusters.map((cluster) => (
                   <span
                     key={cluster.tag}
@@ -1139,15 +1508,14 @@ export function CraftingActionPlanner({
                 ))}
                 {affixAssessment.leadingAlignedCount > 0 && (
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/[0.07] px-2.5 py-1 text-xs text-emerald-200">
-                    {affixAssessment.leadingAlignedCount} alineado
-                    {affixAssessment.leadingAlignedCount === 1 ? "" : "s"} de grado 1–2
+                    {t.leadingAligned(affixAssessment.leadingAlignedCount)}
                   </span>
                 )}
               </div>
             )}
             <details className="group mt-3 text-xs">
               <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
-                Ver lectura de {affixAssessment.entries.length} afijos
+                {t.seeReading(affixAssessment.entries.length)}
               </summary>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {affixAssessment.entries.map((entry) => (
@@ -1162,18 +1530,18 @@ export function CraftingActionPlanner({
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-medium text-foreground">{entry.modifier.text}</span>
                       <span className="shrink-0 font-mono text-[10px]">
-                        {entry.modifier.tier ? `G${entry.modifier.tier}` : "G?"}
+                        {t.tierShort(entry.modifier.tier)}
                       </span>
                     </div>
                     <p className="mt-1 font-semibold">
-                      {entry.protected ? "Intocable para este plan" : entry.label}
+                      {entry.protected ? t.mustKeepForPlan : entry.label}
                     </p>
                     <p className="mt-1 leading-relaxed opacity-80">{entry.reason}</p>
                   </article>
                 ))}
               </div>
               <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                Lectura del texto observado: no estima DPS, precio, peso ni probabilidad.
+                {t.readingNote}
               </p>
             </details>
           </section>
@@ -1215,14 +1583,14 @@ export function CraftingActionPlanner({
                 }}
               >
                 {isExampleItem
-                  ? "Solo demostración"
+                  ? t.demoOnly
                   : resolvedDesiredOutcome.length < 3
-                  ? "Define tu objetivo"
+                  ? t.defineGoal
                   : !successCriteriaReady
-                    ? "Elige cuándo parar"
+                    ? t.chooseStop
                     : stopAlreadyReached
-                      ? "Objetivo ya cumplido"
-                    : `${route.currencyActions.length === 1 ? "Preparar " : "Elegir "}${action.label}`}
+                      ? t.goalAlreadyMet
+                    : t.prepareAction(action.label, route.currencyActions.length === 1)}
               </Button>
             ))}
             {replacementNeedsConsent && !showReplacementRisk && (
@@ -1232,24 +1600,24 @@ export function CraftingActionPlanner({
                 variant="outline"
                 onClick={() => setShowReplacementRisk(true)}
               >
-                Revisar opciones con riesgo
+                {t.reviewRisky}
               </Button>
             )}
             {!isExampleItem && advancedCraftingAvailable && route.toolSuggestions.includes("essence") &&
               (!replacementNeedsConsent || showReplacementRisk) && (
               <Button type="button" size="sm" variant="outline" onClick={() => openTool("essence")}>
-                Revisar una Essence
+                {t.reviewEssence}
               </Button>
             )}
             {!isExampleItem && advancedCraftingAvailable && route.toolSuggestions.includes("alloy") &&
               (!replacementNeedsConsent || showReplacementRisk) && (
               <Button type="button" size="sm" variant="outline" onClick={() => openTool("alloy")}>
-                Revisar un Alloy
+                {t.reviewAlloy}
               </Button>
             )}
             {route.state === "needs-data" && onUpdateItem && (
               <Button type="button" size="sm" variant="outline" onClick={onUpdateItem}>
-                Pegar el objeto de nuevo
+                {t.repaste}
               </Button>
             )}
           </div>
@@ -1263,13 +1631,13 @@ export function CraftingActionPlanner({
                 data-testid="crafting-example-simulation-gate"
                 role="status"
               >
-                <p className="text-sm font-semibold">Proyecto de demostración: sin gasto real</p>
+                <p className="text-sm font-semibold">{t.demoProject}</p>
                 <p className="mt-1 text-xs leading-relaxed text-cyan-100/80">
-                  Puedes estudiar la base, la parada y las rutas, pero esta pieza no existe en tu cuenta. El Taller no preparará monedas ni pedirá un resultado.
+                  {t.demoDetail}
                 </p>
                 {onUpdateItem && (
                   <Button className="mt-3" type="button" size="sm" variant="outline" onClick={onUpdateItem}>
-                    Pegar mi propia pieza
+                    {t.pasteMyOwn}
                   </Button>
                 )}
               </section>
@@ -1298,55 +1666,55 @@ export function CraftingActionPlanner({
           aria-live="polite"
         >
           {knowledge.loading ? (
-            <span className="text-muted-foreground">Verificando conocimiento…</span>
+            <span className="text-muted-foreground">{t.checkingKnowledge}</span>
           ) : knowledge.error ? (
             <span className="rounded-full border border-rose-500/35 bg-rose-500/10 px-2 py-1 text-rose-200">
-              Conocimiento no disponible
+              {t.knowledgeUnavailable}
             </span>
           ) : knowledge.data ? (
             <>
               <span className="rounded-full border border-border px-2 py-1 text-muted-foreground">
-                {knowledge.data.actions.length} reglas verificadas
+                {t.verifiedRules(knowledge.data.actions.length)}
               </span>
               {knowledge.data.modPool.probabilityBasis === "insufficient" && (
                 <span className="rounded-full border border-amber-500/35 bg-amber-500/[0.07] px-2 py-1 text-amber-200">
-                  Sin probabilidades verificables
+                  {t.noChances}
                 </span>
               )}
             </>
           ) : (
-            <span className="text-muted-foreground">Sin conocimiento cargado</span>
+            <span className="text-muted-foreground">{t.noKnowledge}</span>
           )}
         </div>}
         {experience !== "laboratory" && <details className="group text-xs text-muted-foreground">
           <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
-            Ver evidencia y límites ({evidenceCount})
+            {t.evidenceLimits(evidenceCount)}
           </summary>
           <div className="mt-3 space-y-3 border-t border-border/70 pt-3">
             <p>{crafting.summary}</p>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
               <div>
-                <dt>Explícitos registrados</dt>
+                <dt>{t.explicitSeen}</dt>
                 <dd className="font-medium text-foreground">{crafting.explicitCount}</dd>
               </div>
               <div>
-                <dt>Prefijos</dt>
+                <dt>{t.prefixes}</dt>
                 <dd className="font-medium text-foreground">
-                  {crafting.state === "complete" ? crafting.prefixCount : "Sin determinar"}
+                  {crafting.state === "complete" ? crafting.prefixCount : t.undetermined}
                 </dd>
               </div>
               <div>
-                <dt>Sufijos</dt>
+                <dt>{t.suffixes}</dt>
                 <dd className="font-medium text-foreground">
-                  {crafting.state === "complete" ? crafting.suffixCount : "Sin determinar"}
+                  {crafting.state === "complete" ? crafting.suffixCount : t.undetermined}
                 </dd>
               </div>
               <div>
-                <dt>Huecos totales</dt>
+                <dt>{t.openSlots}</dt>
                 <dd className="font-medium text-foreground">
                   {crafting.state === "complete"
-                    ? (crafting.observedOpenSlots ?? "Desconocido")
-                    : "Pendiente"}
+                    ? (crafting.observedOpenSlots ?? t.unknown)
+                    : t.pending}
                 </dd>
               </div>
             </dl>
@@ -1366,13 +1734,12 @@ export function CraftingActionPlanner({
             {knowledge.data && (
               <div className="space-y-2 border-t border-border/70 pt-3">
                 <p>
-                  Conocimiento utilizado: {knowledge.data.actions.length} acciones · corte de
-                  datos {knowledge.data.asOf}.
+                  {t.knowledgeUsed(knowledge.data.actions.length, knowledge.data.asOf)}
                 </p>
                 {knowledge.data.modPool.probabilityBasis === "insufficient" && (
                   <>
                     <p className="font-medium text-amber-200">
-                      Sin datos completos para calcular probabilidades.
+                      {t.noFullData}
                     </p>
                     <ul className="list-inside list-disc space-y-1">
                       {[
@@ -1392,14 +1759,15 @@ export function CraftingActionPlanner({
 
       {experience !== "laboratory" && <section aria-labelledby={`crafting-tools-title-${item.id}`}>
         <h3 id={`crafting-tools-title-${item.id}`} className="mb-2 text-sm font-semibold">
-          ¿Con qué vas a intentarlo?
+          {t.whatTool}
         </h3>
         <div
           className="grid gap-2 sm:grid-cols-3"
           role="tablist"
-          aria-label="Herramientas de crafting"
+          aria-label={t.toolsAria}
         >
-          {CRAFTING_TOOLS.map((tool) => {
+          {CRAFTING_TOOLS.map((toolId) => {
+            const tool = { id: toolId, ...t.tools[toolId] };
             const selected = availableActiveTool === tool.id;
             const isAdvanced = tool.id !== "currency";
             const locked = isExampleItem || (isAdvanced && (
@@ -1435,7 +1803,7 @@ export function CraftingActionPlanner({
             data-testid="crafting-advanced-patch-gate"
             role="status"
           >
-            Essences y Alloys en revisión para este parche. Las monedas básicas siguen disponibles.
+            {t.advancedGate}
           </p>
         )}
       </section>}
@@ -1463,16 +1831,16 @@ export function CraftingActionPlanner({
       >
         <div>
           <h3 id={`crafting-actions-title-${item.id}`} className="font-medium text-foreground">
-            Monedas disponibles
+            {t.availableCurrency}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            La app solo habilita acciones compatibles con los datos que has pegado.
+            {t.onlyCompatible}
           </p>
         </div>
         <div className="flex flex-col gap-2">
           {!knowledge.loading && !knowledge.error && craftingActions.length === 0 && (
             <p className="rounded border border-border p-3 text-xs text-muted-foreground">
-              El registro no contiene acciones compatibles con este módulo.
+              {t.noActions}
             </p>
           )}
           {compatibleActionCount > 0 && unavailableActionCount > 0 && (
@@ -1484,12 +1852,12 @@ export function CraftingActionPlanner({
               onClick={() => setShowUnavailableActions((visible) => !visible)}
             >
               {showUnavailableActions
-                ? "Ocultar acciones no aplicables"
-                : `Ver acciones no aplicables (${unavailableActionCount})`}
+                ? t.hideUnavailable
+                : t.showUnavailable(unavailableActionCount)}
             </Button>
           )}
           {craftingActions.map((entry) => {
-            const status = ACTION_STATUS[entry.status];
+            const status = { ...ACTION_STATUS[entry.status], label: t.actionStatus[entry.status] };
             const unavailable = entry.status !== "compatible";
             const selectedVariant =
               entry.action.variants.find((variant) => variant.id === selectedVariantId) ??
@@ -1510,28 +1878,26 @@ export function CraftingActionPlanner({
               >
                 <summary className="cursor-pointer select-none list-none">
                   <span className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-foreground">{entry.action.label}</span>
+                    <span className="font-medium text-foreground">{craftingActionLabel(entry.action, lang)}</span>
                     <Badge variant="outline" className={status.style}>
                       {status.label}
                     </Badge>
                   </span>
                 </summary>
                 <div className="mt-2 flex flex-col gap-2 text-xs text-muted-foreground">
-                  <p>{entry.action.effect}</p>
+                  <p>{craftingActionEffect(entry.action, lang)}</p>
                   <p>
-                    <span className="font-medium text-foreground">Evaluación: </span>
+                    <span className="font-medium text-foreground">{t.evaluation}</span>
                     {entry.reason}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {entry.action.variants.map((variant) => (
                       <span key={variant.id} className="rounded border border-border px-1.5 py-0.5">
-                        {variant.label}: {variant.minimumModifierLevel === null
-                          ? "mínimo no mostrado"
-                          : `nivel mínimo de modificador ${variant.minimumModifierLevel}`}
+                        {t.variantMinimum(craftingVariantLabel(variant, lang), variant.minimumModifierLevel)}
                       </span>
                     ))}
                   </div>
-                  <p className="text-[11px]">{entry.action.evidence}</p>
+                  <p className="text-[11px]">{craftingActionEvidence(entry.action, lang)}</p>
                   {entry.status === "compatible" && onStartCraftingDecision && !isExampleItem &&
                     (preparedActionId === entry.action.id ? (
                       <form
@@ -1560,11 +1926,11 @@ export function CraftingActionPlanner({
                       >
                         <fieldset className="space-y-2">
                           <legend className="font-medium text-foreground">
-                            Variante exacta que vas a usar
+                            {t.exactVariant}
                           </legend>
                           <div className="grid gap-2 sm:grid-cols-3">
                             {entry.action.variants.map((variant) => {
-                              const currencyName = craftingCurrencyLabel(entry.action, variant);
+                              const currencyName = craftingCurrencyLabelFor(entry.action, variant, lang);
                               return (
                                 <label
                                   key={variant.id}
@@ -1582,12 +1948,12 @@ export function CraftingActionPlanner({
                                       checked={selectedVariant?.id === variant.id}
                                       onChange={() => setSelectedVariantId(variant.id)}
                                     />
-                                    {variant.label}
+                                    {craftingVariantLabel(variant, lang)}
                                   </span>
                                   <span className="text-[11px] text-muted-foreground">
                                     {variant.minimumModifierLevel === null
-                                      ? "El tooltip observado no muestra un mínimo."
-                                      : `Nivel mínimo de modificador observado: ${variant.minimumModifierLevel}.`}
+                                      ? t.noMinimum
+                                      : t.minimumSeen(variant.minimumModifierLevel)}
                                   </span>
                                   <span className="sr-only">{currencyName}</span>
                                 </label>
@@ -1595,7 +1961,7 @@ export function CraftingActionPlanner({
                             })}
                           </div>
                           <p className="text-[11px] text-muted-foreground">
-                            Este mínimo reproduce el tooltip observado; no garantiza un afijo concreto ni su probabilidad.
+                            {t.minimumNote}
                           </p>
                         </fieldset>
                         <label className="flex items-start gap-2">
@@ -1606,12 +1972,12 @@ export function CraftingActionPlanner({
                             className="mt-0.5"
                           />
                           <span>
-                            El objeto sigue igual, aún no gasté la moneda y acepto que el resultado es aleatorio.
+                            {t.preflightConfirm}
                           </span>
                         </label>
                         <div className="flex flex-wrap gap-2">
                           <Button type="submit" size="sm" disabled={!confirmationReady || startingDecision}>
-                            {startingDecision ? "Preparando…" : "Preparar este craft"}
+                            {startingDecision ? t.preparing : t.prepareCraft}
                           </Button>
                           <Button
                             type="button"
@@ -1620,7 +1986,7 @@ export function CraftingActionPlanner({
                             disabled={startingDecision}
                             onClick={() => setPreparedActionId(null)}
                           >
-                            Cancelar
+                            {t.cancel}
                           </Button>
                         </div>
                       </form>
@@ -1636,7 +2002,7 @@ export function CraftingActionPlanner({
                             resetCurrencyPreflight();
                           }}
                         >
-                          Elegir esta acción
+                          {t.chooseAction}
                         </Button>
                       </div>
                     ))}
@@ -1710,6 +2076,8 @@ function EssencePlanner({
   successCriteria,
   onEditIntention,
 }: EssencePlannerProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
   const [tier, setTier] = useState<EssenceTier>(item.rarity === "magic" ? "normal" : "perfect");
   const [essenceName, setEssenceName] = useState("");
   const [guaranteedModifierText, setGuaranteedModifierText] = useState("");
@@ -1719,14 +2087,14 @@ function EssencePlanner({
   const [notSpentConfirmed, setNotSpentConfirmed] = useState(false);
   const [starting, setStarting] = useState(false);
   const plan: EssencePlanInput = { tier, essenceName, guaranteedModifierText };
-  const evaluation = evaluateEssencePlan(item, plan);
+  const evaluation = evaluateEssencePlan(item, plan, lang);
   const protection = evaluateCraftingProtection({
     item,
     protectedModifierIds,
     removedModifierCount: evaluation.randomRemoval ? 1 : 0,
     removalSelection: evaluation.randomRemoval ? "random" : "none",
-  });
-  const status = ACTION_STATUS[evaluation.status];
+  }, lang);
+  const status = { ...ACTION_STATUS[evaluation.status], label: t.actionStatus[evaluation.status] };
   const successCriteriaReady =
     successCriteria.length > 0 &&
     successCriteria.every(
@@ -1752,14 +2120,13 @@ function EssencePlanner({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-xs font-semibold text-violet-300/80">
-            Mecánica guiada P1
+            {t.essenceEyebrow}
           </p>
           <h3 id={`crafting-essences-title-${item.id}`} className="mt-1 font-medium text-foreground">
             Essences
           </h3>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            Introduce la Essence real que tienes delante. El asesor valida el tipo de operación y
-            prepara una comparación antes/después; no adivina el efecto por su nombre.
+            {t.essenceIntro}
           </p>
         </div>
         <Badge variant="outline" className={status.style}>{status.label}</Badge>
@@ -1768,7 +2135,7 @@ function EssencePlanner({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <label htmlFor={`essence-tier-${item.id}`} className="text-xs font-medium text-foreground">
-            Tipo de Essence
+            {t.essenceType}
           </label>
           <select
             id={`essence-tier-${item.id}`}
@@ -1779,14 +2146,14 @@ function EssencePlanner({
             }}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
           >
-            {(Object.entries(ESSENCE_TIER_LABELS) as [EssenceTier, string][]).map(([id, label]) => (
+            {(Object.entries(lang === "en" ? ESSENCE_TIER_LABELS_EN : ESSENCE_TIER_LABELS) as [EssenceTier, string][]).map(([id, label]) => (
               <option key={id} value={id}>{label}</option>
             ))}
           </select>
         </div>
         <div className="space-y-1">
           <label htmlFor={`essence-name-${item.id}`} className="text-xs font-medium text-foreground">
-            Nombre exacto
+            {t.exactName}
           </label>
           <input
             id={`essence-name-${item.id}`}
@@ -1794,14 +2161,14 @@ function EssencePlanner({
             onChange={(event) => setEssenceName(event.target.value)}
             maxLength={120}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-            placeholder="Ej.: Essence of…"
+            placeholder={t.namePlaceholder}
           />
         </div>
       </div>
 
       <div className="space-y-1">
         <label htmlFor={`essence-effect-${item.id}`} className="text-xs font-medium text-foreground">
-          Efecto garantizado exacto del tooltip
+          {t.guaranteedEffect}
         </label>
         <textarea
           id={`essence-effect-${item.id}`}
@@ -1810,20 +2177,20 @@ function EssencePlanner({
           rows={2}
           maxLength={500}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="Copia únicamente lo que la Essence declara que añadirá a este tipo de objeto"
+          placeholder={t.effectPlaceholder}
         />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/[0.04] px-3 py-2 text-xs">
         <span className="text-muted-foreground">
-          Plan: <strong className="text-foreground">{CRAFTING_GOAL_LABELS[goalCategory]}</strong>
+          {t.plan} <strong className="text-foreground">{craftingGoalLabel(goalCategory, lang)}</strong>
           {protectedModifierIds.length > 0
-            ? ` · ${protectedModifierIds.length} intocable${protectedModifierIds.length === 1 ? "" : "s"}`
-            : " · nada marcado como intocable"}
-          {` · ${successCriteria.length} condición${successCriteria.length === 1 ? "" : "es"} de parada`}
+            ? t.planMustKeep(protectedModifierIds.length)
+            : t.noneMustKeep}
+          {t.stopConditions(successCriteria.length)}
         </span>
         <Button type="button" variant="ghost" size="sm" onClick={onEditIntention}>
-          Editar intención
+          {t.editIntention}
         </Button>
       </div>
 
@@ -1838,7 +2205,7 @@ function EssencePlanner({
           }`}
           data-protection-risk={protection.risk}
         >
-          <p className="font-medium">Protección del snapshot</p>
+          <p className="font-medium">{t.protection}</p>
           <p className="mt-1">{protection.reason}</p>
         </div>
       )}
@@ -1850,13 +2217,13 @@ function EssencePlanner({
       }`}>
         <p className="font-medium text-foreground">
           {evaluation.operation === "magic-to-rare"
-            ? "Mágico → raro, conservando lo existente"
-            : "Raro → raro, reemplazando 1 modificador al azar"}
+            ? t.magicToRare
+            : t.rareToRare}
         </p>
         <p className="mt-1 text-muted-foreground">{evaluation.reason}</p>
         {evaluation.randomRemoval && (
           <p className="mt-2 font-medium text-rose-200">
-            No elijas qué modificador desaparece: cualquiera de los explícitos actuales está en riesgo.
+            {t.anyAtRisk}
           </p>
         )}
       </div>
@@ -1864,21 +2231,21 @@ function EssencePlanner({
       <div className="space-y-2 text-xs text-muted-foreground">
         <label className="flex items-start gap-2">
           <input type="checkbox" checked={snapshotConfirmed} onChange={(event) => setSnapshotConfirmed(event.target.checked)} className="mt-0.5" />
-          <span>Confirmo que el objeto sigue igual que el snapshot importado.</span>
+          <span>{t.confirmSnapshot}</span>
         </label>
         <label className="flex items-start gap-2">
           <input type="checkbox" checked={tooltipConfirmed} onChange={(event) => setTooltipConfirmed(event.target.checked)} className="mt-0.5" />
-          <span>He copiado el nombre y el efecto desde la Essence que voy a usar, no desde una guía antigua.</span>
+          <span>{t.confirmEssenceTooltip}</span>
         </label>
         {evaluation.randomRemoval && (
           <label className="flex items-start gap-2 text-rose-100">
             <input type="checkbox" checked={randomRemovalConfirmed} onChange={(event) => setRandomRemovalConfirmed(event.target.checked)} className="mt-0.5" />
-            <span>Acepto que se retirará al azar un modificador explícito actual.</span>
+            <span>{t.confirmRandomRemoval}</span>
           </label>
         )}
         <label className="flex items-start gap-2">
           <input type="checkbox" checked={notSpentConfirmed} onChange={(event) => setNotSpentConfirmed(event.target.checked)} className="mt-0.5" />
-          <span>Confirmo que todavía no he aplicado la Essence.</span>
+          <span>{t.confirmEssenceNotSpent}</span>
         </label>
       </div>
 
@@ -1902,20 +2269,20 @@ function EssencePlanner({
               .finally(() => setStarting(false));
           }}
         >
-          {starting ? "Preparando…" : "Crear comprobación de Essence"}
+          {starting ? t.preparing : t.createEssence}
         </Button>
         {!onStart && (
           <span className="text-xs text-muted-foreground">
-            Abre la pestaña Crafting para iniciar una comprobación persistente.
+            {t.openCraftingTab}
           </span>
         )}
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Regla estructural verificada desde el parche {ESSENCE_MECHANIC_SOURCE.appliesFrom}: {" "}
+        {t.essenceSourceBefore(ESSENCE_MECHANIC_SOURCE.appliesFrom)}{" "}
         <a className="underline underline-offset-2" href={ESSENCE_MECHANIC_SOURCE.url} target="_blank" rel="noreferrer">
-          notas oficiales de GGG
-        </a>. La tabla exhaustiva de efectos por Essence y tipo de objeto no está incorporada.
+          {t.essenceSourceLink}
+        </a>{t.essenceSourceAfter}
       </p>
     </section>
   );

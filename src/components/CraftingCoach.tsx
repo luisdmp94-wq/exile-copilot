@@ -12,10 +12,10 @@ import {
 } from "lucide-react";
 import {
   COACH_DIRECTION_LABELS,
-  COACH_DIRECTION_NOUNS,
   COACH_ROLL_MINIMUM_LABELS,
   assessPurposefulCraftBase,
   chooseNextStep,
+  coachDirectionNoun,
   interpretCoachGoal,
   looksLikeCharacterQuestion,
   readPurposefulCraftResult,
@@ -31,6 +31,7 @@ import { hasCraftingCharacterContext } from "@shared/craftingCharacterContext.js
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import {
   COACH_FOCUS_LABELS,
+  COACH_FOCUS_LABELS_EN,
   DAMAGE_COACH_FOCUSES,
   DEFENCE_COACH_FOCUSES,
   type CoachFocus,
@@ -53,7 +54,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, getErrorMessage } from "@/lib/api";
 import { rarityStyle } from "@/lib/equipment";
-import { CURRENCY_LABELS, RARITY_LABELS } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
 import { isCraftingExampleItem } from "@/lib/craftingSimulation";
 import {
   CRAFTING_COACH_PROGRESS_VERSION,
@@ -66,10 +67,409 @@ import {
 } from "@/lib/craftingCoachProgress";
 import { cn } from "@/lib/utils";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
+import { texts, useLang, useText } from "@/i18n/lang";
 
 export type CoachPhase = "choose" | "recommend" | "hold" | "await-result" | "result";
 
+const TEXT = texts(
+  {
+    copyHint: "En PoE2, pasa el ratón por el objeto y pulsa Ctrl+Alt+C; luego pégalo aquí.",
+    // Recomendación
+    practiceTitle: "Esta es una pieza de práctica.",
+    exampleTitle: "Esta pieza pertenece al personaje de ejemplo.",
+    practiceBody:
+      "Puedes aprender qué recomendaría el guía, pero esta pieza tampoco existe en tu cuenta. No gastes moneda ni pegues un resultado real.",
+    exampleBody:
+      "Es una simulación: no existe en tu cuenta. Aquí nunca te pediré gastar una moneda ni pegar un resultado real.",
+    backToMyItem: "Volver a mi pieza",
+    tryAnotherPractice: "Probar otra pieza de práctica",
+    openPractice: "Abrir una pieza de práctica",
+    pasteMyOwn: "Pegar mi propia pieza",
+    changeGoal: "Cambiar objetivo",
+    tryPractice: "Probar con una pieza de práctica",
+    myAdvice: "Mi consejo",
+    why: "Por qué",
+    technicalEvidence: "Evidencia técnica",
+    viewInCharacter: "Ver la pieza en mi expediente",
+    pasteAnother: "Pegar otra pieza",
+    replacementTools: "Ver herramientas de reemplazo",
+    nextLegalAction: "Siguiente acción legal",
+    insidePoe2: "Dentro de PoE2:",
+    whatCanHappen: "Qué puede ocurrir",
+    otherLegalRoute: (label: string, difference: string) => `Otra vía legal: ${label}. ${difference}`,
+    changeLimit: "Cambiar límite",
+    overLimitAria: "No puedes confirmar este paso porque supera el límite declarado",
+    confirmDoneAria: (label: string) => `Confirmar que ya hiciste este paso en PoE2: ${label}`,
+    overLimit: "Fuera del límite declarado",
+    doneInPoe2: "Ya lo hice en PoE2",
+    dontSpendYet: "No gastar todavía",
+    exploreAdvanced: "Explorar avanzadas",
+    // Guía
+    showMeItem: "Enséñame la pieza",
+    pasteGameItem: "Pegar un objeto del juego",
+    orPickOwned: "O elige una que ya tienes",
+    mentorDefaultGoal: "decidir qué necesita esta pieza",
+    mentorNoDirection: "objetivo sin determinar",
+    mentorImproveFocus: (label: string) => `mejorar ${label}`,
+    unknownGoal: "No sé qué necesita esta pieza",
+    improveFocusGoal: (label: string) => `Quiero mejorar ${label}`,
+    mainGoalNote: (label: string) => `Objetivo principal: ${label}.`,
+    improveThisItemGoal: "Quiero mejorar esta pieza",
+    incrementalNote: "Perfecto: ahora elige una sola mejora observable para esta pieza.",
+    statusMismatch: "NO CUADRA",
+    statusContinue: "PUEDES SEGUIR",
+    statusStop: "PARA",
+    statusReview: "REVISA",
+    mismatchFallback: "Revisa el texto pegado antes de gastar otra moneda.",
+    stepsLeft: (remaining: number) =>
+      `${remaining === 1 ? "Queda 1 paso" : `Quedan ${remaining} pasos`} dentro del límite que elegiste.`,
+    oneActionLeft: "Queda una acción legal dentro del límite que elegiste.",
+    attemptAtLimit: "Este intento ha llegado a su límite.",
+    failsRequirements: "El objeto no cumple los requisitos de tu personaje.",
+    goalPresentStop: "El objetivo aparece, pero el contrato indica detenerse.",
+    goalNotEvaluable: "Falta concretar el objetivo antes de gastar otra moneda.",
+    goalNotMet: "El resultado no cumple el objetivo actual.",
+    srTitle: "Guía con tu objeto",
+    workWithAnother: "Trabajar con otra pieza",
+    pasteAnotherObject: "Pegar otro objeto",
+    practiceError: (error: string) => `No pude preparar la pieza de práctica: ${error}`,
+    goalQuestion: "¿Qué quieres conseguir con esta pieza?",
+    goalIntro: "Escríbelo como se lo dirías a otro jugador. Yo lo convertiré en una sola decisión.",
+    goalAria: "Qué quieres conseguir con esta pieza",
+    goalPlaceholder: "p. ej. Quiero que esta ballesta haga más daño físico",
+    tellNextStep: "Dime el siguiente paso",
+    repairFirst: "Repara primero la lectura de la pieza.",
+    pickExactGoal: "Elige un objetivo exacto.",
+    quickOption: "O elige una forma rápida",
+    moreDamage: "Más daño",
+    hitHarder: "Pegar más fuerte",
+    improveDamageGoal: "Quiero mejorar el daño",
+    damageNote:
+      "El daño puede ser físico, elemental, crítico o velocidad. Elige qué debe aportar el siguiente afijo.",
+    moreDefence: "Más defensa",
+    surviveMore: "Aguantar más",
+    improveDefenceGoal: "Quiero mejorar la defensa",
+    defenceNote:
+      "La defensa puede ser vida, resistencias, armadura, evasión o escudo de energía. Elige una prioridad.",
+    dontKnow: "No lo sé",
+    hintPlan: "Lo miro en tu plan",
+    hintCharacter: "Lo miro en tu expediente",
+    hintMissing: "Te diré qué información falta",
+    characterQuestionEyebrow: "Pregunta sobre tu personaje",
+    characterQuestionTitle: "Eso no se arregla con esta pieza",
+    characterQuestionBody:
+      "Crafting solo mejora un objeto con monedas. Para saber por qué no haces daño o por qué te matan, el Mentor mira tu personaje entero: gemas, objetos y nivel.",
+    askMentorThis: "Preguntárselo al Mentor",
+    addCharacterFirst: "Añade tu personaje primero",
+    detectedUnique: "Objetivo detectado · objeto único",
+    detectedEndgame: "Objetivo detectado · proyecto endgame",
+    dontSpendHereYet: "No gastes en esta pieza todavía",
+    oneAffixNotEndgame: "Un afijo no define una pieza de endgame",
+    goToPlanMarket: "Ir a Plan y mercado",
+    endgameRareGoal: "Quiero crear una pieza rara de endgame",
+    endgameRareNote:
+      "Perfecto: una rara de endgame necesita el personaje, la pieza equipada, presupuesto y requisitos completos antes de elegir monedas.",
+    craftEndgameRare: "Crear una rara de endgame",
+    openLaboratory: "Abrir Taller avanzado",
+    addCharacterGear: "Añadir personaje y equipo",
+    reviewPlanMarket: "Revisar plan y mercado",
+    onlyImproveItem: "Solo mejorar esta pieza",
+    characterNeeds: "1. Lo que necesita tu personaje",
+    beforeSpending: "Antes de gastar",
+    doesItFit: "2. ¿Encaja esta pieza?",
+    planFit: (name: string) =>
+      `El plan marca una prioridad, pero no la vincula a ${name} ni demuestra que esta pieza pueda recibir ese modificador.`,
+    characterFit: (name: string) =>
+      `El expediente demuestra una carencia del personaje, no que ${name} sea la pieza adecuada para cubrirla.`,
+    lookForFocus: (label: string) => `Buscar ${label} en esta pieza`,
+    damageFocusNote: "Elige qué tipo de daño debe aportar el siguiente afijo.",
+    defenceFocusNote: "Elige qué defensa debe aportar el siguiente afijo.",
+    chooseDamage: "Elegir daño",
+    chooseDefence: "Elegir defensa",
+    damageType: "Tipo de daño",
+    otherRoute: "Otra vía",
+    changeItem: "Cambiar de pieza",
+    goalLabel: "Objetivo ·",
+    noDirection: "sin dirección",
+    change: "Cambiar",
+    characterLabel: "Personaje:",
+    activeCharacter: "expediente activo",
+    planName: (name: string) => ` · plan ${name}`,
+    noBudget: " · presupuesto sin declarar.",
+    budgetLimit: (amount: number, currency: string) => ` · límite ${amount} ${currency}.`,
+    noCharacterLabel: "Sin expediente:",
+    noCharacterBody: "usaré tu objetivo sin comparar la build.",
+    seeAnalysis: "Ver análisis",
+    character: "Personaje",
+    base: "Base",
+    planHasPriority: (label: string) => `Esta prioridad aparece en tu plan: ${label}.`,
+    planLacksPriority:
+      "Esta prioridad no aparece entre los mods deseados del plan. Puedes trabajarla, pero no la trataré como objetivo de la build.",
+    stopLabel: "Parada:",
+    rollAnyShort: "cualquiera",
+    rollMiddleShort: "media+",
+    rollHighShort: "alta",
+    stepWord: (count: number): string => (count === 1 ? "paso" : "pasos"),
+    adjust: "Ajustar",
+    minimumRoll: "Tirada mínima",
+    rollAny: "Cualquiera",
+    rollMiddle: "Media+",
+    rollHigh: "Alta",
+    maxSteps: "Máximo de pasos",
+    tooltipRange: "Rango visible del tooltip; no es una probabilidad.",
+    protectedLabel: "Protegido:",
+    unresolvedProtections: (lines: string) =>
+      `No encuentro en la pieza: ${lines}. No lo trataré como protegido hasta que coincida con una línea real.`,
+    savedForLater: "Guardado para más tarde",
+    itemUnchanged: "La pieza sigue como está. Puedes volver cuando quieras.",
+    limitUsed: (limit: number) =>
+      `Has agotado el límite de ${limit} ${limit === 1 ? "paso" : "pasos"}. Este contrato ya no autoriza otra moneda.`,
+    seeActionAgain: "Ver otra vez la acción",
+    otherPath: "Elegir otro camino",
+    whatDidYouGet: "¿Qué te ha salido?",
+    resultAria: "Texto del objeto después del craft",
+    resultPlaceholder: "Pega aquí el objeto tal y como está ahora…",
+    seeChanges: "Ver qué ha cambiado",
+    notDoneYet: "Todavía no lo he hecho",
+    readingResult: "Leyendo el resultado",
+    result: "Resultado",
+    reading: "LEYENDO",
+    unconfirmedResult: "Resultado no confirmado",
+    newModifier: "Modificador nuevo",
+    fits: "Encaja",
+    doesntFit: "No encaja",
+    notConfirmed: "Sin confirmar",
+    tierHidden: "Grado no visible",
+    tier: (tier: number) => `Grado ${tier}`,
+    rollMiddlePercent: (percent: number) => `Media · ${percent}%`,
+    rollLow: "Baja",
+    weaponTitleAttr: "Calculado únicamente desde las cifras visibles del tooltip",
+    weaponPerformance: "Rendimiento del arma",
+    physical: "Físico",
+    elemental: "Elemental",
+    total: "Total",
+    sinceLastStep: (delta: number, percent: number | null) =>
+      `Desde el paso anterior: ${delta > 0 ? "+" : ""}${delta} DPS visible total${percent === null ? "" : ` (${percent > 0 ? "+" : ""}${percent}%)`}.`,
+    nothingLost: "Nada perdido",
+    fitsGoal: "Encaja con el objetivo",
+    doesntFitGoal: "No encaja con el objetivo",
+    fitUnconfirmed: "Encaje sin confirmar",
+    limitsDetail: "Límites y detalle",
+    whatImComparing: "Qué estoy comparando",
+    before: "Antes:",
+    after: "Después:",
+    explicitMods: "explícitos",
+    countsAsNew: "Cuenta como nuevo:",
+    noLongerSameLine: "Ya no reconoce como la misma línea:",
+    seeNextAction: "Ver la siguiente acción",
+    reviewPasted: "Revisar el texto pegado",
+    thisIsMyItem: "Este es mi objeto actual",
+    refineGoal: "Concretar objetivo",
+    finishForNow: "Terminar por ahora",
+    tryAnotherBase: "Probar otra base",
+    rethinkGoal: "Replantear el objetivo",
+  },
+  {
+    copyHint: "In PoE2, hover over the item and press Ctrl+Alt+C, then paste it here.",
+    // Recommendation
+    practiceTitle: "This is a practice item.",
+    exampleTitle: "This item belongs to the example character.",
+    practiceBody:
+      "You can learn what the guide would suggest, but this item isn't in your account either. Don't spend currency or paste a real result.",
+    exampleBody:
+      "It's a simulation: it isn't in your account. Here I'll never ask you to spend currency or paste a real result.",
+    backToMyItem: "Back to my item",
+    tryAnotherPractice: "Try another practice item",
+    openPractice: "Open a practice item",
+    pasteMyOwn: "Paste my own item",
+    changeGoal: "Change goal",
+    tryPractice: "Try with a practice item",
+    myAdvice: "My advice",
+    why: "Why",
+    technicalEvidence: "Technical evidence",
+    viewInCharacter: "See the item in my character",
+    pasteAnother: "Paste another item",
+    replacementTools: "See replacement tools",
+    nextLegalAction: "Next legal action",
+    insidePoe2: "In PoE2:",
+    whatCanHappen: "What can happen",
+    otherLegalRoute: (label: string, difference: string) => `Another legal option: ${label}. ${difference}`,
+    changeLimit: "Change limit",
+    overLimitAria: "You can't confirm this step because it goes over your set limit",
+    confirmDoneAria: (label: string) => `Confirm you already did this step in PoE2: ${label}`,
+    overLimit: "Over your set limit",
+    doneInPoe2: "I did it in PoE2",
+    dontSpendYet: "Don't spend yet",
+    exploreAdvanced: "Explore advanced options",
+    // Guide
+    showMeItem: "Show me the item",
+    pasteGameItem: "Paste an item from the game",
+    orPickOwned: "Or pick one you already have",
+    mentorDefaultGoal: "work out what this item needs",
+    mentorNoDirection: "goal not decided yet",
+    mentorImproveFocus: (label: string) => `improve ${label}`,
+    unknownGoal: "I don't know what this item needs",
+    improveFocusGoal: (label: string) => `I want to improve ${label}`,
+    mainGoalNote: (label: string) => `Main goal: ${label}.`,
+    improveThisItemGoal: "I want to improve this item",
+    incrementalNote: "Great: now pick one improvement you can see on this item.",
+    statusMismatch: "DOESN'T MATCH",
+    statusContinue: "YOU CAN GO ON",
+    statusStop: "STOP",
+    statusReview: "CHECK",
+    mismatchFallback: "Check the pasted text before spending another orb.",
+    stepsLeft: (remaining: number) =>
+      `${remaining === 1 ? "1 step left" : `${remaining} steps left`} within the limit you chose.`,
+    oneActionLeft: "One legal action left within the limit you chose.",
+    attemptAtLimit: "This attempt has reached its limit.",
+    failsRequirements: "Your character doesn't meet this item's requirements.",
+    goalPresentStop: "The goal is there, but your stop rule says to stop here.",
+    goalNotEvaluable: "Pin down the goal before spending another orb.",
+    goalNotMet: "The result doesn't meet the current goal.",
+    srTitle: "Guide for your item",
+    workWithAnother: "Work on another item",
+    pasteAnotherObject: "Paste another item",
+    practiceError: (error: string) => `I couldn't set up the practice item: ${error}`,
+    goalQuestion: "What do you want from this item?",
+    goalIntro: "Write it the way you'd tell another player. I'll turn it into one decision.",
+    goalAria: "What you want from this item",
+    goalPlaceholder: "e.g. I want this crossbow to deal more physical damage",
+    tellNextStep: "Tell me the next step",
+    repairFirst: "Fix the item reading first.",
+    pickExactGoal: "Pick an exact goal.",
+    quickOption: "Or pick a quick option",
+    moreDamage: "More damage",
+    hitHarder: "Hit harder",
+    improveDamageGoal: "I want to improve damage",
+    damageNote:
+      "Damage can be physical, elemental, critical or speed. Pick what the next affix should add.",
+    moreDefence: "More defence",
+    surviveMore: "Survive more",
+    improveDefenceGoal: "I want to improve defence",
+    defenceNote:
+      "Defence can be life, resistances, armour, evasion or energy shield. Pick one priority.",
+    dontKnow: "I don't know",
+    hintPlan: "I'll check your plan",
+    hintCharacter: "I'll check your character",
+    hintMissing: "I'll tell you what info is missing",
+    characterQuestionEyebrow: "A question about your character",
+    characterQuestionTitle: "This item won't fix that",
+    characterQuestionBody:
+      "Crafting only improves one item with orbs. To find out why you lack damage or keep dying, the Mentor looks at your whole character: gems, items and level.",
+    askMentorThis: "Ask the Mentor",
+    addCharacterFirst: "Add your character first",
+    detectedUnique: "Goal detected · unique item",
+    detectedEndgame: "Goal detected · endgame project",
+    dontSpendHereYet: "Don't spend on this item yet",
+    oneAffixNotEndgame: "One affix doesn't make an endgame item",
+    goToPlanMarket: "Go to Plan & market",
+    endgameRareGoal: "I want to craft an endgame rare item",
+    endgameRareNote:
+      "Great: an endgame rare needs your character, the equipped item, a budget and full requirements before you pick any orbs.",
+    craftEndgameRare: "Craft an endgame rare",
+    openLaboratory: "Open the Advanced workshop",
+    addCharacterGear: "Add character and gear",
+    reviewPlanMarket: "Review Plan & market",
+    onlyImproveItem: "Just improve this item",
+    characterNeeds: "1. What your character needs",
+    beforeSpending: "Before spending",
+    doesItFit: "2. Does this item fit?",
+    planFit: (name: string) =>
+      `Your plan sets a priority, but doesn't tie it to ${name} or show that this item can roll that mod.`,
+    characterFit: (name: string) =>
+      `Your character shows a gap, not that ${name} is the right item to fill it.`,
+    lookForFocus: (label: string) => `Look for ${label} on this item`,
+    damageFocusNote: "Pick which type of damage the next affix should add.",
+    defenceFocusNote: "Pick which defence the next affix should add.",
+    chooseDamage: "Choose damage",
+    chooseDefence: "Choose defence",
+    damageType: "Damage type",
+    otherRoute: "Other route",
+    changeItem: "Change item",
+    goalLabel: "Goal ·",
+    noDirection: "no direction",
+    change: "Change",
+    characterLabel: "Character:",
+    activeCharacter: "character loaded",
+    planName: (name: string) => ` · plan ${name}`,
+    noBudget: " · no budget set.",
+    budgetLimit: (amount: number, currency: string) => ` · limit ${amount} ${currency}.`,
+    noCharacterLabel: "No character:",
+    noCharacterBody: "I'll use your goal without checking it against a build.",
+    seeAnalysis: "See analysis",
+    character: "Character",
+    base: "Base",
+    planHasPriority: (label: string) => `This priority is in your plan: ${label}.`,
+    planLacksPriority:
+      "This priority isn't among your plan's wanted mods. You can work on it, but I won't treat it as a build goal.",
+    stopLabel: "Stop at:",
+    rollAnyShort: "any",
+    rollMiddleShort: "mid+",
+    rollHighShort: "high",
+    stepWord: (count: number) => (count === 1 ? "step" : "steps"),
+    adjust: "Adjust",
+    minimumRoll: "Minimum roll",
+    rollAny: "Any",
+    rollMiddle: "Mid+",
+    rollHigh: "High",
+    maxSteps: "Max steps",
+    tooltipRange: "The range shown in the tooltip; it's not a chance.",
+    protectedLabel: "Protected:",
+    unresolvedProtections: (lines: string) =>
+      `I can't find this on the item: ${lines}. I won't treat it as protected until it matches a real line.`,
+    savedForLater: "Saved for later",
+    itemUnchanged: "The item stays as it is. Come back whenever you like.",
+    limitUsed: (limit: number) =>
+      `You've used up your limit of ${limit} ${limit === 1 ? "step" : "steps"}. This plan doesn't allow another orb.`,
+    seeActionAgain: "See the action again",
+    otherPath: "Choose another path",
+    whatDidYouGet: "What did you get?",
+    resultAria: "Item text after the craft",
+    resultPlaceholder: "Paste the item here as it is now…",
+    seeChanges: "See what changed",
+    notDoneYet: "I haven't done it yet",
+    readingResult: "Reading the result",
+    result: "Result",
+    reading: "READING",
+    unconfirmedResult: "Result not confirmed",
+    newModifier: "New modifier",
+    fits: "Fits",
+    doesntFit: "Doesn't fit",
+    notConfirmed: "Not confirmed",
+    tierHidden: "Tier not shown",
+    tier: (tier: number) => `Tier ${tier}`,
+    rollMiddlePercent: (percent: number) => `Mid · ${percent}%`,
+    rollLow: "Low",
+    weaponTitleAttr: "Worked out only from the numbers shown in the tooltip",
+    weaponPerformance: "Weapon performance",
+    physical: "Physical",
+    elemental: "Elemental",
+    total: "Total",
+    sinceLastStep: (delta: number, percent: number | null) =>
+      `Since the last step: ${delta > 0 ? "+" : ""}${delta} total visible DPS${percent === null ? "" : ` (${percent > 0 ? "+" : ""}${percent}%)`}.`,
+    nothingLost: "Nothing lost",
+    fitsGoal: "Fits the goal",
+    doesntFitGoal: "Doesn't fit the goal",
+    fitUnconfirmed: "Fit not confirmed",
+    limitsDetail: "Limits and details",
+    whatImComparing: "What I'm comparing",
+    before: "Before:",
+    after: "After:",
+    explicitMods: "explicit mods",
+    countsAsNew: "Counts as new:",
+    noLongerSameLine: "No longer read as the same line:",
+    seeNextAction: "See the next action",
+    reviewPasted: "Check the pasted text",
+    thisIsMyItem: "This is my current item",
+    refineGoal: "Pin down the goal",
+    finishForNow: "Stop for now",
+    tryAnotherBase: "Try another base",
+    rethinkGoal: "Rethink the goal",
+  },
+);
+
 function CoachItemChoice({ item }: { item: Item }) {
+  const labels = useFormatLabels();
   const rarity = rarityStyle(item.rarity);
   return (
     <>
@@ -77,7 +477,7 @@ function CoachItemChoice({ item }: { item: Item }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold text-foreground">{item.name}</span>
         <span className={cn("block truncate text-xs", rarity.text)}>
-          {item.baseType} · {RARITY_LABELS[item.rarity]}
+          {item.baseType} · {labels.rarity[item.rarity]}
         </span>
       </span>
     </>
@@ -157,9 +557,6 @@ interface CraftingCoachProps {
   onAskMentor?: (question: string) => void;
 }
 
-/** Cómo copiar el objeto, en una sola frase. */
-const COPY_HINT =
-  "En PoE2, pasa el ratón por el objeto y pulsa Ctrl+Alt+C; luego pégalo aquí.";
 const DAMAGE_TYPE_FOCUSES = DAMAGE_COACH_FOCUSES.slice(0, 5);
 const DAMAGE_OTHER_FOCUSES = DAMAGE_COACH_FOCUSES.slice(5);
 
@@ -255,6 +652,7 @@ function Recommendation({
   patch: string;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }) {
+  const t = useText(TEXT);
   if (simulationMode !== null) {
     const practice = simulationMode === "practice";
     return (
@@ -269,33 +667,29 @@ function Recommendation({
           role="status"
         >
           <p className="text-sm font-semibold">
-            {practice
-              ? "Esta es una pieza de práctica."
-              : "Esta pieza pertenece al personaje de ejemplo."}
+            {practice ? t.practiceTitle : t.exampleTitle}
           </p>
           <p className="mt-1 text-xs leading-relaxed text-cyan-100/75">
-            {practice
-              ? "Puedes aprender qué recomendaría el guía, pero esta pieza tampoco existe en tu cuenta. No gastes moneda ni pegues un resultado real."
-              : "Es una simulación: no existe en tu cuenta. Aquí nunca te pediré gastar una moneda ni pegar un resultado real."}
+            {practice ? t.practiceBody : t.exampleBody}
           </p>
         </section>
         <div className="mt-3 flex flex-wrap gap-2">
           {practice && (
             <Button type="button" onClick={onReturnToItem} data-testid="coach-practice-return">
-              Volver a mi pieza
+              {t.backToMyItem}
             </Button>
           )}
           <Button type="button" onClick={onPractice} disabled={practiceLoading} data-testid="coach-probar-practica">
             {practiceLoading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
-            {practice ? "Probar otra pieza de práctica" : "Abrir una pieza de práctica"}
+            {practice ? t.tryAnotherPractice : t.openPractice}
           </Button>
           <Button type="button" variant="outline" onClick={onRepaste}>
             <ClipboardPaste className="size-4" aria-hidden="true" />
-            Pegar mi propia pieza
+            {t.pasteMyOwn}
           </Button>
           {!practice && (
             <Button type="button" variant="ghost" onClick={onOther} data-testid="coach-otro-camino">
-              Cambiar objetivo
+              {t.changeGoal}
             </Button>
           )}
         </div>
@@ -327,7 +721,7 @@ function Recommendation({
         />
         <div className="mt-3 flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
-            Cambiar objetivo
+            {t.changeGoal}
           </Button>
           <Button
             type="button"
@@ -341,7 +735,7 @@ function Recommendation({
             ) : (
               <Sparkles className="size-4" aria-hidden="true" />
             )}
-            Probar con una pieza de práctica
+            {t.tryPractice}
           </Button>
         </div>
       </div>
@@ -356,18 +750,18 @@ function Recommendation({
         data-kind="stop"
       >
         <p className="text-xs font-semibold text-primary/80">
-          Mi consejo
+          {t.myAdvice}
         </p>
         <h3 ref={headingRef} tabIndex={-1} className="dossier-title mt-1 text-xl font-semibold outline-none">
           {step.headline}
         </h3>
         <p className="mt-2 text-sm leading-relaxed">{step.instruction}</p>
         <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
-          <summary className="cursor-pointer font-medium">Por qué</summary>
+          <summary className="cursor-pointer font-medium">{t.why}</summary>
           <p className="mt-2 text-muted-foreground">{step.why}</p>
         </details>
         <details className="mt-2 rounded border border-current/20 px-2.5 py-2 text-xs">
-          <summary className="cursor-pointer font-medium">Evidencia técnica</summary>
+          <summary className="cursor-pointer font-medium">{t.technicalEvidence}</summary>
           <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
             {step.evidence.map((line) => (
               <li key={line}>{line}</li>
@@ -381,16 +775,16 @@ function Recommendation({
               onClick={onReviewInExpediente}
               data-testid="coach-revisar-expediente"
             >
-              Ver la pieza en mi expediente
+              {t.viewInCharacter}
               <ArrowRight className="size-4" aria-hidden="true" />
             </Button>
           )}
           <Button type="button" variant="outline" onClick={onOther} data-testid="coach-otro-camino">
-            Cambiar objetivo
+            {t.changeGoal}
           </Button>
           <Button type="button" variant="ghost" onClick={onRepaste} data-testid="coach-otra-pieza">
             <ClipboardPaste className="size-4" aria-hidden="true" />
-            Pegar otra pieza
+            {t.pasteAnother}
           </Button>
           {step.needsAdvancedTools && (
             <Button
@@ -400,7 +794,7 @@ function Recommendation({
               onClick={onOpenAdvanced}
               data-testid="coach-ir-avanzado"
             >
-              Ver herramientas de reemplazo
+              {t.replacementTools}
             </Button>
           )}
         </div>
@@ -416,7 +810,7 @@ function Recommendation({
       data-action={step.actionId}
     >
       <p className="text-xs font-semibold text-primary/80">
-        Siguiente acción legal
+        {t.nextLegalAction}
       </p>
       <h3
         ref={headingRef}
@@ -430,7 +824,7 @@ function Recommendation({
         className="mt-2 scroll-mb-[var(--mentor-inset,6rem)] text-sm leading-relaxed"
         data-testid="coach-instruccion"
       >
-        <strong>Dentro de PoE2:</strong> {step.instruction}
+        <strong>{t.insidePoe2}</strong> {step.instruction}
       </p>
 
       {/* Aleatoriedad y límite de dirección: SIEMPRE a la vista, nunca plegados. */}
@@ -458,7 +852,7 @@ function Recommendation({
       )}
 
       <details className="mt-3 rounded border border-current/20 px-2.5 py-2 text-xs">
-        <summary className="cursor-pointer font-medium">Qué puede ocurrir</summary>
+        <summary className="cursor-pointer font-medium">{t.whatCanHappen}</summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
           <li>{step.why}</li>
           {step.whatCanHappen.map((line) => (
@@ -467,14 +861,14 @@ function Recommendation({
         </ul>
       </details>
       <details className="mt-2 rounded border border-current/20 px-2.5 py-2 text-xs">
-        <summary className="cursor-pointer font-medium">Evidencia técnica</summary>
+        <summary className="cursor-pointer font-medium">{t.technicalEvidence}</summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
           {step.evidence.map((line) => (
             <li key={line}>{line}</li>
           ))}
           {step.alternatives.map((alternative) => (
             <li key={alternative.actionId}>
-              Otra vía legal: {alternative.label}. {alternative.difference}
+              {t.otherLegalRoute(alternative.label, alternative.difference)}
             </li>
           ))}
         </ul>
@@ -504,7 +898,7 @@ function Recommendation({
               onClick={onOpenPlanMarket}
               data-testid="coach-presupuesto-cambiar"
             >
-              Cambiar límite
+              {t.changeLimit}
             </Button>
           )}
         </section>
@@ -521,17 +915,15 @@ function Recommendation({
           data-testid="coach-lo-hare"
           aria-label={
             budgetAssessment?.blocksAction
-              ? "No puedes confirmar este paso porque supera el límite declarado"
-              : `Confirmar que ya hiciste este paso en PoE2: ${step.label}`
+              ? t.overLimitAria
+              : t.confirmDoneAria(step.label)
           }
         >
-          {budgetAssessment?.blocksAction
-            ? "Fuera del límite declarado"
-            : "Ya lo hice en PoE2"}
+          {budgetAssessment?.blocksAction ? t.overLimit : t.doneInPoe2}
           <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
         <Button type="button" variant="outline" onClick={onHold} data-testid="coach-no-gastar">
-          No gastar todavía
+          {t.dontSpendYet}
         </Button>
         <Button
           type="button"
@@ -540,7 +932,7 @@ function Recommendation({
           onClick={onOpenAdvanced}
           data-testid="coach-explorar-avanzado"
         >
-          Explorar avanzadas
+          {t.exploreAdvanced}
         </Button>
       </div>
     </div>
@@ -572,6 +964,9 @@ export function CraftingCoach({
   onMentorContext,
   onAskMentor,
 }: CraftingCoachProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const labels = useFormatLabels();
   const selectedItemSimulationMode = selectedItem && isCraftingExampleItem(selectedItem)
     ? "example" as const
     : null;
@@ -628,7 +1023,9 @@ export function CraftingCoach({
             (modifier) => modifier.id,
           ),
         },
+        lang,
       ),
+      lang,
     );
   });
   const [resultItem, setResultItem] = useState<Item | null>(
@@ -814,19 +1211,19 @@ export function CraftingCoach({
         aria-labelledby="coach-vacio-titulo"
       >
         <h2 id="coach-vacio-titulo" className="dossier-title text-2xl font-semibold">
-          Enséñame la pieza
+          {t.showMeItem}
         </h2>
         <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
-          {COPY_HINT}
+          {t.copyHint}
         </p>
         <Button className="mt-4" type="button" onClick={onPasteItem} data-testid="coach-pegar-objeto">
           <ClipboardPaste className="size-4" aria-hidden="true" />
-          Pegar un objeto del juego
+          {t.pasteGameItem}
         </Button>
 
         {items.length > 0 && (
           <div className="mt-6" data-testid="coach-piezas-importadas">
-            <h3 className="text-sm font-semibold">O elige una que ya tienes</h3>
+            <h3 className="text-sm font-semibold">{t.orPickOwned}</h3>
             <ul className="mt-2 grid gap-2 sm:grid-cols-2">
               {items.map((item) => (
                 <li key={item.id}>
@@ -850,7 +1247,9 @@ export function CraftingCoach({
   // Si el jugador cambia de pieza en el expediente, el guía vuelve a ella.
   const activeItem =
     workingItem !== null && workingItem.id === selectedItem.id ? workingItem : selectedItem;
-  const activeDiagnosis = diagnoseCraftingItem(activeItem);
+  const activeDiagnosis = diagnoseCraftingItem(activeItem, lang);
+  const focusLabel = (value: CoachFocus) =>
+    (lang === "en" ? COACH_FOCUS_LABELS_EN : COACH_FOCUS_LABELS)[value];
   const activeNeedsRepair = activeDiagnosis.state !== "complete";
   const activeIsExampleSummary = isCraftingExampleItem(activeItem);
   const simulationMode = practiceActive
@@ -858,7 +1257,7 @@ export function CraftingCoach({
     : activeIsExampleSummary
       ? "example" as const
       : null;
-  const structuralStep = chooseNextStep(activeItem, direction);
+  const structuralStep = chooseNextStep(activeItem, direction, lang);
   const baseAssessment = assessPurposefulCraftBase({
     item: activeItem,
     direction,
@@ -867,7 +1266,7 @@ export function CraftingCoach({
     rollMinimum,
     goalIntent,
     goalSource,
-  });
+  }, lang);
   const step = directionChosen && focus !== null
     ? baseAssessment.nextStep
     : structuralStep;
@@ -876,7 +1275,7 @@ export function CraftingCoach({
         budget,
         actionId: step.actionId,
         plannedAttempts: Math.max(1, attemptLimit - confirmedAttemptCount),
-      })
+      }, lang)
     : null;
 
   const loadPracticeItem = async () => {
@@ -933,14 +1332,14 @@ export function CraftingCoach({
       rollMinimum,
       goalIntent: nextGoalIntent,
       goalSource: nextGoalSource,
-    });
+    }, lang);
     const nextStep = nextAssessment.nextStep;
     const nextBudgetAssessment = nextStep.kind === "use-currency" && budget !== null
       ? assessCraftingBudget({
           budget,
           actionId: nextStep.actionId,
           plannedAttempts: attemptLimit,
-        })
+        }, lang)
       : null;
     setDirection(next);
     setFocus(nextFocus);
@@ -963,8 +1362,8 @@ export function CraftingCoach({
     onMentorContext?.({
       type: "craftingCoachDirection",
       itemName: activeItem.name || activeItem.baseType,
-      playerGoal: playerGoal || "decidir qué necesita esta pieza",
-      directionLabel: next === null ? "objetivo sin determinar" : COACH_DIRECTION_LABELS[next],
+      playerGoal: playerGoal || t.mentorDefaultGoal,
+      directionLabel: next === null ? t.mentorNoDirection : COACH_DIRECTION_LABELS[next],
       nextStepTitle: nextStep.kind === "use-currency" ? nextStep.label : nextStep.headline,
       stepKind: nextStep.kind,
       focus: nextFocus,
@@ -984,8 +1383,9 @@ export function CraftingCoach({
 
   // La sugerencia solo usa el plan declarado y carencias medibles del
   // expediente. Nunca deduce lo que falta mirando los mods de esta pieza.
-  const contextSuggestion = suggestCraftingFocusFromContext(profile, target);
-  const usingContextSuggestion = goalText === "No sé qué necesita esta pieza";
+  const contextSuggestion = suggestCraftingFocusFromContext(profile, target, lang);
+  // Vale en los dos idiomas: el progreso guardado conserva el texto con el que se eligió.
+  const usingContextSuggestion = goalText === TEXT.es.unknownGoal || goalText === TEXT.en.unknownGoal;
   const targetFocuses =
     contextSuggestion.source === "target" ? contextSuggestion.focuses : [];
 
@@ -997,7 +1397,7 @@ export function CraftingCoach({
     }
     setCharacterQuestion(null);
     setGoalSource("player");
-    const interpretation = interpretCoachGoal(goalText, activeItem);
+    const interpretation = interpretCoachGoal(goalText, activeItem, lang);
     setGoalIntent(interpretation.intent);
     if (interpretation.intent !== "incremental") {
       setDirection(interpretation.direction);
@@ -1050,14 +1450,14 @@ export function CraftingCoach({
     const nextDirection: CoachDirection = DAMAGE_COACH_FOCUSES.includes(nextFocus)
       ? "damage"
       : "defence";
-    const playerGoal = `Quiero mejorar ${COACH_FOCUS_LABELS[nextFocus]}`;
+    const playerGoal = t.improveFocusGoal(focusLabel(nextFocus));
     setGoalText(playerGoal);
     setGoalIntent("incremental");
     setGoalSource(source);
     chooseDirection(
       nextDirection,
       nextFocus,
-      `Objetivo principal: ${COACH_FOCUS_LABELS[nextFocus]}.`,
+      t.mainGoalNote(focusLabel(nextFocus)),
       playerGoal,
       protectedModifiers,
       unresolvedProtections,
@@ -1067,12 +1467,12 @@ export function CraftingCoach({
   };
 
   const switchToIncremental = () => {
-    setGoalText("Quiero mejorar esta pieza");
+    setGoalText(t.improveThisItemGoal);
     setGoalIntent("incremental");
     setGoalSource("player");
     setDirection(null);
     setFocus(null);
-    setDirectionNote("Perfecto: ahora elige una sola mejora observable para esta pieza.");
+    setDirectionNote(t.incrementalNote);
     setNoEvidence(true);
   };
 
@@ -1086,7 +1486,7 @@ export function CraftingCoach({
     onMentorContext?.({
       type: "craftingCoachContract",
       itemName: activeItem.name || activeItem.baseType,
-      playerGoal: goalText.trim() || `mejorar ${COACH_FOCUS_LABELS[focus]}`,
+      playerGoal: goalText.trim() || t.mentorImproveFocus(focusLabel(focus)),
       focus,
       focusLabel: COACH_FOCUS_LABELS[focus],
       rollMinimum: nextRollMinimum,
@@ -1118,7 +1518,9 @@ export function CraftingCoach({
           {
             protectedModifierIds: protectedModifiers.map((modifier) => modifier.id),
           },
+          lang,
         ),
+        lang,
       );
       const nextReading = readPurposefulCraftResult({
         comparison: nextComparison,
@@ -1131,11 +1533,11 @@ export function CraftingCoach({
         rollMinimum: pendingAttempt.rollMinimum,
         attemptNumber: pendingAttempt.attemptNumber,
         attemptLimit: pendingAttempt.attemptLimit,
-      });
+      }, lang);
       // Los ids de modificadores cambian en cada importación. Vuelve a
       // vincular las protecciones contra el snapshot recién pegado para que
       // sigan siendo válidas si el jugador continúa con otro paso.
-      const refreshedGoal = interpretCoachGoal(goalText, pasted);
+      const refreshedGoal = interpretCoachGoal(goalText, pasted, lang);
       setComparison(nextComparison);
       setResultItem(pasted);
       if (nextComparison.status === "confirmed") {
@@ -1153,7 +1555,7 @@ export function CraftingCoach({
       onMentorContext?.({
         type: "craftingCoachResult",
         itemName: activeItem.name || activeItem.baseType,
-        playerGoal: goalText.trim() || "decidir qué necesita esta pieza",
+        playerGoal: goalText.trim() || t.mentorDefaultGoal,
         headline: nextReading.headline,
         verdict: nextReading.verdict,
         decisionKind: nextReading.decisionKind,
@@ -1230,7 +1632,7 @@ export function CraftingCoach({
     setPhase(nextPhase);
   };
 
-  const resultDiagnosis = resultItem ? diagnoseCraftingItem(resultItem) : null;
+  const resultDiagnosis = resultItem ? diagnoseCraftingItem(resultItem, lang) : null;
   const resultNeedsRepair = resultDiagnosis !== null && resultDiagnosis.state !== "complete";
   const resultReading =
     comparison && resultItem
@@ -1245,7 +1647,7 @@ export function CraftingCoach({
           rollMinimum: pendingAttempt?.rollMinimum ?? rollMinimum,
           attemptNumber: pendingAttempt?.attemptNumber ?? confirmedAttemptCount + 1,
           attemptLimit: pendingAttempt?.attemptLimit ?? attemptLimit,
-        })
+        }, lang)
       : null;
   const baseShouldBeReplaced = Boolean(
     comparison?.status === "confirmed" &&
@@ -1259,29 +1661,29 @@ export function CraftingCoach({
     : null;
   const resultStatusLabel =
     resultState === "mismatch"
-      ? "NO CUADRA"
+      ? t.statusMismatch
       : resultState === "continue"
-        ? "PUEDES SEGUIR"
+        ? t.statusContinue
         : resultState === "stop"
-          ? "PARA"
-          : "REVISA";
+          ? t.statusStop
+          : t.statusReview;
   const resultSummary = !resultReading
     ? ""
     : resultState === "mismatch"
-      ? comparison?.summary ?? "Revisa el texto pegado antes de gastar otra moneda."
+      ? comparison?.summary ?? t.mismatchFallback
       : resultReading.verdict === "continue"
         ? resultReading.attemptProgress
-          ? `${resultReading.attemptProgress.remaining === 1 ? "Queda 1 paso" : `Quedan ${resultReading.attemptProgress.remaining} pasos`} dentro del límite que elegiste.`
-          : "Queda una acción legal dentro del límite que elegiste."
+          ? t.stepsLeft(resultReading.attemptProgress.remaining)
+          : t.oneActionLeft
         : resultReading.decisionKind === "restart"
-          ? "Este intento ha llegado a su límite."
+          ? t.attemptAtLimit
           : resultReading.goalFit === "confirmed"
-            ? /requisit/i.test(resultReading.verdictText)
-              ? "El objeto no cumple los requisitos de tu personaje."
-              : "El objetivo aparece, pero el contrato indica detenerse."
+            ? /requisit|requirement/i.test(resultReading.verdictText)
+              ? t.failsRequirements
+              : t.goalPresentStop
             : resultReading.goalFit === "not-evaluable"
-              ? "Falta concretar el objetivo antes de gastar otra moneda."
-              : "El resultado no cumple el objetivo actual.";
+              ? t.goalNotEvaluable
+              : t.goalNotMet;
 
   return (
     <section
@@ -1292,7 +1694,7 @@ export function CraftingCoach({
       aria-labelledby="coach-titulo"
     >
       <h2 id="coach-titulo" className="sr-only">
-        Guía con tu objeto
+        {t.srTitle}
       </h2>
 
       {showInitialRepairBanner && activeNeedsRepair && !directionChosen && (
@@ -1313,7 +1715,7 @@ export function CraftingCoach({
           <CoachItemCard item={activeItem} compact />
           {items.length > 1 && (
             <details className="rounded-md border border-border/70 px-2.5 py-2 text-xs">
-              <summary className="cursor-pointer font-medium">Trabajar con otra pieza</summary>
+              <summary className="cursor-pointer font-medium">{t.workWithAnother}</summary>
               <ul className="mt-2 flex flex-col gap-1.5" data-testid="coach-piezas-importadas">
                 {items.map((item) => (
                   <li key={item.id}>
@@ -1342,7 +1744,7 @@ export function CraftingCoach({
                 onClick={onPasteItem}
                 data-testid="coach-pegar-otro"
               >
-                Pegar otro objeto
+                {t.pasteAnotherObject}
               </Button>
             </details>
           )}
@@ -1355,7 +1757,7 @@ export function CraftingCoach({
               role="alert"
               data-testid="coach-practica-error"
             >
-              No pude preparar la pieza de práctica: {practiceError}
+              {t.practiceError(practiceError)}
             </p>
           )}
 
@@ -1363,10 +1765,10 @@ export function CraftingCoach({
           {!directionChosen ? (
             <div className="min-w-0" data-testid="coach-eleccion">
               <h3 className="dossier-title text-xl font-semibold sm:text-2xl">
-                ¿Qué quieres conseguir con esta pieza?
+                {t.goalQuestion}
               </h3>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Escríbelo como se lo dirías a otro jugador. Yo lo convertiré en una sola decisión.
+                {t.goalIntro}
               </p>
               <Textarea
                 className="mt-3 min-h-24 resize-y"
@@ -1384,8 +1786,8 @@ export function CraftingCoach({
                   setUnresolvedProtections([]);
                 }}
                 data-testid="coach-objetivo-texto"
-                aria-label="Qué quieres conseguir con esta pieza"
-                placeholder="p. ej. Quiero que esta ballesta haga más daño físico"
+                aria-label={t.goalAria}
+                placeholder={t.goalPlaceholder}
               />
               <Button
                 className="mt-3 w-full sm:w-auto"
@@ -1404,59 +1806,59 @@ export function CraftingCoach({
                 onClick={submitGoal}
                 data-testid="coach-interpretar-objetivo"
               >
-                Dime el siguiente paso
+                {t.tellNextStep}
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Button>
               {!goalIsCharacterQuestion && (activeNeedsRepair || (noEvidence && focus === null)) && (
                 <span className="mt-2 block text-xs font-medium text-amber-300" role="status">
-                  {activeNeedsRepair ? "Repara primero la lectura de la pieza." : "Elige un objetivo exacto."}
+                  {activeNeedsRepair ? t.repairFirst : t.pickExactGoal}
                 </span>
               )}
               <p className="mt-4 text-xs font-semibold text-muted-foreground">
-                O elige una forma rápida
+                {t.quickOption}
               </p>
               <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-3">
                 <DirectionButton
                   id="damage"
-                  label="Más daño"
-                  hint="Pegar más fuerte"
+                  label={t.moreDamage}
+                  hint={t.hitHarder}
                   icon={Swords}
                   onChoose={() => {
-                    const goal = "Quiero mejorar el daño";
+                    const goal = t.improveDamageGoal;
                     requestFocus(
                       "damage",
                       goal,
-                      "El daño puede ser físico, elemental, crítico o velocidad. Elige qué debe aportar el siguiente afijo.",
+                      t.damageNote,
                     );
                   }}
                 />
                 <DirectionButton
                   id="defence"
-                  label="Más defensa"
-                  hint="Aguantar más"
+                  label={t.moreDefence}
+                  hint={t.surviveMore}
                   icon={ShieldAlert}
                   onChoose={() => {
-                    const goal = "Quiero mejorar la defensa";
+                    const goal = t.improveDefenceGoal;
                     requestFocus(
                       "defence",
                       goal,
-                      "La defensa puede ser vida, resistencias, armadura, evasión o escudo de energía. Elige una prioridad.",
+                      t.defenceNote,
                     );
                   }}
                 />
                 <DirectionButton
                   id="unknown"
-                  label="No lo sé"
+                  label={t.dontKnow}
                   hint={
                     contextSuggestion.source === "target"
-                      ? "Lo miro en tu plan"
+                      ? t.hintPlan
                       : contextSuggestion.source === "resistances"
-                        ? "Lo miro en tu expediente"
-                        : "Te diré qué información falta"
+                        ? t.hintCharacter
+                        : t.hintMissing
                   }
                   icon={Sparkles}
                   onChoose={() => {
-                    const goal = "No sé qué necesita esta pieza";
+                    const goal = t.unknownGoal;
                     setGoalText(goal);
                     setGoalSource("context");
                     if (contextSuggestion.focuses.length === 0) {
@@ -1484,12 +1886,12 @@ export function CraftingCoach({
                   data-testid="coach-pregunta-personaje"
                   role="status"
                 >
-                  <p className="text-xs font-semibold text-sky-300">Pregunta sobre tu personaje</p>
+                  <p className="text-xs font-semibold text-sky-300">{t.characterQuestionEyebrow}</p>
                   <h4 className="mt-1 text-base font-semibold text-foreground">
-                    Eso no se arregla con esta pieza
+                    {t.characterQuestionTitle}
                   </h4>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    Crafting solo mejora un objeto con monedas. Para saber por qué no haces daño o por qué te matan, el Mentor mira tu personaje entero: gemas, objetos y nivel.
+                    {t.characterQuestionBody}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {onAskMentor ? (
@@ -1499,12 +1901,12 @@ export function CraftingCoach({
                         onClick={() => onAskMentor(characterQuestion)}
                         data-testid="coach-pregunta-al-mentor"
                       >
-                        Preguntárselo al Mentor
+                        {t.askMentorThis}
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </Button>
                     ) : (
                       <Button type="button" size="sm" onClick={onOpenCharacter}>
-                        Añade tu personaje primero
+                        {t.addCharacterFirst}
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </Button>
                     )}
@@ -1519,12 +1921,10 @@ export function CraftingCoach({
                   role="status"
                 >
                   <p className="text-xs font-semibold text-amber-300">
-                    {goalIntent === "unique-acquisition" ? "Objetivo detectado · objeto único" : "Objetivo detectado · proyecto endgame"}
+                    {goalIntent === "unique-acquisition" ? t.detectedUnique : t.detectedEndgame}
                   </p>
                   <h4 className="mt-1 text-base font-semibold text-foreground">
-                    {goalIntent === "unique-acquisition"
-                      ? "No gastes en esta pieza todavía"
-                      : "Un afijo no define una pieza de endgame"}
+                    {goalIntent === "unique-acquisition" ? t.dontSpendHereYet : t.oneAffixNotEndgame}
                   </h4>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                     {directionNote}
@@ -1538,7 +1938,7 @@ export function CraftingCoach({
                           onClick={onOpenPlanMarket}
                           data-testid="coach-unico-ir-mercado"
                         >
-                          Ir a Plan y mercado
+                          {t.goToPlanMarket}
                           <ArrowRight className="size-4" aria-hidden="true" />
                         </Button>
                         <Button
@@ -1546,17 +1946,15 @@ export function CraftingCoach({
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            setGoalText("Quiero crear una pieza rara de endgame");
+                            setGoalText(t.endgameRareGoal);
                             setGoalIntent("endgame-project");
                             setDirection(null);
                             setFocus(null);
-                            setDirectionNote(
-                              "Perfecto: una rara de endgame necesita el personaje, la pieza equipada, presupuesto y requisitos completos antes de elegir monedas.",
-                            );
+                            setDirectionNote(t.endgameRareNote);
                           }}
                           data-testid="coach-unico-cambiar-rara"
                         >
-                          Crear una rara de endgame
+                          {t.craftEndgameRare}
                         </Button>
                       </>
                     ) : (
@@ -1569,7 +1967,7 @@ export function CraftingCoach({
                           }}
                           data-testid="coach-endgame-preparar"
                         >
-                          Abrir Taller avanzado
+                          {t.openLaboratory}
                           <ArrowRight className="size-4" aria-hidden="true" />
                         </Button>
                         {!hasCraftingCharacterContext(profile) && (
@@ -1579,7 +1977,7 @@ export function CraftingCoach({
                             variant="outline"
                             onClick={onOpenCharacter}
                           >
-                            Añadir personaje y equipo
+                            {t.addCharacterGear}
                           </Button>
                         )}
                         <Button
@@ -1589,7 +1987,7 @@ export function CraftingCoach({
                           onClick={onOpenPlanMarket}
                           data-testid="coach-endgame-revisar-plan"
                         >
-                          Revisar plan y mercado
+                          {t.reviewPlanMarket}
                         </Button>
                       </>
                     )}
@@ -1600,7 +1998,7 @@ export function CraftingCoach({
                       onClick={switchToIncremental}
                       data-testid="coach-cambiar-incremental"
                     >
-                      Solo mejorar esta pieza
+                      {t.onlyImproveItem}
                     </Button>
                   </div>
                 </div>
@@ -1613,8 +2011,8 @@ export function CraftingCoach({
                 >
                   <p className="text-xs font-semibold text-primary/80">
                     {usingContextSuggestion && contextSuggestion.focuses.length > 0
-                      ? "1. Lo que necesita tu personaje"
-                      : "Antes de gastar"}
+                      ? t.characterNeeds
+                      : t.beforeSpending}
                   </p>
                   <p className="mt-1 text-sm font-medium">
                     {directionNote ?? contextSuggestion.reason}
@@ -1636,11 +2034,11 @@ export function CraftingCoach({
                       className="mt-3 rounded border border-amber-500/35 bg-amber-500/[0.07] px-2.5 py-2 text-xs leading-relaxed text-amber-50"
                       data-testid="coach-contexto-encaje-pieza"
                     >
-                      <p className="font-semibold">2. ¿Encaja esta pieza?</p>
+                      <p className="font-semibold">{t.doesItFit}</p>
                       <p className="mt-1 text-amber-100/80">
                         {contextSuggestion.source === "target"
-                          ? `El plan marca una prioridad, pero no la vincula a ${activeItem.name || activeItem.baseType} ni demuestra que esta pieza pueda recibir ese modificador.`
-                          : `El expediente demuestra una carencia del personaje, no que ${activeItem.name || activeItem.baseType} sea la pieza adecuada para cubrirla.`}
+                          ? t.planFit(activeItem.name || activeItem.baseType)
+                          : t.characterFit(activeItem.name || activeItem.baseType)}
                       </p>
                     </div>
                   )}
@@ -1655,7 +2053,7 @@ export function CraftingCoach({
                           onClick={() => chooseFocus(option, "context")}
                           data-testid={`coach-context-focus-${option}`}
                         >
-                          Buscar {COACH_FOCUS_LABELS[option]} en esta pieza
+                          {t.lookForFocus(focusLabel(option))}
                         </Button>
                       ))
                     ) : direction === null ? (
@@ -1663,24 +2061,24 @@ export function CraftingCoach({
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => requestFocus("damage", "Quiero mejorar el daño", "Elige qué tipo de daño debe aportar el siguiente afijo.")}
+                          onClick={() => requestFocus("damage", t.improveDamageGoal, t.damageFocusNote)}
                           data-testid="coach-elegir-damage"
                         >
-                          Elegir daño
+                          {t.chooseDamage}
                         </Button>
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => requestFocus("defence", "Quiero mejorar la defensa", "Elige qué defensa debe aportar el siguiente afijo.")}
+                          onClick={() => requestFocus("defence", t.improveDefenceGoal, t.defenceFocusNote)}
                           data-testid="coach-elegir-defence"
                         >
-                          Elegir defensa
+                          {t.chooseDefence}
                         </Button>
                       </>
                     ) : direction === "damage" ? (
                       <div className="w-full space-y-3" data-testid="coach-focus-grupos">
                         <div className="grid gap-1.5 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center">
-                          <p className="text-xs font-semibold text-muted-foreground">Tipo de daño</p>
+                          <p className="text-xs font-semibold text-muted-foreground">{t.damageType}</p>
                           <div className="flex min-h-11 gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                             {DAMAGE_TYPE_FOCUSES.map((option) => (
                               <Button
@@ -1692,13 +2090,13 @@ export function CraftingCoach({
                                 onClick={() => chooseFocus(option)}
                                 data-testid={`coach-focus-${option}`}
                               >
-                                {COACH_FOCUS_LABELS[option]}
+                                {focusLabel(option)}
                               </Button>
                             ))}
                           </div>
                         </div>
                         <div className="grid gap-1.5 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center">
-                          <p className="text-xs font-semibold text-muted-foreground">Otra vía</p>
+                          <p className="text-xs font-semibold text-muted-foreground">{t.otherRoute}</p>
                           <div className="flex min-h-11 gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                             {DAMAGE_OTHER_FOCUSES.map((option) => (
                               <Button
@@ -1710,7 +2108,7 @@ export function CraftingCoach({
                                 onClick={() => chooseFocus(option)}
                                 data-testid={`coach-focus-${option}`}
                               >
-                                {COACH_FOCUS_LABELS[option]}
+                                {focusLabel(option)}
                               </Button>
                             ))}
                           </div>
@@ -1728,7 +2126,7 @@ export function CraftingCoach({
                             onClick={() => chooseFocus(option)}
                             data-testid={`coach-focus-${option}`}
                           >
-                            {COACH_FOCUS_LABELS[option]}
+                            {focusLabel(option)}
                           </Button>
                         ))}
                       </div>
@@ -1743,7 +2141,7 @@ export function CraftingCoach({
                       }}
                       data-testid="coach-no-gastar-sin-evidencia"
                     >
-                      No gastar todavía
+                      {t.dontSpendYet}
                     </Button>
                     {usingContextSuggestion && contextSuggestion.focuses.length > 0 && (
                       <Button
@@ -1753,7 +2151,7 @@ export function CraftingCoach({
                         onClick={onPasteItem}
                         data-testid="coach-cambiar-pieza-contexto"
                       >
-                        Cambiar de pieza
+                        {t.changeItem}
                       </Button>
                     )}
                   </div>
@@ -1766,19 +2164,19 @@ export function CraftingCoach({
               data-testid="coach-direccion-elegida"
               data-player-goal={goalText.trim()}
             >
-              <span className="font-semibold text-foreground">Objetivo ·</span>{" "}
+              <span className="font-semibold text-foreground">{t.goalLabel}</span>{" "}
               {direction === null
-                ? "sin dirección"
+                ? t.noDirection
                 : focus === null
-                  ? COACH_DIRECTION_NOUNS[direction]
-                  : COACH_FOCUS_LABELS[focus]}
+                  ? coachDirectionNoun(direction, lang)
+                  : focusLabel(focus)}
               <button
                 type="button"
                 className="ml-1 underline underline-offset-2 hover:text-foreground"
                 onClick={resetFlow}
                 data-testid="coach-cambiar-direccion"
               >
-                Cambiar
+                {t.change}
               </button>
             </p>
           )}
@@ -1795,15 +2193,20 @@ export function CraftingCoach({
             >
               {hasCraftingCharacterContext(profile) ? (
                 <p>
-                  <span className="font-semibold">Personaje:</span> {profile?.name} · expediente activo
-                  {target ? ` · plan ${target.name}` : ""}
+                  <span className="font-semibold">{t.characterLabel}</span> {profile?.name} · {t.activeCharacter}
+                  {target ? t.planName(target.name) : ""}
                   {budget === null
-                    ? " · presupuesto sin declarar."
-                    : ` · límite ${budget.amount} ${CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.`}
+                    ? t.noBudget
+                    : t.budgetLimit(
+                        budget.amount,
+                        lang === "es"
+                          ? labels.currency[budget.currency].toLocaleLowerCase("es")
+                          : labels.currency[budget.currency],
+                      )}
                 </p>
               ) : (
                 <p>
-                  <span className="font-semibold">Sin expediente:</span> usaré tu objetivo sin comparar la build.
+                  <span className="font-semibold">{t.noCharacterLabel}</span> {t.noCharacterBody}
                 </p>
               )}
             </div>
@@ -1843,15 +2246,15 @@ export function CraftingCoach({
                 {baseAssessment.decisionLabel}
               </p>
               <details className="mt-2 rounded border border-border/70 px-2.5 py-2 text-xs">
-                <summary className="cursor-pointer font-medium text-muted-foreground">Ver análisis</summary>
+                <summary className="cursor-pointer font-medium text-muted-foreground">{t.seeAnalysis}</summary>
                 <p className="mt-2 leading-relaxed text-muted-foreground">{baseAssessment.summary}</p>
                 <dl className="mt-2 grid gap-2 sm:grid-cols-2">
                   <div>
-                    <dt className="font-semibold text-foreground">Personaje</dt>
+                    <dt className="font-semibold text-foreground">{t.character}</dt>
                     <dd className="mt-0.5 text-muted-foreground" data-testid="coach-base-personaje">{baseAssessment.characterLabel}</dd>
                   </div>
                   <div>
-                    <dt className="font-semibold text-foreground">Base</dt>
+                    <dt className="font-semibold text-foreground">{t.base}</dt>
                     <dd className="mt-0.5 text-muted-foreground" data-testid="coach-base-objetivo">{baseAssessment.targetLabel}</dd>
                   </div>
                 </dl>
@@ -1870,8 +2273,8 @@ export function CraftingCoach({
               data-fit={targetFocuses.includes(focus) ? "matched" : "different"}
             >
               {targetFocuses.includes(focus)
-                ? `Esta prioridad aparece en tu plan: ${COACH_FOCUS_LABELS[focus]}.`
-                : `Esta prioridad no aparece entre los mods deseados del plan. Puedes trabajarla, pero no la trataré como objetivo de la build.`}
+                ? t.planHasPriority(focusLabel(focus))
+                : t.planLacksPriority}
             </p>
           )}
 
@@ -1884,18 +2287,18 @@ export function CraftingCoach({
               data-testid="coach-condicion-parada"
             >
               <p>
-                <span className="font-semibold text-primary">Parada:</span>{" "}
-                {COACH_FOCUS_LABELS[focus]} · {rollMinimum === "any" ? "cualquiera" : rollMinimum === "middle" ? "media+" : "alta"} · {attemptLimit}{" "}
-                {attemptLimit === 1 ? "paso" : "pasos"}.
+                <span className="font-semibold text-primary">{t.stopLabel}</span>{" "}
+                {focusLabel(focus)} · {rollMinimum === "any" ? t.rollAnyShort : rollMinimum === "middle" ? t.rollMiddleShort : t.rollHighShort} · {attemptLimit}{" "}
+                {t.stepWord(attemptLimit)}.
               </p>
               {phase === "recommend" && confirmedAttemptCount === 0 && (
                 <details className="mt-1.5" data-testid="coach-contrato-controles">
                   <summary className="w-fit cursor-pointer text-[11px] font-medium text-muted-foreground hover:text-foreground">
-                    Ajustar
+                    {t.adjust}
                   </summary>
                   <div className="mt-2 grid gap-2 border-t border-primary/15 pt-2 sm:grid-cols-2">
                     <fieldset className="min-w-0">
-                      <legend className="font-semibold text-foreground">Tirada mínima</legend>
+                      <legend className="font-semibold text-foreground">{t.minimumRoll}</legend>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {(["any", "middle", "high"] as const).map((minimum) => (
                           <button
@@ -1906,13 +2309,13 @@ export function CraftingCoach({
                             onClick={() => updateContract(minimum, attemptLimit)}
                             className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/45 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary aria-pressed:border-primary/60 aria-pressed:bg-primary/10 aria-pressed:text-primary"
                           >
-                            {minimum === "any" ? "Cualquiera" : minimum === "middle" ? "Media+" : "Alta"}
+                            {minimum === "any" ? t.rollAny : minimum === "middle" ? t.rollMiddle : t.rollHigh}
                           </button>
                         ))}
                       </div>
                     </fieldset>
                     <fieldset className="min-w-0">
-                      <legend className="font-semibold text-foreground">Máximo de pasos</legend>
+                      <legend className="font-semibold text-foreground">{t.maxSteps}</legend>
                       <div className="mt-1 flex gap-1">
                         {([1, 2, 3] as const).map((limit) => (
                           <button
@@ -1929,7 +2332,7 @@ export function CraftingCoach({
                       </div>
                     </fieldset>
                     <p className="sm:col-span-2 text-[10px] text-muted-foreground">
-                      Rango visible del tooltip; no es una probabilidad.
+                      {t.tooltipRange}
                     </p>
                   </div>
                 </details>
@@ -1944,14 +2347,13 @@ export function CraftingCoach({
             >
               {protectedModifiers.length > 0 && (
                 <p>
-                  <span className="font-semibold text-foreground">Protegido:</span>{" "}
+                  <span className="font-semibold text-foreground">{t.protectedLabel}</span>{" "}
                   {protectedModifiers.map((modifier) => modifier.text).join(" · ")}
                 </p>
               )}
               {unresolvedProtections.length > 0 && (
                 <p className="mt-1 text-amber-200" data-testid="coach-protecciones-no-vinculadas">
-                  No encuentro en la pieza: {unresolvedProtections.join(" · ")}. No lo trataré como
-                  protegido hasta que coincida con una línea real.
+                  {t.unresolvedProtections(unresolvedProtections.join(" · "))}
                 </p>
               )}
             </div>
@@ -1995,16 +2397,16 @@ export function CraftingCoach({
               className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)] rounded-md border border-border bg-muted/[0.06] p-2 outline-none sm:p-4"
               data-testid="coach-espera"
             >
-              <h3 className="dossier-title text-xl font-semibold">Guardado para más tarde</h3>
+              <h3 className="dossier-title text-xl font-semibold">{t.savedForLater}</h3>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                La pieza sigue como está. Puedes volver cuando quieras.
+                {t.itemUnchanged}
               </p>
               {confirmedAttemptCount >= attemptLimit && (
                 <p
                   className="mt-2 rounded border border-amber-500/35 bg-amber-500/[0.07] px-2.5 py-2 text-xs text-amber-100"
                   data-testid="coach-limite-agotado"
                 >
-                  Has agotado el límite de {attemptLimit} {attemptLimit === 1 ? "paso" : "pasos"}. Este contrato ya no autoriza otra moneda.
+                  {t.limitUsed(attemptLimit)}
                 </p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
@@ -2014,7 +2416,7 @@ export function CraftingCoach({
                     onClick={() => setPhase("recommend")}
                     data-testid="coach-volver-accion"
                   >
-                    Ver otra vez la acción
+                    {t.seeActionAgain}
                   </Button>
                 )}
                 <Button
@@ -2023,7 +2425,7 @@ export function CraftingCoach({
                   onClick={resetFlow}
                   data-testid="coach-otro-camino"
                 >
-                  Elegir otro camino
+                  {t.otherPath}
                 </Button>
                 {confirmedAttemptCount >= attemptLimit && (
                   <Button
@@ -2033,7 +2435,7 @@ export function CraftingCoach({
                     data-testid="coach-otra-pieza"
                   >
                     <ClipboardPaste className="size-4" aria-hidden="true" />
-                    Pegar otra pieza
+                    {t.pasteAnother}
                   </Button>
                 )}
               </div>
@@ -2043,16 +2445,16 @@ export function CraftingCoach({
           {/* Paso 3: qué salió en el juego. */}
           {phase === "await-result" && step.kind === "use-currency" && (
             <div className="min-w-0 scroll-mb-[var(--mentor-inset,6rem)]" data-testid="coach-registro">
-              <h3 className="dossier-title text-xl font-semibold">¿Qué te ha salido?</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{COPY_HINT}</p>
+              <h3 className="dossier-title text-xl font-semibold">{t.whatDidYouGet}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{t.copyHint}</p>
               <Textarea
                 ref={resultTextRef}
                 className="mt-2 min-h-32 font-mono text-xs"
                 value={resultText}
                 onChange={(event) => setResultText(event.target.value)}
-                aria-label="Texto del objeto después del craft"
+                aria-label={t.resultAria}
                 data-testid="coach-resultado-texto"
-                placeholder="Pega aquí el objeto tal y como está ahora…"
+                placeholder={t.resultPlaceholder}
               />
               {error !== null && (
                 <p className="mt-2 text-sm text-rose-200" role="alert" data-testid="coach-error">
@@ -2071,7 +2473,7 @@ export function CraftingCoach({
                   ) : (
                     <CheckCircle2 className="size-4" aria-hidden="true" />
                   )}
-                  Ver qué ha cambiado
+                  {t.seeChanges}
                 </Button>
                 <Button
                   type="button"
@@ -2079,23 +2481,23 @@ export function CraftingCoach({
                   onClick={() => setPhase("recommend")}
                   data-testid="coach-volver-recomendacion"
                 >
-                  Todavía no lo he hecho
+                  {t.notDoneYet}
                 </Button>
               </div>
               {comparing && (
                 <div
                   className="mt-4 rounded-md border border-border bg-muted/[0.06] p-4"
                   role="status"
-                  aria-label="Leyendo el resultado"
+                  aria-label={t.readingResult}
                   data-testid="coach-resultado-cargando"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-semibold text-muted-foreground">
-                      Resultado
+                      {t.result}
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
                       <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                      LEYENDO
+                      {t.reading}
                     </span>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2" aria-hidden="true">
@@ -2126,7 +2528,7 @@ export function CraftingCoach({
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-muted-foreground">
-                    Resultado
+                    {t.result}
                   </p>
                 <div
                   className={cn(
@@ -2152,9 +2554,9 @@ export function CraftingCoach({
                 <h3 className="dossier-title mt-2 text-lg font-semibold sm:text-xl">
                   <span className="sm:hidden">
                     {comparison?.status !== "confirmed"
-                      ? "Resultado no confirmado"
+                      ? t.unconfirmedResult
                       : resultReading.observedAffixes.length === 1
-                        ? "Modificador nuevo"
+                        ? t.newModifier
                         : resultReading.headline}
                   </span>
                   <span className="hidden sm:inline">{resultReading.headline}</span>
@@ -2217,13 +2619,13 @@ export function CraftingCoach({
                           }`}
                         >
                           {affix.goalFit === "confirmed"
-                            ? "Encaja"
+                            ? t.fits
                             : affix.goalFit === "not-confirmed"
-                              ? "No encaja"
-                              : "Sin confirmar"}
+                              ? t.doesntFit
+                              : t.notConfirmed}
                         </span>
                         <span className="rounded-full border border-border bg-background/40 px-2 py-0.5 text-muted-foreground">
-                          {affix.tier === null ? "Grado no visible" : `Grado ${affix.tier}`}
+                          {affix.tier === null ? t.tierHidden : t.tier(affix.tier)}
                         </span>
                         <span
                           className={`rounded-full border px-2 py-0.5 ${
@@ -2237,11 +2639,11 @@ export function CraftingCoach({
                           }`}
                         >
                           {affix.rollBand === "middle" && affix.rollPositionPercent !== null
-                            ? `Media · ${affix.rollPositionPercent}%`
+                            ? t.rollMiddlePercent(affix.rollPositionPercent)
                             : affix.rollBand === "high"
-                              ? "Alta"
+                              ? t.rollHigh
                               : affix.rollBand === "low"
-                                ? "Baja"
+                                ? t.rollLow
                                 : affix.rollLabel}
                         </span>
                       </div>
@@ -2253,10 +2655,10 @@ export function CraftingCoach({
                 <section
                   className="mt-3 rounded-md border border-cyan-400/25 bg-cyan-500/[0.05] p-3"
                   data-testid="coach-rendimiento-arma"
-                  title="Calculado únicamente desde las cifras visibles del tooltip"
+                  title={t.weaponTitleAttr}
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h4 className="text-sm font-semibold text-cyan-50">Rendimiento del arma</h4>
+                    <h4 className="text-sm font-semibold text-cyan-50">{t.weaponPerformance}</h4>
                     <span className="rounded-full border border-cyan-400/20 bg-background/30 px-2 py-0.5 text-xs text-cyan-100">
                       {resultReading.weaponPerformance.craftDelta.delta > 0 ? "+" : ""}
                       {resultReading.weaponPerformance.craftDelta.delta} DPS
@@ -2267,21 +2669,24 @@ export function CraftingCoach({
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                     <div className="rounded-sm border border-border/60 bg-background/35 px-1 py-2 sm:px-2">
-                      <p className="text-xs text-muted-foreground">Físico</p>
+                      <p className="text-xs text-muted-foreground">{t.physical}</p>
                       <p className="mt-0.5 text-xl font-semibold leading-none sm:text-2xl">{resultReading.weaponPerformance.candidate.physicalDps}</p>
                     </div>
                     <div className="rounded-sm border border-border/60 bg-background/35 px-1 py-2 sm:px-2">
-                      <p className="text-xs text-muted-foreground">Elemental</p>
+                      <p className="text-xs text-muted-foreground">{t.elemental}</p>
                       <p className="mt-0.5 text-xl font-semibold leading-none sm:text-2xl">{resultReading.weaponPerformance.candidate.elementalDps}</p>
                     </div>
                     <div className="rounded-sm border border-cyan-400/25 bg-cyan-500/[0.06] px-1 py-2 sm:px-2">
-                      <p className="text-xs text-cyan-100/70">Total</p>
+                      <p className="text-xs text-cyan-100/70">{t.total}</p>
                       <p className="mt-0.5 text-xl font-semibold leading-none text-cyan-50 sm:text-2xl">{resultReading.weaponPerformance.candidate.totalDps}</p>
                     </div>
                   </div>
                   <div className="mt-2 text-xs">
                     <p className="sr-only" data-testid="coach-delta-dps-total">
-                      Desde el paso anterior: {resultReading.weaponPerformance.craftDelta.delta > 0 ? "+" : ""}{resultReading.weaponPerformance.craftDelta.delta} DPS visible total{resultReading.weaponPerformance.craftDelta.percent === null ? "" : ` (${resultReading.weaponPerformance.craftDelta.percent > 0 ? "+" : ""}${resultReading.weaponPerformance.craftDelta.percent}%)`}.
+                      {t.sinceLastStep(
+                        resultReading.weaponPerformance.craftDelta.delta,
+                        resultReading.weaponPerformance.craftDelta.percent,
+                      )}
                     </p>
                     {resultReading.weaponPerformance.focusComparison && (
                       <p
@@ -2294,7 +2699,7 @@ export function CraftingCoach({
                         }
                         data-testid="coach-comparacion-objetivo-arma"
                       >
-                        {resultReading.weaponPerformance.focusComparison.label.replace(" visible", "")}: {resultReading.weaponPerformance.focusComparison.before} → {resultReading.weaponPerformance.focusComparison.after}
+                        {resultReading.weaponPerformance.focusComparison.shortLabel}: {resultReading.weaponPerformance.focusComparison.before} → {resultReading.weaponPerformance.focusComparison.after}
                       </p>
                     )}
                   </div>
@@ -2304,7 +2709,7 @@ export function CraftingCoach({
                 className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground sm:mt-3"
                 data-testid="coach-hechos-resultado"
               >
-                <span>{resultReading.kept.startsWith("No se ha perdido") ? "Nada perdido" : resultReading.kept}</span>
+                <span>{/^(No se ha perdido|Nothing you already had was lost)/.test(resultReading.kept) ? t.nothingLost : resultReading.kept}</span>
                 {resultReading.directionNote !== null && (
                   <span
                     className="before:mr-2 before:text-muted-foreground/50 before:content-['·']"
@@ -2313,16 +2718,16 @@ export function CraftingCoach({
                     title={resultReading.directionNote}
                   >
                     {resultReading.goalFit === "confirmed"
-                      ? "Encaja con el objetivo"
+                      ? t.fitsGoal
                       : resultReading.goalFit === "not-confirmed"
-                        ? "No encaja con el objetivo"
-                        : "Encaje sin confirmar"}
+                        ? t.doesntFitGoal
+                        : t.fitUnconfirmed}
                   </span>
                 )}
               </p>
               <details className="mt-2 rounded-md border border-border/70 bg-background/35 px-3 py-2 text-xs sm:mt-3">
                 <summary className="min-h-7 cursor-pointer py-1 font-semibold text-muted-foreground">
-                  Límites y detalle
+                  {t.limitsDetail}
                 </summary>
                 <div className="mt-2 space-y-2 text-muted-foreground">
                   <p className="font-medium text-foreground" data-testid="coach-veredicto">
@@ -2341,28 +2746,28 @@ export function CraftingCoach({
                   className="mt-3 rounded-md border border-border/70 bg-background/35 px-3 py-2 text-xs"
                   data-testid="coach-diagnostico-comparacion"
                 >
-                  <summary className="cursor-pointer font-semibold">Qué estoy comparando</summary>
+                  <summary className="cursor-pointer font-semibold">{t.whatImComparing}</summary>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     <p>
-                      <span className="font-semibold text-foreground">Antes:</span>{" "}
+                      <span className="font-semibold text-foreground">{t.before}</span>{" "}
                       {(pendingAttempt?.before ?? activeItem).name ||
                         (pendingAttempt?.before ?? activeItem).baseType}{" "}
                       · {(pendingAttempt?.before ?? activeItem).rarity} ·{" "}
                       {(pendingAttempt?.before ?? activeItem).modifiers.filter(
                         (modifier) => modifier.kind === "explicit",
                       ).length}{" "}
-                      explícitos
+                      {t.explicitMods}
                     </p>
                     <p>
-                      <span className="font-semibold text-foreground">Después:</span>{" "}
+                      <span className="font-semibold text-foreground">{t.after}</span>{" "}
                       {resultItem.name || resultItem.baseType} · {resultItem.rarity} ·{" "}
                       {resultItem.modifiers.filter((modifier) => modifier.kind === "explicit").length}{" "}
-                      explícitos
+                      {t.explicitMods}
                     </p>
                   </div>
                   {comparison.addedModifiers.length > 0 && (
                     <div className="mt-2" data-testid="coach-diagnostico-nuevos">
-                      <p className="font-semibold text-foreground">Cuenta como nuevo:</p>
+                      <p className="font-semibold text-foreground">{t.countsAsNew}</p>
                       <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
                         {comparison.addedModifiers.map((modifier) => (
                           <li key={`added-${modifier.id}`} className="whitespace-pre-line break-words">
@@ -2374,7 +2779,7 @@ export function CraftingCoach({
                   )}
                   {comparison.removedModifiers.length > 0 && (
                     <div className="mt-2" data-testid="coach-diagnostico-perdidos">
-                      <p className="font-semibold text-foreground">Ya no reconoce como la misma línea:</p>
+                      <p className="font-semibold text-foreground">{t.noLongerSameLine}</p>
                       <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
                         {comparison.removedModifiers.map((modifier) => (
                           <li key={`removed-${modifier.id}`} className="whitespace-pre-line break-words">
@@ -2400,7 +2805,7 @@ export function CraftingCoach({
                     }}
                     data-testid="coach-seguir"
                   >
-                    Ver la siguiente acción
+                    {t.seeNextAction}
                     <ArrowRight className="size-4" aria-hidden="true" />
                   </Button>
                 )}
@@ -2416,7 +2821,7 @@ export function CraftingCoach({
                       }}
                       data-testid="coach-corregir-resultado"
                     >
-                      Revisar el texto pegado
+                      {t.reviewPasted}
                     </Button>
                     {!resultNeedsRepair && comparison.identityMatches && comparison.itemLevelMatches && resultItem && (
                       <Button
@@ -2426,7 +2831,7 @@ export function CraftingCoach({
                         onClick={continueFromObservedResult}
                         data-testid="coach-usar-resultado-base"
                       >
-                        Este es mi objeto actual
+                        {t.thisIsMyItem}
                       </Button>
                     )}
                   </>
@@ -2438,7 +2843,7 @@ export function CraftingCoach({
                     onClick={resetFlow}
                     data-testid="coach-empezar-otra"
                   >
-                    {resultReading.goalFit === "not-evaluable" ? "Concretar objetivo" : "Cambiar objetivo"}
+                    {resultReading.goalFit === "not-evaluable" ? t.refineGoal : t.changeGoal}
                   </Button>
                 )}
                 {comparison?.status === "confirmed" && resultReading.verdict !== "continue" && resultReading.goalFit === "confirmed" && (
@@ -2448,7 +2853,7 @@ export function CraftingCoach({
                     onClick={() => setPhase("hold")}
                     data-testid="coach-terminar-resultado"
                   >
-                    Terminar por ahora
+                    {t.finishForNow}
                   </Button>
                 )}
                 {baseShouldBeReplaced && (
@@ -2459,7 +2864,7 @@ export function CraftingCoach({
                     onClick={onPasteItem}
                     data-testid="coach-probar-otra-base"
                   >
-                    Probar otra base
+                    {t.tryAnotherBase}
                   </Button>
                 )}
                 {comparison?.status === "confirmed" && resultReading.verdict === "continue" && (
@@ -2470,7 +2875,7 @@ export function CraftingCoach({
                     onClick={resetFlow}
                     data-testid="coach-empezar-otra"
                   >
-                    Replantear el objetivo
+                    {t.rethinkGoal}
                   </Button>
                 )}
                 {comparison?.status === "confirmed" && !baseShouldBeReplaced && (
@@ -2481,7 +2886,7 @@ export function CraftingCoach({
                     onClick={onPasteItem}
                     data-testid="coach-cambiar-pieza-resultado"
                   >
-                    Cambiar de pieza
+                    {t.changeItem}
                   </Button>
                 )}
                 {comparison?.status === "confirmed" && resultReading.verdict === "continue" && (
@@ -2492,7 +2897,7 @@ export function CraftingCoach({
                     onClick={() => setPhase("hold")}
                     data-testid="coach-terminar-resultado"
                   >
-                    Terminar por ahora
+                    {t.finishForNow}
                   </Button>
                 )}
               </div>

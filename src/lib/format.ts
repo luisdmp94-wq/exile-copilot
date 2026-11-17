@@ -14,6 +14,24 @@ import { pageLang } from "../i18n/lang";
 
 /** Etiquetas en español y formato de fechas para la interfaz. */
 
+/**
+ * Valores por defecto que la web guarda en español («Nuevo personaje»,
+ * «Desconocida»…). Se guardan así a propósito: son marcas internas. Solo se
+ * traducen al enseñarlos; lo que escribió el jugador se muestra tal cual.
+ */
+const DEFAULT_VALUES_EN: Record<string, string> = {
+  "Nuevo personaje": "New character",
+  "Expediente provisional": "Draft character",
+  "Personaje importado desde PoB": "Character imported from PoB",
+  Desconocida: "Unknown",
+  Desconocido: "Unknown",
+};
+
+/** Nombre, clase o liga para enseñar: traduce solo los valores por defecto. */
+export function displayProfileValue(value: string): string {
+  return pageLang() === "en" ? (DEFAULT_VALUES_EN[value.trim()] ?? value) : value;
+}
+
 export function formatCharacterLevel(profile: CharacterProfile): string {
   const reading = readCharacterLevel(profile);
   return reading.known ? String(reading.level) : pageLang() === "en" ? "unknown" : "desconocido";

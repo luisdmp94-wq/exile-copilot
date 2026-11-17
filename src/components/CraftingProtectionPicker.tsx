@@ -1,4 +1,34 @@
 import type { Item } from "@shared/domain.js";
+import { texts, useText } from "@/i18n/lang";
+
+const TEXT = texts(
+  {
+    question: "¿Qué no quieres perder?",
+    hint: "Toca las líneas que deben sobrevivir al craft.",
+    nothingMarked: "Nada marcado",
+    mustKeepCount: (count: number) => `${count} intocable${count === 1 ? "" : "s"}`,
+    markTiers: "Marcar grados 1–2",
+    clear: "Limpiar",
+    prefix: "Prefijo",
+    suffix: "Sufijo",
+    unknownKind: "Tipo sin determinar",
+    tier: (tier: number) => ` · grado ${tier}`,
+    mustKeep: " · intocable",
+  },
+  {
+    question: "What don't you want to lose?",
+    hint: "Tap the lines that must survive the craft.",
+    nothingMarked: "Nothing marked",
+    mustKeepCount: (count: number) => `${count} must-keep`,
+    markTiers: "Mark tiers 1–2",
+    clear: "Clear",
+    prefix: "Prefix",
+    suffix: "Suffix",
+    unknownKind: "Type unknown",
+    tier: (tier: number) => ` · tier ${tier}`,
+    mustKeep: " · must-keep",
+  },
+);
 
 interface CraftingProtectionPickerProps {
   item: Item;
@@ -15,6 +45,7 @@ export function CraftingProtectionPicker({
   idPrefix,
   compact = false,
 }: CraftingProtectionPickerProps) {
+  const t = useText(TEXT);
   const explicit = item.modifiers.filter((modifier) => modifier.kind === "explicit");
   if (explicit.length === 0) return null;
 
@@ -30,13 +61,13 @@ export function CraftingProtectionPicker({
       className="space-y-3 rounded-md border border-border/70 bg-background/30 p-3"
       data-testid="crafting-protection-picker"
     >
-      <legend className="sr-only">¿Qué no quieres perder?</legend>
+      <legend className="sr-only">{t.question}</legend>
       <div className={`flex flex-wrap items-center gap-2 ${compact ? "justify-end" : "justify-between"}`}>
         {!compact && (
           <div>
-            <p className="text-sm font-semibold text-foreground">¿Qué no quieres perder?</p>
+            <p className="text-sm font-semibold text-foreground">{t.question}</p>
             <p className="text-[11px] text-muted-foreground">
-              Toca las líneas que deben sobrevivir al craft.
+              {t.hint}
             </p>
           </div>
         )}
@@ -50,8 +81,8 @@ export function CraftingProtectionPicker({
             aria-live="polite"
           >
             {selectedCount === 0
-              ? "Nada marcado"
-              : `${selectedCount} intocable${selectedCount === 1 ? "" : "s"}`}
+              ? t.nothingMarked
+              : t.mustKeepCount(selectedCount)}
           </span>
           {leadingIds.length > 0 && (
             <button
@@ -59,7 +90,7 @@ export function CraftingProtectionPicker({
               className="rounded-full border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/45 hover:text-foreground"
               onClick={() => onChange([...new Set([...value, ...leadingIds])])}
             >
-              Marcar grados 1–2
+              {t.markTiers}
             </button>
           )}
           {selectedCount > 0 && (
@@ -68,7 +99,7 @@ export function CraftingProtectionPicker({
               className="rounded-full border border-border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-rose-500/40 hover:text-rose-200"
               onClick={() => onChange([])}
             >
-              Limpiar
+              {t.clear}
             </button>
           )}
         </div>
@@ -104,12 +135,12 @@ export function CraftingProtectionPicker({
                 <span className="line-clamp-2 block text-foreground">{modifier.text}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {modifier.affix === "prefix"
-                    ? "Prefijo"
+                    ? t.prefix
                     : modifier.affix === "suffix"
-                      ? "Sufijo"
-                      : "Tipo sin determinar"}
-                  {modifier.tier ? ` · grado ${modifier.tier}` : ""}
-                  {checked ? " · intocable" : ""}
+                      ? t.suffix
+                      : t.unknownKind}
+                  {modifier.tier ? t.tier(modifier.tier) : ""}
+                  {checked ? t.mustKeep : ""}
                 </span>
               </span>
             </label>

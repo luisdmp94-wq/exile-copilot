@@ -29,6 +29,20 @@ const ACTION_LABEL: Record<CraftingActionId, string> = {
   exalted: "Orbe exaltado",
 };
 
+const BUDGET_LABEL_EN: Record<CurrencyKind, { singular: string; plural: string }> = {
+  chaos: { singular: "Chaos Orb", plural: "Chaos Orbs" },
+  exalted: { singular: "Exalted Orb", plural: "Exalted Orbs" },
+  divine: { singular: "Divine Orb", plural: "Divine Orbs" },
+  gold: { singular: "Gold", plural: "Gold" },
+};
+
+const ACTION_LABEL_EN: Record<CraftingActionId, string> = {
+  transmutation: "Orb of Transmutation",
+  augmentation: "Orb of Augmentation",
+  regal: "Regal Orb",
+  exalted: "Exalted Orb",
+};
+
 /**
  * Las cuatro acciones observadas consumen una unidad de su propia moneda, pero
  * el presupuesto público solo admite caos, exaltados, divinos u oro. Por eso
@@ -39,21 +53,24 @@ export function assessCraftingBudget(input: {
   budget: Budget;
   actionId: CraftingActionId;
   plannedAttempts: number;
-}): CraftingBudgetAssessment {
+}, lang: "es" | "en" = "es"): CraftingBudgetAssessment {
+  const en = lang === "en";
   const attempts = Math.max(1, Math.floor(input.plannedAttempts));
-  const unit = BUDGET_LABEL[input.budget.currency];
+  const unit = (en ? BUDGET_LABEL_EN : BUDGET_LABEL)[input.budget.currency];
   const budgetLabel = `${input.budget.amount} ${
     input.budget.amount === 1 ? unit.singular : unit.plural
   }`;
-  const actionLabel = ACTION_LABEL[input.actionId];
+  const actionLabel = (en ? ACTION_LABEL_EN : ACTION_LABEL)[input.actionId];
 
   if (input.actionId !== "exalted" || input.budget.currency !== "exalted") {
     return {
       status: "not-comparable",
-      title: "Coste todavía no comparable",
-      detail:
-        `Límite: ${budgetLabel}. Próximo paso: ${actionLabel}. ` +
-        "Sin inventario o conversión verificados no sé si cabe.",
+      title: en ? "Cost can't be compared yet" : "Coste todavía no comparable",
+      detail: en
+        ? `Limit: ${budgetLabel}. Next step: ${actionLabel}. ` +
+          "Without a verified inventory or exchange rate I can't tell if it fits."
+        : `Límite: ${budgetLabel}. Próximo paso: ${actionLabel}. ` +
+          "Sin inventario o conversión verificados no sé si cabe.",
       blocksAction: false,
       requiredAmount: null,
     };
@@ -63,10 +80,12 @@ export function assessCraftingBudget(input: {
   if (input.budget.amount < requiredAmount) {
     return {
       status: "over-budget",
-      title: "El contrato supera tu límite",
-      detail:
-        `Contrato: ${requiredAmount} ${requiredAmount === 1 ? "exaltado" : "exaltados"}. ` +
-        `Límite: ${budgetLabel}. Reduce pasos o cambia el presupuesto antes de gastar.`,
+      title: en ? "The plan goes over your limit" : "El contrato supera tu límite",
+      detail: en
+        ? `Plan: ${requiredAmount} ${requiredAmount === 1 ? "Exalted Orb" : "Exalted Orbs"}. ` +
+          `Limit: ${budgetLabel}. Cut steps or change the budget before spending.`
+        : `Contrato: ${requiredAmount} ${requiredAmount === 1 ? "exaltado" : "exaltados"}. ` +
+          `Límite: ${budgetLabel}. Reduce pasos o cambia el presupuesto antes de gastar.`,
       blocksAction: true,
       requiredAmount,
     };
@@ -74,10 +93,12 @@ export function assessCraftingBudget(input: {
 
   return {
     status: "within-budget",
-    title: "Dentro del límite declarado",
-    detail:
-      `Contrato: ${requiredAmount} ${requiredAmount === 1 ? "exaltado" : "exaltados"} de un límite de ${budgetLabel}. ` +
-      "Controla el gasto; no demuestra rentabilidad.",
+    title: en ? "Within your stated limit" : "Dentro del límite declarado",
+    detail: en
+      ? `Plan: ${requiredAmount} ${requiredAmount === 1 ? "Exalted Orb" : "Exalted Orbs"} out of a limit of ${budgetLabel}. ` +
+        "This keeps spending in check; it doesn't prove it pays off."
+      : `Contrato: ${requiredAmount} ${requiredAmount === 1 ? "exaltado" : "exaltados"} de un límite de ${budgetLabel}. ` +
+        "Controla el gasto; no demuestra rentabilidad.",
     blocksAction: false,
     requiredAmount,
   };

@@ -13,6 +13,7 @@ import {
 import type { Budget, CharacterProfile, GoalKind, Item, Recommendation } from "@shared/domain.js";
 import {
   CRAFTING_RESULT_UNKNOWN_LABEL,
+  CRAFTING_RESULT_UNKNOWN_LABEL_EN,
   compareCraftingResult,
   craftingComparisonEvidence,
   requireCompleteCraftingResult,
@@ -75,7 +76,9 @@ import {
   outcomeResultText,
 } from "@/lib/sessionOutcome";
 import { useFormatLabels } from "@/lib/formatLabels";
-import { texts, useText } from "@/i18n/lang";
+import { pageLang, texts, useLang, useText } from "@/i18n/lang";
+import { ALLOY_RESULT_UNKNOWN_LABEL, ALLOY_RESULT_UNKNOWN_LABEL_EN } from "@shared/craftingAlloys.js";
+import { ESSENCE_RESULT_UNKNOWN_LABEL, ESSENCE_RESULT_UNKNOWN_LABEL_EN } from "@shared/craftingEssences.js";
 
 const TEXT = texts(
   {
@@ -467,7 +470,9 @@ async function inspectCraftingResult(
         expectedAddedModifierText: experiment.guaranteedModifierText,
         protectedModifierIds: experiment.protectedModifierIds,
       },
+      pageLang(),
     ),
+    pageLang(),
   );
   return {
     item: imported.item,
@@ -478,6 +483,17 @@ async function inspectCraftingResult(
         : null,
   };
 }
+
+
+/**
+ * Las tres incógnitas «resultado desconocido» se guardan en español porque el
+ * servidor las usa como clave. Solo se traducen al enseñarlas.
+ */
+const RESULT_UNKNOWN_LABELS_EN: Record<string, string> = {
+  [CRAFTING_RESULT_UNKNOWN_LABEL]: CRAFTING_RESULT_UNKNOWN_LABEL_EN,
+  [ESSENCE_RESULT_UNKNOWN_LABEL]: ESSENCE_RESULT_UNKNOWN_LABEL_EN,
+  [ALLOY_RESULT_UNKNOWN_LABEL]: ALLOY_RESULT_UNKNOWN_LABEL_EN,
+};
 
 export function DecisionSessionSection({
   instanceId = "seccion-decision-adaptativa",
@@ -528,7 +544,14 @@ export function DecisionSessionSection({
   const [confirmingCraftingDiscard, setConfirmingCraftingDiscard] = useState(false);
   const savingCraftingRef = useRef(false);
   const t = useText(TEXT);
+  const { lang } = useLang();
   const labels = useFormatLabels();
+  /**
+   * La incógnita canónica del craft se guarda en español (el servidor la
+   * compara al resolverla); solo se traduce al enseñarla.
+   */
+  const unknownLabel = (label: string) =>
+    lang === "en" ? (RESULT_UNKNOWN_LABELS_EN[label] ?? label) : label;
 
   /** Una sesión cerrada ya no admite resultados ni borradores pendientes. */
   const isOpen = session !== null && sessionIsOpen(session.status);
@@ -611,7 +634,7 @@ export function DecisionSessionSection({
 
   if (!profile) return null;
   const craftingResultDiagnosis = craftingResultItem
-    ? diagnoseCraftingItem(craftingResultItem)
+    ? diagnoseCraftingItem(craftingResultItem, lang)
     : null;
 
   /**
@@ -640,7 +663,7 @@ export function DecisionSessionSection({
           comparison: craftingComparison,
           goalCategory: session.craftingExperiment.goalCategory,
           goalSignal: craftingGoalSignal,
-        })
+        }, lang)
       : null;
   const craftingSuccessAssessment =
     session?.craftingExperiment &&
@@ -649,7 +672,7 @@ export function DecisionSessionSection({
       ? evaluateCraftingSuccessCriteria({
           criteria: session.craftingExperiment.successCriteria,
           resultItem: craftingResultItem,
-        })
+        }, lang)
       : null;
   const craftingNextDecision =
     session?.craftingExperiment &&
@@ -664,7 +687,7 @@ export function DecisionSessionSection({
           addedGoalSignal: craftingGoalSignal,
           goalCategory: session.craftingExperiment.goalCategory,
           successAssessment: craftingSuccessAssessment,
-        })
+        }, lang)
       : null;
   const showStartForm = session === null || (!isOpen && startingNew);
   const unresolvedUnknowns = (session?.unknowns ?? []).filter(
@@ -816,11 +839,19 @@ export function DecisionSessionSection({
     setSavingCrafting(true);
     setCraftingError(null);
     try {
-      const factualEvidence = craftingComparisonEvidence(craftingComparison);
+      const factualEvidence = craftingComparisonEvidence(craftingComparison, pageLang());
+      // La etiqueta viaja en español: el servidor la compara con la incógnita
+      // guardada al abrir la sesión.
       const resultUnknownLabel =
         experiment.resultUnknownLabel ?? CRAFTING_RESULT_UNKNOWN_LABEL;
+      // Si el jugador cambió de idioma entre dos intentos, la nota ya guardada
+      // puede estar en el otro: se reconoce en los dos para no duplicarla.
+      const evidenceInEitherLanguage = new Set([
+        craftingComparisonEvidence(craftingComparison, "es"),
+        craftingComparisonEvidence(craftingComparison, "en"),
+      ]);
       const evidenceAlreadySaved = session.evidence.some(
-        (entry) => entry.kind === "confirmed" && entry.text === factualEvidence,
+        (entry) => entry.kind === "confirmed" && evidenceInEitherLanguage.has(entry.text),
       );
       if (!evidenceAlreadySaved) {
         const afterEvidence = await journal.addEvidence({
@@ -1150,7 +1181,7 @@ export function DecisionSessionSection({
                   {session.unknowns
                     .filter((item) => !item.resolved)
                     .map((item) => (
-                      <li key={item.id}>{item.label}</li>
+                      <li key={item.id}>{unknownLabel(item.label)}</li>
                     ))}
                 </ul>
               </div>
@@ -1249,7 +1280,7 @@ export function DecisionSessionSection({
                             key={criterion.kind}
                             className="rounded border border-emerald-500/30 bg-emerald-500/[0.06] px-2 py-1 text-xs text-emerald-100"
                           >
-                            {craftingSuccessCriterionLabel(criterion)}
+                            {craftingSuccessCriterionLabel(criterion, lang)}
                           </span>
                         ))}
                       </dd>
@@ -1937,7 +1968,7 @@ export function DecisionSessionSection({
                     <option value="">{t.noneInParticular}</option>
                     {unresolvedUnknowns.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.label}
+                        {unknownLabel(item.label)}
                       </option>
                     ))}
                   </select>

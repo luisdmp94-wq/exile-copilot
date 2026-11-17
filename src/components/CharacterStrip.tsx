@@ -1,6 +1,6 @@
 import { Heart } from "lucide-react";
 import type { CharacterProfile, ResistanceKind } from "@shared/domain.js";
-import { formatCharacterLevel, formatNumber } from "@/lib/format";
+import { displayProfileValue, formatCharacterLevel, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { texts, useText } from "@/i18n/lang";
 
@@ -90,7 +90,7 @@ interface CharacterStripProps {
 export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
   const t = useText(TEXT);
   const subtitle = [
-    profile.characterClass,
+    displayProfileValue(profile.characterClass),
     profile.ascendancy,
     t.level(formatCharacterLevel(profile)),
   ]
@@ -109,7 +109,7 @@ export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
             id="expediente-titulo"
             className="dossier-title min-w-0 truncate text-xl leading-tight text-foreground"
           >
-            {profile.name}
+            {displayProfileValue(profile.name)}
           </h2>
           <span
             className={cn(
@@ -126,7 +126,7 @@ export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
         <p className="mt-0.5 truncate text-sm text-muted-foreground">
           {subtitle}
           <span className="hidden 2xl:inline">
-            {" "}· {t.league(profile.league || t.unknownLeague)} · {t.patch(profile.patch || t.unknownPatch)}
+            {" "}· {t.league(displayProfileValue(profile.league) || t.unknownLeague)} · {t.patch(profile.patch || t.unknownPatch)}
           </span>
         </p>
       </div>
