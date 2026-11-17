@@ -221,6 +221,11 @@ const APP_TEXT = texts(
     craftingChecking: (action: string, item: string) =>
       `Estás comprobando ${action} en ${item}. El preflight y el resultado viven en el banco de Crafting para no duplicar la sesión.`,
     craftingContinue: "Continuar en Crafting",
+    planLoading: "Preparando el plan y el mercado…",
+    planTitle: "Decide el rumbo antes de gastar",
+    savedStep: "Siguiente paso guardado",
+    openFollowUp: "Abrir seguimiento",
+    unknownPatch: "Desconocido",
   },
   {
     backArea: "Back to the previous area",
@@ -263,6 +268,11 @@ const APP_TEXT = texts(
     craftingChecking: (action: string, item: string) =>
       `You're checking ${action} on ${item}. The preflight and the result live in the Crafting bench so the session isn't duplicated.`,
     craftingContinue: "Continue in Crafting",
+    planLoading: "Getting the plan and market ready…",
+    planTitle: "Pick your direction before spending",
+    savedStep: "Saved next step",
+    openFollowUp: "Open follow-up",
+    unknownPatch: "Unknown",
   },
 );
 
@@ -1942,12 +1952,11 @@ export default function App() {
           {/* Dos columnas en escritorio, una sola en móvil. NUNCA se mezcla con
               el expediente: el plan objetivo es un plan, no el personaje real. */}
           <TabsContent value="plan" forceMount className={PANEL_CLASSES}>
-            <EnglishSoon area={t.plan} />
             {mountedWorkspaces.has("plan") && (
               <Suspense
                 fallback={
                   <section className="superficie-panel p-6 text-sm text-muted-foreground" role="status">
-                    Preparando el plan y el mercado…
+                    {t.planLoading}
                   </section>
                 }
               >
@@ -1966,7 +1975,7 @@ export default function App() {
                       id="operaciones-titulo"
                       className="dossier-title text-2xl font-semibold text-foreground"
                     >
-                      Decide el rumbo antes de gastar
+                      {t.planTitle}
                     </h2>
                   </div>
                 </header>
@@ -1977,7 +1986,7 @@ export default function App() {
                     data-testid="plan-siguiente-paso"
                   >
                     <div className="min-w-0">
-                      <p className="rotulo-seccion text-primary/75">Siguiente paso guardado</p>
+                      <p className="rotulo-seccion text-primary/75">{t.savedStep}</p>
                       <h3
                         id="plan-siguiente-paso-titulo"
                         className="mt-1 text-lg font-semibold text-foreground"
@@ -1994,7 +2003,7 @@ export default function App() {
                       className="shrink-0"
                       onClick={() => navigateWorkspace("expediente")}
                     >
-                      Abrir seguimiento
+                      {t.openFollowUp}
                     </Button>
                   </section>
                 )}

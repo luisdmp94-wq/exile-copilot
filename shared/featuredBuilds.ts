@@ -54,6 +54,8 @@ export const FeaturedBuildCatalogSchema = z.object({
   slots: z.literal(10),
   selectionAsOf: z.string().date(),
   methodology: z.array(z.string().min(1)).min(1).max(8),
+  /** Las mismas reglas en inglés, para la web en inglés. */
+  methodologyEn: z.array(z.string().min(1)).max(8).optional(),
   entries: z.array(FeaturedBuildSchema).max(10),
 });
 export type FeaturedBuildCatalog = z.infer<typeof FeaturedBuildCatalogSchema>;
@@ -64,6 +66,7 @@ export const FeaturedBuildsResponseSchema = z.object({
   slots: z.literal(10),
   selectionAsOf: z.string().date(),
   methodology: z.array(z.string().min(1)),
+  methodologyEn: z.array(z.string().min(1)).optional(),
   builds: z.array(FeaturedBuildSchema).max(10),
   pendingReview: z.number().int().nonnegative(),
 });

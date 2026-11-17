@@ -15,28 +15,88 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { texts, useLang, useText } from "@/i18n/lang";
 
-const CATEGORY_LABELS: Record<FeaturedBuildCategory, string> = {
-  starter: "Para empezar",
-  mapping: "Mapeo",
-  bossing: "Bosses",
-  survival: "Supervivencia",
-  budget: "Calidad/precio",
-  ssf: "SSF",
-};
+const TEXT = texts(
+  {
+    categories: {
+      starter: "Para empezar",
+      mapping: "Mapeo",
+      bossing: "Bosses",
+      survival: "Supervivencia",
+      budget: "Calidad/precio",
+      ssf: "SSF",
+    } as Record<FeaturedBuildCategory, string>,
+    budgets: {
+      low: "Presupuesto bajo",
+      medium: "Presupuesto medio",
+      high: "Presupuesto alto",
+      unknown: "Coste sin verificar",
+    } as Record<FeaturedBuild["budgetBand"], string>,
+    externalSource: "fuente externa",
+    kicker: "Selección de la temporada",
+    title: "10 builds destacadas",
+    verifiedCount: (count: number, slots: number) => `${count} / ${slots} verificadas`,
+    tenSlots: "10 plazas",
+    noneYet: (league: string, patch: string) =>
+      `Aún no hay builds aprobadas para ${league} · ${patch}. No reutilizamos builds de otro parche.`,
+    criteria: "Criterios de entrada",
+    reviewNote: (date: string) =>
+      `Revisión: ${date}. Elegir una build nunca sustituye tu expediente actual.`,
+    editorial: "Una selección editorial por utilidad, no una clasificación universal.",
+    loadError: "No se pudo cargar la selección",
+    retry: "Reintentar",
+    verified: "Verificada",
+    limit: "Límite:",
+    useAsTarget: "Usar como objetivo",
+    openSourceAria: (label: string, author: string, host: string) => `Abrir ${label} de ${author} en ${host}`,
+    source: "Fuente",
+    reviewedOn: (date: string) =>
+      `Selección revisada el ${date}. Una build se importa como plan de destino; tu expediente actual permanece intacto.`,
+  },
+  {
+    categories: {
+      starter: "Starter",
+      mapping: "Mapping",
+      bossing: "Bossing",
+      survival: "Survival",
+      budget: "Good value",
+      ssf: "SSF",
+    } as Record<FeaturedBuildCategory, string>,
+    budgets: {
+      low: "Low budget",
+      medium: "Medium budget",
+      high: "High budget",
+      unknown: "Cost not verified",
+    } as Record<FeaturedBuild["budgetBand"], string>,
+    externalSource: "external source",
+    kicker: "This season's picks",
+    title: "10 featured builds",
+    verifiedCount: (count: number, slots: number) => `${count} / ${slots} verified`,
+    tenSlots: "10 slots",
+    noneYet: (league: string, patch: string) =>
+      `No approved builds yet for ${league} · ${patch}. We don't reuse builds from another patch.`,
+    criteria: "How builds get in",
+    reviewNote: (date: string) =>
+      `Reviewed: ${date}. Picking a build never replaces your current character.`,
+    editorial: "An editorial pick based on usefulness, not a universal ranking.",
+    loadError: "Couldn't load the picks",
+    retry: "Try again",
+    verified: "Verified",
+    limit: "Limit:",
+    useAsTarget: "Use as target",
+    openSourceAria: (label: string, author: string, host: string) => `Open ${label} by ${author} on ${host}`,
+    source: "Source",
+    reviewedOn: (date: string) =>
+      `Picks reviewed on ${date}. A build is imported as a target plan; your current character stays as it is.`,
+  },
+);
 
-const BUDGET_LABELS: Record<FeaturedBuild["budgetBand"], string> = {
-  low: "Presupuesto bajo",
-  medium: "Presupuesto medio",
-  high: "Presupuesto alto",
-  unknown: "Coste sin verificar",
-};
-
-function sourceHost(url: string): string {
+function sourceHost(url: string, fallback: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
-    return "fuente externa";
+    return fallback;
   }
 }
 
@@ -55,6 +115,9 @@ export function FeaturedBuildsSection({
   onReload,
   onUseAsTarget,
 }: FeaturedBuildsSectionProps) {
+  const t = useText(TEXT);
+  const { lang } = useLang();
+  const methodology = (lang === "en" ? result?.methodologyEn : undefined) ?? result?.methodology ?? [];
   if (!loading && !error && result && result.builds.length === 0) {
     return (
       <details
@@ -65,10 +128,10 @@ export function FeaturedBuildsSection({
           <span>
             <span className="rotulo-seccion flex items-center gap-2 text-primary/80">
               <Sparkles className="size-4" aria-hidden="true" />
-              Selección de la temporada
+              {t.kicker}
             </span>
             <span className="dossier-title mt-1 block text-xl font-semibold text-foreground">
-              10 builds destacadas
+              {t.title}
             </span>
           </span>
           <Badge
@@ -76,28 +139,26 @@ export function FeaturedBuildsSection({
             className="shrink-0 border-primary/45 bg-primary/10 px-3 py-1 text-primary"
             data-testid="featured-builds-count"
           >
-            0 / {result.slots} verificadas
+            {t.verifiedCount(0, result.slots)}
           </Badge>
         </summary>
         <div className="space-y-3 border-t border-border/70 px-5 py-4 sm:px-6">
           <p className="text-sm text-muted-foreground">
-            Aún no hay builds aprobadas para {result.league} · {result.patch}. No
-            reutilizamos builds de otro parche.
+            {t.noneYet(result.league, result.patch)}
           </p>
           <details className="rounded-md border border-border/70 bg-background/35 px-4 py-2.5">
             <summary className="rotulo-seccion flex min-h-9 cursor-pointer list-none items-center gap-2 text-muted-foreground marker:content-none hover:text-foreground">
               <ShieldCheck className="size-4 shrink-0 text-primary/70" aria-hidden="true" />
-              Criterios de entrada
+              {t.criteria}
             </summary>
             <ul className="mt-3 space-y-2 border-t border-border/60 pt-3 text-sm text-muted-foreground">
-              {result.methodology.map((rule) => (
+              {methodology.map((rule) => (
                 <li key={rule}>{rule}</li>
               ))}
             </ul>
           </details>
           <p className="text-xs text-muted-foreground">
-            Revisión: {result.selectionAsOf}. Elegir una build nunca sustituye tu
-            expediente actual.
+            {t.reviewNote(result.selectionAsOf)}
           </p>
         </div>
       </details>
@@ -111,13 +172,13 @@ export function FeaturedBuildsSection({
           <div>
             <p className="rotulo-seccion flex items-center gap-2 text-primary/80">
               <Sparkles className="size-4" aria-hidden="true" />
-              Selección de la temporada
+              {t.kicker}
             </p>
             <h2 className="dossier-title mt-2 text-3xl font-semibold text-foreground">
-              10 builds destacadas
+              {t.title}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Una selección editorial por utilidad, no una clasificación universal.
+              {t.editorial}
             </p>
           </div>
           <Badge
@@ -125,7 +186,7 @@ export function FeaturedBuildsSection({
             className="border-primary/45 bg-primary/10 px-3 py-1 text-primary"
             data-testid="featured-builds-count"
           >
-            {result ? `${result.builds.length} / ${result.slots} verificadas` : "10 plazas"}
+            {result ? t.verifiedCount(result.builds.length, result.slots) : t.tenSlots}
           </Badge>
         </div>
       </header>
@@ -140,12 +201,12 @@ export function FeaturedBuildsSection({
 
         {!loading && error && (
           <Alert variant="destructive">
-            <AlertTitle>No se pudo cargar la selección</AlertTitle>
+            <AlertTitle>{t.loadError}</AlertTitle>
             <AlertDescription className="mt-2 flex flex-wrap items-center gap-3">
               <span>{error}</span>
               <Button type="button" size="sm" variant="outline" onClick={onReload}>
                 <RefreshCw className="size-4" aria-hidden="true" />
-                Reintentar
+                {t.retry}
               </Button>
             </AlertDescription>
           </Alert>
@@ -172,7 +233,7 @@ export function FeaturedBuildsSection({
                       <h3 className="dossier-title text-2xl font-semibold">{build.title}</h3>
                       <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
                         <BookOpenCheck className="size-3.5" aria-hidden="true" />
-                        Verificada
+                        {t.verified}
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -182,27 +243,31 @@ export function FeaturedBuildsSection({
                   <div className="flex flex-wrap gap-1.5">
                     {build.categories.map((category) => (
                       <Badge key={category} variant="secondary">
-                        {CATEGORY_LABELS[category]}
+                        {t.categories[category]}
                       </Badge>
                     ))}
-                    <Badge variant="outline">{BUDGET_LABELS[build.budgetBand]}</Badge>
+                    <Badge variant="outline">{t.budgets[build.budgetBand]}</Badge>
                   </div>
                   <p className="text-sm leading-relaxed text-muted-foreground">{build.whyFeatured}</p>
-                  <p className="text-xs text-amber-200/80">Límite: {build.caveats[0]}</p>
+                  <p className="text-xs text-amber-200/80">{t.limit} {build.caveats[0]}</p>
                   <div className="mt-auto flex flex-wrap gap-2">
                     <Button type="button" size="sm" onClick={() => onUseAsTarget(build)}>
                       <Target className="size-4" aria-hidden="true" />
-                      Usar como objetivo
+                      {t.useAsTarget}
                     </Button>
                     <Button asChild type="button" size="sm" variant="outline">
                       <a
                         href={build.source.url}
                         target="_blank"
                         rel="noreferrer"
-                        aria-label={`Abrir ${build.source.label} de ${build.source.author} en ${sourceHost(build.source.url)}`}
+                        aria-label={t.openSourceAria(
+                          build.source.label,
+                          build.source.author,
+                          sourceHost(build.source.url, t.externalSource),
+                        )}
                       >
                         <ExternalLink className="size-4" aria-hidden="true" />
-                        Fuente · {sourceHost(build.source.url)}
+                        {t.source} · {sourceHost(build.source.url, t.externalSource)}
                       </a>
                     </Button>
                   </div>
@@ -214,8 +279,7 @@ export function FeaturedBuildsSection({
 
         {result && (
           <p className="text-xs text-muted-foreground">
-            Selección revisada el {result.selectionAsOf}. Una build se importa como plan de
-            destino; tu expediente actual permanece intacto.
+            {t.reviewedOn(result.selectionAsOf)}
           </p>
         )}
       </div>

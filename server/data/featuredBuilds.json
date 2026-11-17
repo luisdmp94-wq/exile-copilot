@@ -8,5 +8,11 @@
     "Una build de otro parche queda pendiente de revisión y no puede presentarse entre las diez actuales.",
     "El Copiloto enlaza la fuente original y usa la build únicamente como objetivo; nunca sustituye el personaje actual."
   ],
+  "methodologyEn": [
+    "Only Path of Exile 2 builds with a visible league, patch, author and source get in.",
+    "Popular doesn't mean best: the selection separates league start, mapping, bossing, survival, budget and SSF.",
+    "A build from another patch waits for review and can't show up among the current ten.",
+    "The Copilot links the original source and only uses the build as a target; it never replaces your current character."
+  ],
   "entries": []
 }

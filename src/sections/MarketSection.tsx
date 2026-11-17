@@ -36,6 +36,8 @@ import {
   formatNumber,
   GOAL_LABELS,
 } from "@/lib/format";
+import { useFormatLabels } from "@/lib/formatLabels";
+import { texts, useText } from "@/i18n/lang";
 
 interface MarketSectionProps {
   meta: MetaResponse | null;
@@ -54,13 +56,111 @@ interface MarketSectionProps {
 const GOALS = Object.keys(GOAL_LABELS) as GoalKind[];
 const CURRENCIES = Object.keys(CURRENCY_LABELS) as CurrencyKind[];
 
-/** Origen de las tasas de conversión, en lenguaje discreto para la UI. */
-const RATES_ORIGIN_LABELS: Record<"live" | "cache-fresh" | "cache-stale" | "fixture", string> = {
-  live: "en vivo (poe.ninja)",
-  "cache-fresh": "caché reciente",
-  "cache-stale": "caché antigua",
-  fixture: "datos de ejemplo",
-};
+type RatesOrigin = "live" | "cache-fresh" | "cache-stale" | "fixture";
+
+const TEXT = texts(
+  {
+    kicker: "Mercado",
+    title: "Qué puedes permitirte ahora",
+    query: "Consulta",
+    league: "Liga",
+    chooseLeague: "Elige una liga",
+    itemsToCheck: "Objetos a consultar",
+    namesPlaceholder: "p. ej. Exalted Orb, Chaos Orb",
+    useMyUniques: "Usar mis únicos",
+    missingLeague: "Falta: elige una liga",
+    missingItem: "Falta: escribe al menos un objeto",
+    querying: "Consultando…",
+    queryPrices: "Consultar precios",
+    errorTitle: "Error al consultar el mercado",
+    source: "Fuente:",
+    primaryCurrency: "Moneda primaria:",
+    checkedAt: (date: string) => `Consultado: ${date}`,
+    fromCache: "desde caché",
+    degradedBadge: "modo degradado",
+    statusAria: "Estado de verificación del mercado",
+    degradedTitle: "Precios degradados",
+    degradedBody: "Se muestran datos en caché o de ejemplo. Verifica cada precio antes de comprar.",
+    conversionTitle: "Conversión de divisas",
+    ratesReceived: (date: string) => `Tasas recibidas: ${date}`,
+    ratesUnverified: (origin: string) => `${origin} sin verificar.`,
+    noRates: "No hay tasas verificables.",
+    cannotConfirm:
+      " No se puede confirmar si un coste entra en el presupuesto; compara cada precio en su propia moneda.",
+    ratesOrigin: {
+      live: "en vivo (poe.ninja)",
+      "cache-fresh": "caché reciente",
+      "cache-stale": "caché antigua",
+      fixture: "datos de ejemplo",
+    } as Record<RatesOrigin, string>,
+    colItem: "Objeto",
+    colPrice: "Precio",
+    colCurrency: "Moneda",
+    colChecked: "Consultado",
+    notVerified: "No verificado",
+    unverifiedValue: "Valor de referencia sin verificar",
+    contextSummary: "Afinar presupuesto y objetivo (opcional)",
+    contextBody1: "Este contexto ayuda a interpretar los resultados, pero no hace falta para consultar precios.",
+    contextBody2: "Un dato sin verificar nunca se presenta como una compra segura.",
+    goal: "Objetivo",
+    budget: "Presupuesto (opcional)",
+    budgetPlaceholder: "Sin declarar",
+    noBudget: "No has declarado un límite. El Copiloto no usará una cifra de ejemplo para decidir por ti.",
+    budgetDeclared: (amount: number, currency: string) =>
+      `Límite declarado: ${amount} ${currency.toLocaleLowerCase("es")}.`,
+    budgetCurrency: "Moneda del presupuesto",
+  },
+  {
+    kicker: "Market",
+    title: "What you can afford right now",
+    query: "Price check",
+    league: "League",
+    chooseLeague: "Choose a league",
+    itemsToCheck: "Items to check",
+    namesPlaceholder: "e.g. Exalted Orb, Chaos Orb",
+    useMyUniques: "Use my uniques",
+    missingLeague: "Missing: choose a league",
+    missingItem: "Missing: type at least one item",
+    querying: "Checking…",
+    queryPrices: "Check prices",
+    errorTitle: "Couldn't check the market",
+    source: "Source:",
+    primaryCurrency: "Main currency:",
+    checkedAt: (date: string) => `Checked: ${date}`,
+    fromCache: "from cache",
+    degradedBadge: "fallback mode",
+    statusAria: "Market verification status",
+    degradedTitle: "Fallback prices",
+    degradedBody: "These are cached or example prices. Check each price before you buy.",
+    conversionTitle: "Currency conversion",
+    ratesReceived: (date: string) => `Rates received: ${date}`,
+    ratesUnverified: (origin: string) => `Rates ${origin}, not verified.`,
+    noRates: "No verifiable rates.",
+    cannotConfirm:
+      " We can't confirm whether a cost fits your budget; compare each price in its own currency.",
+    ratesOrigin: {
+      live: "live from poe.ninja",
+      "cache-fresh": "from a recent cache",
+      "cache-stale": "from an old cache",
+      fixture: "from example data",
+    } as Record<RatesOrigin, string>,
+    colItem: "Item",
+    colPrice: "Price",
+    colCurrency: "Currency",
+    colChecked: "Checked",
+    notVerified: "Not verified",
+    unverifiedValue: "Reference value, not verified",
+    contextSummary: "Fine-tune budget and goal (optional)",
+    contextBody1: "This helps read the results, but you don't need it to check prices.",
+    contextBody2: "Unverified data is never shown as a safe buy.",
+    goal: "Goal",
+    budget: "Budget (optional)",
+    budgetPlaceholder: "Not set",
+    noBudget: "You haven't set a limit. The Copilot won't use a made-up number to decide for you.",
+    budgetDeclared: (amount: number, currency: string) => `Your limit: ${amount} ${currency}.`,
+    budgetCurrency: "Budget currency",
+  },
+);
 
 export function MarketSection({
   meta,
@@ -75,6 +175,8 @@ export function MarketSection({
   onGoalChange,
   market,
 }: MarketSectionProps) {
+  const t = useText(TEXT);
+  const labels = useFormatLabels();
   const [namesText, setNamesText] = useState("");
   const [undeclaredCurrency, setUndeclaredCurrency] =
     useState<CurrencyKind>(budget?.currency ?? "exalted");
@@ -96,9 +198,9 @@ export function MarketSection({
   const leagueOptions =
     league && !leagues.includes(league) ? [league, ...leagues] : leagues;
   const missingRequirement = !league
-    ? "Falta: elige una liga"
+    ? t.missingLeague
     : !namesText.trim()
-      ? "Falta: escribe al menos un objeto"
+      ? t.missingItem
       : null;
 
   return (
@@ -106,25 +208,25 @@ export function MarketSection({
       <CardHeader className="border-b border-border/70 px-6 py-6">
         <p className="rotulo-seccion flex items-center gap-2 text-primary/70">
           <Radar className="size-4" aria-hidden="true" />
-          Mercado
+          {t.kicker}
         </p>
-        <CardTitle className="dossier-title text-3xl">Qué puedes permitirte ahora</CardTitle>
+        <CardTitle className="dossier-title text-3xl">{t.title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6 px-6 py-6">
         <div className="market-console flex flex-col gap-3 p-5">
           <p className="rotulo-seccion flex items-center gap-2 text-primary/70">
             <Database className="size-4" aria-hidden="true" />
-            Consulta
+            {t.query}
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(10rem,0.65fr)_minmax(0,1.35fr)]">
             <div className="intel-field">
-              <Label htmlFor="market-league">Liga</Label>
+              <Label htmlFor="market-league">{t.league}</Label>
               {metaLoading ? (
                 <Skeleton className="h-9 w-full" />
               ) : (
                 <Select value={league} onValueChange={onLeagueChange}>
                   <SelectTrigger id="market-league">
-                    <SelectValue placeholder="Elige una liga" />
+                    <SelectValue placeholder={t.chooseLeague} />
                   </SelectTrigger>
                   <SelectContent>
                     {leagueOptions.map((option) => (
@@ -137,14 +239,14 @@ export function MarketSection({
               )}
             </div>
             <div className="intel-field">
-              <Label htmlFor="market-names">Objetos a consultar</Label>
+              <Label htmlFor="market-names">{t.itemsToCheck}</Label>
               <div className="flex flex-wrap items-center gap-2">
                 <Input
                   id="market-names"
                   value={namesText}
                   onChange={(e) => setNamesText(e.target.value)}
                   onBlur={() => setTouched(true)}
-                  placeholder="p. ej. Exalted Orb, Chaos Orb"
+                  placeholder={t.namesPlaceholder}
                   className="min-w-56 flex-1"
                 />
                 {uniqueEquipmentNames.length > 0 && (
@@ -157,7 +259,7 @@ export function MarketSection({
                     }
                   >
                     <PackageSearch className="size-4" aria-hidden="true" />
-                    Usar mis únicos
+                    {t.useMyUniques}
                   </Button>
                 )}
               </div>
@@ -185,7 +287,7 @@ export function MarketSection({
               ) : (
                 <Coins className="size-4" aria-hidden="true" />
               )}
-              {loading ? "Consultando…" : "Consultar precios"}
+              {loading ? t.querying : t.queryPrices}
             </Button>
             {touched && missingRequirement && (
               <p className="text-sm font-medium text-amber-300" role="status" data-testid="market-missing-requirement">
@@ -204,7 +306,7 @@ export function MarketSection({
 
         {error && !loading && (
           <Alert variant="destructive">
-            <AlertTitle>Error al consultar el mercado</AlertTitle>
+            <AlertTitle>{t.errorTitle}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -213,25 +315,25 @@ export function MarketSection({
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>
-                Liga <span className="font-medium text-foreground">{prices.league}</span>{" "}
-                · Fuente: <span className="font-medium text-foreground">poe.ninja</span>
+                {t.league} <span className="font-medium text-foreground">{prices.league}</span>{" "}
+                · {t.source} <span className="font-medium text-foreground">poe.ninja</span>
                 {prices.primaryCurrency && (
                   <>
                     {" "}
-                    · Moneda primaria:{" "}
+                    · {t.primaryCurrency}{" "}
                     <span className="font-medium text-foreground">
-                      {CURRENCY_LABELS[prices.primaryCurrency]}
+                      {labels.currency[prices.primaryCurrency]}
                     </span>
                   </>
                 )}{" "}
-                · Consultado: {formatDateTime(prices.updatedAt)}
+                · {t.checkedAt(formatDateTime(prices.updatedAt))}
               </span>
               {prices.fromCache && (
                 <Badge
                   variant="outline"
                   className="border-border/60 text-muted-foreground"
                 >
-                  desde caché
+                  {t.fromCache}
                 </Badge>
               )}
               {prices.degraded && (
@@ -239,37 +341,38 @@ export function MarketSection({
                   variant="outline"
                   className="border-amber-500/40 bg-amber-500/15 text-amber-300"
                 >
-                  modo degradado
+                  {t.degradedBadge}
                 </Badge>
               )}
             </div>
             {(prices.degraded || prices.rates === null || !prices.rates.verified) && (
-              <div className="market-status-grid" aria-label="Estado de verificación del mercado">
+              <div className="market-status-grid" aria-label={t.statusAria}>
                 {prices.degraded && (
                   <div className="market-status-line">
                     <p className="rotulo-dato text-amber-300">
-                      Precios degradados
+                      {t.degradedTitle}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Se muestran datos en caché o de ejemplo. Verifica cada precio antes de comprar.
+                      {t.degradedBody}
                     </p>
                   </div>
                 )}
                 <div className="market-status-line">
                   <p className="rotulo-dato text-amber-300">
-                    Conversión de divisas
+                    {t.conversionTitle}
                   </p>
                   <p
                     className="text-sm text-muted-foreground"
                     title={
                       prices.rates
-                        ? `Tasas recibidas: ${formatDateTime(prices.rates.fetchedAt)}`
+                        ? t.ratesReceived(formatDateTime(prices.rates.fetchedAt))
                         : undefined
                     }
                   >
                     {prices.rates
-                      ? `${RATES_ORIGIN_LABELS[prices.rates.origin]} sin verificar.`
-                      : "No hay tasas verificables."} No se puede confirmar si un coste entra en el presupuesto; compara cada precio en su propia moneda.
+                      ? t.ratesUnverified(t.ratesOrigin[prices.rates.origin])
+                      : t.noRates}
+                    {t.cannotConfirm}
                   </p>
                 </div>
               </div>
@@ -277,10 +380,10 @@ export function MarketSection({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Objeto</TableHead>
-                  <TableHead className="text-right">Precio</TableHead>
-                  <TableHead>Moneda</TableHead>
-                  <TableHead>Consultado</TableHead>
+                  <TableHead>{t.colItem}</TableHead>
+                  <TableHead className="text-right">{t.colPrice}</TableHead>
+                  <TableHead>{t.colCurrency}</TableHead>
+                  <TableHead>{t.colChecked}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -295,7 +398,7 @@ export function MarketSection({
                               variant="outline"
                               className="w-fit border-border/60 text-muted-foreground"
                             >
-                              desde caché
+                              {t.fromCache}
                             </Badge>
                           )}
                           {!quote.verified && (
@@ -303,7 +406,7 @@ export function MarketSection({
                               variant="outline"
                               className="w-fit border-amber-500/40 bg-amber-500/10 text-amber-300"
                             >
-                              No verificado
+                              {t.notVerified}
                             </Badge>
                           )}
                         </div>
@@ -311,19 +414,19 @@ export function MarketSection({
                     </TableCell>
                     <TableCell className="text-right">
                       {quote.value === null ? (
-                        <span className="text-muted-foreground">No verificado</span>
+                        <span className="text-muted-foreground">{t.notVerified}</span>
                       ) : quote.verified ? (
                         formatNumber(quote.value)
                       ) : (
                         <span
                           className="text-muted-foreground/70"
-                          title="Valor de referencia sin verificar"
+                          title={t.unverifiedValue}
                         >
                           ~{formatNumber(quote.value)}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>{CURRENCY_LABELS[quote.currency]}</TableCell>
+                    <TableCell>{labels.currency[quote.currency]}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDateTime(quote.fetchedAt)}
                     </TableCell>
@@ -336,15 +439,14 @@ export function MarketSection({
 
         <details className="rounded-md border border-border/80 bg-background/35" data-testid="market-context-details">
           <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-foreground">
-            Afinar presupuesto y objetivo (opcional)
+            {t.contextSummary}
           </summary>
           <div className="grid grid-cols-1 gap-5 border-t border-border/70 p-4 sm:grid-cols-2">
             <p className="sm:col-span-2 text-sm leading-relaxed text-muted-foreground">
-              Este contexto ayuda a interpretar los resultados, pero no hace falta para consultar precios.
-              Un dato sin verificar nunca se presenta como una compra segura.
+              {t.contextBody1} {t.contextBody2}
             </p>
             <div className="intel-field">
-              <Label htmlFor="market-goal">Objetivo</Label>
+              <Label htmlFor="market-goal">{t.goal}</Label>
               <Select value={goal} onValueChange={(v) => onGoalChange(v as GoalKind)}>
                 <SelectTrigger id="market-goal">
                   <SelectValue />
@@ -352,7 +454,7 @@ export function MarketSection({
                 <SelectContent>
                   {GOALS.map((g) => (
                     <SelectItem key={g} value={g}>
-                      {GOAL_LABELS[g]}
+                      {labels.goal[g]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -361,14 +463,14 @@ export function MarketSection({
             <div className="intel-field">
               <Label htmlFor="market-budget" className="flex items-center gap-2">
                 <WalletCards className="size-3.5 text-primary" aria-hidden="true" />
-                Presupuesto (opcional)
+                {t.budget}
               </Label>
               <Input
                 id="market-budget"
                 type="number"
                 min={0}
                 value={budget?.amount ?? ""}
-                placeholder="Sin declarar"
+                placeholder={t.budgetPlaceholder}
                 onChange={(e) => {
                   if (e.target.value.trim() === "") {
                     onBudgetChange(null);
@@ -383,12 +485,12 @@ export function MarketSection({
               />
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                 {budget === null
-                  ? "No has declarado un límite. El Copiloto no usará una cifra de ejemplo para decidir por ti."
-                  : `Límite declarado: ${budget.amount} ${CURRENCY_LABELS[budget.currency].toLocaleLowerCase("es")}.`}
+                  ? t.noBudget
+                  : t.budgetDeclared(budget.amount, labels.currency[budget.currency])}
               </p>
             </div>
             <div className="intel-field sm:col-span-2">
-              <Label htmlFor="market-currency">Moneda del presupuesto</Label>
+              <Label htmlFor="market-currency">{t.budgetCurrency}</Label>
               <Select
                 value={budget?.currency ?? undeclaredCurrency}
                 onValueChange={(v) => {
@@ -403,7 +505,7 @@ export function MarketSection({
                 <SelectContent>
                   {CURRENCIES.map((currency) => (
                     <SelectItem key={currency} value={currency}>
-                      {CURRENCY_LABELS[currency]}
+                      {labels.currency[currency]}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -1433,6 +1433,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         slots: featuredBuildCatalog.slots,
         selectionAsOf: featuredBuildCatalog.selectionAsOf,
         methodology: featuredBuildCatalog.methodology,
+        ...(featuredBuildCatalog.methodologyEn !== undefined
+          ? { methodologyEn: featuredBuildCatalog.methodologyEn }
+          : {}),
         builds,
         pendingReview,
       });
