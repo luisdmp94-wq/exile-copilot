@@ -50,6 +50,16 @@ const EXPLAIN_PRIORITY_PATTERNS: readonly string[] = [
   "que me falla",
   "que esta mal",
   "en que fallo",
+  // Inglés
+  "why",
+  "reason",
+  "explain",
+  "main problem",
+  "my problem",
+  "whats wrong",
+  "what s wrong",
+  "what is wrong",
+  "what am i doing wrong",
 ];
 
 /** Frases que piden el SIGUIENTE PASO concreto. */
@@ -71,6 +81,20 @@ const NEXT_IMPROVEMENT_PATTERNS: readonly string[] = [
   "por donde sigo",
   "que toca",
   "que sigue",
+  // Inglés
+  "what should i",
+  "what do i",
+  "what to improve",
+  "what to upgrade",
+  "what can i improve",
+  "improve first",
+  "upgrade first",
+  "next step",
+  "first step",
+  "where do i start",
+  "what next",
+  "whats next",
+  "what s next",
 ];
 
 /**
@@ -96,6 +120,18 @@ const SURVIVAL_PATTERNS: readonly string[] = [
   "aguanto",
   "one shot",
   "oneshot",
+  // Inglés
+  "dying",
+  "keep dying",
+  "i die",
+  "i died",
+  "die so",
+  "deaths",
+  "survive",
+  "survival",
+  "tankier",
+  "squishy",
+  "one shotted",
 ];
 
 export type MentorQuestionFocus = "survival" | null;
@@ -113,6 +149,15 @@ const CONVERSATION_PATTERNS: readonly string[] = [
   "vale",
   "entendido",
   "ok",
+  // Inglés
+  "hi",
+  "hello",
+  "good morning",
+  "good evening",
+  "thanks",
+  "thank you",
+  "okay",
+  "got it",
 ];
 
 /**
@@ -125,6 +170,12 @@ const IDENTITY_PATTERNS: readonly string[] = [
   "como te llamas",
   "que puedes hacer",
   "para que sirves",
+  // Inglés
+  "who are you",
+  "what are you",
+  "whats your name",
+  "what is your name",
+  "what can you do",
 ];
 
 export function isMentorIdentityQuestion(question: string): boolean {

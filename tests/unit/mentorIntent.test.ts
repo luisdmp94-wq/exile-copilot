@@ -149,3 +149,14 @@ describe("foco supervivencia («¿por qué muero?»)", () => {
     expect(classifyMentorQuestion("hola").focus).toBeNull();
   });
 });
+
+describe("preguntas en inglés", () => {
+  it("reconoce las preguntas habituales en inglés", () => {
+    expect(classifyMentorQuestion("Why do I keep dying?")).toMatchObject({ intent: "explain_priority", focus: "survival" });
+    expect(classifyMentorQuestion("What should I improve first?").intent).toBe("next_improvement");
+    expect(classifyMentorQuestion("What is wrong with my build?").intent).toBe("explain_priority");
+    expect(classifyMentorQuestion("hello").intent).toBe("conversation");
+    expect(classifyMentorQuestion("thanks a lot").intent).toBe("conversation");
+    expect(classifyMentorQuestion("Who are you?").intent).toBe("conversation");
+  });
+});

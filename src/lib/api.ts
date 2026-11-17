@@ -238,6 +238,15 @@ async function request<S extends z.ZodTypeAny>(
   }
 }
 
+/**
+ * Idioma de la página (lo fija LangProvider en <html lang>). El Mentor lo usa
+ * para redactar en inglés; en español no se envía nada.
+ */
+function pageLangField(): { lang?: "en" } {
+  const html = (globalThis as { document?: { documentElement?: { lang?: string } } }).document?.documentElement;
+  return html?.lang === "en" ? { lang: "en" } : {};
+}
+
 function jsonInit(
   payload: unknown,
   method: "POST" | "PUT" | "PATCH" | "DELETE" = "POST",
@@ -466,7 +475,7 @@ export const api = {
 
   /** Conversación determinista con el mentor (Hito 6A). */
   mentorQuery: (payload: MentorQueryRequest): Promise<MentorQueryResponse> =>
-    request("/api/mentor/query", MentorQueryResponseSchema, jsonInit(payload), {
+    request("/api/mentor/query", MentorQueryResponseSchema, jsonInit({ ...payload, ...pageLangField() }), {
       timeoutMs: MENTOR_REQUEST_TIMEOUT_MS,
       timeoutMessage:
         "El Mentor tardó demasiado en responder. No se aplicó ningún cambio; inténtalo de nuevo.",

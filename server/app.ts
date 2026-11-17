@@ -1606,6 +1606,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           ...(body.target !== undefined ? { target: body.target } : {}),
           ...(body.contextEnvelope !== undefined ? { contextEnvelope: body.contextEnvelope } : {}),
           ...(body.conversation !== undefined ? { conversation: body.conversation } : {}),
+          ...(body.lang !== undefined ? { lang: body.lang } : {}),
           ...(blockedFeature !== null
             ? {
                 patchFeatureBlock: {

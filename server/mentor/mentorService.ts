@@ -77,6 +77,8 @@ export interface MentorQueryOptions {
   contextEnvelope?: ContextEnvelope;
   /** Historial visible, compacto y NO autoritativo. */
   conversation?: MentorConversationTurn[];
+  /** Idioma en el que redacta la IA; sin él, español. */
+  lang?: "es" | "en";
   /** Semilla anónima de servidor para antiabuso del proveedor; nunca procede del personaje. */
   safetyIdentifierSeed?: string;
   /**
@@ -1138,6 +1140,7 @@ async function buildAnswer(
     const decision = await selector.select(
       context,
       safetyIdentifier(options.safetyIdentifierSeed),
+      options.lang ?? "es",
     );
     validateDecision(decision, result.recommendations, missingById, intent, context);
 

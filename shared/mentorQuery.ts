@@ -149,6 +149,8 @@ export const MentorQueryRequestSchema = z.object({
   contextEnvelope: ContextEnvelopeSchema.optional(),
   /** Últimos turnos visibles; máximo deliberadamente pequeño. */
   conversation: z.array(MentorConversationTurnSchema).max(8).optional(),
+  /** Idioma en el que redacta la IA. Las reglas deciden igual en los dos. */
+  lang: z.enum(["es", "en"]).optional(),
 });
 export type MentorQueryRequest = z.infer<typeof MentorQueryRequestSchema>;
 
