@@ -36,8 +36,9 @@ describe("lectura de capturas: lo que devuelve la IA", () => {
     ]);
   });
 
-  it("si la IA inventa un nivel imposible, falla en vez de rellenar basura", () => {
-    expect(() => parseReaderOutput(`{"screen":"character","sheet":{"level":250},"skills":[]}`)).toThrow();
+  it("si la IA inventa un nivel imposible, ese dato se queda vacío: ni basura ni perder el resto", () => {
+    const result = parseReaderOutput(`{"screen":"character","sheet":{"level":250,"fire":28},"skills":[]}`);
+    expect(result.sheet).toMatchObject({ level: null, fire: 28 });
   });
 
   it("un nombre con mayúsculas normales se respeta", () => {

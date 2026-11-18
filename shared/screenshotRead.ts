@@ -18,12 +18,25 @@ export const ScreenshotReadRequestSchema = z
   .strict();
 export type ScreenshotReadRequest = z.infer<typeof ScreenshotReadRequestSchema>;
 
-const stat = (min: number, max: number) => z.number().int().min(min).max(max).nullable().default(null);
+/** «45», «+12» o «75 %» escritos como texto pasan a número; lo demás se deja como vino. */
+function toWhole(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const match = /^\s*([+-]?\d{1,6})\s*%?\s*$/.exec(value);
+  return match ? Number(match[1]) : value;
+}
+
+/**
+ * Un número leído de la captura. La IA a veces lo devuelve entre comillas o
+ * lee mal uno: ese dato se queda vacío, pero no se pierde el resto de la
+ * lectura. Nunca se corrige a ojo: fuera de rango es «no lo sé».
+ */
+const stat = (min: number, max: number) =>
+  z.preprocess(toWhole, z.number().int().min(min).max(max).nullable()).catch(null);
 
 export const ScreenshotSheetSchema = z.object({
   level: stat(1, 100),
   /** Clase o ascendencia tal como sale en la hoja («Liche»). */
-  className: z.string().trim().max(40).nullable().default(null),
+  className: z.string().trim().max(40).nullable().catch(null),
   life: stat(1, 100_000),
   energyShield: stat(0, 100_000),
   mana: stat(0, 100_000),
@@ -40,15 +53,28 @@ export type ScreenshotSheet = z.infer<typeof ScreenshotSheetSchema>;
 
 export const ScreenshotSkillSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  level: z.number().int().min(1).max(40).nullable().default(null),
+  level: stat(1, 40),
 });
 export type ScreenshotSkill = z.infer<typeof ScreenshotSkillSchema>;
 
+const MAX_SKILLS = 24;
+
+/** Las habilidades que se leen bien; una línea rara se salta sin tirar las demás. */
+function readableSkills(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .flatMap((item) => {
+      const skill = ScreenshotSkillSchema.safeParse(item);
+      return skill.success ? [skill.data] : [];
+    })
+    .slice(0, MAX_SKILLS);
+}
+
 export const ScreenshotReadResponseSchema = z.object({
-  /** Qué pantalla ha reconocido. */
-  screen: z.enum(["character", "skills", "other"]),
-  sheet: ScreenshotSheetSchema.nullable(),
-  skills: z.array(ScreenshotSkillSchema).max(24),
+  /** Qué pantalla ha reconocido. Una respuesta rara cuenta como «otra». */
+  screen: z.enum(["character", "skills", "other"]).catch("other"),
+  sheet: ScreenshotSheetSchema.nullable().catch(null),
+  skills: z.preprocess(readableSkills, z.array(ScreenshotSkillSchema).max(MAX_SKILLS)),
 });
 export type ScreenshotReadResponse = z.infer<typeof ScreenshotReadResponseSchema>;
 

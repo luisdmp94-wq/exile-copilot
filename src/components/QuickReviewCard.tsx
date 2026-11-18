@@ -351,6 +351,11 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
       if (sheet.cold !== null) values.cold = String(sheet.cold);
       if (sheet.lightning !== null) values.lightning = String(sheet.lightning);
       if (sheet.className) values.ascendancy = LICH.test(sheet.className) ? "lich" : "other";
+      // Reconoció la hoja pero no sacó ni un número claro: mejor decirlo que «0 datos».
+      if (Object.keys(values).length === 0) {
+        setReadError(t.pasteOther);
+        return;
+      }
       setMany(values);
       setReadNote(t.pasteSheet(Object.keys(values).length));
       return;
