@@ -155,6 +155,7 @@ import { ScreenshotReadRequestSchema } from "../shared/screenshotRead.js";
 import { createScreenshotReader, type ScreenshotReader } from "./advice/screenshotReader.js";
 import {
   AreaBeaconSchema,
+  VISIT_OWNER_HEADER,
   VISIT_SOURCE_HEADER,
   VisitBeaconSchema,
   looksLikeBot,
@@ -529,7 +530,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   };
   app.use((req, res, next) => {
     const event = USAGE_ROUTES[`${req.method} ${req.path}`];
-    if (event) {
+    // El navegador del dueño pide no contar: son sus pruebas, no jugadores.
+    if (event && req.get(VISIT_OWNER_HEADER) !== "1") {
       const source = sourceFromHeader(req.get(VISIT_SOURCE_HEADER));
       res.on("finish", () => {
         if (res.statusCode >= 400 || databaseClosed) return;

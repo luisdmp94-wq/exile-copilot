@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { classifySource, looksLikeBot, pageOf, sourceFromHeader } from "../../shared/visitStats.js";
 import { createDatabase } from "../../server/db/database.js";
 import { readStats, recordArea, recordUse, recordVisit } from "../../server/analytics.js";
-import { buildVisitBeacon, visitSource } from "../../src/lib/visitBeacon.js";
+import { buildVisitBeacon, isOwnerBrowser, visitSource } from "../../src/lib/visitBeacon.js";
 
 describe("de dónde llega una visita", () => {
   const own = "exilecopilot.com";
@@ -121,6 +121,15 @@ describe("aviso de visita del navegador", () => {
     store.clear();
     session.clear();
     delete (globalThis as { window?: unknown }).window;
+  });
+
+  it("reconoce el navegador del dueño por la clave de estadísticas guardada", () => {
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    expect(isOwnerBrowser()).toBe(false);
+    store.set("exile-copilot:clave-estadisticas", "   ");
+    expect(isOwnerBrowser()).toBe(false);
+    store.set("exile-copilot:clave-estadisticas", "una-clave-cualquiera");
+    expect(isOwnerBrowser()).toBe(true);
   });
 
   it("recuerda de dónde llegó la visita aunque recargue o cambie de página", () => {

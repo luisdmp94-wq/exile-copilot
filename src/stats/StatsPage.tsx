@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
-import { StatsResponseSchema, type StatsDay } from "@shared/visitStats";
+import { OWNER_KEY_STORAGE, StatsResponseSchema, type StatsDay } from "@shared/visitStats";
 import { FeedbackEntrySchema, type FeedbackEntry } from "@shared/feedback";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const KEY_STORAGE = "exile-copilot:clave-estadisticas";
+const KEY_STORAGE = OWNER_KEY_STORAGE;
 
 const SOURCE_LABELS: Record<string, string> = {
   directo: "Directo",
@@ -169,7 +169,8 @@ export function StatsPage() {
     <main className="mx-auto max-w-3xl px-4 py-8 text-foreground" data-testid="estadisticas">
       <h1 className="text-2xl font-bold">Visitas de Exile Copilot</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Cifras anónimas por día (hora UTC). No se guarda quién entra: solo cuántos, de dónde y qué usan.
+        Cifras anónimas por día (hora UTC). No se guarda quién entra: solo cuántos, de dónde y qué usan. Tus
+        visitas desde este navegador no cuentan mientras tenga guardada la clave.
       </p>
 
       {!days && (

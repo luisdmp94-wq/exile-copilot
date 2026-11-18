@@ -112,6 +112,15 @@ export type UsageEvent = (typeof USAGE_EVENTS)[number];
  */
 export const VISIT_SOURCE_HEADER = "x-visit-source";
 
+/**
+ * Clave del navegador donde el dueño guarda su clave de estadísticas. Quien
+ * la tiene es el dueño probando la web: sus visitas y usos no se cuentan,
+ * para que las cifras sean solo de jugadores.
+ */
+export const OWNER_KEY_STORAGE = "exile-copilot:clave-estadisticas";
+/** Cabecera con la que ese navegador pide que su uso no se sume. */
+export const VISIT_OWNER_HEADER = "x-visit-owner";
+
 /** Lee esa cabecera; cualquier cosa rara cuenta como «directo». */
 export function sourceFromHeader(value: string | undefined): VisitSource {
   const wanted = value?.trim().toLowerCase() ?? "";

@@ -84,8 +84,8 @@ import {
   type ReconcileSessionRequest,
 } from "@shared/api.js";
 import { pageLang } from "../i18n/lang";
-import { VISIT_SOURCE_HEADER } from "@shared/visitStats.js";
-import { visitSource } from "./visitBeacon";
+import { VISIT_OWNER_HEADER, VISIT_SOURCE_HEADER } from "@shared/visitStats.js";
+import { isOwnerBrowser, visitSource } from "./visitBeacon";
 import { ScreenshotReadResponseSchema, type ScreenshotReadResponse } from "@shared/screenshotRead.js";
 
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
@@ -165,9 +165,12 @@ async function parseJsonSafe(res: Response): Promise<unknown> {
 /** Dice de dónde llegó esta visita, para sumar el uso en su origen. Sin datos de la persona. */
 function withVisitSource(init?: RequestInit): RequestInit | undefined {
   const source = visitSource();
-  if (source === "directo") return init;
+  const owner = isOwnerBrowser();
+  if (source === "directo" && !owner) return init;
   const headers = new Headers(init?.headers);
-  headers.set(VISIT_SOURCE_HEADER, source);
+  if (source !== "directo") headers.set(VISIT_SOURCE_HEADER, source);
+  // El dueño probando su propia web: que su uso no se sume a las cifras.
+  if (owner) headers.set(VISIT_OWNER_HEADER, "1");
   return { ...init, headers };
 }
 

@@ -52,6 +52,25 @@ describe("contador de visitas por la API", () => {
     expect(after.days[0].visits).toBe(before.days[0].visits);
   });
 
+  it("el uso del dueño (su navegador guarda la clave) no se suma a las cifras", async () => {
+    const usesNow = async () =>
+      ((await (await fetch(`${base}/stats`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json()) as {
+        days: Array<{ uses: Record<string, number> }>;
+      }).days[0].uses.gema ?? 0;
+    const before = await usesNow();
+    const owner = await fetch(`${base}/advice/support-gem`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-visit-owner": "1" },
+      body: JSON.stringify({ skill: "Contagio", maxGrade: 1, attributes: ["Int"] }),
+    });
+    // La herramienta le responde igual: solo deja de contarse.
+    expect(owner.status).toBe(200);
+    expect(await usesNow()).toBe(before);
+    // Un jugador normal sí cuenta.
+    expect((await post(base, "/advice/support-gem", { skill: "Contagio", maxGrade: 1, attributes: ["Int"] })).status).toBe(200);
+    expect(await usesNow()).toBe(before + 1);
+  });
+
   it("rechaza visitas con datos que no son de la lista cerrada", async () => {
     expect((await post(base, "/visit", { page: "inicio", source: "foro-de-alguien", firstVisit: true, firstToday: true })).status).toBe(400);
     expect(

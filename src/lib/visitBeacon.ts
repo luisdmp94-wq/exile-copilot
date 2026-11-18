@@ -1,4 +1,5 @@
 import {
+  OWNER_KEY_STORAGE,
   classifySource,
   looksLikeBot,
   pageOf,
@@ -105,6 +106,14 @@ export function buildVisitBeacon(location: PageLocation, referrer: string, now =
   };
 }
 
+/**
+ * ¿Es el navegador del dueño? Lo es si guarda la clave de estadísticas. Sus
+ * visitas no se envían: probando la web a diario inflaba las cifras.
+ */
+export function isOwnerBrowser(): boolean {
+  return (read(OWNER_KEY_STORAGE) ?? "").trim() !== "";
+}
+
 const sentAreas = new Set<VisitArea>();
 
 /**
@@ -113,7 +122,7 @@ const sentAreas = new Set<VisitArea>();
  */
 export function sendAreaBeacon(area: VisitArea): void {
   try {
-    if (sentAreas.has(area)) return;
+    if (sentAreas.has(area) || isOwnerBrowser()) return;
     const page = globalThis as unknown as { navigator: { userAgent?: string; webdriver?: boolean } };
     if (looksLikeBot(page.navigator.userAgent, page.navigator.webdriver === true)) return;
     sentAreas.add(area);
@@ -151,6 +160,7 @@ export function sendVisitBeacon(): void {
   try {
     const page = globalThis as unknown as BrowserPage;
     if (looksLikeBot(page.navigator.userAgent, page.navigator.webdriver === true)) return;
+    if (isOwnerBrowser()) return;
     // La dirección de entrada, antes de que la web la cambie (/guias/acto-1…).
     const location: PageLocation = {
       pathname: page.location.pathname,
