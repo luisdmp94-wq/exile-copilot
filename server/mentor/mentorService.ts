@@ -424,7 +424,7 @@ function incompleteProfileAnswer(
       ? `Before picking an improvement I need your real character. Missing: ${missing}. ` +
         "Open \"Complete character\" and copy that data from PoE2; I won't turn a partial plan into observed stats."
       : `Antes de elegir una mejora necesito completar tu personaje real. Faltan: ${missing}. ` +
-        "Abre «Completar expediente» y copia esos datos desde PoE2; no convertiré un plan parcial en estadísticas observadas.",
+        "Abre «Completar personaje» y copia esos datos desde PoE2; no convertiré un plan parcial en estadísticas observadas.",
     nextAction: null,
     usedRecommendationIds: [],
     relatedItemIds: [],
@@ -486,7 +486,7 @@ function craftingContextAnswer(
               ? `El contexto del personaje apunta a ${craftingBuildIntentLabel(state.buildIntent)}; elige cuál trabajar antes de gastar.`
               : state.buildIntent.alignment === "conflict"
                 ? `Revisa el encaje: el contexto apunta a ${craftingBuildIntentLabel(state.buildIntent)}, no al objetivo actual.`
-                : "El expediente no demuestra una prioridad de crafting para esta pieza.";
+                : "El personaje no demuestra una prioridad de crafting para esta pieza.";
         const protection = state.protectedModifierCount === 0
           ? "No has marcado ninguna línea como intocable."
           : `Has marcado ${state.protectedModifierCount} ${

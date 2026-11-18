@@ -916,7 +916,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         throw new ApiHttpError(
           413,
           "expediente-demasiado-grande",
-          "El expediente supera el máximo de 512 KiB. Reduce notas o elementos importados antes de guardarlo.",
+          "El personaje supera el máximo de 512 KiB. Reduce notas o elementos importados antes de guardarlo.",
         );
       }
       characterForVisitor(profile.id, res, { allowMissing: true });
@@ -1347,7 +1347,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         throw new ApiHttpError(
           422,
           "personaje-incompleto",
-          `Completa el expediente antes de iniciar una decisión recomendada: ${readiness.issues
+          `Completa tu personaje antes de iniciar una decisión recomendada: ${readiness.issues
             .map((issue) => issue.label.toLocaleLowerCase("es"))
             .join(", ")}.`,
         );
@@ -1583,7 +1583,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         throw new ApiHttpError(
           422,
           "personaje-incompleto",
-          `Completa el expediente antes de generar recomendaciones: ${readiness.issues
+          `Completa tu personaje antes de generar recomendaciones: ${readiness.issues
             .map((issue) => issue.label.toLocaleLowerCase("es"))
             .join(", ")}.`,
         );

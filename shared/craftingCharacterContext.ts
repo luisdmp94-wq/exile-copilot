@@ -153,7 +153,7 @@ function requirementCheck(
           ? "The craft changed attributes: your character's saved total still describes the previous item."
           : `These character attributes are missing: ${unknown.join(", ")}.`
         : attributeChanged
-          ? "El craft cambió atributos: el total del expediente todavía describe el objeto anterior."
+          ? "El craft cambió atributos: el total del personaje todavía describe el objeto anterior."
           : `Faltan estos atributos del personaje: ${unknown.join(", ")}.`,
     );
     return {
@@ -263,7 +263,7 @@ export function evaluateCraftingCharacterContext(input: {
       facts.push(
         en
           ? `Your character file has elemental resistances below ${LOW_ELEMENTAL_RESISTANCE}%: ${lowElemental.join(", ")}.`
-          : `El expediente tiene resistencias elementales bajo ${LOW_ELEMENTAL_RESISTANCE}%: ${lowElemental.join(", ")}.`,
+          : `El personaje tiene resistencias elementales bajo ${LOW_ELEMENTAL_RESISTANCE}%: ${lowElemental.join(", ")}.`,
       );
     }
   }
@@ -350,7 +350,7 @@ export function evaluateCraftingCharacterContext(input: {
     title: en ? "Not enough to judge it yet" : "Aún no hay base para juzgarlo",
     summary: en
       ? "The change is confirmed, but your character's data doesn't show it solves your goal. Decide by trying it in game."
-      : "El cambio está confirmado, pero el expediente no demuestra que resuelva tu objetivo. Decide con la prueba en juego.",
+      : "El cambio está confirmado, pero el personaje no demuestra que resuelva tu objetivo. Decide con la prueba en juego.",
     requirementStatus: requirements.requirementStatus,
     requirementLabel: requirements.requirementLabel,
     protectionLabel,

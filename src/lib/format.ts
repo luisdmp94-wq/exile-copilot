@@ -30,8 +30,20 @@ const DEFAULT_VALUES_EN: Record<string, string> = {
 };
 
 /** Nombre, clase o liga para enseñar: traduce solo los valores por defecto. */
+/**
+ * En español casi todo se enseña tal cual. La excepción es la marca del
+ * borrador que nace al pegar un objeto: se guarda como «Expediente
+ * provisional» (así la reconocen los datos ya guardados) y se enseña como
+ * «Personaje provisional».
+ */
+const DEFAULT_VALUES_ES_DISPLAY: Record<string, string> = {
+  "Expediente provisional": "Personaje provisional",
+};
+
 export function displayProfileValue(value: string): string {
-  return pageLang() === "en" ? englishProfileValue(value) : value;
+  return pageLang() === "en"
+    ? englishProfileValue(value)
+    : (DEFAULT_VALUES_ES_DISPLAY[value.trim()] ?? value);
 }
 
 /** Lo mismo, pero siempre en inglés (para textos que ya son ingleses). */
@@ -48,7 +60,8 @@ DEFAULT_VALUES_ES.set("Unknown", "Desconocida");
  * valor por defecto («New character»), se guarda la marca interna de siempre.
  */
 export function storeProfileValue(value: string): string {
-  return pageLang() === "en" ? (DEFAULT_VALUES_ES.get(value) ?? value) : value;
+  if (pageLang() === "en") return DEFAULT_VALUES_ES.get(value) ?? value;
+  return value === "Personaje provisional" ? "Expediente provisional" : value;
 }
 
 /**

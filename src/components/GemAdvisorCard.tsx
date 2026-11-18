@@ -52,7 +52,7 @@ const TEXT = texts(
     coreCount: (count: number) => `${count} cosa(s) marcadas como core.`,
     discardedCount: (count: number) => `${count} descartada(s) que no te propondré.`,
     unknownBuild:
-      "Aún no sé qué build es. Escribe el arquetipo en el Expediente (por ejemplo «brujo de caos con esbirros») o marca lo esencial en «Identidad de la build», y afinaré mucho más.",
+      "Aún no sé qué build es. Escribe el arquetipo en tu personaje (por ejemplo «brujo de caos con esbirros») o marca lo esencial en «Identidad de la build», y afinaré mucho más.",
     whatToKnow: "Qué quieres saber",
     oneSkill: "Para una habilidad",
     manyGems: "Tengo varias gemas",

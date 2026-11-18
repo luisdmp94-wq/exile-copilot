@@ -608,7 +608,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] las cuatro áreas conservan nombres completos en ancho intermedio`,
       intermediateNavigation.map((tab) => tab.label.toLocaleLowerCase("es")).join("|") ===
-        "expediente|plan|crafting|guías" &&
+        "personaje|plan|crafting|guías" &&
         intermediateNavigation.every((tab) => !tab.clipped),
     );
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -843,9 +843,9 @@ async function runFlow(mode, port) {
       await context.request.get(`${BASE}/api/character/${standaloneCharacterId}`)
     ).json();
     check(
-      `[${mode}] el objeto pegado en la portada crea un expediente provisional, no un «Nuevo personaje»`,
+      `[${mode}] el objeto pegado en la portada crea un personaje provisional, no un «Nuevo personaje»`,
       standaloneSaved.profile?.name === "Expediente provisional" &&
-        (await page.getByTestId("franja-personaje").innerText()).includes("Expediente provisional"),
+        (await page.getByTestId("franja-personaje").innerText()).includes("Personaje provisional"),
     );
     await page.reload({ waitUntil: "networkidle" });
     const restoredStandaloneCoach = page.getByTestId("crafting-coach");
@@ -1003,7 +1003,7 @@ async function runFlow(mode, port) {
         (await partialReadiness.innerText()).includes("Equipo:") &&
         !(await page.getByRole("button", { name: "Generar recomendaciones" }).isEnabled()) &&
         (await partialReadiness
-          .getByRole("button", { name: "Completar expediente" })
+          .getByRole("button", { name: "Completar personaje" })
           .isVisible()),
     );
     await page.getByTestId("mentor-briefing-toggle").click();
@@ -2094,7 +2094,7 @@ async function runFlow(mode, port) {
     const halfDoneGate = page.getByTestId("recommendations-readiness");
     await halfDoneGate.waitFor({ state: "visible", timeout: 15000 });
     const halfDoneId = await page.evaluate(() => localStorage.getItem("exile-copilot:characterId"));
-    await halfDoneGate.getByRole("button", { name: "Completar expediente" }).click();
+    await halfDoneGate.getByRole("button", { name: "Completar personaje" }).click();
     await page.getByTestId("alta-rapida").waitFor({ timeout: 15000 });
     check(
       `[${mode}] «Completar expediente» abre el alta corta y no el formulario largo`,

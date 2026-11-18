@@ -1139,7 +1139,7 @@ async function runFlow(mode, port) {
     await confirmarDescarte.waitFor({ timeout: 10000 });
     check(
       `[${mode}] descartar el craft exige confirmar la pérdida antes de cerrar`,
-      (await confirmarDescarte.innerText()).includes("sin actualizar tu expediente") &&
+      (await confirmarDescarte.innerText()).includes("sin actualizar tu personaje") &&
         (await confirmarDescarte.getByRole("button", { name: "Sí, descartar" }).isVisible()),
     );
     await confirmarDescarte.getByRole("button", { name: "Seguir con la comprobación" }).click();

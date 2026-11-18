@@ -39,7 +39,7 @@ const TEXT = texts(
     irreversibleText: "Acción irreversible: no podrás deshacerla. Asegúrate antes de continuar.",
     saveNextStep: "Guardar como próximo paso",
     tryAndReturn: "Probar y volver",
-    editFile: "Editar expediente",
+    editFile: "Editar personaje",
     seeItem: "Ver el objeto evaluado",
     gateNote:
       "El mentor frena este paso hasta resolver el conflicto o la evidencia. Continúa en «Comprobar una decisión», más abajo.",

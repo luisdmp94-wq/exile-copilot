@@ -118,18 +118,18 @@ const TEXT = texts(
     startFromRecommendation: "Comprobar la recomendación actual",
     manualExpectedResult: "El cambio que quieres comprobar.",
     pauseReason: "Pausa para conservar el recurso o esperar un mejor momento.",
-    abandonCraftReason: "Craft cerrado sin actualizar el expediente con el resultado de PoE2.",
+    abandonCraftReason: "Craft cerrado sin actualizar el personaje con el resultado de PoE2.",
     abandonReason: "Comprobación cerrada por decisión del jugador.",
     importWarnings: (warnings: string) => `Importación con avisos: ${warnings}`,
     characterNotUpdated:
-      "No se actualizó el expediente. La sesión sigue abierta: puedes reintentar sin volver a gastar ninguna moneda.",
+      "No se actualizó el personaje. La sesión sigue abierta: puedes reintentar sin volver a gastar ninguna moneda.",
     craftUseful: (outcome: string) => `El jugador indica que el resultado sirve para «${outcome}».`,
     craftNotUseful: (outcome: string) =>
       `El jugador indica que el resultado no sirve para «${outcome}».`,
     resultAccepted: "Resultado aceptado",
     resultDiscarded: "Resultado descartado",
     notClosed: (message: string) =>
-      `${message} La sesión no se ha dado por cerrada; revisa el expediente y reintenta.`,
+      `${message} La sesión no se ha dado por cerrada; revisa el personaje y reintenta.`,
     kindLabels: SESSION_KIND_LABELS,
     statusLabels: SESSION_STATUS_LABELS,
     conclusionLabels: CONCLUSION_LABELS,
@@ -185,9 +185,9 @@ const TEXT = texts(
     yesWorks: "Sí, me sirve",
     notWhatIWanted: "No era lo que buscaba",
     saveForLater: "Guardar para seguir más tarde",
-    discardNoUpdate: "Descartar sin actualizar el expediente",
+    discardNoUpdate: "Descartar sin actualizar el personaje",
     confirmNote:
-      "Al confirmar solo se guarda la comparación y se actualiza tu copia del expediente. El objeto de PoE2 ya cambió dentro del juego.",
+      "Al confirmar solo se guarda la comparación y se actualiza tu copia del personaje. El objeto de PoE2 ya cambió dentro del juego.",
     discardCheck: "Descartar esta comprobación",
     nextAction: "Próxima acción",
     thenObserve: "Después, observa",
@@ -212,8 +212,8 @@ const TEXT = texts(
     tellMePlaceholder:
       "Por ejemplo: aguanto mejor, pero los bosses siguen acercándose demasiado.",
     subjectiveCheckbox:
-      "Es mi experiencia al jugar, no una medición. Desmárcalo solo si has actualizado el expediente con datos comprobados.",
-    updateCharacter: "Actualizar expediente antes de cerrar",
+      "Es mi experiencia al jugar, no una medición. Desmárcalo solo si has actualizado el personaje con datos comprobados.",
+    updateCharacter: "Actualizar personaje antes de cerrar",
     unexpectedSummary: "Resultado inesperado o condición de reapertura",
     valuablePlaceholder: "Si salió otra cosa valiosa, nómbrala para protegerla",
     reopenPlaceholder: "Reevaluar si esa condición pasa a ser consistente",
@@ -232,7 +232,7 @@ const TEXT = texts(
     whyChanged: "Por qué hemos cambiado de plan",
     discardDialogTitle: "¿Descartar esta comprobación?",
     discardDialogBody:
-      "Se cerrará el proyecto sin actualizar tu expediente con el resultado de PoE2. Si solo quieres continuar otro día, vuelve y elige «Guardar para seguir más tarde».",
+      "Se cerrará el proyecto sin actualizar tu personaje con el resultado de PoE2. Si solo quieres continuar otro día, vuelve y elige «Guardar para seguir más tarde».",
     keepChecking: "Seguir con la comprobación",
     yesDiscard: "Sí, descartar",
   },

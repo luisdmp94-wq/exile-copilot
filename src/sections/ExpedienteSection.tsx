@@ -14,7 +14,7 @@ const TEXT = texts(
     equipment: "Equipo",
     unverified: (count: number) =>
       `${count} dato(s) sin verificar — ver «Evidencia y limitaciones»`,
-    editProfile: "Editar expediente",
+    editProfile: "Editar personaje",
     restoring: "Restaurando tu último personaje…",
   },
   {

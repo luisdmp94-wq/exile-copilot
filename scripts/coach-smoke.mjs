@@ -662,7 +662,7 @@ async function runFlow(mode, port) {
     const ownProfileEquipment = await page.getByTestId("equipment-grid").innerText();
     check(
       `[${mode}] una pieza propia pegada desde una demo restaurada abandona el perfil ficticio`,
-      ownProfileTitle === "Expediente provisional" &&
+      ownProfileTitle === "Personaje provisional" &&
         ownProfileEquipment.includes("Núcleo de fénix") &&
         !ownProfileEquipment.includes("Doom Song") &&
         !ownProfileEquipment.includes("Gale Crown"),
@@ -671,7 +671,7 @@ async function runFlow(mode, port) {
     await irA(page, "expediente");
     check(
       `[${mode}] el expediente propio separado sobrevive sin equipo ficticio`,
-      (await page.locator("#expediente-titulo").innerText()) === "Expediente provisional" &&
+      (await page.locator("#expediente-titulo").innerText()) === "Personaje provisional" &&
         (await page.getByTestId("equipment-grid").innerText()).includes("Núcleo de fénix") &&
         !(await page.getByTestId("equipment-grid").innerText()).includes("Doom Song"),
     );
@@ -1037,7 +1037,7 @@ async function runFlow(mode, port) {
       `[${mode}] «arquera de hielo» se convierte directamente en un contrato de frío`,
       (await page.getByTestId("coach-direccion-elegida").innerText()).includes("daño de hielo") &&
         (await baseAssessment.getAttribute("data-status")) === "controlled-attempt" &&
-        (await page.getByTestId("coach-base-personaje").innerText()).includes("expediente") &&
+        (await page.getByTestId("coach-base-personaje").innerText()).includes("Vinculada a") &&
         (await page.getByTestId("coach-base-objetivo").innerText()).includes("daño de hielo") &&
         (await page.getByTestId("coach-base-decision").innerText()).includes("apuesta limitada"),
     );
@@ -1440,7 +1440,7 @@ async function runFlow(mode, port) {
     await sinEvidencia.waitFor({ timeout: 10000 });
     check(
       `[${mode}] «No sé qué necesita» separa carencia, encaje de pieza y decisión`,
-      /expediente declara/.test(await sinEvidencia.innerText()) &&
+      /personaje declara/.test(await sinEvidencia.innerText()) &&
         /%/.test(await sinEvidencia.innerText()) &&
         (await page.getByTestId("coach-contexto-encaje-pieza").innerText()).includes(
           "sea la pieza adecuada",
@@ -1472,7 +1472,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] sin carencia comprobable dice que no puede decidirlo y ofrece salida`,
       (await page.getByTestId("coach-sin-evidencia").innerText()).includes(
-        "No encuentro una prioridad concreta en tu plan ni una carencia medible en el expediente.",
+        "No encuentro una prioridad concreta en tu plan ni una carencia medible en el personaje.",
       ) &&
         (await page.getByTestId("coach-elegir-damage").isVisible()) &&
         (await page.getByTestId("coach-elegir-defence").isVisible()) &&
@@ -1841,7 +1841,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la navegación móvil muestra los tres nombres completos`,
       mobileWorkspaceLabels.map(({ text }) => text).join("|") ===
-        "Expediente|Plan|Crafting" &&
+        "Personaje|Plan|Crafting" &&
         mobileWorkspaceLabels.every(({ clipped }) => !clipped),
     );
     await page.setViewportSize({ width: 390, height: 844 });

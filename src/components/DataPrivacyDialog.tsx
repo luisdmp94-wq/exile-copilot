@@ -35,25 +35,25 @@ const TEXT = texts(
     mentorUnknown: "No se pudo comprobar ahora mismo si la asistencia externa está activa.",
     mentorRules: "Ahora usa solo las reglas verificables de Exile Copilot. Tus consultas no se envían a un proveedor de IA externo.",
     mentorAi: (provider: string) =>
-      `Al preguntar se envían a ${provider} tu pregunta, hasta ocho turnos y un resumen de clase, defensas, objetivo, presupuesto, equipo y decisión activa. No se envían tu nombre de personaje, cookie, id de expediente, tooltips completos ni resultados libres del diario. Si falla, responden las reglas. Si pegas una captura en la revisión rápida, la imagen se envía a ${provider} solo para leer los números; no la guardamos (ten en cuenta que en ella puede verse tu nombre de personaje).`,
+      `Al preguntar se envían a ${provider} tu pregunta, hasta ocho turnos y un resumen de clase, defensas, objetivo, presupuesto, equipo y decisión activa. No se envían tu nombre de personaje, cookie, id de personaje, tooltips completos ni resultados libres del diario. Si falla, responden las reglas. Si pegas una captura en la revisión rápida, la imagen se envía a ${provider} solo para leer los números; no la guardamos (ten en cuenta que en ella puede verse tu nombre de personaje).`,
     open: "Privacidad y datos",
     title: "Tus datos, sin letra pequeña",
     intro: "Esto es lo que hace hoy Exile Copilot. No presupone una cuenta ni una sincronización que todavía no existen.",
     sessionTitle: "Sesión anónima",
-    sessionText: "No creamos una cuenta. Una cookie privada enlaza este navegador con tu expediente y no puede leerla JavaScript.",
+    sessionText: "No creamos una cuenta. Una cookie privada enlaza este navegador con tu personaje y no puede leerla JavaScript.",
     storedTitle: "Qué se guarda",
     storedText:
-      "En el servidor: tus personajes, objetos, decisiones, sesiones y hasta ocho turnos completos del Mentor ligados a tu sesión anónima y a cada personaje. En este navegador: progreso de Academia y proyectos de Crafting. Otro visitante no puede abrir tus expedientes ni sus conversaciones. Además, un contador anónimo suma cuántas visitas hay cada día, de qué sitio llegan (por ejemplo, Reddit) y qué herramientas se usan; no guarda tu IP, tu sesión ni nada que te identifique. Si usas «Avisar de un problema», guardamos tu mensaje y, si los dejas marcados, el navegador, el tamaño de pantalla y el área; se borran a los 90 días.",
+      "En el servidor: tus personajes, objetos, decisiones, sesiones y hasta ocho turnos completos del Mentor ligados a tu sesión anónima y a cada personaje. En este navegador: progreso de Academia y proyectos de Crafting. Otro visitante no puede abrir tus personajes ni sus conversaciones. Además, un contador anónimo suma cuántas visitas hay cada día, de qué sitio llegan (por ejemplo, Reddit) y qué herramientas se usan; no guarda tu IP, tu sesión ni nada que te identifique. Si usas «Avisar de un problema», guardamos tu mensaje y, si los dejas marcados, el navegador, el tamaño de pantalla y el área; se borran a los 90 días.",
     mentorTitle: "Cómo responde el Mentor",
     recoveryTitle: "Recuperación actual",
     recoveryText:
-      "Si se pierde la referencia local, la cookie privada permite redescubrir el expediente reciente. Al cambiar, puedes elegir cualquiera de los personajes guardados en esa sesión mediante resúmenes que no incluyen equipo ni notas. No hay recuperación entre dispositivos; borrar la cookie rompe ese vínculo.",
+      "Si se pierde la referencia local, la cookie privada permite redescubrir el personaje reciente. Al cambiar, puedes elegir cualquiera de los personajes guardados en esa sesión mediante resúmenes que no incluyen equipo ni notas. No hay recuperación entre dispositivos; borrar la cookie rompe ese vínculo.",
     musicTitle: "Música mediante YouTube",
     musicText:
-      "Abrir el reproductor no contacta con terceros. Solo si pulsas “Reproducir con YouTube” se crea el reproductor externo; YouTube puede recibir tu dirección IP y datos técnicos del navegador. Exile Copilot no envía tu personaje ni tu expediente con esa petición.",
+      "Abrir el reproductor no contacta con terceros. Solo si pulsas “Reproducir con YouTube” se crea el reproductor externo; YouTube puede recibir tu dirección IP y datos técnicos del navegador. Exile Copilot no envía tu personaje ni tu personaje con esa petición.",
     deleteTitle: "Borrar todos mis datos",
     deleteText:
-      "Elimina de forma irreversible tus expedientes, objetos, diario, memoria, sesiones, conversación guardada del Mentor y proyectos de Crafting. Después empezarás con una sesión nueva.",
+      "Elimina de forma irreversible tus personajes, objetos, diario, memoria, sesiones, conversación guardada del Mentor y proyectos de Crafting. Después empezarás con una sesión nueva.",
     deleteButton: "Borrar mis datos",
     confirmTitle: "¿Borrar todo definitivamente?",
     confirmText: "No podrás recuperar los personajes apartados ni sus decisiones. Los datos de otros visitantes no se tocarán.",

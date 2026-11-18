@@ -64,8 +64,8 @@ const TEXT = texts(
     readinessMissing: (missing: string) =>
       `Falta: ${missing}. Complétalo y te respondo; no me invento lo que no sé de tu personaje.`,
     readinessPending: (question: string) =>
-      `Tu pregunta queda guardada: «${question}». Te respondo en cuanto completes el expediente.`,
-    readinessButton: "Completar expediente",
+      `Tu pregunta queda guardada: «${question}». Te respondo en cuanto completes el personaje.`,
+    readinessButton: "Completar personaje",
     patchTitle: (patchId: string) => `El mentor está esperando la revisión de ${patchId}`,
     patchBody: (summary: string) =>
       `${summary} No propondrá mejoras ni acciones mecánicas usando datos del parche anterior.`,

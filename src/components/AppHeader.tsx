@@ -22,7 +22,7 @@ const TEXT = texts(
   {
     tagline: "Mentor de builds y crafting para Path of Exile 2",
     homeLabel: "Ir al inicio de Exile Copilot",
-    homeTitle: "Volver al expediente",
+    homeTitle: "Volver al personaje",
     openMentor: "Abrir Mentor",
     addCharacter: "Añadir personaje",
     mentorShort: "Mentor",

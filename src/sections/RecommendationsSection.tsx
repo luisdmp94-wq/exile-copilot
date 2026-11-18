@@ -41,15 +41,15 @@ const TEXT = texts(
     incompleteTitle: (count: number) =>
       count === 1 ? "Me falta 1 dato para recomendarte" : `Me faltan ${count} datos para recomendarte`,
     versionIssueBody:
-      "No generaremos recomendaciones hasta que el árbol pasivo coincida con el parche del expediente.",
+      "No generaremos recomendaciones hasta que el árbol pasivo coincida con el parche del personaje.",
     incompleteBody: "Con lo que hay todavía no puedo comparar tu personaje sin inventarme datos. Completa esto:",
     gearOnlyBody:
       "Para recomendarte equipo necesito ver al menos una pieza tuya: cópiala en el juego con Ctrl+C y pégala. Mientras tanto, la revisión rápida ya te dice qué te frena.",
     openReview: "Ir a la revisión rápida",
-    completeProfile: "Completar expediente",
+    completeProfile: "Completar personaje",
     needCharacterTitle: "Necesitas un personaje primero",
     needCharacterBody:
-      "Carga el ejemplo o importa tu build en «Editar expediente» para poder generar recomendaciones.",
+      "Carga el ejemplo o importa tu build en «Editar personaje» para poder generar recomendaciones.",
     loadDemo: "Cargar ejemplo",
     errorTitle: "Error al generar recomendaciones",
     emptyTitle: "Sin recomendaciones todavía",

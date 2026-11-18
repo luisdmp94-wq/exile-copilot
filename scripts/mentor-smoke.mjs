@@ -298,7 +298,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] una respuesta tardía no pisa el contexto nuevo`,
       (await page.getByTestId("mentor-contextual-titulo").innerText()).includes(
-        "Has vuelto al expediente",
+        "Has vuelto al personaje",
       ) && (await page.getByTestId("mentor-contextual-respuesta").count()) === 0,
     );
 

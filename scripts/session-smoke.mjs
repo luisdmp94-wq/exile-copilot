@@ -432,7 +432,7 @@ async function runFlow(mode, port) {
     await page.getByText("Problema resuelto", { exact: true }).click();
     await page.locator("#session-result").fill("Cerramos este paso con un resultado medido.");
     await page
-      .getByLabel("Es mi experiencia al jugar, no una medición. Desmárcalo solo si has actualizado el expediente con datos comprobados.")
+      .getByLabel("Es mi experiencia al jugar, no una medición. Desmárcalo solo si has actualizado el personaje con datos comprobados.")
       .uncheck();
     await page.getByRole("button", { name: "Guardar resultado" }).click();
     // Cerrada deja de dominar el caso abierto: vuelve a «Comprobar una decisión».

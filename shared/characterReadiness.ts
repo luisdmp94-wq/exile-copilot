@@ -99,7 +99,7 @@ export function assessCharacterReadiness(
     issues.push({
       id: "version",
       label: "Versión de árbol",
-      detail: `El árbol pasivo importado es ${treeVersion} (familia ${treeFamily}), pero el expediente usa ${profile.patch}. Convierte la build en PoB2 y vuelve a importarla.`,
+      detail: `El árbol pasivo importado es ${treeVersion} (familia ${treeFamily}), pero el personaje usa ${profile.patch}. Convierte la build en PoB2 y vuelve a importarla.`,
       labelEn: "Tree version",
       detailEn: `The imported passive tree is ${treeVersion} (family ${treeFamily}), but your character uses ${profile.patch}. Convert the build in PoB2 and import it again.`,
     });

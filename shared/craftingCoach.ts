@@ -711,7 +711,7 @@ export function suggestDirectionFromCharacter(
     direction: "defence",
     reason: en
       ? `Your character file shows ${detalle}, below ${LOW_ELEMENTAL_RESISTANCE}%.`
-      : `Tu expediente declara ${detalle}, por debajo de ${LOW_ELEMENTAL_RESISTANCE}%.`,
+      : `Tu personaje declara ${detalle}, por debajo de ${LOW_ELEMENTAL_RESISTANCE}%.`,
   };
 }
 
@@ -1257,7 +1257,7 @@ function stopForUnverifiedContextGoal(
     kind: "stop",
     legality: "blocked",
     headline: "No gastes a ciegas en esta pieza",
-    instruction: `El expediente señala que tu personaje necesita ${focusLabel}, pero «${item.name || item.baseType}» no muestra una línea reconocible de ese objetivo. Cambia de pieza o comprueba dentro de PoE2 una base adecuada antes de usar moneda.`,
+    instruction: `Tu personaje necesita ${focusLabel}, pero «${item.name || item.baseType}» no muestra una línea reconocible de ese objetivo. Cambia de pieza o comprueba dentro de PoE2 una base adecuada antes de usar moneda.`,
     why: "Una carencia del personaje no demuestra que esta pieza pueda resolverla. Como no conozco las probabilidades de cada modificador, recomendarte una moneda sería hacerte apostar sin que lo hayas pedido.",
     reviewInExpediente: false,
     needsAdvancedTools: false,
@@ -1374,7 +1374,7 @@ export function assessPurposefulCraftBase(input: {
         ? `${profile?.name ?? "Your character"} is loaded; this item isn't equipped.`
         : "No character loaded: I'll only use the goal you wrote."
     : linked
-      ? `Vinculada al expediente de ${profile?.name ?? "tu personaje"}.`
+      ? `Vinculada a ${profile?.name ?? "tu personaje"}.`
       : hasCharacter
         ? `${profile?.name ?? "Tu personaje"} está cargado; esta pieza no está equipada.`
         : "Sin personaje cargado: usaré solo el objetivo que has escrito.";
@@ -1474,7 +1474,7 @@ export function assessPurposefulCraftBase(input: {
       title: en ? "Your stop point is already met" : "Tu parada ya se cumple",
       summary: en
         ? `${why} Before risking another slot, check the current roll on your character.`
-        : `${why} Antes de arriesgar otro hueco, revisa la tirada actual en tu expediente.`,
+        : `${why} Antes de arriesgar otro hueco, revisa la tirada actual en tu personaje.`,
       characterContext,
       characterLabel,
       targetLabel,
@@ -1701,7 +1701,7 @@ export function suggestCraftingFocusFromContext(
         : "I can't find a clear priority in your plan or a measurable gap on your character."
       : target && target.desiredMods.length === 0
         ? `Tu plan «${target.name || "Build objetivo"}» todavía no declara mods deseados que pueda relacionar con esta pieza.`
-        : "No encuentro una prioridad concreta en tu plan ni una carencia medible en el expediente.",
+        : "No encuentro una prioridad concreta en tu plan ni una carencia medible en el personaje.",
     evidence: [],
   };
 }

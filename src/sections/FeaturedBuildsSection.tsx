@@ -42,7 +42,7 @@ const TEXT = texts(
       `Aún no hay builds aprobadas para ${league} · ${patch}. No reutilizamos builds de otro parche.`,
     criteria: "Criterios de entrada",
     reviewNote: (date: string) =>
-      `Revisión: ${date}. Elegir una build nunca sustituye tu expediente actual.`,
+      `Revisión: ${date}. Elegir una build nunca sustituye tu personaje actual.`,
     editorial: "Una selección editorial por utilidad, no una clasificación universal.",
     loadError: "No se pudo cargar la selección",
     retry: "Reintentar",
@@ -52,7 +52,7 @@ const TEXT = texts(
     openSourceAria: (label: string, author: string, host: string) => `Abrir ${label} de ${author} en ${host}`,
     source: "Fuente",
     reviewedOn: (date: string) =>
-      `Selección revisada el ${date}. Una build se importa como plan de destino; tu expediente actual permanece intacto.`,
+      `Selección revisada el ${date}. Una build se importa como plan de destino; tu personaje actual permanece intacto.`,
   },
   {
     categories: {

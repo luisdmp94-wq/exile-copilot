@@ -157,7 +157,7 @@ describe("lectura contextual del resultado de crafting", () => {
 
     expect(context.verdict).toBe("review");
     expect(context.requirementStatus).toBe("unknown");
-    expect(context.limitations.join(" ")).toContain("total del expediente");
+    expect(context.limitations.join(" ")).toContain("total del personaje");
   });
 
   it("relaciona una resistencia nueva con huecos defensivos conocidos sin calcular su efecto", () => {

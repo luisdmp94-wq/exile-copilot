@@ -74,7 +74,7 @@ const TEXT = texts(
     benchFlow: "Prepara aquí · ejecuta en PoE2 · vuelve y compara.",
     itemCount: (count: number) => `${count} pieza(s)`,
     otherDecisionTitle: "Ya hay otra decisión en curso",
-    otherDecisionDetail: "Termina o pausa el caso abierto del expediente antes de empezar un craft. Nunca mantenemos dos próximas acciones simultáneas.",
+    otherDecisionDetail: "Termina o pausa el caso abierto del personaje antes de empezar un craft. Nunca mantenemos dos próximas acciones simultáneas.",
     savedWithoutBlocking: "Guardado sin bloquear el banco",
     pausedCount: (count: number) => (count === 1 ? "Tienes un craft pausado" : `Tienes ${count} crafts pausados`),
     resumeNote: "Reanudamos este craft pausado.",

@@ -197,14 +197,14 @@ const TEXT = texts(
   {
     alignedTitle: (label: string) => `Alineado con ${label}`,
     alignedTarget: "Tu build objetivo declara esta prioridad; aún falta confirmar que esta base pueda cubrirla.",
-    alignedResistances: "El expediente demuestra la carencia, pero no que esta pieza sea la mejor ranura para resolverla.",
+    alignedResistances: "El personaje demuestra la carencia, pero no que esta pieza sea la mejor ranura para resolverla.",
     alignedProfile: "Coincide con el objetivo general que elegiste para el personaje.",
     choiceTitle: (label: string) => `El personaje apunta a ${label}`,
     choiceDetail: "Elige qué necesidad quieres trabajar primero; el Mentor no ordenará prioridades por ti.",
     conflictTitle: (label: string) => `Revisa el objetivo: el contexto apunta a ${label}`,
     conflictDetail: (goal: string) =>
-      `Ahora has elegido ${goal}. Puedes mantenerlo, pero el expediente no demuestra esa prioridad.`,
-    unknownTitle: "Sin prioridad demostrada por el expediente",
+      `Ahora has elegido ${goal}. Puedes mantenerlo, pero el personaje no demuestra esa prioridad.`,
+    unknownTitle: "Sin prioridad demostrada por el personaje",
     unknownDetail: "Puedes diseñar el craft, pero la app no afirmará que resuelve una necesidad de tu personaje.",
     actionStatus: {
       compatible: "Compatible con la estructura",

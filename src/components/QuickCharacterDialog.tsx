@@ -13,7 +13,14 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { texts, useLang, useText } from "@/i18n/lang";
 
-/** Clases tal como las nombra el cliente en español. */
+/**
+ * Clases que se pueden jugar hoy, tal como las nombra el cliente en español.
+ *
+ * Templario, Merodeador, Duelista y Sombra existen en el árbol oficial de
+ * 0.5.5, pero sin ninguna ascendencia: están reservadas y aún no se pueden
+ * elegir (comprobado el 18-11-2026 en grindinggear/poe2-skilltree-export y en
+ * poe2db). Se añaden aquí cuando el juego las abra.
+ */
 export const CHARACTER_CLASSES = [
   "Bruja",
   "Hechicera",
@@ -23,10 +30,6 @@ export const CHARACTER_CLASSES = [
   "Exploradora",
   "Cazadora",
   "Druida",
-  "Templario",
-  "Merodeador",
-  "Duelista",
-  "Sombra",
 ] as const;
 
 /** Las mismas clases con su nombre en el cliente en inglés. */
@@ -39,10 +42,6 @@ const CLASS_EN: Record<(typeof CHARACTER_CLASSES)[number], string> = {
   Exploradora: "Ranger",
   Cazadora: "Huntress",
   Druida: "Druid",
-  Templario: "Templar",
-  Merodeador: "Marauder",
-  Duelista: "Duelist",
-  Sombra: "Shadow",
 };
 
 /** La clase guardada (en cualquiera de los dos idiomas) → su nombre en español, que es el que usa el formulario. */

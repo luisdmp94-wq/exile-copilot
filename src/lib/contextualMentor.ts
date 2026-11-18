@@ -162,7 +162,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         id: `ready:${event.profileName}`,
         source: "guide",
         eyebrow: "Mentor presente",
-        title: `He cargado el expediente de ${event.profileName}`,
+        title: `Ya tengo cargado a ${event.profileName}`,
         message:
           "Abre una pieza, cambia tu objetivo o genera recomendaciones: te explicaré qué significa cada decisión sin perder el contexto.",
         ask: {
@@ -178,7 +178,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         title: `Me faltan datos de ${event.profileName}`,
         message:
           event.missing.length === 1 && GEAR_LABELS.has(event.missing[0] ?? "")
-            ? "Para recomendarte equipo necesito ver al menos una pieza tuya. Mientras tanto, la revisión rápida del expediente ya te dice qué te frena."
+            ? "Para recomendarte equipo necesito ver al menos una pieza tuya. Mientras tanto, la revisión rápida del personaje ya te dice qué te frena."
             : event.missing.length > 0
               ? `Me falta: ${event.missing.join(", ")}. Complétalo y te digo qué mejorar primero.`
               : "Completa los datos de tu personaje y te digo qué mejorar primero.",
@@ -226,7 +226,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
             id: "workspace:expediente",
             source: "guide",
             eyebrow: "Cambio de contexto",
-            title: "Has vuelto al expediente",
+            title: "Has vuelto al personaje",
             message:
               "Aquí manda tu personaje real: equipo, memoria, caso abierto y la única próxima acción.",
             ask: {
@@ -432,7 +432,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
             ? `el personaje apunta a ${craftingBuildIntentLabel(state.buildIntent)}; falta elegir`
             : state.buildIntent.alignment === "conflict"
               ? `encaje por revisar: el contexto apunta a ${craftingBuildIntentLabel(state.buildIntent)}`
-              : "el expediente no demuestra una prioridad para esta pieza";
+              : "el personaje no demuestra una prioridad para esta pieza";
       const phaseCopy = {
         blocked: "lectura bloqueada",
         base: "selección de base",
@@ -553,11 +553,11 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         id: "editor:open",
         source: "guide",
         eyebrow: "Calidad del diagnóstico",
-        title: "Cuanto mejor sea el expediente, mejor será el consejo",
+        title: "Cuanto más sepa de tu personaje, mejor será el consejo",
         message:
           "Corrige solo datos que puedas confirmar. Un valor desconocido es más útil que un cero inventado.",
         ask: {
-          question: "¿Qué debería mejorar primero al completar mi expediente?",
+          question: "¿Qué debería mejorar primero al completar mi personaje?",
           intent: "next_improvement",
         },
       };
@@ -665,12 +665,12 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
       return {
         id: "profile:saved",
         source: "engine",
-        eyebrow: "Expediente actualizado",
+        eyebrow: "Personaje actualizado",
         title: "Los cambios ya forman parte del diagnóstico",
         message:
           "Las recomendaciones y respuestas anteriores pueden haber quedado obsoletas. Genera un diagnóstico nuevo antes de gastar.",
         ask: {
-          question: "He guardado mi expediente. ¿Qué debería mejorar primero ahora?",
+          question: "He guardado mi personaje. ¿Qué debería mejorar primero ahora?",
           intent: "next_improvement",
         },
       };
