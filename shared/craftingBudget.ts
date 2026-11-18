@@ -80,7 +80,7 @@ export function assessCraftingBudget(input: {
   if (input.budget.amount < requiredAmount) {
     return {
       status: "over-budget",
-      title: en ? "The plan goes over your limit" : "El contrato supera tu límite",
+      title: en ? "The plan goes over your limit" : "El plan supera tu límite",
       detail: en
         ? `Plan: ${requiredAmount} ${requiredAmount === 1 ? "Exalted Orb" : "Exalted Orbs"}. ` +
           `Limit: ${budgetLabel}. Cut steps or change the budget before spending.`

@@ -995,7 +995,7 @@ function structuralWarning(
     resultRarity === item.rarity
   ) {
     return en
-      ? `This takes you to the observed limit of ${diagnosis.observedTotalLimit}. After that, nothing else will fit.`
+      ? `This takes you to the limit of ${diagnosis.observedTotalLimit}. After that, nothing else will fit.`
       : `Con esto llegas al límite observado de ${diagnosis.observedTotalLimit}. Después no cabrá nada más.`;
   }
   return null;
@@ -1042,9 +1042,9 @@ export function chooseNextStep(
           ? "Keep it and try it on your character. These four orbs can't add anything else."
           : "Don't spend any orb on this item yet.",
         why: full
-          ? `It has the ${diagnosis.observedTotalLimit} modifiers of the observed limit. Adding another would mean replacing one, which is a different operation and carries risk.`
+          ? `It already has ${diagnosis.observedTotalLimit} modifiers, which is the limit. Adding another would mean replacing one, which is a different operation and carries risk.`
           : evaluations.find((entry) => entry.status !== "compatible")?.reason ??
-            "None of the observed orbs fits the item's current state.",
+            "None of the basic orbs fits the item's current state.",
         reviewInExpediente: false,
         needsAdvancedTools: full,
         evidence: evaluations.map((entry) => `${actionLabel(entry.action.id, lang)}: ${entry.reason}`),
@@ -1266,13 +1266,13 @@ function stopForUnverifiedContextGoal(
       legality: "blocked",
       headline: "Don't spend blindly on this item",
       instruction: `Your character needs ${focusLabelEn}, but "${item.name || item.baseType}" shows no line I recognise for that goal. Switch items or check a suitable base inside PoE2 before using any orb.`,
-      why: "A gap in your character doesn't prove this item can fill it. Without verified modifier pools or odds, recommending an orb would turn a suggestion into a gamble you didn't ask for.",
+      why: "A gap in your character doesn't prove this item can fill it. I don't know the odds of each modifier, so recommending an orb would turn a suggestion into a gamble you didn't ask for.",
       reviewInExpediente: false,
       needsAdvancedTools: false,
       evidence: [
         `Your character's context points to ${focusLabelEn}.`,
         `The copied item has no line I recognise as ${focusLabelEn}.`,
-        "There are no verified modifier pools or odds to steer the next result.",
+        "I don't know the odds of each modifier, so I can't steer the next result.",
       ],
     };
   }
@@ -1282,13 +1282,68 @@ function stopForUnverifiedContextGoal(
     legality: "blocked",
     headline: "No gastes a ciegas en esta pieza",
     instruction: `El expediente señala que tu personaje necesita ${focusLabel}, pero «${item.name || item.baseType}» no muestra una línea reconocible de ese objetivo. Cambia de pieza o comprueba dentro de PoE2 una base adecuada antes de usar moneda.`,
-    why: "Una carencia del personaje no demuestra que esta pieza pueda resolverla. Sin pools ni probabilidades verificadas, recomendar una moneda convertiría una sugerencia contextual en una apuesta no solicitada.",
+    why: "Una carencia del personaje no demuestra que esta pieza pueda resolverla. Como no conozco las probabilidades de cada modificador, recomendarte una moneda sería hacerte apostar sin que lo hayas pedido.",
     reviewInExpediente: false,
     needsAdvancedTools: false,
     evidence: [
       `El contexto del personaje señala ${focusLabel}.`,
       `La pieza copiada no contiene una línea reconocible de ${focusLabel}.`,
-      "No hay pools ni probabilidades verificadas que permitan dirigir el siguiente resultado.",
+      "No conozco las probabilidades de cada modificador, así que no puedo dirigir el siguiente resultado.",
+    ],
+  };
+}
+
+/**
+ * Por debajo de este nivel la pieza es de subida: el jugador la cambia en
+ * pocos niveles (la campaña termina hacia el 65). Gastar un Orbe exaltado al
+ * azar en ella casi nunca compensa.
+ */
+export const LEVELLING_ITEM_LEVEL = 45;
+
+/** Nivel de una pieza de subida (su requisito o, si falta, su nivel de objeto); null si no lo es. */
+export function levellingItemLevel(item: Item): number | null {
+  const level = item.requirements?.level ?? item.itemLevel ?? null;
+  return level !== null && level < LEVELLING_ITEM_LEVEL ? level : null;
+}
+
+function stopForLevellingItem(
+  item: Item,
+  focus: CoachFocus,
+  level: number,
+  currencyLabel: string,
+  lang: CoachLang = "es",
+): Extract<CoachNextStep, { kind: "stop" }> {
+  const name = item.name || item.baseType;
+  if (lang === "en") {
+    const focusLabelEn = COACH_FOCUS_LABELS_EN[focus];
+    return {
+      kind: "stop",
+      legality: "blocked",
+      headline: `Keep your ${currencyLabel}`,
+      instruction: `"${name}" is a level ${level} item. Instead of spending, look for another one with ${focusLabelEn}: check the vendors in town (their stock changes as you level up) and what enemies drop.`,
+      why: `The ${currencyLabel} adds one random modifier. On an item you'll replace in a few levels, you'd most likely spend it without feeling the difference. It's worth more on an item you'll wear for a long time.`,
+      reviewInExpediente: false,
+      needsAdvancedTools: false,
+      evidence: [
+        `Item level: ${level}.`,
+        `The item has no line I recognise as ${focusLabelEn}.`,
+        `The ${currencyLabel} doesn't let you choose the modifier.`,
+      ],
+    };
+  }
+  const focusLabel = COACH_FOCUS_LABELS[focus];
+  return {
+    kind: "stop",
+    legality: "blocked",
+    headline: `Guarda el ${currencyLabel}`,
+    instruction: `«${name}» es una pieza de nivel ${level}. En vez de gastar, busca otra con ${focusLabel}: mira los vendedores de la ciudad (cambian de género al subir de nivel) y lo que sueltan los enemigos.`,
+    why: `El ${currencyLabel} añade un modificador al azar. En una pieza que vas a cambiar en pocos niveles, lo más probable es gastarlo sin notar la diferencia. Te rinde más en una pieza que vayas a llevar mucho tiempo.`,
+    reviewInExpediente: false,
+    needsAdvancedTools: false,
+    evidence: [
+      `Nivel de la pieza: ${level}.`,
+      `La pieza no tiene una línea reconocible de ${focusLabel}.`,
+      `El ${currencyLabel} no deja elegir el modificador.`,
     ],
   };
 }
@@ -1346,7 +1401,7 @@ export function assessPurposefulCraftBase(input: {
       ? `Vinculada al expediente de ${profile?.name ?? "tu personaje"}.`
       : hasCharacter
         ? `${profile?.name ?? "Tu personaje"} está cargado; esta pieza no está equipada.`
-        : "Sin expediente: usaré solo el objetivo que has escrito.";
+        : "Sin personaje cargado: usaré solo el objetivo que has escrito.";
 
   if (goalIntent !== "incremental") {
     const unique = goalIntent === "unique-acquisition";
@@ -1376,7 +1431,7 @@ export function assessPurposefulCraftBase(input: {
       characterLabel,
       targetLabel: unique
         ? "Falta el único concreto y su comparación."
-        : "Falta el contrato completo de la pieza de endgame.",
+        : "Falta el plan completo de la pieza de endgame.",
       decisionLabel: unique ? "Ir a búsqueda y comparación." : "Abrir el Taller avanzado.",
       nextStep: stopForProjectDefinition(item, goalIntent),
     };
@@ -1478,11 +1533,11 @@ export function assessPurposefulCraftBase(input: {
         : signal.status === "direct" ? "Esta base no admite otro paso básico" : "No inviertas más en esta base",
       summary: en
         ? signal.status === "direct"
-          ? `The item points to ${focusLabel}, but the observed basic orbs can't add anything else.`
-          : `The item doesn't show ${focusLabel} and the observed basic orbs can't add anything else. Look for another base.`
+          ? `The item points to ${focusLabel}, but the basic orbs can't add anything else.`
+          : `The item doesn't show ${focusLabel} and the basic orbs can't add anything else. Look for another base.`
         : signal.status === "direct"
-          ? `La pieza apunta a ${focusLabel}, pero las monedas básicas observadas ya no pueden añadir nada.`
-          : `La pieza no muestra ${focusLabel} y las monedas básicas observadas ya no pueden añadir nada. Busca otra base.`,
+          ? `La pieza apunta a ${focusLabel}, pero las monedas básicas ya no pueden añadir nada.`
+          : `La pieza no muestra ${focusLabel} y las monedas básicas ya no pueden añadir nada. Busca otra base.`,
       characterContext,
       characterLabel,
       targetLabel,
@@ -1506,6 +1561,32 @@ export function assessPurposefulCraftBase(input: {
     };
   }
 
+  // Pieza de subida sin la línea buscada: el Exaltado sería una apuesta a
+  // ciegas sobre algo que el jugador va a cambiar enseguida. Antes la tarjeta
+  // recomendaba gastarlo y, a la vez, decía que no podía dirigirlo.
+  const levellingLevel = levellingItemLevel(item);
+  if (
+    signal.status !== "direct" &&
+    structuralStep.kind === "use-currency" &&
+    structuralStep.actionId === "exalted" &&
+    levellingLevel !== null
+  ) {
+    return {
+      status: "change-base",
+      title: en ? "Better to switch items" : "Mejor cambia de pieza",
+      summary: en
+        ? `It's a level ${levellingLevel} item: you'll replace it soon as you level up. The ${structuralStep.label} adds a random line and can't be steered towards ${focusLabel}.`
+        : `Es una pieza de nivel ${levellingLevel}: la cambiarás pronto mientras subes de nivel. El ${structuralStep.label} añade una línea al azar y no puedo dirigirlo hacia ${focusLabel}.`,
+      characterContext,
+      characterLabel,
+      targetLabel,
+      decisionLabel: en
+        ? `Keep the ${structuralStep.label} and look for another item.`
+        : `Guarda el ${structuralStep.label} y busca otra pieza.`,
+      nextStep: stopForLevellingItem(item, focus, levellingLevel, structuralStep.label, lang),
+    };
+  }
+
   if (signal.status === "direct") {
     return {
       status: "aligned",
@@ -1517,8 +1598,8 @@ export function assessPurposefulCraftBase(input: {
       characterLabel,
       targetLabel,
       decisionLabel: en
-        ? `At most, ${structuralStep.label} within your plan.`
-        : `Como máximo, ${structuralStep.label} dentro del contrato.`,
+        ? `At most, ${structuralStep.label} within your limit.`
+        : `Como máximo, ${structuralStep.label} dentro del límite.`,
       nextStep: structuralStep,
     };
   }
@@ -1527,8 +1608,8 @@ export function assessPurposefulCraftBase(input: {
     status: "controlled-attempt",
     title: en ? "Only worth one controlled try" : "Solo merece un intento controlado",
     summary: en
-      ? `The base doesn't show ${focusLabel} yet. The next orb can be used, but it can't be steered towards that goal.`
-      : `La base todavía no demuestra ${focusLabel}. La siguiente moneda es legal, pero no puede dirigirse hacia ese objetivo.`,
+      ? `The base doesn't show ${focusLabel} yet. You can use the next orb, but the result is random: I can't steer it towards that goal.`
+      : `La base todavía no demuestra ${focusLabel}. Puedes usar la siguiente moneda, pero sale al azar: no puedo dirigirla hacia ese objetivo.`,
     characterContext,
     characterLabel,
     targetLabel,
@@ -1957,7 +2038,7 @@ export function readPurposefulCraftResult(input: {
               ? `Limit reached: ${focusLabel} appeared, but it doesn't reach ${rollMinimumLabel}. Even for a loose item, your written plan is enough to close this try; switch bases or knowingly accept the roll.`
               : `${capitalizeFirst(focusLabel ?? "")} appeared, but it doesn't reach ${rollMinimumLabel}. Since it's a loose item I can't compare it with your gear; decide whether you accept the roll before spending another orb.`
             : attemptProgress.remaining === 0
-              ? `Límite alcanzado: apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Aunque es un objeto suelto, el contrato escrito basta para cerrar este intento; cambia de base o acepta conscientemente la tirada.`
+              ? `Límite alcanzado: apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Aunque es un objeto suelto, el límite que pusiste basta para cerrar este intento; cambia de base o acepta la tirada sabiendo lo que es.`
               : `Apareció ${focusLabel}, pero no llega a ${COACH_ROLL_MINIMUM_LABELS[rollMinimum]}. Como es un objeto suelto no puedo compararlo con tu equipo; decide si aceptas la tirada antes de gastar otra moneda.`,
           nextStep: null,
           goalFit,
@@ -2012,7 +2093,7 @@ export function readPurposefulCraftResult(input: {
         decisionKind: "continue",
         verdictText: en
           ? `The result doesn't give ${focusLabel}. Since it's a loose item I can't judge how it fits your build, but your written plan allows ${attemptProgress.remaining === 1 ? "1 more step" : `${attemptProgress.remaining} more steps`}. Check the next allowed action; don't repeat it on autopilot.`
-          : `El resultado no aporta ${focusLabel}. Como es un objeto suelto no puedo juzgar su encaje con la build, pero el contrato escrito permite ${attemptProgress.remaining === 1 ? "1 paso más" : `${attemptProgress.remaining} pasos más`}. Revisa la siguiente acción legal; no la repitas automáticamente.`,
+          : `El resultado no aporta ${focusLabel}. Como es un objeto suelto no puedo juzgar su encaje con la build, pero tu límite permite ${attemptProgress.remaining === 1 ? "1 paso más" : `${attemptProgress.remaining} pasos más`}. Mira el siguiente paso antes de darlo; no lo repitas sin pensar.`,
         nextStep: base.nextStep,
         goalFit,
         directionNote,
@@ -2030,7 +2111,7 @@ export function readPurposefulCraftResult(input: {
       decisionKind: "restart",
       verdictText: en
         ? `Limit reached: the result doesn't give ${focusLabel}. Even for a loose item, your written goal is enough to close this try. Don't spend another orb out of habit: try another base or rethink your plan.`
-        : `Límite alcanzado: el resultado no aporta ${focusLabel}. Aunque es un objeto suelto, el objetivo escrito basta para cerrar este intento. No gastes otra moneda por inercia: prueba otra base o redefine el contrato.`,
+        : `Límite alcanzado: el resultado no aporta ${focusLabel}. Aunque es un objeto suelto, el objetivo escrito basta para cerrar este intento. No gastes otra moneda por inercia: prueba otra base o cambia el objetivo.`,
       nextStep: null,
       goalFit,
       directionNote,
@@ -2154,7 +2235,7 @@ export function readPurposefulCraftResult(input: {
       decisionKind: "restart",
       verdictText: en
         ? "Limit reached: this result doesn't meet the goal. Close the try and switch bases or rethink your plan; don't add another orb out of habit."
-        : "Límite alcanzado: este resultado no cumple el objetivo. Cierra el intento y cambia de base o redefine el contrato; no añadas otra moneda por inercia.",
+        : "Límite alcanzado: este resultado no cumple el objetivo. Cierra el intento y cambia de base o cambia el objetivo; no añadas otra moneda por inercia.",
       nextStep: null,
       goalFit,
       directionNote,
@@ -2178,7 +2259,7 @@ export function readPurposefulCraftResult(input: {
       decisionKind: "continue",
       verdictText: en
         ? `This step doesn't meet the goal. You have ${attemptProgress.remaining === 1 ? "1 step" : `${attemptProgress.remaining} steps`} left within your limit: check the next allowed action again and decide; don't repeat it on autopilot.`
-        : `El paso no cumple el objetivo. Te ${attemptProgress.remaining === 1 ? "queda 1 paso" : `quedan ${attemptProgress.remaining} pasos`} dentro del límite: vuelve a comprobar la siguiente acción legal y decide; no la repitas automáticamente.`,
+        : `El paso no cumple el objetivo. Te ${attemptProgress.remaining === 1 ? "queda 1 paso" : `quedan ${attemptProgress.remaining} pasos`} dentro del límite: mira el siguiente paso y decide; no lo repitas sin pensar.`,
       nextStep: base.nextStep,
       goalFit,
       directionNote,

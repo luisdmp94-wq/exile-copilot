@@ -92,7 +92,7 @@ describe("decisión siguiente tras observar un craft", () => {
 
     expect(decision.kind).toBe("continue");
     expect(decision.observedOpenSlots).toBe(1);
-    expect(decision.nextAction).toContain("siguiente acción legal");
+    expect(decision.nextAction).toContain("ver el siguiente paso");
   });
 
   it("para y conserva cuando el resultado útil ya ocupa los seis huecos", () => {

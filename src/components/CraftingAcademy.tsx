@@ -109,7 +109,7 @@ const TEXT = texts(
       `You got ${correct} of ${total} right. It only shows what you understood from these lessons: it's not a crafting chance or a rating of any item.`,
     toReview: "Worth reviewing",
     allClear:
-      "You can read rarity, count prefixes and suffixes, spot an open slot and choose between the four observed currencies or stopping.",
+      "You can read rarity, count prefixes and suffixes, spot an open slot and choose between the four basic currencies or stopping.",
     reviewPending: (count: number) => `Review only what's pending (${count})`,
     nothingToShow: "There's no situation to show.",
     backToStart: "Back to the start",

@@ -14,7 +14,7 @@ import {
 } from "./craftingAdvancedAcademy.js";
 
 export const CRAFTING_ADVANCED_ACADEMY_EVIDENCE_EN =
-  "Synthetic exercises for learning to decide inside PoE2. They don't represent a drop, a recipe, a modifier pool or a chance.";
+  "Made-up exercises for learning to decide inside PoE2. They don't represent a drop, a recipe or a chance.";
 
 const LIFE = (value: number) => `+${value} to maximum Life`;
 
@@ -236,7 +236,7 @@ export const ADVANCED_ACADEMY_SCENARIOS_EN: Record<string, AdvancedScenarioTextE
       "You're not seeing the item's full description in the game. Its look suggests a slot might be open, but you can't confirm it.",
     contract: {
       objective: "Add a line without losing the current ones",
-      protect: ["All the observed modifiers"],
+      protect: ["All the modifiers you can see"],
       stop: "Review the result after a single legal action",
     },
     question: "What clears the block first?",
@@ -274,7 +274,7 @@ export const ADVANCED_ACADEMY_SCENARIOS_EN: Record<string, AdvancedScenarioTextE
       },
       alloy: {
         label: "Verified Alloy",
-        consequence: "Applies its observed effect and replaces another line.",
+        consequence: "Applies its effect and replaces another line.",
       },
     },
     question: "What can the mentor honestly say?",

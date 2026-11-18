@@ -155,7 +155,7 @@ export const ACADEMY_ITEMS_EN: Readonly<Record<string, AcademyItemTextEn>> = {
 // ---------------------------------------------------------------------------
 
 export const CRAFTING_ACADEMY_EVIDENCE_EN =
-  "Local evidence observed on 22 Aug 2026 (in-game tooltips). No modifier pools, weights or odds included.";
+  "Based on what the game showed on 22 Aug 2026. It doesn't include the odds of each modifier.";
 
 export const CRAFTING_ACADEMY_EXERCISE_NOTICE_EN =
   "Visual example, not interactive. Here you learn to read and decide; currency and crafting happen inside Path of Exile 2.";
@@ -175,7 +175,7 @@ export const ACADEMY_CONCEPTS_EN: Record<AcademyConceptId, { label: string; reca
   },
   transmutacion: {
     label: "When to use Transmutation",
-    recap: "It's the observed way to turn a normal item into a magic one with 1 modifier.",
+    recap: "It's how you turn a normal item into a magic one with 1 modifier.",
   },
   aumento: {
     label: "When to use Augmentation",
@@ -183,7 +183,7 @@ export const ACADEMY_CONCEPTS_EN: Record<AcademyConceptId, { label: string; reca
   },
   "limite-magico": {
     label: "The magic item limit",
-    recap: "The observed tooltip says magic items can have at most 2 modifiers.",
+    recap: "The tooltip says magic items can have at most 2 modifiers.",
   },
   regio: {
     label: "When to use Regal",
@@ -195,11 +195,11 @@ export const ACADEMY_CONCEPTS_EN: Record<AcademyConceptId, { label: string; reca
   },
   exaltado: {
     label: "When to use Exalted",
-    recap: "It adds 1 modifier to a rare item; the observed total limit is 6.",
+    recap: "It adds 1 modifier to a rare item; the total limit is 6.",
   },
   "parar-limite": {
     label: "Stopping at the limit",
-    recap: "With no open slots under the observed limit, none of these currencies can be used.",
+    recap: "With no open slots under the limit, none of these currencies can be used.",
   },
 };
 
@@ -265,10 +265,10 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
       rare: { label: "Rare", hint: "Up to 6 modifiers" },
     },
     explanation:
-      "It's a rare item. It has 3 explicit modifiers, and the observed total limit for a rare is 6. A magic item couldn't go past 2.",
+      "It's a rare item. It has 3 explicit modifiers, and the total limit for a rare is 6. A magic item couldn't go past 2.",
     why: [
-      "The observed Orb of Augmentation tooltip says magic items can have up to two random modifiers.",
-      "The observed Exalted Orb tooltip says rare items can have up to six.",
+      "The Orb of Augmentation tooltip says magic items can have up to two random modifiers.",
+      "The Exalted Orb tooltip says rare items can have up to six.",
       "Rarity decides which currencies can even be used: each one needs a specific starting rarity.",
     ],
     misconception:
@@ -295,10 +295,10 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
   },
   "l1-huecos": {
     situation:
-      "That rare helmet has 3 explicit modifiers, and the observed total limit for a rare is 6.",
+      "That rare helmet has 3 explicit modifiers, and the total limit for a rare is 6.",
     question: "What exactly does it mean that it has 3 open slots left?",
     options: {
-      caben: { label: "That up to 3 more modifiers fit", hint: "Based on the observed total limit" },
+      caben: { label: "That up to 3 more modifiers fit", hint: "Based on the total limit" },
       "seran-buenos": { label: "That the next 3 will be useful for my build" },
       "no-falla": { label: "That the currency I use can't fail" },
     },
@@ -307,7 +307,7 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
     why: [
       "This is the limit the bench repeats in every diagnosis: an open slot doesn't guarantee that a given currency can or should be used.",
       "Exile Copilot doesn't show odds, weights or costs because they can't be verified with the local sources available.",
-      "The total limit (2 on magic items, 6 on rares) comes from the observed tooltips and may change with a patch.",
+      "The total limit (2 on magic items, 6 on rares) comes from the in-game tooltips and may change with a patch.",
     ],
     misconception:
       "Mixing up “there's room” with “it will turn out well” is the fastest way to spend currency for no reason.",
@@ -337,7 +337,7 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
     why: [
       "Observed Augmentation effect: upgrades a magic item by adding a new random modifier.",
       "Adding a modifier and changing rarity are different things: Augmentation does the first, Regal does both at once.",
-      "With 1 of the 2 modifiers allowed by the observed limit, there's still one open slot.",
+      "With 1 of the 2 modifiers allowed by the limit, there's still one open slot.",
     ],
     misconception:
       "Augmentation doesn't raise the rarity. If you want to go rare, Augmentation isn't the action.",
@@ -352,9 +352,9 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
       "si-reemplaza": { label: "Yes: it will replace the worse of the two" },
     },
     explanation:
-      "There are no open slots. The observed tooltip says magic items can have at most 2 modifiers, and this one already has them.",
+      "There are no open slots. The tooltip says magic items can have at most 2 modifiers, and this one already has them.",
     why: [
-      "The observed total limit is 2 for magic items and 6 for rares. Both come from the tooltips observed on 22 Aug 2026.",
+      "The total limit is 2 for magic items and 6 for rares. Both come from the tooltips as of 22 Aug 2026.",
       "Augmentation ADDS a modifier; no local evidence says it replaces an existing one.",
       "Item level doesn't appear in any local source as a way to go past that limit.",
     ],
@@ -370,7 +370,7 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
       "Regal turns the item from magic to rare, keeps the modifiers it already has and adds 1. It's the way forward when a magic item runs out of slots.",
     why: [
       "Observed Regal effect: upgrades a magic item to rare and adds 1 modifier; current modifiers are kept.",
-      "Augmentation is blocked because the item already hit the observed total limit of 2.",
+      "Augmentation is blocked because the item already hit the total limit of 2.",
       "Exalted needs the item to be rare already, so it doesn't apply yet.",
     ],
     misconception:
@@ -393,7 +393,7 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
   },
   "l5-exaltado": {
     situation:
-      "These boots are already rare: 3 modifiers out of the observed limit of 6. You want one more resistance.",
+      "These boots are already rare: 3 modifiers out of the limit of 6. You want one more resistance.",
     question: WHICH_ACTION,
     options: { stop: stop("No open slot left") },
     explanation:
@@ -408,11 +408,11 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
   },
   "l5-parar": {
     situation:
-      "This rare chest has 6 modifiers: 3 prefixes and 3 suffixes. That's exactly the observed total limit.",
+      "This rare chest has 6 modifiers: 3 prefixes and 3 suffixes. That's exactly the total limit.",
     question: "What do you do with it?",
     options: { stop: stop("Keep it and don't spend any more on it") },
     explanation:
-      "Stop. There are no open slots under the observed limit, so Exalted can't be used, and Regal needs a magic item. Adding anything would mean replacing what you already have.",
+      "Stop. There are no open slots under the limit, so Exalted can't be used, and Regal needs a magic item. Adding anything would mean replacing what you already have.",
     why: [
       "With 6 explicit modifiers, the bench blocks actions that add another until a legal route is verified.",
       "Replacing a modifier is a different, risky operation: it can take away something that was already useful.",
@@ -438,15 +438,15 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
     misconception: "Augmentation is the action for a magic item with an open slot.",
   },
   "examen-3": {
-    situation: "Magic ring with 2 modifiers: it has hit the observed limit.",
+    situation: "Magic ring with 2 modifiers: it has hit the limit.",
     question: WHAT_DO_YOU_DO,
     options: { stop: stop("Leave it alone") },
     explanation: "Full magic item: Regal makes it rare, keeps both modifiers and adds 1.",
     why: ["Augmentation is blocked by the limit of 2; Exalted needs a rare item."],
-    misconception: "When a magic item fills up, the observed way forward is Regal.",
+    misconception: "When a magic item fills up, the way forward is Regal.",
   },
   "examen-4": {
-    situation: "Rare shield with 4 of the 6 modifiers the observed limit allows.",
+    situation: "Rare shield with 4 of the 6 modifiers the limit allows.",
     question: WHAT_DO_YOU_DO,
     options: { stop: stop("Leave it alone") },
     explanation: "Rare with an open slot: Exalted adds 1 modifier. Which one you'll get still can't be predicted.",
@@ -457,7 +457,7 @@ export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
     situation: "Rare helmet with 6 modifiers: 3 prefixes and 3 suffixes.",
     question: WHAT_DO_YOU_DO,
     options: { stop: stop("Keep it as it is") },
-    explanation: "No open slots under the observed limit, so none of these currencies can be used. Stopping is the answer.",
+    explanation: "No open slots under the limit, so none of these currencies can be used. Stopping is the answer.",
     why: ["Adding would mean replacing, which is a different operation and carries risk."],
     misconception: "A full item isn't improved by these four currencies.",
   },

@@ -236,7 +236,7 @@ export function evaluateObservedCraftingActions(
         action,
         "compatible",
         en
-          ? "The rarity fits and the imported text has no known block for this observed action."
+          ? "The rarity fits and the imported text has no known block for this action."
           : "La rareza encaja y el texto importado no contiene un bloqueo conocido para esta acción observada.",
       );
     }
@@ -261,7 +261,7 @@ export function evaluateObservedCraftingActions(
         action,
         "blocked",
         en
-          ? `It already has ${explicit.length} explicit modifiers; the observed total limit for this item is ${effectiveTotalLimit}.`
+          ? `It already has ${explicit.length} explicit modifiers; the total limit for this item is ${effectiveTotalLimit}.`
           : `Ya tiene ${explicit.length} modificadores explícitos; el límite total observado es ${effectiveTotalLimit} para esta pieza.`,
       );
     }

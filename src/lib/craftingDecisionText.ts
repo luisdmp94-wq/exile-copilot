@@ -57,7 +57,7 @@ const EN: typeof ES = {
   check: (what, item) => `Check ${what} on ${item}`,
   currency: {
     hypothesis:
-      "The action fits the observed item structure; it will be checked once without assuming which modifier appears.",
+      "The action fits the item's structure; it will be checked once without assuming which modifier appears.",
     observation:
       "Keep the current text. If you decide to use the orb, don't do anything else: copy the resulting item right away and import it again.",
     noWeights: "There are no verified weights or probabilities to estimate the result.",
@@ -66,7 +66,7 @@ const EN: typeof ES = {
   },
   sameSnapshot: "The item must still match the imported snapshot.",
   essence: {
-    randomRemoval: (count) => `1 of the ${count} observed explicit modifiers will be removed at random.`,
+    randomRemoval: (count) => `1 of the ${count} explicit modifiers will be removed at random.`,
     keepMods: "The current modifiers should stay when the item goes from magic to rare.",
     hypothesisRemoval:
       "The Essence will remove one explicit modifier at random and add the guaranteed effect copied from its tooltip.",
@@ -85,7 +85,7 @@ const EN: typeof ES = {
       "Keep this snapshot. If you use the Alloy, don't do anything else: copy the resulting item right away and import it again.",
     noMatrix: "There's no complete public Alloy × item type table to validate the effect by name.",
     selectionUnverified: "How the replaced modifier is chosen isn't verified.",
-    anyReplaced: (count) => `Any of the ${count} observed explicit modifiers can be replaced.`,
+    anyReplaced: (count) => `Any of the ${count} explicit modifiers can be replaced.`,
     playerSelected: "In game, pick only the modifier you agreed to replace.",
     criterionUnverified: "GGG confirms one modifier is replaced, but how it's chosen isn't verified.",
     classes: (list) =>

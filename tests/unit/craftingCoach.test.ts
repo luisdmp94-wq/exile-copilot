@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   chooseNextStep,
   assessPurposefulCraftBase,
+  LEVELLING_ITEM_LEVEL,
+  levellingItemLevel,
   assessCoachRollMinimum,
   interpretCoachGoal,
   readCraftResult,
@@ -589,6 +591,93 @@ describe("guía de crafting — evaluación de la base antes de gastar", () => {
     expect(assessment.nextStep).toMatchObject({
       kind: "use-currency",
       actionId: "transmutation",
+    });
+  });
+
+  describe("pieza de subida de nivel", () => {
+    const varita = (overrides: Record<string, unknown> = {}) =>
+      pieza({
+        name: "Lamento de la aurora",
+        baseType: "Varita de hueso",
+        slot: "weapon",
+        rarity: "rare",
+        itemLevel: 18,
+        requirements: { level: 18 },
+        modifiers: [
+          mod("v1", "+24 a la precisión", "prefix", ["Ataque"]),
+          mod("v2", "+12% a la resistencia al hielo", "suffix", ["Resistencias"]),
+        ],
+        ...overrides,
+      });
+
+    it("con una varita de nivel 18 sin daño no manda gastar un Orbe exaltado: propone cambiar de pieza", () => {
+      const item = varita();
+      const assessment = assessPurposefulCraftBase({ item, direction: "damage", focus: "chaos", profile: null });
+
+      expect(assessment.status).toBe("change-base");
+      expect(assessment.title).toBe("Mejor cambia de pieza");
+      expect(assessment.summary).toContain("nivel 18");
+      expect(assessment.decisionLabel).toBe("Guarda el Orbe exaltado y busca otra pieza.");
+      expect(assessment.nextStep.kind).toBe("stop");
+      if (assessment.nextStep.kind !== "stop") return;
+      expect(assessment.nextStep.headline).toBe("Guarda el Orbe exaltado");
+      expect(assessment.nextStep.instruction).toContain("vendedores");
+      // Ya no conviven «gasta un Exaltado» y «no puedo dirigirlo» en la misma tarjeta.
+      expect(`${assessment.summary} ${assessment.nextStep.instruction}`).not.toContain("es legal");
+    });
+
+    it("lo dice también en inglés", () => {
+      const assessment = assessPurposefulCraftBase(
+        { item: varita(), direction: "damage", focus: "chaos", profile: null },
+        "en",
+      );
+
+      expect(assessment.status).toBe("change-base");
+      expect(assessment.title).toBe("Better to switch items");
+      expect(assessment.decisionLabel).toBe("Keep the Exalted Orb and look for another item.");
+      expect(`${assessment.summary} ${assessment.nextStep.kind === "stop" ? assessment.nextStep.instruction : ""}`).not.toMatch(
+        /[ñ¿¡áéíóú«»]/,
+      );
+    });
+
+    it("sin requisito de nivel usa el nivel de objeto", () => {
+      const item = varita({ requirements: undefined, itemLevel: 20 });
+      expect(levellingItemLevel(item)).toBe(20);
+      expect(
+        assessPurposefulCraftBase({ item, direction: "damage", focus: "chaos", profile: null }).status,
+      ).toBe("change-base");
+    });
+
+    it("la misma varita a nivel alto sigue siendo un intento controlado", () => {
+      const item = varita({ itemLevel: 70, requirements: { level: LEVELLING_ITEM_LEVEL } });
+      const assessment = assessPurposefulCraftBase({ item, direction: "damage", focus: "chaos", profile: null });
+
+      expect(levellingItemLevel(item)).toBeNull();
+      expect(assessment.status).toBe("controlled-attempt");
+      expect(assessment.nextStep).toMatchObject({ kind: "use-currency", actionId: "exalted" });
+    });
+
+    it("las monedas baratas siguen valiendo en una pieza de subida", () => {
+      const item = varita({ rarity: "normal", modifiers: [] });
+      const assessment = assessPurposefulCraftBase({ item, direction: "damage", focus: "chaos", profile: null });
+
+      expect(assessment.status).toBe("controlled-attempt");
+      expect(assessment.nextStep).toMatchObject({ kind: "use-currency", actionId: "transmutation" });
+    });
+
+    it("si la pieza ya tiene la línea buscada no la manda cambiar", () => {
+      const item = varita({
+        modifiers: [mod("v1", "Añade de 4 a 9 de daño de caos", "prefix", ["Daño", "Caos"])],
+      });
+      const assessment = assessPurposefulCraftBase({
+        item,
+        direction: "damage",
+        focus: "chaos",
+        profile: null,
+        rollMinimum: "high",
+      });
+
+      expect(assessment.status).not.toBe("change-base");
     });
   });
 

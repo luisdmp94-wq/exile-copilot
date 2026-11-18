@@ -13,7 +13,7 @@ import { createAcademyAffix, createAcademyExerciseItem } from "./craftingAcademy
 export const CRAFTING_ADVANCED_ACADEMY_VERSION = "avanzado-2026-08-28";
 
 export const CRAFTING_ADVANCED_ACADEMY_EVIDENCE =
-  "Ejercicios sintéticos para aprender a decidir dentro de PoE2. No representan un drop, una receta, un pool ni una probabilidad.";
+  "Ejercicios inventados para aprender a decidir dentro de PoE2. No representan un drop, una receta ni una probabilidad.";
 
 export type AdvancedAcademyDecision =
   | "complete-data"

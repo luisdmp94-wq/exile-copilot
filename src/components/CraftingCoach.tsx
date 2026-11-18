@@ -13,6 +13,7 @@ import {
 import {
   COACH_DIRECTION_LABELS,
   COACH_ROLL_MINIMUM_LABELS,
+  coachRollMinimumLabel,
   assessPurposefulCraftBase,
   chooseNextStep,
   coachDirectionNoun,
@@ -90,14 +91,14 @@ const TEXT = texts(
     tryPractice: "Probar con una pieza de práctica",
     myAdvice: "Mi consejo",
     why: "Por qué",
-    technicalEvidence: "Evidencia técnica",
+    technicalEvidence: "Ver detalles",
     viewInCharacter: "Ver la pieza en mi expediente",
     pasteAnother: "Pegar otra pieza",
     replacementTools: "Ver herramientas de reemplazo",
-    nextLegalAction: "Siguiente acción legal",
+    nextLegalAction: "Siguiente paso",
     insidePoe2: "Dentro de PoE2:",
     whatCanHappen: "Qué puede ocurrir",
-    otherLegalRoute: (label: string, difference: string) => `Otra vía legal: ${label}. ${difference}`,
+    otherLegalRoute: (label: string, difference: string) => `Otra opción: ${label}. ${difference}`,
     changeLimit: "Cambiar límite",
     overLimitAria: "No puedes confirmar este paso porque supera el límite declarado",
     confirmDoneAria: (label: string) => `Confirmar que ya hiciste este paso en PoE2: ${label}`,
@@ -124,10 +125,10 @@ const TEXT = texts(
     mismatchFallback: "Revisa el texto pegado antes de gastar otra moneda.",
     stepsLeft: (remaining: number) =>
       `${remaining === 1 ? "Queda 1 paso" : `Quedan ${remaining} pasos`} dentro del límite que elegiste.`,
-    oneActionLeft: "Queda una acción legal dentro del límite que elegiste.",
+    oneActionLeft: "Te queda un paso dentro del límite que elegiste.",
     attemptAtLimit: "Este intento ha llegado a su límite.",
     failsRequirements: "El objeto no cumple los requisitos de tu personaje.",
-    goalPresentStop: "El objetivo aparece, pero el contrato indica detenerse.",
+    goalPresentStop: "El objetivo aparece, pero tu límite dice que pares aquí.",
     goalNotEvaluable: "Falta concretar el objetivo antes de gastar otra moneda.",
     goalNotMet: "El resultado no cumple el objetivo actual.",
     srTitle: "Guía con tu objeto",
@@ -137,7 +138,9 @@ const TEXT = texts(
     goalQuestion: "¿Qué quieres conseguir con esta pieza?",
     goalIntro: "Escríbelo como se lo dirías a otro jugador. Yo lo convertiré en una sola decisión.",
     goalAria: "Qué quieres conseguir con esta pieza",
-    goalPlaceholder: "p. ej. Quiero que esta ballesta haga más daño físico",
+    goalPlaceholderWeapon: "p. ej. Quiero que esta arma haga más daño",
+    goalPlaceholderArmour: "p. ej. Quiero más vida o resistencias en esta pieza",
+    goalPlaceholderJewel: "p. ej. Quiero más resistencias en esta joya",
     tellNextStep: "Dime el siguiente paso",
     repairFirst: "Repara primero la lectura de la pieza.",
     pickExactGoal: "Elige un objetivo exacto.",
@@ -198,19 +201,17 @@ const TEXT = texts(
     planName: (name: string) => ` · plan ${name}`,
     noBudget: " · presupuesto sin declarar.",
     budgetLimit: (amount: number, currency: string) => ` · límite ${amount} ${currency}.`,
-    noCharacterLabel: "Sin expediente:",
-    noCharacterBody: "usaré tu objetivo sin comparar la build.",
+    noCharacterLabel: "Sin personaje cargado:",
+    noCharacterBody: "me guío solo por tu objetivo, sin mirar tu build.",
     seeAnalysis: "Ver análisis",
     character: "Personaje",
     base: "Base",
     planHasPriority: (label: string) => `Esta prioridad aparece en tu plan: ${label}.`,
     planLacksPriority:
       "Esta prioridad no aparece entre los mods deseados del plan. Puedes trabajarla, pero no la trataré como objetivo de la build.",
-    stopLabel: "Parada:",
-    rollAnyShort: "cualquiera",
-    rollMiddleShort: "media+",
-    rollHighShort: "alta",
-    stepWord: (count: number): string => (count === 1 ? "paso" : "pasos"),
+    stopLabel: "Meta:",
+    stopSummary: (focus: string, roll: string, steps: number): string =>
+      `${focus}, ${roll}. Máximo ${steps} ${steps === 1 ? "paso" : "pasos"}.`,
     adjust: "Ajustar",
     minimumRoll: "Tirada mínima",
     rollAny: "Cualquiera",
@@ -224,7 +225,7 @@ const TEXT = texts(
     savedForLater: "Guardado para más tarde",
     itemUnchanged: "La pieza sigue como está. Puedes volver cuando quieras.",
     limitUsed: (limit: number) =>
-      `Has agotado el límite de ${limit} ${limit === 1 ? "paso" : "pasos"}. Este contrato ya no autoriza otra moneda.`,
+      `Has agotado el límite de ${limit} ${limit === 1 ? "paso" : "pasos"}. Con ese límite ya no toca gastar otra moneda.`,
     seeActionAgain: "Ver otra vez la acción",
     otherPath: "Elegir otro camino",
     whatDidYouGet: "¿Qué te ha salido?",
@@ -287,14 +288,14 @@ const TEXT = texts(
     tryPractice: "Try with a practice item",
     myAdvice: "My advice",
     why: "Why",
-    technicalEvidence: "Technical evidence",
+    technicalEvidence: "See details",
     viewInCharacter: "See the item in my character",
     pasteAnother: "Paste another item",
     replacementTools: "See replacement tools",
-    nextLegalAction: "Next legal action",
+    nextLegalAction: "Next step",
     insidePoe2: "In PoE2:",
     whatCanHappen: "What can happen",
-    otherLegalRoute: (label: string, difference: string) => `Another legal option: ${label}. ${difference}`,
+    otherLegalRoute: (label: string, difference: string) => `Another option: ${label}. ${difference}`,
     changeLimit: "Change limit",
     overLimitAria: "You can't confirm this step because it goes over your set limit",
     confirmDoneAria: (label: string) => `Confirm you already did this step in PoE2: ${label}`,
@@ -321,7 +322,7 @@ const TEXT = texts(
     mismatchFallback: "Check the pasted text before spending another orb.",
     stepsLeft: (remaining: number) =>
       `${remaining === 1 ? "1 step left" : `${remaining} steps left`} within the limit you chose.`,
-    oneActionLeft: "One legal action left within the limit you chose.",
+    oneActionLeft: "You have one step left within the limit you chose.",
     attemptAtLimit: "This attempt has reached its limit.",
     failsRequirements: "Your character doesn't meet this item's requirements.",
     goalPresentStop: "The goal is there, but your stop rule says to stop here.",
@@ -334,7 +335,9 @@ const TEXT = texts(
     goalQuestion: "What do you want from this item?",
     goalIntro: "Write it the way you'd tell another player. I'll turn it into one decision.",
     goalAria: "What you want from this item",
-    goalPlaceholder: "e.g. I want this crossbow to deal more physical damage",
+    goalPlaceholderWeapon: "e.g. I want this weapon to deal more damage",
+    goalPlaceholderArmour: "e.g. I want more life or resistances on this item",
+    goalPlaceholderJewel: "e.g. I want more resistances on this jewellery",
     tellNextStep: "Tell me the next step",
     repairFirst: "Fix the item reading first.",
     pickExactGoal: "Pick an exact goal.",
@@ -395,7 +398,7 @@ const TEXT = texts(
     planName: (name: string) => ` · plan ${name}`,
     noBudget: " · no budget set.",
     budgetLimit: (amount: number, currency: string) => ` · limit ${amount} ${currency}.`,
-    noCharacterLabel: "No character:",
+    noCharacterLabel: "No character loaded:",
     noCharacterBody: "I'll use your goal without checking it against a build.",
     seeAnalysis: "See analysis",
     character: "Character",
@@ -403,11 +406,9 @@ const TEXT = texts(
     planHasPriority: (label: string) => `This priority is in your plan: ${label}.`,
     planLacksPriority:
       "This priority isn't among your plan's wanted modifiers. You can work on it, but I won't treat it as a build goal.",
-    stopLabel: "Stop at:",
-    rollAnyShort: "any",
-    rollMiddleShort: "mid+",
-    rollHighShort: "high",
-    stepWord: (count: number) => (count === 1 ? "step" : "steps"),
+    stopLabel: "Target:",
+    stopSummary: (focus: string, roll: string, steps: number) =>
+      `${focus}, ${roll}. At most ${steps} ${steps === 1 ? "step" : "steps"}.`,
     adjust: "Adjust",
     minimumRoll: "Minimum roll",
     rollAny: "Any",
@@ -421,7 +422,7 @@ const TEXT = texts(
     savedForLater: "Saved for later",
     itemUnchanged: "The item stays as it is. Come back whenever you like.",
     limitUsed: (limit: number) =>
-      `You've used up your limit of ${limit} ${limit === 1 ? "step" : "steps"}. This plan doesn't allow another orb.`,
+      `You've used up your limit of ${limit} ${limit === 1 ? "step" : "steps"}. With that limit, it's not time to spend another orb.`,
     seeActionAgain: "See the action again",
     otherPath: "Choose another path",
     whatDidYouGet: "What did you get?",
@@ -1812,7 +1813,13 @@ export function CraftingCoach({
                 }}
                 data-testid="coach-objetivo-texto"
                 aria-label={t.goalAria}
-                placeholder={t.goalPlaceholder}
+                placeholder={
+                  activeItem.slot === "weapon" || activeItem.slot === "offhand"
+                    ? t.goalPlaceholderWeapon
+                    : ["amulet", "ring1", "ring2", "belt"].includes(activeItem.slot)
+                      ? t.goalPlaceholderJewel
+                      : t.goalPlaceholderArmour
+                }
               />
               <Button
                 className="mt-3 w-full sm:w-auto"
@@ -2313,8 +2320,7 @@ export function CraftingCoach({
             >
               <p>
                 <span className="font-semibold text-primary">{t.stopLabel}</span>{" "}
-                {focusLabel(focus)} · {rollMinimum === "any" ? t.rollAnyShort : rollMinimum === "middle" ? t.rollMiddleShort : t.rollHighShort} · {attemptLimit}{" "}
-                {t.stepWord(attemptLimit)}.
+                {t.stopSummary(focusLabel(focus), coachRollMinimumLabel(rollMinimum, lang), attemptLimit)}
               </p>
               {phase === "recommend" && confirmedAttemptCount === 0 && (
                 <details className="mt-1.5" data-testid="coach-contrato-controles">

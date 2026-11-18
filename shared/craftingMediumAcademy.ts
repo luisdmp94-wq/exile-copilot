@@ -16,7 +16,7 @@ import { createAcademyAffix, createAcademyExerciseItem } from "./craftingAcademy
 export const CRAFTING_MEDIUM_ACADEMY_VERSION = "medio-juego-2026-08-27";
 
 export const CRAFTING_MEDIUM_ACADEMY_EVIDENCE =
-  "Ejercicios sintéticos apoyados en los efectos de moneda observados en el cliente el 22/08/2026. No representan drops, pools, pesos, probabilidades ni precios.";
+  "Ejercicios inventados para practicar, basados en lo que hacían las monedas en el juego el 22/08/2026. No representan drops, probabilidades ni precios.";
 
 export const CRAFTING_MEDIUM_BASE_READING_HELP =
   "La base es el tipo que aparece debajo del nombre del objeto. No necesitas conocer la base ideal de tu build para empezar: usa la pieza que llevas equipada en ese hueco como referencia observable. Si todavía no puedes confirmar que la candidata sirve a tu personaje, no gastes.";

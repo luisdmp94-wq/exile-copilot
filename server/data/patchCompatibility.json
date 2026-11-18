@@ -13,8 +13,8 @@
       "patchId": "0.5.4f",
       "status": "limited",
       "reviewedAt": "2026-08-30",
-      "summary": "La estructura principal está contrastada, pero no existen pools, pesos ni probabilidades completos y redistribuibles.",
-      "summaryEn": "The core structure has been checked, but there are no complete modifier pools, weights or odds that we're allowed to share.",
+      "summary": "Lo básico está comprobado, pero no tenemos las probabilidades de cada modificador.",
+      "summaryEn": "The basics have been checked, but we don't have the odds for each modifier.",
       "features": [
         {
           "id": "item-import",

@@ -24,7 +24,7 @@ import { ItemSchema, type Item, type ItemRarity } from "./domain.js";
 export const CRAFTING_ACADEMY_CONTENT_VERSION = "basico-2026-08-23";
 
 export const CRAFTING_ACADEMY_EVIDENCE =
-  "Evidencia local observada el 22/08/2026 (tooltips del cliente). No incluye pools, pesos ni probabilidades.";
+  "Basado en lo que mostraba el juego el 22/08/2026. No incluye las probabilidades de cada modificador.";
 
 export const CRAFTING_ACADEMY_EXERCISE_NOTICE =
   "Ejemplo visual, no interactivo. Aquí aprendes a leer y decidir; las monedas y el crafting se usan dentro de Path of Exile 2.";

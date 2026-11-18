@@ -140,7 +140,7 @@ export function decideCraftingNextStep(input: {
         : "El cambio apunta al objetivo y la estructura observada aún conserva espacio. Esto no demuestra que el valor del afijo sea suficiente.",
       nextAction: en
         ? "Save this result and go back to the bench to check the next allowed action."
-        : "Guarda este resultado y vuelve al banco para comprobar la siguiente acción legal.",
+        : "Guarda este resultado y vuelve al banco para ver el siguiente paso.",
       observedOpenSlots,
       resultGoalSignal,
     };

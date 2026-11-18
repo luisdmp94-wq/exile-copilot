@@ -15,7 +15,7 @@ import {
 } from "./craftingMediumAcademy.js";
 
 export const CRAFTING_MEDIUM_ACADEMY_EVIDENCE_EN =
-  "Synthetic exercises based on currency effects observed in the game client on 22 Aug 2026. They don't represent drops, modifier pools, weights, odds or prices.";
+  "Made-up practice exercises, based on what the currencies did in the game on 22 Aug 2026. They don't represent drops, odds or prices.";
 
 export const CRAFTING_MEDIUM_BASE_READING_HELP_EN =
   "The base is the type shown under the item's name. You don't need to know the ideal base for your build to get started: use the item you have equipped in that slot as a reference you can check. If you can't confirm yet that the candidate works for your character, don't spend.";
@@ -185,7 +185,7 @@ export const MEDIUM_ACADEMY_SCENARIOS_EN: Record<string, MediumScenarioTextEn> =
         label: "On any magic item, even if nothing on it helps me",
         hint: "Rarity doesn't make its lines useful",
       },
-      "med-aumento-lleno": { label: "I use another Augmentation first", hint: "The magic item already hit its observed limit" },
+      "med-aumento-lleno": { label: "I use another Augmentation first", hint: "The magic item already hit its limit" },
     },
     explanation:
       "Regal turns the magic item into a rare one, keeps its modifiers and adds one. Strategically, it's worth it when there's already something you want to keep, not just because the action is legal.",
@@ -208,12 +208,12 @@ export const MEDIUM_ACADEMY_SCENARIOS_EN: Record<string, MediumScenarioTextEn> =
       "med-exaltado-consciente": { label: "That it will add something random", hint: "There's room, but no guaranteed improvement" },
       "med-exaltado-garantiza": {
         label: "That it will complete my goal exactly",
-        hint: "The observed effect doesn't promise a specific modifier",
+        hint: "The effect doesn't promise a specific modifier",
       },
       "med-exaltado-repite": { label: "That I can repeat it until I hit", hint: "Every slot you use changes the item's state" },
     },
     explanation:
-      "The observed Exalted effect is adding a random modifier to a rare item. Having room makes the action possible; it doesn't guarantee the result fits your character.",
+      "What Exalted does is add a random modifier to a rare item. Having room makes the action possible; it doesn't guarantee the result fits your character.",
     takeaway: "Before Exalted, you decide whether the item is worth that gamble.",
     stopCondition: "Don't use Exalted if you wouldn't accept a random result or if the item already solved your goal.",
     gameSteps: [

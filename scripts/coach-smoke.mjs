@@ -160,10 +160,23 @@ const mod = (id, text, affix, tags) => ({
   tags,
 });
 
-const CROSSBOW_TEXT = readFileSync(
+/** La ballesta real, tal como se copió del juego: una pieza de subida (nivel 24). */
+const REAL_CROSSBOW_TEXT = readFileSync(
   join(REPO, "server", "fixtures", "phoenixCoreCrossbowAdvanced.es.txt"),
   "utf8",
 );
+
+/**
+ * La misma ballesta a nivel alto para el recorrido largo. A una pieza de
+ * subida el guía ya no le recomienda un Orbe exaltado (ver el paso 14b).
+ */
+const CROSSBOW_TEXT = REAL_CROSSBOW_TEXT.replace("Nivel 24,", "Nivel 64,").replace(
+  "Nivel de objeto: 32",
+  "Nivel de objeto: 72",
+);
+if (CROSSBOW_TEXT === REAL_CROSSBOW_TEXT) {
+  throw new Error("la ballesta de prueba ya no declara nivel 24: revisa el smoke");
+}
 
 /** Segunda ballesta observada para que el Taller demuestre un reemplazo real. */
 const ALTERNATE_CROSSBOW_TEXT = [
@@ -176,8 +189,8 @@ const ALTERNATE_CROSSBOW_TEXT = [
   "Probabilidad de impacto crítico: 5.00%",
   "Ataques por segundo: 1.50",
   "-------------------------",
-  "## Requiere: Nivel 24, 19 Fue, 19 Des",
-  "## Nivel de objeto: 32",
+  "## Requiere: Nivel 64, 19 Fue, 19 Des",
+  "## Nivel de objeto: 72",
   '{ Mod. de prefijo "afilado" (Grado: 6) — Daño, Físico, Ataque }',
   "Daño físico aumentado un 45(40-49)%",
   '{ Mod. de sufijo "de habilidad" (Grado: 5) — Atributo }',
@@ -1062,7 +1075,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] antes de gastar declara cuándo debe detenerse el paso`,
       (await page.getByTestId("coach-condicion-parada").innerText()).includes("daño físico") &&
-        (await page.getByTestId("coach-condicion-parada").innerText()).includes("media+") &&
+        (await page.getByTestId("coach-condicion-parada").innerText()).includes("tirada media o alta") &&
         (await page.getByTestId("coach-condicion-parada").innerText()).includes("1 paso"),
     );
     check(
@@ -1077,7 +1090,7 @@ async function runFlow(mode, port) {
     await page.getByTestId("coach-contrato-controles").locator("summary").click();
     check(
       `[${mode}] cambiar el contrato actualiza su resumen antes de gastar`,
-      (await page.getByTestId("coach-condicion-parada").innerText()).includes("alta") &&
+      (await page.getByTestId("coach-condicion-parada").innerText()).includes("tirada alta") &&
         (await page.getByTestId("coach-condicion-parada").innerText()).includes("2 pasos"),
     );
     check(
@@ -1091,7 +1104,7 @@ async function runFlow(mode, port) {
         ),
     );
     check(
-      `[${mode}] «Qué puede ocurrir» y «Evidencia técnica» llegan plegados`,
+      `[${mode}] «Qué puede ocurrir» y «Ver detalles» llegan plegados`,
       (await recomendacion.locator("details[open]").count()) === 0 &&
       (await recomendacion.locator("details").count()) === 2,
     );
@@ -1556,10 +1569,10 @@ async function runFlow(mode, port) {
     await irA(page, "crafting");
     await page.getByTestId("coach-presupuesto").waitFor({ timeout: 10000 });
     check(
-      `[${mode}] el encabezado dice «Siguiente acción legal», no que sea la mejor`,
+      `[${mode}] el encabezado dice «Siguiente paso», no que sea la mejor`,
       // `innerText` aplica `text-transform`, así que se compara sin distinguir
       // mayúsculas: lo que importa es la fórmula, no su presentación.
-      /siguiente acci[óo]n legal/i.test(await recomendacion.innerText()) &&
+      /siguiente paso/i.test(await recomendacion.innerText()) &&
         !/mejor forma|la mejor manera|garantiz/i.test(await recomendacion.innerText()),
     );
     const aviso = page.getByTestId("coach-aleatoriedad");
@@ -2117,6 +2130,37 @@ async function runFlow(mode, port) {
         !scopedContracts.contractA.includes(goalB) &&
         scopedContracts.contractB.includes(goalB) &&
         !scopedContracts.contractB.includes(goalA),
+    );
+
+    // --- 14b. Pieza de subida de nivel: no se manda gastar un Exaltado -----
+    const subidaResponse = await context.request.post(`${BASE}/api/import/item-text`, {
+      data: { text: REAL_CROSSBOW_TEXT, patch: "0.5.4f" },
+    });
+    const ballestaSubida = (await subidaResponse.json()).item;
+    ballestaSubida.id = "taller-ballesta-subida";
+    const perfilSubida = await context.request.post(`${BASE}/api/character`, {
+      data: {
+        profile: {
+          ...profile,
+          id: "taller-subida-perfil",
+          name: "Aprendiz de subida",
+          items: [ballestaSubida, ...profile.items.filter((item) => item.slot !== "weapon")],
+        },
+      },
+    });
+    if (!perfilSubida.ok()) {
+      throw new Error(`no se pudo guardar el perfil de subida: HTTP ${perfilSubida.status()}`);
+    }
+    await activateOwner("taller-subida-perfil");
+    await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
+    await abrirPiezaConObjetivo(page, "taller-ballesta-subida", "Quiero más daño de hielo");
+    const consejoSubida = page.getByTestId("coach-recomendacion");
+    check(
+      `[${mode}] una pieza de nivel bajo no recibe un Orbe exaltado: propone cambiar de pieza`,
+      (await consejoSubida.getAttribute("data-kind")) === "stop" &&
+        (await consejoSubida.innerText()).includes("Guarda el Orbe exaltado") &&
+        (await page.getByTestId("coach-evaluacion-base").getAttribute("data-status")) === "change-base" &&
+        (await page.getByTestId("coach-evaluacion-base").innerText()).includes("Mejor cambia de pieza"),
     );
 
     // --- 15. Recursos y consola ------------------------------------------

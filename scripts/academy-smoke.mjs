@@ -343,7 +343,7 @@ async function runFlow(mode, port) {
       (await avanzada.getAttribute("data-stage")) === "intro" &&
         (await page.getByTestId("academia-avanzada-indice").locator("li").count()) === 9 &&
         (await avanzada.innerText()).includes("el crafting ocurre en el juego") &&
-        (await avanzada.innerText()).includes("Ejercicios sintéticos"),
+        (await avanzada.innerText()).includes("Ejercicios inventados"),
     );
     await page.getByTestId("academia-avanzada-empezar").click();
     check(

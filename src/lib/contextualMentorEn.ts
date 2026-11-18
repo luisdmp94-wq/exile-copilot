@@ -258,7 +258,7 @@ function englishCopy(event: ContextualMentorEvent): EnglishCopy {
           : state.tool === "essence"
             ? "Essence checks not complete yet"
             : "Alloy checks not complete yet"
-        : CRAFTING_ACTION_LABELS_EN[state.action] ?? "observed currency";
+        : CRAFTING_ACTION_LABELS_EN[state.action] ?? "currency";
       const buildCopy = state.buildIntent === null
         ? "fit with your character not checked"
         : state.buildIntent.alignment === "aligned"

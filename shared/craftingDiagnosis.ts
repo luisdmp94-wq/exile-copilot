@@ -224,9 +224,9 @@ export function diagnoseCraftingItem(
     if (lang === "en") {
       summary =
         observedOpenSlots === 0
-          ? `Found ${structure}. No open slots left under the observed limit.`
+          ? `Found ${structure}. No open slots left under the limit.`
           : `Found ${structure}. ${observedOpenSlots} open slot${observedOpenSlots === 1 ? "" : "s"} ` +
-            "left under the observed limit.";
+            "left under the limit.";
     } else {
       summary =
         observedOpenSlots === 0

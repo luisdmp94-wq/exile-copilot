@@ -192,7 +192,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
             eyebrow: "Banco de trabajo",
             title: "Estás en Crafting",
             message:
-              "Aquí se trabaja una sola pieza y una sola moneda. Confirma el snapshot antes de gastar y vuelve con el texto resultante para cerrar la comparación.",
+              "Aquí se trabaja una sola pieza y una sola moneda. Comprueba la pieza antes de gastar y vuelve a pegar el resultado para compararlo.",
             ask: {
               question:
                 "¿Por qué la pieza seleccionada está relacionada con mi prioridad y qué dato debo comprobar antes de cambiarla?",
@@ -304,7 +304,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
           ? `${event.baseVerdictTitle}. ${event.baseVerdictSummary} Tu objetivo es «${event.playerGoal}». Antes de gastar, el guía necesita «${event.nextStepTitle}». Completa ese dato para no inventar una acción.`
           : `${event.baseVerdictTitle}. ${event.baseVerdictSummary} Tu objetivo es «${event.playerGoal}». El guía recomienda detenerse: «${event.nextStepTitle}».`;
       const question = event.stepKind === "use-currency"
-        ? `Quiero «${event.playerGoal}» con ${event.itemName}. La app propone «${event.nextStepTitle}». ¿Por qué es el siguiente paso legal y qué debo comprobar antes?`
+        ? `Quiero «${event.playerGoal}» con ${event.itemName}. La app propone «${event.nextStepTitle}». ¿Por qué es el siguiente paso y qué debo comprobar antes?`
         : `Quiero «${event.playerGoal}» con ${event.itemName}, pero la app indica «${event.nextStepTitle}». Explícame qué falta o por qué debo parar antes de gastar.`;
       return {
         id: `crafting-coach:${event.itemName}:${event.playerGoal}:${event.nextStepTitle}:${event.budgetStatus ?? "sin-presupuesto"}`,
@@ -342,7 +342,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
       return {
         id: `crafting-contract:${event.itemName}:${event.focusLabel}:${event.rollMinimumLabel}:${event.attemptLimit}`,
         source: "engine",
-        eyebrow: "Contrato actualizado",
+        eyebrow: "Límite actualizado",
         title: `${event.focusLabel} · ${event.rollMinimumLabel}`,
         message:
           `Aceptarás el resultado solo si aporta ${event.focusLabel} con ${event.rollMinimumLabel}. El límite de esta base es ${steps}; alcanzarlo obliga a parar y reevaluar. La tirada se mide dentro del rango visible, no como probabilidad.`,

@@ -56,7 +56,7 @@ export function buildCraftingRoute(
     const action = compatible[0]!;
     return {
       state: "single-currency",
-      eyebrow: en ? "Next legal action" : "Siguiente acción legal",
+      eyebrow: en ? "Next step" : "Siguiente paso",
       headline: action.label,
       summary: en
         ? "It's the only basic currency that fits the item as it is. You still need to decide if it fits your goal and accept that the result is random."
