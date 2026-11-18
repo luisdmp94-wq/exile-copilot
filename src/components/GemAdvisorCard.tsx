@@ -30,7 +30,7 @@ const TEXT = texts(
   {
     attributes: { Int: "Inteligencia", Des: "Destreza", Fue: "Fuerza" },
     attributeLower: { Int: "inteligencia", Des: "destreza", Fue: "fuerza" },
-    costs: (value: string) => `La habilidad pasa a costar el ${value} de su maná.`,
+    costs: (value: string) => `Su coste sube al ${value}: el maná que gasta o el espíritu que reserva.`,
     gradeOf: (grade: string, attribute: string) => `Grado ${grade}, de ${attribute}.`,
     rulesOnly: "Decidido por reglas, sin IA. ",
     // El motivo técnico queda en el registro del servidor; al jugador le basta
@@ -131,7 +131,7 @@ const TEXT = texts(
   {
     attributes: { Int: "Intelligence", Des: "Dexterity", Fue: "Strength" },
     attributeLower: { Int: "intelligence", Des: "dexterity", Fue: "strength" },
-    costs: (value: string) => `The skill now costs ${value} of its mana.`,
+    costs: (value: string) => `Its cost goes up to ${value}: the mana it spends or the spirit it reserves.`,
     gradeOf: (grade: string, attribute: string) => `Tier ${grade}, ${attribute}.`,
     rulesOnly: "Decided by rules, no AI. ",
     aiFallback: () => "The AI couldn't explain it this time, so the rules do. ",

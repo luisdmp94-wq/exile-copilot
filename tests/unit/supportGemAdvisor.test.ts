@@ -93,7 +93,11 @@ describe("adviseSupportGem", () => {
     expect(reasonIsGrounded("Aguantan más, pero cuesta más maná.", skeleton, lastGasp)).toBe(false);
     expect(reasonIsGrounded("Un 30 % más de daño degenerativo y un 20 % menos de duración.", skeleton, swift)).toBe(true);
     // Brutalidad sí encarece: hablar de coste está respaldado.
-    expect(reasonIsGrounded("Un 25 % más de daño físico, pero cuesta el 120 % de maná.", skeleton, brutality)).toBe(true);
+    const boneshatter = findSkill(data, "Destrozahuesos")!;
+    expect(reasonIsGrounded("Un 25 % más de daño físico, pero cuesta el 120 % de maná.", boneshatter, brutality)).toBe(true);
+    // Pero una habilidad que se deja activa reserva espíritu: no gasta maná.
+    expect(reasonIsGrounded("Un 25 % más de daño físico, pero cuesta el 120 % de maná.", skeleton, brutality)).toBe(false);
+    expect(reasonIsGrounded("Un 25 % más de daño físico, pero su coste sube al 120 %.", skeleton, brutality)).toBe(true);
   });
 
   it("limpia el motivo de la IA: texto plano y corto", async () => {

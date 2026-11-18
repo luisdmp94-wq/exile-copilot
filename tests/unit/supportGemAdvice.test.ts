@@ -101,3 +101,88 @@ describe("supportCandidates — casos de la partida del 11-11-2026", () => {
     expect(names("Presencia marchitante", { maxGrade: 5 })).not.toContain("Eficiencia I");
   });
 });
+
+// Auditoría del 18-11-2026: unas veinte asistencias se ofrecían a casi todas
+// las habilidades porque su primera frase pide un tipo que ninguna regla miraba.
+describe("supportCandidates — asistencias que piden un tipo concreto de habilidad", () => {
+  // Una sola pasada por todas las habilidades: a cuáles se ofrece cada asistencia.
+  const offered = new Map<string, string[]>();
+  for (const skill of data.skills) {
+    for (const candidate of supportCandidates(data, { skill, maxGrade: 5, attributes: ALL })) {
+      offered.set(candidate.support.name, [...(offered.get(candidate.support.name) ?? []), skill.name]);
+    }
+  }
+  const offeredTo = (supportName: string) => offered.get(supportName) ?? [];
+
+  it("las de ofrendas, cadáveres, detonación y momento perfecto solo van a esas habilidades", () => {
+    expect(offeredTo("Ofrenda sacrificial")).toEqual(["Ofrenda de dolor", "Ofrenda de hueso", "Ofrenda de almas"]);
+    expect(offeredTo("Atracón")).toEqual(["Descomposición", "Festín de carne", "Muertos volátiles", "Levantar zombi", "Ritual profano"]);
+    expect(offeredTo("Mecha larga II")).toEqual(["Lanza explosiva", "Flechas de punta helada", "Crecimiento tóxico", "Bomba de escarcha"]);
+    expect(offeredTo("Perfección")).toEqual(["Golpe perfecto", "Disparo certero"]);
+    expect(offeredTo("Durabilidad")).toEqual(["Muro protector", "Campo de lanzas", "Muro de hielo"]);
+  });
+
+  it("las que miran etiquetas del juego las respetan: nova, condición, activación", () => {
+    const tagged = (tag: string) => data.skills.filter((skill) => skill.tags.includes(tag)).map((skill) => skill.name);
+    expect(offeredTo("Proyección astral")).toEqual(tagged("Nova"));
+    expect(offeredTo("Gratificación demorada")).toEqual(tagged("Condicional"));
+    expect(offeredTo("Condensador de energía")).toEqual(["Lanzahechizos"]);
+    for (const name of offeredTo("Casualidad")) expect(tagged("Activación")).toContain(name);
+  });
+
+  it("las de cargas piden cargas de poder, frenesí o aguante, no «recarga»", () => {
+    expect(offeredTo("Cargas potenciadas")).toContain("Tormenta de huesos");
+    expect(offeredTo("Cargas potenciadas")).not.toContain("Contagio");
+    expect(offeredTo("Cargas potenciadas").length).toBeLessThan(25);
+    expect(offeredTo("Profusión de cargas II")).toContain("Robo de poder");
+    expect(offeredTo("Profusión de cargas II").length).toBeLessThan(10);
+  });
+
+  it("lo que no se sabe por los datos no se propone: usar andando", () => {
+    expect(offeredTo("Movilidad")).toEqual([]);
+    expect(offeredTo("Deliberación")).toEqual([]);
+  });
+
+  it("«de escudo» es la que se usa con escudo, no la que crea uno ni la de escudo de energía", () => {
+    expect(offeredTo("Vanguardia II")).toEqual(["Carga con escudo", "Barrera de magma", "Escudo resonante", "Muro protector", "Grito fortificador"]);
+  });
+
+  it("potenciar otra habilidad no es potenciar una resistencia", () => {
+    expect(offeredTo("Intención asesina")).toEqual(
+      expect.arrayContaining(["Grito infernal", "Descarga", "Tempestad de maná"]),
+    );
+    expect(offeredTo("Intención asesina")).not.toContain("Pureza de fuego");
+  });
+
+  it("una maldición no hace daño: no recibe lo que solo da daño", () => {
+    const curse = names("Desesperación", { maxGrade: 5 });
+    for (const wrong of ["Área concentrada", "Tempestad creciente", "Acritud", "Enloquecer", "Impulso", "Agonía intensa", "Exposición potente"]) {
+      expect(curse).not.toContain(wrong);
+    }
+    // Lo suyo sigue estando.
+    expect(curse).toEqual(expect.arrayContaining(["Maldición mejorada", "Maldición ritualística", "Lanzamiento rápido III"]));
+  });
+
+  it("el daño degenerativo propio solo se mejora en habilidades que lo tienen", () => {
+    expect(offeredTo("Agonía intensa")).toEqual(expect.arrayContaining(["Contagio", "Drenar esencia"]));
+    expect(offeredTo("Agonía intensa").length).toBeLessThan(10);
+    expect(names("Contagio", { maxGrade: 5 })).toContain("Aflicción veloz III");
+  });
+
+  it("lo que se deja activo no «se usa»: un aura no recibe Ferocidad", () => {
+    expect(offeredTo("Ferocidad")).not.toContain("Pureza de fuego");
+    expect(offeredTo("Ferocidad")).not.toContain("Guerrero esqueleto");
+    expect(offeredTo("Ferocidad")).toContain("Destrozahuesos");
+  });
+
+  it("ninguna asistencia sin etiquetas propias se ofrece ya a casi todo sin motivo", () => {
+    // Las que de verdad valen para cualquiera («cualquier habilidad», «que usas tú mismo», «que hace daño»).
+    const universal = /^asiste (?:cualquier habilidad|habilidades de ataque|habilidades que (?:usas|pueden infligir|infligen dano|impactan|pueden provocar))/;
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const suspicious = data.supports
+      .filter((support) => !support.lineage && support.tags.length === 0 && !universal.test(normalize(support.description)))
+      .filter((support) => offeredTo(support.name).length > 60)
+      .map((support) => support.name);
+    expect(suspicious).toEqual([]);
+  });
+});

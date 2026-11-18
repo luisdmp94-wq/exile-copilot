@@ -128,6 +128,9 @@ export function reasonIsGrounded(reason: string, skill: GemSkill, support: GemSu
   const supportText = normalizeGemText(`${support.description} ${support.effects.join(" ")}`);
   const talksAboutCost = /\bcost|cuesta|\bmana\b/.test(text);
   if (talksAboutCost && !support.costMultiplier && !/cost|mana/.test(supportText)) return false;
+  // Una habilidad que se deja activa reserva espíritu: no gasta maná. Si la IA
+  // habla de maná y la asistencia no lo nombra, se lo ha inventado.
+  if (/\bmana\b/.test(text) && skill.tags.includes("Persistente") && !/\bmana\b/.test(supportText)) return false;
   return true;
 }
 

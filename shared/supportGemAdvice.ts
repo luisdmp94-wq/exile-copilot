@@ -150,6 +150,22 @@ function hitsEnemies(skill: GemSkill): boolean {
   return skill.effects.some((effect) => /inflige de .+ a .+ de dano/.test(normalizeGemText(effect)));
 }
 
+/** ¿Alguna frase de la habilidad (descripción o efectos) dice eso? */
+function saysInOneSentence(skill: GemSkill, pattern: RegExp): boolean {
+  return [skill.description, ...skill.effects]
+    .flatMap((part) => part.split(/(?<=\.)\s+/))
+    .some((sentence) => pattern.test(normalizeGemText(sentence)));
+}
+
+/**
+ * ¿La habilidad hace daño ella misma? Las maldiciones, las señales y los
+ * efectos beneficiosos no: a esas no se les propone nada que solo dé daño.
+ */
+function dealsDamage(skill: GemSkill): boolean {
+  if (skill.tags.includes("Ataque") || skill.tags.includes("Esbirro")) return true;
+  return skill.effects.some((effect) => /inflige[^|]*dano|de dano .*por segundo/.test(normalizeGemText(effect)));
+}
+
 /** Familia de la asistencia: «Lanzamiento rápido I» y «II» comparten hueco. */
 export function supportFamily(support: GemSupport): string {
   return support.category ?? support.name.replace(/\s+[IVX]+$/, "");
@@ -168,15 +184,58 @@ const KEYWORD_RULES: Array<[RegExp, (skill: GemSkill, text: string) => boolean]>
   [/gritos de guerra/, (skill) => skill.tags.includes("Grito de guerra")],
   [/habilidades de senales/, (skill) => skill.tags.includes("Señal")],
   [/repetibles/, (skill) => skill.tags.includes("Repetible")],
-  [/habilidades de escudo/, (_skill, text) => text.includes("escudo")],
+  // «De escudo» es la que se usa con el escudo en la mano, no la que crea un escudo.
+  [/habilidades de escudo/, (skill) => saysInOneSentence(skill, /tu escudo(?! de energia)|en el escudo|ataques de escudo/)],
   [/cascadeables/, (_skill, text) => text.includes("cascad")],
   [/estandarte/, (_skill, text) => text.includes("estandarte")],
-  [/(?:consumen|generan) cargas/, (_skill, text) => text.includes("carga")],
-  [/potenciar otras habilidades/, (_skill, text) => text.includes("potencia")],
+  // Cargas de poder, frenesí o aguante: «recarga» y «descarga» no cuentan.
+  [
+    /consum\w* cargas/,
+    (skill) => saysInOneSentence(skill, /(?:consum|gast)\w*[^.]*cargas? de (?:poder|frenesi|aguante)/),
+  ],
+  [
+    /gener\w* cargas/,
+    (skill) => saysInOneSentence(skill, /(?:otorg|gan|recib)\w*[^.]*cargas? de (?:poder|frenesi|aguante)/),
+  ],
+  // Potenciar otra habilidad («potencia los siguientes ataques»), no una resistencia.
+  [
+    /potenciar otras habilidades/,
+    (skill) => saysInOneSentence(skill, /potencia[rn]? (?:los|tus|tu|el) (?:siguientes? )?(?:ataques?|embates?|hechizos?)/),
+  ],
   [/rotura de armadura/, (_skill, text) => text.includes("armadura")],
   [/ralentizaciones/, (_skill, text) => /ralentiz|escalofri|congel/.test(text)],
   [/municion|ballesta/, (skill, text) => skill.tags.includes("Munición") || /municion|ballesta/.test(text)],
+  // Lo que sigue se colaba a casi todas las habilidades porque no había regla.
+  [/tiempo de detonacion|que detonan (?:cuando|despues)/, (_skill, text) => text.includes("tiempo de detonacion")],
+  [/habilidades de ofrenda/, (skill) => normalizeGemText(skill.name).startsWith("ofrenda")],
+  [
+    /consumen cadaveres/,
+    (skill) => saysInOneSentence(skill, /consum\w* (?:un |varios |hasta \d+ |el |los )?cadaver|cadaver se consume/),
+  ],
+  [/momento perfecto/, (_skill, text) => text.includes("momento perfecto")],
+  [/habilidades de nova/, (skill) => skill.tags.includes("Nova")],
+  [/requieren que se cumpla alguna condicion/, (skill) => skill.tags.includes("Condicional")],
+  [/que activan otras habilidades/, (skill) => skill.tags.includes("Activación")],
+  [/de conjuracion/, (skill) => skill.tags.includes("Conjuración")],
+  // Los datos no dicen qué habilidades se pueden usar andando: solo si lo dice su texto.
+  [/usar en movimiento|usar mientras te mueves/, (_skill, text) => /usar(?:se)? (?:en movimiento|mientras te mueves)/.test(text)],
+  [/saltar en el aire/, (skill) => saysInOneSentence(skill, /\bsaltas? (?:por los aires|en el aire)/)],
+  [/aplican exposicion/, (_skill, text) => text.includes("exposicion")],
+  [/objetos que se destruyen/, (_skill, text) => text.includes("lo destruye")],
+  [/golpe final/, (_skill, text) => /golpe final|combinacion de (?:hasta )?\w+ ataques/.test(text)],
+  [/de arco o lanza/, (_skill, text) => /\barco\b|flecha|lanza/.test(text)],
+  [/ataques de arco/, (_skill, text) => /\barco\b|flecha/.test(text)],
+  [/^asiste habilidades de viento/, (skill) => skill.tags.includes("Viento")],
+  // Daño degenerativo propio («por segundo»), no el de quemaduras o venenos.
+  [/dano (?:de caos )?degenerativo/, (skill) => dealsDamageOverTime(skill)],
 ];
+
+/** La asistencia exige que la habilidad haga daño o impacte. */
+const NEEDS_DAMAGE =
+  /que impact(?:e|an)|pued(?:a|e|en) impactar|impactos daninos|infligir impactos|provocan impactos|inflij(?:a|an) dano|infligen dano|infligir dano/;
+
+/** Lo único que da la asistencia es daño (a veces a cambio de otra cosa). */
+const ONLY_GIVES_DAMAGE = /% mas de dano|dano mayor|inflij(?:a|an) mas dano|mas dano/;
 
 /** Lo que la propia descripción de la asistencia exige a la habilidad. */
 function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
@@ -187,7 +246,8 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
   if (/^asiste embates/.test(first) && !tags.includes("Embate")) return false;
   if (/^asiste hechizos/.test(first) && !tags.includes("Hechizo")) return false;
   if (/^asiste (?:ataques|golpes|habilidades de ataque|habilidades de golpe)/.test(first) && !tags.includes("Ataque")) return false;
-  if (/que (?:usas|uses) tu mismo/.test(first) && isPersistentMinion(skill)) return false;
+  // Lo persistente (esbirros que reviven, auras, efectos que se dejan puestos) no «se usa».
+  if (/que (?:usas|uses|lanzas)(?: o activ[ae]s)? tu mismo/.test(first) && tags.includes("Persistente")) return false;
   if (/reserven espiritu/.test(text) && (skill.reserve !== null || tags.includes("Persistente"))) return false;
   if (/que tengan? una duracion/.test(first) && !tags.includes("Duración")) return false;
   if (/que tien(?:e|en) un limite/.test(first) && !/limite/.test(skillText(skill))) return false;
@@ -197,10 +257,20 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
     if (condition.test(first) && !allows(skill, skillText(skill))) return false;
   }
 
-  const dealsDamage = /que impact(?:e|an)|impactos daninos|infligir impactos|que inflij(?:a|an) dano|que infligen dano/.test(first);
-  if (dealsDamage) {
-    if (isPersistentBuff(skill)) return false;
+  if (NEEDS_DAMAGE.test(first)) {
+    if (isPersistentBuff(skill) || !dealsDamage(skill)) return false;
     if (/impact/.test(first) && !isPersistentMinion(skill) && !hitsEnemies(skill)) return false;
+  }
+  // A una maldición o a un aura no se le propone «Área concentrada»: le encoge
+  // el área a cambio de un daño que no hace.
+  //  Las hechas para ese tipo de habilidad (de maldición, de señal) sí pasan.
+  if (
+    !dealsDamage(skill) &&
+    !isPersistentBuff(skill) &&
+    !support.tags.some((tag) => tag === "Maldición" || tag === "Señal") &&
+    ONLY_GIVES_DAMAGE.test(`${text} ${normalizeGemText(support.effects.join(" "))}`)
+  ) {
+    return false;
   }
 
   // «Asiste habilidades que crean muros / fisuras / superficies…»: la habilidad
@@ -208,7 +278,8 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
   const creates = /que (?:crean?|creen?) ([a-zñ]+)/.exec(first);
   if (creates) {
     const noun = creates[1];
-    const coveredByTags = /^(?:esbirros|proyectiles|totems|remanentes)$/.test(noun);
+    // «objetos» tiene su propia regla arriba («objeto» se colaba por «objetivo»).
+    const coveredByTags = /^(?:esbirros|proyectiles|totems|remanentes|objetos)$/.test(noun);
     if (!coveredByTags && !skillText(skill).includes(noun.slice(0, 5))) return false;
   }
   return true;
