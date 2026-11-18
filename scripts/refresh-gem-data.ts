@@ -17,6 +17,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { isRealGem } from "../shared/gemCatalog";
 
 const BASE = "https://poe2db.tw";
 const HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; exile-copilot-data)" };
@@ -132,7 +133,10 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 }
 
 async function build(listing: string, kind: "skill" | "support") {
-  const rows = parseListing(await get(`${BASE}/${SITE}/${listing}`));
+  const listed = parseListing(await get(`${BASE}/${SITE}/${listing}`));
+  // Fuera las gemas que el juego retiró y las entradas que no son gemas.
+  const rows = listed.filter(isRealGem);
+  if (rows.length < listed.length) console.log(`${listing}: ${listed.length - rows.length} entradas descartadas (retiradas o de plantilla)`);
   let failed = 0;
   const entries = await mapLimit(rows, 6, async (row) => {
     let card: Card;

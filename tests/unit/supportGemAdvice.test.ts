@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { isPlaceholderGemName, isRealGem } from "../../shared/gemCatalog";
 import {
   GemDataSchema,
   findSkill,
@@ -315,5 +316,33 @@ describe("supportCandidates — repaso de la arquera", () => {
   it("un efecto que solo nombra el enfriamiento no tiene enfriamiento", () => {
     expect(names("Momento de necesidad", { maxGrade: 5 })).not.toContain("Segundo aliento III");
     expect(names("Convalecencia", { maxGrade: 5 })).toContain("Segundo aliento III");
+  });
+});
+
+// El listado en español de poe2db seguía enseñando gemas que el juego retiró
+// en el parche 0.3.0 y alguna entrada que no es una gema (18-11-2026).
+describe("datos de gemas — solo gemas que existen en el juego", () => {
+  const english = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../../server/data/gems.en.json", import.meta.url)), "utf8"),
+  ) as { skills: Array<{ slug: string; name: string }>; supports: Array<{ slug: string; name: string }> };
+  const spanish = [...data.skills, ...data.supports];
+
+  it("no trae gemas retiradas ni entradas de plantilla", () => {
+    expect(spanish.filter((gem) => !isRealGem(gem)).map((gem) => gem.name)).toEqual([]);
+    expect([...english.skills, ...english.supports].filter((gem) => !isRealGem(gem)).map((gem) => gem.name)).toEqual([]);
+    expect(isPlaceholderGemName("Compañero: {0}")).toBe(true);
+    expect(isPlaceholderGemName("[DNT] Crushing Earth")).toBe(true);
+    expect(isPlaceholderGemName("Compañero rhoa")).toBe(false);
+    for (const gone of ["Conductividad", "Inflamabilidad", "Hipotermia", "Lanzar al congelar"]) expect(findSkill(data, gone)).toBeNull();
+    // Las que las sustituyen siguen ahí.
+    expect(findSkill(data, "Debilidad elemental")).not.toBeNull();
+    expect(findSkill(data, "Lanzar al infligir estado alterado elemental")).not.toBeNull();
+  });
+
+  it("cada gema en español tiene su versión en inglés", () => {
+    // El listado inglés es el que sigue al juego: una gema solo en español es
+    // una gema retirada (y además saldría sin traducir en la versión inglesa).
+    const translated = new Set([...english.skills, ...english.supports].map((gem) => gem.slug));
+    expect(spanish.filter((gem) => !translated.has(gem.slug)).map((gem) => gem.name)).toEqual([]);
   });
 });

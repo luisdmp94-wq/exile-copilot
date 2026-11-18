@@ -643,8 +643,9 @@ export function findSkill(data: GemData, name: string): GemSkill | null {
 
 /**
  * Qué tipo de habilidad se le engarza a una metahabilidad. Blasfemia lleva
- * maldiciones; «Lanzar al congelar», hechizos. Sin eso la gema no hace nada,
- * así que aconsejar solo su asistencia deja al jugador a medias.
+ * maldiciones; «Lanzar al infligir estado alterado elemental», hechizos. Sin
+ * eso la gema no hace nada, así que aconsejar solo su asistencia deja al
+ * jugador a medias.
  */
 export const SocketedKindSchema = z.enum(["curse", "spell", "ranged-attack", "mace-skill", "skill"]);
 export type SocketedKind = z.infer<typeof SocketedKindSchema>;

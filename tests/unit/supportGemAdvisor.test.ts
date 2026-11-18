@@ -174,10 +174,11 @@ describe("metahabilidades: llevan habilidades engarzadas, no solo asistencias", 
   it("cada metahabilidad de los datos dice qué lleva engarzado", () => {
     const meta = data.skills.filter((skill) => skill.tags.includes("Metahabilidad"));
 
-    expect(meta.length).toBeGreaterThanOrEqual(10);
+    // Eran 10 hasta quitar las tres «Lanzar al…» que el juego fundió en una (parche 0.3.0).
+    expect(meta.length).toBeGreaterThanOrEqual(7);
     // Si una actualización de datos trae una frase nueva, que salte aquí y no en la web.
     expect(meta.filter((skill) => socketedKind(skill) === "skill").map((skill) => skill.name)).toEqual([]);
-    expect(socketedKind(findSkill(data, "Lanzar al congelar")!)).toBe("spell");
+    expect(socketedKind(findSkill(data, "Lanzar al infligir estado alterado elemental")!)).toBe("spell");
     expect(socketedKind(findSkill(data, "Arquero ilusorio")!)).toBe("ranged-attack");
     expect(socketedKind(findSkill(data, "Tótem de guerrero ancestral")!)).toBe("mace-skill");
     expect(socketedKind(findSkill(data, "Contagio")!)).toBeNull();
@@ -214,11 +215,11 @@ describe("metahabilidades: llevan habilidades engarzadas, no solo asistencias", 
         (candidate) => candidate.support.name,
       );
 
-    expect(names("Lanzar al congelar")).toEqual(expect.arrayContaining(["Energía ilimitada II", "Casualidad", "Claridad II"]));
-    expect(names("Lanzar al congelar")).not.toContain("Maldición mejorada");
-    expect(names("Lanzar al congelar")).not.toContain("Condensador de energía");
+    expect(names("Lanzar al infligir estado alterado elemental")).toEqual(expect.arrayContaining(["Energía ilimitada II", "Casualidad", "Claridad II"]));
+    expect(names("Lanzar al infligir estado alterado elemental")).not.toContain("Maldición mejorada");
+    expect(names("Lanzar al infligir estado alterado elemental")).not.toContain("Condensador de energía");
     expect(names("Lanzahechizos")).toContain("Condensador de energía");
-    expect(names("Lanzar al congelar")).not.toContain("Área concentrada");
+    expect(names("Lanzar al infligir estado alterado elemental")).not.toContain("Área concentrada");
   });
 
   it("el reparto de varias gemas también lo avisa", async () => {
