@@ -86,6 +86,7 @@ import {
 import { pageLang } from "../i18n/lang";
 import { VISIT_SOURCE_HEADER } from "@shared/visitStats.js";
 import { visitSource } from "./visitBeacon";
+import { ScreenshotReadResponseSchema, type ScreenshotReadResponse } from "@shared/screenshotRead.js";
 
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
 
@@ -276,6 +277,9 @@ export const api = {
 
   importBuild: (payload: ImportBuildRequest): Promise<ImportBuildResponse> =>
     request("/api/import/build", ImportBuildResponseSchema, jsonInit(payload)),
+
+  readScreenshot: (image: string): Promise<ScreenshotReadResponse> =>
+    request("/api/quick-review/screenshot", ScreenshotReadResponseSchema, jsonInit({ image })),
 
   importItemText: (payload: ImportItemTextRequest): Promise<ImportItemTextResponse> =>
     request("/api/import/item-text", ImportItemTextResponseSchema, jsonInit(payload)),

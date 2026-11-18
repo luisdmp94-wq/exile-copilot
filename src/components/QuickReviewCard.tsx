@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
-import { ClipboardCheck, MessageCircleMore } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
+import { Camera, ClipboardCheck, Loader2, MessageCircleMore } from "lucide-react";
+import type { ScreenshotReadResponse } from "@shared/screenshotRead.js";
+import { api, getErrorMessage } from "@/lib/api";
 import type { CharacterProfile } from "@shared/domain.js";
 import { readCharacterLevel } from "@shared/domain.js";
 import { reviewCharacter, type QuickReviewAct, type QuickReviewInput } from "@shared/quickReview.js";
@@ -10,6 +12,7 @@ import { texts, useLang, useText } from "@/i18n/lang";
 const TEXT = texts(
   {
     title: "Revisión rápida de tu personaje",
+    start: "Empezar la revisión",
     lead: "Contesta lo que veas en el juego y te digo los 3 problemas que más te frenan, en orden. No hace falta pegar nada.",
     level: "Tu nivel",
     act: "Dónde estás",
@@ -42,10 +45,20 @@ const TEXT = texts(
     ask: "Preguntar al Mentor sobre esto",
     askQuestion: (lines: string) => `Mi revisión rápida dice: ${lines}. ¿Por dónde empiezo y cómo lo hago?`,
     rules: "Reglas fijas con datos del juego (niveles de gema de poe2db). Sin IA.",
+    pasteTitle: "Rellénalo con una captura",
+    pasteHint: "En el juego abre la hoja del personaje (tecla C) o la ventana de habilidades, pulsa Win+Shift+S, recorta y pega aquí con Ctrl+V.",
+    pastePick: "o elige una imagen",
+    pasteReading: "Leyendo tu captura…",
+    pasteSheet: (count: number) => `He rellenado ${count} dato${count === 1 ? "" : "s"} de tu hoja. Revísalos.`,
+    pasteSkills: "He leído tus habilidades. ¿Cuál es la que hace el daño?",
+    pasteOther: "No reconozco esa pantalla. Prueba con la hoja (tecla C) o la ventana de habilidades.",
+    pasteNotImage: "Eso no es una imagen. Haz la captura con Win+Shift+S y pega aquí.",
+    pastePrivacy: "La captura se manda a la IA solo para leer los números; no la guardamos.",
     how: "Cómo hacerlo",
   },
   {
     title: "Quick character review",
+    start: "Start the review",
     lead: "Fill in what you see in game and I'll tell you the 3 things holding you back the most, in order. No pasting needed.",
     level: "Your level",
     act: "Where you are",
@@ -78,11 +91,22 @@ const TEXT = texts(
     ask: "Ask the Mentor about this",
     askQuestion: (lines: string) => `My quick review says: ${lines}. Where do I start and how?`,
     rules: "Fixed rules with game data (gem levels from poe2db). No AI.",
+    pasteTitle: "Fill it in with a screenshot",
+    pasteHint: "In game, open the character sheet (C key) or the skills window, press Win+Shift+S, crop it and paste here with Ctrl+V.",
+    pastePick: "or choose an image",
+    pasteReading: "Reading your screenshot…",
+    pasteSheet: (count: number) => `I filled in ${count} value${count === 1 ? "" : "s"} from your sheet. Please check them.`,
+    pasteSkills: "I read your skills. Which one deals your damage?",
+    pasteOther: "I don't recognise that screen. Try the character sheet (C key) or the skills window.",
+    pasteNotImage: "That isn't an image. Take the screenshot with Win+Shift+S and paste it here.",
+    pastePrivacy: "The screenshot is sent to the AI only to read the numbers; we don't keep it.",
     how: "How to do it",
   },
 );
 
 const STORAGE_KEY = "exile-copilot:revision-rapida";
+/** Evento con el que otras partes de la web (la mascota) abren la revisión. */
+export const OPEN_REVIEW_EVENT = "exile-copilot:abrir-revision";
 
 interface Form {
   level: string;
@@ -190,6 +214,32 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const { lang } = useLang();
   const [form, setForm] = useState<Form>(() => ({ ...EMPTY, ...fromProfile(profile), ...readStored() }));
   const [reviewed, setReviewed] = useState(false);
+  // En móvil empieza plegada: así el equipo sigue en la primera pantalla. En
+  // ordenador, abierta. La mascota («No hago daño») la abre con un evento.
+  const [wide, setWide] = useState(
+    () => typeof window === "undefined" || window.matchMedia?.("(min-width: 768px)").matches !== false,
+  );
+  /** Lo que eligió el jugador; mientras no elija, manda el tamaño de pantalla. */
+  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+  const expanded = userExpanded ?? wide;
+  const setExpanded = setUserExpanded;
+  useEffect(() => {
+    const query = window.matchMedia?.("(min-width: 768px)");
+    const follow = () => setWide(query?.matches !== false);
+    query?.addEventListener?.("change", follow);
+    const open = () => setUserExpanded(true);
+    window.addEventListener(OPEN_REVIEW_EVENT, open);
+    return () => {
+      query?.removeEventListener?.("change", follow);
+      window.removeEventListener(OPEN_REVIEW_EVENT, open);
+    };
+  }, []);
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
+  /** Habilidades leídas de la captura, para elegir la principal con un clic. */
+  const [readSkills, setReadSkills] = useState<ScreenshotReadResponse["skills"]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const result = useMemo(() => reviewCharacter(toInput(form), lang), [form, lang]);
 
   const set = (key: keyof Form) => (value: string) => {
@@ -202,6 +252,112 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
       }
       return next;
     });
+  };
+
+  const setMany = (values: Partial<Form>) => {
+    setForm((current) => {
+      const next = { ...current, ...values };
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Sin almacenamiento, el formulario vale para esta visita.
+      }
+      return next;
+    });
+  };
+
+  /** Lo que la IA ha leído pasa a los campos; lo que no ha visto no se toca. */
+  const applyRead = (read: ScreenshotReadResponse) => {
+    if (read.screen === "character" && read.sheet) {
+      const sheet = read.sheet;
+      const values: Partial<Form> = {};
+      if (sheet.level !== null) values.level = String(sheet.level);
+      if (sheet.fire !== null) values.fire = String(sheet.fire);
+      if (sheet.cold !== null) values.cold = String(sheet.cold);
+      if (sheet.lightning !== null) values.lightning = String(sheet.lightning);
+      if (sheet.className) values.ascendancy = LICH.test(sheet.className) ? "lich" : "other";
+      setMany(values);
+      setReadNote(t.pasteSheet(Object.keys(values).length));
+      return;
+    }
+    if (read.screen === "skills" && read.skills.length > 0) {
+      setReadSkills(read.skills);
+      setReadNote(t.pasteSkills);
+      return;
+    }
+    setReadError(t.pasteOther);
+  };
+
+  const chooseMainSkill = (index: number) => {
+    const main = readSkills[index];
+    if (!main) return;
+    setMany({
+      mainSkill: main.name,
+      gemLevel: main.level === null ? "" : String(main.level),
+      otherSkills: readSkills
+        .filter((_, other) => other !== index)
+        .map((skill) => skill.name)
+        .join(", "),
+    });
+    setReadSkills([]);
+    setReadNote(null);
+  };
+
+  /** Reduce la imagen en el navegador (lado mayor 1600 px, JPEG) antes de mandarla. */
+  const readImage = async (file: File) => {
+    setReadError(null);
+    setReadNote(null);
+    setReadSkills([]);
+    if (!file.type.startsWith("image/")) {
+      setReadError(t.pasteNotImage);
+      return;
+    }
+    setReading(true);
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      applyRead(await api.readScreenshot(canvas.toDataURL("image/jpeg", 0.85)));
+    } catch (err) {
+      setReadError(getErrorMessage(err));
+    } finally {
+      setReading(false);
+    }
+  };
+
+  // Tras Win+Shift+S el foco no suele estar en la tarjeta: Ctrl+V en cualquier
+  // parte de la página también vale, pero SOLO si lo pegado es una imagen y no
+  // se está escribiendo en otro cuadro (las piezas se pegan como texto).
+  const readImageRef = useRef(readImage);
+  readImageRef.current = readImage;
+  useEffect(() => {
+    const onDocumentPaste = (event: globalThis.ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-testid="revision-rapida"]')) return;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const file = [...(event.clipboardData?.items ?? [])]
+        .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+        ?.getAsFile();
+      if (!file) return;
+      event.preventDefault();
+      setUserExpanded(true);
+      document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      void readImageRef.current(file);
+    };
+    document.addEventListener("paste", onDocumentPaste);
+    return () => document.removeEventListener("paste", onDocumentPaste);
+  }, []);
+
+  const onPasteImage = (event: ClipboardEvent<HTMLElement>) => {
+    const file = [...event.clipboardData.items]
+      .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+      ?.getAsFile();
+    if (!file) return;
+    event.preventDefault();
+    void readImage(file);
   };
 
   const numberField = (key: keyof Form, label: string, hint?: string) => (
@@ -265,6 +421,77 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         {t.title}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">{t.lead}</p>
+
+      {!expanded && (
+        <Button type="button" className="mt-3" onClick={() => setExpanded(true)} data-testid="revision-empezar">
+          <ClipboardCheck className="size-4" aria-hidden="true" />
+          {t.start}
+        </Button>
+      )}
+
+      {expanded && (
+      <>
+      <div
+        className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        tabIndex={0}
+        onPaste={onPasteImage}
+        data-testid="revision-captura"
+      >
+        <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          {reading ? (
+            <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
+          ) : (
+            <Camera className="size-4 text-primary" aria-hidden="true" />
+          )}
+          {reading ? t.pasteReading : t.pasteTitle}
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.pasteHint}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={reading}
+            onClick={() => fileInputRef.current?.click()}
+            data-testid="revision-captura-elegir"
+          >
+            {t.pastePick}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void readImage(file);
+            }}
+            data-testid="revision-captura-archivo"
+          />
+          <span className="text-[11px] text-muted-foreground/80">{t.pastePrivacy}</span>
+        </div>
+        {readNote && (
+          <p className="mt-2 text-sm text-emerald-300" role="status" data-testid="revision-captura-nota">
+            {readNote}
+          </p>
+        )}
+        {readSkills.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2" data-testid="revision-captura-habilidades">
+            {readSkills.map((skill, index) => (
+              <Button key={`${skill.name}-${index}`} type="button" size="sm" variant="secondary" onClick={() => chooseMainSkill(index)}>
+                {skill.name}
+                {skill.level !== null && <span className="text-muted-foreground"> · {skill.level}</span>}
+              </Button>
+            ))}
+          </div>
+        )}
+        {readError && (
+          <p className="mt-2 text-sm text-rose-300" role="alert" data-testid="revision-captura-error">
+            {readError}
+          </p>
+        )}
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {numberField("level", t.level)}
@@ -367,6 +594,8 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
           )}
           <p className="mt-3 text-[11px] text-muted-foreground/80">{t.rules}</p>
         </div>
+      )}
+      </>
       )}
     </section>
   );

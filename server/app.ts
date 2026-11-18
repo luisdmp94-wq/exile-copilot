@@ -151,6 +151,8 @@ import { auditRuntimeReadiness } from "./runtimeReadiness.js";
 import { readStats, recordArea, recordUse, recordVisit } from "./analytics.js";
 import { listFeedback, recordFeedback } from "./feedback.js";
 import { FeedbackReportSchema } from "../shared/feedback.js";
+import { ScreenshotReadRequestSchema } from "../shared/screenshotRead.js";
+import { createScreenshotReader, type ScreenshotReader } from "./advice/screenshotReader.js";
 import {
   AreaBeaconSchema,
   VISIT_SOURCE_HEADER,
@@ -187,6 +189,8 @@ export interface CreateApiAppOptions {
   mentorSelector?: MentorDecisionSelector | null;
   /** Redactor de los motivos del reparto inyectable; `null` deja los de las reglas. */
   supportPlanExplainer?: SupportPlanExplainer | null;
+  /** Lector de capturas inyectable; `null` lo apaga (como sin IA configurada). */
+  screenshotReader?: ScreenshotReader | null;
 }
 
 function fixtureUrl(rel: string): URL {
@@ -367,6 +371,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     options.mentorSelector !== undefined
       ? options.mentorSelector
       : createMentorDecisionSelector(config);
+  const screenshotReader =
+    options.screenshotReader !== undefined ? options.screenshotReader : createScreenshotReader(config);
   const supportPlanExplainer =
     options.supportPlanExplainer !== undefined
       ? options.supportPlanExplainer
@@ -518,6 +524,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     "POST /import/item-text": "pieza-leida",
     "POST /mentor/query": "mentor",
     "POST /character": "personaje-guardado",
+    "POST /quick-review/screenshot": "captura-leida",
   };
   app.use((req, res, next) => {
     const event = USAGE_ROUTES[`${req.method} ${req.path}`];
@@ -779,6 +786,32 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /advice/support-gem — «¿qué asistencia le pongo a esta habilidad?».
   // Las reglas filtran y eligen con los datos del juego; la IA, si está
   // activa, solo redacta el porqué.
+  // POST /quick-review/screenshot — la IA lee una captura del juego y devuelve
+  // solo números y nombres. No se guarda la imagen.
+  app.post("/quick-review/screenshot", mentorLimiter, async (req, res, next) => {
+    try {
+      const { image } = ScreenshotReadRequestSchema.parse(req.body);
+      if (!screenshotReader) {
+        throw new ApiHttpError(
+          503,
+          "lectura-no-disponible",
+          "La lectura de capturas no está disponible ahora mismo. Rellena los datos a mano.",
+        );
+      }
+      try {
+        res.json(await screenshotReader(image));
+      } catch {
+        throw new ApiHttpError(
+          502,
+          "captura-no-leida",
+          "No he podido leer la captura. Prueba con la hoja del personaje (tecla C) o la ventana de habilidades, o rellena a mano.",
+        );
+      }
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.post("/advice/support-gem", mentorLimiter, async (req, res, next) => {
     try {
       const body = SupportAdviceRequestSchema.parse(req.body);

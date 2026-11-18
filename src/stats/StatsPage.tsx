@@ -28,6 +28,7 @@ const USE_LABELS: Record<string, string> = {
   "pieza-leida": "Piezas pegadas",
   mentor: "Preguntas al Mentor",
   "personaje-guardado": "Personajes guardados",
+  "captura-leida": "Capturas leídas",
 };
 
 const AREA_LABELS: Record<string, string> = {

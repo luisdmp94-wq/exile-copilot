@@ -64,7 +64,7 @@ import { ExpedienteSection } from "@/sections/ExpedienteSection";
 import { CharacterStrip } from "@/components/CharacterStrip";
 import { MentorQuickAsk } from "@/components/MentorQuickAsk";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
-import { QuickReviewCard } from "@/components/QuickReviewCard";
+import { OPEN_REVIEW_EVENT, QuickReviewCard } from "@/components/QuickReviewCard";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
@@ -2376,6 +2376,7 @@ export default function App() {
             // La revisión rápida mira lo que más frena el daño de un novato.
             navigateWorkspace("expediente");
             window.setTimeout(() => {
+              window.dispatchEvent(new Event(OPEN_REVIEW_EVENT));
               document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
             }, 120);
             return;
