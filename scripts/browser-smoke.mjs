@@ -774,6 +774,16 @@ async function runFlow(mode, port) {
     await page.reload({ waitUntil: "networkidle" });
     await page.getByTestId("bienvenida").waitFor({ timeout: 15000 });
 
+    // Abrir «pegar un objeto» y cerrarlo sin pegar nada no crea ningún personaje.
+    await page.getByTestId("bienvenida-objeto").click();
+    await page.locator("#item-text").waitFor({ state: "visible", timeout: 15000 });
+    await cerrarEditor(page);
+    check(
+      `[${mode}] cerrar «pegar un objeto» sin pegar nada deja la portada sin personaje fantasma`,
+      (await page.getByTestId("bienvenida").isVisible()) &&
+        (await page.getByTestId("franja-personaje").count()) === 0,
+    );
+
     // Un objeto suelto también tiene recorrido propio: pegar → analizar →
     // banco de Crafting, sin exigir importar primero un personaje completo.
     await page.getByTestId("bienvenida-objeto").click();
@@ -826,6 +836,16 @@ async function runFlow(mode, port) {
     );
     const standaloneCharacterId = await page.evaluate(() =>
       localStorage.getItem("exile-copilot:characterId"),
+    );
+    // Pegar un objeto desde la portada no deja un «Nuevo personaje» guardado:
+    // nace un expediente provisional, igual que desde Crafting.
+    const standaloneSaved = await (
+      await context.request.get(`${BASE}/api/character/${standaloneCharacterId}`)
+    ).json();
+    check(
+      `[${mode}] el objeto pegado en la portada crea un expediente provisional, no un «Nuevo personaje»`,
+      standaloneSaved.profile?.name === "Expediente provisional" &&
+        (await page.getByTestId("franja-personaje").innerText()).includes("Expediente provisional"),
     );
     await page.reload({ waitUntil: "networkidle" });
     const restoredStandaloneCoach = page.getByTestId("crafting-coach");

@@ -14,6 +14,7 @@ import type { HealthResponse } from "@shared/api.js";
 import type { CharacterProfile } from "@shared/domain.js";
 import { formatDateTime } from "@/lib/format";
 import { texts, useLang, useText, type Lang } from "@/i18n/lang";
+import { cn } from "@/lib/utils";
 import { localizePatchCompatibility } from "@shared/patchCompatibility.js";
 import { LangToggle } from "@/i18n/LangToggle";
 
@@ -163,7 +164,15 @@ export function AppHeader({
           <span className="brand-seal size-9 shrink-0 sm:size-10" aria-hidden="true">
             <Swords className="size-4 sm:size-5" />
           </span>
-          <h1 className="dossier-title min-w-0 truncate text-base leading-none text-foreground sm:text-lg">
+          {/* Con el botón de volver, en un móvil no queda sitio ni para una
+              letra entera del nombre: se veía media «E». En ese caso se deja
+              solo el sello, que sigue llevando al inicio. */}
+          <h1
+            className={cn(
+              "dossier-title min-w-0 truncate text-base leading-none text-foreground sm:text-lg",
+              canGoBack && "hidden min-[430px]:block",
+            )}
+          >
             Exile Copilot
           </h1>
         </button>

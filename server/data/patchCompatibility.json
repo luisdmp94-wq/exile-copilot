@@ -75,8 +75,8 @@
       "patchId": "0.5.5",
       "status": "review-required",
       "reviewedAt": null,
-      "summary": "0.5.5 está anunciado para el 4 de septiembre, pero sus notas y evidencias del cliente aún no están disponibles. No hereda datos ni reglas de 0.5.4f.",
-      "summaryEn": "0.5.5 is announced for 4 September, but its notes and evidence from the game client aren't available yet. It doesn't inherit data or rules from 0.5.4f.",
+      "summary": "0.5.5 salió el 4 de septiembre de 2026, pero todavía no hemos revisado sus datos con el juego. No hereda datos ni reglas de 0.5.4f.",
+      "summaryEn": "0.5.5 came out on 4 September 2026, but we haven't checked its data against the game yet. It doesn't inherit data or rules from 0.5.4f.",
       "features": [
         {
           "id": "item-import",

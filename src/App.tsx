@@ -1068,7 +1068,11 @@ export default function App() {
   };
 
   const startManualJourney = (intent: "new" | "item") => {
-    if (!character.profile) {
+    // Pegar un objeto no crea antes un «Nuevo personaje» vacío: al analizarlo
+    // nace su expediente provisional, igual que desde Crafting. Antes quedaba
+    // un personaje fantasma en la lista de guardados (y en pantalla, si se
+    // cerraba el panel sin pegar nada).
+    if (!character.profile && intent === "new") {
       character.startManual({
         league: league || meta?.leagues[0] || "Desconocida",
         patch: patch || health?.patch.content || "Desconocido",

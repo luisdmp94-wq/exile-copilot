@@ -41,6 +41,10 @@
    * pestaña activa, foco). Nada de rejillas, brillos ni barras decorativas.
    */
   .dark {
+    /* La web es oscura: los controles del navegador (flechas de los campos
+       numéricos, listas desplegables, barras de desplazamiento) también.
+       Sin esto salían en blanco sobre el fondo oscuro. */
+    color-scheme: dark;
     --background: 228 12% 7%;
     --foreground: 40 14% 81%;
     --card: 228 11% 10%;

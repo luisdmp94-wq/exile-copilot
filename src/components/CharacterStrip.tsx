@@ -141,7 +141,7 @@ export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
         </p>
       </div>
 
-      <dl className="grid grid-cols-4 gap-3 sm:gap-4 md:w-[26rem] md:shrink-0 lg:w-[30rem] lg:grid-cols-5">
+      <dl className="grid grid-cols-4 gap-2 sm:gap-4 md:w-[26rem] md:shrink-0 lg:w-[30rem] lg:grid-cols-5">
         {RESISTANCES.map((kind) => {
           const label = t.res[kind];
           const value = profile.resistances[kind];
