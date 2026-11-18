@@ -42,3 +42,26 @@ describe("versión HTML de las guías para buscadores", () => {
     expect(() => renderGuidePage("<html></html>", GUIDES[0])).toThrow();
   });
 });
+
+describe("vista previa al compartir (Discord, Steam, Reddit…)", () => {
+  const SHELL_WITH_SOCIAL = SHELL.replace(
+    "    <title>Exile Copilot</title>\n",
+    `    <title>Exile Copilot</title>
+    <!-- social:start -->
+    <meta name="description" content="Portada" />
+    <meta property="og:title" content="Portada" />
+    <meta property="og:image" content="https://exilecopilot.com/og/exile-copilot.jpg" />
+    <!-- social:end -->
+`,
+  );
+
+  it("cada guía pone su título, su dirección y la imagen, sin repetir las de la portada", () => {
+    const guide = GUIDES[0]!;
+    const html = renderGuidePage(SHELL_WITH_SOCIAL, guide);
+    expect(html).not.toContain('content="Portada"');
+    expect(html).toContain(`<meta property="og:url" content="https://exilecopilot.com/guias/${guide.slug}" />`);
+    expect(html).toContain('<meta property="og:image" content="https://exilecopilot.com/og/exile-copilot.jpg" />');
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+    expect(html.match(/property="og:title"/g)).toHaveLength(1);
+  });
+});

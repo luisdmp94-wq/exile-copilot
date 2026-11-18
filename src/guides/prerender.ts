@@ -11,6 +11,9 @@ import { guidePageTitle } from "./index";
  * interactiva, así que el visitante no ve dos versiones.
  */
 
+const SITE_ORIGIN = "https://exilecopilot.com";
+const SHARE_IMAGE = `${SITE_ORIGIN}/og/exile-copilot.jpg`;
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -87,11 +90,20 @@ export function renderGuidePage(shell: string, guide: ActGuide): string {
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,
     `<meta property="og:locale" content="es_ES" />`,
+    `<meta property="og:site_name" content="Exile Copilot" />`,
+    `<meta property="og:url" content="${SITE_ORIGIN}/guias/${escapeHtml(guide.slug)}" />`,
+    `<meta property="og:image" content="${SHARE_IMAGE}" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:image" content="${SHARE_IMAGE}" />`,
   ].join("\n    ");
   if (!/<title>[^<]*<\/title>/.test(shell) || !shell.includes('<div id="root"></div>')) {
     throw new Error("El HTML base no tiene <title> o <div id=\"root\"></div>: no se puede generar la guía.");
   }
-  return shell
+  // La portada trae sus etiquetas para compartir entre marcas: la guía pone las suyas.
+  const withoutSocial = shell.replace(/\s*<!-- social:start[\s\S]*?<!-- social:end -->/, "");
+  return withoutSocial
     .replace(/<title>[^<]*<\/title>/, head)
     .replace('<div id="root"></div>', `<div id="root">${renderGuideArticle(guide)}</div>`);
 }
