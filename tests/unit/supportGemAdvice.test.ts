@@ -186,3 +186,41 @@ describe("supportCandidates — asistencias que piden un tipo concreto de habili
     expect(suspicious).toEqual([]);
   });
 });
+
+// Visto en la web publicada el 18-11-2026: a «Ofrenda de dolor» se le
+// recomendaba «Frenesí voraz», que mejora a los esbirros que crea una habilidad.
+describe("supportCandidates — llevar la etiqueta de esbirro no es crear esbirros", () => {
+  it("una ofrenda recibe lo de ofrendas, no lo de esbirros que pelean", () => {
+    const offering = names("Ofrenda de dolor", { maxGrade: 5 });
+    expect(offering.slice(0, 2).sort()).toEqual(["Danza macabra", "Ofrenda sacrificial"]);
+    for (const wrong of ["Frenesí voraz II", "Congregación", "Pacto de esbirros II", "Ejército elemental", "Área concentrada", "Enloquecer"]) {
+      expect(offering).not.toContain(wrong);
+    }
+  });
+
+  it("los efectos que solo tocan a los esbirros que ya tienes tampoco", () => {
+    for (const skill of ["Sacrificio", "Festín sombrío", "Pacto oscuro"]) {
+      const offered = names(skill, { maxGrade: 5 });
+      expect(offered).not.toContain("Frenesí voraz II");
+      expect(offered).not.toContain("Congregación");
+    }
+  });
+
+  it("las que sí crean esbirros las conservan", () => {
+    for (const skill of ["Guerrero esqueleto", "Levantar zombi", "Exhumar", "Espíritus encolerizados", "Vincular espectro"]) {
+      expect(names(skill, { maxGrade: 5 })).toEqual(expect.arrayContaining(["Frenesí voraz II", "Congregación"]));
+    }
+  });
+
+  it("una asistencia que no dice a qué asiste no se propone a nadie", () => {
+    for (const skill of data.skills) {
+      const offered = supportCandidates(data, { skill, maxGrade: 5, attributes: ALL }).map((candidate) => candidate.support.name);
+      expect(offered).not.toContain("Metralla de hueso");
+      expect(offered).not.toContain("Inscripción ardiente");
+    }
+  });
+
+  it("«objetos de tierra» no se cuela a los esqueletos", () => {
+    expect(names("Guerrero esqueleto", { maxGrade: 5 })).not.toContain("Roca escurridiza II");
+  });
+});

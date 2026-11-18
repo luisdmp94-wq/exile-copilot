@@ -162,8 +162,22 @@ function saysInOneSentence(skill: GemSkill, pattern: RegExp): boolean {
  * efectos beneficiosos no: a esas no se les propone nada que solo dé daño.
  */
 function dealsDamage(skill: GemSkill): boolean {
-  if (skill.tags.includes("Ataque") || skill.tags.includes("Esbirro")) return true;
+  if (skill.tags.includes("Ataque") || createsMinions(skill)) return true;
   return skill.effects.some((effect) => /inflige[^|]*dano|de dano .*por segundo/.test(normalizeGemText(effect)));
+}
+
+/**
+ * ¿La habilidad pone esbirros en el campo? La etiqueta «Esbirro» no basta:
+ * también la llevan las ofrendas, los pactos y los efectos que solo afectan a
+ * los esbirros que ya tienes. A esas no les vale «Frenesí voraz» ni nada que
+ * mejore «los esbirros de la habilidad asistida».
+ */
+function createsMinions(skill: GemSkill): boolean {
+  if (!skill.tags.includes("Esbirro")) return false;
+  if (normalizeGemText(skill.name).startsWith("ofrenda")) return false;
+  if (skill.tags.includes("Compañero")) return true;
+  if (skill.tags.includes("Persistente") && !skill.tags.includes("Efecto beneficioso")) return true;
+  return saysInOneSentence(skill, /\binvoc\w+|\bcre(?:a|as|ar) (?:un |una )?(?:zombi|enjambres?|esbirros?)/);
 }
 
 /** Familia de la asistencia: «Lanzamiento rápido I» y «II» comparten hueco. */
@@ -222,6 +236,7 @@ const KEYWORD_RULES: Array<[RegExp, (skill: GemSkill, text: string) => boolean]>
   [/saltar en el aire/, (skill) => saysInOneSentence(skill, /\bsaltas? (?:por los aires|en el aire)/)],
   [/aplican exposicion/, (_skill, text) => text.includes("exposicion")],
   [/objetos que se destruyen/, (_skill, text) => text.includes("lo destruye")],
+  [/objetos de tierra/, (_skill, text) => text.includes("de tierra")],
   [/golpe final/, (_skill, text) => /golpe final|combinacion de (?:hasta )?\w+ ataques/.test(text)],
   [/de arco o lanza/, (_skill, text) => /\barco\b|flecha|lanza/.test(text)],
   [/ataques de arco/, (_skill, text) => /\barco\b|flecha/.test(text)],
@@ -253,8 +268,26 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
   if (/que tien(?:e|en) un limite/.test(first) && !/limite/.test(skillText(skill))) return false;
   if (/que tengan? enfriamiento/.test(first) && !/enfriamiento|tiempo de recarga/.test(skillText(skill))) return false;
 
+  // Un par de asistencias no dicen a qué habilidades asisten (su texto solo
+  // describe el efecto). Sin saberlo no se proponen.
+  if (text !== "" && !first.startsWith("asiste")) return false;
+
+  // ¿La asistencia está hecha para el tipo de esta habilidad (de ofrenda, de maldición…)?
+  let madeForThisType = support.tags.some((tag) => tag === "Maldición" || tag === "Señal");
   for (const [condition, allows] of KEYWORD_RULES) {
-    if (condition.test(first) && !allows(skill, skillText(skill))) return false;
+    if (!condition.test(first)) continue;
+    if (!allows(skill, skillText(skill))) return false;
+    madeForThisType = true;
+  }
+
+  // Lo que mejora «los esbirros de la habilidad asistida» pide una habilidad que
+  // los cree: una ofrenda lleva la etiqueta de esbirro, pero no pone ninguno.
+  const everything = `${text} ${normalizeGemText(support.effects.join(" "))}`;
+  if (
+    /que (?:crean?|creen?|invocan?|generan?) (?:esbirros|companeros)|los esbirros de las? habilidad(?:es)? asistidas?/.test(everything) &&
+    !createsMinions(skill)
+  ) {
+    return false;
   }
 
   if (NEEDS_DAMAGE.test(first)) {
@@ -262,14 +295,9 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
     if (/impact/.test(first) && !isPersistentMinion(skill) && !hitsEnemies(skill)) return false;
   }
   // A una maldición o a un aura no se le propone «Área concentrada»: le encoge
-  // el área a cambio de un daño que no hace.
-  //  Las hechas para ese tipo de habilidad (de maldición, de señal) sí pasan.
-  if (
-    !dealsDamage(skill) &&
-    !isPersistentBuff(skill) &&
-    !support.tags.some((tag) => tag === "Maldición" || tag === "Señal") &&
-    ONLY_GIVES_DAMAGE.test(`${text} ${normalizeGemText(support.effects.join(" "))}`)
-  ) {
+  // el área a cambio de un daño que no hace. Las hechas para ese tipo de
+  // habilidad (de maldición, de señal, de ofrenda) sí pasan.
+  if (!dealsDamage(skill) && !isPersistentBuff(skill) && !madeForThisType && ONLY_GIVES_DAMAGE.test(everything)) {
     return false;
   }
 
