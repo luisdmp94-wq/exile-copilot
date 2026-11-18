@@ -2062,6 +2062,30 @@ async function runFlow(mode, port) {
         !(await page.getByTestId("guia-esencial").isVisible()),
     );
     await page.getByTestId("guia-vista-herramientas").click();
+    // «Tus puntos del árbol»: la ruta de la bruja con el texto real de cada nodo.
+    const rutaArbol = page.getByTestId("arbol-ruta");
+    const arbolPrincipal = page.getByTestId("guia-arbol-enlace-0");
+    check(
+      `[${mode}] las herramientas de la guía enseñan una ruta del árbol con nodos reales`,
+      (await rutaArbol.isVisible()) &&
+        (await rutaArbol.locator("ol > li").count()) === 9 &&
+        (await page.getByTestId("arbol-ruta-paso-0").innerText()).includes("Poder bruto") &&
+        /Daño de hechizos aumentado un 20\s%/.test(await page.getByTestId("arbol-ruta-da-0").innerText()) &&
+        (await page.getByTestId("arbol-ruta-progreso").innerText()).includes("0 de 9"),
+    );
+    await page.getByTestId("arbol-ruta-paso-0").locator("input").check();
+    check(
+      `[${mode}] marcar un nodo del árbol lo cuenta y se recuerda en el navegador`,
+      (await page.getByTestId("arbol-ruta-progreso").innerText()).includes("1 de 9") &&
+        (await page.evaluate(() => localStorage.getItem("exile-copilot:arbol:bruja-caos-esbirros"))) ===
+          '["witch_sorceress_notable1"]',
+    );
+    check(
+      `[${mode}] la ruta del árbol enlaza a un planificador externo y en español`,
+      (await arbolPrincipal.getAttribute("href")) === "https://poe2db.tw/sp/passive-skill-tree" &&
+        (await arbolPrincipal.getAttribute("target")) === "_blank" &&
+        (await arbolPrincipal.getAttribute("rel")) === "noreferrer",
+    );
     await page.getByTestId("asistencia-personaje").waitFor({ timeout: 15000 });
     check(
       `[${mode}] la tarjeta de gemas lee la build del personaje recién creado`,

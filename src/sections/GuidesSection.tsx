@@ -21,11 +21,12 @@ import { RewardCheckCard } from "@/components/RewardCheckCard";
 import type { ActGuide, GuideBlock, GuideRoutePriority, GuideTip } from "@/guides/guide";
 import { UPCOMING_GUIDES, UPCOMING_GUIDES_EN, findGuide, guidesFor } from "@/guides";
 import { cn } from "@/lib/utils";
+import { PassiveRouteCard } from "@/components/PassiveRouteCard";
 import { texts, useLang, useText } from "@/i18n/lang";
 
 const TEXT = texts(
   {
-    views: { guia: "Guía del acto", comprobar: "Comprobar mi personaje", herramientas: "Gemas y piezas" },
+    views: { guia: "Guía del acto", comprobar: "Comprobar mi personaje", herramientas: "Gemas, piezas y árbol" },
     priority: { clave: "No te lo saltes", recomendable: "Merece la pena", historia: "Historia" },
     route: "Ruta del acto",
     doneOf: (done: number, total: number) => `${done} de ${total} hechas`,
@@ -52,10 +53,10 @@ const TEXT = texts(
       `Datos comprobados el ${date}. Path of Exile 2 es de Grinding Gear Games; esta guía no es oficial.`,
     checkLead: (act: string) =>
       `Pega tu equipo una vez y sirve para las dos comprobaciones del ${act}. Se queda guardado en este navegador.`,
-    toolsLead: "Dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.",
+    toolsLead: "Tres dudas de cada partida, en cualquier acto: dónde poner los puntos del árbol, qué gema de asistencia poner y cuál de dos piezas te conviene.",
   },
   {
-    views: { guia: "Act guide", comprobar: "Check my character", herramientas: "Gems and items" },
+    views: { guia: "Act guide", comprobar: "Check my character", herramientas: "Gems, items and tree" },
     priority: { clave: "Don't skip it", recomendable: "Worth it", historia: "Story" },
     route: "Act route",
     doneOf: (done: number, total: number) => `${done} of ${total} done`,
@@ -82,7 +83,7 @@ const TEXT = texts(
       `Data checked on ${date}. Path of Exile 2 belongs to Grinding Gear Games; this guide is not official.`,
     checkLead: (act: string) =>
       `Paste your gear once and it works for both ${act} checks. It stays saved in this browser.`,
-    toolsLead: "Two questions every run has, in any act: which support gem to use and which of two items suits you.",
+    toolsLead: "Three questions every run has, in any act: where to put your passive points, which support gem to use and which of two items suits you.",
   },
 );
 type GuidesText = (typeof TEXT)["es"];
@@ -570,6 +571,7 @@ export function GuidesSection({
         <p className="text-sm leading-relaxed text-muted-foreground">
           {t.toolsLead}
         </p>
+        <PassiveRouteCard profile={profile} />
         <GemAdvisorCard
           profile={profile}
           buildMemory={buildMemory ?? []}
