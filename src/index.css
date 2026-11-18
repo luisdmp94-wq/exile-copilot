@@ -1014,3 +1014,39 @@
     animation: none;
   }
 }
+
+/*
+ * Listas desplegables y campos numéricos sin piezas del navegador.
+ *
+ * Con `color-scheme: dark` Chrome ya los pinta oscuros, pero Opera seguía
+ * dibujando en blanco la flecha de la lista al pasar el ratón. En vez de
+ * depender de cada navegador, la flecha es nuestra y las flechitas de los
+ * números no se pintan (se escribe el número; las teclas ↑ ↓ siguen valiendo).
+ * Va fuera de las capas y con `:not()` para ganar a `px-2` y compañía.
+ */
+select:not([multiple]) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a09e9a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem 1rem;
+  padding-right: 2rem;
+}
+
+select:not([multiple]) option {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+}
+
+input[type="number"]:not([data-native-spin]) {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]:not([data-native-spin])::-webkit-inner-spin-button,
+input[type="number"]:not([data-native-spin])::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
