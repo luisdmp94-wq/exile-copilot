@@ -139,7 +139,7 @@ export function AppHeader({
             onClick={onBack}
             /* Es una salida de seguridad, no un adorno: también debe existir
                en la vista estrecha del navegador integrado. */
-            className="header-nav-button grid size-8 shrink-0 sm:size-9"
+            className="header-nav-button grid size-8 shrink-0 min-[360px]:size-9"
             aria-label={backLabel}
             title={backLabel}
             data-testid="cabecera-volver"
@@ -155,7 +155,7 @@ export function AppHeader({
         <button
           type="button"
           onClick={onHome}
-          className="group flex min-w-0 flex-1 items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex-none sm:gap-3"
+          className="group flex min-h-10 min-w-0 flex-1 items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex-none sm:gap-3"
           aria-label={t.homeLabel}
           title={t.homeTitle}
           data-testid="cabecera-inicio"
@@ -203,7 +203,7 @@ export function AppHeader({
 
           <details className="group relative shrink-0" data-testid="cabecera-estado">
             <summary
-              className="flex min-h-8 cursor-pointer list-none items-center gap-1 rounded-full border border-border px-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-9 sm:px-2.5 [&::-webkit-details-marker]:hidden"
+              className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-full border border-border px-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-9 sm:px-2.5 [&::-webkit-details-marker]:hidden"
               aria-label={t.statusLabel}
             >
               {/* Por debajo de `sm` el estado se reduce a su icono: sigue

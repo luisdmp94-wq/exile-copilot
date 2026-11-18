@@ -1,4 +1,11 @@
 import {
+  COACH_DIRECTION_NOUNS,
+  COACH_DIRECTION_NOUNS_EN,
+  COACH_ROLL_MINIMUM_LABELS,
+  COACH_ROLL_MINIMUM_LABELS_EN,
+  coachRollMinimumLabel,
+} from "./craftingCoachLabels.js";
+import {
   OBSERVED_CRAFTING_ACTIONS,
   evaluateObservedCraftingActions,
   type CraftingActionId,
@@ -642,33 +649,17 @@ const DIRECTION_CATEGORY: Record<CoachDirection, CraftingGoalCategory> = {
   defence: "defence",
 };
 
-/** Con artículo: «Buscas mejorar el daño». */
-export const COACH_DIRECTION_LABELS: Record<CoachDirection, string> = {
-  damage: "el daño",
-  defence: "la defensa",
-};
-
-/** Sin artículo: «etiquetas de daño». */
-export const COACH_DIRECTION_NOUNS: Record<CoachDirection, string> = {
-  damage: "daño",
-  defence: "defensa",
-};
-
-/** Versión inglesa de `COACH_DIRECTION_LABELS` («You want to improve damage»). */
-export const COACH_DIRECTION_LABELS_EN: Record<CoachDirection, string> = {
-  damage: "damage",
-  defence: "defence",
-};
-
-/** Versión inglesa de `COACH_DIRECTION_NOUNS` («damage tags»). */
-export const COACH_DIRECTION_NOUNS_EN: Record<CoachDirection, string> = {
-  damage: "damage",
-  defence: "defence",
-};
-
-export function coachDirectionLabel(direction: CoachDirection, lang: "es" | "en" = "es"): string {
-  return (lang === "en" ? COACH_DIRECTION_LABELS_EN : COACH_DIRECTION_LABELS)[direction];
-}
+// Los rótulos viven en un módulo ligero (ver craftingCoachLabels.ts).
+export {
+  COACH_DIRECTION_LABELS,
+  COACH_DIRECTION_LABELS_EN,
+  COACH_DIRECTION_NOUNS,
+  COACH_DIRECTION_NOUNS_EN,
+  COACH_ROLL_MINIMUM_LABELS,
+  COACH_ROLL_MINIMUM_LABELS_EN,
+  coachDirectionLabel,
+  coachRollMinimumLabel,
+} from "./craftingCoachLabels.js";
 
 export function coachDirectionNoun(direction: CoachDirection, lang: "es" | "en" = "es"): string {
   return (lang === "en" ? COACH_DIRECTION_NOUNS_EN : COACH_DIRECTION_NOUNS)[direction];
@@ -773,21 +764,6 @@ export interface CoachRollMinimumAssessment {
   label: string;
 }
 
-export const COACH_ROLL_MINIMUM_LABELS: Record<CoachRollMinimum, string> = {
-  any: "cualquier tirada",
-  middle: "tirada media o alta",
-  high: "tirada alta",
-};
-
-export const COACH_ROLL_MINIMUM_LABELS_EN: Record<CoachRollMinimum, string> = {
-  any: "any roll",
-  middle: "a middle or high roll",
-  high: "a high roll",
-};
-
-export function coachRollMinimumLabel(minimum: CoachRollMinimum, lang: "es" | "en" = "es"): string {
-  return (lang === "en" ? COACH_ROLL_MINIMUM_LABELS_EN : COACH_ROLL_MINIMUM_LABELS)[minimum];
-}
 
 /**
  * Compara exclusivamente la posición dentro del rango visible del tooltip.

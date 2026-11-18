@@ -22,7 +22,7 @@ export function LangToggle() {
           aria-label={LABELS[option]}
           title={LABELS[option]}
           className={cn(
-            "min-h-7 rounded-full px-2 font-semibold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            "min-h-9 rounded-full px-2 font-semibold uppercase sm:min-h-7 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
             lang === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
           )}
           data-testid={`idioma-${option}`}

@@ -88,7 +88,7 @@ export function ExperimentalMusicPlayer() {
         aria-pressed={active}
         aria-controls="experimental-music-panel"
         aria-label={active ? t.musicActive : t.music}
-        className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
+        className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 sm:min-h-9 text-[11px] font-medium transition-colors sm:px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
           active
             ? "border-primary/70 bg-primary/15 text-primary shadow-[0_0_18px_rgba(245,180,28,0.09)]"
             : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary"

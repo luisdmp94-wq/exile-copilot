@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /estadisticas
+Disallow: /api/
+
+Sitemap: https://exilecopilot.com/sitemap.xml

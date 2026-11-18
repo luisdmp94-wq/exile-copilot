@@ -232,7 +232,7 @@ export function EquipmentPanel({
           className={cn("group rounded-md border border-border px-3 py-2", SURFACE)}
           data-testid="equipment-diagnostics"
         >
-          <summary className="cursor-pointer list-none text-xs text-muted-foreground marker:content-none">
+          <summary className="-my-2 flex min-h-10 cursor-pointer list-none flex-wrap items-center gap-x-1 text-xs group-open:mb-0 text-muted-foreground marker:content-none">
             <span className="font-medium text-foreground">{t.diagnosis}</span>
             {t.diagnosisSummary(diagnostics.equipped, diagnostics.emptySlots, diagnostics.unverifiedModifiers)}
           </summary>

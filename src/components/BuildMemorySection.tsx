@@ -171,6 +171,8 @@ export function BuildMemorySection({
             type="button"
             size="sm"
             variant="outline"
+            // En móviles estrechos el rótulo no cabe en una línea: puede partirse.
+            className="h-auto min-h-8 max-w-full whitespace-normal py-1.5 text-left"
             disabled={savingProfile}
             onClick={onSaveProfile}
           >

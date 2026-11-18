@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { closeApiApp, createApiApp } from "./app.js";
 import { securityHeaders } from "./security.js";
 import { assertPublicDeploymentConfig } from "./deploymentReadiness.js";
+import { isAppRoute, isPrivateRoute } from "./appRoutes.js";
 
 /**
  * Servidor standalone: monta la API en /api y sirve el build estático del
@@ -17,6 +18,8 @@ import { assertPublicDeploymentConfig } from "./deploymentReadiness.js";
 assertPublicDeploymentConfig(config);
 
 const app = express();
+// No anunciar con qué está hecho el servidor.
+app.disable("x-powered-by");
 app.set("trust proxy", config.trustProxy);
 app.use(securityHeaders(config));
 const apiApp = createApiApp({ dbPath: config.databasePath });
@@ -27,6 +30,8 @@ if (existsSync(distDir)) {
   app.use(
     express.static(distDir, {
       index: false,
+      // Sin esto, /guias redirigía a /guias/ (existe la carpeta dist/guias).
+      redirect: false,
       setHeaders(res, filePath) {
         if (filePath.includes(`${resolve(distDir, "assets")}`)) {
           // Vite añade hash al nombre: estos archivos pueden cachearse para siempre.
@@ -56,10 +61,13 @@ if (existsSync(distDir)) {
     res.setHeader("Cache-Control", "no-cache");
     res.sendFile(page);
   });
-  // SPA fallback: cualquier ruta no-API devuelve index.html
-  app.use((_req, res, next) => {
+  // La web para sus direcciones conocidas. Una dirección desconocida recibe
+  // la misma página con estado 404 (ver server/appRoutes.ts).
+  app.use((req, res, next) => {
     if (existsSync(resolve(distDir, "index.html"))) {
       res.setHeader("Cache-Control", "no-cache");
+      if (isPrivateRoute(req.path)) res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      if (!isAppRoute(req.path)) res.status(404);
       res.sendFile(resolve(distDir, "index.html"));
     } else {
       next();

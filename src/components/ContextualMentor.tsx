@@ -306,6 +306,7 @@ export function ContextualMentor({
   const requestLockedRef = useRef(false);
   const shellRef = useRef<HTMLElement>(null);
   const askButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mascotButtonRef = useRef<HTMLButtonElement | null>(null);
   const [restoreAskFocus, setRestoreAskFocus] = useState(false);
   const [acknowledgedSpeechKeys, setAcknowledgedSpeechKeys] = useState<Set<string>>(
     () => new Set(),
@@ -432,6 +433,25 @@ export function ContextualMentor({
     };
   }, [speechKey, speechVisible]);
 
+  /*
+   * Escape cierra el panel flotante, como cualquier ventana emergente. Si hay
+   * un diálogo, un menú o un desplegable abierto, ese Escape es suyo: Radix lo
+   * atiende antes y lo marca como gastado.
+   */
+  useEffect(() => {
+    if (placement !== "floating" || collapsed) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) {
+        return;
+      }
+      onCollapsedChange(true);
+      mascotButtonRef.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [placement, collapsed, onCollapsedChange]);
+
   const acknowledgeSpeech = () => {
     setAcknowledgedSpeechKeys((current) => rememberSpeechKey(current, speechKey));
   };
@@ -502,6 +522,7 @@ export function ContextualMentor({
 
       {placement === "floating" && (
         <button
+          ref={mascotButtonRef}
           type="button"
           className="mentor-floating-mascot"
           data-version="3"
@@ -527,7 +548,9 @@ export function ContextualMentor({
 
       <div
         className={cn(
-          "overflow-y-auto border border-primary/35 bg-background/95 backdrop-blur-xl",
+          // En móvil el panel es opaco: sobre una pantalla llena de texto, el
+          // fondo translúcido dejaba ver las letras de detrás y costaba leerlo.
+          "overflow-y-auto border border-primary/35 bg-background sm:bg-background/95 sm:backdrop-blur-xl",
           placement === "floating"
             ? contentCollapsed
               ? "hidden"

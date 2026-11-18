@@ -6,7 +6,9 @@ import { ACT_ONE_GUIDE_EN } from "./actOneEn";
 import { ACT_TWO_GUIDE_EN } from "./actTwoEn";
 import { ACT_THREE_GUIDE_EN } from "./actThreeEn";
 
-export type GuideLang = "es" | "en";
+import { pageTitleForAct, type GuideLang } from "./routes";
+
+export { DEFAULT_GUIDE_SLUG, guidePath, guideSlugFromPath, type GuideLang } from "./routes";
 
 /** Guías publicadas, en orden de campaña. */
 export const GUIDES: ActGuide[] = [ACT_ONE_GUIDE, ACT_TWO_GUIDE, ACT_THREE_GUIDE];
@@ -21,28 +23,12 @@ export function guidesFor(lang: GuideLang): ActGuide[] {
 export const UPCOMING_GUIDES = ["Acto 4"];
 export const UPCOMING_GUIDES_EN = ["Act 4"];
 
-export const DEFAULT_GUIDE_SLUG = GUIDES[0].slug;
-
 export function findGuide(slug: string, lang: GuideLang = "es"): ActGuide {
   const guides = guidesFor(lang);
   return guides.find((guide) => guide.slug === slug) ?? guides[0];
 }
 
-/** `/guias/acto-2` → «acto-2»; null si la dirección no es de una guía conocida. */
-export function guideSlugFromPath(pathname: string): string | null {
-  const match = /^\/guias\/([^/]+)\/?$/.exec(pathname);
-  if (!match) return null;
-  return GUIDES.some((guide) => guide.slug === match[1]) ? match[1] : null;
-}
-
-export function guidePath(slug: string): string {
-  return `/guias/${slug}`;
-}
-
 /** Título de la pestaña del navegador: es lo que sale en Google. */
 export function guidePageTitle(guide: ActGuide, lang: GuideLang = "es"): string {
-  const act = guide.actLabel.replace(/^./, (c) => c.toUpperCase());
-  return lang === "en"
-    ? `PoE2 ${act}: survival guide · Exile Copilot`
-    : `${act} de PoE2: guía de supervivencia · Exile Copilot`;
+  return pageTitleForAct(guide.actLabel, lang);
 }

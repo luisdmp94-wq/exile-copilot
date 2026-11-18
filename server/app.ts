@@ -438,6 +438,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const importDefaults = { league: config.defaultLeague, patch: config.defaultPatch };
 
   const app = express();
+  app.disable("x-powered-by");
   let databaseClosed = false;
   app.locals[API_CLOSE_LOCAL] = () => {
     if (databaseClosed) return false;

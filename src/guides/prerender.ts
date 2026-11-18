@@ -86,6 +86,7 @@ export function renderGuidePage(shell: string, guide: ActGuide): string {
   const head = [
     `<title>${title}</title>`,
     `<meta name="description" content="${description}" />`,
+    `<link rel="canonical" href="${SITE_ORIGIN}/guias/${escapeHtml(guide.slug)}" />`,
     `<meta property="og:type" content="article" />`,
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,

@@ -1,40 +1,23 @@
 import { suggestCraftingFocusFromContext } from "./craftingCoach.js";
-import {
-  COACH_FOCUS_LABELS,
-  COACH_FOCUS_LABELS_EN,
-  type CoachFocus,
-} from "./craftingFocus.js";
-import {
-  CRAFTING_GOAL_LABELS,
-  CRAFTING_GOAL_LABELS_EN,
-  type CraftingGoalCategory,
-} from "./craftingGoal.js";
+import type { CoachFocus } from "./craftingFocus.js";
+import type { CraftingGoalCategory } from "./craftingGoal.js";
 import type { BuildTarget, CharacterProfile, GoalKind } from "./domain.js";
 
-export const CRAFTING_BUILD_INTENT_SOURCES = [
-  "target",
-  "resistances",
-  "profile-goal",
-  "none",
-] as const;
-export type CraftingBuildIntentSource = (typeof CRAFTING_BUILD_INTENT_SOURCES)[number];
+import type {
+  CraftingBuildAlignment,
+  CraftingBuildIntent,
+  CraftingBuildIntentSource,
+  SuggestedCraftingGoalCategory,
+} from "./craftingBuildIntentModel.js";
 
-export const CRAFTING_BUILD_ALIGNMENTS = [
-  "aligned",
-  "choice-required",
-  "conflict",
-  "unknown",
-] as const;
-export type CraftingBuildAlignment = (typeof CRAFTING_BUILD_ALIGNMENTS)[number];
-
-export type SuggestedCraftingGoalCategory = Exclude<CraftingGoalCategory, "other">;
-
-export interface CraftingBuildIntent {
-  source: CraftingBuildIntentSource;
-  alignment: CraftingBuildAlignment;
-  focuses: CoachFocus[];
-  suggestedCategories: SuggestedCraftingGoalCategory[];
-}
+export {
+  CRAFTING_BUILD_ALIGNMENTS,
+  CRAFTING_BUILD_INTENT_SOURCES,
+  type CraftingBuildAlignment,
+  type CraftingBuildIntent,
+  type CraftingBuildIntentSource,
+  type SuggestedCraftingGoalCategory,
+} from "./craftingBuildIntentModel.js";
 
 const FOCUS_CATEGORY: Record<CoachFocus, SuggestedCraftingGoalCategory> = {
   physical: "damage",
@@ -102,20 +85,4 @@ export function deriveCraftingBuildIntent(input: {
   };
 }
 
-export function craftingBuildIntentLabel(
-  intent: CraftingBuildIntent,
-  lang: "es" | "en" = "es",
-): string {
-  const en = lang === "en";
-  if (intent.focuses.length > 0) {
-    return intent.focuses
-      .map((focus) => (en ? COACH_FOCUS_LABELS_EN : COACH_FOCUS_LABELS)[focus])
-      .join(" · ");
-  }
-  if (intent.suggestedCategories.length > 0) {
-    return intent.suggestedCategories
-      .map((category) => (en ? CRAFTING_GOAL_LABELS_EN : CRAFTING_GOAL_LABELS)[category])
-      .join(" · ");
-  }
-  return en ? "no proven priority" : "sin prioridad demostrada";
-}
+export { craftingBuildIntentLabel } from "./craftingBuildIntentLabel.js";

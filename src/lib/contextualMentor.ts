@@ -15,7 +15,7 @@ import type {
 } from "@shared/craftingCoach.js";
 import { OBSERVED_CRAFTING_ACTIONS, type CraftingActionId } from "@shared/craftingActions.js";
 import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
-import { craftingBuildIntentLabel } from "@shared/craftingBuildIntent.js";
+import { craftingBuildIntentLabel } from "@shared/craftingBuildIntentLabel.js";
 import { CURRENCY_LABELS, GOAL_LABELS, SLOT_LABELS } from "./format.js";
 
 /** Cómo llega «equipo» en la lista de lo que falta (en minúsculas, en los dos idiomas). */

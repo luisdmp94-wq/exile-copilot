@@ -3,7 +3,7 @@ import { CraftingActionIdSchema } from "./craftingActions.js";
 import {
   CRAFTING_BUILD_ALIGNMENTS,
   CRAFTING_BUILD_INTENT_SOURCES,
-} from "./craftingBuildIntent.js";
+} from "./craftingBuildIntentModel.js";
 import { COACH_FOCUSES } from "./craftingFocus.js";
 import { CraftingGoalCategorySchema } from "./craftingGoal.js";
 

@@ -1276,6 +1276,31 @@ async function runFlow(mode, port) {
         !(await page.getByTestId("mentor-contextual-mensaje").isVisible()),
     );
 
+    // Escape cierra el panel de la mascota y devuelve el foco a su botón.
+    await mentorMascot.click();
+    await page.getByTestId("mentor-contextual-mensaje").waitFor({ timeout: 5000 });
+    await page.keyboard.press("Escape");
+    check(
+      `[${mode}] Escape cierra el panel de la mascota y deja el foco en ella`,
+      (await contextualMentor.getAttribute("data-collapsed")) === "true" &&
+        (await page.evaluate(() => document.activeElement?.getAttribute("data-testid"))) === "mentor-mascota",
+    );
+    // Con un diálogo abierto, Escape es del diálogo: la mascota no se cierra.
+    await mentorMascot.click();
+    await page.getByTestId("privacidad-abrir").click();
+    await page.getByTestId("privacidad-dialogo").waitFor({ timeout: 5000 });
+    await page.keyboard.press("Escape");
+    await page.getByTestId("privacidad-dialogo").waitFor({ state: "detached", timeout: 5000 });
+    check(
+      `[${mode}] con un diálogo abierto, Escape cierra el diálogo y no la mascota`,
+      (await contextualMentor.getAttribute("data-collapsed")) === "false",
+    );
+    await page.keyboard.press("Escape");
+    check(
+      `[${mode}] un segundo Escape ya cierra la mascota`,
+      (await contextualMentor.getAttribute("data-collapsed")) === "true",
+    );
+
     // Crafting debe empezar directamente en sus tres recorridos. El antiguo
     // HUD «Cockpit de crafting» era ruido y no puede reaparecer por accidente.
     await irA(page, "crafting");

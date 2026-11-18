@@ -1,14 +1,21 @@
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/inter'
 import './index.css'
 import App from './App.tsx'
-import { BuildCheckPage } from './check/BuildCheckPage.tsx'
 import { AppErrorBoundary } from './components/AppErrorBoundary.tsx'
 import { sendVisitBeacon } from './lib/visitBeacon.ts'
-import { StatsPage } from './stats/StatsPage.tsx'
 import { LangProvider } from './i18n/LangProvider.tsx'
 import { reloadOnceForNewVersion } from './lib/reloadForNewVersion.ts'
+
+// Estas dos páginas casi nadie las abre: van en archivos aparte para no
+// cargarlas con la portada.
+const BuildCheckPage = lazy(() =>
+  import('./check/BuildCheckPage.tsx').then((module) => ({ default: module.BuildCheckPage })),
+)
+const StatsPage = lazy(() =>
+  import('./stats/StatsPage.tsx').then((module) => ({ default: module.StatsPage })),
+)
 
 // /check es el chequeo de build del relanzamiento; el resto sigue en la app anterior.
 const isBuildCheck = /^\/check\/?$/.test(window.location.pathname)
@@ -25,7 +32,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary>
       <LangProvider>
-        {isStats ? <StatsPage /> : isBuildCheck ? <BuildCheckPage /> : <App />}
+        <Suspense fallback={null}>
+          {isStats ? <StatsPage /> : isBuildCheck ? <BuildCheckPage /> : <App />}
+        </Suspense>
       </LangProvider>
     </AppErrorBoundary>
   </StrictMode>,

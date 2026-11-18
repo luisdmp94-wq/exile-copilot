@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { toast } from "sonner";
 import { BookOpen, Compass, FolderOpen, Hammer, RefreshCw } from "lucide-react";
 import {
@@ -92,15 +101,12 @@ import {
 import { mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
-import { DecisionSessionSection } from "@/sections/DecisionSessionSection";
-import { GuidesSection } from "@/sections/GuidesSection";
 import {
   DEFAULT_GUIDE_SLUG,
-  findGuide,
-  guidePageTitle,
+  guidePageTitleFor,
   guidePath,
   guideSlugFromPath,
-} from "@/guides";
+} from "@/guides/routes";
 
 const CraftingSection = lazy(() =>
   import("@/sections/CraftingSection").then((module) => ({
@@ -127,6 +133,49 @@ const FeaturedBuildsSection = lazy(() =>
     default: module.FeaturedBuildsSection,
   })),
 );
+
+/*
+ * Las guías y la sesión de decisión pesan mucho y no hacen falta para pintar
+ * la portada: van en archivos aparte. Se piden en cuanto el navegador queda
+ * libre (o al momento, si se entra por una guía), así que cuando el jugador
+ * llega a ellas ya suelen estar descargadas.
+ */
+const loadGuidesSection = () => import("@/sections/GuidesSection");
+const loadDecisionSessionSection = () => import("@/sections/DecisionSessionSection");
+const LazyGuidesSection = lazy(() =>
+  loadGuidesSection().then((module) => ({ default: module.GuidesSection })),
+);
+const LazyDecisionSessionSection = lazy(() =>
+  loadDecisionSessionSection().then((module) => ({ default: module.DecisionSessionSection })),
+);
+
+function GuidesSection(props: ComponentProps<typeof LazyGuidesSection>) {
+  const t = useText(APP_TEXT);
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[60vh] p-6 text-sm text-muted-foreground" role="status">
+          {t.guidesLoading}
+        </div>
+      }
+    >
+      <LazyGuidesSection {...props} />
+    </Suspense>
+  );
+}
+
+function DecisionSessionSection(props: ComponentProps<typeof LazyDecisionSessionSection>) {
+  return (
+    <Suspense fallback={null}>
+      <LazyDecisionSessionSection {...props} />
+    </Suspense>
+  );
+}
+
+function preloadHeavySections(): void {
+  void loadGuidesSection();
+  void loadDecisionSessionSection();
+}
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import { pageLang, texts, useLang, useText } from "@/i18n/lang";
 import { CRAFTING_DECISION_TEXT } from "@/lib/craftingDecisionText";
@@ -162,6 +211,8 @@ type WorkspaceTab = "expediente" | "plan" | "crafting" | "guias";
 type EditorPrompt = "memory" | "new" | "item" | "import" | null;
 
 const APP_TITLE = typeof document === "undefined" ? "" : document.title;
+/** El título de la portada para quien la ve en inglés (el del HTML es el español). */
+const APP_TITLE_EN = "Exile Copilot · Path of Exile 2 guides and mentor for new players";
 
 function openedFromGuideUrl(): boolean {
   return typeof window !== "undefined" && window.location.pathname.startsWith("/guias");
@@ -173,7 +224,9 @@ function openedFromGuideUrl(): boolean {
  * la conversación: buena parte de ese estado es local de cada sección.
  */
 const PANEL_CLASSES =
-  "flex flex-col gap-6 focus-visible:outline-none data-[state=inactive]:hidden xl:col-start-2 xl:row-start-2";
+  // La altura mínima deja el pie fuera de la primera pantalla: sin ella, el pie
+  // se veía un instante al cargar y saltaba hacia abajo al entrar el contenido.
+  "flex min-h-[calc(100svh-7rem)] flex-col gap-6 focus-visible:outline-none data-[state=inactive]:hidden xl:col-start-2 xl:row-start-2";
 
 function deferEffect(task: () => void): () => void {
   let cancelled = false;
@@ -228,6 +281,7 @@ const APP_TEXT = texts(
       `Estás comprobando ${action} en ${item}. El preflight y el resultado viven en el banco de Crafting para no duplicar la sesión.`,
     craftingContinue: "Continuar en Crafting",
     planLoading: "Preparando el plan y el mercado…",
+    guidesLoading: "Abriendo las guías…",
     planTitle: "Decide el rumbo antes de gastar",
     savedStep: "Siguiente paso guardado",
     openFollowUp: "Abrir seguimiento",
@@ -287,6 +341,7 @@ const APP_TEXT = texts(
       `You're checking ${action} on ${item}. The preflight and the result live in the Crafting bench so the session isn't duplicated.`,
     craftingContinue: "Continue in Crafting",
     planLoading: "Getting the plan and market ready…",
+    guidesLoading: "Opening the guides…",
     planTitle: "Pick your direction before spending",
     savedStep: "Saved next step",
     openFollowUp: "Open follow-up",
@@ -309,6 +364,20 @@ const APP_TEXT = texts(
 export default function App() {
   const t = useText(APP_TEXT);
   const { lang } = useLang();
+  useEffect(() => {
+    // Quien entra por una guía la necesita ya; el resto, cuando haya un hueco.
+    if (openedFromGuideUrl()) {
+      preloadHeavySections();
+      return;
+    }
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback(preloadHeavySections, { timeout: 2500 })
+      : window.setTimeout(preloadHeavySections, 1200);
+    return () => {
+      if (window.cancelIdleCallback) window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
+    };
+  }, []);
   const {
     health,
     meta,
@@ -823,10 +892,10 @@ export default function App() {
     if (tab === "guias") {
       const target = guidePath(guideSlug);
       if (path !== target) window.history.replaceState(window.history.state, "", target);
-      document.title = guidePageTitle(findGuide(guideSlug, lang), lang);
+      document.title = guidePageTitleFor(guideSlug, lang);
     } else {
       if (path.startsWith("/guias")) window.history.replaceState(window.history.state, "", "/");
-      document.title = APP_TITLE;
+      document.title = lang === "en" ? APP_TITLE_EN : APP_TITLE;
     }
   }, [tab, guideSlug, lang]);
 
@@ -1705,6 +1774,16 @@ export default function App() {
               <CharacterStrip profile={character.profile} persisted={character.persisted} />
             </div>
           )}
+          {/* Mientras se recupera un personaje guardado se reserva el hueco de su
+              franja: si no, al llegar empujaba todo el contenido hacia abajo. */}
+          {character.profile === null &&
+            character.restoring &&
+            character.persisted &&
+            character.restorationError === null && (
+              <div className="xl:col-start-2 xl:row-start-1" aria-hidden="true" data-testid="franja-personaje-hueco">
+                <div className="mb-6 h-[7.5rem] rounded-xl border border-border bg-card md:h-[4.75rem]" />
+              </div>
+            )}
 
           {/* --- Área 1: Expediente y mentor -------------------------------- */}
           <TabsContent value="expediente" forceMount className={PANEL_CLASSES}>

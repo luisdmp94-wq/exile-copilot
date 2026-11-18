@@ -4,8 +4,8 @@ import { COACH_FOCUS_LABELS_EN } from "@shared/craftingFocus.js";
 import {
   COACH_DIRECTION_LABELS_EN,
   COACH_ROLL_MINIMUM_LABELS_EN,
-} from "@shared/craftingCoach.js";
-import { craftingBuildIntentLabel } from "@shared/craftingBuildIntent.js";
+} from "@shared/craftingCoachLabels.js";
+import { craftingBuildIntentLabel } from "@shared/craftingBuildIntentLabel.js";
 import { craftingSuccessCriterionLabel } from "@shared/craftingSuccessCriteria.js";
 import { CRAFTING_ACTION_LABELS_EN } from "@shared/craftingWorkshopText.js";
 import {
