@@ -138,7 +138,7 @@ export const ACT_THREE_GUIDE: ActGuide = {
     },
     {
       zone: "La cámara fundida",
-      text: "Mektul, el Maestro de la forja: carrera contra el reloj. Si te falta daño, vuelve después del acto.",
+      text: "Mektul, el Maestro de la forja, suelta El martillo de Kamasa: llévaselo a Oswald al pueblo y abres la Mesa de reforja (tres objetos iguales por uno nuevo). También da una gema de habilidad sin tallar de nivel 10. Es una carrera contra el reloj: si te falta daño, vuelve después del acto.",
       optional: true,
       priority: "recomendable",
       skip: "Mektul, el Maestro de la forja",

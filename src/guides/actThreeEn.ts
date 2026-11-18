@@ -120,7 +120,7 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Molten Vault",
-      text: "Mektul, the Forgemaster: a race against the clock. If you lack damage, come back after the act.",
+      text: "Mektul, the Forgemaster, drops The Hammer of Kamasa: take it to Oswald in town and you unlock the Reforging Bench (three identical items for a new one). He also gives a level 10 Uncut Skill Gem. It's a race against the clock: if you lack damage, come back after the act.",
       optional: true,
       priority: "recomendable",
       skip: "Mektul, the Forgemaster",
