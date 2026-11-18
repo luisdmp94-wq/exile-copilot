@@ -63,6 +63,7 @@ import { ExpedienteSection } from "@/sections/ExpedienteSection";
 import { CharacterStrip } from "@/components/CharacterStrip";
 import { MentorQuickAsk } from "@/components/MentorQuickAsk";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
+import { QuickReviewCard } from "@/components/QuickReviewCard";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
@@ -184,7 +185,6 @@ function deferEffect(task: () => void): () => void {
 const APP_TEXT = texts(
   {
     backArea: "Volver al área anterior",
-    stuckDamageQuestion: "¿Por qué no hago suficiente daño? ¿Qué cambio primero?",
     backCharacters: "Volver a personajes",
     metaErrorTitle: "No se pudo cargar la configuración del servidor",
     metaErrorText: ". La interfaz sigue disponible, pero algunas listas (ligas, objetivos) pueden estar incompletas.",
@@ -232,7 +232,6 @@ const APP_TEXT = texts(
   },
   {
     backArea: "Back to the previous area",
-    stuckDamageQuestion: "Why am I not doing enough damage? What should I change first?",
     backCharacters: "Back to characters",
     metaErrorTitle: "Couldn't load the server settings",
     metaErrorText: ". The site still works, but some lists (leagues, goals) may be incomplete.",
@@ -1411,6 +1410,11 @@ export default function App() {
     }
   };
 
+  const askMentorQuickQuestion = (text: string) => {
+    setMentorQuickQuestion((current) => ({ text, seq: (current?.seq ?? 0) + 1 }));
+    openMentorConversation();
+  };
+
   const openMentorConversation = () => {
     setMentorBriefingOpen(true);
     navigateWorkspace("expediente");
@@ -1688,32 +1692,35 @@ export default function App() {
               </Alert>
             ) : showWelcome ? (
               // Sin personaje: solo la bienvenida. Ni expediente ni caso vacíos.
-              <WelcomePanel
-                loadingDemo={character.busy === "demo"}
-                onLoadDemo={() => void character.loadDemo()}
-                onOpenGuides={() => {
-                  setGuideSlug(DEFAULT_GUIDE_SLUG);
-                  navigateWorkspace("guias");
-                }}
-                onGoToImport={() => openEditor(true)}
-                onStartNew={() => {
-                  setQuickCompleting(false);
-                  setQuickCreateOpen(true);
-                }}
-                onStartItem={() => startManualJourney("item")}
-                previousCharacterName={character.previousCharacter?.name ?? null}
-                onRestorePrevious={() => void character.restorePrevious()}
-                restoringPrevious={character.busy === "restore"}
-                savedCharacters={character.savedCharacters}
-                savedCharactersTotal={character.savedCharactersTotal}
-                loadingSavedCharacters={character.loadingSavedCharacters}
-                onRestoreCharacter={(characterId) =>
-                  void character.restoreCharacter(characterId)
-                }
-                onLoadMoreSavedCharacters={() =>
-                  void character.loadMoreSavedCharacters()
-                }
-              />
+              <div className="flex flex-col gap-6">
+                <WelcomePanel
+                  loadingDemo={character.busy === "demo"}
+                  onLoadDemo={() => void character.loadDemo()}
+                  onOpenGuides={() => {
+                    setGuideSlug(DEFAULT_GUIDE_SLUG);
+                    navigateWorkspace("guias");
+                  }}
+                  onGoToImport={() => openEditor(true)}
+                  onStartNew={() => {
+                    setQuickCompleting(false);
+                    setQuickCreateOpen(true);
+                  }}
+                  onStartItem={() => startManualJourney("item")}
+                  previousCharacterName={character.previousCharacter?.name ?? null}
+                  onRestorePrevious={() => void character.restorePrevious()}
+                  restoringPrevious={character.busy === "restore"}
+                  savedCharacters={character.savedCharacters}
+                  savedCharactersTotal={character.savedCharactersTotal}
+                  loadingSavedCharacters={character.loadingSavedCharacters}
+                  onRestoreCharacter={(characterId) =>
+                    void character.restoreCharacter(characterId)
+                  }
+                  onLoadMoreSavedCharacters={() =>
+                    void character.loadMoreSavedCharacters()
+                  }
+                />
+                <QuickReviewCard profile={null} />
+              </div>
             ) : !hasProfile ? (
               // Restaurando el personaje guardado: ni bienvenida ni caso vacíos.
               <ExpedienteSection
@@ -1744,6 +1751,11 @@ export default function App() {
                 {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
                     contexto antes de inspeccionar la pieza (§8). */}
                 <div className="order-1 flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
+                  <QuickReviewCard
+                    key={character.profile?.id ?? "sin-personaje"}
+                    profile={character.profile}
+                    onAskMentor={askMentorQuickQuestion}
+                  />
                   <OpenCase
                     selection={selection}
                     profileReadiness={profileReadiness}
@@ -2352,11 +2364,11 @@ export default function App() {
         onStuck={(kind) => {
           setContextualCollapsed(true);
           if (kind === "damage") {
-            setMentorQuickQuestion((current) => ({
-              text: APP_TEXT[pageLang()].stuckDamageQuestion,
-              seq: (current?.seq ?? 0) + 1,
-            }));
-            openMentorConversation();
+            // La revisión rápida mira lo que más frena el daño de un novato.
+            navigateWorkspace("expediente");
+            window.setTimeout(() => {
+              document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 120);
             return;
           }
           // «Me matan» → comprobación del acto (resistencias y recompensas);
