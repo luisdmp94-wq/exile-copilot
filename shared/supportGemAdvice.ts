@@ -214,8 +214,54 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
   return true;
 }
 
+/** Metahabilidad que se deja activa (Blasfemia, «Lanzar al…»): ni se usa ni pega ella misma. */
+function isPersistentMeta(skill: GemSkill): boolean {
+  return skill.tags.includes("Metahabilidad") && isPersistentBuff(skill);
+}
+
+/** ¿La asistencia está hecha para metahabilidades o para lo que activan? */
+function targetsMeta(support: GemSupport): boolean {
+  const first = normalizeGemText(support.description).split(".")[0] ?? "";
+  return /metahabilidades|que activan otras habilidades/.test(first);
+}
+
+/**
+ * Una metahabilidad activa tiene muy pocas etiquetas, y con las reglas
+ * generales se colaba casi todo: a Blasfemia se le llegó a recomendar «Área
+ * concentrada», que le encoge el aura a cambio de un daño que no hace. Aquí
+ * solo pasa lo que seguro le vale; ante la duda, no se propone.
+ */
+function appliesToPersistentMeta(support: GemSupport, skill: GemSkill): boolean {
+  const text = normalizeGemText(`${support.description} ${support.effects.join(" ")}`);
+  const first = normalizeGemText(support.description).split(".")[0] ?? "";
+  if (/no puede asistir habilidades persistentes/.test(text)) return false;
+  // 1. Las hechas para efectos beneficiosos persistentes valen para cualquiera de ellos.
+  //    Siguen pasando por lo que exige su propio texto (las de estandartes, solo a estandartes).
+  if (support.tags.includes("Efecto beneficioso") && support.tags.includes("Persistente")) return textRulesAllow(support, skill);
+  // 2. Las que asisten metahabilidades o lo que activan. Si hablan de energía
+  //    o de conjuración, la gema tiene que usar eso mismo (Blasfemia no usa energía).
+  if (targetsMeta(support)) {
+    if (/energia/.test(text) && !/energia/.test(skillText(skill))) return false;
+    if (/de conjuracion/.test(first) && !skill.tags.includes("Conjuración")) return false;
+    if (/que activan otras habilidades/.test(first) && !skill.tags.includes("Activación")) return false;
+    return true;
+  }
+  // 3. Blasfemia: lo que hace más fuerte la maldición engarzada sin depender de
+  //    lanzarla, de su demora ni de su duración (como aura no tiene nada de eso).
+  if (socketedKind(skill) === "curse") {
+    return (
+      support.tags.includes("Maldición") &&
+      /^asiste (?:habilidades de maldicion|maldiciones)/.test(first) &&
+      /magnitud/.test(text) &&
+      !/lanzas tu mismo|demora|duracion|suelo maldito/.test(text)
+    );
+  }
+  return false;
+}
+
 function supportApplies(support: GemSupport, skill: GemSkill): boolean {
   if (support.lineage) return false;
+  if (isPersistentMeta(skill)) return appliesToPersistentMeta(support, skill);
   // Los esbirros que reviven solo aceptan con seguridad asistencias de esbirros.
   if (isPersistentMinion(skill) && !support.tags.includes("Esbirro")) return false;
   for (const tag of support.tags) {
@@ -254,6 +300,12 @@ function noteBoost(text: string, note: string): number {
 function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, note: string): number {
   const text = normalizeGemText(`${support.description} ${support.effects.join(" ")}`);
   let score = note ? noteBoost(text, note) : 0;
+  // En una metahabilidad manda lo que mejora lo que lleva engarzado (la
+  // maldición de Blasfemia) y después lo que está hecho para metahabilidades.
+  if (isPersistentMeta(skill)) {
+    if (support.tags.includes("Maldición")) score += 5;
+    else if (targetsMeta(support)) score += 3;
+  }
   for (const tag of support.tags) {
     if (SOFT_TAGS.has(tag) || !skill.tags.includes(tag)) continue;
     score += ELEMENT_TAGS.has(tag) ? 3 : 1;
@@ -324,6 +376,76 @@ export function findSkill(data: GemData, name: string): GemSkill | null {
 }
 
 // ---------------------------------------------------------------------------
+// Metahabilidades: gemas que llevan otras habilidades engarzadas
+// ---------------------------------------------------------------------------
+
+/**
+ * Qué tipo de habilidad se le engarza a una metahabilidad. Blasfemia lleva
+ * maldiciones; «Lanzar al congelar», hechizos. Sin eso la gema no hace nada,
+ * así que aconsejar solo su asistencia deja al jugador a medias.
+ */
+export const SocketedKindSchema = z.enum(["curse", "spell", "ranged-attack", "mace-skill", "skill"]);
+export type SocketedKind = z.infer<typeof SocketedKindSchema>;
+
+/** Lo que la propia descripción de la gema dice que lleva engarzado. */
+const SOCKETED_KINDS: Array<[RegExp, SocketedKind]> = [
+  [/maldicion engarzad/, "curse"],
+  [/hechizos engarzados/, "spell"],
+  [/ataques a distancia engarzados/, "ranged-attack"],
+  [/habilidades de maza engarzadas/, "mace-skill"],
+];
+
+/** null si la habilidad no es una metahabilidad. */
+export function socketedKind(skill: GemSkill): SocketedKind | null {
+  if (!skill.tags.includes("Metahabilidad")) return null;
+  const text = normalizeGemText(skill.description);
+  return SOCKETED_KINDS.find(([pattern]) => pattern.test(text))?.[1] ?? "skill";
+}
+
+/**
+ * «Reserva 60 de espíritu por cada maldición engarzada», tal cual lo dice la
+ * gema. Vale para el texto en español y para el traducido al inglés.
+ */
+export function socketedCost(skill: GemSkill): string | null {
+  return skill.effects.find((effect) => /^reserv(?:a|es)\b.*(?:engarzad|socketed)/.test(normalizeGemText(effect))) ?? null;
+}
+
+export interface SocketableSkill {
+  skill: GemSkill;
+  /** La build del jugador nombra el tipo de daño de esta habilidad. */
+  fits: boolean;
+}
+
+/**
+ * Maldiciones que se pueden engarzar en Blasfemia. Primero las que encajan
+ * con el tipo de daño de la build (caos → la que baja la resistencia al
+ * caos); después, por grado. Solo ordena: todas valen.
+ */
+export function socketableCurses(data: GemData, build?: BuildContext | null): SocketableSkill[] {
+  const theme = build ? buildTheme(build) : NO_THEME;
+  return data.skills
+    .filter((skill) => skill.tags.includes("Maldición") && !skill.tags.includes("Metahabilidad"))
+    .map((skill) => ({ skill, fits: skill.tags.some((tag) => theme.elements.includes(tag)) }))
+    .sort(
+      (a, b) =>
+        Number(b.fits) - Number(a.fits) ||
+        // Entre las que encajan, la que baja una sola resistencia va antes que la genérica.
+        a.skill.tags.filter((tag) => ELEMENT_TAGS.has(tag)).length - b.skill.tags.filter((tag) => ELEMENT_TAGS.has(tag)).length ||
+        (a.skill.grade ?? 0) - (b.skill.grade ?? 0) ||
+        a.skill.name.localeCompare(b.skill.name, "es"),
+    );
+}
+
+export const SocketedSkillsSchema = z.object({
+  kind: SocketedKindSchema,
+  /** Lo que cuesta cada habilidad engarzada, con las palabras de la gema. */
+  cost: z.string().nullable(),
+  /** Las que se le pueden engarzar. Solo se listan cuando son pocas (maldiciones). */
+  options: z.array(z.object({ name: z.string(), description: z.string(), fits: z.boolean() })),
+});
+export type SocketedSkills = z.infer<typeof SocketedSkillsSchema>;
+
+// ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 
@@ -359,6 +481,8 @@ export type SupportAdviceOption = z.infer<typeof SupportAdviceOptionSchema>;
 
 export const SupportAdviceResponseSchema = z.object({
   skill: z.object({ name: z.string(), tags: z.array(z.string()) }),
+  /** Si es una metahabilidad: qué habilidades lleva engarzadas, además de asistencias. */
+  sockets: SocketedSkillsSchema.nullable().default(null),
   /** null cuando ninguna asistencia cumple las condiciones. */
   recommended: SupportAdviceOptionSchema.extend({ reason: z.string() }).nullable(),
   alternatives: z.array(SupportAdviceOptionSchema),

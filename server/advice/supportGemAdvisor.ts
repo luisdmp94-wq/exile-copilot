@@ -5,6 +5,9 @@ import {
   buildTheme,
   normalizeGemText,
   skillThemeBoost,
+  socketableCurses,
+  socketedCost,
+  socketedKind,
   supportCandidates,
   type BuildContext,
   type BuildTheme,
@@ -12,6 +15,7 @@ import {
   type GemSkill,
   type GemSupport,
   type AdviceLang,
+  type SocketedSkills,
   type SupportAdviceOption,
   type SupportAdviceRequest,
   type SupportAdviceResponse,
@@ -127,6 +131,33 @@ export function reasonIsGrounded(reason: string, skill: GemSkill, support: GemSu
   return true;
 }
 
+/**
+ * Lo que una metahabilidad lleva engarzado además de asistencias. Para
+ * Blasfemia se listan las maldiciones, con la que encaja en la build delante.
+ */
+function socketsFor(
+  data: GemData,
+  skill: GemSkill,
+  build: BuildContext | null,
+  lang: AdviceLang,
+  locale: GemLocale,
+): SocketedSkills | null {
+  const kind = socketedKind(skill);
+  if (kind === null) return null;
+  return {
+    kind,
+    // Se lee del texto ya traducido: las listas de efectos no van alineadas entre idiomas.
+    cost: socketedCost(localizeSkill(skill, lang, locale)),
+    options:
+      kind === "curse"
+        ? socketableCurses(data, build).map(({ skill: curse, fits }) => {
+            const text = localizeSkill(curse, lang, locale);
+            return { name: text.name, description: text.description, fits };
+          })
+        : [],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Una habilidad: «¿qué asistencia le pongo?»
 // ---------------------------------------------------------------------------
@@ -159,6 +190,7 @@ export async function adviseSupportGem(
   const show = (support: GemSupport) => localizeSupport(support, lang, locale);
   const base = {
     skill: { name: shownSkill.name, tags: skill.tags },
+    sockets: socketsFor(data, skill, build, lang, locale),
     source: data.source,
     fetchedAt: data.fetchedAt,
   };
@@ -350,6 +382,10 @@ export async function adviseSupportPlan(
     })),
     leftover: request.gems - chosen.length,
     unknownSkills,
+    sockets: skills.flatMap((skill) => {
+      const kind = socketedKind(skill);
+      return kind === null ? [] : [{ skill: localizeSkill(skill, lang, locale).name, kind }];
+    }),
     mode: aiReasons.size > 0 ? "ai" : "rules",
     fallbackReason,
     source: data.source,

@@ -4,6 +4,7 @@ import {
   GemAttributeSchema,
   AdviceLangSchema,
   MAX_ADVICE_NOTE_LENGTH,
+  SocketedKindSchema,
   SupportAdviceOptionSchema,
   normalizeGemText,
   supportCandidates,
@@ -142,6 +143,8 @@ export const SupportPlanResponseSchema = z.object({
   leftover: z.number().int().min(0),
   /** Nombres que no corresponden a ninguna habilidad conocida. */
   unknownSkills: z.array(z.string()),
+  /** Metahabilidades de la lista: además de asistencias llevan otras habilidades engarzadas. */
+  sockets: z.array(z.object({ skill: z.string(), kind: SocketedKindSchema })).default([]),
   mode: z.enum(["ai", "rules"]),
   fallbackReason: z.string().nullable(),
   source: z.string(),

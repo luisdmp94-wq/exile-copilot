@@ -96,6 +96,29 @@ const TEXT = texts(
     none: (skill: string) =>
       `Con ese grado y esos atributos no hay ninguna asistencia que valga para ${skill}. Prueba a marcar otro atributo o guarda la gema para más adelante.`,
     aiRoleOne: "La gema la eligen las reglas; la IA solo explica el porqué.",
+    socketsTitle: {
+      curse: (name: string) => `${name} también lleva una maldición`,
+      spell: (name: string) => `${name} también lleva hechizos`,
+      "ranged-attack": (name: string) => `${name} también lleva ataques a distancia`,
+      "mace-skill": (name: string) => `${name} también lleva habilidades de maza`,
+      skill: (name: string) => `${name} también lleva otras habilidades`,
+    },
+    socketsBody: {
+      curse: "Además de asistencias, se le engarza una habilidad de maldición. Sin ella no hace nada.",
+      spell: "Además de asistencias, se le engarzan los hechizos que lanzará sola. Sin ellos no hace nada.",
+      "ranged-attack": "Además de asistencias, se le engarzan los ataques a distancia que usará la ilusión. Sin ellos no hace nada.",
+      "mace-skill": "Además de asistencias, se le engarzan las habilidades de maza que usarán los guerreros. Sin ellas no hace nada.",
+      skill: "Además de asistencias, se le engarzan otras habilidades. Sin ellas no hace nada.",
+    },
+    socketsFits: "Para tu build encaja",
+    socketsAll: (count: number) => `Ver las ${count} maldiciones`,
+    socketsLine: {
+      curse: (name: string) => `${name} lleva además una maldición engarzada.`,
+      spell: (name: string) => `${name} lleva además hechizos engarzados.`,
+      "ranged-attack": (name: string) => `${name} lleva además ataques a distancia engarzados.`,
+      "mace-skill": (name: string) => `${name} lleva además habilidades de maza engarzadas.`,
+      skill: (name: string) => `${name} lleva además otras habilidades engarzadas.`,
+    },
     inSkillMany: "en",
     alreadyHaveMany: "Ya la tengo: reparte otra vez",
     noneMany:
@@ -172,6 +195,29 @@ const TEXT = texts(
     none: (skill: string) =>
       `With that tier and those attributes no support works for ${skill}. Try another attribute or keep the gem for later.`,
     aiRoleOne: "The rules pick the gem; the AI only explains why.",
+    socketsTitle: {
+      curse: (name: string) => `${name} also takes a curse`,
+      spell: (name: string) => `${name} also takes spells`,
+      "ranged-attack": (name: string) => `${name} also takes ranged attacks`,
+      "mace-skill": (name: string) => `${name} also takes mace skills`,
+      skill: (name: string) => `${name} also takes other skills`,
+    },
+    socketsBody: {
+      curse: "Besides supports, you socket a curse skill into it. Without one it does nothing.",
+      spell: "Besides supports, you socket the spells it will cast by itself. Without them it does nothing.",
+      "ranged-attack": "Besides supports, you socket the ranged attacks the mirage will use. Without them it does nothing.",
+      "mace-skill": "Besides supports, you socket the mace skills the warriors will use. Without them it does nothing.",
+      skill: "Besides supports, you socket other skills into it. Without them it does nothing.",
+    },
+    socketsFits: "Fits your build:",
+    socketsAll: (count: number) => `See all ${count} curses`,
+    socketsLine: {
+      curse: (name: string) => `${name} also takes a socketed curse.`,
+      spell: (name: string) => `${name} also takes socketed spells.`,
+      "ranged-attack": (name: string) => `${name} also takes socketed ranged attacks.`,
+      "mace-skill": (name: string) => `${name} also takes socketed mace skills.`,
+      skill: (name: string) => `${name} also takes other socketed skills.`,
+    },
     inSkillMany: "in",
     alreadyHaveMany: "I have it: split again",
     noneMany: "With that tier and those slots no support works for your skills. Keep the gems for later.",
@@ -858,6 +904,39 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
 
       {mode === "one" && answer && (
         <div className="mt-4 border-t border-border pt-4" data-testid="asistencia-resultado" aria-live="polite">
+          {answer.sockets && (
+            <div className="mb-3 rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2 text-sm" data-testid="asistencia-engarza">
+              <p className="font-semibold text-foreground">{t.socketsTitle[answer.sockets.kind](answer.skill.name)}</p>
+              <p className="mt-0.5 leading-relaxed text-foreground/90">
+                {t.socketsBody[answer.sockets.kind]}
+                {answer.sockets.cost && ` ${answer.sockets.cost}.`}
+              </p>
+              {answer.sockets.options
+                .filter((option) => option.fits)
+                .slice(0, 1)
+                .map((option) => (
+                  <p key={option.name} className="mt-1.5 leading-relaxed text-foreground/90" data-testid="asistencia-engarza-encaja">
+                    {t.socketsFits} <span className="font-semibold text-primary">{option.name}</span>. {option.description}
+                  </p>
+                ))}
+              {answer.sockets.options.length > 0 && (
+                <details className="group mt-2">
+                  <summary className="flex cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground">
+                    <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                    {t.socketsAll(answer.sockets.options.length)}
+                  </summary>
+                  <ul className="mt-2 space-y-1.5" data-testid="asistencia-engarza-lista">
+                    {answer.sockets.options.map((option) => (
+                      <li key={option.name}>
+                        <span className="font-semibold text-foreground">{option.name}</span>
+                        <span className="block text-muted-foreground">{option.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
           {pick ? (
             <>
               <p className="text-base font-semibold text-foreground" data-testid="asistencia-elegida">
@@ -942,6 +1021,11 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
               {t.noneMany}
             </p>
           )}
+          {plan.sockets.map((item) => (
+            <p key={item.skill} className="mt-3 text-sm text-foreground/90" data-testid="asistencia-reparto-engarza">
+              {t.socketsLine[item.kind](item.skill)}
+            </p>
+          ))}
           {plan.leftover > 0 && plan.assignments.length > 0 && (
             <p className="mt-3 text-sm text-amber-200" data-testid="asistencia-sobran">
               {t.leftover(plan.leftover)}
