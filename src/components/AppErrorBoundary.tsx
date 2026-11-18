@@ -41,7 +41,7 @@ export class AppErrorBoundary extends Component<
 
   componentDidCatch(error: unknown) {
     // Un trozo de una versión anterior: se recarga una vez y listo.
-    if (isChunkLoadError(error)) reloadOnceForNewVersion();
+    if (isChunkLoadError(error)) void reloadOnceForNewVersion();
   }
 
   render() {

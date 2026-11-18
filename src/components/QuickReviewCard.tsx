@@ -8,6 +8,7 @@ import { reviewCharacter, type QuickReviewAct, type QuickReviewInput } from "@sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { texts, useLang, useText } from "@/i18n/lang";
+import { readQuickReviewForm, writeQuickReviewForm } from "@/lib/quickReviewStorage";
 
 const TEXT = texts(
   {
@@ -59,6 +60,10 @@ const TEXT = texts(
     pasteOther: "No reconozco esa pantalla. Prueba con la hoja (tecla C) o la ventana de habilidades.",
     pasteNotImage: "Eso no es una imagen. Haz la captura con Win+Shift+S y pega aquí.",
     pastePrivacy: "La captura se manda a la IA solo para leer los números; no la guardamos.",
+    pasteConfirm: "¿Leo esta imagen? Se enviará a la IA para sacar los números. Si no es la captura del juego, descártala.",
+    pasteConfirmAlt: "La imagen que acabas de pegar",
+    pasteConfirmYes: "Leer esta captura",
+    pasteConfirmNo: "Descartar",
     how: "Cómo hacerlo",
   },
   {
@@ -110,11 +115,14 @@ const TEXT = texts(
     pasteOther: "I don't recognise that screen. Try the character sheet (C key) or the skills window.",
     pasteNotImage: "That isn't an image. Take the screenshot with Win+Shift+S and paste it here.",
     pastePrivacy: "The screenshot is sent to the AI only to read the numbers; we don't keep it.",
+    pasteConfirm: "Read this image? It will be sent to the AI to get the numbers. If it isn't your game screenshot, discard it.",
+    pasteConfirmAlt: "The image you just pasted",
+    pasteConfirmYes: "Read this screenshot",
+    pasteConfirmNo: "Discard",
     how: "How to do it",
   },
 );
 
-const STORAGE_KEY = "exile-copilot:revision-rapida";
 /** Evento con el que otras partes de la web (la mascota) abren la revisión. */
 export const OPEN_REVIEW_EVENT = "exile-copilot:abrir-revision";
 
@@ -169,12 +177,20 @@ function fromProfile(profile: CharacterProfile | null): Partial<Form> {
   };
 }
 
-function readStored(): Partial<Form> {
+/** Lo que este navegador recuerda de la revisión de ese personaje (o del borrador sin personaje). */
+function readStored(profileId: string | null): Partial<Form> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Partial<Form>) : {};
+    return readQuickReviewForm(window.localStorage, profileId) as Partial<Form>;
   } catch {
     return {};
+  }
+}
+
+function remember(profileId: string | null, form: Form): void {
+  try {
+    writeQuickReviewForm(window.localStorage, profileId, { ...form });
+  } catch {
+    // Sin almacenamiento, el formulario vale para esta visita.
   }
 }
 
@@ -247,9 +263,11 @@ interface QuickReviewCardProps {
 export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
+  // Cada personaje recuerda su propia revisión: lo de uno no aparece en otro.
+  const profileId = profile?.id ?? null;
   const [form, setForm] = useState<Form>(() => {
     const stored = Object.fromEntries(
-      Object.entries(readStored()).filter(([, value]) => typeof value === "string" && value.trim() !== ""),
+      Object.entries(readStored(profileId)).filter(([, value]) => typeof value === "string" && value.trim() !== ""),
     ) as Partial<Form>;
     return { ...EMPTY, ...fromProfile(profile), ...stored };
   });
@@ -278,6 +296,16 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
+  /**
+   * Imagen pegada fuera de la tarjeta, a la espera de que el jugador diga que
+   * sí es su captura: no sale de su ordenador hasta entonces.
+   */
+  const [pendingImage, setPendingImage] = useState<{ file: File; url: string } | null>(null);
+  const dropPending = () =>
+    setPendingImage((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
   /** Habilidades leídas de la captura, para elegir la principal con un clic. */
   const [readSkills, setReadSkills] = useState<ScreenshotReadResponse["skills"]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -300,11 +328,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const set = (key: keyof Form) => (value: string) => {
     setForm((current) => {
       const next = { ...current, [key]: value };
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Sin almacenamiento, el formulario vale para esta visita.
-      }
+      remember(profileId, next);
       return next;
     });
   };
@@ -312,11 +336,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const setMany = (values: Partial<Form>) => {
     setForm((current) => {
       const next = { ...current, ...values };
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Sin almacenamiento, el formulario vale para esta visita.
-      }
+      remember(profileId, next);
       return next;
     });
   };
@@ -385,9 +405,9 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
 
   // Tras Win+Shift+S el foco no suele estar en la tarjeta: Ctrl+V en cualquier
   // parte de la página también vale, pero SOLO si lo pegado es una imagen y no
-  // se está escribiendo en otro cuadro (las piezas se pegan como texto).
-  const readImageRef = useRef(readImage);
-  readImageRef.current = readImage;
+  // se está escribiendo en otro cuadro (las piezas se pegan como texto). Como
+  // fuera de la tarjeta el jugador no ha dicho que quiera leer una captura, la
+  // imagen se le enseña y espera su «sí»: en el portapapeles puede haber otra cosa.
   useEffect(() => {
     const onDocumentPaste = (event: globalThis.ClipboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -399,12 +419,26 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
       if (!file) return;
       event.preventDefault();
       setUserExpanded(true);
+      setReadError(null);
+      setReadNote(null);
+      setPendingImage((current) => {
+        if (current) URL.revokeObjectURL(current.url);
+        return { file, url: URL.createObjectURL(file) };
+      });
       document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      void readImageRef.current(file);
     };
     document.addEventListener("paste", onDocumentPaste);
     return () => document.removeEventListener("paste", onDocumentPaste);
   }, []);
+  // Al salir de la tarjeta no se deja la imagen en memoria.
+  const pendingUrlRef = useRef<string | null>(null);
+  pendingUrlRef.current = pendingImage?.url ?? null;
+  useEffect(
+    () => () => {
+      if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current);
+    },
+    [],
+  );
 
   const onPasteImage = (event: ClipboardEvent<HTMLElement>) => {
     const file = [...event.clipboardData.items]
@@ -412,6 +446,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
       ?.getAsFile();
     if (!file) return;
     event.preventDefault();
+    dropPending();
     void readImage(file);
   };
 
@@ -526,12 +561,48 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
             onChange={(event) => {
               const file = event.target.files?.[0];
               event.target.value = "";
-              if (file) void readImage(file);
+              if (file) {
+                dropPending();
+                void readImage(file);
+              }
             }}
             data-testid="revision-captura-archivo"
           />
           <span className="text-[11px] text-muted-foreground/80">{t.pastePrivacy}</span>
         </div>
+        {pendingImage && (
+          <div
+            className="mt-3 rounded-md border border-primary/40 bg-background/60 p-3"
+            role="group"
+            aria-label={t.pasteConfirmAlt}
+            data-testid="revision-captura-confirmar"
+          >
+            <img
+              src={pendingImage.url}
+              alt={t.pasteConfirmAlt}
+              className="max-h-40 max-w-full rounded border border-border object-contain"
+            />
+            <p className="mt-2 text-sm text-foreground">{t.pasteConfirm}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={reading}
+                onClick={() => {
+                  const { file } = pendingImage;
+                  dropPending();
+                  void readImage(file);
+                }}
+                data-testid="revision-captura-leer"
+              >
+                {t.pasteConfirmYes}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={dropPending} data-testid="revision-captura-descartar">
+                {t.pasteConfirmNo}
+              </Button>
+            </div>
+          </div>
+        )}
         {readNote && (
           <p className="mt-2 text-sm text-emerald-300" role="status" data-testid="revision-captura-nota">
             {readNote}
