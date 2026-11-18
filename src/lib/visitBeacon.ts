@@ -3,6 +3,7 @@ import {
   classifySource,
   looksLikeBot,
   pageOf,
+  sourceFromHeader,
   type VisitArea,
   type VisitBeacon,
   type VisitSource,
@@ -82,8 +83,8 @@ function rememberSource(found: VisitSource): VisitSource {
 
 /** De dónde llegó esta visita, para sumar cada uso en su origen. */
 export function visitSource(): VisitSource {
-  const stored = readSession(SESSION_SOURCE_KEY);
-  return stored === null ? "directo" : classifySource("", stored, "");
+  // Lo guardado ya es un origen de la lista («otro» incluido): se valida tal cual.
+  return sourceFromHeader(readSession(SESSION_SOURCE_KEY) ?? undefined);
 }
 
 /**

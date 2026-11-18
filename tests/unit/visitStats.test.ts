@@ -141,6 +141,17 @@ describe("aviso de visita del navegador", () => {
     expect(visitSource()).toBe("twitch");
   });
 
+  it("quien llega desde un sitio desconocido sigue siendo «otro» al usar la web, no «directo»", () => {
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    const day = new Date("2026-11-16T10:00:00Z");
+    expect(buildVisitBeacon(place("https://exilecopilot.com/"), "https://un-blog-cualquiera.example/post", day).source).toBe("otro");
+    // Sus piezas pegadas y áreas abiertas se suman en «Otros».
+    expect(visitSource()).toBe("otro");
+    // Y un valor raro guardado a mano cuenta como directo.
+    session.set("exile-copilot:origen-visita", "<script>");
+    expect(visitSource()).toBe("directo");
+  });
+
   it("la primera visita es nueva y de hoy; la siguiente del mismo día, no", () => {
     (globalThis as { window?: unknown }).window = fakeWindow;
     const day = new Date("2026-11-16T10:00:00Z");
