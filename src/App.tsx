@@ -54,6 +54,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { ContextualMentor } from "@/components/ContextualMentor";
 import { DataPrivacyDialog } from "@/components/DataPrivacyDialog";
+import { ReportProblemDialog, ReportProblemLink } from "@/components/ReportProblemDialog";
 import { QuickCharacterDialog } from "@/components/QuickCharacterDialog";
 import { WelcomePanel } from "@/components/WelcomePanel";
 import { MentorBriefing, OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
@@ -364,6 +365,8 @@ export default function App() {
     text: string;
     seq: number;
   } | null>(null);
+  // «Avisar de un problema»: se abre desde el pie de página y desde la mascota.
+  const [reportOpen, setReportOpen] = useState(false);
   // «¿Te has atascado?» de la mascota: qué vista de la guía abrir.
   const [guideViewRequest, setGuideViewRequest] = useState<{
     view: "guia" | "comprobar" | "herramientas";
@@ -2330,10 +2333,12 @@ export default function App() {
         <footer className="mt-10 flex flex-col gap-1 border-t border-border pt-4 text-center text-xs text-muted-foreground">
           <p>{GGG_AFFILIATION_NOTICE}</p>
           <p>{t.pricesNote}</p>
-          <p className="mt-1">
+          <p className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             <DataPrivacyDialog health={health} />
+            <ReportProblemLink onOpen={() => setReportOpen(true)} />
           </p>
         </footer>
+        <ReportProblemDialog open={reportOpen} onOpenChange={setReportOpen} area={tab} />
       </main>
 
       <ContextualMentor
@@ -2361,6 +2366,10 @@ export default function App() {
         onCollapsedChange={setContextualCollapsed}
         onAsk={askContextualMentor}
         onOpenMentor={openMentorConversation}
+        onReportProblem={() => {
+          setContextualCollapsed(true);
+          setReportOpen(true);
+        }}
         onStuck={(kind) => {
           setContextualCollapsed(true);
           if (kind === "damage") {

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { StatsResponseSchema, type StatsDay } from "@shared/visitStats";
+import { FeedbackEntrySchema, type FeedbackEntry } from "@shared/feedback";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -114,6 +116,7 @@ export function StatsPage() {
   const [key, setKey] = useState(readKey);
   const [draft, setDraft] = useState("");
   const [days, setDays] = useState<StatsDay[] | null>(null);
+  const [reports, setReports] = useState<FeedbackEntry[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,6 +128,15 @@ export function StatsPage() {
       if (response.status === 401) throw new Error("Esa clave no es la buena.");
       if (!response.ok) throw new Error("El servidor no tiene activado el contador.");
       setDays(StatsResponseSchema.parse(await response.json()).days);
+      // Los avisos de problemas van con la misma clave; si fallan, las cifras siguen.
+      try {
+        const feedback = await fetch("/api/feedback", { headers: { Authorization: `Bearer ${token}` }, credentials: "same-origin" });
+        setReports(
+          feedback.ok ? z.object({ reports: z.array(FeedbackEntrySchema) }).parse(await feedback.json()).reports : null,
+        );
+      } catch {
+        setReports(null);
+      }
     } catch (err) {
       setDays(null);
       setError(err instanceof Error ? err.message : "No se pudieron leer las cifras.");
@@ -202,6 +214,29 @@ export function StatsPage() {
             <Breakdown title="Qué abren (7 días)" rows={sumRecord(week, (day) => day.areas)} labels={AREA_LABELS} />
             <Breakdown title="Qué usan (7 días)" rows={sumRecord(week, (day) => day.uses)} labels={USE_LABELS} />
           </div>
+
+          <section className="mt-3 rounded-xl border border-border bg-card p-4" data-testid="estadisticas-avisos">
+            <h2 className="text-sm font-semibold">
+              Avisos de problemas {reports ? `(${reports.length})` : ""}
+            </h2>
+            {reports === null || reports.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Nadie ha avisado de nada todavía.</p>
+            ) : (
+              <ul className="mt-2 space-y-3 text-sm">
+                {reports.map((report) => (
+                  <li key={report.id} className="border-l-2 border-primary/40 pl-3">
+                    <p className="whitespace-pre-line text-foreground">{report.text}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {new Date(report.createdAt).toLocaleString("es-ES")} · {report.lang.toUpperCase()}
+                      {report.area ? ` · ${report.area}` : ""}
+                      {report.browser ? ` · ${report.browser}` : ""}
+                      {report.viewport ? ` · ${report.viewport}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="mt-3 rounded-xl border border-border bg-card p-4" data-testid="estadisticas-por-origen">
             <h2 className="text-sm font-semibold">Qué hace la gente de cada sitio (7 días)</h2>

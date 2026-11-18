@@ -27,6 +27,8 @@ interface ContextualMentorProps {
    * apuro. Cada uno lleva a donde ya está la respuesta (Mentor o guía).
    */
   onStuck?: (kind: StuckKind) => void;
+  /** Abre «Avisar de un problema». */
+  onReportProblem?: () => void;
 }
 
 export type StuckKind = "damage" | "dying" | "lost";
@@ -96,6 +98,7 @@ const TEXT = texts(
     stuckDamage: "No hago daño",
     stuckDying: "Me matan",
     stuckLost: "No sé adónde ir",
+    reportProblem: "Avisar de un problema",
   },
   {
     groundedAi: "Grounded AI",
@@ -134,6 +137,7 @@ const TEXT = texts(
     stuckDamage: "I lack damage",
     stuckDying: "I keep dying",
     stuckLost: "Where do I go?",
+    reportProblem: "Report a problem",
   },
 );
 type MascotText = (typeof TEXT)["es"];
@@ -296,6 +300,7 @@ export function ContextualMentor({
   onOpenMentor,
   placement = "floating",
   onStuck,
+  onReportProblem,
 }: ContextualMentorProps) {
   const t = useText(TEXT);
   const requestLockedRef = useRef(false);
@@ -678,6 +683,18 @@ export function ContextualMentor({
                 <MessageCircleMore className="size-4" aria-hidden="true" />
                 {placement === "inline" ? t.chat : t.conversation}
               </Button>
+              {placement === "floating" && onReportProblem && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={onReportProblem}
+                  data-testid="mentor-avisar-problema"
+                >
+                  {t.reportProblem}
+                </Button>
+              )}
             </div>
 
             {loading && (

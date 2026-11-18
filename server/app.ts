@@ -149,6 +149,8 @@ import {
 } from "../shared/patchCompatibility.js";
 import { auditRuntimeReadiness } from "./runtimeReadiness.js";
 import { readStats, recordArea, recordUse, recordVisit } from "./analytics.js";
+import { listFeedback, recordFeedback } from "./feedback.js";
+import { FeedbackReportSchema } from "../shared/feedback.js";
 import {
   AreaBeaconSchema,
   VISIT_SOURCE_HEADER,
@@ -649,18 +651,44 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
+  /** Solo el dueño, con su clave: estadísticas y avisos de problemas. */
+  const requireOwnerToken = (req: express.Request): void => {
+    if (!config.statsToken) {
+      throw new ApiHttpError(404, "no-encontrado", "No existe esa ruta.");
+    }
+    const given = /^Bearer\s+(.+)$/i.exec(req.get("authorization") ?? "")?.[1]?.trim() ?? "";
+    const digest = (value: string) => createHash("sha256").update(value).digest();
+    if (!given || !timingSafeEqual(digest(given), digest(config.statsToken))) {
+      throw new ApiHttpError(401, "clave-incorrecta", "Esa clave no abre las estadísticas.");
+    }
+  };
+
   // GET /stats — las cifras de los últimos 30 días, solo con la clave del dueño.
   app.get("/stats", (req, res, next) => {
     try {
-      if (!config.statsToken) {
-        throw new ApiHttpError(404, "no-encontrado", "No existe esa ruta.");
-      }
-      const given = /^Bearer\s+(.+)$/i.exec(req.get("authorization") ?? "")?.[1]?.trim() ?? "";
-      const digest = (value: string) => createHash("sha256").update(value).digest();
-      if (!given || !timingSafeEqual(digest(given), digest(config.statsToken))) {
-        throw new ApiHttpError(401, "clave-incorrecta", "Esa clave no abre las estadísticas.");
-      }
+      requireOwnerToken(req);
       res.json({ days: readStats(db, 30) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /feedback — «Avisar de un problema»: solo lo que el jugador decide enviar.
+  app.post("/feedback", (req, res, next) => {
+    try {
+      const report = FeedbackReportSchema.parse(req.body);
+      if (!looksLikeBot(req.get("user-agent"))) recordFeedback(db, report);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /feedback — los últimos avisos, solo con la clave del dueño.
+  app.get("/feedback", (req, res, next) => {
+    try {
+      requireOwnerToken(req);
+      res.json({ reports: listFeedback(db, 50) });
     } catch (err) {
       next(err);
     }

@@ -43,7 +43,7 @@ const TEXT = texts(
     sessionText: "No creamos una cuenta. Una cookie privada enlaza este navegador con tu expediente y no puede leerla JavaScript.",
     storedTitle: "Qué se guarda",
     storedText:
-      "En el servidor: tus personajes, objetos, decisiones, sesiones y hasta ocho turnos completos del Mentor ligados a tu sesión anónima y a cada personaje. En este navegador: progreso de Academia y proyectos de Crafting. Otro visitante no puede abrir tus expedientes ni sus conversaciones. Además, un contador anónimo suma cuántas visitas hay cada día, de qué sitio llegan (por ejemplo, Reddit) y qué herramientas se usan; no guarda tu IP, tu sesión ni nada que te identifique.",
+      "En el servidor: tus personajes, objetos, decisiones, sesiones y hasta ocho turnos completos del Mentor ligados a tu sesión anónima y a cada personaje. En este navegador: progreso de Academia y proyectos de Crafting. Otro visitante no puede abrir tus expedientes ni sus conversaciones. Además, un contador anónimo suma cuántas visitas hay cada día, de qué sitio llegan (por ejemplo, Reddit) y qué herramientas se usan; no guarda tu IP, tu sesión ni nada que te identifique. Si usas «Avisar de un problema», guardamos tu mensaje y, si los dejas marcados, el navegador, el tamaño de pantalla y el área; se borran a los 90 días.",
     mentorTitle: "Cómo responde el Mentor",
     recoveryTitle: "Recuperación actual",
     recoveryText:
@@ -74,7 +74,7 @@ const TEXT = texts(
     sessionText: "We don't create an account. A private cookie links this browser to your character file, and JavaScript can't read it.",
     storedTitle: "What is stored",
     storedText:
-      "On the server: your characters, items, decisions, sessions and up to eight full Mentor turns, linked to your anonymous session and to each character. In this browser: Academy progress and Crafting projects. No other visitor can open your files or conversations. An anonymous counter also adds up how many visits there are each day, which site they come from (for example, Reddit) and which tools are used; it doesn't store your IP, your session or anything that identifies you.",
+      "On the server: your characters, items, decisions, sessions and up to eight full Mentor turns, linked to your anonymous session and to each character. In this browser: Academy progress and Crafting projects. No other visitor can open your files or conversations. An anonymous counter also adds up how many visits there are each day, which site they come from (for example, Reddit) and which tools are used; it doesn't store your IP, your session or anything that identifies you. If you use «Report a problem», we keep your message and, if you leave them ticked, your browser, screen size and area; they're deleted after 90 days.",
     mentorTitle: "How the Mentor answers",
     recoveryTitle: "Current recovery",
     recoveryText:

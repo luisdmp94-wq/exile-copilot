@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { applyAnalyticsSchema } from "../analytics.js";
+import { applyFeedbackSchema } from "../feedback.js";
 
 /**
  * Conexión SQLite con `node:sqlite` (DatabaseSync, integrado en Node 24).
@@ -149,6 +150,7 @@ export function applySchema(db: Database): void {
   applyDecisionSessionSchema(db);
   applyBuildMemorySchema(db);
   applyAnalyticsSchema(db);
+  applyFeedbackSchema(db);
 }
 
 /**
