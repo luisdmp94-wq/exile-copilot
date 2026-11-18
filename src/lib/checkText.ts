@@ -210,6 +210,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       ring1: "Anillo 1",
       ring2: "Anillo 2",
       flask: "Frasco",
+      charm: "Vial",
       other: "Otro",
     },
     priorities: {
@@ -349,6 +350,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       ring1: "Ring 1",
       ring2: "Ring 2",
       flask: "Flask",
+      charm: "Charm",
       other: "Other",
     },
     priorities: {

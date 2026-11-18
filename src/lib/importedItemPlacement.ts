@@ -17,7 +17,7 @@ export function planImportedItemPlacement(
   currentItems: readonly Item[],
   importedItem: Item,
 ): ImportedItemPlacement {
-  if (importedItem.slot === "flask" || importedItem.slot === "other") {
+  if (importedItem.slot === "flask" || importedItem.slot === "charm" || importedItem.slot === "other") {
     return { kind: "append", item: importedItem };
   }
 

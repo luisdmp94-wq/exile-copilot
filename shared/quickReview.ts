@@ -43,6 +43,8 @@ export interface QuickReviewFinding {
   severity: number;
   title: string;
   action: string;
+  /** Pasos concretos para hacerlo, si el jugador quiere más detalle. */
+  how?: string[];
 }
 
 export interface QuickReviewResult {
@@ -81,6 +83,11 @@ const WORDS = {
     weaponTitle: (gap: number) => `Tu arma va ${gap} niveles por detrás de ti`,
     weaponAction:
       "Mira lo que venden en el pueblo cada vez que subas de nivel y busca un arma de tu nivel. Si usas hechizos, que tenga «+ al nivel de las gemas de hechizo»: es lo que más daño da.",
+    weaponHow: [
+      "Los vendedores renuevan lo que venden cada vez que subes de nivel: vuelve a mirar en cada pueblo.",
+      "Si encuentras un arma normal (blanca) de tu nivel, usa un Orbe de transmutación y uno de aumento: con suerte sale la línea que buscas.",
+      "Un arma única barata también vale mientras subes: en el mercado muchas cuestan muy poco.",
+    ],
     gemTitle: (gem: number, max: number) => `Tu gema principal está a nivel ${gem} y puedes llevarla a ${max}`,
     gemAction: (max: number) =>
       `Súbela con una gema sin tallar de nivel ${max} o más: pulsa la flecha ↑ junto a la habilidad. Es daño gratis.`,
@@ -90,6 +97,12 @@ const WORDS = {
     resTitle: (list: string, target: number) => `Resistencias bajas: ${list} (conviene llegar al ${target} %)`,
     resAction:
       "Cambia una pieza que no te dé resistencias (botas, cinturón, anillos) por otra que sí. Al principio, mejor resistencias que un poco más de daño.",
+    resHow: [
+      "Pon una runa de resistencia en cada engarce libre de tu armadura: son baratas y suben justo la que te falta.",
+      "Mira lo que venden en el pueblo: los vendedores cambian sus objetos cada vez que subes de nivel. Busca piezas mágicas (azules) con la resistencia que te falta.",
+      "¿Tienes una pieza normal (blanca) de tu nivel? Usa un Orbe de transmutación y luego uno de aumento. Si sale una resistencia, ya te sirve; si no, prueba con otra pieza blanca, que son baratas.",
+      "Anillos, cinturón y botas son las piezas que más fácil traen resistencias: cambia primero la que no te dé ninguna.",
+    ],
     ascFirstTitle: "Te faltan tus dos primeros puntos de ascendencia",
     ascFirstAction:
       "Haz la primera prueba de ascendencia (la de las Sekhemas en el acto 2 o la de Caos en el acto 3). Son de las mejoras más grandes de la campaña.",
@@ -114,6 +127,11 @@ const WORDS = {
     weaponTitle: (gap: number) => `Your weapon is ${gap} levels behind you`,
     weaponAction:
       "Check the town vendors every time you level up and look for a weapon close to your level. If you cast spells, get one with \"+ to Level of all Spell Skills\": it's the biggest damage boost.",
+    weaponHow: [
+      "Vendors restock every time you level up: check again in every town.",
+      "If you find a normal (white) weapon at your level, use an Orb of Transmutation and an Orb of Augmentation: with luck you get the line you want.",
+      "A cheap unique weapon works too while levelling: many cost very little on trade.",
+    ],
     gemTitle: (gem: number, max: number) => `Your main gem is level ${gem} and you can take it to ${max}`,
     gemAction: (max: number) =>
       `Level it up with an Uncut Skill Gem of level ${max} or higher: press the ↑ arrow next to the skill. It's free damage.`,
@@ -123,6 +141,12 @@ const WORDS = {
     resTitle: (list: string, target: number) => `Low resistances: ${list} (aim for ${target}%)`,
     resAction:
       "Swap a piece that gives no resistances (boots, belt, rings) for one that does. Early on, resistances beat a little extra damage.",
+    resHow: [
+      "Put a resistance rune in every free socket of your armour: they're cheap and add exactly the one you lack.",
+      "Check the town vendors: they restock every time you level up. Look for magic (blue) items with the resistance you need.",
+      "Got a normal (white) item at your level? Use an Orb of Transmutation, then an Orb of Augmentation. If a resistance rolls, it's useful; if not, try another white item, they're cheap.",
+      "Rings, belt and boots are the easiest pieces to get resistances on: replace the one giving none first.",
+    ],
     ascFirstTitle: "You're missing your first two ascendancy points",
     ascFirstAction:
       "Do your first ascendancy trial (the Trial of the Sekhemas in act 2 or the Trial of Chaos in act 3). It's one of the biggest upgrades in the campaign.",
@@ -163,7 +187,13 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
     const gap = level - input.weaponItemLevel;
     if (gap >= 10) {
       // Cuanto más atrasada, más frena: 10 niveles = 80, 14 = 84, tope 92.
-      findings.push({ id: "weapon", severity: Math.min(92, 70 + gap), title: w.weaponTitle(gap), action: w.weaponAction });
+      findings.push({
+        id: "weapon",
+        severity: Math.min(92, 70 + gap),
+        title: w.weaponTitle(gap),
+        action: w.weaponAction,
+        how: [...w.weaponHow],
+      });
     }
   } else if (input.weaponItemLevel === null) {
     missing.push(w.missing.weapon);
@@ -219,6 +249,7 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
           target,
         ),
         action: w.resAction,
+        how: [...w.resHow],
       });
     }
   } else if (known.length === 0) {

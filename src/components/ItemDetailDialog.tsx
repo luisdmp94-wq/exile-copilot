@@ -37,6 +37,8 @@ const TEXT = texts(
     crafted: "· Fabricado",
     desecrated: "· Profanado",
     unverified: "No verificado",
+    unverifiedAll:
+      "Leídos del texto que copiaste del juego. «Sin verificar» solo quiere decir que no los contrastamos con una base de datos oficial de GGG, porque no hay una pública; el texto es tal cual el del juego.",
     noModifiers: "Sin modificadores registrados (desconocido).",
     origin: "Procedencia",
     noSource: "Fuente no disponible.",
@@ -56,6 +58,8 @@ const TEXT = texts(
     crafted: "· Crafted",
     desecrated: "· Desecrated",
     unverified: "Not verified",
+    unverifiedAll:
+      "Read from the text you copied from the game. «Unverified» only means we didn't check them against an official GGG database, because there isn't a public one; the text is exactly the game's.",
     noModifiers: "No modifiers recorded (unknown).",
     origin: "Origin",
     noSource: "Source not available.",
@@ -160,6 +164,8 @@ function ItemDetailContent({
   const dataState = describeItemDataState(item, lang);
   const requirements = describeRequirements(item, lang);
   const modifierGroups = groupModifiersByKind(item);
+  // Todo lo pegado del juego llega sin verificar: se explica una vez, no en cada línea.
+  const allUnverified = item.modifiers.length > 0 && item.modifiers.every((mod) => !mod.verified);
   return (
     <DialogContent
       className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
@@ -266,6 +272,11 @@ function ItemDetailContent({
             <h4 className="text-xs font-medium text-muted-foreground">
               {t.modifiers(item.modifiers.length)}
             </h4>
+            {allUnverified && (
+              <p className="text-[11px] leading-relaxed text-muted-foreground" data-testid="mods-sin-verificar-explicacion">
+                {t.unverifiedAll}
+              </p>
+            )}
             {modifierGroups.length > 0 ? (
               modifierGroups.map((group) => (
                 <div key={group.kind} className="flex flex-col gap-1">
@@ -294,7 +305,7 @@ function ItemDetailContent({
                             </span>
                           )}
                         </div>
-                        {!mod.verified && (
+                        {!mod.verified && !allUnverified && (
                           <span className="shrink-0 text-[11px] text-amber-300">
                             {t.unverified}
                           </span>

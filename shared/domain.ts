@@ -101,6 +101,7 @@ export const ItemSlot = z.enum([
   "ring1",
   "ring2",
   "flask",
+  "charm",
   "other",
 ]);
 export type ItemSlot = z.infer<typeof ItemSlot>;

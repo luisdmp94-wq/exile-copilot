@@ -18,6 +18,7 @@ const SLOT_LABELS_EN: Record<ItemSlot, string> = {
   ring1: "Ring 1",
   ring2: "Ring 2",
   flask: "Flask",
+  charm: "Charm",
   other: "Other",
 };
 

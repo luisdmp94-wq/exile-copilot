@@ -229,7 +229,7 @@ export function GuideCharacterCheck({
         const { item } = await api.importItemText({ text, patch });
         // Frascos, joyas o un texto que solo trae la cabecera no ocupan un
         // hueco de equipo: no cuentan para la comprobación.
-        if (item.slot === "other" || item.slot === "flask") {
+        if (item.slot === "other" || item.slot === "flask" || item.slot === "charm") {
           skipped.push(item.name);
           continue;
         }

@@ -69,7 +69,8 @@ export function buildEquipmentLayout(items: readonly Item[]): EquipmentLayout {
     return { slot, item: item ?? null };
   });
 
-  const flaskItems = items.filter((item) => item.slot === "flask");
+  // Frascos y viales (charms) van juntos: no ocupan un hueco del muñeco.
+  const flaskItems = items.filter((item) => item.slot === "flask" || item.slot === "charm");
   for (const flask of flaskItems) used.add(flask.id);
 
   const extraItems = items.filter((item) => !used.has(item.id));

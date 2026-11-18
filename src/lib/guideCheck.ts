@@ -157,7 +157,7 @@ export function resistancesFromItems(items: Item[]): Resistances {
  * anterior (el jugador ha cambiado de casco, no lleva dos).
  */
 export function placePastedItem(items: Item[], incoming: Item): { items: Item[]; replaced: Item | null } {
-  if (incoming.slot === "other" || incoming.slot === "flask") {
+  if (incoming.slot === "other" || incoming.slot === "flask" || incoming.slot === "charm") {
     return { items: [...items, incoming], replaced: null };
   }
   if (incoming.slot === "ring1" || incoming.slot === "ring2") {

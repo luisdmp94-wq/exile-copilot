@@ -85,6 +85,8 @@ const SLOT_TESTS: Array<[RegExp, ItemSlot]> = [
   [/amulet|amuleto/, "amulet"],
   [/ring(?! mail)|anillo/, "ring1"],
   [/flask|frasco/, "flask"],
+  // Los charms del cliente inglés son «viales» en el español.
+  [/\bcharms?\b|\bviales?\b/, "charm"],
 ];
 
 function matchSlot(haystack: string): ItemSlot | null {

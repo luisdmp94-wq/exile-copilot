@@ -130,7 +130,7 @@ export function ItemCompareCard({ patch, profile = null }: ItemCompareCardProps)
     patchSlot(side, { busy: true, error: null });
     try {
       const { item } = await api.importItemText({ text, patch });
-      if (item.slot === "other" || item.slot === "flask") {
+      if (item.slot === "other" || item.slot === "flask" || item.slot === "charm") {
         patchSlot(side, { busy: false, draft: text, error: t.notGear(item.name) });
         return;
       }

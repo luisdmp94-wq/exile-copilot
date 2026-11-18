@@ -22,7 +22,7 @@ const TEXT = texts(
   {
     title: "Equipo de tu personaje",
     counts: (equipped: number, empty: number) => `${equipped} equipado(s) · ${empty} vacío(s)`,
-    flasks: (count: number) => `Frascos (${count})`,
+    flasks: (count: number) => `Frascos y viales (${count})`,
     noFlasks: "Sin información de frascos.",
     diagnosis: "Diagnóstico",
     diagnosisSummary: (items: number, empty: number, unverified: number) =>
@@ -41,7 +41,7 @@ const TEXT = texts(
   {
     title: "Your character's gear",
     counts: (equipped: number, empty: number) => `${equipped} equipped · ${empty} empty`,
-    flasks: (count: number) => `Flasks (${count})`,
+    flasks: (count: number) => `Flasks and charms (${count})`,
     noFlasks: "No flask information.",
     diagnosis: "Diagnosis",
     diagnosisSummary: (items: number, empty: number, unverified: number) =>

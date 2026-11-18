@@ -42,6 +42,7 @@ const TEXT = texts(
     ask: "Preguntar al Mentor sobre esto",
     askQuestion: (lines: string) => `Mi revisión rápida dice: ${lines}. ¿Por dónde empiezo y cómo lo hago?`,
     rules: "Reglas fijas con datos del juego (niveles de gema de poe2db). Sin IA.",
+    how: "Cómo hacerlo",
   },
   {
     title: "Quick character review",
@@ -77,6 +78,7 @@ const TEXT = texts(
     ask: "Ask the Mentor about this",
     askQuestion: (lines: string) => `My quick review says: ${lines}. Where do I start and how?`,
     rules: "Fixed rules with game data (gem levels from poe2db). No AI.",
+    how: "How to do it",
   },
 );
 
@@ -326,6 +328,16 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">{finding.title}</p>
                       <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{finding.action}</p>
+                      {finding.how && finding.how.length > 0 && (
+                        <details className="mt-1.5 text-sm" data-testid={`revision-como-${finding.id}`}>
+                          <summary className="cursor-pointer text-xs font-semibold text-primary">{t.how}</summary>
+                          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-muted-foreground">
+                            {finding.how.map((step) => (
+                              <li key={step}>{step}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
                     </div>
                   </li>
                 ))}

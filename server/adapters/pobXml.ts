@@ -134,6 +134,9 @@ const SLOT_MAP: Record<string, ItemSlot> = {
   "ring 2": "ring2",
   "flask 1": "flask",
   "flask 2": "flask",
+  "charm 1": "charm",
+  "charm 2": "charm",
+  "charm 3": "charm",
 };
 
 function slotFromPobName(name: string): ItemSlot {
@@ -153,6 +156,7 @@ function itemClassForSlot(slot: ItemSlot): string {
     ring1: "Rings",
     ring2: "Rings",
     flask: "Flasks",
+    charm: "Charms",
     other: "Other",
   };
   return labels[slot];

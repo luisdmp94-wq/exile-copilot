@@ -43,6 +43,7 @@ function artworkKind(item: Item): ArtworkKind {
     ring1: "ring",
     ring2: "ring",
     flask: "flask",
+    charm: "flask",
   };
   return bySlot[item.slot] ?? "other";
 }

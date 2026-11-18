@@ -64,6 +64,7 @@ export const SLOT_LABELS: Record<ItemSlot, string> = {
   ring1: "Anillo 1",
   ring2: "Anillo 2",
   flask: "Frasco",
+  charm: "Vial",
   other: "Otro",
 };
 

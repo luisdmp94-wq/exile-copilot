@@ -63,6 +63,7 @@ const ENGLISH: FormatLabels = {
     ring1: "Ring 1",
     ring2: "Ring 2",
     flask: "Flask",
+    charm: "Charm",
     other: "Other",
   },
   rarity: {

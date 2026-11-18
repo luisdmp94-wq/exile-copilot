@@ -105,3 +105,22 @@ describe("clases de objeto del cliente en español", () => {
     expect(parseItemText(header("Anillos", "Anillo del arco")).item.slot).toBe("ring1");
   });
 });
+
+describe("viales / charms (comentario de un jugador en Steam, 18-11-2026)", () => {
+  it.each([
+    ["Item Class: Charms\nRarity: Magic\nThawing Ruby Charm\n--------\nItem Level: 30", "en"],
+    ["Clase de objeto: Viales\nRareza: Mágico\nVial de rubí descongelante\n--------\nNivel de objeto: 30", "es"],
+  ])("un vial se reconoce como vial, sin aviso de hueco desconocido (%#)", (text) => {
+    const result = parseItemText(text);
+    expect(result.item.slot).toBe("charm");
+    expect(result.warnings.join(" ")).not.toContain("no se pudo inferir el slot");
+  });
+
+  it("en el panel de equipo van con los frascos", async () => {
+    const { buildEquipmentLayout } = await import("../../src/lib/equipment.js");
+    const charm = parseItemText("Item Class: Charms\nRarity: Magic\nThawing Ruby Charm\n--------\nItem Level: 30").item;
+    const layout = buildEquipmentLayout([charm]);
+    expect(layout.flaskItems).toHaveLength(1);
+    expect(layout.extraItems).toHaveLength(0);
+  });
+});
