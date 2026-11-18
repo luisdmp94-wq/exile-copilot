@@ -388,3 +388,67 @@ describe("con el personaje en cuenta: pecheras y cascos de Luis (17-11-2026)", (
     expect(res?.winner).toBe("a");
   });
 });
+
+// Revisión del 18-11-2026: dos casos que el comparador daba por buenos.
+describe("compareItems — niveles de habilidad de un tipo que no conoce, y resistencias que restan", () => {
+  const ring = (name: string, lines: string[]) =>
+    parse(["Clase de objeto: Anillos", "Rareza: Raro", name, "Anillo de hierro", "--------", "Nivel de objeto: 40", "--------", ...lines].join("\n"));
+
+  const CURSE_RING = ring("Aro maldito", ["+2 al nivel de todas las habilidades de maldición"]);
+  const ATTACK_RING = ring("Aro de guerra", ["+1 al nivel de todas las habilidades de ataque"]);
+  const ALL_RING = ring("Aro pleno", ["+1 al nivel de todas las habilidades"]);
+  const LIFE_RING = ring("Aro vital", ["+12 a la vida máxima"]);
+
+  it("un +nivel a maldiciones no cuenta para un personaje cuerpo a cuerpo", () => {
+    const result = compareItems(CURSE_RING, LIFE_RING, "melee");
+    expect(result.rows.find((row) => row.id === "skills")).toBeUndefined();
+    expect(result.wasted.a).toContain("+2 al nivel de todas las habilidades de maldición");
+    expect(result.winner).toBe("b");
+  });
+
+  it("tampoco se le regala a hechizos ni a arco", () => {
+    for (const style of ["caster", "ranged"] as const) {
+      expect(compareItems(CURSE_RING, LIFE_RING, style).rows.find((row) => row.id === "skills")).toBeUndefined();
+    }
+  });
+
+  it("«todas las habilidades», a secas, vale para cualquier estilo", () => {
+    for (const style of ["caster", "melee", "ranged"] as const) {
+      expect(compareItems(ALL_RING, LIFE_RING, style).rows.find((row) => row.id === "skills")).toMatchObject({ a: "+1 todas", winner: "a" });
+    }
+    const english = ring("Full Band", ["+1 to Level of all Skills"]);
+    expect(compareItems(english, LIFE_RING, "melee", "en").rows.find((row) => row.id === "skills")).toMatchObject({ a: "+1 all", winner: "a" });
+  });
+
+  it("un +nivel a ataques vale a cuerpo a cuerpo y a arco, no a hechizos", () => {
+    for (const style of ["melee", "ranged"] as const) {
+      expect(compareItems(ATTACK_RING, LIFE_RING, style).rows.find((row) => row.id === "skills")).toMatchObject({ a: "+1 ataques", winner: "a" });
+    }
+    const caster = compareItems(ATTACK_RING, LIFE_RING, "caster");
+    expect(caster.rows.find((row) => row.id === "skills")).toBeUndefined();
+    expect(caster.wasted.a).toContain("+1 al nivel de todas las habilidades de ataque");
+  });
+
+  const MIXED = ring("Aro de doble filo", ["+30% a la resistencia al fuego", "-20% a la resistencia al rayo"]);
+  const PLAIN = ring("Aro templado", ["+25% a la resistencia al fuego"]);
+
+  it("con personaje guardado, la resistencia que quita una pieza resta", () => {
+    const context = { resistances: { fire: 10, cold: 30, lightning: 30, chaos: 0 } };
+    const res = compareItems(MIXED, PLAIN, "melee", "es", context).rows.find((row) => row.id === "res");
+    // +30 de fuego y -20 de rayo son 10 útiles; el otro da 25.
+    expect(res?.winner).toBe("b");
+  });
+
+  it("sin personaje da el mismo ganador: ya no depende de si hay datos", () => {
+    expect(compareItems(MIXED, PLAIN, "melee").rows.find((row) => row.id === "res")?.winner).toBe("b");
+  });
+
+  it("lo que pasa del 75 % sigue sin contar, y perder lo que sobraba tampoco resta", () => {
+    // Rayo al 90 %: quitarle 10 lo deja en 80, que sigue por encima del tope.
+    const context = { resistances: { fire: 70, cold: 30, lightning: 90, chaos: 0 } };
+    const spare = ring("Aro de sobra", ["+30% a la resistencia al fuego", "-10% a la resistencia al rayo"]);
+    const small = ring("Aro justo", ["+5% a la resistencia al fuego"]);
+    // Los dos llenan el hueco de fuego (5 puntos) y ninguno pierde rayo útil: empate.
+    expect(compareItems(spare, small, "melee", "es", context).rows.find((row) => row.id === "res")?.winner).toBe("tie");
+  });
+});

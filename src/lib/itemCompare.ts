@@ -19,7 +19,7 @@ export const COMPARE_STYLES: Array<{ id: CompareStyle; label: string }> = [
   { id: "ranged", label: "Arco o ballesta" },
 ];
 
-type SkillKindWord = "minion" | "spell" | "melee" | "projectile" | "all";
+type SkillKindWord = "minion" | "spell" | "melee" | "projectile" | "attack" | "all" | "other";
 type ResKey = "fire" | "cold" | "lightning" | "chaos";
 
 /** Todo lo que el comparador escribe, en los dos idiomas. */
@@ -46,7 +46,7 @@ const WORDS = {
       regen: "Vida por segundo",
       attr: "Atributos",
     },
-    kinds: { minion: "esbirros", spell: "hechizos", melee: "cuerpo a cuerpo", projectile: "proyectiles", all: "todas" } as Record<SkillKindWord, string>,
+    kinds: { minion: "esbirros", spell: "hechizos", melee: "cuerpo a cuerpo", projectile: "proyectiles", attack: "ataques", all: "todas", other: "otras" } as Record<SkillKindWord, string>,
     res: { fire: "fuego", cold: "hielo", lightning: "rayo", chaos: "caos" } as Record<ResKey, string>,
     pieceA: "la pieza A",
     pieceB: "la pieza B",
@@ -79,7 +79,7 @@ const WORDS = {
       regen: "Life per second",
       attr: "Attributes",
     },
-    kinds: { minion: "minions", spell: "spells", melee: "melee", projectile: "projectiles", all: "all" } as Record<SkillKindWord, string>,
+    kinds: { minion: "minions", spell: "spells", melee: "melee", projectile: "projectiles", attack: "attacks", all: "all", other: "other" } as Record<SkillKindWord, string>,
     res: { fire: "fire", cold: "cold", lightning: "lightning", chaos: "chaos" } as Record<ResKey, string>,
     pieceA: "item A",
     pieceB: "item B",
@@ -176,20 +176,29 @@ const RESISTANCE_LINE = /resistenc|resistanc/i;
 /** «+1 al nivel de todas las habilidades de esbirros», «+2 to Level of all Spell Skills»… */
 const SKILL_LEVEL_LINE = /al nivel de (?:todas las )?(?:gemas|habilidades)|to level of all/i;
 
-type SkillKind = "minion" | "spell" | "melee" | "projectile" | "all";
+/**
+ * A qué habilidades sube el nivel una línea. «all» es solo la que dice «todas
+ * las habilidades» a secas; «other» es un tipo que este comparador no conoce
+ * (maldiciones, por ejemplo) y que no se da por bueno para nadie.
+ */
+type SkillKind = "minion" | "spell" | "melee" | "projectile" | "attack" | "all" | "other";
 
 const SKILL_KINDS: Array<[SkillKind, RegExp]> = [
   ["minion", /esbirros?|minions?/i],
   ["spell", /hechizos?|spells?/i],
   ["melee", /cuerpo a cuerpo|melee/i],
   ["projectile", /proyectil|projectile/i],
+  ["attack", /ataques?|attacks?/i],
 ];
+
+/** «+1 al nivel de todas las habilidades», sin decir de qué tipo. */
+const ALL_SKILLS_LINE = /(?:todas las (?:gemas de )?habilidad(?:es)?|all skills?(?: gems)?)\s*$/i;
 
 /** Qué habilidades sube cada estilo de juego. «Todas» sirve a cualquiera. */
 const SKILL_KINDS_FOR: Record<CompareStyle, SkillKind[]> = {
   caster: ["minion", "spell", "all"],
-  melee: ["melee", "all"],
-  ranged: ["projectile", "all"],
+  melee: ["melee", "attack", "all"],
+  ranged: ["projectile", "attack", "all"],
 };
 
 interface SkillLevel {
@@ -200,8 +209,11 @@ interface SkillLevel {
 
 function readSkillLevel(line: string): SkillLevel {
   const found = SKILL_KINDS.find(([, test]) => test.test(line));
+  // Sin tipo reconocido solo es «todas» si lo dice; si no, es un tipo que no
+  // conocemos y no se cuenta a favor de ningún estilo.
+  const text = line.replace(ROLL_RANGE, "").replace(/[.\s]+$/, "");
   return {
-    kind: found?.[0] ?? "all",
+    kind: found?.[0] ?? (ALL_SKILLS_LINE.test(text) ? "all" : "other"),
     levels: firstNumber(line) ?? 1,
     line,
   };
@@ -327,15 +339,14 @@ const RESISTANCE_CAP = 75;
 const MINION_SPIRIT_WEIGHT = 5;
 
 /**
- * Resistencia que de verdad aprovecha el personaje: la que no le pasa del
- * 75 %. Sin datos del personaje, cuenta toda.
+ * Resistencia que de verdad cambia para el personaje: lo que sube hasta el
+ * 75 % cuenta, lo que pasa de ahí no, y lo que la pieza le quita, resta. Sin
+ * datos del personaje, cuenta toda.
  */
 function usefulResistance(gain: Record<ResKey, number>, base: Record<ResKey, number> | null): number {
   if (base === null) return RES_ORDER.reduce((total, key) => total + gain[key], 0);
-  return RES_ORDER.reduce((total, key) => {
-    const room = Math.max(0, RESISTANCE_CAP - base[key]);
-    return total + Math.min(Math.max(0, gain[key]), room);
-  }, 0);
+  const capped = (value: number) => Math.min(RESISTANCE_CAP, value);
+  return RES_ORDER.reduce((total, key) => total + capped(base[key] + gain[key]) - capped(base[key]), 0);
 }
 
 function startingResistances(context: CompareContext): Record<ResKey, number> | null {
