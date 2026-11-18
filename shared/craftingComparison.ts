@@ -35,7 +35,7 @@ export interface CraftingComparison {
 export const CRAFTING_RESULT_UNKNOWN_LABEL =
   "El modificador resultante es aleatorio y no puede conocerse de antemano.";
 export const CRAFTING_RESULT_UNKNOWN_LABEL_EN =
-  "The resulting mod is random and can't be known in advance.";
+  "The resulting modifier is random and can't be known in advance.";
 
 /**
  * Rareza que el objeto tiene DESPUÉS de cada acción observada. Se exporta para
@@ -241,7 +241,7 @@ export function compareCraftingResult(
   if (removedExplicit.length !== expectedRemovedModifierCount) {
     warnings.push(
       en
-        ? `Expected ${expectedRemovedModifierCount} explicit mods to disappear, but found ${removedExplicit.length}.`
+        ? `Expected ${expectedRemovedModifierCount} explicit modifiers to disappear, but found ${removedExplicit.length}.`
         : `Se esperaba que desaparecieran ${expectedRemovedModifierCount} modificadores explícitos y se detectaron ${removedExplicit.length}.`,
     );
   }
@@ -255,7 +255,7 @@ export function compareCraftingResult(
   if (addedExplicit.length !== 1) {
     warnings.push(
       en
-        ? `Expected 1 new explicit mod, but found ${addedExplicit.length}.`
+        ? `Expected 1 new explicit modifier, but found ${addedExplicit.length}.`
         : `Se esperaba 1 modificador explícito nuevo y se detectaron ${addedExplicit.length}.`,
     );
   }
@@ -267,24 +267,24 @@ export function compareCraftingResult(
     warnings.push(
       options.expectedAddedCrafted
         ? en
-          ? "The new mod isn't marked as crafted in the advanced text."
+          ? "The new modifier isn't marked as crafted in the advanced text."
           : "El modificador nuevo no está identificado como fabricado en el texto avanzado."
         : en
-          ? "The new mod shows as crafted when that wasn't expected."
+          ? "The new modifier shows as crafted when that wasn't expected."
           : "El modificador nuevo aparece como fabricado cuando no se esperaba.",
     );
   }
   if (!addedTextMatches) {
     warnings.push(
       en
-        ? "The new mod doesn't contain the guaranteed effect copied from the tooltip."
+        ? "The new modifier doesn't contain the guaranteed effect copied from the tooltip."
         : "El modificador nuevo no contiene el efecto garantizado que se copió del tooltip.",
     );
   }
   if (unknownProtectedIds.length > 0) {
     warnings.push(
       en
-        ? "The protected mods you picked don't fully match the original snapshot."
+        ? "The protected modifiers you picked don't fully match the original snapshot."
         : "La selección de modificadores protegidos no coincide por completo con el snapshot original.",
     );
   }
@@ -301,7 +301,7 @@ export function compareCraftingResult(
   ) {
     warnings.push(
       en
-        ? `The result has ${craftedResultCount} crafted mods; the maximum allowed is ${options.maximumCraftedModifierCount}.`
+        ? `The result has ${craftedResultCount} crafted modifiers; the maximum allowed is ${options.maximumCraftedModifierCount}.`
         : `El resultado contiene ${craftedResultCount} modificadores fabricados; el máximo permitido es ${options.maximumCraftedModifierCount}.`,
     );
   }
@@ -341,8 +341,8 @@ export function compareCraftingResult(
         ? protectedLost
           ? `The currency gave the expected structure, but this disappeared: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}.`
           : expectedRemovedModifierCount === 1
-            ? `The resulting text fits: 1 explicit mod is gone and 1 new one appears: ${addedExplicit[0]?.text ?? "text not available"}.`
-            : `The resulting text fits the earlier snapshot and 1 new explicit mod appears: ${addedExplicit[0]?.text ?? "text not available"}.`
+            ? `The resulting text fits: 1 explicit modifier is gone and 1 new one appears: ${addedExplicit[0]?.text ?? "text not available"}.`
+            : `The resulting text fits the earlier snapshot and 1 new explicit modifier appears: ${addedExplicit[0]?.text ?? "text not available"}.`
         : protectedLost
           ? `La moneda produjo la estructura esperada, pero desapareció: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}.`
           : expectedRemovedModifierCount === 1

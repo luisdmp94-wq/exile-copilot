@@ -199,16 +199,16 @@ export function assessCraftingAffixes(
   if (goalCategory !== "other" && aligned.length === 0) {
     headline = en ? `No direct ${goalLabel} core` : `Sin núcleo directo de ${goalLabel}`;
     summary = en
-      ? "No affix carries the goal's tags. That doesn't prove the item is useless."
+      ? "No modifier carries the goal's tags. That doesn't prove the item is useless."
       : "Ningún afijo aporta etiquetas literales del objetivo. Esto no demuestra que la pieza sea inútil.";
   } else if (goalCategory !== "other" && aligned.length === 1) {
-    headline = en ? `1 affix points to ${goalLabel}` : `1 afijo apunta a ${goalLabel}`;
+    headline = en ? `1 modifier points to ${goalLabel}` : `1 afijo apunta a ${goalLabel}`;
     summary = en
       ? "There is one lone signal; the rest needs build context before you spend more."
       : "Hay una señal aislada; el resto necesita contexto de la build antes de gastar más.";
   } else if (goalCategory !== "other") {
     headline = en
-      ? `${aligned.length} affixes point to ${goalLabel}`
+      ? `${aligned.length} modifiers point to ${goalLabel}`
       : `${aligned.length} afijos apuntan a ${goalLabel}`;
     summary = en
       ? clusters.length > 0
@@ -229,8 +229,8 @@ export function assessCraftingAffixes(
     clusters,
     entries,
     limitations: en ? [
-      "The tier shown doesn't measure on its own how much the affix is worth to this build.",
-      "Without a full mod pool, weights and chances aren't worked out.",
+      "The tier shown doesn't measure on its own how much the modifier is worth to this build.",
+      "Without a full modifier pool, weights and chances aren't worked out.",
       "Matching tags don't replace an actual damage or defence measurement.",
     ] : [
       "El grado mostrado no mide por sí solo el valor del afijo para esta build.",

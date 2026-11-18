@@ -43,6 +43,9 @@ export const PatchVersionSchema = z.object({
   /** Fecha y fuente del dato; nunca etiquetar una versión hardcodeada como "actual". */
   asOf: z.string().optional(),
   source: z.string().optional(),
+  /** Los mismos textos para la versión inglesa; si faltan se enseña el español. */
+  labelEn: z.string().optional(),
+  sourceEn: z.string().optional(),
 });
 export type PatchVersion = z.infer<typeof PatchVersionSchema>;
 

@@ -13,7 +13,8 @@ import { ExperimentalMusicPlayer } from "@/components/ExperimentalMusicPlayer";
 import type { HealthResponse } from "@shared/api.js";
 import type { CharacterProfile } from "@shared/domain.js";
 import { formatDateTime } from "@/lib/format";
-import { texts, useText } from "@/i18n/lang";
+import { texts, useLang, useText, type Lang } from "@/i18n/lang";
+import { localizePatchCompatibility } from "@shared/patchCompatibility.js";
 import { LangToggle } from "@/i18n/LangToggle";
 
 const TEXT = texts(
@@ -91,9 +92,14 @@ function liveAhead(health: HealthResponse): boolean {
   return health.livePatch !== null && health.livePatch.id !== health.patch.id;
 }
 
-function patchTitle(health: HealthResponse, t: HeaderText): string {
-  const { asOf, source } = health.patch;
-  return `${t.patchTitle(source, formatDateTime(asOf))} ${health.compatibility.summary}`;
+function coverageSummary(health: HealthResponse, lang: Lang): string {
+  return localizePatchCompatibility(health.compatibility, lang).summary;
+}
+
+function patchTitle(health: HealthResponse, t: HeaderText, lang: Lang): string {
+  const { asOf, source, sourceEn } = health.patch;
+  const shownSource = lang === "en" ? (sourceEn ?? source) : source;
+  return `${t.patchTitle(shownSource, formatDateTime(asOf))} ${coverageSummary(health, lang)}`;
 }
 
 function coverageLabel(health: HealthResponse, t: HeaderText): string {
@@ -120,6 +126,7 @@ export function AppHeader({
   onOpenMentor,
 }: AppHeaderProps) {
   const t = useText(TEXT);
+  const { lang } = useLang();
   return (
     <header
       className="command-header sticky top-0 z-40 border-b border-border"
@@ -225,8 +232,8 @@ export function AppHeader({
                     {liveAhead(health) && (
                       <p className="mt-1 text-xs text-muted-foreground">{t.reviewedWith(patchLabel(health))}</p>
                     )}
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground" title={patchTitle(health, t)}>
-                      {t.coverage(coverageLabel(health, t))} {health.compatibility.summary}
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground" title={patchTitle(health, t, lang)}>
+                      {t.coverage(coverageLabel(health, t))} {coverageSummary(health, lang)}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

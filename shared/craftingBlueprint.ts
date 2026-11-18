@@ -365,7 +365,7 @@ export function buildExpertCraftingBlueprint(input: {
     limitations: [
       t(
         "Sin un pool exhaustivo no se calculan probabilidades ni intentos esperados.",
-        "Without a full mod pool, chances and expected attempts aren't worked out.",
+        "Without a full modifier pool, chances and expected attempts aren't worked out.",
       ),
       t(
         "El plan compara cambios estructurales; no estima DPS ni el valor de mercado de la pieza.",

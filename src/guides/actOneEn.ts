@@ -72,7 +72,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Red Vale",
-      text: "Boss: The Rust King. The quest «Finding the Forge» lets you salvage items with Renly.",
+      text: "Boss: The Rust King. The quest “Finding the Forge” lets you salvage items with Renly.",
       priority: "historia",
       sourceIds: ["poe2db-acto1"],
     },
@@ -109,7 +109,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Ogham Farmlands",
-      text: "Quest «The Lost Lute»: it's at Una's Hut. Gives another book with 2 points.",
+      text: "Quest “The Lost Lute”: it's at Una's Hut. Gives another book with 2 points.",
       optional: true,
       priority: "clave",
       reward: "2 passive points",
@@ -232,7 +232,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
           sourceIds: ["maxroll-subida"],
         },
         {
-          text: "An Orb of Augmentation adds a modifier to a magic item that has only one. Save Regal Orbs for your best pieces.",
+          text: "An Orb of Augmentation adds a modifier to a magic item that has only one. Save Regal Orbs for your best items.",
           sourceIds: ["maxroll-subida"],
         },
         {

@@ -96,7 +96,7 @@ const REWARD_WORDS = {
     tellAct: (act: number, penalty: number) =>
       `First tell me, above, whether you're still in act ${act} or already in act ${act + 1}. When you change act the game takes away ${penalty} resistance points and the subtraction comes out different.`,
     resSum: (gear: number, act: number | null, penalty: number, sheet: number) =>
-      `Your gear gives ${gear} %${penalty > 0 ? `, act ${act} takes away ${penalty}` : ""} and your sheet says ${sheet} %.`,
+      `Your gear gives ${gear}%${penalty > 0 ? `, act ${act} takes away ${penalty}` : ""} and your sheet says ${sheet}%.`,
     partialRes: (label: string) => ` But you haven't pasted all your gear, so the subtraction doesn't hold: an item with ${label} may be missing.`,
     extraIsReward: (amount: number) => ` The ${amount} left over are this reward.`,
     nothingExtra: (zone: string) => ` Nothing is left over: you're missing it. It's in ${zone}.`,

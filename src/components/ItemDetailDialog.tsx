@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, displaySourceLabel } from "@/lib/format";
 import {
   describeItemDataState,
   describeRequirements,
@@ -21,7 +21,7 @@ import {
 } from "@/lib/equipment";
 import { cn } from "@/lib/utils";
 import { useFormatLabels } from "@/lib/formatLabels";
-import { texts, useLang, useText } from "@/i18n/lang";
+import { quoted, texts, useLang, useText } from "@/i18n/lang";
 
 const TEXT = texts(
   {
@@ -59,7 +59,7 @@ const TEXT = texts(
     desecrated: "· Desecrated",
     unverified: "Not verified",
     unverifiedAll:
-      "Read from the text you copied from the game. «Unverified» only means we didn't check them against an official GGG database, because there isn't a public one; the text is exactly the game's.",
+      "Read from the text you copied from the game. “Unverified” only means we didn't check them against an official GGG database, because there isn't a public one; the text is exactly the game's.",
     noModifiers: "No modifiers recorded (unknown).",
     origin: "Origin",
     noSource: "Source not available.",
@@ -292,7 +292,7 @@ function ItemDetailContent({
                               {mod.affix && (
                                 <span>{mod.affix === "prefix" ? t.prefix : t.suffix}</span>
                               )}
-                              {mod.name && <span>· «{mod.name}»</span>}
+                              {mod.name && <span>· {quoted(mod.name, lang)}</span>}
                               {mod.tier && <span>{t.tier(mod.tier)}</span>}
                               {mod.crafted && <span>{t.crafted}</span>}
                               {mod.desecrated && <span>{t.desecrated}</span>}
@@ -328,7 +328,7 @@ function ItemDetailContent({
               <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {item.sources.map((source, index) => (
                   <li key={`${source.kind}-${index}`}>
-                    {source.label} ({labels.sourceKind[source.kind]}) ·{" "}
+                    {displaySourceLabel(source.label)} ({labels.sourceKind[source.kind]}) ·{" "}
                     {formatDateTime(source.retrievedAt)}
                   </li>
                 ))}

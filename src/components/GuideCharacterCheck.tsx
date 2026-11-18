@@ -31,7 +31,7 @@ import {
 } from "@/lib/guideCheck";
 import { readPobCodeInBrowser } from "@/lib/pobBrowser";
 import { cn } from "@/lib/utils";
-import { texts, useLang, useText } from "@/i18n/lang";
+import { quoted, texts, useLang, useText } from "@/i18n/lang";
 import { displayProfileValue } from "@/lib/format";
 
 const TEXT = texts(
@@ -84,7 +84,7 @@ const TEXT = texts(
     replaced: (slot: string, name: string) => `You pasted another ${slot}: it replaces “${name}”.`,
     anotherItem: "item",
     skipped: (names: string, count: number) =>
-      `${names} ${count === 1 ? "isn't a piece" : "aren't pieces"} of gear (weapon, armour or jewellery): not counted in the check.`,
+      `${names} ${count === 1 ? "isn't" : "aren't"} gear (weapon, armour or jewellery): not counted in the check.`,
     notAnItem: "That doesn't look like a PoE2 item.",
     someFailed: (failed: number, total: number) => `${failed} of ${total} items couldn't be read.`,
     howToCopy: "In game, hover the item, press Ctrl+C and paste all the text here.",
@@ -256,7 +256,7 @@ export function GuideCharacterCheck({
       notes.push(t.replaced(slotName(old.slot) ?? t.anotherItem, old.name));
     }
     if (skipped.length > 0) {
-      notes.push(t.skipped(skipped.map((name) => `«${name}»`).join(", "), skipped.length));
+      notes.push(t.skipped(skipped.map((name) => quoted(name, lang)).join(", "), skipped.length));
     }
     setNotice(notes.length > 0 ? notes.join(" ") : null);
 

@@ -49,13 +49,13 @@ const TEXT = texts(
     characterLead:
       "Paste a Path of Building 2 code to bring in the gear and stats it includes. A PoE2 .build file only creates a partial draft.",
     helpSummary: "Where do I get the PoB2 code?",
-    step1: "In Path of Building 2, create or open a build and go to «Import/Export Build».",
-    step2: "In «Character Import», click «Authorize with Path of Exile» and finish the official authorization.",
-    step3: "Pick your league and character; import «Passive Tree and Jewels», then «Items and Skills».",
+    step1: "In Path of Building 2, create or open a build and go to “Import/Export Build”.",
+    step2: "In “Character Import”, click “Authorize with Path of Exile” and finish the official authorisation.",
+    step3: "Pick your league and character; import “Passive Tree and Jewels”, then “Items and Skills”.",
     step4: "Check that your gear, level and skills show up.",
-    step5: "In «Build Sharing», click «Generate», then «Copy», and paste the full code here.",
+    step5: "In “Build Sharing”, click “Generate”, then “Copy”, and paste the full code here.",
     authNote:
-      "The authorization happens between PoB2 and Path of Exile. Exile Copilot only gets the code you paste here.",
+      "The authorisation happens between PoB2 and Path of Exile. Exile Copilot only gets the code you paste here.",
     downloadInstaller: "Download the Windows installer",
     downloadNote: "Direct download of the latest official installer. No need to look for it on GitHub.",
     otherDownloads: "See the portable version and other downloads on GitHub",

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { texts, useLang, useText } from "@/i18n/lang";
+import { quoted, texts, useLang, useText } from "@/i18n/lang";
 import { displayProfileValue } from "@/lib/format";
 
 const STORAGE_KEY = "exile-copilot:asistencia";
@@ -125,10 +125,10 @@ const TEXT = texts(
     saveCharacter: "Save my character",
     useCharacter: (name: string) => `Use my character: ${name}`,
     buildIs: (archetype: string) => `Build: ${archetype}.`,
-    coreCount: (count: number) => `${count} thing(s) marked as core.`,
+    coreCount: (count: number) => `${count} ${count === 1 ? "thing" : "things"} marked as core.`,
     discardedCount: (count: number) => `${count} discarded that I won't suggest.`,
     unknownBuild:
-      "I don't know your build yet. Write the archetype in your character file (for example «chaos warlock with minions») or mark the essentials in «Build identity», and I'll be much sharper.",
+      "I don't know your build yet. Add the archetype to your character (for example “chaos warlock with minions”) or mark the essentials in “Build identity”, and I'll be much sharper.",
     whatToKnow: "What do you want to know",
     oneSkill: "For one skill",
     manyGems: "I have several gems",
@@ -151,7 +151,7 @@ const TEXT = texts(
     freeSlots: "Free slots:",
     oneLess: (attribute: string) => `One less ${attribute} slot`,
     oneMore: (attribute: string) => `One more ${attribute} slot`,
-    whereToSee: "You'll see it in game, at the top of the skills panel: «Equipped gem capacity».",
+    whereToSee: "You'll see it in game, at the top of the skills panel: “Equipped gem capacity”.",
     fullExample: "If it says Int 5/5, no more intelligence gems fit.",
     freeExample: "If it says Int 4/5, you have 1 intelligence slot left.",
     socketedMany: "Supports you already have socketed, separated by commas",
@@ -949,7 +949,7 @@ export function GemAdvisorCard({ profile, buildMemory, onCreateCharacter, onOwnS
           )}
           {plan.unknownSkills.length > 0 && (
             <p className="mt-2 text-sm text-amber-200" data-testid="asistencia-desconocidas">
-              {t.unknown(plan.unknownSkills.map((name) => `«${name}»`).join(", "))}
+              {t.unknown(plan.unknownSkills.map((name) => quoted(name, lang)).join(", "))}
             </p>
           )}
           <Footer

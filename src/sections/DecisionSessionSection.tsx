@@ -263,7 +263,7 @@ const TEXT = texts(
     methodHint:
       "Describe something you can observe that answers this decision. The Copilot won't assume you always have to run a map.",
     unknownLabel: "Something we don't know yet (optional)",
-    unknownPlaceholder: "The exact tooltip of a currency item, a mod, a cost…",
+    unknownPlaceholder: "The exact tooltip of a currency item, a modifier, a cost…",
     coreLabel: "Item or skill you won't touch (optional)",
     corePlaceholder: "Spark",
     replaceLabel: "Item you'll replace soon (optional)",

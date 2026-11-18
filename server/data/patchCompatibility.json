@@ -14,20 +14,25 @@
       "status": "limited",
       "reviewedAt": "2026-08-30",
       "summary": "La estructura principal está contrastada, pero no existen pools, pesos ni probabilidades completos y redistribuibles.",
+      "summaryEn": "The core structure has been checked, but there are no complete modifier pools, weights or odds that we're allowed to share.",
       "features": [
         {
           "id": "item-import",
           "label": "Importación de objetos",
+          "labelEn": "Item import",
           "status": "limited",
           "note": "El formato avanzado en español se contrasta con objetos copiados del cliente; la evidencia original no muestra por sí sola el parche.",
+          "noteEn": "The advanced Spanish format is checked against items copied from the game client; the original evidence doesn't show the patch on its own.",
           "evidence": "Fixtures locales capturadas el 22/08/2026 y regresiones del importador.",
           "evidenceIds": ["item-parser-fixtures-2026-08-22"]
         },
         {
           "id": "basic-crafting",
           "label": "Crafting básico guiado",
+          "labelEn": "Guided basic crafting",
           "status": "limited",
           "note": "Se cubren legalidad estructural y comparación antes/después; el resultado aleatorio no se predice.",
+          "noteEn": "Covers which currency an item accepts and the before/after comparison; the random result isn't predicted.",
           "evidence": "Tooltips observados de Transmutación, Aumento, Regio y Exaltado el 22/08/2026.",
           "evidenceIds": [
             "poe2-observed-currency-actions-2026-08-22",
@@ -37,24 +42,30 @@
         {
           "id": "advanced-crafting",
           "label": "Essences, Alloys y rutas avanzadas",
+          "labelEn": "Essences, Alloys and advanced routes",
           "status": "review-required",
           "note": "Essences y Alloys quedan detenidos hasta verificar sus reglas específicamente contra 0.5.4f.",
+          "noteEn": "Essences and Alloys are on hold until their rules are checked specifically against 0.5.4f.",
           "evidence": "Las fuentes registradas solo alcanzan 0.5.0 para Essences y 0.5.3 para Alloys; no autorizan 0.5.4f.",
           "evidenceIds": ["crafting-essences-sources", "crafting-alloys-sources"]
         },
         {
           "id": "passive-tree",
           "label": "Árbol de pasivas",
+          "labelEn": "Passive tree",
           "status": "limited",
           "note": "Los ids y textos se resuelven contra el export oficial de PoE2; la presencia en el export no confirma por sí sola que cada nodo siga activo o asignable.",
+          "noteEn": "Ids and text are matched against the official PoE2 export; being in the export doesn't confirm on its own that each node is still active or can be allocated.",
           "evidence": "Registro passiveRegistry.1e9eb2d8 derivado del export oficial de PoE2 y probado contra 0.5.4f.",
           "evidenceIds": ["passiveRegistry.1e9eb2d8"]
         },
         {
           "id": "market",
           "label": "Mercado",
+          "labelEn": "Market",
           "status": "limited",
           "note": "Los precios son consultas temporales de poe.ninja, no valores garantizados.",
+          "noteEn": "Prices are point-in-time lookups from poe.ninja, not guaranteed values.",
           "evidence": "Respuesta fechada del endpoint de economía y aviso de procedencia visible.",
           "evidenceIds": ["poe-ninja-economy-endpoint"]
         }
@@ -65,44 +76,55 @@
       "status": "review-required",
       "reviewedAt": null,
       "summary": "0.5.5 está anunciado para el 4 de septiembre, pero sus notas y evidencias del cliente aún no están disponibles. No hereda datos ni reglas de 0.5.4f.",
+      "summaryEn": "0.5.5 is announced for 4 September, but its notes and evidence from the game client aren't available yet. It doesn't inherit data or rules from 0.5.4f.",
       "features": [
         {
           "id": "item-import",
           "label": "Importación de objetos",
+          "labelEn": "Item import",
           "status": "review-required",
           "note": "Detenido hasta reproducir textos copiados directamente del cliente 0.5.5 en los idiomas soportados.",
+          "noteEn": "On hold until we reproduce text copied straight from the 0.5.5 client in the supported languages.",
           "evidence": "El anuncio oficial no documenta el formato de objetos de 0.5.5.",
           "evidenceIds": []
         },
         {
           "id": "basic-crafting",
           "label": "Crafting básico guiado",
+          "labelEn": "Guided basic crafting",
           "status": "review-required",
           "note": "Detenido hasta contrastar monedas y transiciones con las notas y el cliente 0.5.5.",
+          "noteEn": "On hold until currencies and transitions are checked against the 0.5.5 notes and client.",
           "evidence": "El anuncio oficial anticipa contenido, pero no aporta reglas completas de crafting.",
           "evidenceIds": []
         },
         {
           "id": "advanced-crafting",
           "label": "Essences, Alloys y rutas avanzadas",
+          "labelEn": "Essences, Alloys and advanced routes",
           "status": "review-required",
           "note": "Detenido hasta revisar Essences, Alloys y cualquier cambio del parche con evidencia propia de 0.5.5.",
+          "noteEn": "On hold until Essences, Alloys and any patch changes are reviewed with evidence from 0.5.5 itself.",
           "evidence": "Las evidencias existentes pertenecen a 0.5.0 y 0.5.3; no autorizan 0.5.5.",
           "evidenceIds": []
         },
         {
           "id": "passive-tree",
           "label": "Árbol de pasivas",
+          "labelEn": "Passive tree",
           "status": "review-required",
           "note": "Detenido hasta fijar y probar un export oficial contra 0.5.5.",
+          "noteEn": "On hold until an official export is pinned and tested against 0.5.5.",
           "evidence": "El registro actual está probado exclusivamente contra 0.5.4f.",
           "evidenceIds": []
         },
         {
           "id": "market",
           "label": "Mercado",
+          "labelEn": "Market",
           "status": "review-required",
           "note": "Detenido hasta confirmar la liga y una fuente de economía que identifique 0.5.5.",
+          "noteEn": "On hold until the league and an economy source that identifies 0.5.5 are confirmed.",
           "evidence": "Todavía no existe una captura posterior al lanzamiento de 0.5.5.",
           "evidenceIds": []
         }
@@ -113,44 +135,55 @@
       "status": "review-required",
       "reviewedAt": null,
       "summary": "1.0 está anunciado para el 11 de diciembre de 2026. Ninguna evidencia del acceso anticipado autoriza sus objetos, crafting, pasivas o economía.",
+      "summaryEn": "1.0 is announced for 11 December 2026. Nothing checked during early access covers its items, crafting, passives or economy.",
       "features": [
         {
           "id": "item-import",
           "label": "Importación de objetos",
+          "labelEn": "Item import",
           "status": "review-required",
           "note": "Detenido hasta reproducir copias directas del cliente 1.0 en español e inglés después del lanzamiento.",
+          "noteEn": "On hold until we reproduce items copied straight from the 1.0 client in Spanish and English after launch.",
           "evidence": "El anuncio confirma la fecha, pero no demuestra el formato final de los objetos.",
           "evidenceIds": []
         },
         {
           "id": "basic-crafting",
           "label": "Crafting básico guiado",
+          "labelEn": "Guided basic crafting",
           "status": "review-required",
           "note": "Detenido hasta contrastar monedas básicas y transiciones con notas y tooltips reales de 1.0.",
+          "noteEn": "On hold until basic currencies and transitions are checked against real 1.0 notes and tooltips.",
           "evidence": "Las reglas observadas en acceso anticipado no se heredan al lanzamiento completo.",
           "evidenceIds": []
         },
         {
           "id": "advanced-crafting",
           "label": "Essences, Alloys y rutas avanzadas",
+          "labelEn": "Essences, Alloys and advanced routes",
           "status": "review-required",
           "note": "Detenido hasta revisar Essences, Alloys y condiciones de parada con evidencia propia de 1.0.",
+          "noteEn": "On hold until Essences, Alloys and stop conditions are reviewed with evidence from 1.0 itself.",
           "evidence": "No existe todavía evidencia posterior al lanzamiento para estas mecánicas.",
           "evidenceIds": []
         },
         {
           "id": "passive-tree",
           "label": "Árbol de pasivas",
+          "labelEn": "Passive tree",
           "status": "review-required",
           "note": "Detenido hasta fijar un export oficial y probar la resolución de nodos contra 1.0.",
+          "noteEn": "On hold until an official export is pinned and node matching is tested against 1.0.",
           "evidence": "El registro activo pertenece a 0.5.4f y no puede resolver 1.0.",
           "evidenceIds": []
         },
         {
           "id": "market",
           "label": "Mercado",
+          "labelEn": "Market",
           "status": "review-required",
           "note": "Detenido hasta confirmar la liga de lanzamiento y una fuente de economía que la identifique.",
+          "noteEn": "On hold until the launch league and an economy source that identifies it are confirmed.",
           "evidence": "El anuncio no contiene una captura de economía ni precios del lanzamiento.",
           "evidenceIds": []
         }

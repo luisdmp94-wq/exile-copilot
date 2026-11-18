@@ -374,6 +374,8 @@ describe("api (integración, app Express con db :memory:)", () => {
       hotfix: "f",
       asOf: "2026-08-12",
       source: expect.stringContaining("0.5.4f Hotfix"),
+      // La misma fuente en inglés, para la versión inglesa de la cabecera.
+      sourceEn: expect.stringContaining("official patch notes forum"),
     });
     // El juego va por delante de los datos revisados: se dice cuál es, sin
     // cambiar el parche contra el que trabaja la web.

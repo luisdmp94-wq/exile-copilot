@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { CharacterProfile } from "@shared/domain.js";
-import { GGG_AFFILIATION_NOTICE } from "@shared/passiveRegistry.js";
+import { GGG_AFFILIATION_NOTICE, GGG_AFFILIATION_NOTICE_ES } from "@shared/passiveRegistry.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -537,7 +537,7 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
         {state.status === "done" && "profile" in state && <ReadingCard profile={state.profile} lang={lang} />}
 
         <footer className="mt-auto space-y-1 border-t border-border/60 pt-4 text-xs text-muted-foreground">
-          <p>{GGG_AFFILIATION_NOTICE}</p>
+          <p>{lang === "en" ? GGG_AFFILIATION_NOTICE : GGG_AFFILIATION_NOTICE_ES}</p>
           {!standalone && (
             <p>
               <a href="/" className="underline underline-offset-2 hover:text-foreground">

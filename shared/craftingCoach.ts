@@ -266,7 +266,7 @@ function readItemInPlainWordsEn(item: Item): CoachItemReading {
         ? `${implicitCount} ${plural(implicitCount, "implicit", "implicits")}`
         : null,
     ].filter((value): value is string => value !== null);
-    sentence = "It's a normal item: it has no explicit affixes yet.";
+    sentence = "It's a normal item: it has no explicit modifiers yet.";
     if (fixedEffects.length > 0) {
       sentence += ` Its fixed effects (${fixedEffects.join(" and ")}) don't take up prefixes or suffixes.`;
     }
@@ -628,7 +628,7 @@ export function interpretCoachGoal(
     focus: null,
     reason: en
       ? intent === "endgame-project"
-        ? "You asked for an endgame project. One matching affix isn't enough to call it finished: I need the character, the equipped item, the budget and the full list of requirements."
+        ? "You asked for an endgame project. One matching modifier isn't enough to call it finished: I need the character, the equipped item, the budget and the full list of requirements."
         : "I understand your words, but I can't safely turn them into a crafting direction. Let's first settle whether you want damage or defence."
       : intent === "endgame-project"
         ? "Has pedido un proyecto de endgame. Un afijo que coincida no basta para darlo por terminado: necesito el personaje, la pieza equipada, el presupuesto y la lista completa de requisitos."
@@ -809,7 +809,7 @@ export function assessCoachRollMinimum(
       status: "not-applicable",
       minimum,
       label: en
-        ? "The result has no affix that matches the goal."
+        ? "The result has no modifier that matches the goal."
         : "El resultado no contiene un afijo que coincida con el objetivo.",
     };
   }
@@ -818,7 +818,7 @@ export function assessCoachRollMinimum(
       status: "fulfilled",
       minimum,
       label: en
-        ? "The affix matches; you accepted any roll you can see."
+        ? "The modifier matches; you accepted any roll you can see."
         : "El afijo coincide; aceptaste cualquier tirada observable.",
     };
   }
@@ -846,7 +846,7 @@ export function assessCoachRollMinimum(
     label: en
       ? fulfilled
         ? `The roll reaches your minimum: ${COACH_ROLL_MINIMUM_LABELS_EN[minimum]}.`
-        : `The affix matches, but it doesn't reach your minimum: ${COACH_ROLL_MINIMUM_LABELS_EN[minimum]}.`
+        : `The modifier matches, but it doesn't reach your minimum: ${COACH_ROLL_MINIMUM_LABELS_EN[minimum]}.`
       : fulfilled
         ? `La tirada alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`
         : `El afijo coincide, pero no alcanza tu mínimo: ${COACH_ROLL_MINIMUM_LABELS[minimum]}.`,
@@ -1221,7 +1221,7 @@ function stopForProjectDefinition(
       headline: unique ? "First, identify the unique" : "First, define the whole project",
       instruction: unique
         ? `Don't spend orbs on "${name}" chasing a unique you haven't identified and compared.`
-        : `Don't call "${name}" finished because of a single affix; first list every requirement for the endgame item.`,
+        : `Don't call "${name}" finished because of a single modifier; first list every requirement for the endgame item.`,
       why: unique
         ? "Looking for or judging a unique item isn't a step-by-step upgrade of the open item."
         : "An endgame item is judged as a whole and against your character, not because it shares one tag.",
@@ -1265,14 +1265,14 @@ function stopForUnverifiedContextGoal(
       kind: "stop",
       legality: "blocked",
       headline: "Don't spend blindly on this item",
-      instruction: `Your character file says your character needs ${focusLabelEn}, but "${item.name || item.baseType}" shows no line I recognise for that goal. Switch items or check a suitable base inside PoE2 before using any orb.`,
-      why: "A gap in your character doesn't prove this item can fill it. Without verified mod pools or odds, recommending an orb would turn a suggestion into a gamble you didn't ask for.",
+      instruction: `Your character needs ${focusLabelEn}, but "${item.name || item.baseType}" shows no line I recognise for that goal. Switch items or check a suitable base inside PoE2 before using any orb.`,
+      why: "A gap in your character doesn't prove this item can fill it. Without verified modifier pools or odds, recommending an orb would turn a suggestion into a gamble you didn't ask for.",
       reviewInExpediente: false,
       needsAdvancedTools: false,
       evidence: [
         `Your character's context points to ${focusLabelEn}.`,
         `The copied item has no line I recognise as ${focusLabelEn}.`,
-        "There are no verified mod pools or odds to steer the next result.",
+        "There are no verified modifier pools or odds to steer the next result.",
       ],
     };
   }
@@ -1338,10 +1338,10 @@ export function assessPurposefulCraftBase(input: {
       : "missing";
   const characterLabel = en
     ? linked
-      ? `Linked to ${profile?.name ?? "your character"}'s character file.`
+      ? `Linked to ${profile?.name ?? "your character"}.`
       : hasCharacter
         ? `${profile?.name ?? "Your character"} is loaded; this item isn't equipped.`
-        : "No character file: I'll only use the goal you wrote."
+        : "No character loaded: I'll only use the goal you wrote."
     : linked
       ? `Vinculada al expediente de ${profile?.name ?? "tu personaje"}.`
       : hasCharacter
@@ -1356,7 +1356,7 @@ export function assessPurposefulCraftBase(input: {
         title: unique ? "This isn't a step-by-step craft" : "This is an endgame project",
         summary: unique
           ? "First identify the unique item and compare it with your character. The open item doesn't prove that's where it's headed."
-          : "One matching affix doesn't prove the weapon is finished. You need to check the whole item against your character, their current weapon, the budget and every requirement you listed.",
+          : "One matching modifier doesn't prove the weapon is finished. You need to check the whole item against your character, their current weapon, the budget and every requirement you listed.",
         characterContext,
         characterLabel,
         targetLabel: unique
@@ -1442,7 +1442,7 @@ export function assessPurposefulCraftBase(input: {
       status: "already-satisfied",
       title: en ? "Your stop point is already met" : "Tu parada ya se cumple",
       summary: en
-        ? `${why} Before risking another slot, check the current roll in your character file.`
+        ? `${why} Before risking another slot, check the current roll on your character.`
         : `${why} Antes de arriesgar otro hueco, revisa la tirada actual en tu expediente.`,
       characterContext,
       characterLabel,
@@ -1640,8 +1640,8 @@ export function suggestCraftingFocusFromContext(
     focuses: [],
     reason: en
       ? target && target.desiredMods.length === 0
-        ? `Your plan "${target.name || "Target build"}" doesn't list any wanted mods yet that I can link to this item.`
-        : "I can't find a clear priority in your plan or a measurable gap in your character file."
+        ? `Your plan "${target.name || "Target build"}" doesn't list any wanted modifiers yet that I can link to this item.`
+        : "I can't find a clear priority in your plan or a measurable gap on your character."
       : target && target.desiredMods.length === 0
         ? `Tu plan «${target.name || "Build objetivo"}» todavía no declara mods deseados que pueda relacionar con esta pieza.`
         : "No encuentro una prioridad concreta en tu plan ni una carencia medible en el expediente.",
@@ -1905,7 +1905,7 @@ export function readPurposefulCraftResult(input: {
           ? `El nuevo modificador no coincide con tu objetivo principal: ${focusLabel}.`
           : `No puedo comprobar si el nuevo modificador aporta ${focusLabel}.`;
   const improvementCaveat = en
-    ? "The tier and range only describe this affix; on their own they don't prove the whole item makes your character better."
+    ? "The tier and range only describe this modifier; on their own they don't prove the whole item makes your character better."
     : "El grado y el rango solo describen este afijo; esto no demuestra por sí solo que la pieza completa mejore tu personaje.";
   const observedAffixes = readObservedAffixes(
     comparison.addedModifiers,
@@ -1932,7 +1932,7 @@ export function readPurposefulCraftResult(input: {
       verdict: "stop",
       decisionKind: "stop",
       verdictText: en
-        ? "Don't spend another orb: first decide exactly what the next affix has to give."
+        ? "Don't spend another orb: first decide exactly what the next modifier has to give."
         : "No gastes otra moneda: concreta primero el objetivo que debe cumplir el siguiente afijo.",
       nextStep: null,
       goalFit,
@@ -2129,7 +2129,7 @@ export function readPurposefulCraftResult(input: {
         verdict: "stop",
         decisionKind: "stop",
         verdictText: en
-          ? "The affix matches, but the tooltip doesn't let me check the minimum roll you picked. Don't spend another orb until you decide whether you accept that value without comparing it."
+          ? "The modifier matches, but the tooltip doesn't let me check the minimum roll you picked. Don't spend another orb until you decide whether you accept that value without comparing it."
           : "El afijo coincide, pero el tooltip no permite comprobar la tirada mínima que elegiste. No gastes otra moneda hasta decidir si aceptas ese valor sin compararlo.",
         nextStep: null,
         goalFit,

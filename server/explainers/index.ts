@@ -32,7 +32,7 @@ function costText(rec: Recommendation, en: boolean): string {
 function riskText(rec: Recommendation, en: boolean): string {
   const parts = [en ? `Risk ${rec.risk.level}: ${rec.risk.description}` : `Riesgo ${rec.risk.level}: ${rec.risk.description}`];
   if (rec.mayLoseValuableMods) {
-    parts.push(en ? "It may mean losing valuable mods from your current gear." : "Puede implicar perder mods valiosos de tu equipo actual.");
+    parts.push(en ? "It may mean losing valuable modifiers from your current gear." : "Puede implicar perder mods valiosos de tu equipo actual.");
   }
   if (rec.irreversible) parts.push(en ? "It's an irreversible action." : "Es una acción irreversible.");
   return parts.join(" ");

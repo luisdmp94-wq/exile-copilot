@@ -74,7 +74,7 @@ const TEXT = texts(
     partialMetric: "Partial metric: not a full DPS estimate.",
     riskTitle: "Risk",
     overBudget: "This upgrade costs more than your budget. Save up more currency or look at another option.",
-    loseMods: "You may lose valuable mods from your current item.",
+    loseMods: "You may lose valuable modifiers from your current item.",
     irreversible: "This action can't be undone. Make sure before you go ahead.",
     sources: "Sources",
     newTab: "(opens in a new tab)",

@@ -70,6 +70,7 @@ export const HealthResponseSchema = z.object({
     hotfix: z.string().nullable(), // hotfix, p. ej. "f"
     asOf: z.string(), // fecha del dato
     source: z.string(), // fuente del dato
+    sourceEn: z.string().optional(), // la misma fuente, en inglés
   }),
   services: z.object({
     mentor: z.discriminatedUnion("mode", [

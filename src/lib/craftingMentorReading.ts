@@ -69,7 +69,7 @@ export function buildCraftingMentorReading(
         : protectCandidates.length > 0 ? "No arriesgues aún" : "Pieza llena",
       verdictDetail: en
         ? protectCandidates.length > 0
-          ? `${protectCandidates.length} tier 1–2 affix${protectCandidates.length === 1 ? "" : "es"} could be at risk.`
+          ? `${protectCandidates.length} tier 1–2 modifier${protectCandidates.length === 1 ? "" : "s"} could be at risk.`
           : "To go on you would have to replace, not add."
         : protectCandidates.length > 0
           ? `${protectCandidates.length} afijo${protectCandidates.length === 1 ? "" : "s"} de grado 1–2 puede${protectCandidates.length === 1 ? "" : "n"} quedar en riesgo.`
@@ -84,7 +84,7 @@ export function buildCraftingMentorReading(
       verdict: "controlled-test",
       verdictLabel: en ? "Controlled test" : "Prueba controlada",
       verdictDetail: en
-        ? `${matchingModifiers.length} mod(s) already fit your goal.`
+        ? `${matchingModifiers.length} modifier${matchingModifiers.length === 1 ? " already fits" : "s already fit"} your goal.`
         : `${matchingModifiers.length} mod(s) ya encajan con tu objetivo.`,
       matchingModifiers,
       unmatchedModifiers,

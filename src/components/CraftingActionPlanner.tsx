@@ -391,13 +391,13 @@ const TEXT = texts(
   {
     alignedTitle: (label: string) => `In line with ${label}`,
     alignedTarget: "Your target build lists this priority; it still needs confirming that this base can cover it.",
-    alignedResistances: "Your character file shows the gap, but not that this item is the best slot to fix it.",
+    alignedResistances: "Your character shows the gap, but not that this item is the best slot to fix it.",
     alignedProfile: "It matches the overall goal you chose for the character.",
     choiceTitle: (label: string) => `Your character points to ${label}`,
     choiceDetail: "Choose which need to work on first; the Mentor won't rank priorities for you.",
     conflictTitle: (label: string) => `Check the goal: the context points to ${label}`,
     conflictDetail: (goal: string) =>
-      `You've chosen ${goal}. You can keep it, but your character file doesn't show that priority.`,
+      `You've chosen ${goal}. You can keep it, but your character doesn't show that priority.`,
     unknownTitle: "No priority shown by your character file",
     unknownDetail: "You can plan the craft, but the app won't claim it fixes a need of your character.",
     actionStatus: {
@@ -413,13 +413,13 @@ const TEXT = texts(
       },
       essence: {
         label: "Essences",
-        eyebrow: "Guaranteed mod",
+        eyebrow: "Guaranteed modifier",
         description: "Adds a known effect and checks the replacement.",
       },
       alloy: {
         label: "Alloys",
         eyebrow: "Crafting",
-        description: "Replaces a mod with a crafted one from the tooltip.",
+        description: "Replaces a modifier with a crafted one from the tooltip.",
       },
     },
     baseDecision: "Decision on the base",
@@ -427,8 +427,8 @@ const TEXT = texts(
     declaredNoEvidence: "Goal set, but no visible evidence yet",
     tellMeFirst: "First tell me what you want to get",
     declaredDetail: (outcome: string) =>
-      `You set “${outcome}”, but the data available can't check which affixes on this base meet it. Don't spend until you add a visible signal or a compatible modifier source.`,
-    noGoalDetail: "Without a visible goal I can't tell an upgrade from a mod that just takes up space.",
+      `You set “${outcome}”, but the data available can't check which modifiers on this base meet it. Don't spend until you add a visible signal or a compatible modifier source.`,
+    noGoalDetail: "Without a visible goal I can't tell an upgrade from a modifier that just takes up space.",
     stopCondition: "Stop condition",
     goalMet: "Your goal is already met",
     goalMetDetail: "This item already meets every condition you just set. Don't spend another currency chasing the same finish.",
@@ -437,7 +437,7 @@ const TEXT = texts(
     alsoProfile: " This goal also matches the character's overall plan.",
     unprovenBase: "Base not proven yet",
     doubtfulBase: "Doubtful base for this goal",
-    normalDetail: "The structure lets you start, but the item doesn't show affixes yet that justify a long investment.",
+    normalDetail: "The structure lets you start, but the item doesn't show modifiers yet that justify a long investment.",
     normalNoMods: "Normal item · no explicit modifiers",
     unclassified: (count: number) => `${count} unclassified modifier${count === 1 ? "" : "s"}`,
     structure: (prefixes: number, suffixes: number, open: number) =>
@@ -501,9 +501,9 @@ const TEXT = texts(
     noTopTiers: "No tier 1–2 seen",
     affixCore: "Affix core",
     mustKeepCount: (count: number) => `${count} must-keep`,
-    highlightsAria: "Key affix signals",
+    highlightsAria: "Key modifier signals",
     leadingAligned: (count: number) => `${count} aligned at tier 1–2`,
-    seeReading: (count: number) => `See the reading of ${count} affixes`,
+    seeReading: (count: number) => `See the reading of ${count} modifiers`,
     tierShort: (tier: number | undefined) => (tier ? `T${tier}` : "T?"),
     mustKeepForPlan: "Must-keep for this plan",
     readingNote: "Reading of the visible text: it doesn't estimate DPS, price, weight or chance.",
@@ -525,7 +525,7 @@ const TEXT = texts(
     noChances: "No verifiable chances",
     noKnowledge: "No knowledge loaded",
     evidenceLimits: (count: number) => `See evidence and limits (${count})`,
-    explicitSeen: "Explicit mods found",
+    explicitSeen: "Explicit modifiers found",
     prefixes: "Prefixes",
     suffixes: "Suffixes",
     undetermined: "Unknown",
@@ -549,7 +549,7 @@ const TEXT = texts(
     exactVariant: "Exact version you'll use",
     noMinimum: "The tooltip you saw shows no minimum.",
     minimumSeen: (minimum: number) => `Minimum modifier level seen: ${minimum}.`,
-    minimumNote: "This minimum copies the tooltip you saw; it doesn't guarantee a specific affix or its chance.",
+    minimumNote: "This minimum copies the tooltip you saw; it doesn't guarantee a specific modifier or its chance.",
     preflightConfirm: "The item is unchanged, I haven't spent the currency yet, and I accept the result is random.",
     preparing: "Preparing…",
     prepareCraft: "Prepare this craft",
@@ -798,8 +798,9 @@ export function CraftingActionPlanner({
     onMentorContext?.({
       type: "craftingAction",
       itemName: item.name,
-      // El Mentor contextual sigue redactado en español: recibe el nombre del catálogo.
+      // El texto es el del catálogo español; el id deja rotularlo en inglés.
       actionLabel: evaluation.action.label,
+      actionId: evaluation.action.id,
     });
     revealRouteTarget(`crafting-action-${item.id}-${action.id}`);
   };
@@ -989,6 +990,7 @@ export function CraftingActionPlanner({
         type: "craftingStop",
         itemName: item.name,
         criterionLabel: craftingSuccessCriterionLabel(added),
+        criterion: added,
       });
     }
   };

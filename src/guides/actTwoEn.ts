@@ -170,7 +170,7 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
           sourceIds: ["wiki-jamanra", "maxroll-jefes"],
         },
         {
-          text: "Patch 0.5.2 lowered Jamanra, the Abomination's life by about 17%. Since 0.5.0 he's in The Dreadnought: if an old guide mentions a «vanguard», it no longer exists.",
+          text: "Patch 0.5.2 lowered Jamanra, the Abomination's life by about 17%. Since 0.5.0 he's in The Dreadnought: if an old guide mentions a “vanguard”, it no longer exists.",
           sourceIds: ["ggg-052", "ggg-050"],
         },
         {

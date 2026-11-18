@@ -90,6 +90,11 @@ export function pageLang(): Lang {
   return html?.lang === "en" ? "en" : "es";
 }
 
+/** Un texto entre comillas: «así» en español y “así” en inglés. */
+export function quoted(text: string, lang: Lang): string {
+  return lang === "en" ? `“${text}”` : `«${text}»`;
+}
+
 /** Los textos de un componente en el idioma activo. */
 export function useText<T>(dictionary: Record<Lang, T>): T {
   return dictionary[useLang().lang];

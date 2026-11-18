@@ -149,3 +149,7 @@ export type PlanResolution = z.infer<typeof PlanResolutionSchema>;
  */
 export const GGG_AFFILIATION_NOTICE =
   "This product isn't affiliated with or endorsed by Grinding Gear Games in any way.";
+
+/** El mismo aviso para la versión española de la web. */
+export const GGG_AFFILIATION_NOTICE_ES =
+  "Este producto no está afiliado a Grinding Gear Games ni cuenta con su respaldo.";

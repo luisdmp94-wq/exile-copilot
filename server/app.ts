@@ -593,6 +593,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         hotfix: current?.hotfix ?? null,
         asOf: current?.asOf ?? "desconocida",
         source: current?.source ?? "desconocida",
+        ...(current?.sourceEn ? { sourceEn: current.sourceEn } : {}),
       },
       services: {
         mentor: mentorAiConfigured

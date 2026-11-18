@@ -235,15 +235,15 @@ export function buildCraftingTargetEvidence(input: {
     observations,
     modPoolCoverage,
     limitations: en ? [
-      "A line you've seen doesn't prove the full mod pool or how often it rolls.",
+      "A line you've seen doesn't prove the full modifier pool or how often it rolls.",
       "The ilvl shown describes that item; it isn't the modifier's minimum level.",
       modPoolCoverage === "available-complete"
-        ? "The mod pool is complete, but this local reading doesn't pick candidates by a visible name."
+        ? "The modifier pool is complete, but this local reading doesn't pick candidates by a visible name."
         : modPoolCoverage === "available-partial"
-          ? "The available mod pool is partial, so chances can't be worked out."
+          ? "The available modifier pool is partial, so chances can't be worked out."
           : modPoolCoverage === "unknown"
-            ? "Still checking the mod pool coverage."
-            : "No approved mod pool is available to work out access or chances.",
+            ? "Still checking the modifier pool coverage."
+            : "No approved modifier pool is available to work out access or chances.",
     ] : [
       "Una línea observada no demuestra el pool completo ni su peso de aparición.",
       "El ilvl observado describe esa pieza; no se presenta como nivel mínimo del modificador.",

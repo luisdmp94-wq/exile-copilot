@@ -3,6 +3,7 @@ import { BookOpen, Crosshair, FileCheck2, Route, X } from "lucide-react";
 import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import {
   GGG_AFFILIATION_NOTICE,
+  GGG_AFFILIATION_NOTICE_ES,
   type PlanResolution,
 } from "@shared/passiveRegistry.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -47,10 +48,10 @@ const TEXT = texts(
     openHint: "Open import and optional target",
     engineDataSummary: "What the Copilot uses",
     engineDataBody:
-      "The name, the goal and the wanted mods are sent to the engine and can change the recommendations. The link is only kept as a reference: we don't download or check what's on it.",
+      "The name, the goal and the wanted modifiers are sent to the engine and can change the recommendations. The link is only kept as a reference: we don't download or check what's on it.",
     planTitle: "Plan imported from an official .build file",
     planBody: (passives: number, skills: number, slots: number, date: string) =>
-      `Plan file imported as your target build — it isn't your current character. It has ${passives} passive(s), ${skills} skill(s) and ${slots} inventory slot(s). Imported on ${date}. The original plan is kept whole and sent to the engine as is.`,
+      `Plan file imported as your target build — it isn't your current character. It has ${passives} ${passives === 1 ? "passive" : "passives"}, ${skills} ${skills === 1 ? "skill" : "skills"} and ${slots} inventory ${slots === 1 ? "slot" : "slots"}. Imported on ${date}. The original plan is kept whole and sent to the engine as is.`,
     removePlan: "Remove imported plan",
     warningsTitle: "Plan import warnings",
     nameLabel: "Target build name",
@@ -58,7 +59,7 @@ const TEXT = texts(
     urlLabel: "Reference link",
     summaryLabel: "What you're after",
     summaryPlaceholder: "What do you want this build to do?",
-    modsLabel: "Wanted mods (one per line)",
+    modsLabel: "Wanted modifiers (one per line)",
     modsPlaceholder: "+% increased Physical Damage\n+ to maximum Life\nFire Resistance",
   },
 );
@@ -77,6 +78,7 @@ const RESOLUTION_TEXT = texts(
     gggNoClaim: "(GGG no afirma esa correspondencia).",
     exportCaveat:
       "Coincidir con el export confirma el id y su texto; no demuestra por sí solo que el nodo siga asignable o activo en el árbol actual.",
+    affiliation: GGG_AFFILIATION_NOTICE_ES,
   },
   {
     title: "IDs found in the official PoE2 export",
@@ -85,12 +87,13 @@ const RESOLUTION_TEXT = texts(
     notVerified: "Not verified",
     source: "Source:",
     dataFrom: "data by",
-    license: "license:",
+    license: "licence:",
     licenseMissing: "not found",
     testedPatch: "tested against patch",
     gggNoClaim: "(GGG doesn't claim this match).",
     exportCaveat:
       "Matching the export confirms the id and its text; on its own it doesn't prove the node can still be allocated or is active in the current tree.",
+    affiliation: GGG_AFFILIATION_NOTICE,
   },
 );
 
@@ -351,7 +354,7 @@ function PlanResolutionView({ resolution }: { resolution: PlanResolution }) {
       <p className="text-xs text-amber-200/80">
         {t.exportCaveat}
       </p>
-      <p className="text-xs text-muted-foreground">{GGG_AFFILIATION_NOTICE}</p>
+      <p className="text-xs text-muted-foreground">{t.affiliation}</p>
     </div>
   );
 }

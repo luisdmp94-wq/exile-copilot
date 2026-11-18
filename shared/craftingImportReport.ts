@@ -110,7 +110,7 @@ export function assessCraftingImportIssue(
       label: en ? "Inconsistent reading" : "Lectura inconsistente",
       title: en ? "The copied structure doesn't add up" : "La estructura copiada no cuadra",
       summary: en
-        ? "Rarity and mods contradict each other. Copy the full item again; if it keeps happening, keep the report so the importer can be checked."
+        ? "Rarity and modifiers contradict each other. Copy the full item again; if it keeps happening, keep the report so the importer can be checked."
         : "Rareza y modificadores se contradicen. Vuelve a copiar la pieza completa; si se repite, conserva el informe para revisar el importador.",
       retryCopy: true,
     };
@@ -196,13 +196,13 @@ export function summarizeCraftingImportEvidence(
   if (diagnosis.unclassifiedExplicitCount > 0) {
     missing.push(
       en
-        ? `Position of ${diagnosis.unclassifiedExplicitCount} mod(s)`
+        ? `Position of ${diagnosis.unclassifiedExplicitCount} modifier${diagnosis.unclassifiedExplicitCount === 1 ? "" : "s"}`
         : `Posición de ${diagnosis.unclassifiedExplicitCount} modificador(es)`,
     );
   } else if (item.modifiers.some((modifier) => modifier.kind === "explicit")) {
     recognized.push(
       en
-        ? `Classified affixes: ${diagnosis.prefixCount} prefix(es) · ${diagnosis.suffixCount} suffix(es)`
+        ? `Classified modifiers: ${diagnosis.prefixCount} ${diagnosis.prefixCount === 1 ? "prefix" : "prefixes"} · ${diagnosis.suffixCount} ${diagnosis.suffixCount === 1 ? "suffix" : "suffixes"}`
         : `Afijos clasificados: ${diagnosis.prefixCount} prefijo(s) · ${diagnosis.suffixCount} sufijo(s)`,
     );
   }
@@ -285,7 +285,7 @@ export function buildCraftingImportReport(input: {
       ...blockers,
       `Next check: ${diagnosis.nextAction}`,
       "",
-      "MODS AS READ",
+      "MODIFIERS AS READ",
       ...modifiers,
       "",
       "ORIGINAL TOOLTIP TEXT",

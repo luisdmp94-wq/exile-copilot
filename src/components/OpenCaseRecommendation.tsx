@@ -62,7 +62,7 @@ const TEXT = texts(
     whatToCheck: "What to check afterwards",
     overBudgetTitle: "Over your budget",
     overBudgetText: "This upgrade costs more than your budget. Save up more currency or look at another option.",
-    loseModsTitle: "You may lose valuable mods",
+    loseModsTitle: "You may lose valuable modifiers",
     loseModsText: "Check your current item before you replace it.",
     irreversibleTitle: "Can't be undone",
     irreversibleText: "This action can't be undone. Make sure before you go ahead.",
@@ -71,7 +71,7 @@ const TEXT = texts(
     editFile: "Edit character",
     seeItem: "See the item checked",
     gateNote:
-      "The mentor holds this step until the conflict or the evidence is sorted out. Carry on in «Check a decision», further down.",
+      "The mentor holds this step until the conflict or the evidence is sorted out. Carry on in “Check a decision”, further down.",
     dataActionNote: "Data action: it doesn't change the game and isn't included in the .build file.",
     appliedLabel: "I've done it — include it when exporting the .build",
     data: "Data",

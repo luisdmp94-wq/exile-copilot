@@ -46,10 +46,10 @@ const TEXT = texts(
   {
     styles: { caster: "Spells and minions", melee: "Melee", ranged: "Bow or crossbow" },
     pasteFirst: "Paste the text of an item first.",
-    notGear: (name: string) => `“${name}” isn't a piece of gear (weapon, armour or jewellery).`,
+    notGear: (name: string) => `“${name}” isn't gear (weapon, armour or jewellery).`,
     notAnItem: "That doesn't look like a PoE2 item. Hover the item, press Ctrl+C and paste all the text here.",
-    pieceA: "Piece A",
-    pieceB: "Piece B",
+    pieceA: "Item A",
+    pieceB: "Item B",
     title: "Which of these two is better?",
     lead: "Copy each item in game with Ctrl+C and paste it in its box. I'll tell you which one suits you and why.",
     remove: (name: string) => `Remove ${name}`,

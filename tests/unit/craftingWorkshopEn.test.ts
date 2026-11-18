@@ -146,9 +146,9 @@ describe("Taller avanzado en inglés", () => {
       { kind: "explicit-count", minimumCount: 1 },
     ];
     expect(criteria.map((criterion) => craftingSuccessCriterionLabel(criterion, "en"))).toEqual([
-      "At least 2 damage affixes",
+      "At least 2 damage modifiers",
       "Must show: Adds fire damage (tier 1 or better)",
-      "Reach 1 explicit affix",
+      "Reach 1 explicit modifier",
     ]);
     const done = evaluateCraftingSuccessCriteria({ criteria, resultItem: fullRare }, "en");
     expect(done.status).toBe("fulfilled");
@@ -196,7 +196,7 @@ describe("Taller avanzado en inglés", () => {
     const en = assessCraftingAffixes(fullRare, "damage", ["p1"], "en");
     expect(en.alignedCount).toBe(es.alignedCount);
     expect(en.entries.map((entry) => entry.kind)).toEqual(es.entries.map((entry) => entry.kind));
-    expect(en.headline).toBe("3 affixes point to damage");
+    expect(en.headline).toBe("3 modifiers point to damage");
     expect(en.entries[0]?.label).toBe("Protect first");
     expectEnglish({
       headline: en.headline,
@@ -288,7 +288,7 @@ describe("Taller avanzado en inglés", () => {
     }, "en");
     expect(blueprint.headline).toBe("Orb of Augmentation");
     expect(blueprint.budgetLabel).toBe("50 exalted");
-    expect(blueprint.stopConditions).toEqual(["Reach 3 explicit affixes"]);
+    expect(blueprint.stopConditions).toEqual(["Reach 3 explicit modifiers"]);
     expectEnglish(blueprint, ids(magic));
 
     const full = buildCraftingRoute(fullRare, diagnoseCraftingItem(fullRare, "en"),

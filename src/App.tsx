@@ -38,6 +38,7 @@ import type { BuildTargetPlan } from "@shared/gggBuildPlanner.js";
 import type { FeaturedBuild } from "@shared/featuredBuilds.js";
 import {
   GGG_AFFILIATION_NOTICE,
+  GGG_AFFILIATION_NOTICE_ES,
   type PlanResolution,
 } from "@shared/passiveRegistry.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -139,6 +140,7 @@ import {
 import {
   allowsPatchGuidance,
   compatibilityForPatch,
+  localizePatchCompatibility,
   type PatchCompatibilityRecord,
 } from "@shared/patchCompatibility.js";
 
@@ -230,6 +232,18 @@ const APP_TEXT = texts(
     savedStep: "Siguiente paso guardado",
     openFollowUp: "Abrir seguimiento",
     unknownPatch: "Desconocido",
+    sheetMemoryTitle: "Guardar y continuar",
+    sheetItemTitle: "Evaluar un objeto",
+    sheetNewTitle: "Crear personaje",
+    sheetImportTitle: "Añadir tu personaje",
+    sheetEditTitle: "Editar expediente",
+    sheetMemoryText: "Guarda este personaje para que el mentor pueda recordar próximos pasos y sesiones.",
+    sheetItemText: "Pega el texto del objeto copiado en PoE2. Al analizarlo pasarás directamente al banco de Crafting.",
+    sheetNewText: "Completa únicamente lo que sabes. Los datos desconocidos pueden quedarse vacíos.",
+    sheetImportText: "Trae tu personaje actual desde Path of Building 2. Los archivos .build de objetivo se importan en Plan y mercado.",
+    sheetEditText: "Corrige o completa los datos de tu personaje. Los cambios se guardan con «Guardar correcciones».",
+    editorLoading: "Preparando el editor…",
+    affiliation: GGG_AFFILIATION_NOTICE_ES,
   },
   {
     backArea: "Back to the previous area",
@@ -277,6 +291,18 @@ const APP_TEXT = texts(
     savedStep: "Saved next step",
     openFollowUp: "Open follow-up",
     unknownPatch: "Unknown",
+    sheetMemoryTitle: "Save and continue",
+    sheetItemTitle: "Check an item",
+    sheetNewTitle: "Create a character",
+    sheetImportTitle: "Add your character",
+    sheetEditTitle: "Edit your character",
+    sheetMemoryText: "Save this character so the mentor can remember your next steps and sessions.",
+    sheetItemText: "Paste the item text you copied in PoE2. Once it's analysed you'll go straight to the Crafting bench.",
+    sheetNewText: "Fill in only what you know. Anything you don't know can stay empty.",
+    sheetImportText: "Bring your current character over from Path of Building 2. Target .build files are imported in Plan & market.",
+    sheetEditText: "Correct or complete your character's details. Changes are saved with “Save changes”.",
+    editorLoading: "Getting the editor ready…",
+    affiliation: GGG_AFFILIATION_NOTICE,
   },
 );
 
@@ -376,7 +402,7 @@ export default function App() {
   // mascota repite el mismo aviso en el idioma nuevo.
   const [contextualEvent, setContextualEvent] = useState<ContextualMentorEvent>({ type: "welcome" });
   const contextualCue = useMemo(
-    () => (lang === "en" ? englishMentorCue(contextualEvent) : null) ?? contextualMentorCue(contextualEvent),
+    () => (lang === "en" ? englishMentorCue(contextualEvent) : contextualMentorCue(contextualEvent)),
     [contextualEvent, lang],
   );
   const [contextualAnswer, setContextualAnswer] = useState<MentorAnswer | null>(null);
@@ -503,12 +529,13 @@ export default function App() {
   const activePatchId = character.profile?.patch || patch || health?.patch.id || "";
   const featuredBuilds = useFeaturedBuilds(league, activePatchId);
   const activePatchCompatibility = useMemo<PatchCompatibilityRecord | null>(() => {
+    // Resumen y notas en el idioma de la página; los estados no cambian.
     if (meta && activePatchId) {
-      return compatibilityForPatch(meta.compatibility, activePatchId);
+      return localizePatchCompatibility(compatibilityForPatch(meta.compatibility, activePatchId), lang);
     }
-    if (health && activePatchId === health.patch.id) return health.compatibility;
+    if (health && activePatchId === health.patch.id) return localizePatchCompatibility(health.compatibility, lang);
     return null;
-  }, [activePatchId, health, meta]);
+  }, [activePatchId, health, lang, meta]);
   const patchGuidanceBlocked =
     activePatchCompatibility !== null && !allowsPatchGuidance(activePatchCompatibility);
 
@@ -2232,32 +2259,32 @@ export default function App() {
             <SheetHeader>
               <SheetTitle>
                 {editorPrompt === "memory"
-                  ? "Guardar y continuar"
+                  ? t.sheetMemoryTitle
                   : editorPrompt === "item"
-                  ? "Evaluar un objeto"
-                  : editorPrompt === "new"
-                    ? "Crear personaje"
-                    : editorPrompt === "import"
-                      ? "Añadir tu personaje"
-                    : "Editar expediente"}
+                    ? t.sheetItemTitle
+                    : editorPrompt === "new"
+                      ? t.sheetNewTitle
+                      : editorPrompt === "import"
+                        ? t.sheetImportTitle
+                        : t.sheetEditTitle}
               </SheetTitle>
               <SheetDescription>
                 {editorPrompt === "memory"
-                  ? "Guarda este personaje para que el mentor pueda recordar próximos pasos y sesiones."
+                  ? t.sheetMemoryText
                   : editorPrompt === "item"
-                    ? "Pega el texto del objeto copiado en PoE2. Al analizarlo pasarás directamente al banco de Crafting."
+                    ? t.sheetItemText
                     : editorPrompt === "new"
-                      ? "Completa únicamente lo que sabes. Los datos desconocidos pueden quedarse vacíos."
-                    : editorPrompt === "import"
-                      ? "Trae tu personaje actual desde Path of Building 2. Los archivos .build de objetivo se importan en Plan y mercado."
-                  : "Corrige o completa los datos de tu personaje. Los cambios se guardan con «Guardar correcciones»."}
+                      ? t.sheetNewText
+                      : editorPrompt === "import"
+                        ? t.sheetImportText
+                        : t.sheetEditText}
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-8">
               <Suspense
                 fallback={
                   <div className="p-6 text-sm text-muted-foreground" role="status">
-                    Preparando el editor…
+                    {t.editorLoading}
                   </div>
                 }
               >
@@ -2344,7 +2371,7 @@ export default function App() {
         </Sheet>
 
         <footer className="mt-10 flex flex-col gap-1 border-t border-border pt-4 text-center text-xs text-muted-foreground">
-          <p>{GGG_AFFILIATION_NOTICE}</p>
+          <p>{t.affiliation}</p>
           <p>{t.pricesNote}</p>
           <p className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             <DataPrivacyDialog health={health} />

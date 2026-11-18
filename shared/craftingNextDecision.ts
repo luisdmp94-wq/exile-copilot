@@ -104,7 +104,7 @@ export function decideCraftingNextStep(input: {
       tone: "caution",
       title: en ? "It matches, but the roll is low" : "Coincide, pero la tirada observada es baja",
       summary: en
-        ? "The affix points at your goal, but its values sit in the low part of the range the game shows."
+        ? "The modifier points at your goal, but its values sit in the low part of the range the game shows."
         : "El afijo apunta al objetivo, pero sus valores están en el tramo bajo del rango que muestra el juego.",
       nextAction: en
         ? "Don't chain another orb yet: decide whether this roll meets your stop condition."
@@ -136,7 +136,7 @@ export function decideCraftingNextStep(input: {
       tone: "positive",
       title: en ? "You can keep going, one at a time" : "Puedes continuar, de uno en uno",
       summary: en
-        ? "The change points at your goal and the item still has room. This doesn't prove the affix value is good enough."
+        ? "The change points at your goal and the item still has room. This doesn't prove the modifier value is good enough."
         : "El cambio apunta al objetivo y la estructura observada aún conserva espacio. Esto no demuestra que el valor del afijo sea suficiente.",
       nextAction: en
         ? "Save this result and go back to the bench to check the next allowed action."
@@ -171,7 +171,7 @@ export function decideCraftingNextStep(input: {
         ? "The item still shows signs of your goal, but the new change doesn't add a direct one. The app can't call it progress based on size or interactions."
         : "La pieza conserva señales de tu objetivo, pero el cambio nuevo no aporta una señal directa. La app no puede declarar progreso por su magnitud o interacción.",
       nextAction: en
-        ? "Decide whether the new affix helps you in game before keeping or dropping this route."
+        ? "Decide whether the new modifier helps you in game before keeping or dropping this route."
         : "Decide si el nuevo afijo te sirve en juego antes de aceptar o abandonar esta ruta.",
       observedOpenSlots,
       resultGoalSignal,

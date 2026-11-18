@@ -142,12 +142,12 @@ const WORDS = {
       "Add Essence Drain. Cast Contagion on the pack, then Essence Drain: when enemies die they pass the damage to the ones next to them.",
     resTitle: (list: string, target: number) => `Low resistances: ${list} (aim for ${target}%)`,
     resAction:
-      "Swap a piece that gives no resistances (boots, belt, rings) for one that does. Early on, resistances beat a little extra damage.",
+      "Swap an item that gives no resistances (boots, belt, rings) for one that does. Early on, resistances beat a little extra damage.",
     resHow: [
       "Put a resistance rune in every free socket of your armour: they're cheap and add exactly the one you lack.",
       "Check the town vendors: they restock every time you level up. Look for magic (blue) items with the resistance you need.",
       "Got a normal (white) item at your level? Use an Orb of Transmutation, then an Orb of Augmentation. If a resistance rolls, it's useful; if not, try another white item, they're cheap.",
-      "Rings, belt and boots are the easiest pieces to get resistances on: replace the one giving none first.",
+      "Rings, belt and boots are the easiest items to get resistances on: replace the one giving none first.",
     ],
     ascFirstTitle: "You're missing your first two ascendancy points",
     ascFirstAction:

@@ -25,11 +25,53 @@ const DEFAULT_VALUES_EN: Record<string, string> = {
   "Personaje importado desde PoB": "Character imported from PoB",
   Desconocida: "Unknown",
   Desconocido: "Unknown",
+  desconocida: "unknown",
+  desconocido: "unknown",
 };
 
 /** Nombre, clase o liga para enseñar: traduce solo los valores por defecto. */
 export function displayProfileValue(value: string): string {
-  return pageLang() === "en" ? (DEFAULT_VALUES_EN[value.trim()] ?? value) : value;
+  return pageLang() === "en" ? englishProfileValue(value) : value;
+}
+
+/** Lo mismo, pero siempre en inglés (para textos que ya son ingleses). */
+export function englishProfileValue(value: string): string {
+  return DEFAULT_VALUES_EN[value.trim()] ?? value;
+}
+
+const DEFAULT_VALUES_ES = new Map(Object.entries(DEFAULT_VALUES_EN).map(([es, en]) => [en, es]));
+// «Unknown» vale para «Desconocida» y «Desconocido»: al guardar gana la primera.
+DEFAULT_VALUES_ES.set("Unknown", "Desconocida");
+
+/**
+ * Lo contrario, para los campos del editor: si en inglés queda escrito el
+ * valor por defecto («New character»), se guarda la marca interna de siempre.
+ */
+export function storeProfileValue(value: string): string {
+  return pageLang() === "en" ? (DEFAULT_VALUES_ES.get(value) ?? value) : value;
+}
+
+/**
+ * Procedencias que la web guarda en español junto a cada objeto. Igual que los
+ * valores por defecto: se guardan así y solo se traducen al enseñarlas.
+ */
+const SOURCE_LABELS_EN: Record<string, string> = {
+  "Build de demostración": "Example build",
+  "Texto de objeto copiado desde el juego": "Item text copied from the game",
+  "Objeto importado desde Path of Building 2": "Item imported from Path of Building 2",
+  "Archivo .build usado como borrador de personaje": ".build file used as a character draft",
+  "Decisión guiada por el jugador": "Decision guided by the player",
+  "Ejercicio de aprendizaje de la Academia (objeto sintético)": "Academy learning exercise (made-up item)",
+};
+const POB_SNAPSHOT_ES = "Instantánea importada desde Path of Building 2";
+
+/** Procedencia de un dato para enseñar: traduce solo las que guarda la web. */
+export function displaySourceLabel(label: string): string {
+  if (pageLang() !== "en") return label;
+  if (label.startsWith(POB_SNAPSHOT_ES)) {
+    return `Snapshot imported from Path of Building 2${label.slice(POB_SNAPSHOT_ES.length)}`;
+  }
+  return SOURCE_LABELS_EN[label.trim()] ?? label;
 }
 
 export function formatCharacterLevel(profile: CharacterProfile): string {

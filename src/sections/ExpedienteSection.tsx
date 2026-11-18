@@ -20,7 +20,7 @@ const TEXT = texts(
   {
     equipment: "Equipment",
     unverified: (count: number) =>
-      `${count} unverified detail(s) — see “Evidence and limits”`,
+      `${count} unverified ${count === 1 ? "detail" : "details"} — see “Evidence and limits”`,
     editProfile: "Edit character",
     restoring: "Restoring your last character…",
   },

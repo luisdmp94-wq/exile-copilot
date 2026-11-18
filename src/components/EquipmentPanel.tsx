@@ -45,7 +45,7 @@ const TEXT = texts(
     noFlasks: "No flask information.",
     diagnosis: "Diagnosis",
     diagnosisSummary: (items: number, empty: number, unverified: number) =>
-      ` · ${items} items · ${empty} empty slots · ${unverified} unverified mods`,
+      ` · ${items} items · ${empty} empty slots · ${unverified} unverified modifiers`,
     registered: "Recorded items",
     emptySlots: "Empty slots",
     byYou: "Items you entered",

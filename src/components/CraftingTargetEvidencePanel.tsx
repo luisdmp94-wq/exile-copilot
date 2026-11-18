@@ -29,9 +29,9 @@ const TEXT = texts(
   },
   {
     pool: {
-      "available-complete": "Full mod pool available",
-      "available-partial": "Partial mod pool",
-      unavailable: "Mod pool not available",
+      "available-complete": "Full modifier pool available",
+      "available-partial": "Partial modifier pool",
+      unavailable: "Modifier pool not available",
       unknown: "Checking coverage",
     },
     eyebrow: "Evidence for the goal",

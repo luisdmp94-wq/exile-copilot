@@ -79,7 +79,7 @@ const TEXT = texts(
     level: "Medium level",
     introTitle: "Learn to make decisions in the game",
     introBody:
-      "You already know what each currency does. Now you'll learn what the base means, how to confirm it without guessing your build, spot a promising start, invest with a purpose and stop when the piece already does its job.",
+      "You already know what each currency does. Now you'll learn what the base means, how to confirm it without guessing your build, spot a promising start, invest with a purpose and stop when the item already does its job.",
     start: "Start",
     backToLevels: "Back to levels",
     resultTitle: "You can now steer a craft in PoE2",

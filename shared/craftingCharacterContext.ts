@@ -150,7 +150,7 @@ function requirementCheck(
     limitations.push(
       en
         ? attributeChanged
-          ? "The craft changed attributes: the character file's total still describes the previous item."
+          ? "The craft changed attributes: your character's saved total still describes the previous item."
           : `These character attributes are missing: ${unknown.join(", ")}.`
         : attributeChanged
           ? "El craft cambió atributos: el total del expediente todavía describe el objeto anterior."
@@ -349,7 +349,7 @@ export function evaluateCraftingCharacterContext(input: {
     verdict: "review",
     title: en ? "Not enough to judge it yet" : "Aún no hay base para juzgarlo",
     summary: en
-      ? "The change is confirmed, but your character file doesn't show it solves your goal. Decide by trying it in game."
+      ? "The change is confirmed, but your character's data doesn't show it solves your goal. Decide by trying it in game."
       : "El cambio está confirmado, pero el expediente no demuestra que resuelva tu objetivo. Decide con la prueba en juego.",
     requirementStatus: requirements.requirementStatus,
     requirementLabel: requirements.requirementLabel,

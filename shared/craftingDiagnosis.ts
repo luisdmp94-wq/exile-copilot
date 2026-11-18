@@ -158,7 +158,7 @@ export function diagnoseCraftingItem(
     blockers.push(
       t(
         "El objeto figura como normal, pero contiene modificadores explícitos; hay una inconsistencia que revisar.",
-        "The item shows as normal but has explicit mods; something doesn't add up.",
+        "The item shows as normal but has explicit modifiers; something doesn't add up.",
       ),
     );
   } else if (unclassifiedExplicitCount > 0) {
@@ -218,7 +218,7 @@ export function diagnoseCraftingItem(
   if (state === "complete" && item.rarity === "normal") {
     summary = t(
       "Objeto normal sin modificadores explícitos. Su estructura permite evaluar una Transmutación sin atribuirle todavía un resultado concreto.",
-      "Normal item with no explicit mods. You can consider an Orb of Transmutation, but the result can't be predicted.",
+      "Normal item with no explicit modifiers. You can consider an Orb of Transmutation, but the result can't be predicted.",
     );
   } else if (state === "complete" && observedOpenSlots !== null) {
     if (lang === "en") {
@@ -238,7 +238,7 @@ export function diagnoseCraftingItem(
   } else if (explicit.length > 0) {
     summary =
       lang === "en"
-        ? `Read ${explicit.length} explicit mods, but the structure isn't complete.`
+        ? `Read ${explicit.length} explicit modifiers, but the structure isn't complete.`
         : `Se leen ${explicit.length} modificadores explícitos, pero la estructura no está completa.`;
   } else {
     summary = t(
@@ -276,12 +276,12 @@ export function diagnoseCraftingItem(
   } else if (item.rarity === "normal" && explicit.length === 0) {
     nextAction = t(
       "Comprueba una Transmutación para convertirlo en mágico con un solo modificador.",
-      "Consider an Orb of Transmutation to make it magic with one mod.",
+      "Consider an Orb of Transmutation to make it magic with one modifier.",
     );
   } else if (state === "complete" && observedOpenSlots === 0) {
     nextAction = t(
       "El asesor debe bloquear acciones que añadan otro modificador hasta verificar una vía legal.",
-      "Actions that add another mod stay blocked until a legal route is verified.",
+      "Actions that add another modifier stay blocked until a legal route is verified.",
     );
   } else if (state === "complete") {
     nextAction = t(

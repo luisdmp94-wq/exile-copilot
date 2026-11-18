@@ -187,7 +187,7 @@ export function evaluateCoachFocus(
       status: "unknown",
       title: en ? "Your goal isn't specific yet" : "Falta concretar el objetivo",
       summary: en
-        ? "Damage or defence is too broad to tell whether an affix helps."
+        ? "Damage or defence is too broad to tell whether a modifier helps."
         : "Daño o defensa es demasiado amplio para decidir si un afijo sirve.",
       matchedTags: [],
       observedTags,
@@ -224,7 +224,7 @@ export function evaluateCoachFocus(
       ? `Doesn't match ${COACH_FOCUS_LABELS_EN[focus]}`
       : `No coincide con ${COACH_FOCUS_LABELS[focus]}`,
     summary: en
-      ? "The new affix doesn't literally match the main goal you picked."
+      ? "The new modifier doesn't literally match the main goal you picked."
       : "El afijo nuevo no coincide de forma literal con el objetivo principal elegido.",
     matchedTags: [],
     observedTags,

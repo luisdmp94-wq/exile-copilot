@@ -116,14 +116,14 @@ export function craftingSuccessCriterionLabel(
     if (criterion.kind === "goal-affix-count") {
       return `At least ${criterion.minimumCount} ${
         CRAFTING_GOAL_LABELS_EN[criterion.category].toLocaleLowerCase("en")
-      } affix${criterion.minimumCount === 1 ? "" : "es"}`;
+      } modifier${criterion.minimumCount === 1 ? "" : "s"}`;
     }
     if (criterion.kind === "exact-modifier-text") {
       return `Must show: ${criterion.text}${
         criterion.maximumTier === undefined ? "" : ` (tier ${criterion.maximumTier} or better)`
       }`;
     }
-    return `Reach ${criterion.minimumCount} explicit affix${criterion.minimumCount === 1 ? "" : "es"}`;
+    return `Reach ${criterion.minimumCount} explicit modifier${criterion.minimumCount === 1 ? "" : "s"}`;
   }
   if (criterion.kind === "goal-affix-count") {
     return `Al menos ${criterion.minimumCount} afijo${
@@ -162,7 +162,7 @@ function assessGoalCount(
       status: "fulfilled",
       label,
       detail: en
-        ? `${matched} affix${matched === 1 ? " has" : "es have"} tags from that category.`
+        ? `${matched} modifier${matched === 1 ? " has" : "s have"} tags from that category.`
         : `${matched} afijo${matched === 1 ? "" : "s"} contiene${
             matched === 1 ? "" : "n"
           } etiquetas observadas de esa categoría.`,
@@ -175,7 +175,7 @@ function assessGoalCount(
       status: "unknown",
       label,
       detail: en
-        ? `Only ${matched} seen; some affixes have no tags, so a match can't be ruled out.`
+        ? `Only ${matched} seen; some modifiers have no tags, so a match can't be ruled out.`
         : `Solo se observan ${matched}; hay afijos sin etiquetas y no se puede descartar una coincidencia.`,
     };
   }
@@ -250,7 +250,7 @@ function assessExactText(
       status: "not-seen",
       label,
       detail: en
-        ? "The exact line you chose is not among the explicit affixes."
+        ? "The exact line you chose is not among the explicit modifiers."
         : "La línea exacta indicada no aparece entre los afijos explícitos.",
     };
   }
@@ -290,7 +290,7 @@ function assessExplicitCount(
         status: "fulfilled",
         label,
         detail: en
-          ? `The result has ${count} explicit affix${count === 1 ? "" : "es"}.`
+          ? `The result has ${count} explicit modifier${count === 1 ? "" : "s"}.`
           : `El resultado contiene ${count} afijo${count === 1 ? "" : "s"} explícito${
               count === 1 ? "" : "s"
             }.`,

@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { SavedCharacterSummary } from "@shared/api.js";
 import { texts, useText } from "@/i18n/lang";
+import { displayProfileValue } from "@/lib/format";
 
 interface WelcomePanelProps {
   /** Lleva el foco al panel de importación (que vive en «Personaje»). */
@@ -247,10 +248,10 @@ export function WelcomePanel({
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-foreground">
-                      {entry.name}
+                      {displayProfileValue(entry.name)}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {entry.ascendancy || entry.characterClass}
+                      {entry.ascendancy || displayProfileValue(entry.characterClass)}
                       {entry.level !== null ? t.level(entry.level) : t.levelUnknown}
                     </span>
                   </span>

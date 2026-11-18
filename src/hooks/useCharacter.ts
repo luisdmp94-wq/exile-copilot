@@ -77,7 +77,7 @@ const TEXT = texts(
     importedSaved: (name: string) => `Character imported and saved: ${name}`,
     otherVersion: "Character saved, but it belongs to another version",
     plannerFile: "That .build file is a plan, not a full snapshot",
-    draftSaved: (count: number) => `Draft saved: ${count} detail(s) missing`,
+    draftSaved: (count: number) => `Draft saved: ${count} ${count === 1 ? "detail" : "details"} missing`,
     keepWhatItHas: (pending: string) =>
       `We kept what it does contain. Fill in ${pending} before asking for recommendations.`,
     unreadable: "Couldn't read the file's content",

@@ -66,25 +66,34 @@ const TEXT = texts(
     mentorUnknown: "We couldn't check right now whether outside AI help is active.",
     mentorRules: "Right now it only uses Exile Copilot's verifiable rules. Your questions are not sent to any outside AI provider.",
     mentorAi: (provider: string) =>
-      `When you ask, ${provider} receives your question, up to eight turns and a summary of your class, defences, goal, budget, gear and active decision. Your character name, cookie, file id, full tooltips and free-text journal results are not sent. If it fails, the rules answer. If you paste a screenshot in the quick review, the image is sent to ${provider} only to read the numbers; we don't keep it (note your character name may be visible in it).`,
+      `When you ask, ${provider} receives your question, up to eight turns and a summary of your class, defences, goal, budget, gear and active decision.\n` +
+      `Not sent: your character name, cookie, character id, full tooltips or free-text journal notes.\n` +
+      `If ${provider} fails, the rules answer instead.\n` +
+      `A screenshot pasted into the quick review goes to ${provider} only to read the numbers. We don't keep it, but your character name may be visible in it.`,
     open: "Privacy and data",
     title: "Your data, no fine print",
     intro: "This is what Exile Copilot does today. It doesn't assume accounts or syncing that don't exist yet.",
     sessionTitle: "Anonymous session",
-    sessionText: "We don't create an account. A private cookie links this browser to your character file, and JavaScript can't read it.",
+    sessionText: "We don't create an account. A private cookie links this browser to your characters, and JavaScript can't read it.",
     storedTitle: "What is stored",
     storedText:
-      "On the server: your characters, items, decisions, sessions and up to eight full Mentor turns, linked to your anonymous session and to each character. In this browser: Academy progress and Crafting projects. No other visitor can open your files or conversations. An anonymous counter also adds up how many visits there are each day, which site they come from (for example, Reddit) and which tools are used; it doesn't store your IP, your session or anything that identifies you. If you use «Report a problem», we keep your message and, if you leave them ticked, your browser, screen size and area; they're deleted after 90 days.",
+      "On the server: your characters, items, decisions, sessions and up to eight full Mentor turns, linked to your anonymous session.\n" +
+      "In this browser: Academy progress and Crafting projects.\n" +
+      "No other visitor can open your characters or conversations.\n" +
+      "An anonymous counter adds up daily visits, the site they come from (for example, Reddit) and the tools used. It doesn't store your IP, your session or anything that identifies you.\n" +
+      "If you use “Report a problem”, we keep your message and, if you leave them ticked, your browser, screen size and area. They're deleted after 90 days.",
     mentorTitle: "How the Mentor answers",
     recoveryTitle: "Current recovery",
     recoveryText:
-      "If the local reference is lost, the private cookie can find your recent file again. When switching, you can pick any character saved in that session from summaries that leave out gear and notes. There is no recovery across devices; deleting the cookie breaks that link.",
+      "If this browser loses track of your character, the private cookie can find the most recent one again.\n" +
+      "When switching, you pick from summaries of the characters saved in this session; they leave out gear and notes.\n" +
+      "There's no recovery across devices, and deleting the cookie breaks the link.",
     musicTitle: "Music through YouTube",
     musicText:
-      "Opening the player doesn't contact anyone. Only if you press “Play with YouTube” is the outside player created; YouTube may receive your IP address and technical browser data. Exile Copilot doesn't send your character or file with that request.",
+      "Opening the player doesn't contact anyone. Only if you press “Play with YouTube” is the outside player created; YouTube may receive your IP address and technical browser data. Exile Copilot doesn't send your character with that request.",
     deleteTitle: "Delete all my data",
     deleteText:
-      "Permanently deletes your character files, items, journal, memory, sessions, saved Mentor conversation and Crafting projects. You'll start again with a new session.",
+      "Permanently deletes your characters, items, journal, memory, sessions, saved Mentor conversation and Crafting projects. You'll start again with a new session.",
     deleteButton: "Delete my data",
     confirmTitle: "Delete everything for good?",
     confirmText: "You won't be able to recover set-aside characters or their decisions. Other visitors' data is not touched.",
@@ -162,14 +171,14 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
           <section className="rounded-lg border border-border bg-card/50 p-4">
             <Database className="mb-3 size-5 text-primary" aria-hidden="true" />
             <h3 className="font-semibold text-foreground">{t.storedTitle}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t.storedText}</p>
+            <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{t.storedText}</p>
           </section>
 
           <section className="rounded-lg border border-border bg-card/50 p-4">
             <Bot className="mb-3 size-5 text-primary" aria-hidden="true" />
             <h3 className="font-semibold text-foreground">{t.mentorTitle}</h3>
             <p
-              className="mt-1 text-sm leading-relaxed text-muted-foreground"
+              className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground"
               data-testid="privacidad-mentor"
             >
               {mentorDisclosure(health, t)}
@@ -179,7 +188,7 @@ export function DataPrivacyDialog({ health }: DataPrivacyDialogProps) {
           <section className="rounded-lg border border-border bg-card/50 p-4">
             <RotateCcw className="mb-3 size-5 text-primary" aria-hidden="true" />
             <h3 className="font-semibold text-foreground">{t.recoveryTitle}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t.recoveryText}</p>
+            <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{t.recoveryText}</p>
           </section>
 
           <section className="rounded-lg border border-border bg-card/50 p-4 sm:col-span-2">

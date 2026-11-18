@@ -126,20 +126,20 @@ function reconcileCandidateWithMemory(
   return {
     ruleId: `memoria-${candidate.ruleId}`,
     title: compactJournalTitle(
-      t(`Actualizar el perfil tras «${memoryEntry.title}»`, `Update your profile after «${memoryEntry.title}»`),
+      t(`Actualizar el perfil tras «${memoryEntry.title}»`, `Update your profile after “${memoryEntry.title}”`),
     ),
     action: t(
       `Actualiza en «Mi personaje» los datos afectados por «${memoryEntry.title}» ` +
         "usando el resultado que guardaste; después vuelve a generar recomendaciones.",
-      `In «My character», update the data affected by «${memoryEntry.title}» ` +
+      `In “My character”, update the data affected by “${memoryEntry.title}” ` +
         "using the result you saved; then generate recommendations again.",
     ),
     reason: t(
       `El diario registra que ya completaste «${memoryEntry.title}», pero el perfil ` +
         `actual todavía activa «${candidate.title}». El mentor no repetirá esa mejora ` +
         "hasta reconciliar el resultado con los datos actuales.",
-      `The journal says you already completed «${memoryEntry.title}», but the current ` +
-        `profile still triggers «${candidate.title}». The mentor won't repeat that upgrade ` +
+      `The journal says you already completed “${memoryEntry.title}”, but the current ` +
+        `profile still triggers “${candidate.title}”. The mentor won't repeat that upgrade ` +
         "until the result matches the current data.",
     ),
     impactMetric: t("calidad de los datos del personaje", "character data quality"),
@@ -576,11 +576,11 @@ function applySessionGates(
         t("Conflicto con la identidad de la build", "Conflict with the build's identity"),
         t(
           `No toques «${coreConflict.label}». Está marcado como Core en la memoria de esta build.`,
-          `Don't touch «${coreConflict.label}». It's marked as Core in this build's memory.`,
+          `Don't touch “${coreConflict.label}”. It's marked as Core in this build's memory.`,
         ),
         t(
           `La prioridad calculada choca con «${coreConflict.label}». El mentor se detiene en vez de romper una pieza esencial.`,
-          `The calculated priority clashes with «${coreConflict.label}». The mentor stops instead of breaking an essential piece.`,
+          `The calculated priority clashes with “${coreConflict.label}”. The mentor stops instead of breaking something essential.`,
         ),
         generatedAt,
         first.patch,
@@ -622,16 +622,16 @@ function applySessionGates(
       ),
       reason: t(
         `Sin «${gate.label}» el mentor no autoriza una acción que no se puede deshacer.`,
-        `Without «${gate.label}» the mentor won't approve an action that can't be undone.`,
+        `Without “${gate.label}” the mentor won't approve an action that can't be undone.`,
       ),
     },
     protected_constraint: {
       id: "rec-sesion-restriccion-core",
       title: t("Conflicto con una pieza protegida", "Conflict with a protected item"),
-      action: t(`No toques «${gate.label}». Está marcada como intocable.`, `Don't touch «${gate.label}». It's marked as untouchable.`),
+      action: t(`No toques «${gate.label}». Está marcada como intocable.`, `Don't touch “${gate.label}”. It's marked as untouchable.`),
       reason: t(
         `La mejor puntuación del motor chocaba con «${gate.label}». No se sustituye por otra compra en silencio.`,
-        `The engine's best score clashed with «${gate.label}». It isn't silently swapped for another purchase.`,
+        `The engine's best score clashed with “${gate.label}”. It isn't silently swapped for another purchase.`,
       ),
     },
     opportunity_cost: {

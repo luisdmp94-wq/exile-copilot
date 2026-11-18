@@ -28,6 +28,9 @@ export const PatchFeatureCoverageSchema = z.object({
   label: z.string().min(1),
   status: PatchCoverageStatus,
   note: z.string().min(1),
+  /** Rótulo y nota para la versión inglesa; si faltan se enseña el español. */
+  labelEn: z.string().min(1).optional(),
+  noteEn: z.string().min(1).optional(),
   evidence: z.string().min(1),
   /** Identificadores concretos de snapshots, registros o pruebas que sostienen el alcance. */
   evidenceIds: z.array(z.string().min(1)),
@@ -49,6 +52,7 @@ export const PatchCompatibilityRecordSchema = z.object({
   status: PatchCoverageStatus,
   reviewedAt: z.string().nullable(),
   summary: z.string().min(1),
+  summaryEn: z.string().min(1).optional(),
   features: z
     .array(PatchFeatureCoverageSchema)
     .length(PatchFeatureId.options.length)
@@ -70,13 +74,37 @@ export const PatchCompatibilityRegistrySchema = z.object({
 );
 export type PatchCompatibilityRegistry = z.infer<typeof PatchCompatibilityRegistrySchema>;
 
-const REQUIRED_FEATURES: ReadonlyArray<{ id: PatchFeatureId; label: string }> = [
-  { id: "item-import", label: "Importación de objetos" },
-  { id: "basic-crafting", label: "Crafting básico guiado" },
-  { id: "advanced-crafting", label: "Essences, Alloys y rutas avanzadas" },
-  { id: "passive-tree", label: "Árbol de pasivas" },
-  { id: "market", label: "Mercado" },
+const REQUIRED_FEATURES: ReadonlyArray<{ id: PatchFeatureId; label: string; labelEn: string }> = [
+  { id: "item-import", label: "Importación de objetos", labelEn: "Item import" },
+  { id: "basic-crafting", label: "Crafting básico guiado", labelEn: "Guided basic crafting" },
+  {
+    id: "advanced-crafting",
+    label: "Essences, Alloys y rutas avanzadas",
+    labelEn: "Essences, Alloys and advanced routes",
+  },
+  { id: "passive-tree", label: "Árbol de pasivas", labelEn: "Passive tree" },
+  { id: "market", label: "Mercado", labelEn: "Market" },
 ];
+
+/**
+ * La misma cobertura con los textos del idioma pedido. Solo cambia lo que se
+ * enseña (resumen, rótulos y notas): estados y evidencias no se tocan.
+ */
+export function localizePatchCompatibility(
+  record: PatchCompatibilityRecord,
+  lang: "es" | "en",
+): PatchCompatibilityRecord {
+  if (lang !== "en") return record;
+  return {
+    ...record,
+    summary: record.summaryEn ?? record.summary,
+    features: record.features.map((feature) => ({
+      ...feature,
+      label: feature.labelEn ?? feature.label,
+      note: feature.noteEn ?? feature.note,
+    })),
+  };
+}
 
 /**
  * Resolver conservador: un parche ausente del registro nunca hereda la
@@ -95,10 +123,12 @@ export function compatibilityForPatch(
     status: "review-required",
     reviewedAt: null,
     summary: `El parche ${patchId} todavía no tiene una revisión de compatibilidad registrada.`,
+    summaryEn: `Patch ${patchId} doesn't have a compatibility review on record yet.`,
     features: REQUIRED_FEATURES.map((feature) => ({
       ...feature,
       status: "review-required" as const,
       note: "Detenido hasta contrastar esta área con el parche seleccionado.",
+      noteEn: "On hold until this area is checked against the selected patch.",
       evidence: "No hay evidencia registrada para este parche.",
       evidenceIds: [],
     })),
@@ -123,6 +153,7 @@ export function patchFeatureCoverage(
     label: featureId,
     status: "review-required",
     note: "Esta área no aparece en la cobertura del parche.",
+    noteEn: "This area isn't in the patch coverage.",
     evidence: "No hay evidencia registrada para esta área.",
     evidenceIds: [],
   };
@@ -269,6 +300,7 @@ export function gatePatchCompatibilityByEvidence(
           note: `Detenido por evidencia inconsistente: ${featureIssues
             .map((issue) => issue.detail)
             .join(" ")}`,
+          noteEn: "On hold: the evidence for this area is inconsistent and needs another review.",
         };
       }),
     })),

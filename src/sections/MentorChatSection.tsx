@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { MentorState } from "@/hooks/useMentor";
 import type { MentorTurn } from "@/lib/mentorThread";
 import { savableNextAction } from "@/lib/mentorThread";
-import { CONFIDENCE_BADGE_CLASSES, formatDateTime } from "@/lib/format";
+import { CONFIDENCE_BADGE_CLASSES, formatDateTime, displaySourceLabel } from "@/lib/format";
 import { useFormatLabels } from "@/lib/formatLabels";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
@@ -115,7 +115,7 @@ const TEXT = texts(
       "Why do you recommend this?",
     ],
     modeAi: "Grounded AI",
-    modeFallback: "Rules fallback",
+    modeFallback: "Rule-based answer",
     modeRules: "Checkable rules",
     noProfileTitle: "You need a character first",
     noProfileBody:
@@ -124,7 +124,7 @@ const TEXT = texts(
     readinessMissing: (missing: string) =>
       `Missing: ${missing}. Fill it in and I'll answer; I won't make up what I don't know about your character.`,
     readinessPending: (question: string) =>
-      `Your question is saved: “${question}”. I'll answer as soon as you finish your character file.`,
+      `Your question is saved: “${question}”. I'll answer as soon as you complete your character.`,
     readinessButton: "Finish character file",
     patchTitle: (patchId: string) => `The mentor is waiting for the ${patchId} review`,
     patchBody: (summary: string) =>
@@ -622,7 +622,7 @@ function MentorEvidence({ answer }: { answer: MentorAnswer }) {
             <ul className="list-inside list-disc text-xs text-muted-foreground">
               {answer.sources.map((source, index) => (
                 <li key={`${source.kind}-${index}`}>
-                  {source.label} · {labels.sourceKind[source.kind]} ·{" "}
+                  {displaySourceLabel(source.label)} · {labels.sourceKind[source.kind]} ·{" "}
                   {formatDateTime(source.retrievedAt)}
                 </li>
               ))}

@@ -100,11 +100,11 @@ function rulesReason(skill: GemSkill, support: GemSupport, lang: AdviceLang = "e
 
 const UNKNOWN_SKILL: Record<AdviceLang, string> = {
   es: "No conozco esa habilidad. Escríbela como sale en el juego en español, por ejemplo «Contagio».",
-  en: "I don't know that skill. Write it as the game shows it, for example «Contagion».",
+  en: "I don't know that skill. Write it as the game shows it, for example “Contagion”.",
 };
 const UNKNOWN_SKILLS: Record<AdviceLang, string> = {
   es: "No conozco ninguna de esas habilidades. Escríbelas como salen en el juego en español, por ejemplo «Contagio».",
-  en: "I don't know any of those skills. Write them as the game shows them, for example «Contagion».",
+  en: "I don't know any of those skills. Write them as the game shows them, for example “Contagion”.",
 };
 
 /**

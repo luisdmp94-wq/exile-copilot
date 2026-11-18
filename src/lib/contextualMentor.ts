@@ -9,10 +9,12 @@ import type { CoachFocus } from "@shared/craftingFocus.js";
 import type { CraftingBudgetStatus } from "@shared/craftingBudget.js";
 import type {
   CoachBaseAssessmentStatus,
+  CoachDirection,
   CoachGoalIntent,
   CoachRollMinimum,
 } from "@shared/craftingCoach.js";
-import { OBSERVED_CRAFTING_ACTIONS } from "@shared/craftingActions.js";
+import { OBSERVED_CRAFTING_ACTIONS, type CraftingActionId } from "@shared/craftingActions.js";
+import type { CraftingSuccessCriterion } from "@shared/craftingSuccessCriteria.js";
 import { craftingBuildIntentLabel } from "@shared/craftingBuildIntent.js";
 import { CURRENCY_LABELS, GOAL_LABELS, SLOT_LABELS } from "./format.js";
 
@@ -63,6 +65,8 @@ export type ContextualMentorEvent =
       itemName: string;
       playerGoal: string;
       directionLabel: string;
+      /** Para rotular la dirección en el otro idioma sin depender del texto. */
+      direction?: CoachDirection | null;
       nextStepTitle: string;
       stepKind: "use-currency" | "needs-data" | "stop";
       focus: CoachFocus;
@@ -123,8 +127,8 @@ export type ContextualMentorEvent =
       currentCount: number;
       nextTarget: number | null;
     }
-  | { type: "craftingStop"; itemName: string; criterionLabel: string }
-  | { type: "craftingAction"; itemName: string; actionLabel: string }
+  | { type: "craftingStop"; itemName: string; criterionLabel: string; criterion?: CraftingSuccessCriterion }
+  | { type: "craftingAction"; itemName: string; actionLabel: string; actionId?: CraftingActionId }
   | { type: "editor" }
   | { type: "goal"; goal: GoalKind }
   | { type: "budget"; amount: number; currency: CurrencyKind }

@@ -48,7 +48,7 @@ const TEXT = texts(
     noNewLine: "No new exact line.",
     useBase: "Work with this base",
     onlyOne: "There's only one comparable item. Add another of the same class to compare facts before investing.",
-    footnote: "“You'd stop seeing” compares the exact text with the workshop's current base. Confirm the change in the game: it doesn't recalculate your build, mod pools, chances or final power.",
+    footnote: "“You'd stop seeing” compares the exact text with the workshop's current base. Confirm the change in the game: it doesn't recalculate your build, modifier pools, chances or final power.",
   },
 );
 

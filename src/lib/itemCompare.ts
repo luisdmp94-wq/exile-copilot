@@ -27,6 +27,7 @@ const WORDS = {
   es: {
     none: "nada",
     decimal: ",",
+    percent: " %",
     line: "línea",
     lines: "líneas",
     and: "y",
@@ -59,6 +60,7 @@ const WORDS = {
   en: {
     none: "none",
     decimal: ".",
+    percent: "%",
     line: "line",
     lines: "lines",
     and: "and",
@@ -79,8 +81,8 @@ const WORDS = {
     },
     kinds: { minion: "minions", spell: "spells", melee: "melee", projectile: "projectiles", all: "all" } as Record<SkillKindWord, string>,
     res: { fire: "fire", cold: "cold", lightning: "lightning", chaos: "chaos" } as Record<ResKey, string>,
-    pieceA: "piece A",
-    pieceB: "piece B",
+    pieceA: "item A",
+    pieceB: "item B",
     quote: (name: string) => `“${name}”`,
     tie: "They're very close: neither wins clearly.",
     givesMore: (who: string, what: string) => `${who} gives more ${what}.`,
@@ -361,7 +363,7 @@ function plain(words: Words, value: number): string {
 
 function resistanceText(words: Words, res: Record<ResKey, number>): string {
   return RES_ORDER.filter((key) => res[key] !== 0)
-    .map((key) => `${res[key] > 0 ? "+" : ""}${res[key]} % ${words.res[key]}`)
+    .map((key) => `${res[key] > 0 ? "+" : ""}${res[key]}${words.percent} ${words.res[key]}`)
     .join(", ");
 }
 
@@ -426,7 +428,7 @@ export function compareItems(
 
   const candidates: CompareRow[] = [
     row("skills", words.rows.skills, skillText(skillsA), skillText(skillsB), levelsOf(skillsA), levelsOf(skillsB), weights.skills),
-    row("move", words.rows.move, amount(words, ra.moveSpeed, " %"), amount(words, rb.moveSpeed, " %"), ra.moveSpeed, rb.moveSpeed, weights.move),
+    row("move", words.rows.move, amount(words, ra.moveSpeed, words.percent), amount(words, rb.moveSpeed, words.percent), ra.moveSpeed, rb.moveSpeed, weights.move),
     row("life", words.rows.life, amount(words, ra.life), amount(words, rb.life), ra.life, rb.life, weights.life),
     row(
       "res",

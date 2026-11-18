@@ -80,7 +80,7 @@ const TEXT = texts(
     caseHeader: (order: number, skill: string) => `Case ${order} · ${skill}`,
     howToRead: "How to read this case",
     howToReadBody:
-      "First look at the piece. Then check what you want to get, what you can't give up and what condition makes you stop.",
+      "First look at the item. Then check what you want to get, what you can't give up and what condition makes you stop.",
     planAria: "Plan for doing it in PoE2",
     iWant: "I want to get",
     dontLose: "I don't want to lose",

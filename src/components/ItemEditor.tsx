@@ -34,7 +34,7 @@ const TEXT = texts(
     slot: "Slot",
     rarity: "Rarity",
     removeItem: (label: string | number) => `Remove item ${label}`,
-    mods: "Mods (one per line)",
+    mods: "Modifiers (one per line)",
     modsPlaceholder: "45% increased Physical Damage",
   },
 );

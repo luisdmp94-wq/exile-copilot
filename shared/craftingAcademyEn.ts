@@ -155,7 +155,7 @@ export const ACADEMY_ITEMS_EN: Readonly<Record<string, AcademyItemTextEn>> = {
 // ---------------------------------------------------------------------------
 
 export const CRAFTING_ACADEMY_EVIDENCE_EN =
-  "Local evidence observed on 22 Aug 2026 (in-game tooltips). No mod pools, weights or odds included.";
+  "Local evidence observed on 22 Aug 2026 (in-game tooltips). No modifier pools, weights or odds included.";
 
 export const CRAFTING_ACADEMY_EXERCISE_NOTICE_EN =
   "Visual example, not interactive. Here you learn to read and decide; currency and crafting happen inside Path of Exile 2.";
@@ -248,7 +248,7 @@ export const ACADEMY_LESSONS_EN: Record<string, { title: string; goal: string }>
   "leccion-2": { title: "From normal to magic", goal: "Take the first step when the item has nothing yet." },
   "leccion-3": { title: "Filling a magic item", goal: "Add without changing rarity, and know when nothing more fits." },
   "leccion-4": { title: "Going rare", goal: "Raise the rarity while keeping what you have, and know when to wait." },
-  "leccion-5": { title: "Adding to a rare", goal: "Use Exalted with judgment and recognize when to stop." },
+  "leccion-5": { title: "Adding to a rare", goal: "Use Exalted with judgement and recognise when to stop." },
 };
 
 const WHICH_ACTION = "Which action can be used on this item?";
@@ -257,7 +257,7 @@ const WHAT_DO_YOU_DO = "What do you do?";
 export const ACADEMY_SCENARIOS_EN: Record<string, AcademyScenarioTextEn> = {
   "l1-rareza": {
     situation:
-      "You just picked up this helmet. In the game, the color of its name and its number of modifiers tell you its rarity.",
+      "You just picked up this helmet. In the game, the colour of its name and its number of modifiers tell you its rarity.",
     question: "What rarity is this item?",
     options: {
       normal: { label: "Normal", hint: "No explicit modifiers" },

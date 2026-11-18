@@ -53,8 +53,8 @@ import { ImportPanel } from "@/components/ImportPanel";
 import { ItemEditor } from "@/components/ItemEditor";
 import type { CharacterState } from "@/hooks/useCharacter";
 import type { EditorDrafts } from "@/hooks/useEditorDrafts";
-import { texts, useText } from "@/i18n/lang";
-import { displayProfileValue } from "@/lib/format";
+import { texts, useLang, useText } from "@/i18n/lang";
+import { displayProfileValue, storeProfileValue } from "@/lib/format";
 
 interface CharacterSectionProps {
   character: CharacterState;
@@ -169,7 +169,7 @@ const TEXT = texts(
     addPassive: "Añadir pasiva",
   },
   {
-    titleItem: "Analyze an item",
+    titleItem: "Analyse an item",
     titleNew: "Create character",
     titleImport: "Add character",
     titleMemory: "Save character",
@@ -191,9 +191,9 @@ const TEXT = texts(
       "Import a .build file above or load the crossbow Mercenary example to explore the app.",
     memoryTitle: "Turn on memory to continue",
     memoryLead: (name: string) =>
-      `We'll save «${name}» and then open the check you just picked. You don't have to fill in the character again.`,
+      `We'll save “${name}” and then open the check you just picked. You don't have to fill in the character again.`,
     saveAndContinue: "Save and continue",
-    itemTextLabel: "Analyze an item copied from the game (Ctrl+Alt+C over the item in PoE2)",
+    itemTextLabel: "Analyse an item copied from the game (Ctrl+Alt+C over the item in PoE2)",
     itemTextPlaceholder: "Item Class: Crossbows\nRarity: Rare\nPhoenix Core\nVarnished Crossbow\n…",
     analyzeItem: "Analyze item",
     saveCorrections: "Save changes",
@@ -219,7 +219,7 @@ const TEXT = texts(
     patch: "Patch",
     pickPatch: "Pick a patch",
     attributesLegend: "Attributes",
-    attributesHelp: "Leave the field empty if you don't know it: «unknown» is not the same as 0.",
+    attributesHelp: "Leave the field empty if you don't know it: “unknown” is not the same as 0.",
     attributes: { str: "Strength", dex: "Dexterity", int: "Intelligence" },
     resistancesLegend: "Resistances (%)",
     resistances: { fire: "Fire", cold: "Cold", lightning: "Lightning", chaos: "Chaos" },
@@ -231,7 +231,7 @@ const TEXT = texts(
       armour: "Armour",
     },
     itemsLegend: (count: number) => `Items (${count})`,
-    noItems: "No items. Analyze an item copied from the game with the panel below.",
+    noItems: "No items. Analyse an item copied from the game with the panel below.",
     skillsLegend: (count: number) => `Skills (${count})`,
     mainSkill: "Main skill",
     unverifiedId: "unverified id",
@@ -640,6 +640,7 @@ function ProfileEditor({
   setSupportsDrafts,
 }: ProfileEditorProps) {
   const t = useText(TEXT);
+  const { lang } = useLang();
   const levelReading = readCharacterLevel(profile);
 
   const addSkill = () => {
@@ -666,16 +667,16 @@ function ProfileEditor({
           <Label htmlFor="char-name">{t.name}</Label>
           <Input
             id="char-name"
-            value={profile.name}
-            onChange={(e) => onUpdate({ name: e.target.value })}
+            value={displayProfileValue(profile.name)}
+            onChange={(e) => onUpdate({ name: storeProfileValue(e.target.value) })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="char-class">{t.characterClass}</Label>
           <Input
             id="char-class"
-            value={profile.characterClass}
-            onChange={(e) => onUpdate({ characterClass: e.target.value })}
+            value={displayProfileValue(profile.characterClass)}
+            onChange={(e) => onUpdate({ characterClass: storeProfileValue(e.target.value) })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -742,7 +743,7 @@ function ProfileEditor({
               onValueChange={(value) => onUpdate({ league: value })}
             >
               <SelectTrigger id="char-league">
-                <SelectValue placeholder={profile.league || t.pickLeague} />
+                <SelectValue placeholder={displayProfileValue(profile.league) || t.pickLeague} />
               </SelectTrigger>
               <SelectContent>
                 {meta.leagues.map((league) => (
@@ -755,8 +756,8 @@ function ProfileEditor({
           ) : (
             <Input
               id="char-league"
-              value={profile.league}
-              onChange={(e) => onUpdate({ league: e.target.value })}
+              value={displayProfileValue(profile.league)}
+              onChange={(e) => onUpdate({ league: storeProfileValue(e.target.value) })}
             />
           )}
         </div>
@@ -768,7 +769,7 @@ function ProfileEditor({
               onValueChange={(value) => onUpdate({ patch: value })}
             >
               <SelectTrigger id="char-patch">
-                <SelectValue placeholder={profile.patch || t.pickPatch} />
+                <SelectValue placeholder={displayProfileValue(profile.patch) || t.pickPatch} />
               </SelectTrigger>
               <SelectContent>
                 {meta.patches.map((p) => (
@@ -777,7 +778,7 @@ function ProfileEditor({
                     value={p.id}
                     disabled={p.status === "announced" && p.id !== profile.patch}
                   >
-                    {p.label}
+                    {lang === "en" ? (p.labelEn ?? p.label) : p.label}
                   </SelectItem>
                 ))}
               </SelectContent>

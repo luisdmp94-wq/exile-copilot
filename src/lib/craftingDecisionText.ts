@@ -74,7 +74,7 @@ const EN: typeof ES = {
     expected: (text) => `Declared guaranteed effect: ${text}`,
     observation:
       "Keep this snapshot. If you use the Essence, don't do anything else: copy the resulting item right away and import it again.",
-    noPool: "There's no complete, shareable mod pool to estimate affix probabilities.",
+    noPool: "There's no complete, shareable modifier pool to estimate modifier probabilities.",
     matchTooltip: "The name and effect must match the tooltip of the Essence you're about to spend.",
     checkProtected: "The comparison has to check the protected modifiers one by one.",
   },

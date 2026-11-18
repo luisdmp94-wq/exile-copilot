@@ -44,7 +44,7 @@ const TEXT = texts(
     title: (act: string) => `Did I skip anything in ${act}?`,
     lead: "I can't see your game, but every reward leaves a trace in a number the game shows. Tell me those numbers and I'll do the subtraction.",
     yourGear: "Your gear: ",
-    noGear: "you haven't pasted any items yet. Paste them above, in «Is your character ready?».",
+    noGear: "you haven't pasted any items yet. Paste them above, in “Is your character ready?”.",
     gearCount: (count: number, total: number) => `${count} of ${total} items pasted`,
     halfGear: ". With half your gear, the subtractions don't hold.",
     actGroup: "Which act you're in now",
@@ -57,7 +57,7 @@ const TEXT = texts(
     resLabel: (element: string) => `${element.replace(/^./, (c) => c.toUpperCase())} resistance on your sheet (C key)`,
     spiritLabel: "Maximum spirit on your sheet (C key)",
     pointsLabel: "Weapon set points (tree, P key, top right)",
-    pointsHelp: "The tree shows «Weapon Set I: 2 (2)». The number that counts is the one in brackets: the total.",
+    pointsHelp: "The tree shows “Weapon Set I: 2 (2)”. The number that counts is the one in brackets: the total.",
     yes: "Yes",
     no: "No",
     footer:

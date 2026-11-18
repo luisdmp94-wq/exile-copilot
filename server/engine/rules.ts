@@ -266,7 +266,7 @@ export const elementalResistancesRule: Rule = ({ profile, lang }) => {
     riskLevel: "medium",
     riskDescription: t(
       "Sustituir piezas puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
-      "Replacing items can make you lose other valuable mods; compare the whole item before changing it.",
+      "Replacing items can make you lose other valuable modifiers; compare the whole item before changing it.",
     ),
     mayLoseValuableMods: true,
     irreversible: false,
@@ -306,7 +306,7 @@ export const chaosResistanceRule: Rule = ({ profile, lang }) => {
       title: t("Corregir la resistencia al caos negativa", "Fix your negative chaos resistance"),
       action: t(
         `Tu resistencia al caos es ${chaos}%. Busca al menos llegar a 0% con un mod de caos en anillo, amuleto o cinturón.`,
-        `Your chaos resistance is ${chaos}%. Aim for at least 0% with a chaos mod on a ring, amulet or belt.`,
+        `Your chaos resistance is ${chaos}%. Aim for at least 0% with a chaos modifier on a ring, amulet or belt.`,
       ),
       reason: t(
         "La resistencia al caos negativa amplifica el daño de caos recibido, cada vez más presente en mapas.",
@@ -321,7 +321,7 @@ export const chaosResistanceRule: Rule = ({ profile, lang }) => {
       riskLevel: "medium",
       riskDescription: t(
         "Sustituir una pieza puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
-        "Replacing an item can make you lose other valuable mods; compare the whole item before changing it.",
+        "Replacing an item can make you lose other valuable modifiers; compare the whole item before changing it.",
       ),
       mayLoseValuableMods: true,
       irreversible: false,
@@ -451,7 +451,7 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
 
   const issues: string[] = [];
   if (quality === 0) issues.push(t("sin quality", "without quality"));
-  if (explicitCount < MIN_WEAPON_EXPLICITS) issues.push(t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit mods`));
+  if (explicitCount < MIN_WEAPON_EXPLICITS) issues.push(t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit modifiers`));
 
   // Solo hay precio consultable para ÚNICOS (match exacto de nombre). Un rare
   // nunca se valora con precios de únicos aunque coincida la base.
@@ -473,7 +473,7 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
       title: t("Mejorar el arma", "Upgrade your weapon"),
       action: t(
         `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca una ${weapon.baseType} o base similar con mejores mods dentro de tu presupuesto.`,
-        `Your weapon "${weapon.name}" (${weapon.baseType}) is ${issues.join(" and ")}. Look for a ${weapon.baseType} or a similar base with better mods within your budget.`,
+        `Your weapon "${weapon.name}" (${weapon.baseType}) is ${issues.join(" and ")}. Look for a ${weapon.baseType} or a similar base with better modifiers within your budget.`,
       ),
       reason: t(
         "El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.",
@@ -482,7 +482,7 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
       impactMetric: t("daño del arma", "weapon damage"),
       impactDescription: t(
         "Impacto estimado en daño por mejora de base/mods del arma (métrica parcial orientativa).",
-        "Estimated damage impact from a better weapon base/mods (partial, rough metric).",
+        "Estimated damage impact from a better weapon base/modifiers (partial, rough metric).",
       ),
       magnitude: "high",
       riskLevel: "medium",
@@ -538,7 +538,7 @@ export const skillLinksRule: Rule = ({ profile, lang }) => {
       title: t("Completar los supports de la skill principal", "Fill in your main skill's supports"),
       action: t(
         `"${main.mainSkill}" tiene ${main.supports.length} support(s). Añade ${missing} support(s) compatible(s) con su tipo de daño (revisa las guías de referencia guardadas).`,
-        `"${main.mainSkill}" has ${main.supports.length} support(s). Add ${missing} support(s) that fit its damage type (check your saved reference guides).`,
+        `"${main.mainSkill}" has ${main.supports.length} ${main.supports.length === 1 ? "support" : "supports"}. Add ${missing} more that ${missing === 1 ? "fits" : "fit"} its damage type (check your saved reference guides).`,
       ),
       reason: t(
         `La skill principal tiene menos de ${MIN_MAIN_SUPPORTS} supports, que es un umbral heurístico del Copiloto. El efecto real depende de que cada support sea compatible y debe comprobarse en PoE2.`,
@@ -609,7 +609,7 @@ export const lifeRule: Rule = ({ profile, lang }) => {
       title: t("Subir la vida máxima", "Raise your maximum life"),
       action: t(
         `Tienes ${profile.life} de vida a nivel ${levelReading.level} (heurística orientativa: ${expected}). Prioriza mods de "+vida máxima" en casco, pecho y cinturón.`,
-        `You have ${profile.life} life at level ${levelReading.level} (rough rule of thumb: ${expected}). Prioritise "+maximum life" mods on your helmet, body armour and belt.`,
+        `You have ${profile.life} life at level ${levelReading.level} (rough rule of thumb: ${expected}). Prioritise "+maximum life" modifiers on your helmet, body armour and belt.`,
       ),
       reason: t(
         `La heurística de ${LIFE_PER_LEVEL} de vida por nivel sugiere que estás por debajo de lo sostenible para tu nivel.`,
@@ -624,7 +624,7 @@ export const lifeRule: Rule = ({ profile, lang }) => {
       riskLevel: "medium",
       riskDescription: t(
         "Sustituir casco, pecho o cinturón puede hacerte perder otros mods valiosos; compara el objeto completo antes de cambiarlo.",
-        "Replacing your helmet, body armour or belt can make you lose other valuable mods; compare the whole item before changing it.",
+        "Replacing your helmet, body armour or belt can make you lose other valuable modifiers; compare the whole item before changing it.",
       ),
       mayLoseValuableMods: true,
       irreversible: false,
@@ -831,7 +831,7 @@ export const targetGapsRule: Rule = ({ profile, target, lang }) => {
       ),
       reason: t(
         "Comparación de los mods de tu equipo con los desiredMods y las pistas del plan de referencia (matching por texto normalizado).",
-        "Comparison of your gear's mods with the reference plan's desiredMods and hints (matching by normalised text).",
+        "Comparison of your gear's modifiers with the reference plan's desiredMods and hints (matching by normalised text).",
       ),
       impactMetric: t("mods objetivo", "target mods"),
       impactDescription: t("Acercamiento a la build de referencia (métrica parcial orientativa).", "Getting closer to the reference build (partial, rough metric)."),
@@ -853,7 +853,7 @@ export const targetGapsRule: Rule = ({ profile, target, lang }) => {
         ),
         t(
           "No verificado — el matching de mods es por texto normalizado y puede producir falsos positivos/negativos.",
-          "Not verified — mod matching uses normalised text and can give false positives/negatives.",
+          "Not verified — modifier matching uses normalised text and can give false positives/negatives.",
         ),
       ],
       extraSources,

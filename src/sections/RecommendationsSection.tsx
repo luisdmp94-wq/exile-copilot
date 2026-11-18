@@ -77,7 +77,7 @@ const TEXT = texts(
     incompleteTitle: (count: number) =>
       count === 1 ? "I need 1 more detail to recommend anything" : `I need ${count} more details to recommend anything`,
     versionIssueBody:
-      "We won't make recommendations until the passive tree matches the patch in your character file.",
+      "We won't make recommendations until the passive tree matches your character's patch.",
     incompleteBody: "With what's here I can't compare your character yet without making things up. Fill this in:",
     gearOnlyBody:
       "To recommend gear I need to see at least one of your items: copy it in game with Ctrl+C and paste it. Meanwhile, the quick review already tells you what's holding you back.",
@@ -100,7 +100,7 @@ const TEXT = texts(
     journalInfluenceBlocked: "Active memory stopped parallel tasks from being created.",
     noMoreOptions:
       "No other options: the engine only returned the one you're already seeing in the open case.",
-    appliedCount: (count: number) => `${count} upgrade(s) marked as applied`,
+    appliedCount: (count: number) => `${count} ${count === 1 ? "upgrade" : "upgrades"} marked as applied`,
     appliedHint: "Mark the upgrades you've already applied to include them in the file",
     download: "Download .build",
   },
@@ -124,9 +124,9 @@ const EXPORT_TEXT = texts(
   {
     buildName: "Build name",
     ascendancy: "Ascendancy",
-    passives: (count: number) => `${count} passive(s)`,
-    skills: (count: number) => `${count} skill(s)`,
-    inventorySlots: (count: number) => `${count} inventory slot(s)`,
+    passives: (count: number) => `${count} ${count === 1 ? "passive" : "passives"}`,
+    skills: (count: number) => `${count} ${count === 1 ? "skill" : "skills"}`,
+    inventorySlots: (count: number) => `${count} inventory ${count === 1 ? "slot" : "slots"}`,
     summary: "See export report for ",
     validSchema: "File is valid against the GGG Build Planner v1 schema.",
     contains: "What the file contains",

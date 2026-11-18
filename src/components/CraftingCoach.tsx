@@ -55,6 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api, getErrorMessage } from "@/lib/api";
 import { rarityStyle } from "@/lib/equipment";
 import { useFormatLabels } from "@/lib/formatLabels";
+import { displayProfileValue } from "@/lib/format";
 import { isCraftingExampleItem } from "@/lib/craftingSimulation";
 import {
   CRAFTING_COACH_PROGRESS_VERSION,
@@ -67,7 +68,7 @@ import {
 } from "@/lib/craftingCoachProgress";
 import { cn } from "@/lib/utils";
 import type { ContextualMentorEvent } from "@/lib/contextualMentor";
-import { texts, useLang, useText } from "@/i18n/lang";
+import { quoted, texts, useLang, useText } from "@/i18n/lang";
 
 export type CoachPhase = "choose" | "recommend" | "hold" | "await-result" | "result";
 
@@ -342,7 +343,7 @@ const TEXT = texts(
     hitHarder: "Hit harder",
     improveDamageGoal: "I want to improve damage",
     damageNote:
-      "Damage can be physical, elemental, critical or speed. Pick what the next affix should add.",
+      "Damage can be physical, elemental, critical or speed. Pick what the next modifier should add.",
     moreDefence: "More defence",
     surviveMore: "Survive more",
     improveDefenceGoal: "I want to improve defence",
@@ -361,7 +362,7 @@ const TEXT = texts(
     detectedUnique: "Goal detected · unique item",
     detectedEndgame: "Goal detected · endgame project",
     dontSpendHereYet: "Don't spend on this item yet",
-    oneAffixNotEndgame: "One affix doesn't make an endgame item",
+    oneAffixNotEndgame: "One modifier doesn't make an endgame item",
     goToPlanMarket: "Go to Plan & market",
     endgameRareGoal: "I want to craft an endgame rare item",
     endgameRareNote:
@@ -375,12 +376,12 @@ const TEXT = texts(
     beforeSpending: "Before spending",
     doesItFit: "2. Does this item fit?",
     planFit: (name: string) =>
-      `Your plan sets a priority, but doesn't tie it to ${name} or show that this item can roll that mod.`,
+      `Your plan sets a priority, but doesn't tie it to ${name} or show that this item can roll that modifier.`,
     characterFit: (name: string) =>
       `Your character shows a gap, not that ${name} is the right item to fill it.`,
     lookForFocus: (label: string) => `Look for ${label} on this item`,
-    damageFocusNote: "Pick which type of damage the next affix should add.",
-    defenceFocusNote: "Pick which defence the next affix should add.",
+    damageFocusNote: "Pick which type of damage the next modifier should add.",
+    defenceFocusNote: "Pick which defence the next modifier should add.",
     chooseDamage: "Choose damage",
     chooseDefence: "Choose defence",
     damageType: "Damage type",
@@ -401,7 +402,7 @@ const TEXT = texts(
     base: "Base",
     planHasPriority: (label: string) => `This priority is in your plan: ${label}.`,
     planLacksPriority:
-      "This priority isn't among your plan's wanted mods. You can work on it, but I won't treat it as a build goal.",
+      "This priority isn't among your plan's wanted modifiers. You can work on it, but I won't treat it as a build goal.",
     stopLabel: "Stop at:",
     rollAnyShort: "any",
     rollMiddleShort: "mid+",
@@ -583,6 +584,26 @@ const PRACTICE_ITEM_TEXT = [
   "+233(168-236) a la precisión",
   '{ Mod. de sufijo "de victoria" (Grado: 7) — Vida }',
   "Ganas 8(7-9) de vida por cada enemigo asesinado",
+].join("\n");
+
+/** La misma pieza tal como la copia el juego en inglés (Marching Mace). */
+const PRACTICE_ITEM_TEXT_EN = [
+  "Item Class: One Hand Maces",
+  "Rarity: Magic",
+  "Marching Mace of Victory",
+  "--------",
+  "Physical Damage: 33-69",
+  "Critical Hit Chance: 5.00%",
+  "Attacks per Second: 1.40",
+  "--------",
+  "Requires: Level 54, 96 (unmet) Str",
+  "--------",
+  "Item Level: 64",
+  "--------",
+  '{ Prefix Modifier "" (Tier: 4) — Attack }',
+  "+233(168-236) to Accuracy Rating",
+  '{ Suffix Modifier "of Victory" (Tier: 7) — Life }',
+  "Gain 8(7-9) Life per Enemy Killed",
 ].join("\n");
 
 function DirectionButton({
@@ -1282,7 +1303,10 @@ export function CraftingCoach({
     setPracticeLoading(true);
     setPracticeError(null);
     try {
-      const imported = await api.importItemText({ text: PRACTICE_ITEM_TEXT, patch });
+      const imported = await api.importItemText({
+        text: lang === "en" ? PRACTICE_ITEM_TEXT_EN : PRACTICE_ITEM_TEXT,
+        patch,
+      });
       setWorkingItem({
         ...imported.item,
         // El id enlaza el snapshot temporal con el flujo que ya está abierto;
@@ -1364,6 +1388,7 @@ export function CraftingCoach({
       itemName: activeItem.name || activeItem.baseType,
       playerGoal: playerGoal || t.mentorDefaultGoal,
       directionLabel: next === null ? t.mentorNoDirection : COACH_DIRECTION_LABELS[next],
+      direction: next,
       nextStepTitle: nextStep.kind === "use-currency" ? nextStep.label : nextStep.headline,
       stepKind: nextStep.kind,
       focus: nextFocus,
@@ -2025,7 +2050,7 @@ export function CraftingCoach({
                         data-testid="coach-contexto-evidencia"
                       >
                         {contextSuggestion.evidence.map((line) => (
-                          <li key={line}>«{line}»</li>
+                          <li key={line}>{quoted(line, lang)}</li>
                         ))}
                       </ul>
                     )}
@@ -2193,7 +2218,7 @@ export function CraftingCoach({
             >
               {hasCraftingCharacterContext(profile) ? (
                 <p>
-                  <span className="font-semibold">{t.characterLabel}</span> {profile?.name} · {t.activeCharacter}
+                  <span className="font-semibold">{t.characterLabel}</span> {profile ? displayProfileValue(profile.name) : null} · {t.activeCharacter}
                   {target ? t.planName(target.name) : ""}
                   {budget === null
                     ? t.noBudget

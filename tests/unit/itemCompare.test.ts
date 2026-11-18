@@ -303,7 +303,7 @@ describe("compareItems", () => {
     expect(result.winner).toBe("a");
     const row = (id: string) => result.rows.find((item) => item.id === id);
     expect(row("skills")).toMatchObject({ label: "Skill levels", a: "+1 minions", b: "none" });
-    expect(row("res")).toMatchObject({ a: "+10 % cold", b: "+6 % fire" });
+    expect(row("res")).toMatchObject({ a: "+10% cold", b: "+6% fire" });
     expect(row("regen")).toMatchObject({ b: "+1.2" });
     expect(result.reasons[0]).toBe("“Plague Visor” gives you more skill levels, resistances, evasion and attributes.");
     expect(result.reasons[1]).toMatch(/^You lose maximum life/);
