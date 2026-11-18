@@ -37,6 +37,13 @@ if (existsSync(distDir)) {
       },
     }),
   );
+  // Un archivo de /assets que no existe (de un despliegue anterior, por
+  // ejemplo) es un 404 de verdad. Si devolviéramos index.html, el navegador lo
+  // leería como JavaScript y la página entera se caería.
+  app.use("/assets", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(404).type("text/plain").send("Not found");
+  });
   // Guías por acto: versión ya escrita en HTML (scripts/prerender-guides.ts)
   // para que los buscadores lean el texto sin ejecutar JavaScript.
   app.use((req, res, next) => {

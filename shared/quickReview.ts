@@ -52,6 +52,8 @@ export interface QuickReviewResult {
   top: QuickReviewFinding[];
   /** Cuántos problemas encontró en total (puede haber más de 3). */
   total: number;
+  /** Los que no caben en los 3 primeros, por si el jugador quiere verlos. */
+  rest: QuickReviewFinding[];
   /** Lo que no se pudo revisar por falta de datos. */
   missing: string[];
 }
@@ -277,5 +279,5 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
   }
 
   findings.sort((a, b) => b.severity - a.severity);
-  return { top: findings.slice(0, 3), total: findings.length, missing };
+  return { top: findings.slice(0, 3), rest: findings.slice(3), total: findings.length, missing };
 }

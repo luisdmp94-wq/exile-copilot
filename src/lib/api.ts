@@ -91,6 +91,21 @@ import { ScreenshotReadResponseSchema, type ScreenshotReadResponse } from "@shar
 type SaveCharacterResponse = z.infer<typeof SaveCharacterResponseSchema>;
 
 export const MENTOR_REQUEST_TIMEOUT_MS = 35_000;
+/** Lo que espera la portada antes de rendirse y enseñar el aviso con «Reintentar». */
+export const STARTUP_REQUEST_TIMEOUT_MS = 10_000;
+const STARTUP = { timeoutMs: STARTUP_REQUEST_TIMEOUT_MS };
+
+function slowMessage(): string {
+  return pageLang() === "en"
+    ? "The server took too long to answer. Please try again."
+    : "El servidor tardó demasiado en responder. Inténtalo de nuevo.";
+}
+
+function offlineMessage(): string {
+  return pageLang() === "en"
+    ? "We couldn't reach Exile Copilot. Check your connection and try again in a moment."
+    : "No hemos podido conectar con Exile Copilot. Revisa tu conexión y vuelve a intentarlo en un momento.";
+}
 
 type RequestOptions = {
   timeoutMs?: number;
@@ -181,10 +196,7 @@ async function request<S extends z.ZodTypeAny>(
         timedOut = true;
         timeoutController.abort();
         reject(
-          new ApiRequestError(
-            options.timeoutMessage ??
-              "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
-          ),
+          new ApiRequestError(options.timeoutMessage ?? slowMessage()),
         );
       }, options.timeoutMs);
     });
@@ -238,13 +250,9 @@ async function request<S extends z.ZodTypeAny>(
   } catch (error) {
     if (error instanceof ApiRequestError) throw error;
     if (timedOut) {
-      throw new ApiRequestError(
-        options.timeoutMessage ?? "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
-      );
+      throw new ApiRequestError(options.timeoutMessage ?? slowMessage());
     }
-    throw new ApiRequestError(
-      "No se pudo conectar con el servidor. ¿Está el backend en marcha?",
-    );
+    throw new ApiRequestError(offlineMessage());
   } finally {
     if (timeout !== undefined) clearTimeout(timeout);
     sourceSignal?.removeEventListener("abort", forwardAbort);
@@ -271,9 +279,10 @@ function jsonInit(
 }
 
 export const api = {
-  health: (): Promise<HealthResponse> => request("/api/health", HealthResponseSchema),
+  health: (): Promise<HealthResponse> =>
+    request("/api/health", HealthResponseSchema, undefined, STARTUP),
 
-  meta: (): Promise<MetaResponse> => request("/api/meta", MetaResponseSchema),
+  meta: (): Promise<MetaResponse> => request("/api/meta", MetaResponseSchema, undefined, STARTUP),
 
   importBuild: (payload: ImportBuildRequest): Promise<ImportBuildResponse> =>
     request("/api/import/build", ImportBuildResponseSchema, jsonInit(payload)),
@@ -300,10 +309,10 @@ export const api = {
     request("/api/character/demo", DemoCharacterResponseSchema),
 
   getCharacter: (id: string): Promise<GetCharacterResponse> =>
-    request(`/api/character/${encodeURIComponent(id)}`, GetCharacterResponseSchema),
+    request(`/api/character/${encodeURIComponent(id)}`, GetCharacterResponseSchema, undefined, STARTUP),
 
   recentCharacter: (): Promise<RecentCharacterResponse> =>
-    request("/api/visitor/character/recent", RecentCharacterResponseSchema),
+    request("/api/visitor/character/recent", RecentCharacterResponseSchema, undefined, STARTUP),
 
   savedCharacters: (offset = 0, limit = 10): Promise<SavedCharactersResponse> =>
     request(

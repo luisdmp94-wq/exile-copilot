@@ -34,27 +34,30 @@ interface WelcomePanelProps {
 }
 
 const INTENCIONES = [
-  { icon: TrendingUp, action: "import" as const },
   { icon: UserRoundPlus, action: "new" as const },
+  { icon: TrendingUp, action: "import" as const },
   { icon: Hammer, action: "item" as const },
 ] as const;
+
+/** La entrada grande: la que sirve a quien empieza (no pide Path of Building). */
+const PRIMARY_ACTION = "new";
 
 const TEXT = texts(
   {
     intents: {
       import: {
-        titulo: "Añadir mi personaje",
-        texto: "Trae lo que ya juegas. El Mentor encontrará una sola mejora y te dirá cómo comprobarla dentro de PoE2.",
-        cta: "Añadir personaje",
+        titulo: "Importar de Path of Building",
+        texto: "Si ya usas PoB2, pega tu código y lo traigo entero.",
+        cta: "Importar",
       },
       new: {
-        titulo: "Crearlo manualmente",
-        texto: "Escribe solo lo que sabes; podrás completarlo después.",
-        cta: "Crear personaje",
+        titulo: "Empieza con tu personaje",
+        texto: "Clase, nivel y habilidades: 1 minuto. Te digo qué te frena y cómo arreglarlo en el juego.",
+        cta: "Crear mi personaje",
       },
       item: {
         titulo: "Analizar un objeto",
-        texto: "Pega una pieza de PoE2 y aprende qué significa antes de gastar.",
+        texto: "Pega una pieza de PoE2 y te digo si merece la pena gastar en ella.",
         cta: "Pegar un objeto",
       },
     },
@@ -76,18 +79,18 @@ const TEXT = texts(
   {
     intents: {
       import: {
-        titulo: "Add my character",
-        texto: "Bring what you already play. The Mentor finds one single improvement and tells you how to check it inside PoE2.",
-        cta: "Add character",
+        titulo: "Import from Path of Building",
+        texto: "If you already use PoB2, paste your code and I'll bring it all in.",
+        cta: "Import",
       },
       new: {
-        titulo: "Create it by hand",
-        texto: "Write only what you know; you can fill in the rest later.",
-        cta: "Create character",
+        titulo: "Start with your character",
+        texto: "Class, level and skills: 1 minute. I'll tell you what's holding you back and how to fix it in game.",
+        cta: "Create my character",
       },
       item: {
         titulo: "Check an item",
-        texto: "Paste a PoE2 item and learn what it means before you spend anything.",
+        texto: "Paste a PoE2 item and I'll tell you if it's worth spending on.",
         cta: "Paste an item",
       },
     },
@@ -174,8 +177,9 @@ export function WelcomePanel({
                     : "bienvenida-objeto"
               }
               data-intent={action}
+              data-primary={action === PRIMARY_ACTION ? "true" : undefined}
               className={`group flex flex-col items-start rounded-md p-4 text-left transition-all hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none motion-reduce:transition-none sm:p-5 ${
-                action === "import"
+                action === PRIMARY_ACTION
                   ? "superficie-accion gap-2 border-primary/70 bg-primary/[0.08] sm:col-span-2 lg:min-h-32 lg:flex-row lg:items-center lg:gap-3"
                   : "min-h-24 gap-2 border border-border/80 bg-background/65 hover:border-primary/50 hover:bg-primary/[0.04]"
               }`}
@@ -183,12 +187,12 @@ export function WelcomePanel({
               <span className="grid size-9 place-items-center rounded-full border border-primary/35 bg-primary/10 text-primary sm:size-10">
                 <Icon className="size-4 sm:size-5" aria-hidden="true" />
               </span>
-              <span className={action === "import" ? "flex flex-1 flex-col gap-1" : "flex flex-col gap-0.5"}>
+              <span className={action === PRIMARY_ACTION ? "flex flex-1 flex-col gap-1" : "flex flex-col gap-0.5"}>
                 <span className="text-lg font-semibold text-foreground sm:text-xl">{titulo}</span>
                 <span className="text-xs leading-relaxed text-muted-foreground sm:text-sm">{texto}</span>
               </span>
               <span className={`flex items-center gap-2 text-xs font-semibold ${
-                action === "import"
+                action === PRIMARY_ACTION
                   ? "mt-auto min-h-11 rounded-md bg-primary px-4 text-primary-foreground lg:mt-0"
                   : "mt-auto text-primary"
               }`}>

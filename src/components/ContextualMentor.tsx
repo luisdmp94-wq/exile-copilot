@@ -411,6 +411,27 @@ export function ContextualMentor({
     return () => window.clearTimeout(timeout);
   }, [speechKey, speechPriority, speechVisible]);
 
+  /*
+   * El bocadillo flota encima de la página y puede tapar un botón. En cuanto
+   * el jugador se pone a moverse por la página (rueda o dedo), se aparta: el
+   * mensaje sigue dentro del panel de la mascota. Solo cuenta el gesto real,
+   * no el desplazamiento que hace la propia web al llevarte a algo.
+   */
+  useEffect(() => {
+    if (!speechVisible) return;
+    const shownAt = Date.now();
+    const onUserScroll = () => {
+      if (Date.now() - shownAt < 1500) return;
+      setAcknowledgedSpeechKeys((current) => rememberSpeechKey(current, speechKey));
+    };
+    window.addEventListener("wheel", onUserScroll, { passive: true });
+    window.addEventListener("touchmove", onUserScroll, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", onUserScroll);
+      window.removeEventListener("touchmove", onUserScroll);
+    };
+  }, [speechKey, speechVisible]);
+
   const acknowledgeSpeech = () => {
     setAcknowledgedSpeechKeys((current) => rememberSpeechKey(current, speechKey));
   };

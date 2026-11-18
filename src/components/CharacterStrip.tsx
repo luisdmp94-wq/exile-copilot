@@ -1,5 +1,7 @@
 import { Heart } from "lucide-react";
-import type { CharacterProfile, ResistanceKind } from "@shared/domain.js";
+import { readCharacterLevel, type CharacterProfile, type ResistanceKind } from "@shared/domain.js";
+
+const UNKNOWN_CLASS = new Set(["", "desconocida", "desconocido", "unknown"]);
 import { displayProfileValue, formatCharacterLevel, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { texts, useText } from "@/i18n/lang";
@@ -18,6 +20,7 @@ const TEXT = texts(
     unknownLeague: "desconocida",
     unknownPatch: "desconocido",
     life: "Vida",
+    draft: "Solo con objetos · añade tu clase y tu nivel cuando quieras",
   },
   {
     res: { fire: "Fire", cold: "Cold", lightning: "Lightning", chaos: "Chaos" } as Record<ResistanceKind, string>,
@@ -32,6 +35,7 @@ const TEXT = texts(
     unknownLeague: "unknown",
     unknownPatch: "unknown",
     life: "Life",
+    draft: "Items only · add your class and level whenever you like",
   },
 );
 type StripText = (typeof TEXT)["es"];
@@ -89,13 +93,19 @@ interface CharacterStripProps {
  */
 export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
   const t = useText(TEXT);
-  const subtitle = [
-    displayProfileValue(profile.characterClass),
-    profile.ascendancy,
-    t.level(formatCharacterLevel(profile)),
-  ]
-    .filter((part) => part !== null && part !== undefined && part !== "")
-    .join(" · ");
+  // «Analizar un objeto» crea un borrador sin clase ni nivel: se dice tal cual
+  // en vez de «Desconocida · nivel desconocido».
+  const classKnown = !UNKNOWN_CLASS.has(profile.characterClass.trim().toLocaleLowerCase("es"));
+  const draft = !classKnown && !readCharacterLevel(profile).known;
+  const subtitle = draft
+    ? t.draft
+    : [
+        displayProfileValue(profile.characterClass),
+        profile.ascendancy,
+        t.level(formatCharacterLevel(profile)),
+      ]
+        .filter((part) => part !== null && part !== undefined && part !== "")
+        .join(" · ");
 
   return (
     <section

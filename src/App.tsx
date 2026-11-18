@@ -187,8 +187,8 @@ const APP_TEXT = texts(
   {
     backArea: "Volver al área anterior",
     backCharacters: "Volver a personajes",
-    metaErrorTitle: "No se pudo cargar la configuración del servidor",
-    metaErrorText: ". La interfaz sigue disponible, pero algunas listas (ligas, objetivos) pueden estar incompletas.",
+    metaErrorTitle: "No se pudo cargar una parte de la web",
+    metaErrorText: " Puedes seguir usándola; algunas listas (ligas, objetivos) pueden salir incompletas.",
     reconnecting: "Reconectando…",
     retry: "Reintentar conexión",
     areas: "Áreas de Exile Copilot",
@@ -234,8 +234,8 @@ const APP_TEXT = texts(
   {
     backArea: "Back to the previous area",
     backCharacters: "Back to characters",
-    metaErrorTitle: "Couldn't load the server settings",
-    metaErrorText: ". The site still works, but some lists (leagues, goals) may be incomplete.",
+    metaErrorTitle: "Part of the site didn't load",
+    metaErrorText: " You can keep using it; some lists (leagues, goals) may be incomplete.",
     reconnecting: "Reconnecting…",
     retry: "Retry connection",
     areas: "Exile Copilot areas",
@@ -962,6 +962,15 @@ export default function App() {
       }
     : null;
 
+  /** Lleva al jugador a la revisión rápida del expediente y la despliega. */
+  const openQuickReview = () => {
+    navigateWorkspace("expediente");
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event(OPEN_REVIEW_EVENT));
+      document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  };
+
   const startManualJourney = (intent: "new" | "item") => {
     if (!character.profile) {
       character.startManual({
@@ -1550,7 +1559,11 @@ export default function App() {
         onBack={goBackWorkspace}
         canGoBack={workspaceHistory.length > 0 || hasProfile}
         backLabel={workspaceHistory.length > 0 ? t.backArea : t.backCharacters}
-        onAddCharacter={() => openEditor(true)}
+        onAddCharacter={() => {
+          // Igual que la portada: el alta corta, que no pide Path of Building.
+          setQuickCompleting(false);
+          setQuickCreateOpen(true);
+        }}
         onOpenMentor={openMentorConversation}
       />
 
@@ -1561,7 +1574,7 @@ export default function App() {
         style={{ paddingBottom: "calc(var(--mentor-inset, 6rem) + 1rem)" }}
       >
         {metaError && (
-          <Alert variant="destructive" className="mb-6" data-testid="meta-error">
+          <Alert className="mb-6 border-amber-500/45 bg-amber-500/8" data-testid="meta-error">
             <AlertTitle>{t.metaErrorTitle}</AlertTitle>
             <AlertDescription>
               <p>
@@ -2374,11 +2387,7 @@ export default function App() {
           setContextualCollapsed(true);
           if (kind === "damage") {
             // La revisión rápida mira lo que más frena el daño de un novato.
-            navigateWorkspace("expediente");
-            window.setTimeout(() => {
-              window.dispatchEvent(new Event(OPEN_REVIEW_EVENT));
-              document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }, 120);
+            openQuickReview();
             return;
           }
           // «Me matan» → comprobación del acto (resistencias y recompensas);
@@ -2396,14 +2405,19 @@ export default function App() {
         onOpenChange={setQuickCreateOpen}
         initial={quickCompleting ? quickInitial : null}
         saving={character.busy === "save"}
-        onCreate={async (input) =>
-          (quickCompleting
-            ? await character.completeQuick(input)
-            : await character.createQuick(input, {
-                league: league || meta?.leagues[0] || "Desconocida",
-                patch: patch || health?.patch.content || "Desconocido",
-              })) !== null
-        }
+        onCreate={async (input) => {
+          const created =
+            (quickCompleting
+              ? await character.completeQuick(input)
+              : await character.createQuick(input, {
+                  league: league || meta?.leagues[0] || "Desconocida",
+                  patch: patch || health?.patch.content || "Desconocido",
+                })) !== null;
+          // Sin equipo todavía no hay recomendaciones de equipo, pero la
+          // revisión rápida ya sabe qué le frena: se abre rellena.
+          if (created && !quickCompleting) openQuickReview();
+          return created;
+        }}
         onOpenFullEditor={() => {
           setQuickCreateOpen(false);
           if (quickCompleting) openEditor();

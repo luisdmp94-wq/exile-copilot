@@ -16,6 +16,9 @@ import { OBSERVED_CRAFTING_ACTIONS } from "@shared/craftingActions.js";
 import { craftingBuildIntentLabel } from "@shared/craftingBuildIntent.js";
 import { CURRENCY_LABELS, GOAL_LABELS, SLOT_LABELS } from "./format.js";
 
+/** Cómo llega «equipo» en la lista de lo que falta (en minúsculas, en los dos idiomas). */
+export const GEAR_LABELS = new Set(["equipo", "gear"]);
+
 export type ContextualMentorSource = "guide" | "engine" | "market" | "warning";
 
 export interface ContextualMentorAsk {
@@ -167,12 +170,14 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
       return {
         id: `profile-incomplete:${event.profileName}:${event.missing.join("|")}`,
         source: "warning",
-        eyebrow: "Expediente parcial",
-        title: `${event.profileName} todavía no está listo`,
+        eyebrow: "Faltan datos",
+        title: `Me faltan datos de ${event.profileName}`,
         message:
-          event.missing.length > 0
-            ? `Faltan ${event.missing.join(", ")}. Completa esos datos observados antes de pedirme una prioridad del personaje.`
-            : "Completa los datos observados del personaje antes de pedirme una prioridad.",
+          event.missing.length === 1 && GEAR_LABELS.has(event.missing[0] ?? "")
+            ? "Para recomendarte equipo necesito ver al menos una pieza tuya. Mientras tanto, la revisión rápida del expediente ya te dice qué te frena."
+            : event.missing.length > 0
+              ? `Me falta: ${event.missing.join(", ")}. Complétalo y te digo qué mejorar primero.`
+              : "Completa los datos de tu personaje y te digo qué mejorar primero.",
         ask: null,
       };
     case "workspace":

@@ -53,6 +53,8 @@ describe("revisión rápida: la Liche de Luis antes de arreglarla (17-11-2026)",
     const result = reviewCharacter(LICH_BEFORE);
     expect(result.top.map((finding) => finding.id)).toEqual(["weapon", "contagion", "gem"]);
     expect(result.total).toBeGreaterThanOrEqual(5);
+    // Lo que no cabe en los 3 primeros también se puede ver.
+    expect(result.rest).toHaveLength(result.total - 3);
     expect(result.top[0]?.title).toBe("Tu arma va 14 niveles por detrás de ti");
     expect(result.top[2]?.title).toBe("Tu gema principal está a nivel 7 y puedes llevarla a 9");
   });

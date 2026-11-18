@@ -39,8 +39,13 @@ const TEXT = texts(
     otherSkillsHint: "Separadas por comas",
     review: "Revisar",
     resultTitle: "Lo que más te frena",
-    nothing: "Con estos datos no veo nada grave. Si aun así te cuesta, pregúntale al Mentor.",
-    more: (count: number) => `Hay ${count} cosa${count === 1 ? "" : "s"} más, menos urgente${count === 1 ? "" : "s"}: arregla primero estas.`,
+    nothing: "Con estos datos no veo nada grave.",
+    nothingAsk: " Si aun así te cuesta, pregúntale al Mentor.",
+    tooLittle: "Necesito un poco más: escribe al menos tu nivel y tus resistencias (tecla C en el juego).",
+    invalid: (fields: string) => `Revisa estos números, no pueden ser así: ${fields}.`,
+    range: (min: number, max: number) => `entre ${min} y ${max}`,
+    more: (count: number) => `Hay ${count} cosa${count === 1 ? "" : "s"} más, menos urgente${count === 1 ? "" : "s"}.`,
+    showMore: "Ver también",
     missing: (list: string) => `No he podido revisar: ${list}.`,
     ask: "Preguntar al Mentor sobre esto",
     askQuestion: (lines: string) => `Mi revisión rápida dice: ${lines}. ¿Por dónde empiezo y cómo lo hago?`,
@@ -85,8 +90,13 @@ const TEXT = texts(
     otherSkillsHint: "Comma separated",
     review: "Review",
     resultTitle: "What's holding you back",
-    nothing: "With this data I don't see anything serious. If it still feels hard, ask the Mentor.",
-    more: (count: number) => `There ${count === 1 ? "is" : "are"} ${count} more, less urgent: fix these first.`,
+    nothing: "With this data I don't see anything serious.",
+    nothingAsk: " If it still feels hard, ask the Mentor.",
+    tooLittle: "I need a bit more: enter at least your level and your resistances (C key in game).",
+    invalid: (fields: string) => `Check these numbers, they can't be right: ${fields}.`,
+    range: (min: number, max: number) => `between ${min} and ${max}`,
+    more: (count: number) => `There ${count === 1 ? "is" : "are"} ${count} more, less urgent.`,
+    showMore: "Show them too",
     missing: (list: string) => `I couldn't check: ${list}.`,
     ask: "Ask the Mentor about this",
     askQuestion: (lines: string) => `My quick review says: ${lines}. Where do I start and how?`,
@@ -168,26 +178,51 @@ function readStored(): Partial<Form> {
   }
 }
 
-const numberOrNull = (value: string): number | null => {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
+/**
+ * Lo que puede valer cada número en PoE2 (con margen). Fuera de rango no se
+ * usa: se avisa al jugador en vez de darle un consejo con basura.
+ */
+const RANGES: Partial<Record<keyof Form, [number, number]>> = {
+  level: [1, 100],
+  gemLevel: [1, 40],
+  weapon: [1, 100],
+  fire: [-200, 90],
+  cold: [-200, 90],
+  lightning: [-200, 90],
 };
+
+/** Solo enteros escritos tal cual («1e5» o «3.5» no valen). */
+const parseWhole = (value: string): number | null => {
+  const text = value.trim();
+  return /^-?\d{1,4}$/.test(text) ? Number(text) : null;
+};
+
+function fieldIsInvalid(form: Form, key: keyof Form): boolean {
+  const text = form[key].trim();
+  if (text === "") return false;
+  const range = RANGES[key];
+  const value = parseWhole(text);
+  return value === null || (range !== undefined && (value < range[0] || value > range[1]));
+}
+
+const numberOrNull = (form: Form, key: keyof Form): number | null =>
+  fieldIsInvalid(form, key) ? null : parseWhole(form[key]);
 
 function toInput(form: Form): QuickReviewInput {
   const act: QuickReviewAct | null =
     form.act === "maps" ? "maps" : ["1", "2", "3", "4"].includes(form.act) ? (Number(form.act) as QuickReviewAct) : null;
   return {
-    level: numberOrNull(form.level),
+    level: numberOrNull(form, "level"),
     act,
     mainSkill: form.mainSkill.trim() || null,
-    mainSkillGemLevel: numberOrNull(form.gemLevel),
-    weaponItemLevel: numberOrNull(form.weapon),
+    mainSkillGemLevel: numberOrNull(form, "gemLevel"),
+    weaponItemLevel: numberOrNull(form, "weapon"),
     resistances: {
-      fire: numberOrNull(form.fire),
-      cold: numberOrNull(form.cold),
-      lightning: numberOrNull(form.lightning),
+      fire: numberOrNull(form, "fire"),
+      cold: numberOrNull(form, "cold"),
+      lightning: numberOrNull(form, "lightning"),
     },
-    ascendancyPoints: numberOrNull(form.ascPoints),
+    ascendancyPoints: numberOrNull(form, "ascPoints"),
     ascendancy: form.ascendancy === "lich" ? "Lich" : form.ascendancy === "other" ? "other" : null,
     usesCurse: form.curse === "yes" ? true : form.curse === "no" ? false : null,
     otherSkills: form.otherSkills
@@ -212,8 +247,14 @@ interface QuickReviewCardProps {
 export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
-  const [form, setForm] = useState<Form>(() => ({ ...EMPTY, ...fromProfile(profile), ...readStored() }));
+  const [form, setForm] = useState<Form>(() => {
+    const stored = Object.fromEntries(
+      Object.entries(readStored()).filter(([, value]) => typeof value === "string" && value.trim() !== ""),
+    ) as Partial<Form>;
+    return { ...EMPTY, ...fromProfile(profile), ...stored };
+  });
   const [reviewed, setReviewed] = useState(false);
+  const [showRest, setShowRest] = useState(false);
   // En móvil empieza plegada: así el equipo sigue en la primera pantalla. En
   // ordenador, abierta. La mascota («No hago daño») la abre con un evento.
   const [wide, setWide] = useState(
@@ -241,6 +282,20 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const [readSkills, setReadSkills] = useState<ScreenshotReadResponse["skills"]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const result = useMemo(() => reviewCharacter(toInput(form), lang), [form, lang]);
+  const invalidKeys = (Object.keys(RANGES) as Array<keyof Form>).filter((key) => fieldIsInvalid(form, key));
+  const resistanceCount = [form.fire, form.cold, form.lightning].filter(
+    (value, index) => value.trim() !== "" && !fieldIsInvalid(form, (["fire", "cold", "lightning"] as const)[index]),
+  ).length;
+  /** Sin nivel ni resistencias, «nada grave» sería mentira: se piden datos. */
+  const tooLittle = numberOrNull(form, "level") === null && resistanceCount === 0;
+  const FIELD_LABEL: Partial<Record<keyof Form, string>> = {
+    level: t.level,
+    gemLevel: t.gemLevel,
+    weapon: t.weapon,
+    fire: t.fire,
+    cold: t.cold,
+    lightning: t.lightning,
+  };
 
   const set = (key: keyof Form) => (value: string) => {
     setForm((current) => {
@@ -366,14 +421,20 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
       <Input
         type="number"
         inputMode="numeric"
-        min={-100}
-        max={100}
+        min={RANGES[key]?.[0] ?? 0}
+        max={RANGES[key]?.[1] ?? 100}
+        step={1}
         value={form[key]}
         onChange={(event) => set(key)(event.target.value)}
-        className="h-9"
+        className={`h-9 ${reviewed && fieldIsInvalid(form, key) ? "border-rose-400/70" : ""}`}
+        aria-invalid={reviewed && fieldIsInvalid(form, key) ? true : undefined}
         data-testid={`revision-${key}`}
       />
-      {hint && <span>{hint}</span>}
+      {reviewed && fieldIsInvalid(form, key) && RANGES[key] ? (
+        <span className="text-rose-300">{t.range(RANGES[key][0], RANGES[key][1])}</span>
+      ) : (
+        hint && <span>{hint}</span>
+      )}
     </label>
   );
 
@@ -541,8 +602,18 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
 
       {reviewed && (
         <div className="mt-4 border-t border-border pt-4" data-testid="revision-resultado" aria-live="polite">
-          {result.top.length === 0 ? (
-            <p className="text-sm text-foreground">{t.nothing}</p>
+          {invalidKeys.length > 0 && (
+            <p className="mb-3 text-sm text-rose-300" role="alert" data-testid="revision-invalido">
+              {t.invalid(invalidKeys.map((key) => FIELD_LABEL[key]).join(", "))}
+            </p>
+          )}
+          {result.top.length === 0 && tooLittle ? (
+            <p className="text-sm text-foreground" data-testid="revision-pocos-datos">{t.tooLittle}</p>
+          ) : result.top.length === 0 ? (
+            <p className="text-sm text-foreground">
+              {t.nothing}
+              {onAskMentor ? t.nothingAsk : ""}
+            </p>
           ) : (
             <>
               <p className="text-sm font-semibold text-foreground">{t.resultTitle}</p>
@@ -569,8 +640,28 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
                   </li>
                 ))}
               </ol>
-              {result.total > result.top.length && (
-                <p className="mt-3 text-xs text-muted-foreground">{t.more(result.total - result.top.length)}</p>
+              {result.rest.length > 0 && !showRest && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {t.more(result.rest.length)}{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-primary underline-offset-2 hover:underline"
+                    onClick={() => setShowRest(true)}
+                    data-testid="revision-ver-mas"
+                  >
+                    {t.showMore}
+                  </button>
+                </p>
+              )}
+              {showRest && result.rest.length > 0 && (
+                <ul className="mt-3 space-y-2 border-t border-border/60 pt-3" data-testid="revision-resto">
+                  {result.rest.map((finding) => (
+                    <li key={finding.id} className="text-sm">
+                      <p className="font-semibold text-foreground">{finding.title}</p>
+                      <p className="mt-0.5 leading-relaxed text-muted-foreground">{finding.action}</p>
+                    </li>
+                  ))}
+                </ul>
               )}
             </>
           )}

@@ -542,7 +542,7 @@ async function runFlow(mode, port) {
     );
     const mobileWelcome = await page.evaluate(() => {
       const title = document.querySelector("#bienvenida-titulo");
-      const primary = document.querySelector('[data-testid="bienvenida-importar"]');
+      const primary = document.querySelector('[data-testid="intenciones-iniciales"] [data-primary="true"]');
       const lineHeight = title ? Number(getComputedStyle(title).lineHeight.replace("px", "")) : 1;
       return {
         titleLines: title ? Math.round(title.getBoundingClientRect().height / lineHeight) : 99,
@@ -1780,18 +1780,20 @@ async function runFlow(mode, port) {
     );
 
     // Un fallo real de descarga diferida no puede dejar una pantalla negra.
-    // Se bloquea el chunk de Crafting en un contexto limpio, se comprueba la
-    // recuperación y después se permite la recarga normal.
+    // La primera vez (lo normal tras subir una versión nueva) la página se
+    // recarga sola; si vuelve a fallar enseguida, no entra en bucle: enseña la
+    // recuperación con su botón.
     const recoveryContext = await browser.newContext({ locale: "es-ES" });
     const recoveryPage = await recoveryContext.newPage();
-    let blockedCraftingModule = false;
+    let blockedCraftingModule = 0;
+    let craftingBlockLimit = 1;
     const blockCrafting = async (route) => {
       const url = route.request().url();
       if (
-        !blockedCraftingModule &&
+        blockedCraftingModule < craftingBlockLimit &&
         (url.includes("CraftingSection") || url.includes("/src/sections/CraftingSection.tsx"))
       ) {
-        blockedCraftingModule = true;
+        blockedCraftingModule += 1;
         await route.abort("failed");
         return;
       }
@@ -1799,13 +1801,27 @@ async function runFlow(mode, port) {
     };
     await recoveryPage.route("**/*", blockCrafting);
     await recoveryPage.goto(BASE, { waitUntil: "networkidle" });
+    const reloaded = recoveryPage.waitForEvent("load", { timeout: 15000 });
     await recoveryPage.getByTestId("tab-crafting").click();
+    await reloaded;
+    // Tras recargar vuelve a Crafting y esta vez el trozo sí llega.
+    await recoveryPage.waitForSelector('[data-testid="tab-crafting"][data-state="active"]', { timeout: 20000 });
+    await recoveryPage.waitForLoadState("networkidle");
+    check(
+      `[${mode}] un trozo de una versión anterior recarga la página sola`,
+      blockedCraftingModule === 1 &&
+        (await recoveryPage.getByTestId("recuperacion-interfaz").count()) === 0,
+    );
+    // Si sigue fallando (sin red, servidor roto), no recarga en bucle.
+    craftingBlockLimit = 99;
+    await recoveryPage.reload({ waitUntil: "load" });
     const recovery = recoveryPage.getByTestId("recuperacion-interfaz");
     await recovery.waitFor({ timeout: 15000 });
+    await recoveryPage.waitForTimeout(1500);
     check(
-      `[${mode}] un módulo roto muestra recuperación en vez de una pantalla vacía`,
-      blockedCraftingModule &&
-        (await recovery.getByText("La interfaz se ha detenido").isVisible()) &&
+      `[${mode}] si vuelve a fallar enseguida, muestra recuperación en vez de recargar en bucle`,
+      blockedCraftingModule === 2 &&
+        (await recovery.getByText("La página se ha detenido").isVisible()) &&
         (await recoveryPage.getByTestId("recuperacion-recargar").isVisible()),
     );
     await recoveryPage.unroute("**/*", blockCrafting);

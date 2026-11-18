@@ -342,7 +342,7 @@ describe("mentor contextual", () => {
     });
 
     expect(cue.source).toBe("warning");
-    expect(cue.title).toContain("todavía no está listo");
+    expect(cue.title).toBe("Me faltan datos de Titan Warrior");
     expect(cue.message).toContain("clase, nivel, equipo");
     expect(cue.ask).toBeNull();
   });

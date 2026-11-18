@@ -14,14 +14,14 @@ const TEXT = texts(
   {
     partialAvailable: "Análisis parcial disponible",
     readyToAnalyse: "Listo para analizar",
-    incompleteFile: "Expediente incompleto",
+    incompleteFile: "Faltan datos",
     whatCanICheck: "¿Qué puedo comprobar ya?",
     whatToImprove: "¿Qué mejoro ahora?",
     completeCharacter: "Completa tu personaje",
     partialIntro: (count: number) =>
       `Solo vemos ${count} ${count === 1 ? "pieza" : "piezas"}. El Mentor puede usar las estadísticas y habilidades importadas, pero no tratará el equipo ausente como analizado.`,
     readyIntro: "El mentor revisará tu personaje y elegirá una sola prioridad.",
-    needDataIntro: "Necesitamos datos observados de PoE2 antes de recomendar una mejora.",
+    needDataIntro: "Con lo que tengo aún no puedo recomendarte una mejora sin inventar. Abajo te digo qué falta.",
     addMoreItems:
       "Añade más piezas para ampliar el análisis del equipo. La orientación actual seguirá marcada como parcial.",
     nextStepPartial: (count: number) =>
@@ -42,14 +42,14 @@ const TEXT = texts(
   {
     partialAvailable: "Partial analysis available",
     readyToAnalyse: "Ready to analyse",
-    incompleteFile: "Character incomplete",
+    incompleteFile: "Missing details",
     whatCanICheck: "What can I check already?",
     whatToImprove: "What should I improve now?",
     completeCharacter: "Complete your character",
     partialIntro: (count: number) =>
       `We only see ${count} ${count === 1 ? "item" : "items"}. The Mentor can use your imported stats and skills, but it won't treat the missing gear as analysed.`,
     readyIntro: "The mentor will review your character and pick a single priority.",
-    needDataIntro: "We need data seen in PoE2 before we can suggest an upgrade.",
+    needDataIntro: "With what I have I can't suggest an upgrade without guessing. Below I tell you what's missing.",
     addMoreItems:
       "Add more items to widen the gear analysis. The current advice will stay marked as partial.",
     nextStepPartial: (count: number) =>

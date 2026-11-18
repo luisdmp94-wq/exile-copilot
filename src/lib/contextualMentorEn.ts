@@ -1,5 +1,5 @@
 import type { ItemSlot } from "@shared/domain.js";
-import type { ContextualMentorCue, ContextualMentorEvent } from "./contextualMentor";
+import { GEAR_LABELS, type ContextualMentorCue, type ContextualMentorEvent } from "./contextualMentor";
 
 /**
  * Mensajes de la mascota del Mentor en inglés. Solo los de las partes ya
@@ -58,12 +58,14 @@ export function englishMentorCue(event: ContextualMentorEvent): ContextualMentor
       return {
         id: `profile-incomplete:${event.profileName}:${event.missing.join("|")}`,
         source: "warning",
-        eyebrow: "Partial file",
-        title: `${event.profileName} isn't ready yet`,
+        eyebrow: "Missing details",
+        title: `I need more details on ${event.profileName}`,
         message:
-          event.missing.length > 0
-            ? `Missing: ${event.missing.join(", ")}. Fill in those observed details before asking me for a character priority.`
-            : "Fill in your character's observed details before asking me for a priority.",
+          event.missing.length === 1 && GEAR_LABELS.has(event.missing[0] ?? "")
+            ? "To recommend gear I need to see at least one of your items. Meanwhile, the quick review already tells you what's holding you back."
+            : event.missing.length > 0
+              ? `Still missing: ${event.missing.join(", ")}. Fill it in and I'll tell you what to improve first.`
+              : "Fill in your character's details and I'll tell you what to improve first.",
         ask: null,
       };
     case "workspace":

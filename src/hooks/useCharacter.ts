@@ -335,9 +335,10 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
       try {
         const res = await api.recentCharacter();
         if (res.profile) applyProfile(res.profile, true);
-      } catch (err) {
-        if (cancelled) return;
-        setRestorationError(getErrorMessage(err));
+      } catch {
+        // Este navegador no tenía ningún personaje apuntado: un visitante
+        // nuevo ve la portada normal, no un «no pudimos abrir tu expediente»
+        // de algo que nunca tuvo. El aviso de conexión ya sale arriba.
       }
     };
 

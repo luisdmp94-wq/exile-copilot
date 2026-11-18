@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Download, Lightbulb, Loader2, PencilLine, Sparkles } from "lucide-react";
+import { ClipboardCheck, Download, Lightbulb, Loader2, PencilLine, Sparkles } from "lucide-react";
+import { OPEN_REVIEW_EVENT } from "@/components/QuickReviewCard";
 import type { ExportBuildResponse } from "@shared/api.js";
 import { assessCharacterReadiness } from "@shared/characterReadiness.js";
 import type {
@@ -37,11 +38,14 @@ const TEXT = texts(
     activeStepBody: (title: string) =>
       `Termina «${title}» e informa del resultado antes de generar tareas nuevas. Así evitamos recomendaciones paralelas o crafts encadenados a ciegas.`,
     versionIssueTitle: "La build pertenece a otra versión",
-    incompleteTitle: (count: number) => `Expediente incompleto: faltan ${count} dato(s)`,
+    incompleteTitle: (count: number) =>
+      count === 1 ? "Me falta 1 dato para recomendarte" : `Me faltan ${count} datos para recomendarte`,
     versionIssueBody:
       "No generaremos recomendaciones hasta que el árbol pasivo coincida con el parche del expediente.",
-    incompleteBody:
-      "El archivo ha servido como borrador, pero todavía no permite comparar tu personaje real sin inventar información.",
+    incompleteBody: "Con lo que hay todavía no puedo comparar tu personaje sin inventarme datos. Completa esto:",
+    gearOnlyBody:
+      "Para recomendarte equipo necesito ver al menos una pieza tuya: cópiala en el juego con Ctrl+C y pégala. Mientras tanto, la revisión rápida ya te dice qué te frena.",
+    openReview: "Ir a la revisión rápida",
     completeProfile: "Completar expediente",
     needCharacterTitle: "Necesitas un personaje primero",
     needCharacterBody:
@@ -70,11 +74,14 @@ const TEXT = texts(
     activeStepBody: (title: string) =>
       `Finish "${title}" and report how it went before asking for new tasks. That way you don't get parallel recommendations or blind chains of crafts.`,
     versionIssueTitle: "This build is from a different game version",
-    incompleteTitle: (count: number) => `Character file incomplete: ${count} detail(s) missing`,
+    incompleteTitle: (count: number) =>
+      count === 1 ? "I need 1 more detail to recommend anything" : `I need ${count} more details to recommend anything`,
     versionIssueBody:
       "We won't make recommendations until the passive tree matches the patch in your character file.",
-    incompleteBody:
-      "The file works as a draft, but it isn't enough yet to compare your real character without making things up.",
+    incompleteBody: "With what's here I can't compare your character yet without making things up. Fill this in:",
+    gearOnlyBody:
+      "To recommend gear I need to see at least one of your items: copy it in game with Ctrl+C and paste it. Meanwhile, the quick review already tells you what's holding you back.",
+    openReview: "Go to the quick review",
     completeProfile: "Complete character file",
     needCharacterTitle: "You need a character first",
     needCharacterBody:
@@ -215,6 +222,7 @@ export function RecommendationsSection({
   const activeJournalEntry = journal?.primaryEntry ?? null;
   const readiness = assessCharacterReadiness(profile);
   const versionIssue = readiness.issues.find((issue) => issue.id === "version") ?? null;
+  const gearOnly = readiness.issues.length === 1 && readiness.issues[0]?.id === "equipment";
   const canGenerate =
     !!profile &&
     readiness.ready &&
@@ -300,7 +308,7 @@ export function RecommendationsSection({
             </AlertTitle>
             <AlertDescription className="space-y-3">
               <p>
-                {versionIssue ? t.versionIssueBody : t.incompleteBody}
+                {versionIssue ? t.versionIssueBody : gearOnly ? t.gearOnlyBody : t.incompleteBody}
               </p>
               <ul className="space-y-1 text-sm">
                 {readiness.issues.map((issue) => (
@@ -310,10 +318,25 @@ export function RecommendationsSection({
                   </li>
                 ))}
               </ul>
-              <Button type="button" variant="secondary" onClick={onEditProfile}>
-                <PencilLine className="size-4" aria-hidden="true" />
-                {t.completeProfile}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                {gearOnly && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      window.dispatchEvent(new Event(OPEN_REVIEW_EVENT));
+                      document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    data-testid="recommendations-open-review"
+                  >
+                    <ClipboardCheck className="size-4" aria-hidden="true" />
+                    {t.openReview}
+                  </Button>
+                )}
+                <Button type="button" variant="secondary" onClick={onEditProfile}>
+                  <PencilLine className="size-4" aria-hidden="true" />
+                  {t.completeProfile}
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         )}
