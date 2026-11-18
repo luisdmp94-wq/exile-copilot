@@ -22,6 +22,13 @@ import {
   toolCommand,
 } from "./browserLaunch.mjs";
 
+async function abrirAvanzadas(page) {
+  const avanzadas = page.getByTestId("herramientas-avanzadas");
+  if ((await avanzadas.count()) > 0 && !(await avanzadas.evaluate((element) => element.open))) {
+    await page.getByTestId("herramientas-avanzadas-abrir").click();
+  }
+}
+
 const REPO = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
 const UPDATE_SCREENSHOTS = args.includes("--update-screenshots");
@@ -174,6 +181,7 @@ async function runFlow(mode, port) {
      */
     const verSesion = async () => {
       if (await section.isVisible().catch(() => false)) return;
+      await abrirAvanzadas(page);
       const trigger = page.getByTestId("acordeon-decision");
       if ((await trigger.count()) === 0) return;
       if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
@@ -194,6 +202,7 @@ async function runFlow(mode, port) {
         .locator('[data-testid="caso-abierto"]')
         .getByRole("button", { name: "Generar recomendaciones" });
       if ((await enCaso.count()) > 0) return enCaso.first();
+      await abrirAvanzadas(page);
       const trigger = page.getByTestId("acordeon-otras");
       if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
       const boton = page.getByRole("button", { name: "Generar recomendaciones" }).first();

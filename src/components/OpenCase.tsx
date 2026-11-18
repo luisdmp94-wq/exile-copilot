@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Bot } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Bot, ChevronDown } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -36,6 +36,8 @@ const TEXT = texts(
     checkDecision: "Comprobar una decisión",
     decisionHistory: "Historial de decisiones",
     otherOptions: "Otras posibilidades",
+    advancedTitle: "Herramientas avanzadas",
+    advancedHint: "Comprobar una decisión, historial y otras posibilidades",
   },
   {
     partialAvailable: "Partial analysis available",
@@ -62,6 +64,8 @@ const TEXT = texts(
     checkDecision: "Check a decision",
     decisionHistory: "Decision history",
     otherOptions: "Other options",
+    advancedTitle: "Advanced tools",
+    advancedHint: "Check a decision, history and other options",
   },
 );
 
@@ -294,10 +298,38 @@ export function OpenCaseSecondary({
   othersSlot: ReactNode;
 }) {
   const t = useText(TEXT);
+  // Plegado de serie: al novato le basta la revisión rápida y el Mentor. La
+  // decisión en marcha no vive aquí (pasa al caso principal), así que plegarlo
+  // no esconde nada urgente. Se recuerda lo que eligió el jugador.
+  const [open, setOpen] = useState(readAdvancedOpen);
   return (
+    <details
+      className="superficie-panel group"
+      open={open}
+      onToggle={(event) => {
+        const next = event.currentTarget.open;
+        setOpen(next);
+        try {
+          window.localStorage.setItem(ADVANCED_STORAGE_KEY, next ? "abierto" : "plegado");
+        } catch {
+          // Sin almacenamiento, vale para esta visita.
+        }
+      }}
+      data-testid="herramientas-avanzadas"
+    >
+      <summary
+        className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-5 py-3 [&::-webkit-details-marker]:hidden"
+        data-testid="herramientas-avanzadas-abrir"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-foreground">{t.advancedTitle}</span>
+          <span className="block text-xs text-muted-foreground">{t.advancedHint}</span>
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+      </summary>
     <Accordion
       type="multiple"
-      className="superficie-panel grid grid-cols-1 gap-px px-3 sm:grid-cols-3"
+      className="grid grid-cols-1 gap-px border-t border-border/70 px-3 sm:grid-cols-3"
       data-testid="utilidades-caso-abierto"
     >
       {sessionSlot !== null && (
@@ -325,5 +357,16 @@ export function OpenCaseSecondary({
         <AccordionContent forceMount>{othersSlot}</AccordionContent>
       </AccordionItem>
     </Accordion>
+    </details>
   );
+}
+
+const ADVANCED_STORAGE_KEY = "exile-copilot:herramientas-avanzadas";
+
+function readAdvancedOpen(): boolean {
+  try {
+    return window.localStorage.getItem(ADVANCED_STORAGE_KEY) === "abierto";
+  } catch {
+    return false;
+  }
 }

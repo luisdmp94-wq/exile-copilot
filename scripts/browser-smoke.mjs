@@ -20,6 +20,13 @@ import {
   toolCommand,
 } from "./browserLaunch.mjs";
 
+async function abrirAvanzadas(page) {
+  const avanzadas = page.getByTestId("herramientas-avanzadas");
+  if ((await avanzadas.count()) > 0 && !(await avanzadas.evaluate((element) => element.open))) {
+    await page.getByTestId("herramientas-avanzadas-abrir").click();
+  }
+}
+
 /**
  * Base SQLite propia de ESTA ejecución. Sin esto el smoke podía arrancar el
  * servidor contra la base real del usuario. Se borra en `finally`, aunque
@@ -1453,6 +1460,7 @@ async function runFlow(mode, port) {
     );
     // La principal domina el Caso Abierto; las demás viven en «Otras
     // posibilidades», que hay que desplegar para verlas.
+    await abrirAvanzadas(page);
     await page.getByTestId("acordeon-otras").click();
     const cards = await page.locator("text=/Confianza|confianza/").count();
     check(`[${mode}] se generan ${cards} tarjetas de recomendación`, cards >= 3);

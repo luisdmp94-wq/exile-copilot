@@ -68,6 +68,13 @@ import {
   toolCommand,
 } from "./browserLaunch.mjs";
 
+async function abrirAvanzadas(page) {
+  const avanzadas = page.getByTestId("herramientas-avanzadas");
+  if ((await avanzadas.count()) > 0 && !(await avanzadas.evaluate((element) => element.open))) {
+    await page.getByTestId("herramientas-avanzadas-abrir").click();
+  }
+}
+
 /**
  * Base SQLite propia de ESTA ejecución. Sin esto el smoke podía arrancar el
  * servidor contra la base real del usuario. Se borra en `finally`, aunque
@@ -667,6 +674,7 @@ async function runFlow(mode, port) {
     // y, desde la reducción de densidad, cada alternativa empieza además
     // resumida. El acceso al objeto debe seguir existiendo al pedir sus detalles;
     // no se exige volver a cargar de texto la pantalla para mantenerlo visible.
+    await abrirAvanzadas(page);
     await page.getByTestId("acordeon-otras").click();
     const alternativas = page.locator('[data-testid^="alternativa-"]:visible');
     for (let index = 0; index < (await alternativas.count()); index += 1) {

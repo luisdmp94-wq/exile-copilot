@@ -85,6 +85,11 @@ let failures = 0;
  * despliega ese bloque si hace falta en vez de suponer dónde está el control.
  */
 async function desplegar(page, testId) {
+  // Las herramientas avanzadas van plegadas de serie: se abren antes.
+  const avanzadas = page.getByTestId("herramientas-avanzadas");
+  if ((await avanzadas.count()) > 0 && !(await avanzadas.evaluate((element) => element.open))) {
+    await page.getByTestId("herramientas-avanzadas-abrir").click();
+  }
   const trigger = page.getByTestId(testId);
   if ((await trigger.getAttribute("aria-expanded")) === "true") return;
   await trigger.click();
