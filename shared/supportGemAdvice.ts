@@ -163,7 +163,62 @@ function saysInOneSentence(skill: GemSkill, pattern: RegExp): boolean {
  */
 function dealsDamage(skill: GemSkill): boolean {
   if (skill.tags.includes("Ataque") || createsMinions(skill)) return true;
-  return skill.effects.some((effect) => /inflige[^|]*dano|de dano .*por segundo/.test(normalizeGemText(effect)));
+  return skill.effects.some((effect) => {
+    const text = normalizeGemText(effect);
+    if (/de dano .*por segundo/.test(text)) return true;
+    // «Las repeticiones infligen un 50% menos de daño» (Aluvión) habla del daño
+    // de otra habilidad: no es hacer daño.
+    return /inflige[^|]*dano/.test(text) && !/% (?:mas|menos) de dano/.test(text);
+  });
+}
+
+/** ¿Los proyectiles de la habilidad caen desde arriba? (Lluvia de flechas, Pararrayos…) */
+function fallsFromAbove(skill: GemSkill): boolean {
+  return saysInOneSentence(skill, /desde arriba|al aire|hacia el cielo/);
+}
+
+/** ¿La habilidad gasta eso al usarse o al impactar? («Consume una carga de frenesí».) */
+function consumes(skill: GemSkill, what: string): boolean {
+  return saysInOneSentence(skill, new RegExp(`(?:consum|gast)[^.]*${what}|${what}[^.]*se consum`));
+}
+
+/** ¿Algún efecto de la habilidad dura tan poco que, acortado, baja de un segundo? */
+function hasVeryShortDuration(skill: GemSkill): boolean {
+  return skill.effects.some((effect) => /dura[^|]*?\b(?:0\.\d+|1(?:\.[0-4])?) segundos?/.test(normalizeGemText(effect)));
+}
+
+/** «No puede encadenarse» y nada en la habilidad se encadena (Flecha paralizante). */
+function cannotChain(skill: GemSkill): boolean {
+  const text = skillText(skill);
+  return /no puede encadenarse/.test(text) && !/se encadena/.test(text);
+}
+
+/** «No impacta, pero envenena como si impactara»: ni críticos, ni cegar, ni empujar. */
+function neverHits(skill: GemSkill): boolean {
+  return (
+    skill.effects.some((effect) => /^no impacta/.test(normalizeGemText(effect))) &&
+    !/explosi|explot|deton/.test(normalizeGemText(skill.description))
+  );
+}
+
+/**
+ * ¿La asistencia apaga justo lo que la habilidad hace bien? «Disparo de huida»
+ * congela muchísimo: una asistencia que le impide congelar vale, pero no es lo
+ * primero que hay que enseñar.
+ */
+function undoesWhatSkillDoes(supportText: string, skill: GemSkill): boolean {
+  const own = skillText(skill);
+  const freezes = /mas de acumulacion de congelamiento|puede escarchar o congelar/.test(own);
+  const shocks = /mas de probabilidad de electrocutar|alta probabilidad de electrocut/.test(own);
+  const ignites = /inflamabilidad|probabilidad de quemar/.test(own);
+  const paralyzes = /acumul\w* paralisis/.test(own);
+  if (freezes && /no pueden acumular congelamiento/.test(supportText)) return true;
+  if (shocks && /no pueden aplicar electrocucion/.test(supportText)) return true;
+  if (ignites && /no pueden quemar/.test(supportText)) return true;
+  return (
+    (freezes || shocks || ignites || paralyzes) &&
+    /no pueden aplicar (?:estados alterados elementales|congelamiento, electrocucion ni quemadura)/.test(supportText)
+  );
 }
 
 /**
@@ -218,7 +273,15 @@ const KEYWORD_RULES: Array<[RegExp, (skill: GemSkill, text: string) => boolean]>
   ],
   [/rotura de armadura/, (_skill, text) => text.includes("armadura")],
   [/ralentizaciones/, (_skill, text) => /ralentiz|escalofri|congel/.test(text)],
-  [/municion|ballesta/, (skill, text) => skill.tags.includes("Munición") || /municion|ballesta/.test(text)],
+  // De ballesta es la que lo dice al presentarse: «Disparo de tornado» solo
+  // cuenta que succiona las saetas de ballesta que le disparen.
+  [
+    /municion|ballesta/,
+    (skill) =>
+      skill.tags.includes("Munición") ||
+      /municion|ballesta/.test(normalizeGemText(`${skill.name} ${skill.description.split(".")[0] ?? ""}`)),
+  ],
+  [/que no apuntan al suelo/, (skill) => !fallsFromAbove(skill) && !saysInOneSentence(skill, /\bal suelo\b/)],
   // Lo que sigue se colaba a casi todas las habilidades porque no había regla.
   [/tiempo de detonacion|que detonan (?:cuando|despues)/, (_skill, text) => text.includes("tiempo de detonacion")],
   [/habilidades de ofrenda/, (skill) => normalizeGemText(skill.name).startsWith("ofrenda")],
@@ -252,21 +315,97 @@ const NEEDS_DAMAGE =
 /** Lo único que da la asistencia es daño (a veces a cambio de otra cosa). */
 const ONLY_GIVES_DAMAGE = /% mas de dano|dano mayor|inflij(?:a|an) mas dano|mas dano/;
 
+/**
+ * Lo que la asistencia dice que no puede asistir («No puede asistir
+ * habilidades de canalización») y cómo se reconoce eso en la habilidad.
+ */
+const CANNOT_SUPPORT: Array<[RegExp, (skill: GemSkill, text: string) => boolean]> = [
+  [/de canalizacion/, (skill) => skill.tags.includes("Canalización")],
+  [/habilidades persistentes/, (skill) => skill.tags.includes("Persistente")],
+  [/metahabilidades/, (skill) => skill.tags.includes("Metahabilidad")],
+  [/de (?:los )?totems/, (skill) => skill.tags.includes("Tótem")],
+  [/habilidades de (?:los )?esbirros/, (skill) => skill.tags.includes("Esbirro")],
+  [/de salto/, (skill) => saysInOneSentence(skill, /\bsaltas (?:hacia|por|en|sobre)/)],
+  [/proyectiles desde arriba/, (skill) => fallsFromAbove(skill)],
+  [/no puedan encadenarse/, (skill) => cannotChain(skill)],
+  [/enfriamiento/, (_skill, text) => /enfriamiento|tiempo de recarga/.test(text)],
+  [/combo/, (_skill, text) => /\bcombo\b/.test(text)],
+  [/sellos/, (_skill, text) => /\bsellos?\b/.test(text)],
+  [/fisuras/, (_skill, text) => text.includes("fisura")],
+  [/consum\w+ cargas de frenesi/, (skill) => consumes(skill, "cargas? de frenesi")],
+  [/consum\w+ cargas de aguante/, (skill) => consumes(skill, "cargas? de aguante")],
+  [/consum\w+ cargas de poder/, (skill) => consumes(skill, "cargas? de poder")],
+  [/consum\w+ [^.]*congelamiento/, (skill) => consumes(skill, "congelamiento")],
+  [/consum\w+ [^.]*quemadura/, (skill) => consumes(skill, "quemadura")],
+  [/consum\w+ [^.]*armadura/, (skill) => consumes(skill, "armadura")],
+  [/consum\w+ [^.]*parado/, (skill) => consumes(skill, "parado")],
+  [/consum\w+ [^.]*sangrado/, (skill) => consumes(skill, "(?:sangrado|perdida de sangre)")],
+  [
+    /consum\w+ [^.]*estados alterados elementales/,
+    (skill) => consumes(skill, "(?:congelamiento|electrocucion|quemadura)"),
+  ],
+];
+
 /** Lo que la propia descripción de la asistencia exige a la habilidad. */
 function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
   const text = normalizeGemText(support.description);
   const first = text.split(".")[0] ?? text;
   const tags = skill.tags;
+  const own = skillText(skill);
+  const everything = `${text} ${normalizeGemText(support.effects.join(" "))}`;
+
+  // Lo que la asistencia avisa de que no asiste.
+  const cannot = text
+    .split(/(?<=\.)\s+/)
+    .filter((sentence) => /^no (?:puede asistir|asiste)/.test(sentence))
+    .join(" ");
+  if (cannot !== "" && CANNOT_SUPPORT.some(([pattern, matches]) => pattern.test(cannot) && matches(skill, own))) return false;
+
+  // Lo que la propia habilidad no admite.
+  if (/cantidad de proyectiles no se puede modificar/.test(own) && /proyectil(?:es)? adicional/.test(everything)) return false;
+  if (/no puedes perforar/.test(own) && /perfor/.test(everything)) return false;
+  if (cannotChain(skill) && /encaden/.test(everything)) return false;
+  if (neverHits(skill) && /impact/.test(first) && !/venen/.test(everything)) return false;
+
+  // La asistencia le quita a la habilidad justo lo que da (cargas de frenesí).
+  if (/no pueden generar cargas de frenesi/.test(everything) && saysInOneSentence(skill, /otorg\w*[^.]*cargas? de frenesi/)) {
+    return false;
+  }
+  // Daño cuerpo a cuerpo para algo que no pega cuerpo a cuerpo.
+  if (/mas de dano (?:fisico )?cuerpo a cuerpo/.test(everything) && !tags.includes("Cuerpo a cuerpo")) return false;
+  // Lo único que da es daño degenerativo propio («por segundo»): la habilidad tiene que tenerlo.
+  if (
+    /dano degenerativo(?: de las habilidades asistidas)? que no (?:sea|es|provenga|proviene|se aplico)/.test(everything) &&
+    !dealsDamageOverTime(skill)
+  ) {
+    return false;
+  }
+  // «Aflicción veloz III» solo paga si el efecto dura menos de un segundo.
+  if (/duracion (?:es )?inferior a un segundo/.test(everything) && !hasVeryShortDuration(skill)) return false;
+  // Una señal se usa, pero lo que pega es lo que desencadena: eso no «lo usas tú mismo».
+  if (tags.includes("Señal") && /que usas tu mismo/.test(first) && /impact|ataque/.test(first)) return false;
 
   if (/^asiste embates/.test(first) && !tags.includes("Embate")) return false;
   if (/^asiste hechizos/.test(first) && !tags.includes("Hechizo")) return false;
+  // Un hechizo que prepara ataques («Flechas de punta helada»): lo que pega es
+  // el ataque, así que el daño de hechizos no le sirve.
+  if (
+    /^asiste (?:habilidades de )?hechizos/.test(first) &&
+    tags.includes("Ataque") &&
+    (NEEDS_DAMAGE.test(first) || ONLY_GIVES_DAMAGE.test(everything))
+  ) {
+    return false;
+  }
   if (/^asiste (?:ataques|golpes|habilidades de ataque|habilidades de golpe)/.test(first) && !tags.includes("Ataque")) return false;
   // Lo persistente (esbirros que reviven, auras, efectos que se dejan puestos) no «se usa».
   if (/que (?:usas|uses|lanzas)(?: o activ[ae]s)? tu mismo/.test(first) && tags.includes("Persistente")) return false;
   if (/reserven espiritu/.test(text) && (skill.reserve !== null || tags.includes("Persistente"))) return false;
   if (/que tengan? una duracion/.test(first) && !tags.includes("Duración")) return false;
   if (/que tien(?:e|en) un limite/.test(first) && !/limite/.test(skillText(skill))) return false;
-  if (/que tengan? enfriamiento/.test(first) && !/enfriamiento|tiempo de recarga/.test(skillText(skill))) return false;
+  // Enfriamiento de verdad: «los modificadores de recuperación del enfriamiento
+  // también se aplican a…» (Momento de necesidad) no es tener uno.
+  const ownWithoutCooldownModifiers = own.replace(/modificadores de velocidad de recuperacion del enfriamiento/g, "");
+  if (/que tengan? enfriamiento/.test(first) && !/enfriamiento|tiempo de recarga/.test(ownWithoutCooldownModifiers)) return false;
 
   // Un par de asistencias no dicen a qué habilidades asisten (su texto solo
   // describe el efecto). Sin saberlo no se proponen.
@@ -282,7 +421,6 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
 
   // Lo que mejora «los esbirros de la habilidad asistida» pide una habilidad que
   // los cree: una ofrenda lleva la etiqueta de esbirro, pero no pone ninguno.
-  const everything = `${text} ${normalizeGemText(support.effects.join(" "))}`;
   if (
     /que (?:crean?|creen?|invocan?|generan?) (?:esbirros|companeros)|los esbirros de las? habilidad(?:es)? asistidas?/.test(everything) &&
     !createsMinions(skill)
@@ -363,8 +501,12 @@ function supportApplies(support: GemSupport, skill: GemSkill): boolean {
   if (isPersistentMeta(skill)) return appliesToPersistentMeta(support, skill);
   // Los esbirros que reviven solo aceptan con seguridad asistencias de esbirros.
   if (isPersistentMinion(skill) && !support.tags.includes("Esbirro")) return false;
+  // Una asistencia de señales vale para cualquier señal: sus otras etiquetas
+  // («Físico», «Hechizo») describen lo que añade, no lo que pide.
+  const madeForMarks = support.tags.includes("Señal") && skill.tags.includes("Señal");
   for (const tag of support.tags) {
     if (SOFT_TAGS.has(tag)) continue;
+    if (madeForMarks && tag !== "Señal") continue;
     if (!skill.tags.includes(tag)) return false;
   }
   return textRulesAllow(support, skill);
@@ -419,6 +561,27 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   if (/% menos de dano/.test(text)) score -= 3;
   // Una que le pone un enfriamiento largo a la habilidad la deja casi sin uso.
   if (/enfriamiento de \d+ segundos/.test(text)) score -= 4;
+  // En una señal, primero lo que está hecho para señales.
+  if (skill.tags.includes("Señal") && support.tags.includes("Señal")) score += 6;
+  // Lo que premia pegar pegado al enemigo no es para quien dispara de lejos.
+  if (/a menos de [\d.]+ metros? de ti/.test(text) && skill.tags.includes("Proyectil") && !skill.tags.includes("Cuerpo a cuerpo")) {
+    score -= 4;
+  }
+  // Gastar furia solo sirve si el personaje la genera: sin pistas de eso, abajo.
+  if (/(?:consum|gast)\w+ [^.|]*furia/.test(text) && !/\bfuria\b/.test(skillText(skill))) score -= 3;
+  // Lo que apaga justo lo que la habilidad hace bien (congelar, electrocutar…).
+  if (undoesWhatSkillDoes(text, skill)) score -= 4;
+  if (/no pueden consumir cargas/.test(text) && consumes(skill, "cargas? de (?:poder|frenesi|aguante)")) score -= 3;
+  // Lo que escala con la inteligencia rinde poco en una gema que no es de inteligencia.
+  if (/por cada 100 de inteligencia|equivalente a tu inteligencia/.test(text) && skill.attribute !== "Int") score -= 3;
+  // Daño elemental para una habilidad que solo hace caos (veneno): no le llega.
+  if (/mas de dano elemental/.test(text) && skill.tags.includes("Caos") && !skill.tags.some((tag) => tag === "Fuego" || tag === "Hielo" || tag === "Rayo")) {
+    score -= 3;
+  }
+  // Las hechas para la mecánica de esta habilidad (gasta cargas, tiene
+  // enfriamiento, potencia otros ataques, momento perfecto) van delante.
+  const first = normalizeGemText(support.description).split(".")[0] ?? "";
+  if (/consum\w* cargas|gener\w* cargas|potenciar otras habilidades|momento perfecto|que tengan? enfriamiento/.test(first)) score += 3;
   // Con una build declarada: lo que el jugador marcó como core sube, y una
   // asistencia de un tipo de daño que la build no usa (Brutalidad en un
   // personaje de caos) baja aunque técnicamente valga.

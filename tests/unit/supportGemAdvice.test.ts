@@ -166,7 +166,9 @@ describe("supportCandidates — asistencias que piden un tipo concreto de habili
   it("el daño degenerativo propio solo se mejora en habilidades que lo tienen", () => {
     expect(offeredTo("Agonía intensa")).toEqual(expect.arrayContaining(["Contagio", "Drenar esencia"]));
     expect(offeredTo("Agonía intensa").length).toBeLessThan(10);
-    expect(names("Contagio", { maxGrade: 5 })).toContain("Aflicción veloz III");
+    // Contagio dura 5 segundos: la III solo paga por debajo de uno. Le toca la II.
+    expect(names("Contagio", { maxGrade: 5 })).toContain("Aflicción veloz II");
+    expect(names("Contagio", { maxGrade: 5 })).not.toContain("Aflicción veloz III");
   });
 
   it("lo que se deja activo no «se usa»: un aura no recibe Ferocidad", () => {
@@ -222,5 +224,96 @@ describe("supportCandidates — llevar la etiqueta de esbirro no es crear esbirr
 
   it("«objetos de tierra» no se cuela a los esqueletos", () => {
     expect(names("Guerrero esqueleto", { maxGrade: 5 })).not.toContain("Roca escurridiza II");
+  });
+});
+
+// Repaso a mano de las habilidades de arco, las señales y «Aluvión» (18-11-2026).
+describe("supportCandidates — repaso de la arquera", () => {
+  it("hace caso a lo que la asistencia dice que no asiste", () => {
+    // «Alineación» y «Salva espectral»: no asisten habilidades de canalización.
+    for (const skill of ["Disparo certero", "Flecha detonadora"]) {
+      const offered = names(skill, { maxGrade: 5 });
+      expect(offered).not.toContain("Alineación II");
+      expect(offered).not.toContain("Alineación III");
+      expect(offered).not.toContain("Salva espectral");
+    }
+    // «Proyectiles de nova» y «Disparo de azar»: no valen si los proyectiles caen desde arriba.
+    for (const skill of ["Lluvia de flechas", "Pararrayos", "Disparo de tornado"]) {
+      const offered = names(skill, { maxGrade: 5 });
+      expect(offered).not.toContain("Proyectiles de nova I");
+      expect(offered).not.toContain("Proyectiles de nova II");
+      expect(offered).not.toContain("Disparo de azar");
+    }
+    // «Ferocidad»: no asiste habilidades que consuman cargas de frenesí.
+    expect(names("Lluvia de flechas", { maxGrade: 5 })).not.toContain("Ferocidad");
+    expect(names("Salva espiralada", { maxGrade: 5 })).not.toContain("Ferocidad");
+    // «Escarcha cortante»: no asiste habilidades que consuman el congelamiento.
+    expect(names("Disparo certero", { maxGrade: 5 })).not.toContain("Escarcha cortante II");
+    // Las que sí encajan siguen ahí.
+    expect(names("Flecha de rayo", { maxGrade: 5 })).toEqual(expect.arrayContaining(["Alineación II", "Proyectiles de nova I", "Ferocidad"]));
+  });
+
+  it("hace caso a lo que la propia habilidad no admite", () => {
+    // «La cantidad de proyectiles no se puede modificar».
+    const escape = names("Disparo de huida", { maxGrade: 5 });
+    for (const wrong of ["Disparo múltiple II", "Salva", "Alineación III", "Proyectiles de nova II"]) expect(escape).not.toContain(wrong);
+    // «No puedes perforar» y «No puede encadenarse».
+    const paralysing = names("Flecha paralizante", { maxGrade: 5 });
+    for (const wrong of ["Perforar III", "Rebote II", "Disparo de azar"]) expect(paralysing).not.toContain(wrong);
+    // «No impacta, pero envenena»: fuera críticos, cegar y empujar; el veneno se queda.
+    const poison = names("Flecha de estallido venenoso", { maxGrade: 5 });
+    for (const wrong of ["Supercrítico", "Cegar II", "Empuje", "Detectar punto crítico"]) expect(poison).not.toContain(wrong);
+    expect(poison).toEqual(expect.arrayContaining(["Veneno intensificado", "Veneno III", "Veneno mortífero II"]));
+  });
+
+  it("no propone a un arco lo que solo sirve cuerpo a cuerpo, con ballesta o con daño por segundo", () => {
+    const tornado = names("Disparo de tornado", { maxGrade: 5 });
+    expect(tornado).not.toContain("Sangrado IV");
+    expect(tornado).not.toContain("Peine recargado II");
+    // Dura 15 segundos: «Aflicción veloz III» pide menos de uno. Se queda la II.
+    expect(tornado).not.toContain("Aflicción veloz III");
+    expect(tornado).toContain("Aflicción veloz II");
+    // «Enloquecer» y «Acritud» solo dan daño por segundo.
+    for (const skill of ["Disparo de hielo", "Lluvia de flechas", "Flecha de rayo"]) {
+      const offered = names(skill, { maxGrade: 5 });
+      expect(offered).not.toContain("Enloquecer");
+      expect(offered).not.toContain("Acritud");
+    }
+    expect(names("Contagio", { maxGrade: 5 })).toContain("Acritud");
+  });
+
+  it("no pone arriba lo que premia pegar de cerca ni lo que apaga lo que la habilidad hace", () => {
+    const ice = names("Disparo de hielo", { maxGrade: 5 });
+    const top = ice.slice(0, 10);
+    for (const low of ["Combate cercano II", "Forjado con furia II", "Escarcha cortante II", "Armamento elemental III"]) {
+      expect(ice).toContain(low);
+      expect(top).not.toContain(low);
+    }
+    expect(top).toContain("Tiro largo II");
+  });
+
+  it("en una señal van primero las asistencias de señales", () => {
+    for (const mark of ["Señal del tirador", "Señal voltaica", "Señal del sabueso"]) {
+      const offered = names(mark, { maxGrade: 5 });
+      expect(offered.slice(0, 4).sort()).toEqual(["Señal cargada", "Señal de absorción II", "Señal de muerte II", "Señal eterna"]);
+    }
+    // «Ferocidad» le quitaría a la señal la carga de frenesí que da.
+    expect(names("Señal del tirador", { maxGrade: 5 })).not.toContain("Ferocidad");
+    // Lo que «usas tú mismo» no vale para la explosión que desencadena la señal.
+    const hound = names("Señal del sabueso", { maxGrade: 5 });
+    for (const wrong of ["Hemocristales", "Sangrado IV", "Cadencia", "Estoicismo II"]) expect(hound).not.toContain(wrong);
+  });
+
+  it("«Aluvión» no hace daño: recibe lo de sus cargas y su enfriamiento", () => {
+    const barrage = names("Aluvión", { maxGrade: 5 });
+    for (const wrong of ["Reloj de arena", "Forjado con furia II", "Inhibidor", "Impulso", "Enloquecer"]) expect(barrage).not.toContain(wrong);
+    expect(barrage.slice(0, 5).sort()).toEqual(
+      ["Carga perpetua", "Cargas potenciadas", "Intención asesina", "Recuperación de enfriamiento II", "Segundo aliento III"].sort(),
+    );
+  });
+
+  it("un efecto que solo nombra el enfriamiento no tiene enfriamiento", () => {
+    expect(names("Momento de necesidad", { maxGrade: 5 })).not.toContain("Segundo aliento III");
+    expect(names("Convalecencia", { maxGrade: 5 })).toContain("Segundo aliento III");
   });
 });
