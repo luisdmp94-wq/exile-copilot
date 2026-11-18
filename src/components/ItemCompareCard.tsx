@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Scale, Trophy, X } from "lucide-react";
 import type { CharacterProfile, Item } from "@shared/domain.js";
 import { Button } from "@/components/ui/button";
@@ -105,19 +105,42 @@ interface ItemCompareCardProps {
   patch: string;
   /** Personaje guardado: sus resistencias y si lleva esbirros afinan el veredicto. */
   profile?: CharacterProfile | null;
+  /**
+   * Pieza que llega ya leída desde otra área («Compararla con otra»): ocupa
+   * la casilla A y deja la B lista para pegar. Cambia con cada `seq`.
+   */
+  preset?: { item: Item; seq: number } | null;
 }
 
 /**
  * «¿Cuál de estas dos es mejor?»: se pegan dos piezas copiadas del juego y la
  * tarjeta dice cuál conviene según el estilo de juego, fila a fila.
  */
-export function ItemCompareCard({ patch, profile = null }: ItemCompareCardProps) {
+export function ItemCompareCard({ patch, profile = null, preset = null }: ItemCompareCardProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
   const [slots, setSlots] = useState<Record<CompareSide, SlotState>>({ a: EMPTY_SLOT, b: EMPTY_SLOT });
   const [style, setStyle] = useState<CompareStyle>(readStoredStyle);
   const [storedMinions, setStoredMinions] = useState<boolean | null>(readStoredMinions);
   const minions = storedMinions ?? profileUsesMinions(profile);
+  const sectionRef = useRef<HTMLElement>(null);
+  const [seenPreset, setSeenPreset] = useState<number | null>(null);
+  if (preset !== null && preset.seq !== seenPreset) {
+    setSeenPreset(preset.seq);
+    setSlots({ a: { ...EMPTY_SLOT, item: preset.item }, b: EMPTY_SLOT });
+  }
+  const presetSeq = preset?.seq ?? null;
+  // Al llegar con una pieza, la tarjeta se pone a la vista con la casilla B lista.
+  useEffect(() => {
+    if (presetSeq === null) return;
+    const frame = window.requestAnimationFrame(() => {
+      const section = sectionRef.current;
+      if (!section) return;
+      section.scrollIntoView({ block: "start" });
+      section.querySelector<HTMLTextAreaElement>('[data-testid="comparar-texto-b"]')?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [presetSeq]);
 
   const patchSlot = (side: CompareSide, next: Partial<SlotState>) =>
     setSlots((current) => ({ ...current, [side]: { ...current[side], ...next } }));
@@ -181,7 +204,8 @@ export function ItemCompareCard({ patch, profile = null }: ItemCompareCardProps)
 
   return (
     <section
-      className="rounded-xl border border-border bg-card p-4 sm:p-5"
+      ref={sectionRef}
+      className="scroll-mt-24 rounded-xl border border-border bg-card p-4 sm:p-5"
       aria-labelledby="comparar-titulo"
       data-testid="comparar"
     >

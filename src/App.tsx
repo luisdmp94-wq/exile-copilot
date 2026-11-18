@@ -467,6 +467,8 @@ export default function App() {
     view: "guia" | "comprobar" | "herramientas";
     seq: number;
   } | null>(null);
+  // «Compararla con otra» desde Crafting: la pieza que viaja a la comparación.
+  const [compareRequest, setCompareRequest] = useState<{ item: Item; seq: number } | null>(null);
   // Se guarda el último aviso y no su texto: así, al cambiar de idioma, la
   // mascota repite el mismo aviso en el idioma nuevo.
   const [contextualEvent, setContextualEvent] = useState<ContextualMentorEvent>({ type: "welcome" });
@@ -2248,6 +2250,22 @@ export default function App() {
                   onApplyCraftingResult={character.replaceItemAndSave}
                   onMentorEvent={handleSessionMentorEvent}
                   onMentorContext={announceMentor}
+                  onCompareItem={(item) => {
+                    setCompareRequest((current) => ({ item, seq: (current?.seq ?? 0) + 1 }));
+                    setGuideViewRequest((current) => ({
+                      view: "herramientas",
+                      seq: (current?.seq ?? 0) + 1,
+                    }));
+                    navigateWorkspace("guias");
+                  }}
+                  onCheckResistances={() => {
+                    setGuideViewRequest((current) => ({
+                      view: "comprobar",
+                      seq: (current?.seq ?? 0) + 1,
+                    }));
+                    navigateWorkspace("guias");
+                    window.scrollTo({ top: 0 });
+                  }}
                   onAskMentor={
                     character.profile
                       ? (text) => {
@@ -2270,6 +2288,7 @@ export default function App() {
               <GuidesSection
                 guideSlug={guideSlug}
                 viewRequest={guideViewRequest}
+                compareRequest={compareRequest}
                 onSelectGuide={(slug) => {
                   setGuideSlug(slug);
                   window.scrollTo({ top: 0 });

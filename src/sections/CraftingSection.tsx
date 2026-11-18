@@ -155,6 +155,10 @@ interface CraftingSectionProps {
   onSelectedItemChange?: (itemId: string) => void;
   /** Pregunta sobre el personaje que Crafting no puede responder: va al Mentor. */
   onAskMentor?: (question: string) => void;
+  /** «Compararla con otra» desde la lectura de la pieza. */
+  onCompareItem?: (item: Item) => void;
+  /** «Ver mis resistencias» desde la lectura de la pieza. */
+  onCheckResistances?: () => void;
 }
 
 type CraftingMode = CraftingWorkspaceMode;
@@ -310,6 +314,8 @@ export function CraftingSection({
   onMentorContext,
   onSelectedItemChange,
   onAskMentor,
+  onCompareItem,
+  onCheckResistances,
 }: CraftingSectionProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
@@ -459,6 +465,8 @@ export function CraftingSection({
       showInitialRepairBanner={!advancedVisible}
       onMentorContext={onMentorContext}
       onAskMentor={onAskMentor}
+      onCompareItem={onCompareItem}
+      onCheckResistances={onCheckResistances}
     />
   );
 

@@ -49,6 +49,7 @@ import {
 } from "@shared/craftingComparison.js";
 import type { Budget, BuildTarget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { CoachItemCard } from "@/components/CoachItemCard";
+import { ItemReadingCard } from "@/components/ItemReadingCard";
 import { CraftingRepairBanner } from "@/components/CraftingRepairBanner";
 import { ItemArtwork } from "@/components/ItemArtwork";
 import { Button } from "@/components/ui/button";
@@ -557,6 +558,10 @@ interface CraftingCoachProps {
    * Mentor. Sin personaje no existe: entonces se ofrece crearlo.
    */
   onAskMentor?: (question: string) => void;
+  /** «Compararla con otra»: lleva la pieza a la comparación de Guías. */
+  onCompareItem?: (item: Item) => void;
+  /** «Ver mis resistencias»: abre la comprobación del personaje. */
+  onCheckResistances?: () => void;
 }
 
 const DAMAGE_TYPE_FOCUSES = DAMAGE_COACH_FOCUSES.slice(0, 5);
@@ -985,6 +990,8 @@ export function CraftingCoach({
   showInitialRepairBanner = true,
   onMentorContext,
   onAskMentor,
+  onCompareItem,
+  onCheckResistances,
 }: CraftingCoachProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
@@ -1739,6 +1746,22 @@ export function CraftingCoach({
           {/* En la elección solo hace falta saber qué es; el detalle llega con
               la recomendación, cuando toca decidir qué se conserva. */}
           <CoachItemCard item={activeItem} compact />
+          {/* La respuesta inmediata al pegar: qué da la pieza, antes de preguntar nada. */}
+          {!directionChosen && (
+            <ItemReadingCard
+              item={activeItem}
+              hideCopyTip={showInitialRepairBanner && activeNeedsRepair}
+              onCompare={onCompareItem}
+              onCheckResistances={onCheckResistances}
+              onImprove={() => {
+                const goal = document.querySelector<HTMLTextAreaElement>('[data-testid="coach-objetivo-texto"]');
+                if (!goal) return;
+                const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                goal.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+                goal.focus({ preventScroll: true });
+              }}
+            />
+          )}
           {items.length > 1 && (
             <details className="rounded-md border border-border/70 px-2.5 py-2 text-xs">
               <summary className="cursor-pointer font-medium">{t.workWithAnother}</summary>

@@ -934,10 +934,61 @@ async function runFlow(mode, port) {
       .trim()
       .split(/\s+/)
       .filter(Boolean).length;
+    // «Lo que tiene esta pieza» lleva su propio tope: se descuenta del recorrido.
+    const lectura = page.getByTestId("lectura-pieza");
+    const contarPalabras = (texto) => texto.trim().split(/\s+/).filter(Boolean).length;
+    const palabrasLectura = contarPalabras(await lectura.innerText());
     check(
-      `[${mode}] el recorrido principal cabe en pocas palabras (${palabras})`,
-      palabras <= 90,
+      `[${mode}] el recorrido principal cabe en pocas palabras (${palabras - palabrasLectura})`,
+      palabras - palabrasLectura <= 90,
     );
+    check(
+      `[${mode}] la lectura de la pieza responde en una frase y cabe en 60 palabras (${palabrasLectura})`,
+      /^Da \S/.test(await page.getByTestId("lectura-pieza-frase").innerText()) &&
+        palabrasLectura <= 60 &&
+        !(await lectura.locator("li").first().isVisible()),
+    );
+    await lectura.locator("summary").click();
+    check(
+      `[${mode}] al desplegarla, cada línea de la pieza lleva su explicación`,
+      (await lectura.locator("li").count()) > 0 &&
+        (await lectura.locator("li").first().isVisible()) &&
+        (await lectura.locator("li[data-family]:not([data-family='other']) p").count()) >= 2,
+    );
+    await lectura.locator("summary").click();
+    await page.getByTestId("lectura-pieza-mejorar").click();
+    check(
+      `[${mode}] «Mejorarla» lleva a la pregunta del objetivo`,
+      await page
+        .waitForFunction(
+          () => document.activeElement?.getAttribute("data-testid") === "coach-objetivo-texto",
+          null,
+          { timeout: 5000 },
+        )
+        .then(() => true, () => false),
+    );
+    const nombreLeido = (await page.getByTestId("coach-objeto").locator("h3").first().innerText()).trim();
+    await page.getByTestId("lectura-pieza-comparar").click();
+    await page.getByTestId("comparar-a").waitFor({ timeout: 15000 });
+    check(
+      `[${mode}] «Compararla con otra» lleva la pieza a la casilla A y deja lista la B`,
+      (await page.getByTestId("comparar-a").innerText()).includes(nombreLeido) &&
+        (await page.getByTestId("comparar-texto-b").isVisible()),
+    );
+    await irA(page, "crafting");
+    await page.getByTestId("lectura-pieza-resistencias").click();
+    check(
+      `[${mode}] «Ver mis resistencias» abre la comprobación del personaje`,
+      await page
+        .waitForFunction(
+          () => document.querySelector("#guia-panel-comprobar")?.hasAttribute("hidden") === false,
+          null,
+          { timeout: 15000 },
+        )
+        .then(() => true, () => false),
+    );
+    await irA(page, "crafting");
+    await page.getByTestId("coach-objetivo-texto").waitFor({ timeout: 15000 });
 
     // Regresión del caso real: pedir una única de endgame no puede degradarse
     // a «elige daño o defensa» ni declarar terminada la pieza por un afijo.

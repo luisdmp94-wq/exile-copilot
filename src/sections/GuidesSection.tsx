@@ -329,6 +329,8 @@ interface GuidesSectionProps {
   onAskMentor?: (question: string) => void;
   /** Abrir una vista concreta desde fuera (la mascota). Cambia con cada `seq`. */
   viewRequest?: { view: GuideView; seq: number } | null;
+  /** Pieza que llega de Crafting para compararla con otra. */
+  compareRequest?: { item: Item; seq: number } | null;
 }
 
 /**
@@ -345,6 +347,7 @@ export function GuidesSection({
   patch,
   onAskMentor,
   viewRequest = null,
+  compareRequest = null,
 }: GuidesSectionProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
@@ -578,7 +581,7 @@ export function GuidesSection({
           onCreateCharacter={onCreateCharacter}
           onOwnSupport={onOwnSupport}
         />
-        <ItemCompareCard patch={patch} profile={profile} />
+        <ItemCompareCard patch={patch} profile={profile} preset={compareRequest} />
       </div>
     </article>
   );
