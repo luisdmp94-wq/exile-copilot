@@ -2073,10 +2073,27 @@ async function runFlow(mode, port) {
         /Daño de hechizos aumentado un 20\s%/.test(await page.getByTestId("arbol-ruta-da-0").innerText()) &&
         (await page.getByTestId("arbol-ruta-progreso").innerText()).includes("0 de 9"),
     );
+    // Tope de texto: a la vista solo el siguiente nodo y una línea por cada uno
+    // de los demás. El detalle, la regla y la letra pequeña van plegados.
+    const palabrasArbol = await rutaArbol.evaluate((element) => {
+      const copy = element.cloneNode(true);
+      if (!(copy instanceof HTMLElement)) return 0;
+      copy.querySelectorAll("details:not([open]) > :not(summary)").forEach((node) => node.remove());
+      return (copy.textContent ?? "").trim().split(/\s+/).filter(Boolean).length;
+    });
+    check(
+      `[${mode}] «Tus puntos del árbol» cabe en poco texto (${palabrasArbol} palabras a la vista)`,
+      palabrasArbol <= 130 &&
+        (await page.getByTestId("arbol-ruta-paso-0").getAttribute("data-next")) === "true" &&
+        (await page.getByTestId("arbol-ruta-da-0").isVisible()) &&
+        !(await page.getByTestId("arbol-ruta-da-1").isVisible()),
+    );
     await page.getByTestId("arbol-ruta-paso-0").locator("input").check();
     check(
       `[${mode}] marcar un nodo del árbol lo cuenta y se recuerda en el navegador`,
       (await page.getByTestId("arbol-ruta-progreso").innerText()).includes("1 de 9") &&
+        (await page.getByTestId("arbol-ruta-paso-1").getAttribute("data-next")) === "true" &&
+        (await page.getByTestId("arbol-ruta-da-1").isVisible()) &&
         (await page.evaluate(() => localStorage.getItem("exile-copilot:arbol:bruja-caos-esbirros"))) ===
           '["witch_sorceress_notable1"]',
     );

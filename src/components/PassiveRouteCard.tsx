@@ -16,13 +16,15 @@ const TEXT = texts(
     doneOf: (done: number, total: number) => `${done} de ${total} cogidos`,
     family: { hechizos: "Hechizos", defensa: "Defensa", caos: "Caos", esbirros: "Esbirros", mixto: "Caos + esbirros" },
     points: (count: number) => `${count} puntos`,
+    next: "Tu siguiente nodo",
+    have: (name: string) => `Ya tengo ${name}`,
+    allTaken: "Ruta completa. Ya tienes los nueve nodos.",
     reachNone: (level: number, points: number, first: number) =>
-      `Con nivel ${level} tienes al menos ${points} puntos: el primer nodo llega a los ${first}.`,
+      `Nivel ${level}: al menos ${points} puntos. El primer nodo pide ${first}.`,
     reach: (level: number, points: number, step: number, name: string) =>
-      `Con nivel ${level} tienes al menos ${points} puntos (más los de misiones): te llega hasta el nodo ${step}, ${name}.`,
-    reachAll: (level: number, points: number) =>
-      `Con nivel ${level} tienes al menos ${points} puntos: te llega para toda la ruta.`,
-    otherClass: (className: string) => `Esta ruta es de ${className}. Si llevas otra clase, quédate con la regla de abajo.`,
+      `Nivel ${level}: al menos ${points} puntos. Te llega hasta el nodo ${step}, ${name}.`,
+    reachAll: (level: number, points: number) => `Nivel ${level}: al menos ${points} puntos. Te llega para toda la ruta.`,
+    otherClass: (className: string) => `Ruta de ${className}. Con otra clase, usa la regla de abajo.`,
     ruleTitle: "Cómo saber si un nodo es para ti",
     rules: [
       "Lee el nodo antes de gastar el punto. Tiene que nombrar lo que usas (caos, hechizos, esbirros) o tu defensa (escudo de energía, vida).",
@@ -30,9 +32,12 @@ const TEXT = texts(
       "Los nodos pequeños del camino también cuentan: elige el camino cuyos pequeños te sirvan.",
       "Cambiar un punto cuesta oro. Ve nodo a nodo en vez de rehacerlo todo.",
     ],
+    aboutTitle: "Sobre esta ruta",
+    questPoints: "Las misiones dan puntos aparte, así que puedes tener alguno más.",
     source: (patch: string) =>
       `Ruta de ejemplo calculada sobre el árbol oficial de ${patch}. Los puntos son por el camino más corto; pueden variar en uno o dos según por dónde vayas. El texto de cada nodo es el de Grinding Gear Games, traducido por nosotros; el nombre en español es el del juego.`,
-    plannerLead: "¿Quieres ver el árbol entero? Estos planificadores son webs externas y se abren en otra pestaña.",
+    plannerTitle: "Ver el árbol entero",
+    plannerLead: "Son webs externas y se abren en otra pestaña.",
     planners: [
       { href: "https://poe2db.tw/sp/passive-skill-tree", label: "Árbol en español (poe2db)" },
       { href: "https://maxroll.gg/poe2/passive-tree", label: "Planificador de Maxroll (en inglés)" },
@@ -43,13 +48,15 @@ const TEXT = texts(
     doneOf: (done: number, total: number) => `${done} of ${total} taken`,
     family: { hechizos: "Spells", defensa: "Defence", caos: "Chaos", esbirros: "Minions", mixto: "Chaos + minions" },
     points: (count: number) => `${count} points`,
+    next: "Your next node",
+    have: (name: string) => `I already have ${name}`,
+    allTaken: "Route complete. You have all nine nodes.",
     reachNone: (level: number, points: number, first: number) =>
-      `At level ${level} you have at least ${points} points: the first node needs ${first}.`,
+      `Level ${level}: at least ${points} points. The first node needs ${first}.`,
     reach: (level: number, points: number, step: number, name: string) =>
-      `At level ${level} you have at least ${points} points (plus quest rewards): that gets you to node ${step}, ${name}.`,
-    reachAll: (level: number, points: number) =>
-      `At level ${level} you have at least ${points} points: enough for the whole route.`,
-    otherClass: (className: string) => `This route is for the ${className}. If you play another class, keep the rule below.`,
+      `Level ${level}: at least ${points} points. That gets you to node ${step}, ${name}.`,
+    reachAll: (level: number, points: number) => `Level ${level}: at least ${points} points. Enough for the whole route.`,
+    otherClass: (className: string) => `${className} route. With another class, use the rule below.`,
     ruleTitle: "How to tell whether a node is for you",
     rules: [
       "Read the node before spending the point. It has to name what you use (chaos, spells, minions) or your defence (energy shield, life).",
@@ -57,9 +64,12 @@ const TEXT = texts(
       "The small nodes on the way count too: pick the path whose small nodes help you.",
       "Changing a point costs gold. Go node by node instead of redoing everything.",
     ],
+    aboutTitle: "About this route",
+    questPoints: "Quests give extra points, so you may have a few more.",
     source: (patch: string) =>
       `Example route worked out on the official ${patch} tree. Points follow the shortest path; they can vary by one or two depending on the way you take. Each node's text is Grinding Gear Games' own.`,
-    plannerLead: "Want to see the whole tree? These planners are external sites and open in a new tab.",
+    plannerTitle: "See the whole tree",
+    plannerLead: "These are external sites and open in a new tab.",
     planners: [
       { href: "https://maxroll.gg/poe2/passive-tree", label: "Maxroll planner" },
       { href: "https://poe2db.tw/us/passive-skill-tree", label: "poe2db tree" },
@@ -76,6 +86,9 @@ const FAMILY_CLASS: Record<PassiveFamily, string> = {
   esbirros: "border-amber-400/50 text-amber-200",
   mixto: "border-primary/50 text-primary",
 };
+
+const FOLD_CLASS = "mt-2 rounded-lg border border-border/70 px-3 py-2 text-sm";
+const FOLD_SUMMARY_CLASS = "cursor-pointer font-medium text-foreground";
 
 function readTaken(routeId: string): string[] {
   try {
@@ -95,6 +108,11 @@ function sameClass(profileClass: string, classEs: string, classEn: string): bool
 /**
  * «Tus puntos del árbol»: una ruta de pasivas en orden, con el texto real de
  * cada nodo. El jugador marca los que ya tiene; se recuerda en su navegador.
+ *
+ * A la vista queda solo lo que hace falta ahora: hasta dónde llegan los
+ * puntos y el siguiente nodo, abierto. Los demás nodos son una línea cada uno
+ * y su detalle, la regla y la letra pequeña van plegados. Un smoke vigila que
+ * la tarjeta no vuelva a pasar de una pantalla de texto.
  */
 export function PassiveRouteCard({ profile }: { profile: CharacterProfile | null }) {
   const t = useText(TEXT);
@@ -113,10 +131,12 @@ export function PassiveRouteCard({ profile }: { profile: CharacterProfile | null
   };
 
   const takenCount = route.steps.filter((step) => taken.includes(step.nodeId)).length;
+  const nextIndex = route.steps.findIndex((step) => !taken.includes(step.nodeId));
   const levelReading = profile ? readCharacterLevel(profile) : null;
   const level = levelReading?.known ? levelReading.level : null;
   const className = lang === "en" ? route.classEn : route.classEs;
   const classMatches = profile ? sameClass(profile.characterClass, route.classEs, route.classEn) : true;
+  const nameOf = (index: number) => (lang === "en" ? route.steps[index].nameEn : route.steps[index].nameEs);
 
   let reach: string | null = null;
   if (level !== null && classMatches) {
@@ -124,10 +144,7 @@ export function PassiveRouteCard({ profile }: { profile: CharacterProfile | null
     const within = stepsWithinPoints(route, points);
     if (within === 0) reach = t.reachNone(level, points, route.steps[0].points);
     else if (within === route.steps.length) reach = t.reachAll(level, points);
-    else {
-      const last = route.steps[within - 1];
-      reach = t.reach(level, points, within, lang === "en" ? last.nameEn : last.nameEs);
-    }
+    else reach = t.reach(level, points, within, nameOf(within - 1));
   }
 
   return (
@@ -147,91 +164,120 @@ export function PassiveRouteCard({ profile }: { profile: CharacterProfile | null
         </span>
       </div>
       <p className="mt-1 text-sm font-semibold text-foreground">{route.title[lang]}</p>
-      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{route.lead[lang]}</p>
 
       {reach !== null && (
         <p
-          className="mt-3 rounded-lg bg-secondary/50 p-3 text-sm leading-relaxed text-foreground"
+          className="mt-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm leading-relaxed text-foreground"
           data-testid="arbol-ruta-alcance"
         >
           {reach}
         </p>
       )}
       {!classMatches && (
-        <p className="mt-3 rounded-lg bg-secondary/50 p-3 text-sm leading-relaxed text-muted-foreground" data-testid="arbol-ruta-otra-clase">
+        <p
+          className="mt-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm leading-relaxed text-muted-foreground"
+          data-testid="arbol-ruta-otra-clase"
+        >
           {t.otherClass(className)}
+        </p>
+      )}
+      {nextIndex === -1 && (
+        <p className="mt-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200" data-testid="arbol-ruta-completa">
+          {t.allTaken}
         </p>
       )}
 
       <ol className="mt-3 space-y-1">
         {route.steps.map((step, index) => {
           const checked = taken.includes(step.nodeId);
-          const id = `arbol-ruta-${route.id}-${index}`;
+          const isNext = index === nextIndex;
+          const name = nameOf(index);
           return (
             <li
               key={step.nodeId}
-              className="flex gap-3 rounded-lg px-2 py-2 hover:bg-secondary/50"
+              className={cn(
+                "flex gap-3 rounded-lg px-2 py-1.5",
+                isNext ? "border border-primary/40 bg-primary/[0.07] py-2.5" : "hover:bg-secondary/50",
+              )}
               data-testid={`arbol-ruta-paso-${index}`}
+              data-next={isNext ? "true" : "false"}
             >
               <input
-                id={id}
                 type="checkbox"
                 checked={checked}
                 onChange={() => toggle(step.nodeId)}
+                aria-label={t.have(name)}
                 className="mt-1 size-4 shrink-0 accent-primary"
               />
-              <label htmlFor={id} className={cn("min-w-0 flex-1 cursor-pointer text-sm leading-relaxed", checked && "opacity-55")}>
-                <span className="font-semibold text-foreground">
-                  {index + 1}. {lang === "en" ? step.nameEn : step.nameEs}
-                </span>
-                {lang === "es" && <span className="ml-1.5 text-xs text-muted-foreground">({step.nameEn})</span>}
-                <span className={cn("ml-2 rounded-full border px-1.5 py-px text-[11px]", FAMILY_CLASS[step.family])}>
-                  {t.family[step.family]}
-                </span>
-                <span className="ml-1 rounded-full border border-border px-1.5 py-px text-[11px] tabular-nums text-muted-foreground">
-                  {t.points(step.points)}
-                </span>
-                <span className="mt-0.5 block text-foreground/90" data-testid={`arbol-ruta-da-${index}`}>
-                  {/* Espacio duro antes de «%»: sin él, el número y el signo se partían en dos líneas. */}
+              {/* El siguiente nodo llega abierto. La `key` lo vuelve a montar al
+                  cambiar de «siguiente», para que el abierto sea siempre el que toca. */}
+              <details key={isNext ? "siguiente" : "resto"} open={isNext} className="min-w-0 flex-1 text-sm leading-relaxed">
+                <summary className={cn("cursor-pointer list-none marker:content-none", checked && "opacity-55")}>
+                  {isNext && (
+                    <span className="mb-0.5 block text-xs font-semibold uppercase tracking-wide text-primary">
+                      {t.next}
+                    </span>
+                  )}
+                  <span className="font-semibold text-foreground">
+                    {index + 1}. {name}
+                  </span>
+                  <span className={cn("ml-2 inline-block whitespace-nowrap rounded-full border px-1.5 py-px text-[11px]", FAMILY_CLASS[step.family])}>
+                    {t.family[step.family]}
+                  </span>
+                  <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border px-1.5 py-px text-[11px] tabular-nums text-muted-foreground">
+                    {t.points(step.points)}
+                  </span>
+                </summary>
+                {/* Espacio duro antes de «%»: sin él, el número y el signo se partían en dos líneas. */}
+                <p className="mt-1 text-foreground/90" data-testid={`arbol-ruta-da-${index}`}>
                   {lang === "en" ? step.official.join(" · ") : step.givesEs.replace(/ %/g, "\u00a0%")}
-                </span>
-                <span className="block text-muted-foreground">{step.why[lang]}</span>
-              </label>
+                </p>
+                <p className="text-muted-foreground">
+                  {step.why[lang]}
+                  {lang === "es" && <span className="ml-1 text-xs">({step.nameEn})</span>}
+                </p>
+              </details>
             </li>
           );
         })}
       </ol>
 
-      <div className="mt-4 rounded-lg border border-border/70 p-3">
-        <h3 className="text-sm font-semibold text-foreground">{t.ruleTitle}</h3>
-        <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+      <details className={FOLD_CLASS} data-testid="arbol-ruta-regla">
+        <summary className={FOLD_SUMMARY_CLASS}>{t.ruleTitle}</summary>
+        <ul className="mt-1.5 list-disc space-y-1 pl-5 leading-relaxed text-muted-foreground">
           {t.rules.map((rule) => (
             <li key={rule}>{rule}</li>
           ))}
         </ul>
-      </div>
+      </details>
 
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground" data-testid="arbol-ruta-fuente">
-        {t.source(route.checkedPatch)}
-      </p>
+      <details className={FOLD_CLASS} data-testid="arbol-ruta-fuente">
+        <summary className={FOLD_SUMMARY_CLASS}>{t.aboutTitle}</summary>
+        <p className="mt-1.5 leading-relaxed text-muted-foreground">{route.lead[lang]}</p>
+        <p className="mt-1.5 leading-relaxed text-muted-foreground">{t.questPoints}</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{t.source(route.checkedPatch)}</p>
+      </details>
 
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t.plannerLead}</p>
-      <ul className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {t.planners.map((link, index) => (
-          <li key={link.href}>
-            <a
-              href={link.href}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              data-testid={`guia-arbol-enlace-${index}`}
-            >
-              {link.label}
-              <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
-            </a>
-          </li>
-        ))}
-      </ul>
+      <details className={FOLD_CLASS} data-testid="arbol-ruta-planificadores">
+        <summary className={FOLD_SUMMARY_CLASS}>{t.plannerTitle}</summary>
+        <p className="mt-1.5 leading-relaxed text-muted-foreground">{t.plannerLead}</p>
+        <ul className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {t.planners.map((link, index) => (
+            <li key={link.href}>
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                data-testid={`guia-arbol-enlace-${index}`}
+              >
+                {link.label}
+                <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }
