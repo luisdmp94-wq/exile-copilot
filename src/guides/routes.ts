@@ -26,6 +26,32 @@ export function guidePath(slug: string): string {
   return `/guias/${slug}`;
 }
 
+/**
+ * Enlaces que abren directamente una herramienta: `?open=gems` lleva al
+ * consejero de gemas y `?open=compare` al comparador de piezas. Sirven para
+ * compartir («prueba esto») sin que la persona tenga que encontrar la pestaña.
+ */
+export type DirectTool = "gems" | "compare";
+
+const DIRECT_TOOLS: Record<string, DirectTool> = {
+  gems: "gems",
+  gemas: "gems",
+  compare: "compare",
+  comparar: "compare",
+  items: "compare",
+  piezas: "compare",
+};
+
+/** `?open=gems` → «gems»; null si no pide ninguna o pide algo que no existe. */
+export function directToolFromSearch(search: string): DirectTool | null {
+  const params = new URLSearchParams(search);
+  const wanted = (params.get("open") ?? params.get("abrir") ?? "").trim().toLowerCase();
+  return DIRECT_TOOLS[wanted] ?? null;
+}
+
+/** El elemento de la página al que hay que bajar para cada herramienta. */
+export const DIRECT_TOOL_TEST_ID: Record<DirectTool, string> = { gems: "asistencia", compare: "comparar" };
+
 /** Título de la pestaña del navegador a partir del nombre corto del acto. */
 export function pageTitleForAct(actLabel: string, lang: GuideLang = "es"): string {
   const act = actLabel.replace(/^./, (c) => c.toUpperCase());

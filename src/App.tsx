@@ -103,6 +103,8 @@ import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 import {
   DEFAULT_GUIDE_SLUG,
+  DIRECT_TOOL_TEST_ID,
+  directToolFromSearch,
   guidePageTitleFor,
   guidePath,
   guideSlugFromPath,
@@ -217,6 +219,13 @@ const APP_TITLE_EN = "Exile Copilot · Path of Exile 2 guides and mentor for new
 function openedFromGuideUrl(): boolean {
   return typeof window !== "undefined" && window.location.pathname.startsWith("/guias");
 }
+
+/**
+ * `?open=gems` o `?open=compare` en la dirección de entrada: la web abre esa
+ * herramienta directamente. Se lee una vez, al cargar, antes de que la web
+ * cambie la dirección.
+ */
+const REQUESTED_TOOL = typeof window === "undefined" ? null : directToolFromSearch(window.location.search);
 
 /**
  * Los paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
@@ -426,7 +435,9 @@ export default function App() {
       DEFAULT_GUIDE_SLUG,
   );
   const [tab, setTab] = useState<WorkspaceTab>(() =>
-    openedFromGuideUrl() ? "guias" : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
+    openedFromGuideUrl() || REQUESTED_TOOL !== null
+      ? "guias"
+      : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
   );
   // Contador anónimo: qué áreas abre cada visita (una vez cada una), en la web publicada.
   useEffect(() => {
@@ -466,7 +477,26 @@ export default function App() {
   const [guideViewRequest, setGuideViewRequest] = useState<{
     view: "guia" | "comprobar" | "herramientas";
     seq: number;
-  } | null>(null);
+  } | null>(() => (REQUESTED_TOOL === null ? null : { view: "herramientas", seq: 1 }));
+  // Un enlace directo a una herramienta baja hasta ella en cuanto está pintada
+  // (el área de guías se descarga aparte y puede tardar un momento).
+  useEffect(() => {
+    if (REQUESTED_TOOL === null) return;
+    const selector = `[data-testid="${DIRECT_TOOL_TEST_ID[REQUESTED_TOOL]}"]`;
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      tries += 1;
+      const target = document.querySelector<HTMLElement>(selector);
+      if (target && target.offsetParent !== null) {
+        // Deja a la vista el título bajo la cabecera y la barra de áreas, que son fijas.
+        window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 132 });
+        window.clearInterval(timer);
+      } else if (tries >= 40) {
+        window.clearInterval(timer);
+      }
+    }, 150);
+    return () => window.clearInterval(timer);
+  }, []);
   // «Compararla con otra» desde Crafting: la pieza que viaja a la comparación.
   const [compareRequest, setCompareRequest] = useState<{ item: Item; seq: number } | null>(null);
   // Se guarda el último aviso y no su texto: así, al cambiar de idioma, la

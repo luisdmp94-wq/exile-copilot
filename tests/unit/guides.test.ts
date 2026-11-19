@@ -44,3 +44,23 @@ describe("guías por acto", () => {
     expect(findGuide("acto-9").slug).toBe("acto-1");
   });
 });
+
+describe("enlaces directos a una herramienta", () => {
+  it("?open=gems y ?open=compare, solos o con idioma y origen", async () => {
+    const { directToolFromSearch } = await import("../../src/guides/routes.js");
+    expect(directToolFromSearch("?open=gems")).toBe("gems");
+    expect(directToolFromSearch("?lang=en&ref=reddit&open=gems")).toBe("gems");
+    expect(directToolFromSearch("?open=compare")).toBe("compare");
+    expect(directToolFromSearch("?abrir=gemas")).toBe("gems");
+    expect(directToolFromSearch("?abrir=piezas")).toBe("compare");
+    expect(directToolFromSearch("?open=GEMS ")).toBe("gems");
+  });
+
+  it("sin nada, o con algo que no existe, la web abre como siempre", async () => {
+    const { directToolFromSearch } = await import("../../src/guides/routes.js");
+    expect(directToolFromSearch("")).toBeNull();
+    expect(directToolFromSearch("?lang=en&ref=reddit")).toBeNull();
+    expect(directToolFromSearch("?open=estadisticas")).toBeNull();
+    expect(directToolFromSearch("?open=<script>")).toBeNull();
+  });
+});
