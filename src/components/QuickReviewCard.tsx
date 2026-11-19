@@ -3,18 +3,20 @@ import { Camera, ClipboardCheck, Loader2, MessageCircleMore } from "lucide-react
 import type { ScreenshotReadResponse } from "@shared/screenshotRead.js";
 import { api, getErrorMessage } from "@/lib/api";
 import type { CharacterProfile } from "@shared/domain.js";
-import { readCharacterLevel } from "@shared/domain.js";
-import {
-  firstGapsToAsk,
-  reviewCharacter,
-  type QuickReviewAct,
-  type QuickReviewGap,
-  type QuickReviewInput,
-} from "@shared/quickReview.js";
+import { firstGapsToAsk, reviewCharacter, type QuickReviewGap } from "@shared/quickReview.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { texts, useLang, useText } from "@/i18n/lang";
 import { readQuickReviewForm, writeQuickReviewForm } from "@/lib/quickReviewStorage";
+import {
+  LICH,
+  QUICK_REVIEW_CHANGED_EVENT,
+  RANGES,
+  fieldIsInvalid,
+  quickReviewFormFor,
+  toInput,
+  type Form,
+} from "@/lib/quickReviewForm";
 
 const TEXT = texts(
   {
@@ -140,61 +142,10 @@ const TEXT = texts(
 /** Evento con el que otras partes de la web (la mascota) abren la revisión. */
 export const OPEN_REVIEW_EVENT = "exile-copilot:abrir-revision";
 
-interface Form {
-  level: string;
-  act: string;
-  mainSkill: string;
-  gemLevel: string;
-  weapon: string;
-  fire: string;
-  cold: string;
-  lightning: string;
-  ascPoints: string;
-  ascendancy: string;
-  curse: string;
-  otherSkills: string;
-}
-
-const EMPTY: Form = {
-  level: "",
-  act: "",
-  mainSkill: "",
-  gemLevel: "",
-  weapon: "",
-  fire: "",
-  cold: "",
-  lightning: "",
-  ascPoints: "",
-  ascendancy: "",
-  curse: "",
-  otherSkills: "",
-};
-
-const LICH = /\b(?:liche|lich)\b/i;
-
-/** Lo que ya sabe la web del personaje guardado, para no preguntarlo otra vez. */
-function fromProfile(profile: CharacterProfile | null): Partial<Form> {
-  if (!profile) return {};
-  const level = readCharacterLevel(profile);
-  const weapon = profile.items.find((item) => item.slot === "weapon");
-  const skills = profile.skills.map((skill) => skill.mainSkill || skill.label).filter(Boolean);
-  const res = profile.resistances;
-  const asText = (value: number | null) => (value === null ? "" : String(value));
-  return {
-    ...(level.known ? { level: String(level.level) } : {}),
-    ...(weapon && weapon.rarity !== "unique" && weapon.itemLevel ? { weapon: String(weapon.itemLevel) } : {}),
-    ...(skills[0] ? { mainSkill: skills[0], otherSkills: skills.slice(1).join(", ") } : {}),
-    fire: asText(res.fire),
-    cold: asText(res.cold),
-    lightning: asText(res.lightning),
-    ...(profile.ascendancy ? { ascendancy: LICH.test(profile.ascendancy) ? "lich" : "other" } : {}),
-  };
-}
-
 /** Lo que este navegador recuerda de la revisión de ese personaje (o del borrador sin personaje). */
-function readStored(profileId: string | null): Partial<Form> {
+function readStored(profileId: string | null): Record<string, string> {
   try {
-    return readQuickReviewForm(window.localStorage, profileId) as Partial<Form>;
+    return readQuickReviewForm(window.localStorage, profileId);
   } catch {
     return {};
   }
@@ -203,23 +154,12 @@ function readStored(profileId: string | null): Partial<Form> {
 function remember(profileId: string | null, form: Form): void {
   try {
     writeQuickReviewForm(window.localStorage, profileId, { ...form });
+    // El Mentor y la mascota leen la revisión: que se enteren del cambio.
+    window.dispatchEvent(new Event(QUICK_REVIEW_CHANGED_EVENT));
   } catch {
     // Sin almacenamiento, el formulario vale para esta visita.
   }
 }
-
-/**
- * Lo que puede valer cada número en PoE2 (con margen). Fuera de rango no se
- * usa: se avisa al jugador en vez de darle un consejo con basura.
- */
-const RANGES: Partial<Record<keyof Form, [number, number]>> = {
-  level: [1, 100],
-  gemLevel: [1, 40],
-  weapon: [1, 100],
-  fire: [-200, 90],
-  cold: [-200, 90],
-  lightning: [-200, 90],
-};
 
 /** Campo del formulario al que lleva cada dato que falta. */
 const FIELD_FOR_GAP: Record<QuickReviewGap, keyof Form> = {
@@ -233,47 +173,6 @@ const FIELD_FOR_GAP: Record<QuickReviewGap, keyof Form> = {
 
 /** Lo que afina la revisión pero no hace falta para empezar: va plegado. */
 const OPTIONAL_FIELDS: Array<keyof Form> = ["weapon", "ascendancy", "curse", "otherSkills"];
-
-/** Solo enteros escritos tal cual («1e5» o «3.5» no valen). */
-const parseWhole = (value: string): number | null => {
-  const text = value.trim();
-  return /^-?\d{1,4}$/.test(text) ? Number(text) : null;
-};
-
-function fieldIsInvalid(form: Form, key: keyof Form): boolean {
-  const text = form[key].trim();
-  if (text === "") return false;
-  const range = RANGES[key];
-  const value = parseWhole(text);
-  return value === null || (range !== undefined && (value < range[0] || value > range[1]));
-}
-
-const numberOrNull = (form: Form, key: keyof Form): number | null =>
-  fieldIsInvalid(form, key) ? null : parseWhole(form[key]);
-
-function toInput(form: Form): QuickReviewInput {
-  const act: QuickReviewAct | null =
-    form.act === "maps" ? "maps" : ["1", "2", "3", "4"].includes(form.act) ? (Number(form.act) as QuickReviewAct) : null;
-  return {
-    level: numberOrNull(form, "level"),
-    act,
-    mainSkill: form.mainSkill.trim() || null,
-    mainSkillGemLevel: numberOrNull(form, "gemLevel"),
-    weaponItemLevel: numberOrNull(form, "weapon"),
-    resistances: {
-      fire: numberOrNull(form, "fire"),
-      cold: numberOrNull(form, "cold"),
-      lightning: numberOrNull(form, "lightning"),
-    },
-    ascendancyPoints: numberOrNull(form, "ascPoints"),
-    ascendancy: form.ascendancy === "lich" ? "Lich" : form.ascendancy === "other" ? "other" : null,
-    usesCurse: form.curse === "yes" ? true : form.curse === "no" ? false : null,
-    otherSkills: form.otherSkills
-      .split(",")
-      .map((skill) => skill.trim())
-      .filter(Boolean),
-  };
-}
 
 interface QuickReviewCardProps {
   profile: CharacterProfile | null;
@@ -292,12 +191,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const { lang } = useLang();
   // Cada personaje recuerda su propia revisión: lo de uno no aparece en otro.
   const profileId = profile?.id ?? null;
-  const [form, setForm] = useState<Form>(() => {
-    const stored = Object.fromEntries(
-      Object.entries(readStored(profileId)).filter(([, value]) => typeof value === "string" && value.trim() !== ""),
-    ) as Partial<Form>;
-    return { ...EMPTY, ...fromProfile(profile), ...stored };
-  });
+  const [form, setForm] = useState<Form>(() => quickReviewFormFor(profile, readStored(profileId)));
   const [reviewed, setReviewed] = useState(false);
   const [showRest, setShowRest] = useState(false);
   // Los datos opcionales empiezan plegados, salvo que ya haya alguno escrito.
@@ -550,7 +444,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   return (
     <section
       id="revision-rapida"
-      className="rounded-xl border border-primary/35 bg-card p-4 sm:p-5"
+      className="scroll-mt-36 rounded-xl border border-primary/35 bg-card p-4 sm:p-5 sm:scroll-mt-24"
       aria-labelledby="revision-rapida-titulo"
       data-testid="revision-rapida"
     >

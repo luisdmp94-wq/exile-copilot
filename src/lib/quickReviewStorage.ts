@@ -52,7 +52,10 @@ export function readQuickReviewForm(store: QuickReviewStore, profileId: string |
  */
 export function peekQuickReviewForm(store: Pick<QuickReviewStore, "getItem">, profileId: string | null): Record<string, string> {
   try {
-    return parse(store.getItem(quickReviewKey(profileId)));
+    const own = store.getItem(quickReviewKey(profileId));
+    if (own !== null || profileId === null) return parse(own);
+    // Lo mismo que vería al abrir la tarjeta: el borrador de la portada.
+    return parse(store.getItem(QUICK_REVIEW_STORAGE_KEY));
   } catch {
     return {};
   }

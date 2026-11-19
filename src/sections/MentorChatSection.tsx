@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookmarkPlus, Loader2, PackageSearch, PencilLine, Send } from "lucide-react";
+import { BookmarkPlus, ClipboardCheck, Loader2, PackageSearch, PencilLine, Send } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import { assessMentorReadiness } from "@shared/characterReadiness.js";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
@@ -17,6 +17,9 @@ import { CONFIDENCE_BADGE_CLASSES, formatDateTime, displaySourceLabel } from "@/
 import { useFormatLabels } from "@/lib/formatLabels";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
+import { firstGapsToAsk, reviewCharacter } from "@shared/quickReview.js";
+import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
+import { toInput } from "@/lib/quickReviewForm";
 import { texts, useLang, useText } from "@/i18n/lang";
 import {
   allowsPatchGuidance,
@@ -66,6 +69,19 @@ const TEXT = texts(
     readinessPending: (question: string) =>
       `Tu pregunta queda guardada: «${question}». Te respondo en cuanto completes el personaje.`,
     readinessButton: "Completar personaje",
+    // Sin equipo todavía: el Mentor contesta con la revisión rápida (reglas).
+    reviewFoundTitle: "Aún sin tu equipo, esto ya lo veo",
+    reviewAskTitle: "Dime unos datos del juego y te digo qué te frena",
+    reviewAskBody: (missing: string) => `Dime ${missing}: lo ves en el juego y es un minuto.`,
+    reviewClearTitle: "Con lo que me has contado no veo nada grave",
+    reviewClearBody: "Pega una pieza de tu equipo y te digo cuál mejorar primero.",
+    reviewSource: "De tu revisión rápida: reglas del juego, sin IA.",
+    reviewAnd: "y",
+    reviewOpen: "Ir a la revisión rápida",
+    reviewOpenFull: "Ver la revisión completa",
+    deepMissing: (missing: string) => `Para una respuesta a fondo me falta: ${missing}.`,
+    deepPending: (question: string) =>
+      `Tu pregunta queda guardada: «${question}». Te la contesto a fondo cuando lo completes.`,
     patchTitle: (patchId: string) => `El mentor está esperando la revisión de ${patchId}`,
     patchBody: (summary: string) =>
       `${summary} No propondrá mejoras ni acciones mecánicas usando datos del parche anterior.`,
@@ -126,6 +142,18 @@ const TEXT = texts(
     readinessPending: (question: string) =>
       `Your question is saved: “${question}”. I'll answer as soon as you complete your character.`,
     readinessButton: "Finish character file",
+    reviewFoundTitle: "Even without your gear, I can already see this",
+    reviewAskTitle: "Tell me a few things from the game and I'll tell you what's holding you back",
+    reviewAskBody: (missing: string) => `Tell me ${missing}: you can see it in the game and it takes a minute.`,
+    reviewClearTitle: "From what you've told me, I see nothing serious",
+    reviewClearBody: "Paste one of your items and I'll tell you which to improve first.",
+    reviewSource: "From your quick review: game rules, no AI.",
+    reviewAnd: "and",
+    reviewOpen: "Go to the quick review",
+    reviewOpenFull: "See the full review",
+    deepMissing: (missing: string) => `For an in-depth answer I'm missing: ${missing}.`,
+    deepPending: (question: string) =>
+      `Your question is saved: “${question}”. I'll answer it in depth once you complete it.`,
     patchTitle: (patchId: string) => `The mentor is waiting for the ${patchId} review`,
     patchBody: (summary: string) =>
       `${summary} It won't suggest upgrades or mechanical actions using data from the previous patch.`,
@@ -175,6 +203,8 @@ interface MentorChatSectionProps {
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
   /** Lleva al jugador a completar los datos observados que faltan. */
   onEditProfile: () => void;
+  /** Abre la «Revisión rápida». Con esto, sin equipo el Mentor contesta con ella. */
+  onOpenQuickReview?: () => void;
   /**
    * Pregunta escrita en «Tu siguiente paso». Cada `seq` nuevo se envía con
    * las mismas reglas que el formulario propio; si aún no se puede preguntar,
@@ -192,10 +222,16 @@ export function MentorChatSection({
   savingNextAction,
   onFocusItem,
   onEditProfile,
+  onOpenQuickReview,
   pendingQuestion = null,
 }: MentorChatSectionProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
+  // Lo que el jugador ya contestó en la revisión rápida: sin equipo, el
+  // Mentor responde con eso en vez de quedarse en «me faltan datos».
+  const reviewForm = useQuickReviewForm(profile);
+  const review = reviewCharacter(toInput(reviewForm), lang);
+  const reviewGaps = firstGapsToAsk(review);
   const [question, setQuestion] = useState("");
   const { turns, loading, error } = mentor;
   const threadRef = useRef<HTMLDivElement | null>(null);
@@ -308,6 +344,64 @@ export function MentorChatSection({
             <AlertDescription>{t.noProfileBody}</AlertDescription>
           </Alert>
         ) : !readiness.ready ? (
+          onOpenQuickReview ? (
+            <Alert data-testid="mentor-profile-readiness-gate" data-review={review.top.length > 0 ? "found" : reviewGaps.length > 0 ? "ask" : "clear"}>
+              <AlertTitle>
+                {review.top.length > 0
+                  ? t.reviewFoundTitle
+                  : reviewGaps.length > 0
+                    ? t.reviewAskTitle
+                    : t.reviewClearTitle}
+              </AlertTitle>
+              <AlertDescription className="space-y-3">
+                {review.top.length > 0 ? (
+                  <>
+                    <ol className="space-y-2" data-testid="mentor-revision-hallazgos">
+                      {review.top.map((finding, index) => (
+                        <li key={finding.id} className="text-foreground">
+                          <span className="font-semibold">{index + 1}. {finding.title}</span>
+                          <span className="block text-muted-foreground">{finding.action}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="text-xs">{t.reviewSource}</p>
+                  </>
+                ) : reviewGaps.length > 0 ? (
+                  <p>
+                    {t.reviewAskBody(
+                      reviewGaps
+                        .map((gap) => review.missing[review.missingKeys.indexOf(gap)] ?? "")
+                        .join(` ${t.reviewAnd} `),
+                    )}
+                  </p>
+                ) : (
+                  <p>{t.reviewClearBody}</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" onClick={onOpenQuickReview} data-testid="mentor-ir-revision">
+                    <ClipboardCheck className="size-4" aria-hidden="true" />
+                    {review.top.length > 0 ? t.reviewOpenFull : t.reviewOpen}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={onEditProfile}>
+                    <PencilLine className="size-4" aria-hidden="true" />
+                    {t.readinessButton}
+                  </Button>
+                </div>
+                <p className="text-xs" data-testid="mentor-falta-a-fondo">
+                  {t.deepMissing(
+                    readiness.issues
+                      .map((issue) => (lang === "en" ? issue.labelEn : issue.label).toLowerCase())
+                      .join(", "),
+                  )}
+                </p>
+                {waitingQuestion !== null && (
+                  <p className="text-xs font-medium text-foreground" data-testid="mentor-pregunta-en-espera">
+                    {t.deepPending(waitingQuestion)}
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
+          ) : (
           <Alert data-testid="mentor-profile-readiness-gate">
             <AlertTitle>{t.readinessTitle}</AlertTitle>
             <AlertDescription className="space-y-3">
@@ -329,6 +423,7 @@ export function MentorChatSection({
               </Button>
             </AlertDescription>
           </Alert>
+          )
         ) : patchBlocked ? (
           <Alert data-testid="mentor-chat-patch-review-gate">
             <AlertTitle>{t.patchTitle(patchCompatibility.patchId)}</AlertTitle>

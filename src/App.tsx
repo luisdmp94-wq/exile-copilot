@@ -77,7 +77,7 @@ import { RecommendationsSection } from "@/sections/RecommendationsSection";
 import { OPEN_REVIEW_EVENT, QuickReviewCard } from "@/components/QuickReviewCard";
 import { SkillGemTeaser } from "@/components/SkillGemTeaser";
 import { mascotNextStep, reviewKnowsBasics } from "@/lib/mascotNextStep";
-import { peekQuickReviewForm } from "@/lib/quickReviewStorage";
+import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
@@ -906,6 +906,8 @@ export default function App() {
     () => assessMentorReadiness(character.profile),
     [character.profile],
   );
+  // Lo que el jugador ya contestó en la revisión rápida (se relee al cambiar).
+  const quickReviewForm = useQuickReviewForm(character.profile);
   /**
    * Ids del paperdoll: SOLO los del contenido dominante. Al cambiar de caso se
    * sustituyen por los del nuevo o por un conjunto vacío; ninguna celda queda
@@ -1599,12 +1601,7 @@ export default function App() {
   const mascotStepKind = mascotNextStep({
     hasProfile: character.profile !== null,
     itemCount: character.profile?.items.length ?? 0,
-    reviewKnowsBasics:
-      character.profile !== null &&
-      reviewKnowsBasics(
-        typeof window === "undefined" ? {} : peekQuickReviewForm(window.localStorage, character.profile.id),
-        character.profile.resistances,
-      ),
+    reviewKnowsBasics: character.profile !== null && reviewKnowsBasics({ ...quickReviewForm }),
   });
 
   const askMentorQuickQuestion = (text: string) => {
@@ -2117,6 +2114,7 @@ export default function App() {
                       }}
                       onFocusItem={focusItem}
                       onEditProfile={completeProfile}
+                      onOpenQuickReview={() => openQuickReview()}
                       pendingQuestion={mentorQuickQuestion}
                     />
                   </MentorBriefing>
