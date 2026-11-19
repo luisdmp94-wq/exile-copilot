@@ -3,11 +3,11 @@
  * aconseja depende de esto.
  */
 
-/** Del 1 de diciembre al 6 de enero (Reyes), en la hora del jugador. */
+/** Del 15 de noviembre al 6 de enero (Reyes), en la hora del jugador. */
 export function isChristmasSeason(now: Date): boolean {
   const month = now.getMonth();
   const day = now.getDate();
-  return month === 11 || (month === 0 && day <= 6);
+  return (month === 10 && day >= 15) || month === 11 || (month === 0 && day <= 6);
 }
 
 /** `?gorro=1` (o `?hat=1`) enseña el gorro fuera de temporada, para verlo antes. */

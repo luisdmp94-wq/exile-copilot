@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { hatRequested, isChristmasSeason } from "../../src/lib/season";
 
 describe("gorro de Navidad de la mascota", () => {
-  it("sale del 1 de diciembre al 6 de enero", () => {
-    expect(isChristmasSeason(new Date(2026, 10, 30))).toBe(false);
+  it("sale del 15 de noviembre al 6 de enero", () => {
+    expect(isChristmasSeason(new Date(2026, 10, 14))).toBe(false);
+    expect(isChristmasSeason(new Date(2026, 10, 15))).toBe(true);
+    expect(isChristmasSeason(new Date(2026, 10, 30))).toBe(true);
     expect(isChristmasSeason(new Date(2026, 11, 1))).toBe(true);
     expect(isChristmasSeason(new Date(2026, 11, 11))).toBe(true);
     expect(isChristmasSeason(new Date(2026, 11, 31))).toBe(true);

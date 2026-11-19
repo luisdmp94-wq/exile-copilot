@@ -366,6 +366,12 @@ function shouldSpeakAutomatically(
 }
 
 /** Presencia persistente: reacciona a decisiones semánticas, no a clics decorativos. */
+/**
+ * Botones del bocadillo en ordenador: más bajos, para que quepa todo sin
+ * barra de desplazamiento. En móvil conservan su tamaño táctil.
+ */
+const COMPACT_BUTTON = "sm:h-7 sm:gap-1 sm:px-2 sm:text-xs";
+
 export function ContextualMentor({
   cue,
   answer,
@@ -669,9 +675,9 @@ export function ContextualMentor({
 
         <div
           className={cn(
-            "flex items-center gap-3 border-b border-border/70 py-3",
-            placement === "inline" && "mentor-companion__header px-4",
-            placement === "floating" && "mentor-floating-header",
+            "flex items-center gap-3 border-b border-border/70",
+            placement === "inline" && "mentor-companion__header px-4 py-3",
+            placement === "floating" && "mentor-floating-header py-2",
           )}
         >
           <span className={cn(
@@ -720,19 +726,28 @@ export function ContextualMentor({
         </div>
 
         <div className={cn(
-          "flex flex-col gap-3 px-4 py-4",
+          "flex flex-col",
+          placement === "floating" ? "gap-2.5 px-3.5 py-3" : "gap-3 px-4 py-4",
           contentCollapsed && "hidden",
           placement === "inline" && "mentor-companion__body",
         )}>
-            <span
+            {placement !== "floating" && (
+              <span
+                className={cn(
+                  "w-fit border px-2 py-0.5 text-xs font-semibold",
+                  SOURCE_STYLES[cue.source],
+                )}
+              >
+                {cue.eyebrow}
+              </span>
+            )}
+            <p
               className={cn(
-                "w-fit border px-2 py-0.5 text-xs font-semibold",
-                SOURCE_STYLES[cue.source],
+                "text-muted-foreground",
+                placement === "floating" ? "text-[13px] leading-snug" : "text-sm leading-relaxed",
               )}
+              data-testid="mentor-contextual-mensaje"
             >
-              {cue.eyebrow}
-            </span>
-            <p className="text-sm leading-relaxed text-muted-foreground" data-testid="mentor-contextual-mensaje">
               {cue.message}
             </p>
             {blockedReason !== null && (
@@ -745,14 +760,14 @@ export function ContextualMentor({
             )}
             {placement === "floating" && nextStep && (
               <section
-                className="rounded-xl border border-primary/40 bg-primary/10 p-3"
+                className="rounded-lg border border-primary/40 bg-primary/10 p-2.5"
                 aria-label={t.nextTitle}
                 data-testid="mentor-siguiente-paso"
                 data-kind={nextStep.kind}
               >
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t.nextTitle}</p>
-                <p className="mt-1 text-sm leading-relaxed text-foreground">{t.next[nextStep.kind].text}</p>
-                <Button type="button" size="sm" className="mt-2" onClick={nextStep.onGo} data-testid="mentor-siguiente-paso-ir">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">{t.nextTitle}</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-foreground">{t.next[nextStep.kind].text}</p>
+                <Button type="button" size="sm" className={cn("mt-2", COMPACT_BUTTON)} onClick={nextStep.onGo} data-testid="mentor-siguiente-paso-ir">
                   {t.next[nextStep.kind].cta}
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </Button>
@@ -773,22 +788,18 @@ export function ContextualMentor({
                   maxLength={300}
                   aria-label={t.askLabel}
                   placeholder={t.askPlaceholder}
-                  className="h-9 min-w-0 flex-1 rounded-full border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9 min-w-0 flex-1 rounded-full border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:text-[13px]"
                   data-testid="mentor-pregunta-rapida-texto"
                 />
-                <Button type="submit" size="sm" variant="secondary" disabled={quickQuestion.trim() === ""} data-testid="mentor-pregunta-rapida-enviar">
+                <Button type="submit" size="sm" variant="secondary" className="sm:h-8 sm:text-xs" disabled={quickQuestion.trim() === ""} data-testid="mentor-pregunta-rapida-enviar">
                   {t.askSend}
                 </Button>
               </form>
             )}
             {placement === "floating" && onStuck && (
-              <section
-                className="rounded-xl border border-border/70 bg-background/40 p-3"
-                aria-label={t.stuckTitle}
-                data-testid="mentor-atascado"
-              >
-                <p className="text-sm font-semibold text-foreground">{t.stuckTitle}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
+              <section aria-label={t.stuckTitle} data-testid="mentor-atascado">
+                <p className="text-xs font-semibold text-muted-foreground">{t.stuckTitle}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {([
                     ["damage", t.stuckDamage, Swords],
                     ["dying", t.stuckDying, HeartCrack],
@@ -799,24 +810,28 @@ export function ContextualMentor({
                       type="button"
                       size="sm"
                       variant="secondary"
+                      className={COMPACT_BUTTON}
                       onClick={() => onStuck(kind)}
                       data-testid={`mentor-atascado-${kind}`}
                     >
-                      <Icon className="size-4" aria-hidden="true" />
+                      <Icon className="size-3.5" aria-hidden="true" />
                       {label}
                     </Button>
                   ))}
                 </div>
               </section>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className={cn("flex flex-wrap", placement === "floating" ? "gap-1.5" : "gap-2")}>
               {cue.ask !== null && (
                 <Button
                   type="button"
                   ref={askButtonRef}
                   size="sm"
                   aria-disabled={!canAsk || loading}
-                  className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                  className={cn(
+                    "aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
+                    placement === "floating" && COMPACT_BUTTON,
+                  )}
                   onFocus={(event) => {
                     askButtonRef.current = event.currentTarget;
                   }}
@@ -849,7 +864,13 @@ export function ContextualMentor({
                         : t.analyse}
                 </Button>
               )}
-              <Button type="button" size="sm" variant="outline" onClick={onOpenMentor}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={placement === "floating" ? COMPACT_BUTTON : undefined}
+                onClick={onOpenMentor}
+              >
                 <MessageCircleMore className="size-4" aria-hidden="true" />
                 {placement === "inline" ? t.chat : t.conversation}
               </Button>
@@ -858,7 +879,7 @@ export function ContextualMentor({
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="text-muted-foreground"
+                  className={cn("text-muted-foreground", COMPACT_BUTTON)}
                   onClick={onReportProblem}
                   data-testid="mentor-avisar-problema"
                 >

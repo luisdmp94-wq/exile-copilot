@@ -655,6 +655,23 @@
     pointer-events: none;
   }
 
+  /* Un bocadillo, no un panel: estrecho, para tapar poca página. */
+  @media (min-width: 481px) {
+    .mentor-floating-shell[data-collapsed="false"] {
+      width: min(21.5rem, calc(100vw - 1.5rem));
+    }
+  }
+
+  /* Sale de la mascota: crece desde su esquina en vez de aparecer de golpe. */
+  .mentor-floating-shell[data-collapsed="false"] .mentor-bubble {
+    transform-origin: calc(100% - var(--mascot-w) / 2) 100%;
+    animation: mentor-bubble-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .mentor-floating-shell[data-collapsed="false"] .mentor-bubble__tail {
+    animation: mentor-bubble-tail-enter 220ms ease-out both;
+  }
+
   .mentor-floating-shell[data-collapsed="false"] .mentor-bubble,
   .mentor-floating-shell[data-collapsed="false"] .mentor-floating-mascot {
     pointer-events: auto;
@@ -780,6 +797,22 @@
       right: 0.75rem;
       left: 0.75rem;
       width: auto;
+    }
+
+    /* Abierta queda donde estaba plegada: mismo tamaño y misma esquina. */
+    .mentor-floating-shell[data-collapsed="false"] .mentor-floating-mascot {
+      margin-right: -0.8rem;
+      margin-bottom: -0.45rem;
+    }
+
+    .mentor-floating-shell[data-collapsed="false"] .mentor-robot {
+      width: 4.35rem;
+      height: 4.95rem;
+    }
+
+    .mentor-floating-shell[data-collapsed="false"] .mentor-bubble__tail {
+      right: calc(var(--mascot-w) / 2 - 0.55rem - 0.8rem);
+      bottom: calc(var(--mascot-h) + 0.6rem - 0.5rem - 0.45rem);
     }
 
     .mentor-floating-shell[data-collapsed="true"],
@@ -1036,6 +1069,29 @@
   }
 }
 
+@keyframes mentor-bubble-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mentor-bubble-tail-enter {
+  from {
+    opacity: 0;
+  }
+  60% {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes mentor-speech-enter {
   from {
     opacity: 0;
@@ -1055,7 +1111,9 @@
   .mentor-robot__eyes-look,
   .mentor-robot__eyes-open,
   .mentor-floating-mascot__beacon,
-  .mentor-speech-bubble {
+  .mentor-speech-bubble,
+  .mentor-floating-shell[data-collapsed="false"] .mentor-bubble,
+  .mentor-floating-shell[data-collapsed="false"] .mentor-bubble__tail {
     animation: none;
   }
 }
