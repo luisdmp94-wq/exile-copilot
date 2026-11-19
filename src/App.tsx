@@ -76,6 +76,8 @@ import { MentorQuickAsk } from "@/components/MentorQuickAsk";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
 import { OPEN_REVIEW_EVENT, QuickReviewCard } from "@/components/QuickReviewCard";
 import { SkillGemTeaser } from "@/components/SkillGemTeaser";
+import { mascotNextStep, reviewKnowsBasics } from "@/lib/mascotNextStep";
+import { peekQuickReviewForm } from "@/lib/quickReviewStorage";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
@@ -933,9 +935,10 @@ export default function App() {
         setWorkspaceHistory((history) => [...history, current].slice(-12));
         return workspace;
       });
-      announceMentor({ type: "workspace", workspace });
+      // Sin personaje no hay «vuelta al personaje»: la mascota saluda.
+      announceMentor(workspace === "expediente" && !hasProfile ? { type: "welcome" } : { type: "workspace", workspace });
     },
-    [announceMentor],
+    [announceMentor, hasProfile],
   );
 
   // Cada guía tiene su propia dirección para poder compartirla; las demás
@@ -964,7 +967,7 @@ export default function App() {
     }
     setWorkspaceHistory((history) => history.slice(0, -1));
     setTab(previous);
-    announceMentor({ type: "workspace", workspace: previous });
+    announceMentor(previous === "expediente" && !hasProfile ? { type: "welcome" } : { type: "workspace", workspace: previous });
   };
 
   const goHome = () => {
@@ -1591,6 +1594,18 @@ export default function App() {
       setContextualError(outcome.message);
     }
   };
+
+  // «Tu siguiente paso» de la mascota: una regla sobre lo que ya se sabe del personaje.
+  const mascotStepKind = mascotNextStep({
+    hasProfile: character.profile !== null,
+    itemCount: character.profile?.items.length ?? 0,
+    reviewKnowsBasics:
+      character.profile !== null &&
+      reviewKnowsBasics(
+        typeof window === "undefined" ? {} : peekQuickReviewForm(window.localStorage, character.profile.id),
+        character.profile.resistances,
+      ),
+  });
 
   const askMentorQuickQuestion = (text: string) => {
     setMentorQuickQuestion((current) => ({ text, seq: (current?.seq ?? 0) + 1 }));
@@ -2586,6 +2601,33 @@ export default function App() {
           setContextualCollapsed(true);
           setReportOpen(true);
         }}
+        nextStep={{
+          kind: mascotStepKind,
+          onGo: () => {
+            setContextualCollapsed(true);
+            if (mascotStepKind === "create") {
+              setQuickCompleting(false);
+              setQuickCreateOpen(true);
+            } else if (mascotStepKind === "review") {
+              openQuickReview();
+            } else if (mascotStepKind === "gear") {
+              navigateWorkspace("expediente");
+              openEditor(false, "item");
+            } else {
+              navigateWorkspace("expediente");
+              window.setTimeout(showOpenCase, 150);
+            }
+          },
+        }}
+        // Sin personaje el Mentor no puede contestar: no se ofrece el cuadro.
+        onQuickQuestion={
+          character.profile !== null
+            ? (question) => {
+                setContextualCollapsed(true);
+                askMentorQuickQuestion(question);
+              }
+            : undefined
+        }
         onStuck={(kind) => {
           setContextualCollapsed(true);
           if (kind === "damage") {

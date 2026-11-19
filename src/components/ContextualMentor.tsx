@@ -1,9 +1,11 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { Bot, ChevronDown, ChevronUp, Compass, HeartCrack, MessageCircleMore, Sparkles, Swords, X } from "lucide-react";
+import { ArrowRight, Bot, ChevronDown, ChevronUp, Compass, HeartCrack, MessageCircleMore, Sparkles, Swords, X } from "lucide-react";
 import { texts, useText } from "@/i18n/lang";
 import type { MentorAnswer } from "@shared/mentorQuery.js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { hatRequested, isChristmasSeason } from "@/lib/season";
+import type { MascotNextStepKind } from "@/lib/mascotNextStep";
 import type {
   ContextualMentorAsk,
   ContextualMentorCue,
@@ -29,6 +31,10 @@ interface ContextualMentorProps {
   onStuck?: (kind: StuckKind) => void;
   /** Abre «Avisar de un problema». */
   onReportProblem?: () => void;
+  /** El consejo de «tu siguiente paso» y a dónde lleva su botón. */
+  nextStep?: { kind: MascotNextStepKind; onGo: () => void } | null;
+  /** Envía al Mentor una pregunta escrita en el bocadillo. Sin esto no hay cuadro. */
+  onQuickQuestion?: (question: string) => void;
 }
 
 export type StuckKind = "damage" | "dying" | "lost";
@@ -94,6 +100,16 @@ const TEXT = texts(
     checking: "Contrastando este contexto con tu personaje, el motor y el diario…",
     answer: "Respuesta contextual",
     aiCouldNot: (reason: string) => `La IA no pudo decidir: ${reason}`,
+    nextTitle: "Tu siguiente paso",
+    next: {
+      create: { text: "Cuéntame tu personaje: es un minuto y sin registrarte.", cta: "Crear mi personaje" },
+      review: { text: "Dime tus resistencias y el acto, y te digo qué te frena.", cta: "Ir a la revisión rápida" },
+      gear: { text: "Pega una pieza de tu equipo y te digo qué mejorar primero.", cta: "Pegar una pieza" },
+      plan: { text: "Ya tengo tu equipo. Mira cuál es tu siguiente mejora.", cta: "Ver mi siguiente paso" },
+    } as Record<MascotNextStepKind, { text: string; cta: string }>,
+    askLabel: "Pregúntame algo",
+    askPlaceholder: "Pregúntame algo…",
+    askSend: "Preguntar",
     stuckTitle: "¿Te has atascado?",
     stuckDamage: "No hago daño",
     stuckDying: "Me matan",
@@ -133,6 +149,16 @@ const TEXT = texts(
     checking: "Checking this context against your character, the engine and the journal…",
     answer: "Contextual answer",
     aiCouldNot: (reason: string) => `The AI couldn't decide: ${reason}`,
+    nextTitle: "Your next step",
+    next: {
+      create: { text: "Tell me about your character: it takes a minute, no sign-up.", cta: "Create my character" },
+      review: { text: "Tell me your resistances and your act, and I'll tell you what's holding you back.", cta: "Go to the quick review" },
+      gear: { text: "Paste one of your items and I'll tell you what to improve first.", cta: "Paste an item" },
+      plan: { text: "I have your gear. See what your next upgrade is.", cta: "See my next step" },
+    } as Record<MascotNextStepKind, { text: string; cta: string }>,
+    askLabel: "Ask me something",
+    askPlaceholder: "Ask me something…",
+    askSend: "Ask",
     stuckTitle: "Stuck?",
     stuckDamage: "I lack damage",
     stuckDying: "I keep dying",
@@ -194,8 +220,61 @@ function MentorRobot({
         draggable="false"
       />
       <MentorEyes />
+      {SHOW_CHRISTMAS_HAT && <MentorChristmasHat />}
       <span className="mentor-robot__shadow" />
     </span>
+  );
+}
+
+/** Se decide una vez, al cargar: en Navidad, o con `?gorro=1` para verlo antes. */
+const SHOW_CHRISTMAS_HAT =
+  typeof window !== "undefined" && (isChristmasSeason(new Date()) || hatRequested(window.location.search));
+
+/**
+ * Gorro de Navidad sobre el casco. Va en el mismo viewBox que la ilustración
+ * (1176 × 1337), como los ojos, así que queda colocado a cualquier tamaño.
+ */
+function MentorChristmasHat() {
+  const id = useId().replace(/:/g, "");
+  const red = `gorro-rojo-${id}`;
+  const fur = `gorro-piel-${id}`;
+  return (
+    <svg
+      className="mentor-robot__hat"
+      viewBox="0 0 1176 1337"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+      focusable="false"
+      data-testid="mascota-gorro"
+    >
+      <defs>
+        <linearGradient id={red} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="hsl(2 82% 56%)" />
+          <stop offset="0.6" stopColor="hsl(356 76% 44%)" />
+          <stop offset="1" stopColor="hsl(352 72% 30%)" />
+        </linearGradient>
+        <radialGradient id={fur} cx="0.4" cy="0.3" r="0.9">
+          <stop offset="0" stopColor="hsl(40 40% 99%)" />
+          <stop offset="1" stopColor="hsl(215 22% 82%)" />
+        </radialGradient>
+      </defs>
+      {/* El cuerpo rojo: sube desde la izquierda del casco y cae hacia la derecha. */}
+      <path
+        d="M 392 212 C 418 70, 610 2, 792 44 C 874 66, 918 118, 912 176 C 878 140, 812 128, 770 156 L 796 220 Q 590 70 392 212 Z"
+        fill={`url(#${red})`}
+        stroke="hsl(352 70% 20%)"
+        strokeWidth="7"
+        strokeLinejoin="round"
+      />
+      {/* Pliegue, para que no quede plano. */}
+      <path d="M 560 96 C 660 60, 760 70, 830 112" fill="none" stroke="hsl(352 70% 24% / 0.55)" strokeWidth="9" strokeLinecap="round" />
+      {/* La vuelta de piel, siguiendo la curva del casco. */}
+      <path d="M 382 226 Q 590 62 804 226" fill="none" stroke="hsl(215 25% 62%)" strokeWidth="76" strokeLinecap="round" />
+      <path d="M 382 222 Q 590 58 804 222" fill="none" stroke={`url(#${fur})`} strokeWidth="64" strokeLinecap="round" />
+      {/* El pompón. */}
+      <circle cx="914" cy="196" r="50" fill="hsl(215 25% 62%)" />
+      <circle cx="912" cy="192" r="45" fill={`url(#${fur})`} />
+    </svg>
   );
 }
 
@@ -301,8 +380,17 @@ export function ContextualMentor({
   placement = "floating",
   onStuck,
   onReportProblem,
+  nextStep = null,
+  onQuickQuestion,
 }: ContextualMentorProps) {
   const t = useText(TEXT);
+  const [quickQuestion, setQuickQuestion] = useState("");
+  const sendQuickQuestion = () => {
+    const question = quickQuestion.trim();
+    if (question === "" || !onQuickQuestion) return;
+    setQuickQuestion("");
+    onQuickQuestion(question);
+  };
   const requestLockedRef = useRef(false);
   const shellRef = useRef<HTMLElement>(null);
   const askButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -554,7 +642,7 @@ export function ContextualMentor({
           placement === "floating"
             ? contentCollapsed
               ? "hidden"
-              : "max-h-[40vh] sm:max-h-[70vh]"
+              : "mentor-bubble max-h-[40vh] sm:max-h-[60vh]"
             : "mentor-lens__surface",
           placement === "inline" && "mentor-companion",
         )}
@@ -598,7 +686,7 @@ export function ContextualMentor({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-primary/75">
-              {placement === "inline" ? t.yourCopilot : t.region}
+              {t.yourCopilot}
             </p>
             <p
               className="truncate text-sm font-semibold text-foreground"
@@ -636,9 +724,66 @@ export function ContextualMentor({
           contentCollapsed && "hidden",
           placement === "inline" && "mentor-companion__body",
         )}>
+            <span
+              className={cn(
+                "w-fit border px-2 py-0.5 text-xs font-semibold",
+                SOURCE_STYLES[cue.source],
+              )}
+            >
+              {cue.eyebrow}
+            </span>
+            <p className="text-sm leading-relaxed text-muted-foreground" data-testid="mentor-contextual-mensaje">
+              {cue.message}
+            </p>
+            {blockedReason !== null && (
+              <p
+                className="border-l-2 border-amber-400/60 bg-amber-400/5 px-3 py-2 text-xs text-amber-100"
+                data-testid="mentor-contextual-patch-review-gate"
+              >
+                {blockedReason}
+              </p>
+            )}
+            {placement === "floating" && nextStep && (
+              <section
+                className="rounded-xl border border-primary/40 bg-primary/10 p-3"
+                aria-label={t.nextTitle}
+                data-testid="mentor-siguiente-paso"
+                data-kind={nextStep.kind}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t.nextTitle}</p>
+                <p className="mt-1 text-sm leading-relaxed text-foreground">{t.next[nextStep.kind].text}</p>
+                <Button type="button" size="sm" className="mt-2" onClick={nextStep.onGo} data-testid="mentor-siguiente-paso-ir">
+                  {t.next[nextStep.kind].cta}
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Button>
+              </section>
+            )}
+            {placement === "floating" && onQuickQuestion && (
+              <form
+                className="flex gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  sendQuickQuestion();
+                }}
+                data-testid="mentor-pregunta-rapida"
+              >
+                <input
+                  value={quickQuestion}
+                  onChange={(event) => setQuickQuestion(event.target.value)}
+                  maxLength={300}
+                  aria-label={t.askLabel}
+                  placeholder={t.askPlaceholder}
+                  className="h-9 min-w-0 flex-1 rounded-full border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="mentor-pregunta-rapida-texto"
+                />
+                <Button type="submit" size="sm" variant="secondary" disabled={quickQuestion.trim() === ""} data-testid="mentor-pregunta-rapida-enviar">
+                  {t.askSend}
+                </Button>
+              </form>
+            )}
             {placement === "floating" && onStuck && (
               <section
-                className="rounded-md border border-primary/30 bg-primary/5 p-3"
+                className="rounded-xl border border-border/70 bg-background/40 p-3"
                 aria-label={t.stuckTitle}
                 data-testid="mentor-atascado"
               >
@@ -663,25 +808,6 @@ export function ContextualMentor({
                   ))}
                 </div>
               </section>
-            )}
-            <span
-              className={cn(
-                "w-fit border px-2 py-0.5 text-xs font-semibold",
-                SOURCE_STYLES[cue.source],
-              )}
-            >
-              {cue.eyebrow}
-            </span>
-            <p className="text-sm leading-relaxed text-muted-foreground" data-testid="mentor-contextual-mensaje">
-              {cue.message}
-            </p>
-            {blockedReason !== null && (
-              <p
-                className="border-l-2 border-amber-400/60 bg-amber-400/5 px-3 py-2 text-xs text-amber-100"
-                data-testid="mentor-contextual-patch-review-gate"
-              >
-                {blockedReason}
-              </p>
             )}
             <div className="flex flex-wrap gap-2">
               {cue.ask !== null && (
@@ -775,6 +901,7 @@ export function ContextualMentor({
             )}
           </div>
       </div>
+      {placement === "floating" && !contentCollapsed && <span className="mentor-bubble__tail" aria-hidden="true" />}
     </aside>
   );
 }

@@ -152,9 +152,8 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         id: "welcome",
         source: "guide",
         eyebrow: "Primer paso",
-        title: "Necesito conocer a tu personaje",
-        message:
-          "Carga un ejemplo o importa tus datos. Hasta entonces no atribuiré equipo, problemas ni decisiones a un personaje que no existe.",
+        title: "Hola, soy tu Copiloto",
+        message: "Cuéntame tu personaje y te digo por dónde empezar. Sin él no me invento nada.",
         ask: null,
       };
     case "ready":

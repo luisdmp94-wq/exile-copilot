@@ -2227,7 +2227,7 @@ export function CraftingCoach({
                   : focusLabel(focus)}
               <button
                 type="button"
-                className="ml-1 underline underline-offset-2 hover:text-foreground"
+                className="ml-1 scroll-mb-[var(--mentor-inset,6rem)] underline underline-offset-2 hover:text-foreground"
                 onClick={resetFlow}
                 data-testid="coach-cambiar-direccion"
               >

@@ -227,7 +227,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] sin personaje el mentor contextual no presupone un expediente`,
       (await page.getByTestId("mentor-contextual-titulo").innerText()).includes(
-        "Necesito conocer a tu personaje",
+        "Hola, soy tu Copiloto",
       ) && (await page.getByTestId("mentor-contextual-preguntar").count()) === 0,
     );
 

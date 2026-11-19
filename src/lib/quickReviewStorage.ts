@@ -46,6 +46,18 @@ export function readQuickReviewForm(store: QuickReviewStore, profileId: string |
   }
 }
 
+/**
+ * Lo guardado para ese personaje, solo para mirarlo: no adopta el borrador ni
+ * cambia nada. Lo usa la mascota para saber qué proponer.
+ */
+export function peekQuickReviewForm(store: Pick<QuickReviewStore, "getItem">, profileId: string | null): Record<string, string> {
+  try {
+    return parse(store.getItem(quickReviewKey(profileId)));
+  } catch {
+    return {};
+  }
+}
+
 export function writeQuickReviewForm(store: QuickReviewStore, profileId: string | null, form: Record<string, string>): void {
   try {
     store.setItem(quickReviewKey(profileId), JSON.stringify(form));

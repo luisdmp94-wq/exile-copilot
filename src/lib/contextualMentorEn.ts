@@ -83,9 +83,8 @@ function englishCopy(event: ContextualMentorEvent): EnglishCopy {
     case "welcome":
       return {
         eyebrow: "First step",
-        title: "I need to know your character",
-        message:
-          "Load an example or import your data. Until then I won't attribute gear, problems or decisions to a character that doesn't exist.",
+        title: "Hi, I'm your Copilot",
+        message: "Tell me about your character and I'll tell you where to start. Without it I won't make anything up.",
       };
     case "ready":
       return {
