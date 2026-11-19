@@ -78,6 +78,7 @@ import { OPEN_REVIEW_EVENT, QuickReviewCard } from "@/components/QuickReviewCard
 import { SkillGemTeaser } from "@/components/SkillGemTeaser";
 import { mascotNextStep, reviewKnowsBasics } from "@/lib/mascotNextStep";
 import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
+import { toInput as quickReviewInput } from "@/lib/quickReviewForm";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
@@ -1110,7 +1111,11 @@ export default function App() {
           ? ""
           : character.profile.name,
         characterClass: character.profile.characterClass,
-        level: readCharacterLevel(character.profile).known ? character.profile.level : null,
+        // Si el nivel ya lo dijo en la revisión rápida, no se le pide otra vez:
+        // viene escrito y él lo confirma al guardar.
+        level: readCharacterLevel(character.profile).known
+          ? character.profile.level
+          : quickReviewInput({ ...quickReviewForm }).level,
         archetype: character.profile.archetype ?? "",
         skills: character.profile.skills.map((setup) => setup.mainSkill.trim()).filter(Boolean),
       }
