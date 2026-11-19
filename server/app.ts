@@ -825,6 +825,34 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     }
   });
 
+  // POST /advice/support-gem/preview — lo mismo, solo con las reglas. Lo pide
+  // la web por su cuenta al abrir un personaje («gemas para tu habilidad»): no
+  // es algo que haya hecho el jugador, así que ni gasta IA ni cuenta como uso.
+  app.post("/advice/support-gem/preview", guidanceLimiter, async (req, res, next) => {
+    try {
+      const body = SupportAdviceRequestSchema.parse(req.body);
+      try {
+        res.json(await adviseSupportGem(gemData, body, null, gemLocale));
+      } catch (err) {
+        // Una habilidad que la web no conoce no es un error aquí: nadie la ha
+        // pedido, así que se responde «nada que enseñar» y la tarjeta no sale.
+        if (!(err instanceof ApiHttpError) || err.message !== "habilidad-desconocida") throw err;
+        res.json({
+          skill: { name: body.skill, tags: [] },
+          sockets: null,
+          recommended: null,
+          alternatives: [],
+          mode: "rules",
+          fallbackReason: null,
+          source: gemData.source,
+          fetchedAt: gemData.fetchedAt,
+        });
+      }
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // POST /advice/support-plan — «tengo N gemas de asistencia: ¿cuáles cojo y
   // dónde las pongo?». El reparto y los topes por atributo son de las reglas;
   // la IA, si está activa, solo redacta el motivo de cada pareja.

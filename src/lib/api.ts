@@ -302,6 +302,10 @@ export const api = {
   supportGemAdvice: (payload: SupportAdviceRequest): Promise<SupportAdviceResponse> =>
     request("/api/advice/support-gem", SupportAdviceResponseSchema, jsonInit(payload)),
 
+  /** Lo mismo con solo las reglas, sin IA: para lo que la web enseña sin que se lo pidan. */
+  supportGemPreview: (payload: SupportAdviceRequest): Promise<SupportAdviceResponse> =>
+    request("/api/advice/support-gem/preview", SupportAdviceResponseSchema, jsonInit(payload)),
+
   supportGemPlan: (payload: SupportPlanRequest): Promise<SupportPlanResponse> =>
     request("/api/advice/support-plan", SupportPlanResponseSchema, jsonInit(payload)),
 

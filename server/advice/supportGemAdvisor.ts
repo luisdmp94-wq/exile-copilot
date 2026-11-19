@@ -9,6 +9,7 @@ import {
   socketedCost,
   socketedKind,
   supportCandidates,
+  supportMainBenefit,
   type BuildContext,
   type BuildTheme,
   type GemData,
@@ -99,7 +100,7 @@ function rulesReason(skill: GemSkill, support: GemSupport, lang: AdviceLang = "e
         ? `Es la que más encaja con ${skill.name} por lo que comparten (${shared.join(", ").toLocaleLowerCase("es")}).`
         : `Vale para ${skill.name} y no depende de nada más.`;
   }
-  return `${why} ${support.effects[0] ?? support.description}`.trim();
+  return `${why} ${supportMainBenefit(support)}`.trim();
 }
 
 const UNKNOWN_SKILL: Record<AdviceLang, string> = {

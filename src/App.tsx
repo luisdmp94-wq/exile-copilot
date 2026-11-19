@@ -75,6 +75,7 @@ import { CharacterStrip } from "@/components/CharacterStrip";
 import { MentorQuickAsk } from "@/components/MentorQuickAsk";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
 import { OPEN_REVIEW_EVENT, QuickReviewCard } from "@/components/QuickReviewCard";
+import { SkillGemTeaser } from "@/components/SkillGemTeaser";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
@@ -226,6 +227,27 @@ function openedFromGuideUrl(): boolean {
  * cambie la dirección.
  */
 const REQUESTED_TOOL = typeof window === "undefined" ? null : directToolFromSearch(window.location.search);
+
+/**
+ * Baja hasta un elemento en cuanto está pintado y a la vista. Las áreas se
+ * descargan aparte y pueden tardar un momento: se reintenta unos segundos.
+ * Devuelve cómo cancelarlo.
+ */
+function scrollToWhenPainted(selector: string): () => void {
+  let tries = 0;
+  const timer = window.setInterval(() => {
+    tries += 1;
+    const target = document.querySelector<HTMLElement>(selector);
+    if (target && target.offsetParent !== null) {
+      // Deja a la vista el título bajo la cabecera y la barra de áreas, que son fijas.
+      window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 132 });
+      window.clearInterval(timer);
+    } else if (tries >= 40) {
+      window.clearInterval(timer);
+    }
+  }, 150);
+  return () => window.clearInterval(timer);
+}
 
 /**
  * Los paneles se mantienen MONTADOS (`forceMount`) y se ocultan con CSS.
@@ -482,20 +504,7 @@ export default function App() {
   // (el área de guías se descarga aparte y puede tardar un momento).
   useEffect(() => {
     if (REQUESTED_TOOL === null) return;
-    const selector = `[data-testid="${DIRECT_TOOL_TEST_ID[REQUESTED_TOOL]}"]`;
-    let tries = 0;
-    const timer = window.setInterval(() => {
-      tries += 1;
-      const target = document.querySelector<HTMLElement>(selector);
-      if (target && target.offsetParent !== null) {
-        // Deja a la vista el título bajo la cabecera y la barra de áreas, que son fijas.
-        window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 132 });
-        window.clearInterval(timer);
-      } else if (tries >= 40) {
-        window.clearInterval(timer);
-      }
-    }, 150);
-    return () => window.clearInterval(timer);
+    return scrollToWhenPainted(`[data-testid="${DIRECT_TOOL_TEST_ID[REQUESTED_TOOL]}"]`);
   }, []);
   // «Compararla con otra» desde Crafting: la pieza que viaja a la comparación.
   const [compareRequest, setCompareRequest] = useState<{ item: Item; seq: number } | null>(null);
@@ -1090,13 +1099,30 @@ export default function App() {
       }
     : null;
 
-  /** Lleva al jugador a la revisión rápida del expediente y la despliega. */
-  const openQuickReview = () => {
+  /**
+   * Lleva al jugador a la revisión rápida del expediente y la despliega. Recién
+   * creado el personaje se baja antes a «gemas para tu habilidad», si ha salido:
+   * es lo primero que la web le puede dar con lo que acaba de escribir.
+   */
+  const openQuickReview = (startAtGems = false) => {
     navigateWorkspace("expediente");
     window.setTimeout(() => {
       window.dispatchEvent(new Event(OPEN_REVIEW_EVENT));
+      const gems = startAtGems ? document.getElementById("gemas-habilidad") : null;
+      if (gems) {
+        // Con margen para que el título no quede bajo la cabecera fija.
+        window.scrollTo({ top: gems.getBoundingClientRect().top + window.scrollY - 132, behavior: "smooth" });
+        return;
+      }
       document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
+  };
+
+  /** Abre el consejero completo de gemas, en Guías. */
+  const openGemAdvisor = () => {
+    setGuideViewRequest((current) => ({ view: "herramientas", seq: (current?.seq ?? 0) + 1 }));
+    navigateWorkspace("guias");
+    scrollToWhenPainted('[data-testid="asistencia"]');
   };
 
   const startManualJourney = (intent: "new" | "item") => {
@@ -1909,6 +1935,12 @@ export default function App() {
                 {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
                     contexto antes de inspeccionar la pieza (§8). */}
                 <div className="order-1 flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
+                  {/* Solo mientras no hay equipo: es cuando la web todavía no
+                      puede recomendar nada más. Con equipo manda «tu siguiente
+                      paso» y, en móvil, el equipo sigue en la primera pantalla. */}
+                  {character.profile && character.profile.items.length === 0 && (
+                    <SkillGemTeaser profile={character.profile} onOpenAdvisor={openGemAdvisor} />
+                  )}
                   <QuickReviewCard
                     key={character.profile?.id ?? "sin-personaje"}
                     profile={character.profile}
@@ -2574,7 +2606,7 @@ export default function App() {
                 })) !== null;
           // Sin equipo todavía no hay recomendaciones de equipo, pero la
           // revisión rápida ya sabe qué le frena: se abre rellena.
-          if (created && !quickCompleting) openQuickReview();
+          if (created && !quickCompleting) openQuickReview(true);
           return created;
         }}
         onOpenFullEditor={() => {

@@ -238,6 +238,23 @@ function createsMinions(skill: GemSkill): boolean {
   return saysInOneSentence(skill, /\binvoc\w+|\bcre(?:a|as|ar) (?:un |una )?(?:zombi|enjambres?|esbirros?)/);
 }
 
+/** Lo que la asistencia quita («no pueden quemar»), en español o en inglés. */
+const TAKES_AWAY = /\bno (?:pueden|puede|infligen)\b|\bcannot\b|\bcan't\b|\bdeal no\b/i;
+
+/**
+ * Lo que la asistencia da, en una línea. El primer efecto de la gema es a
+ * veces lo que quita; se busca el primero que diga lo que aporta y, si todos
+ * son restricciones, se cuenta con su descripción.
+ */
+export function supportMainBenefit(support: { effects: readonly string[]; description: string }): string {
+  const benefit = support.effects.find((effect) => !TAKES_AWAY.test(effect));
+  if (benefit !== undefined) return benefit;
+  // La descripción empieza diciendo a qué asiste; lo que hace viene después.
+  const sentences = support.description.split(/(?<=\.)\s+/).filter(Boolean);
+  if (sentences.length > 1 && /^(?:asiste|supports)\b/i.test(sentences[0])) return sentences[1];
+  return support.description || support.effects[0] || "";
+}
+
 /** Familia de la asistencia: «Lanzamiento rápido I» y «II» comparten hueco. */
 export function supportFamily(support: GemSupport): string {
   return support.category ?? support.name.replace(/\s+[IVX]+$/, "");
@@ -580,6 +597,10 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   // Y la que deja la habilidad sin poder usarse hasta cumplir algo («requieren
   // 5 de combo para usarse») no puede salir primera para un ataque principal.
   if (/no se pueden usar (?:hasta|a menos)|requieren \d+ de combo para usarse|se vuelven utilizables/.test(text)) score -= 4;
+  // Las que mejoran algo a cambio de quitarle a la habilidad una capacidad
+  // («no pueden aplicar electrocución», «no pueden quemar») son para montar
+  // una combinación con otra habilidad: no lo primero que enseñar a quien empieza.
+  if (/asistid[ao]s? no pueden (?:aplicar|acumular|quemar|generar|romper|infligir impactos criticos)/.test(text)) score -= 2;
   // Rinde solo cuando estás a punto de quedar aturdido: vale, pero abajo.
   if (/tu barra de aturdimiento|cuanto mas cerca estes de quedar/.test(text)) score -= 2;
   // Lo que apaga justo lo que la habilidad hace bien (congelar, electrocutar…).
