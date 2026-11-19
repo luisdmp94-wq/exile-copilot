@@ -689,6 +689,38 @@
     background: hsl(var(--popover));
   }
 
+  /* Si queda algo por debajo, el borde inferior se difumina: «hay más». */
+  .mentor-bubble::after {
+    content: "";
+    position: sticky;
+    bottom: 0;
+    display: block;
+    height: 1rem;
+    margin-top: -1rem;
+    background: linear-gradient(to bottom, transparent, hsl(var(--background)));
+    pointer-events: none;
+  }
+
+  /*
+   * Plegándose: la mascota ya ocupa su esquina y el bocadillo, suelto encima
+   * de ella en el mismo sitio, se encoge hacia abajo y se apaga.
+   */
+  .mentor-bubble--leaving {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.75rem);
+    width: min(21.5rem, calc(100vw - 1.5rem));
+    transform-origin: calc(100% - 3.7rem) 100%;
+    animation: mentor-bubble-leave 170ms ease-in both;
+    pointer-events: none;
+  }
+
+  .mentor-bubble__tail.mentor-bubble__tail--leaving {
+    right: calc(50% - 0.55rem);
+    bottom: calc(100% + 0.25rem);
+    animation: mentor-bubble-tail-leave 80ms ease-in both;
+  }
+
   .mentor-bubble__tail {
     position: absolute;
     z-index: 2;
@@ -786,6 +818,15 @@
       bottom: calc(var(--mascot-h) + 0.6rem - 0.5rem);
     }
 
+    .mentor-bubble--leaving {
+      bottom: calc(100% + 0.6rem);
+      transform-origin: calc(100% - 2.4rem) 100%;
+    }
+
+    .mentor-bubble__tail.mentor-bubble__tail--leaving {
+      bottom: calc(100% + 0.1rem);
+    }
+
     .mentor-floating-shell[data-collapsed="true"] .mentor-floating-mascot {
       width: 4.75rem;
       height: 5.4rem;
@@ -797,6 +838,11 @@
       right: 0.75rem;
       left: 0.75rem;
       width: auto;
+    }
+
+    .mentor-bubble--leaving {
+      right: 0.4rem;
+      width: calc(100vw - 1.5rem);
     }
 
     /* Abierta queda donde estaba plegada: mismo tamaño y misma esquina. */
@@ -1080,6 +1126,23 @@
   }
 }
 
+@keyframes mentor-bubble-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.93);
+  }
+}
+
+@keyframes mentor-bubble-tail-leave {
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes mentor-bubble-tail-enter {
   from {
     opacity: 0;
@@ -1115,6 +1178,11 @@
   .mentor-floating-shell[data-collapsed="false"] .mentor-bubble,
   .mentor-floating-shell[data-collapsed="false"] .mentor-bubble__tail {
     animation: none;
+  }
+
+  .mentor-bubble--leaving,
+  .mentor-bubble__tail.mentor-bubble__tail--leaving {
+    display: none;
   }
 }
 

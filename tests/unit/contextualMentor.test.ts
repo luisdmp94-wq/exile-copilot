@@ -331,7 +331,7 @@ describe("mentor contextual", () => {
 
     expect(cue.title).toBe("Hola, soy tu Copiloto");
     // Sigue sin dar por hecho nada del personaje.
-    expect(cue.message).toContain("no me invento nada");
+    expect(cue.message).toContain("no me lo invento");
     expect(cue.message).not.toContain("tu equipo");
     expect(cue.ask).toBeNull();
   });

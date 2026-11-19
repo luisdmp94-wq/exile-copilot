@@ -102,10 +102,10 @@ const TEXT = texts(
     aiCouldNot: (reason: string) => `La IA no pudo decidir: ${reason}`,
     nextTitle: "Tu siguiente paso",
     next: {
-      create: { text: "Cuéntame tu personaje: es un minuto y sin registrarte.", cta: "Crear mi personaje" },
+      create: { text: "Cuéntame tu personaje: un minuto y sin registrarte.", cta: "Crear mi personaje" },
       review: { text: "Dime tus resistencias y el acto, y te digo qué te frena.", cta: "Ir a la revisión rápida" },
       gear: { text: "Pega una pieza de tu equipo y te digo qué mejorar primero.", cta: "Pegar una pieza" },
-      plan: { text: "Ya tengo tu equipo. Mira cuál es tu siguiente mejora.", cta: "Ver mi siguiente paso" },
+      plan: { text: "Mira qué te conviene mejorar ahora y por qué.", cta: "Ver mi siguiente paso" },
     } as Record<MascotNextStepKind, { text: string; cta: string }>,
     askLabel: "Pregúntame algo",
     askPlaceholder: "Pregúntame algo…",
@@ -154,7 +154,7 @@ const TEXT = texts(
       create: { text: "Tell me about your character: it takes a minute, no sign-up.", cta: "Create my character" },
       review: { text: "Tell me your resistances and your act, and I'll tell you what's holding you back.", cta: "Go to the quick review" },
       gear: { text: "Paste one of your items and I'll tell you what to improve first.", cta: "Paste an item" },
-      plan: { text: "I have your gear. See what your next upgrade is.", cta: "See my next step" },
+      plan: { text: "See what to upgrade now, and why.", cta: "See my next step" },
     } as Record<MascotNextStepKind, { text: string; cta: string }>,
     askLabel: "Ask me something",
     askPlaceholder: "Ask me something…",
@@ -234,10 +234,49 @@ const SHOW_CHRISTMAS_HAT =
  * Gorro de Navidad sobre el casco. Va en el mismo viewBox que la ilustración
  * (1176 × 1337), como los ojos, así que queda colocado a cualquier tamaño.
  */
+/** Mechones de la vuelta de piel, siguiendo la curva del casco: [x, y, radio]. */
+const HAT_FUR_TUFTS: ReadonlyArray<readonly [number, number, number]> = [
+  [384, 224, 32],
+  [436, 188, 35],
+  [488, 161, 33],
+  [540, 145, 36],
+  [592, 139, 34],
+  [645, 145, 36],
+  [697, 161, 33],
+  [750, 187, 35],
+  [802, 223, 32],
+];
+
+/** Mechones del pompón, alrededor de su centro. */
+const HAT_POMPOM_TUFTS: ReadonlyArray<readonly [number, number, number]> = [
+  [928, 206, 40],
+  [900, 190, 24],
+  [920, 174, 24],
+  [948, 180, 24],
+  [960, 206, 24],
+  [946, 232, 24],
+  [918, 238, 24],
+  [898, 218, 24],
+];
+
+/**
+ * Gorro de Navidad. Va pintado como la mascota: luz desde arriba a la
+ * izquierda, sombra propia a la derecha, pliegues, y una vuelta de piel con
+ * mechones que proyecta sombra sobre el casco. Todo son formas y degradados
+ * (sin filtros), así no cuesta nada mientras la mascota se mueve.
+ */
 function MentorChristmasHat() {
   const id = useId().replace(/:/g, "");
   const red = `gorro-rojo-${id}`;
+  const shade = `gorro-sombra-${id}`;
+  const light = `gorro-luz-${id}`;
   const fur = `gorro-piel-${id}`;
+  const pompom = `gorro-pompon-${id}`;
+  const clip = `gorro-recorte-${id}`;
+  const body =
+    "M 394 200 C 398 110, 500 10, 640 -24 C 740 -46, 840 -10, 880 70 C 904 112, 922 150, 924 190 " +
+    "C 900 152, 860 126, 806 132 C 808 160, 808 190, 800 216 Q 590 60 394 200 Z";
+  const band = "M 382 222 Q 590 58 804 222";
   return (
     <svg
       className="mentor-robot__hat"
@@ -248,32 +287,106 @@ function MentorChristmasHat() {
       data-testid="mascota-gorro"
     >
       <defs>
-        <linearGradient id={red} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="hsl(2 82% 56%)" />
-          <stop offset="0.6" stopColor="hsl(356 76% 44%)" />
-          <stop offset="1" stopColor="hsl(352 72% 30%)" />
+        <linearGradient id={red} gradientUnits="userSpaceOnUse" x1="430" y1="0" x2="880" y2="230">
+          <stop offset="0" stopColor="hsl(6 86% 58%)" />
+          <stop offset="0.45" stopColor="hsl(358 80% 45%)" />
+          <stop offset="1" stopColor="hsl(348 76% 26%)" />
         </linearGradient>
-        <radialGradient id={fur} cx="0.4" cy="0.3" r="0.9">
-          <stop offset="0" stopColor="hsl(40 40% 99%)" />
-          <stop offset="1" stopColor="hsl(215 22% 82%)" />
+        <radialGradient id={shade}>
+          <stop offset="0" stopColor="hsl(344 80% 10%)" stopOpacity="0.75" />
+          <stop offset="1" stopColor="hsl(344 80% 10%)" stopOpacity="0" />
         </radialGradient>
+        <radialGradient id={light}>
+          <stop offset="0" stopColor="hsl(18 100% 78%)" stopOpacity="0.8" />
+          <stop offset="1" stopColor="hsl(18 100% 78%)" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={fur} gradientUnits="userSpaceOnUse" x1="560" y1="100" x2="620" y2="270">
+          <stop offset="0" stopColor="hsl(40 60% 99%)" />
+          <stop offset="0.55" stopColor="hsl(215 30% 92%)" />
+          <stop offset="1" stopColor="hsl(218 28% 74%)" />
+        </linearGradient>
+        <radialGradient id={pompom} gradientUnits="userSpaceOnUse" cx="910" cy="182" r="78">
+          <stop offset="0" stopColor="hsl(40 60% 99%)" />
+          <stop offset="0.6" stopColor="hsl(215 30% 90%)" />
+          <stop offset="1" stopColor="hsl(218 28% 72%)" />
+        </radialGradient>
+        <clipPath id={clip}>
+          <path d={body} />
+        </clipPath>
       </defs>
-      {/* El cuerpo rojo: sube desde la izquierda del casco y cae hacia la derecha. */}
-      <path
-        d="M 392 212 C 418 70, 610 2, 792 44 C 874 66, 918 118, 912 176 C 878 140, 812 128, 770 156 L 796 220 Q 590 70 392 212 Z"
-        fill={`url(#${red})`}
-        stroke="hsl(352 70% 20%)"
-        strokeWidth="7"
-        strokeLinejoin="round"
-      />
-      {/* Pliegue, para que no quede plano. */}
-      <path d="M 560 96 C 660 60, 760 70, 830 112" fill="none" stroke="hsl(352 70% 24% / 0.55)" strokeWidth="9" strokeLinecap="round" />
-      {/* La vuelta de piel, siguiendo la curva del casco. */}
-      <path d="M 382 226 Q 590 62 804 226" fill="none" stroke="hsl(215 25% 62%)" strokeWidth="76" strokeLinecap="round" />
-      <path d="M 382 222 Q 590 58 804 222" fill="none" stroke={`url(#${fur})`} strokeWidth="64" strokeLinecap="round" />
-      {/* El pompón. */}
-      <circle cx="914" cy="196" r="50" fill="hsl(215 25% 62%)" />
-      <circle cx="912" cy="192" r="45" fill={`url(#${fur})`} />
+
+      {/* Sombra que el gorro deja sobre el casco, bajo la vuelta de piel. */}
+      <g fill="none" strokeLinecap="round" stroke="hsl(230 40% 4%)">
+        <path d={band} strokeWidth="78" opacity="0.16" transform="translate(4 24)" />
+        <path d={band} strokeWidth="64" opacity="0.24" transform="translate(3 14)" />
+      </g>
+
+      {/* El cuerpo rojo y su volumen, recortado a su propia silueta. */}
+      <path d={body} fill={`url(#${red})`} />
+      <g clipPath={`url(#${clip})`}>
+        {/* Sombra propia: el lado derecho y la parte que se dobla. */}
+        <ellipse cx="812" cy="176" rx="215" ry="116" fill={`url(#${shade})`} />
+        <ellipse cx="892" cy="128" rx="92" ry="92" fill={`url(#${shade})`} />
+        {/* Luz de arriba a la izquierda. */}
+        <ellipse cx="520" cy="70" rx="185" ry="64" transform="rotate(-30 520 70)" fill={`url(#${light})`} />
+        {/* Pliegues: cada uno con su sombra y su canto iluminado. */}
+        <g fill="none" strokeLinecap="round">
+          <path d="M 610 40 C 706 24, 800 56, 850 116" stroke="hsl(346 80% 14%)" strokeOpacity="0.55" strokeWidth="13" />
+          <path d="M 606 24 C 706 6, 806 38, 858 98" stroke="hsl(14 100% 76%)" strokeOpacity="0.35" strokeWidth="7" />
+          <path d="M 462 170 C 486 112, 540 64, 606 46" stroke="hsl(346 80% 14%)" strokeOpacity="0.32" strokeWidth="11" />
+          <path d="M 704 142 C 740 126, 776 124, 806 132" stroke="hsl(346 80% 12%)" strokeOpacity="0.5" strokeWidth="10" />
+          {/* Canto cálido a la izquierda, como el brillo dorado de la armadura. */}
+          <path d="M 400 196 C 404 112, 504 16, 640 -18" stroke="hsl(36 100% 72%)" strokeOpacity="0.55" strokeWidth="9" />
+        </g>
+      </g>
+      <path d={body} fill="none" stroke="hsl(348 78% 15%)" strokeWidth="6" strokeLinejoin="round" />
+
+      {/* La vuelta de piel: borde oscuro por debajo, mechones claros encima. */}
+      <g fill="hsl(220 24% 52%)" stroke="hsl(220 24% 52%)" strokeLinecap="round">
+        <path d={band} fill="none" strokeWidth="54" transform="translate(3 9)" />
+        {HAT_FUR_TUFTS.map(([x, y, r]) => (
+          <circle key={`s-${x}`} cx={x + 3} cy={y + 9} r={r} stroke="none" />
+        ))}
+      </g>
+      <g fill={`url(#${fur})`}>
+        <path d={band} fill="none" stroke={`url(#${fur})`} strokeWidth="50" strokeLinecap="round" />
+        {HAT_FUR_TUFTS.map(([x, y, r]) => (
+          <circle key={`f-${x}`} cx={x} cy={y} r={r} />
+        ))}
+      </g>
+      {/* Separación entre mechones y brillo en lo alto de cada uno. */}
+      <g fill="none" stroke="hsl(218 26% 66%)" strokeOpacity="0.75" strokeWidth="6" strokeLinecap="round">
+        {HAT_FUR_TUFTS.slice(0, -1).map(([x, y], index) => {
+          const [nextX, nextY] = HAT_FUR_TUFTS[index + 1];
+          const midX = (x + nextX) / 2;
+          const midY = (y + nextY) / 2;
+          return <path key={`c-${x}`} d={`M ${midX - 3} ${midY + 6} q 5 16 -2 30`} />;
+        })}
+      </g>
+      <g fill="hsl(0 0% 100%)" fillOpacity="0.9">
+        {HAT_FUR_TUFTS.map(([x, y, r]) => (
+          <ellipse key={`h-${x}`} cx={x - 8} cy={y - r * 0.42} rx={r * 0.5} ry={r * 0.3} />
+        ))}
+      </g>
+
+      {/* El pompón: su sombra, sus mechones y su brillo. */}
+      <circle cx="936" cy="224" r="58" fill="hsl(230 40% 4%)" opacity="0.2" />
+      <g fill="hsl(220 24% 52%)">
+        {HAT_POMPOM_TUFTS.map(([x, y, r]) => (
+          <circle key={`ps-${x}-${y}`} cx={x + 4} cy={y + 8} r={r + 2} />
+        ))}
+      </g>
+      <g fill={`url(#${pompom})`}>
+        {HAT_POMPOM_TUFTS.map(([x, y, r]) => (
+          <circle key={`pf-${x}-${y}`} cx={x} cy={y} r={r + 2} />
+        ))}
+      </g>
+      <g fill="none" stroke="hsl(218 26% 66%)" strokeOpacity="0.7" strokeWidth="5" strokeLinecap="round">
+        <path d="M 932 212 q 10 12 6 28" />
+        <path d="M 954 196 q 12 4 16 16" />
+        <path d="M 910 220 q -2 12 6 22" />
+      </g>
+      <ellipse cx="912" cy="184" rx="22" ry="14" transform="rotate(-28 912 184)" fill="hsl(0 0% 100%)" fillOpacity="0.92" />
     </svg>
   );
 }
@@ -370,7 +483,10 @@ function shouldSpeakAutomatically(
  * Botones del bocadillo en ordenador: más bajos, para que quepa todo sin
  * barra de desplazamiento. En móvil conservan su tamaño táctil.
  */
-const COMPACT_BUTTON = "sm:h-7 sm:gap-1 sm:px-2 sm:text-xs";
+const COMPACT_BUTTON = "gap-1 px-2 text-xs has-[>svg]:px-2 max-sm:min-h-9 max-sm:min-w-0 sm:h-7";
+
+/** Lo que dura el bocadillo encogiéndose al cerrar (ms); un poco más que su animación. */
+const LEAVE_MS = 190;
 
 export function ContextualMentor({
   cue,
@@ -406,6 +522,24 @@ export function ContextualMentor({
     () => new Set(),
   );
   const contentCollapsed = placement === "floating" && collapsed;
+  // Al plegarse, el bocadillo se queda un instante para encogerse hacia la
+  // mascota en vez de desaparecer de golpe. Quien pide menos movimiento no lo ve.
+  const [wasCollapsed, setWasCollapsed] = useState(contentCollapsed);
+  const [leaving, setLeaving] = useState(false);
+  if (wasCollapsed !== contentCollapsed) {
+    setWasCollapsed(contentCollapsed);
+    setLeaving(
+      contentCollapsed &&
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches !== true,
+    );
+  }
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(() => setLeaving(false), LEAVE_MS);
+    return () => window.clearTimeout(timer);
+  }, [leaving]);
+  const bubbleShown = !contentCollapsed || leaving;
   const speechKey = `${cue.id}\n${cue.message}\n${error ?? ""}\n${blockedReason ?? ""}`;
   const speechPriority = mascotSpeechPriority(cue, error, blockedReason);
   const speechVisible =
@@ -646,12 +780,13 @@ export function ContextualMentor({
           // fondo translúcido dejaba ver las letras de detrás y costaba leerlo.
           "overflow-y-auto border border-primary/35 bg-background sm:bg-background/95 sm:backdrop-blur-xl",
           placement === "floating"
-            ? contentCollapsed
-              ? "hidden"
-              : "mentor-bubble max-h-[40vh] sm:max-h-[60vh]"
+            ? bubbleShown
+              ? cn("mentor-bubble max-h-[44vh] sm:max-h-[60vh]", contentCollapsed && "mentor-bubble--leaving")
+              : "hidden"
             : "mentor-lens__surface",
           placement === "inline" && "mentor-companion",
         )}
+        aria-hidden={contentCollapsed && leaving ? true : undefined}
       >
         {placement === "inline" && (
           <button
@@ -712,7 +847,7 @@ export function ContextualMentor({
               data-testid="mentor-contextual-plegar"
               onClick={() => onCollapsedChange(!collapsed)}
             >
-              {collapsed ? (
+              {collapsed && !leaving ? (
                 <ChevronUp className="size-4" aria-hidden="true" />
               ) : (
                 <ChevronDown className="size-4" aria-hidden="true" />
@@ -727,8 +862,8 @@ export function ContextualMentor({
 
         <div className={cn(
           "flex flex-col",
-          placement === "floating" ? "gap-2.5 px-3.5 py-3" : "gap-3 px-4 py-4",
-          contentCollapsed && "hidden",
+          placement === "floating" ? "gap-2.5 px-3.5 pb-4 pt-3" : "gap-3 px-4 py-4",
+          !bubbleShown && "hidden",
           placement === "inline" && "mentor-companion__body",
         )}>
             {placement !== "floating" && (
@@ -791,7 +926,7 @@ export function ContextualMentor({
                   className="h-9 min-w-0 flex-1 rounded-full border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:text-[13px]"
                   data-testid="mentor-pregunta-rapida-texto"
                 />
-                <Button type="submit" size="sm" variant="secondary" className="sm:h-8 sm:text-xs" disabled={quickQuestion.trim() === ""} data-testid="mentor-pregunta-rapida-enviar">
+                <Button type="submit" size="sm" variant="secondary" className="max-sm:min-h-9 sm:h-8 sm:text-xs" disabled={quickQuestion.trim() === ""} data-testid="mentor-pregunta-rapida-enviar">
                   {t.askSend}
                 </Button>
               </form>
@@ -810,7 +945,7 @@ export function ContextualMentor({
                       type="button"
                       size="sm"
                       variant="secondary"
-                      className={COMPACT_BUTTON}
+                      className={cn(COMPACT_BUTTON, "px-1.5 has-[>svg]:px-1.5")}
                       onClick={() => onStuck(kind)}
                       data-testid={`mentor-atascado-${kind}`}
                     >
@@ -922,7 +1057,12 @@ export function ContextualMentor({
             )}
           </div>
       </div>
-      {placement === "floating" && !contentCollapsed && <span className="mentor-bubble__tail" aria-hidden="true" />}
+      {placement === "floating" && bubbleShown && (
+        <span
+          className={cn("mentor-bubble__tail", contentCollapsed && "mentor-bubble__tail--leaving")}
+          aria-hidden="true"
+        />
+      )}
     </aside>
   );
 }

@@ -153,7 +153,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         source: "guide",
         eyebrow: "Primer paso",
         title: "Hola, soy tu Copiloto",
-        message: "Cuéntame tu personaje y te digo por dónde empezar. Sin él no me invento nada.",
+        message: "Te digo qué mejorar primero en tu personaje. Lo que no sé, no me lo invento.",
         ask: null,
       };
     case "ready":
@@ -162,8 +162,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         source: "guide",
         eyebrow: "Mentor presente",
         title: `Ya tengo cargado a ${event.profileName}`,
-        message:
-          "Abre una pieza, cambia tu objetivo o genera recomendaciones: te explicaré qué significa cada decisión sin perder el contexto.",
+        message: "Pregúntame lo que quieras, o abre una pieza y te la explico.",
         ask: {
           question: "¿Qué debería mejorar primero en mi personaje actual?",
           intent: "next_improvement",
@@ -177,7 +176,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         title: `Me faltan datos de ${event.profileName}`,
         message:
           event.missing.length === 1 && GEAR_LABELS.has(event.missing[0] ?? "")
-            ? "Para recomendarte equipo necesito ver al menos una pieza tuya. Mientras tanto, la revisión rápida del personaje ya te dice qué te frena."
+            ? "Aún no tengo tu equipo. Mientras, la revisión rápida ya te dice qué te frena."
             : event.missing.length > 0
               ? `Me falta: ${event.missing.join(", ")}. Complétalo y te digo qué mejorar primero.`
               : "Completa los datos de tu personaje y te digo qué mejorar primero.",

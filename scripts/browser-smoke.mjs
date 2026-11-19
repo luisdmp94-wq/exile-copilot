@@ -1290,11 +1290,15 @@ async function runFlow(mode, port) {
         (await page.getByTestId("mentor-contextual-mensaje").isVisible()),
     );
     await mentorMascot.click();
-    check(
-      `[${mode}] la mascota vuelve a plegar el panel`,
-      (await contextualMentor.getAttribute("data-collapsed")) === "true" &&
-        !(await page.getByTestId("mentor-contextual-mensaje").isVisible()),
-    );
+    // El bocadillo se encoge hacia la mascota durante un instante: plegado se
+    // marca al momento, y el texto deja de verse al acabar esa animación.
+    const plegadoAlMomento = (await contextualMentor.getAttribute("data-collapsed")) === "true";
+    const mensajeOculto = await page
+      .getByTestId("mentor-contextual-mensaje")
+      .waitFor({ state: "hidden", timeout: 1500 })
+      .then(() => true)
+      .catch(() => false);
+    check(`[${mode}] la mascota vuelve a plegar el panel`, plegadoAlMomento && mensajeOculto);
 
     // Escape cierra el panel de la mascota y devuelve el foco a su botón.
     await mentorMascot.click();

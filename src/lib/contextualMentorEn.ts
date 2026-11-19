@@ -84,14 +84,13 @@ function englishCopy(event: ContextualMentorEvent): EnglishCopy {
       return {
         eyebrow: "First step",
         title: "Hi, I'm your Copilot",
-        message: "Tell me about your character and I'll tell you where to start. Without it I won't make anything up.",
+        message: "I tell you what to improve first on your character. What I don't know, I don't make up.",
       };
     case "ready":
       return {
         eyebrow: "Mentor here",
         title: `${englishProfileValue(event.profileName)} is loaded`,
-        message:
-          "Open an item, change your goal or generate recommendations: I'll explain what each decision means without losing context.",
+        message: "Ask me anything, or open an item and I'll explain it.",
         question: "What should I improve first on my current character?",
       };
     case "profileIncomplete":
@@ -100,7 +99,7 @@ function englishCopy(event: ContextualMentorEvent): EnglishCopy {
         title: `I need more details on ${englishProfileValue(event.profileName)}`,
         message:
           event.missing.length === 1 && GEAR_LABELS.has(event.missing[0] ?? "")
-            ? "To recommend gear I need to see at least one of your items. Meanwhile, the quick review already tells you what's holding you back."
+            ? "I don't have your gear yet. Meanwhile, the quick review already tells you what's holding you back."
             : event.missing.length > 0
               ? `Still missing: ${event.missing.join(", ")}. Fill it in and I'll tell you what to improve first.`
               : "Fill in your character's details and I'll tell you what to improve first.",
