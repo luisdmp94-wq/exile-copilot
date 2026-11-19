@@ -15,7 +15,8 @@ export type GemAttribute = z.infer<typeof GemAttributeSchema>;
 export const GemSkillSchema = z.object({
   slug: z.string(),
   name: z.string(),
-  attribute: GemAttributeSchema,
+  /** `null` en las habilidades de dos atributos (ballesta, bastón, formas…). */
+  attribute: GemAttributeSchema.nullable(),
   grade: z.number().int().nullable(),
   tags: z.array(z.string()),
   reserve: z.string().nullable(),
@@ -25,6 +26,8 @@ export const GemSkillSchema = z.object({
 export type GemSkill = z.infer<typeof GemSkillSchema>;
 
 export const GemSupportSchema = GemSkillSchema.extend({
+  // Una asistencia siempre tiene atributo: el jugador filtra por él.
+  attribute: GemAttributeSchema,
   category: z.string().nullable(),
   lineage: z.boolean(),
   costMultiplier: z.string().nullable(),
@@ -302,6 +305,8 @@ const KEYWORD_RULES: Array<[RegExp, (skill: GemSkill, text: string) => boolean]>
   [/objetos de tierra/, (_skill, text) => text.includes("de tierra")],
   [/golpe final/, (_skill, text) => /golpe final|combinacion de (?:hasta )?\w+ ataques/.test(text)],
   [/de arco o lanza/, (_skill, text) => /\barco\b|flecha|lanza/.test(text)],
+  // «Ataques de lanza»: la habilidad tiene que hablar del arma, no del verbo lanzar.
+  [/ataques de lanza/, (_skill, text) => /\b(?:tu|la|una|de|con) lanza\b|lanzada|lanzazo|jabalina/.test(text)],
   [/ataques de arco/, (_skill, text) => /\barco\b|flecha/.test(text)],
   [/^asiste habilidades de viento/, (skill) => skill.tags.includes("Viento")],
   // Daño degenerativo propio («por segundo»), no el de quemaduras o venenos.
@@ -569,11 +574,19 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   }
   // Gastar furia solo sirve si el personaje la genera: sin pistas de eso, abajo.
   if (/(?:consum|gast)\w+ [^.|]*furia/.test(text) && !/\bfuria\b/.test(skillText(skill))) score -= 3;
+  // Lo mismo con el combo: sin una habilidad que hable de combo, una asistencia
+  // que vive de él no es lo primero que hay que enseñar.
+  if (/\bcombo\b/.test(text) && !/\bcombo\b/.test(skillText(skill))) score -= 3;
+  // Y la que deja la habilidad sin poder usarse hasta cumplir algo («requieren
+  // 5 de combo para usarse») no puede salir primera para un ataque principal.
+  if (/no se pueden usar (?:hasta|a menos)|requieren \d+ de combo para usarse|se vuelven utilizables/.test(text)) score -= 4;
+  // Rinde solo cuando estás a punto de quedar aturdido: vale, pero abajo.
+  if (/tu barra de aturdimiento|cuanto mas cerca estes de quedar/.test(text)) score -= 2;
   // Lo que apaga justo lo que la habilidad hace bien (congelar, electrocutar…).
   if (undoesWhatSkillDoes(text, skill)) score -= 4;
   if (/no pueden consumir cargas/.test(text) && consumes(skill, "cargas? de (?:poder|frenesi|aguante)")) score -= 3;
   // Lo que escala con la inteligencia rinde poco en una gema que no es de inteligencia.
-  if (/por cada 100 de inteligencia|equivalente a tu inteligencia/.test(text) && skill.attribute !== "Int") score -= 3;
+  if (/por cada 100 de inteligencia|equivalente a tu inteligencia/.test(text) && skill.attribute !== null && skill.attribute !== "Int") score -= 3;
   // Daño elemental para una habilidad que solo hace caos (veneno): no le llega.
   if (/mas de dano elemental/.test(text) && skill.tags.includes("Caos") && !skill.tags.some((tag) => tag === "Fuego" || tag === "Hielo" || tag === "Rayo")) {
     score -= 3;
@@ -653,7 +666,8 @@ export type SocketedKind = z.infer<typeof SocketedKindSchema>;
 /** Lo que la propia descripción de la gema dice que lleva engarzado. */
 const SOCKETED_KINDS: Array<[RegExp, SocketedKind]> = [
   [/maldicion engarzad/, "curse"],
-  [/hechizos engarzados/, "spell"],
+  // «los hechizos engarzados» y «los hechizos de fuego engarzados».
+  [/hechizos (?:de \w+ )?engarzados/, "spell"],
   [/ataques a distancia engarzados/, "ranged-attack"],
   [/habilidades de maza engarzadas/, "mace-skill"],
 ];

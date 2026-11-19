@@ -30,7 +30,8 @@ type Attribute = "Fue" | "Des" | "Int";
 interface Row {
   slug: string;
   name: string;
-  attribute: Attribute;
+  /** `null` en las gemas de dos atributos: poe2db no les pone un color. */
+  attribute: Attribute | null;
   grade: number | null;
   tags: string[];
   hover: string;
@@ -72,13 +73,16 @@ function parseListing(page: string): Row[] {
   const rows = new Map<string, Row>();
   const pattern =
     new RegExp(
-      `<tr data-filters="[^"]*"><td><a class="(gem_\\w+)" data-hover="([^"]+)" href="\\/${SITE}\\/([^"]+)">[\\s\\S]*?<\\/a><td><a [^>]*>([^<]+)<\\/a>\\s*(?:\\((\\d+)\\))?<div class="gem_tags small">([\\s\\S]*?)<\\/div>`,
+      `<tr data-filters="[^"]*"><td><a class="(gem_\\w+|gemitem)" data-hover="([^"]+)" href="\\/${SITE}\\/([^"]+)">[\\s\\S]*?<\\/a><td><a [^>]*>([^<]+)<\\/a>\\s*(?:\\((\\d+)\\))?<div class="gem_tags small">([\\s\\S]*?)<\\/div>`,
       "g",
     );
   for (const match of page.matchAll(pattern)) {
     const [, color, hover, slug, name, grade, tagHtml] = match;
-    const attribute = COLOR_ATTRIBUTE[color];
-    if (!attribute || rows.has(slug)) continue;
+    // «gemitem» es la clase de las gemas sin un color único (ballesta, bastón,
+    // formas…): también son gemas. Saltárselas dejó fuera más de la mitad de
+    // las habilidades hasta el 19-11-2026.
+    const attribute = COLOR_ATTRIBUTE[color] ?? null;
+    if ((attribute === null && color !== "gemitem") || rows.has(slug)) continue;
     rows.set(slug, {
       slug,
       name: decode(name).trim(),
@@ -135,8 +139,14 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 async function build(listing: string, kind: "skill" | "support") {
   const listed = parseListing(await get(`${BASE}/${SITE}/${listing}`));
   // Fuera las gemas que el juego retiró y las entradas que no son gemas.
-  const rows = listed.filter(isRealGem);
-  if (rows.length < listed.length) console.log(`${listing}: ${listed.length - rows.length} entradas descartadas (retiradas o de plantilla)`);
+  // Una asistencia sin atributo no se puede filtrar por hueco: se avisa y se salta.
+  const withoutAttribute = kind === "support" ? listed.filter((row) => row.attribute === null) : [];
+  if (withoutAttribute.length > 0) {
+    console.log(`${listing}: ${withoutAttribute.length} asistencias sin atributo, saltadas: ${withoutAttribute.map((row) => row.name).join(", ")}`);
+  }
+  const real = listed.filter(isRealGem);
+  if (real.length < listed.length) console.log(`${listing}: ${listed.length - real.length} entradas descartadas (retiradas o de plantilla)`);
+  const rows = real.filter((row) => kind === "skill" || row.attribute !== null);
   let failed = 0;
   const entries = await mapLimit(rows, 6, async (row) => {
     let card: Card;

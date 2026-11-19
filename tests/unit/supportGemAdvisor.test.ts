@@ -174,10 +174,31 @@ describe("metahabilidades: llevan habilidades engarzadas, no solo asistencias", 
   it("cada metahabilidad de los datos dice qué lleva engarzado", () => {
     const meta = data.skills.filter((skill) => skill.tags.includes("Metahabilidad"));
 
-    // Eran 10 hasta quitar las tres «Lanzar al…» que el juego fundió en una (parche 0.3.0).
-    expect(meta.length).toBeGreaterThanOrEqual(7);
-    // Si una actualización de datos trae una frase nueva, que salte aquí y no en la web.
-    expect(meta.filter((skill) => socketedKind(skill) === "skill").map((skill) => skill.name)).toEqual([]);
+    // Son 26 desde que los datos traen también las gemas de dos atributos (19-11-2026).
+    expect(meta.length).toBeGreaterThanOrEqual(20);
+    // Estas dicen ellas mismas qué llevan (una señal, granadas, un grito…) y la
+    // web se lo deja a la gema. Si una actualización de datos trae otra, que
+    // salte aquí y no en la web.
+    expect(
+      meta
+        .filter((skill) => socketedKind(skill) === "skill")
+        .map((skill) => skill.name)
+        .sort((a, b) => a.localeCompare(b, "es")),
+    ).toEqual(
+      [
+        "Acometida",
+        "Astillas de ánima",
+        "Cañón de mortero",
+        "Conjuración salvaje",
+        "Forma hueca",
+        "Mano de Chayula",
+        "Objetivos señalados",
+        "Recipiente de espíritu",
+        "Rugido feroz",
+      ].sort((a, b) => a.localeCompare(b, "es")),
+    );
+    expect(socketedKind(findSkill(data, "Hechizo de fuego al impactar")!)).toBe("spell");
+    expect(socketedKind(findSkill(data, "Cólera del Dios del trueno")!)).toBe("spell");
     expect(socketedKind(findSkill(data, "Lanzar al infligir estado alterado elemental")!)).toBe("spell");
     expect(socketedKind(findSkill(data, "Arquero ilusorio")!)).toBe("ranged-attack");
     expect(socketedKind(findSkill(data, "Tótem de guerrero ancestral")!)).toBe("mace-skill");

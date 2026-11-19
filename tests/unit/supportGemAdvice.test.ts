@@ -30,7 +30,12 @@ function names(skillName: string, options: { maxGrade?: number; attributes?: Gem
 
 describe("datos de gemas", () => {
   it("trae habilidades y asistencias con nombre, grado y descripción", () => {
-    expect(data.skills.length).toBeGreaterThan(150);
+    // 399 desde el 19-11-2026: antes el script se saltaba las gemas de dos
+    // atributos (ballesta, bastón, formas del druida) y solo traía 184.
+    expect(data.skills.length).toBeGreaterThan(380);
+    for (const name of ["Esquirlas galvánicas", "Granada explosiva", "Arrebato de tempestad", "Zarpazo", "Golpe de hielo"]) {
+      expect(findSkill(data, name)?.name).toBe(name);
+    }
     expect(data.supports.length).toBeGreaterThan(400);
     const usable = data.supports.filter((support) => !support.lineage);
     expect(usable.every((support) => support.grade !== null && support.category !== null)).toBe(true);
@@ -117,26 +122,39 @@ describe("supportCandidates — asistencias que piden un tipo concreto de habili
 
   it("las de ofrendas, cadáveres, detonación y momento perfecto solo van a esas habilidades", () => {
     expect(offeredTo("Ofrenda sacrificial")).toEqual(["Ofrenda de dolor", "Ofrenda de hueso", "Ofrenda de almas"]);
-    expect(offeredTo("Atracón")).toEqual(["Descomposición", "Festín de carne", "Muertos volátiles", "Levantar zombi", "Ritual profano"]);
-    expect(offeredTo("Mecha larga II")).toEqual(["Lanza explosiva", "Flechas de punta helada", "Crecimiento tóxico", "Bomba de escarcha"]);
-    expect(offeredTo("Perfección")).toEqual(["Golpe perfecto", "Disparo certero"]);
-    expect(offeredTo("Durabilidad")).toEqual(["Muro protector", "Campo de lanzas", "Muro de hielo"]);
+    expect(offeredTo("Atracón").sort()).toEqual(
+      ["Descomposición", "Devorar", "Festín de carne", "Muertos volátiles", "Levantar zombi", "Ritual profano"].sort(),
+    );
+    // Las de antes y, desde que están en los datos, las granadas (tienen tiempo de detonación).
+    expect(offeredTo("Mecha larga II")).toEqual(
+      expect.arrayContaining(["Lanza explosiva", "Flechas de punta helada", "Crecimiento tóxico", "Bomba de escarcha", "Granada explosiva", "Granada de gas"]),
+    );
+    expect(offeredTo("Mecha larga II").length).toBeLessThan(15);
+    expect(offeredTo("Mecha larga II")).not.toContain("Contagio");
+    expect(offeredTo("Perfección").sort()).toEqual(["Disparo certero", "Golpe perfecto", "Tormenta inminente"].sort());
+    expect(offeredTo("Durabilidad").sort()).toEqual(
+      ["Campo de lanzas", "Muro de hielo", "Muro protector", "Pilares sombríos", "Saeta glacial"].sort(),
+    );
   });
 
   it("las que miran etiquetas del juego las respetan: nova, condición, activación", () => {
     const tagged = (tag: string) => data.skills.filter((skill) => skill.tags.includes(tag)).map((skill) => skill.name);
     expect(offeredTo("Proyección astral")).toEqual(tagged("Nova"));
     expect(offeredTo("Gratificación demorada")).toEqual(tagged("Condicional"));
-    expect(offeredTo("Condensador de energía")).toEqual(["Lanzahechizos"]);
+    // Las conjuraciones que acumulan energía: Lanzahechizos y las tres que activan hechizos.
+    expect(offeredTo("Condensador de energía").sort()).toEqual(
+      ["Conjuración de barrera", "Conjuración de la parca", "Conjuración elemental", "Lanzahechizos"].sort(),
+    );
     for (const name of offeredTo("Casualidad")) expect(tagged("Activación")).toContain(name);
   });
 
   it("las de cargas piden cargas de poder, frenesí o aguante, no «recarga»", () => {
     expect(offeredTo("Cargas potenciadas")).toContain("Tormenta de huesos");
     expect(offeredTo("Cargas potenciadas")).not.toContain("Contagio");
-    expect(offeredTo("Cargas potenciadas").length).toBeLessThan(25);
+    // Con las 399 habilidades son 33 las que gastan cargas; lo raro sería medio juego.
+    expect(offeredTo("Cargas potenciadas").length).toBeLessThan(45);
     expect(offeredTo("Profusión de cargas II")).toContain("Robo de poder");
-    expect(offeredTo("Profusión de cargas II").length).toBeLessThan(10);
+    expect(offeredTo("Profusión de cargas II").length).toBeLessThan(20);
   });
 
   it("lo que no se sabe por los datos no se propone: usar andando", () => {
@@ -145,7 +163,9 @@ describe("supportCandidates — asistencias que piden un tipo concreto de habili
   });
 
   it("«de escudo» es la que se usa con escudo, no la que crea uno ni la de escudo de energía", () => {
-    expect(offeredTo("Vanguardia II")).toEqual(["Carga con escudo", "Barrera de magma", "Escudo resonante", "Muro protector", "Grito fortificador"]);
+    expect(offeredTo("Vanguardia II").sort()).toEqual(
+      ["Barrera de magma", "Carga con escudo", "Escudo resonante", "Grito fortificador", "Levantar escudo", "Muro protector", "Vuelo de medianoche"].sort(),
+    );
   });
 
   it("potenciar otra habilidad no es potenciar una resistencia", () => {
@@ -344,5 +364,43 @@ describe("datos de gemas — solo gemas que existen en el juego", () => {
     // una gema retirada (y además saldría sin traducir en la versión inglesa).
     const translated = new Set([...english.skills, ...english.supports].map((gem) => gem.slug));
     expect(spanish.filter((gem) => !translated.has(gem.slug)).map((gem) => gem.name)).toEqual([]);
+  });
+});
+
+// Hasta el 19-11-2026 el script de datos se saltaba las gemas de dos atributos:
+// ni ballestas, ni bastón del monje, ni formas del druida estaban en la web.
+describe("supportCandidates — habilidades de dos atributos (ballesta, bastón, formas)", () => {
+  it("una habilidad de ballesta recibe las asistencias de ballesta, y una de arco no", () => {
+    const crossbow = names("Esquirlas galvánicas", { maxGrade: 5 });
+    expect(crossbow).toEqual(expect.arrayContaining(["Conservación de munición III", "Peine recargado II", "Recarga veloz"]));
+    const bow = names("Flecha de rayo", { maxGrade: 5 });
+    for (const wrong of ["Conservación de munición III", "Peine recargado II", "Recarga veloz"]) expect(bow).not.toContain(wrong);
+  });
+
+  it("una granada recibe lo de granadas y lo de tiempo de detonación", () => {
+    const grenade = names("Granada explosiva", { maxGrade: 5 });
+    expect(grenade).toEqual(expect.arrayContaining(["Granadas adhesivas II", "Mecha larga II"]));
+    expect(names("Flecha de rayo", { maxGrade: 5 })).not.toContain("Granadas adhesivas II");
+  });
+
+  it("las habilidades del monje y del druida existen y reciben asistencias", () => {
+    for (const name of ["Arrebato de tempestad", "Golpe de hielo", "Palma mortal", "Zarpazo", "Embate furioso", "Despedazar"]) {
+      expect(names(name, { maxGrade: 5 }).length).toBeGreaterThan(20);
+    }
+  });
+
+  it("un golpe cuerpo a cuerpo no recibe primero una asistencia que lo deja sin poder usarse", () => {
+    for (const name of ["Zarpazo", "Golpe de hielo", "Destrozahuesos", "Arrebato de tempestad"]) {
+      const offered = names(name, { maxGrade: 5 });
+      // «Finalizador de combo» exige 5 de combo para usar la habilidad: vale, pero no arriba.
+      expect(offered).toContain("Finalizador de combo II");
+      expect(offered.slice(0, 10)).not.toContain("Finalizador de combo II");
+      expect(offered.slice(0, 10)).not.toContain("Culminación II");
+    }
+  });
+
+  it("una asistencia de lanza no va a una ballesta ni a un efecto que no ataca", () => {
+    expect(names("Esquirlas de hielo", { maxGrade: 5 })).not.toContain("Abrojos");
+    expect(names("Rastro de abrojos", { maxGrade: 5 })).not.toContain("Abrojos");
   });
 });
