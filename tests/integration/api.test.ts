@@ -109,6 +109,15 @@ describe("api (integración, app Express con db :memory:)", () => {
       pendingReview: 0,
     });
     expect(payload.methodology.length).toBeGreaterThan(0);
+
+    // La temporada en curso sí tiene sus diez builds.
+    const season = await fetch(
+      `${base}/featured-builds?league=${encodeURIComponent("Forbidden Rites")}&patch=0.5.5`,
+    );
+    expect(season.status).toBe(200);
+    const seasonPayload = await jsonOf(season);
+    expect(seasonPayload.builds).toHaveLength(10);
+    expect(seasonPayload.pendingReview).toBe(0);
   });
 
   it("cierra SQLite una sola vez aunque el lifecycle se invoque repetidamente", () => {

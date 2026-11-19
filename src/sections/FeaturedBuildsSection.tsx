@@ -6,10 +6,11 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import type {
-  FeaturedBuild,
-  FeaturedBuildCategory,
-  FeaturedBuildsResponse,
+import {
+  localizeFeaturedBuild,
+  type FeaturedBuild,
+  type FeaturedBuildCategory,
+  type FeaturedBuildsResponse,
 } from "@shared/featuredBuilds.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -214,7 +215,9 @@ export function FeaturedBuildsSection({
 
         {!loading && !error && result && result.builds.length > 0 && (
           <div className="grid gap-4 lg:grid-cols-2">
-            {result.builds.map((build, index) => (
+            {result.builds.map((entry, index) => {
+              const build = localizeFeaturedBuild(entry, lang);
+              return (
               <article
                 key={build.id}
                 className="grid overflow-hidden rounded-md border border-border/80 bg-background/40 sm:grid-cols-[8.5rem_minmax(0,1fr)]"
@@ -273,8 +276,27 @@ export function FeaturedBuildsSection({
                   </div>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
+        )}
+
+        {/* De dónde salen los porcentajes y por qué estas diez: a un clic. */}
+        {result && result.builds.length > 0 && methodology.length > 0 && (
+          <details
+            className="rounded-md border border-border/70 bg-background/35 px-4 py-2.5"
+            data-testid="featured-builds-criteria"
+          >
+            <summary className="rotulo-seccion flex min-h-9 cursor-pointer list-none items-center gap-2 text-muted-foreground marker:content-none hover:text-foreground">
+              <ShieldCheck className="size-4 shrink-0 text-primary/70" aria-hidden="true" />
+              {t.criteria}
+            </summary>
+            <ul className="mt-3 space-y-2 border-t border-border/60 pt-3 text-sm text-muted-foreground">
+              {methodology.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {result && (

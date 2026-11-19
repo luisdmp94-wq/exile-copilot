@@ -652,7 +652,14 @@ export default function App() {
 
   const hasProfile = character.profile !== null;
   const activePatchId = character.profile?.patch || patch || health?.patch.id || "";
-  const featuredBuilds = useFeaturedBuilds(league, activePatchId);
+  // La selección es de la temporada en curso: su liga principal y el parche
+  // real del juego, no la liga que el jugador tenga elegida para precios ni el
+  // parche que la web tiene revisado.
+  // Hasta saber cuáles son, no se pide nada (así no hay una petición de más).
+  const featuredBuilds = useFeaturedBuilds(
+    meta ? (meta.leagues[0] ?? league) : "",
+    health ? (health.livePatch?.id ?? activePatchId) : "",
+  );
   const activePatchCompatibility = useMemo<PatchCompatibilityRecord | null>(() => {
     // Resumen y notas en el idioma de la página; los estados no cambian.
     if (meta && activePatchId) {
@@ -668,7 +675,10 @@ export default function App() {
     setTargetDraft({
       name: build.title,
       sourceUrl: build.source.url,
-      summary: `${build.summary}\n\nMotivo de la selección: ${build.whyFeatured}\nLímite principal: ${build.caveats[0]}`,
+      summary:
+        pageLang() === "en"
+          ? `${build.summary}\n\nWhy it was picked: ${build.whyFeatured}\nMain limit: ${build.caveats[0]}`
+          : `${build.summary}\n\nMotivo de la selección: ${build.whyFeatured}\nLímite principal: ${build.caveats[0]}`,
       desiredModsText: build.desiredMods.join("\n"),
       plan: null,
     });

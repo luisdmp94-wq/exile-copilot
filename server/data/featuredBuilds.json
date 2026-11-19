@@ -1,18 +1,665 @@
 {
   "game": "poe2",
   "slots": 10,
-  "selectionAsOf": "2026-08-28",
+  "selectionAsOf": "2026-11-19",
   "methodology": [
     "Solo entran builds de Path of Exile 2 con liga, parche, autor y fuente visibles.",
     "Popularidad no significa que una build sea la mejor: la selección separa inicio, mapeo, bosses, supervivencia, presupuesto y SSF.",
     "Una build de otro parche queda pendiente de revisión y no puede presentarse entre las diez actuales.",
-    "El Copiloto enlaza la fuente original y usa la build únicamente como objetivo; nunca sustituye el personaje actual."
+    "El Copiloto enlaza la fuente original y usa la build únicamente como objetivo; nunca sustituye el personaje actual.",
+    "Las diez de ahora son la build más jugada de cada una de las diez ascendencias más usadas en Forbidden Rites (poe.ninja, 19-11-2026: 124.106 personajes), con una guía pública del mismo parche."
   ],
   "methodologyEn": [
     "Only Path of Exile 2 builds with a visible league, patch, author and source get in.",
     "Popular doesn't mean best: the selection separates league start, mapping, bossing, survival, budget and SSF.",
     "A build from another patch waits for review and can't show up among the current ten.",
-    "The Copilot links the original source and only uses the build as a target; it never replaces your current character."
+    "The Copilot links the original source and only uses the build as a target; it never replaces your current character.",
+    "The current ten are the most played build of each of the ten most used ascendancies in Forbidden Rites (poe.ninja, 19 Nov 2026: 124,106 characters), each with a public guide for the same patch."
   ],
-  "entries": []
+  "entries": [
+    {
+      "id": "legionario-gemita-torbellino",
+      "game": "poe2",
+      "title": "Legionario gemita de Torbellino",
+      "characterClass": "Mercenario",
+      "ascendancy": "Legionario gemita",
+      "mainSkills": [
+        "Torbellino",
+        "Aluvión",
+        "Corte giratorio"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "mapping"
+      ],
+      "budgetBand": "unknown",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "Goratha",
+        "url": "https://maxroll.gg/poe2/build-guides/gemling-legionnaire-twister-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Se mueve con Corte giratorio en vez de correr y llena la pantalla de torbellinos con Torbellino y Aluvión. Heraldo de hielo y las explosiones de armadura rematan los grupos.",
+      "whyFeatured": "Es la clase más jugada de la liga: el 32,1 % de los personajes. La guía la destaca por velocidad y por daño.",
+      "caveats": [
+        "Pide más de un botón, y contra un solo enemigo rinde peor si no hay paredes cerca (lo dice la propia guía).",
+        "La pieza que más la mejora es un único, The Taming; sin él, la guía propone alternativas más baratas.",
+        "El porcentaje es de la clase entera, no solo de esta build."
+      ],
+      "desiredMods": [
+        "daño físico",
+        "probabilidad de impacto crítico",
+        "evasión",
+        "vida máxima",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Twister Gemling Legionnaire",
+        "characterClass": "Mercenary",
+        "ascendancy": "Gemling Legionnaire",
+        "mainSkills": [
+          "Twister",
+          "Barrage",
+          "Whirling Slash"
+        ],
+        "summary": "It moves with Whirling Slash instead of sprinting and fills the screen with twisters using Twister and Barrage. Herald of Ice and armour explosions finish off the packs.",
+        "whyFeatured": "The most played class in the league: 32.1% of characters. The guide praises its speed and damage.",
+        "caveats": [
+          "It needs more than one button, and single-target damage drops with no walls nearby (the guide says so itself).",
+          "Its biggest upgrade is a unique, The Taming; without it, the guide lists cheaper alternatives.",
+          "The share is for the whole class, not just this build."
+        ],
+        "desiredMods": [
+          "Physical Damage",
+          "Critical Hit Chance",
+          "Evasion",
+          "maximum Life",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "artista-marcial-concentracion-hueca",
+      "game": "poe2",
+      "title": "Artista marcial de Concentración hueca",
+      "characterClass": "Monje",
+      "ascendancy": "Artista marcial",
+      "mainSkills": [
+        "Concentración hueca",
+        "Ola de tormenta",
+        "Heraldo de hielo"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "mapping",
+        "bossing"
+      ],
+      "budgetBand": "unknown",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "Goratha",
+        "url": "https://maxroll.gg/poe2/build-guides/hollow-focus-storm-wave-martial-artist-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Concentración hueca hace aparecer campanas a tu alrededor que explotan al golpearlas y encadenan con Heraldo de hielo. Ola de tormenta, solapando sus grietas, hace el daño a los jefes.",
+      "whyFeatured": "Segunda clase más jugada: el 10,7 % de la liga, y el 67 % de esos monjes lleva Concentración hueca. La guía dice que limpia mapas rápido y que aguanta bien con evasión.",
+      "caveats": [
+        "Se juega entrando en los grupos, y necesita congelar a los enemigos para hacer todo su daño.",
+        "Pide robo de vida y de maná en el equipo, mejor en los anillos.",
+        "El porcentaje es de la clase entera, no solo de esta build."
+      ],
+      "desiredMods": [
+        "evasión",
+        "escudo de energía",
+        "vida máxima",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Hollow Focus Storm Wave Martial Artist",
+        "characterClass": "Monk",
+        "ascendancy": "Martial Artist",
+        "mainSkills": [
+          "Hollow Focus",
+          "Storm Wave",
+          "Herald of Ice"
+        ],
+        "summary": "Hollow Focus spawns bells around you that explode when hit and chain into Herald of Ice. Storm Wave, with overlapping fissures, does the boss damage.",
+        "whyFeatured": "Second most played class: 10.7% of the league, and 67% of those monks run Hollow Focus. The guide says it clears maps fast and is sturdy thanks to Evasion.",
+        "caveats": [
+          "You play it diving into packs, and it needs to freeze enemies to deal its full damage.",
+          "It wants life and mana leech on gear, ideally on rings.",
+          "The share is for the whole class, not just this build."
+        ],
+        "desiredMods": [
+          "Evasion",
+          "Energy Shield",
+          "maximum Life",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "oraculo-enredo",
+      "game": "poe2",
+      "title": "Oráculo de Enredo",
+      "characterClass": "Druida",
+      "ascendancy": "Oráculo",
+      "mainSkills": [
+        "Enredo"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "starter",
+        "mapping",
+        "budget"
+      ],
+      "budgetBand": "low",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "Velyna",
+        "url": "https://maxroll.gg/poe2/build-guides/entangle-oracle-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Lanzas Enredo para extender enredaderas y una tormenta las hace crecer y pegar más. Apunta sola y limpia mapas con facilidad. En la campaña va con vida y armadura.",
+      "whyFeatured": "Tercera clase más jugada: el 7,3 % de la liga, y el 58 % de esos druidas lleva Enredo. La guía la da como inicio de liga barato.",
+      "caveats": [
+        "Los jefes más duros piden invertir en equipo, según la guía.",
+        "Llena la pantalla de efectos y cuesta ver qué pasa.",
+        "En el final del juego paga las habilidades con vida: ese cambio hay que hacerlo siguiendo la guía."
+      ],
+      "desiredMods": [
+        "vida máxima",
+        "armadura",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Entangle Oracle",
+        "characterClass": "Druid",
+        "ascendancy": "Oracle",
+        "mainSkills": [
+          "Entangle"
+        ],
+        "summary": "You cast Entangle to spread vines and a storm makes them grow and hit harder. It auto-targets and clears maps easily. Through the campaign it plays with Life and Armour.",
+        "whyFeatured": "Third most played class: 7.3% of the league, and 58% of those druids run Entangle. The guide calls it a cheap league starter.",
+        "caveats": [
+          "The hardest bosses need gear investment, according to the guide.",
+          "It fills the screen with effects, so it's hard to see what's going on.",
+          "In endgame it pays for skills with Life: follow the guide when making that switch."
+        ],
+        "desiredMods": [
+          "maximum Life",
+          "Armour",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "discipula-varashta-esbirros",
+      "game": "poe2",
+      "title": "Discípula de Varashta de esbirros",
+      "characterClass": "Hechicera",
+      "ascendancy": "Discípula de Varashta",
+      "mainSkills": [
+        "Kelari, la Arena contaminada",
+        "Engaño de Kelari"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "starter",
+        "survival"
+      ],
+      "budgetBand": "unknown",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "Helm Breaker",
+        "url": "https://maxroll.gg/poe2/build-guides/disciple-of-varashta-minion-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Un ejército de djinns y esbirros hace el daño mientras tú lanzas maldiciones y ofrendas. Se puede seguir desde el principio de la campaña hasta el final del juego.",
+      "whyFeatured": "El 7,2 % de la liga, y el 86 % de ellas lleva los djinns de Kelari. La guía la describe como muy resistente y con mucho daño.",
+      "caveats": [
+        "Puede pedir muchos botones, según la guía.",
+        "Con tantos esbirros cuesta ver la pantalla.",
+        "Lo primero en el equipo es «+ nivel a todas las habilidades de esbirro», en cetro, casco y amuleto."
+      ],
+      "desiredMods": [
+        "habilidades de esbirro",
+        "espíritu",
+        "vida máxima",
+        "velocidad de movimiento",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Minion Disciple of Varashta",
+        "characterClass": "Sorceress",
+        "ascendancy": "Disciple of Varashta",
+        "mainSkills": [
+          "Kelari, the Tainted Sands",
+          "Kelari's Deception"
+        ],
+        "summary": "An army of djinns and minions deals the damage while you cast curses and offerings. You can follow it from the start of the campaign into endgame.",
+        "whyFeatured": "7.2% of the league, and 86% of them run Kelari's djinns. The guide describes it as very tanky with very high damage.",
+        "caveats": [
+          "It can be button-intensive, according to the guide.",
+          "With so many minions the screen gets hard to read.",
+          "First gear priority is “+ to Level of all Minion Skills”, on sceptre, helmet and amulet."
+        ],
+        "desiredMods": [
+          "Minion Skills",
+          "Spirit",
+          "maximum Life",
+          "Movement Speed",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "caminante-espiritual-esbirros",
+      "game": "poe2",
+      "title": "Caminante espiritual de esbirros",
+      "characterClass": "Cazadora",
+      "ascendancy": "Caminante espiritual",
+      "mainSkills": [
+        "Protector salvaje",
+        "Lobo azmeriano",
+        "Manada de lobos"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "starter",
+        "survival"
+      ],
+      "budgetBand": "unknown",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "Helm Breaker",
+        "url": "https://maxroll.gg/poe2/build-guides/minion-army-spirit-walker-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Sube los dos primeros actos con Torbellino o granadas y, tras la primera ascendencia, pasa a esbirros con Protector salvaje. Más adelante domas a un compañero único que hace casi todo el daño.",
+      "whyFeatured": "El 6,8 % de la liga, y el 94 % lleva Protector salvaje. La guía la recomienda si buscas una build tranquila, de pocos botones.",
+      "caveats": [
+        "Los actos 1 y 2 se juegan sin esbirros.",
+        "Hay que domar a un compañero concreto, un jefe único; la guía explica cuál y dónde.",
+        "El porcentaje es de la clase entera, no solo de esta build."
+      ],
+      "desiredMods": [
+        "habilidades de esbirro",
+        "escudo de energía",
+        "evasión",
+        "vida máxima",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Minion Army Spirit Walker",
+        "characterClass": "Huntress",
+        "ascendancy": "Spirit Walker",
+        "mainSkills": [
+          "Wild Protector",
+          "Azmerian Wolf",
+          "Wolf Pack"
+        ],
+        "summary": "It levels the first two acts with Twister or grenades and, after the first Ascendancy, switches to minions with Wild Protector. Later you tame a unique companion that does most of the damage.",
+        "whyFeatured": "6.8% of the league, and 94% run Wild Protector. The guide recommends it if you want a laid-back build with few buttons.",
+        "caveats": [
+          "Acts 1 and 2 are played without minions.",
+          "You must tame one specific companion, a unique boss; the guide explains which and where.",
+          "The share is for the whole class, not just this build."
+        ],
+        "desiredMods": [
+          "Minion Skills",
+          "Energy Shield",
+          "Evasion",
+          "maximum Life",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "tiradora-disparo-de-hielo",
+      "game": "poe2",
+      "title": "Tiradora de Disparo de hielo",
+      "characterClass": "Exploradora",
+      "ascendancy": "Tiradora",
+      "mainSkills": [
+        "Disparo de hielo",
+        "Heraldo de hielo"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "starter",
+        "mapping"
+      ],
+      "budgetBand": "unknown",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "aer0",
+        "url": "https://maxroll.gg/poe2/build-guides/ice-shot-deadeye-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Congela y revienta grupos enteros con Disparo de hielo y sus explosiones. Un enemigo congelado no ataca: esa es su mejor defensa, junto a la evasión.",
+      "whyFeatured": "El 6,0 % de la liga, y el 86 % de las tiradoras lleva Disparo de hielo. La guía la da como rápida, con buena limpieza y buen daño a un solo objetivo.",
+      "caveats": [
+        "Es débil al daño continuo: veneno, sangrado o suelo ardiendo.",
+        "El remate a los jefes es un disparo cargado que cuesta cuadrar al principio.",
+        "El arco manda en su daño: cámbialo cada 5-10 niveles."
+      ],
+      "desiredMods": [
+        "daño físico",
+        "daño de hielo",
+        "evasión",
+        "vida máxima",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Ice Shot Deadeye",
+        "characterClass": "Ranger",
+        "ascendancy": "Deadeye",
+        "mainSkills": [
+          "Ice Shot",
+          "Herald of Ice"
+        ],
+        "summary": "It freezes and shatters whole packs with Ice Shot and its explosions. A frozen enemy can't attack: that's its best defence, along with Evasion.",
+        "whyFeatured": "6.0% of the league, and 86% of Deadeyes run Ice Shot. The guide rates it as fast, with great clear and chunky single-target damage.",
+        "caveats": [
+          "It's weak to damage over time: poison, bleed or burning ground.",
+          "The boss finisher is a charged shot that's tricky to time at first.",
+          "The bow drives its damage: replace it every 5-10 levels."
+        ],
+        "desiredMods": [
+          "Physical Damage",
+          "Cold Damage",
+          "Evasion",
+          "maximum Life",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "infernalista-chispa-cometa",
+      "game": "poe2",
+      "title": "Infernalista de Chispa y Cometa",
+      "characterClass": "Bruja",
+      "ascendancy": "Infernalista",
+      "mainSkills": [
+        "Chispa",
+        "Cometa"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "starter"
+      ],
+      "budgetBand": "unknown",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía en Mobalytics",
+        "author": "Ignatius",
+        "url": "https://mobalytics.gg/poe-2/profile/ignatius/builds/comprehensive-coc-spark-comet-recoup-infernalist-by-ignatius",
+        "kind": "community-guide"
+      },
+      "summary": "Chispa (o Descarga de escarcha) golpea muchas veces y cada crítico dispara un Cometa sin que tú lo lances. La guía cubre desde el nivel 1 hasta el final del juego, con variantes.",
+      "whyFeatured": "El 5,7 % de la liga; el 72 % de las infernalistas lleva Cometa y el 67 %, Chispa. Guía verificada en Mobalytics y actualizada el 11-11-2026.",
+      "caveats": [
+        "Lo avisa su autor: si no quieres estudiar la mecánica a fondo, no la vas a disfrutar.",
+        "En la liga, la variante más jugada dispara el Cometa al aplicar estados elementales, no al crítico como esta guía.",
+        "El porcentaje es de la clase entera, no solo de esta build."
+      ],
+      "desiredMods": [
+        "vida máxima",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Spark Comet Infernalist",
+        "characterClass": "Witch",
+        "ascendancy": "Infernalist",
+        "mainSkills": [
+          "Spark",
+          "Comet"
+        ],
+        "summary": "Spark (or Frostbolt) hits many times and every critical hit triggers a Comet without you casting it. The guide covers level 1 to endgame, with variants.",
+        "whyFeatured": "5.7% of the league; 72% of Infernalists run Comet and 67% run Spark. A verified Mobalytics guide, updated on 11 Nov 2026.",
+        "caveats": [
+          "The author warns: if you don't want to study the mechanics in depth, you won't enjoy it.",
+          "On the ladder, the most played variant triggers Comet on elemental ailments, not on critical hits like this guide.",
+          "The share is for the whole class, not just this build."
+        ],
+        "desiredMods": [
+          "maximum Life",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "tejetormentas-cometa-critico",
+      "game": "poe2",
+      "title": "Tejetormentas de Cometa al crítico",
+      "characterClass": "Hechicera",
+      "ascendancy": "Tejetormentas",
+      "mainSkills": [
+        "Descarga de escarcha",
+        "Cometa"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "mapping"
+      ],
+      "budgetBand": "unknown",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "zen_m",
+        "url": "https://maxroll.gg/poe2/build-guides/frostbolt-cast-on-crit-comet-stormweaver-endgame-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Las Descargas de escarcha se bifurcan y explotan, y cada crítico dispara un Cometa solo. Congela todo lo que toca. Es una guía de final de juego: empieza en el nivel 68.",
+      "whyFeatured": "El 3,4 % de la liga; el 86 % de las tejetormentas lleva Cometa y el 80 % lo dispara con críticos.",
+      "caveats": [
+        "En la liga casi todas disparan con Chispa (88 %); esta guía lo hace con Descarga de escarcha. Es la guía pública del mismo parche más cercana.",
+        "No sirve para subir de nivel: la campaña se hace con otra guía, que enlaza la propia página.",
+        "Depende de un anillo único, Snakepit, para que los proyectiles se bifurquen."
+      ],
+      "desiredMods": [
+        "probabilidad de impacto crítico",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Cast on Critical Comet Stormweaver",
+        "characterClass": "Sorceress",
+        "ascendancy": "Stormweaver",
+        "mainSkills": [
+          "Frostbolt",
+          "Comet"
+        ],
+        "summary": "Frostbolts fork and explode, and every critical hit triggers a Comet by itself. It freezes everything it touches. This is an endgame guide: it starts at level 68.",
+        "whyFeatured": "3.4% of the league; 86% of Stormweavers run Comet and 80% trigger it with critical hits.",
+        "caveats": [
+          "On the ladder almost all of them trigger with Spark (88%); this guide uses Frostbolt. It's the closest public guide for the same patch.",
+          "It isn't for levelling: the campaign uses another guide, linked from the page itself.",
+          "It relies on a unique ring, Snakepit, to make projectiles fork."
+        ],
+        "desiredMods": [
+          "Critical Hit Chance",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "titan-muro-protector",
+      "game": "poe2",
+      "title": "Titan de Muro protector",
+      "characterClass": "Guerrero",
+      "ascendancy": "Titan",
+      "mainSkills": [
+        "Muro protector",
+        "Grito infernal"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "survival",
+        "budget"
+      ],
+      "budgetBand": "low",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía de Maxroll",
+        "author": "carn",
+        "url": "https://maxroll.gg/poe2/build-guides/shield-wall-titan-endgame-build-guide",
+        "kind": "community-guide"
+      },
+      "summary": "Levanta muros de piedra que cruzan la pantalla y los revienta con gritos de guerra. Mucha armadura, escudo y vida: aguanta bien los golpes.",
+      "whyFeatured": "El 2,8 % de la liga; Grito infernal y Muro protector están entre las tres habilidades más usadas por los titanes. La guía destaca su defensa y que rinde con poco presupuesto.",
+      "caveats": [
+        "Guía de final de juego: empieza en el nivel 68; la campaña se sube con otra.",
+        "Las animaciones son lentas al principio.",
+        "Escala menos que otras en el contenido más difícil, según la guía."
+      ],
+      "desiredMods": [
+        "armadura",
+        "vida máxima",
+        "velocidad de ataque",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Shield Wall Titan",
+        "characterClass": "Warrior",
+        "ascendancy": "Titan",
+        "mainSkills": [
+          "Shield Wall",
+          "Infernal Cry"
+        ],
+        "summary": "It raises stone walls across the screen and detonates them with warcries. Lots of Armour, a shield and Life: it takes hits well.",
+        "whyFeatured": "2.8% of the league; Infernal Cry and Shield Wall are among the three most used Titan skills. The guide highlights its defence and that it performs on a low budget.",
+        "caveats": [
+          "An endgame guide: it starts at level 68; the campaign is levelled with another one.",
+          "Animations are slow early on.",
+          "It scales less than others in the very hardest content, according to the guide."
+        ],
+        "desiredMods": [
+          "Armour",
+          "maximum Life",
+          "Attack Speed",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    },
+    {
+      "id": "maga-de-sangre-chispa",
+      "game": "poe2",
+      "title": "Maga de sangre de Chispa",
+      "characterClass": "Bruja",
+      "ascendancy": "Maga de sangre",
+      "mainSkills": [
+        "Chispa"
+      ],
+      "league": "Forbidden Rites",
+      "patch": "0.5.5",
+      "categories": [
+        "mapping",
+        "bossing"
+      ],
+      "budgetBand": "high",
+      "status": "verified",
+      "verifiedAt": "2026-11-19T12:00:00.000Z",
+      "source": {
+        "label": "Guía en Mobalytics",
+        "author": "Fubgun",
+        "url": "https://mobalytics.gg/poe-2/profile/fubgun/builds/fubgun-s-spark-blood-mage",
+        "kind": "community-guide"
+      },
+      "summary": "Chispa con críticos que disparan otros hechizos, montada alrededor de un único muy caro, Temporalis. Su autor la llama la build más rápida del parche.",
+      "whyFeatured": "El 2,7 % de la liga; Chispa es de las habilidades más usadas por las magas de sangre (33 %). Guía verificada en Mobalytics, de un creador conocido.",
+      "caveats": [
+        "Es cara siempre: no funciona sin Temporalis. No es para un primer personaje.",
+        "Solo cubre el final del juego, no la subida de nivel.",
+        "El porcentaje es de la clase entera, no solo de esta build."
+      ],
+      "desiredMods": [
+        "vida máxima",
+        "resistencia al fuego",
+        "resistencia al hielo",
+        "resistencia al rayo"
+      ],
+      "en": {
+        "title": "Spark Blood Mage",
+        "characterClass": "Witch",
+        "ascendancy": "Blood Mage",
+        "mainSkills": [
+          "Spark"
+        ],
+        "summary": "Spark with critical hits that trigger other spells, built around a very expensive unique, Temporalis. Its author calls it the fastest build of the patch.",
+        "whyFeatured": "2.7% of the league; Spark is among the most used Blood Mage skills (33%). A verified Mobalytics guide by a well-known creator.",
+        "caveats": [
+          "It's always expensive: it doesn't work without Temporalis. Not for a first character.",
+          "It only covers endgame, not levelling.",
+          "The share is for the whole class, not just this build."
+        ],
+        "desiredMods": [
+          "maximum Life",
+          "Fire Resistance",
+          "Cold Resistance",
+          "Lightning Resistance"
+        ]
+      }
+    }
+  ]
 }

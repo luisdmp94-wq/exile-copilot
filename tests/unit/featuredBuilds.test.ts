@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   FeaturedBuildCatalogSchema,
   FeaturedBuildsResponseSchema,
+  localizeFeaturedBuild,
 } from "../../shared/featuredBuilds.js";
 
 const verifiedBuild = {
@@ -70,5 +72,55 @@ describe("catálogo de builds destacadas", () => {
         pendingReview: 0,
       }),
     ).toThrow();
+  });
+});
+
+describe("las diez builds publicadas", () => {
+  const catalog = FeaturedBuildCatalogSchema.parse(
+    JSON.parse(readFileSync(new URL("../../server/data/featuredBuilds.json", import.meta.url), "utf8")),
+  );
+
+  it("son diez, de la misma liga y parche, verificadas y sin repetir", () => {
+    expect(catalog.entries).toHaveLength(10);
+    expect(new Set(catalog.entries.map((entry) => entry.id)).size).toBe(10);
+    expect(new Set(catalog.entries.map((entry) => entry.ascendancy)).size).toBe(10);
+    for (const entry of catalog.entries) {
+      expect(entry.league).toBe("Forbidden Rites");
+      expect(entry.patch).toBe("0.5.5");
+      expect(entry.status).toBe("verified");
+      expect(entry.verifiedAt).not.toBeNull();
+    }
+  });
+
+  it("cada una enlaza una guía pública con autor", () => {
+    for (const entry of catalog.entries) {
+      expect(["maxroll.gg", "mobalytics.gg"]).toContain(new URL(entry.source.url).hostname);
+      expect(entry.source.author.trim()).not.toBe("");
+      expect(entry.source.kind).toBe("community-guide");
+    }
+  });
+
+  it("todas tienen su versión en inglés, con los mismos avisos y habilidades", () => {
+    for (const entry of catalog.entries) {
+      expect(entry.en).toBeDefined();
+      expect(entry.en?.caveats).toHaveLength(entry.caveats.length);
+      expect(entry.en?.mainSkills).toHaveLength(entry.mainSkills.length);
+      expect(entry.en?.desiredMods).toHaveLength(entry.desiredMods.length);
+    }
+  });
+
+  it("en inglés se enseñan los textos en inglés; en español, los de siempre", () => {
+    const first = catalog.entries[0];
+    expect(localizeFeaturedBuild(first, "es").title).toBe(first.title);
+    const english = localizeFeaturedBuild(first, "en");
+    expect(english.title).toBe(first.en?.title);
+    expect(english.mainSkills).toEqual(first.en?.mainSkills);
+    // Lo que no cambia con el idioma sigue igual.
+    expect(english.source).toEqual(first.source);
+    expect(english.id).toBe(first.id);
+  });
+
+  it("las reglas de entrada están en los dos idiomas", () => {
+    expect(catalog.methodologyEn).toHaveLength(catalog.methodology.length);
   });
 });

@@ -46,8 +46,26 @@ export const FeaturedBuildSchema = z.object({
   whyFeatured: z.string().min(1).max(500),
   caveats: z.array(z.string().min(1).max(300)).min(1).max(5),
   desiredMods: z.array(z.string().min(1).max(200)).max(12),
+  /** Lo mismo en inglés, para la web en inglés. Sin esto se enseña el español. */
+  en: z
+    .object({
+      title: z.string().min(1),
+      characterClass: z.string().min(1),
+      ascendancy: z.string().nullable(),
+      mainSkills: z.array(z.string().min(1)).min(1).max(4),
+      summary: z.string().min(1).max(500),
+      whyFeatured: z.string().min(1).max(500),
+      caveats: z.array(z.string().min(1).max(300)).min(1).max(5),
+      desiredMods: z.array(z.string().min(1).max(200)).max(12),
+    })
+    .optional(),
 });
 export type FeaturedBuild = z.infer<typeof FeaturedBuildSchema>;
+
+/** La build con sus textos en el idioma de la página. */
+export function localizeFeaturedBuild(build: FeaturedBuild, lang: "es" | "en"): FeaturedBuild {
+  return lang === "en" && build.en ? { ...build, ...build.en } : build;
+}
 
 export const FeaturedBuildCatalogSchema = z.object({
   game: z.literal("poe2"),
