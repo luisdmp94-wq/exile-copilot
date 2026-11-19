@@ -182,7 +182,7 @@ function preloadHeavySections(): void {
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
 import { pageLang, texts, useLang, useText } from "@/i18n/lang";
 import { CRAFTING_DECISION_TEXT } from "@/lib/craftingDecisionText";
-import { sendAreaBeacon } from "@/lib/visitBeacon";
+import { noCountChange, sendAreaBeacon } from "@/lib/visitBeacon";
 import { englishMentorCue } from "@/lib/contextualMentorEn";
 import {
   contextualMentorCue,
@@ -307,6 +307,8 @@ const APP_TEXT = texts(
     restoreKeep: " No crees otro personaje todavía: tus datos no se han descartado.",
     restoring: "Recuperando…",
     restoreRetry: "Reintentar recuperación",
+    noCountOn: "Este navegador ya no cuenta en las estadísticas.",
+    noCountOff: "Este navegador vuelve a contar en las estadísticas.",
     craftingRunning: "Crafting en curso",
     craftingChecking: (action: string, item: string) =>
       `Estás comprobando ${action} en ${item}. El preflight y el resultado viven en el banco de Crafting para no duplicar la sesión.`,
@@ -367,6 +369,8 @@ const APP_TEXT = texts(
     restoreKeep: " Don't create another character yet: your data hasn't been thrown away.",
     restoring: "Recovering…",
     restoreRetry: "Retry recovery",
+    noCountOn: "This browser no longer counts in the stats.",
+    noCountOff: "This browser counts in the stats again.",
     craftingRunning: "Crafting in progress",
     craftingChecking: (action: string, item: string) =>
       `You're checking ${action} on ${item}. The preflight and the result live in the Crafting bench so the session isn't duplicated.`,
@@ -500,6 +504,14 @@ export default function App() {
     view: "guia" | "comprobar" | "herramientas";
     seq: number;
   } | null>(() => (REQUESTED_TOOL === null ? null : { view: "herramientas", seq: 1 }));
+  // `?nocount=1`: se confirma una vez, para que quien lo abre sepa que funcionó.
+  useEffect(() => {
+    const change = noCountChange();
+    if (change === "on") toast.success(t.noCountOn);
+    else if (change === "off") toast.info(t.noCountOff);
+    // Solo al cargar: el idioma del aviso es el de ese momento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Un enlace directo a una herramienta baja hasta ella en cuanto está pintada
   // (el área de guías se descarga aparte y puede tardar un momento).
   useEffect(() => {

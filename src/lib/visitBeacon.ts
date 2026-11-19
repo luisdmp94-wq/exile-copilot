@@ -107,12 +107,39 @@ export function buildVisitBeacon(location: PageLocation, referrer: string, now =
   };
 }
 
+/** Marca de «este navegador no cuenta», puesta con `?nocount=1`. */
+const NO_COUNT_KEY = "exile-copilot:no-contar";
+
+let lastNoCountChange: "on" | "off" | null = null;
+
 /**
- * ¿Es el navegador del dueño? Lo es si guarda la clave de estadísticas. Sus
- * visitas no se envían: probando la web a diario inflaba las cifras.
+ * `?nocount=1` marca este navegador para que sus visitas no se cuenten, sin
+ * tener que escribir la clave de estadísticas (sirve para el móvil o para el
+ * navegador con el que se emite). `?nocount=0` lo deshace. Cualquiera puede
+ * usarlo: solo se quita a sí mismo de las cifras.
+ */
+export function applyNoCountParam(search: string): "on" | "off" | null {
+  const params = new URLSearchParams(search);
+  const value = (params.get("nocount") ?? params.get("nocontar"))?.trim().toLowerCase();
+  if (value === undefined) return null;
+  const off = value === "0" || value === "no" || value === "off";
+  write(NO_COUNT_KEY, off ? "0" : "1");
+  lastNoCountChange = off ? "off" : "on";
+  return lastNoCountChange;
+}
+
+/** Lo que cambió `?nocount=` al cargar esta página, para avisar al jugador. */
+export function noCountChange(): "on" | "off" | null {
+  return lastNoCountChange;
+}
+
+/**
+ * ¿Es un navegador del dueño? Lo es si guarda la clave de estadísticas o si se
+ * marcó con `?nocount=1`. Sus visitas no se envían: probando la web a diario
+ * inflaba las cifras.
  */
 export function isOwnerBrowser(): boolean {
-  return (read(OWNER_KEY_STORAGE) ?? "").trim() !== "";
+  return (read(OWNER_KEY_STORAGE) ?? "").trim() !== "" || read(NO_COUNT_KEY) === "1";
 }
 
 const sentAreas = new Set<VisitArea>();

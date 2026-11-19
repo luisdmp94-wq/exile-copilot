@@ -161,6 +161,14 @@ export const StatsDaySchema = z.object({
 });
 export type StatsDay = z.infer<typeof StatsDaySchema>;
 
+/**
+ * Visitantes de ese día que ya habían entrado otro día desde el mismo
+ * navegador: los del día menos los que venían por primera vez.
+ */
+export function returningVisitors(day: Pick<StatsDay, "visitors" | "newVisitors">): number {
+  return Math.max(0, day.visitors - day.newVisitors);
+}
+
 export const StatsResponseSchema = z.object({
   days: z.array(StatsDaySchema),
 });

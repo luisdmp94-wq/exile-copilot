@@ -4,7 +4,7 @@ import '@fontsource-variable/inter'
 import './index.css'
 import App from './App.tsx'
 import { AppErrorBoundary } from './components/AppErrorBoundary.tsx'
-import { sendVisitBeacon } from './lib/visitBeacon.ts'
+import { applyNoCountParam, sendVisitBeacon } from './lib/visitBeacon.ts'
 import { LangProvider } from './i18n/LangProvider.tsx'
 import { reloadOnceForNewVersion } from './lib/reloadForNewVersion.ts'
 
@@ -39,6 +39,9 @@ createRoot(document.getElementById('root')!).render(
     </AppErrorBoundary>
   </StrictMode>,
 )
+
+// `?nocount=1` marca este navegador para que no cuente (antes de avisar de la visita).
+applyNoCountParam(window.location.search)
 
 // Contador anónimo: solo en la web publicada, y nunca desde la página de cifras.
 if (import.meta.env.PROD && !isStats) sendVisitBeacon()

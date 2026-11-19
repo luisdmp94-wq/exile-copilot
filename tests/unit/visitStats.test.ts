@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { classifySource, looksLikeBot, pageOf, sourceFromHeader } from "../../shared/visitStats.js";
+import { classifySource, looksLikeBot, pageOf, returningVisitors, sourceFromHeader } from "../../shared/visitStats.js";
 import { createDatabase } from "../../server/db/database.js";
 import { readStats, recordArea, recordUse, recordVisit } from "../../server/analytics.js";
-import { buildVisitBeacon, isOwnerBrowser, visitSource } from "../../src/lib/visitBeacon.js";
+import { applyNoCountParam, buildVisitBeacon, isOwnerBrowser, noCountChange, visitSource } from "../../src/lib/visitBeacon.js";
 
 describe("de dónde llega una visita", () => {
   const own = "exilecopilot.com";
@@ -150,6 +150,31 @@ describe("aviso de visita del navegador", () => {
     // Y un valor raro guardado a mano cuenta como directo.
     session.set("exile-copilot:origen-visita", "<script>");
     expect(visitSource()).toBe("directo");
+  });
+
+  it("?nocount=1 marca el navegador para que no cuente, sin escribir la clave", () => {
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    expect(isOwnerBrowser()).toBe(false);
+    expect(applyNoCountParam("?lang=es")).toBeNull();
+    expect(isOwnerBrowser()).toBe(false);
+    expect(applyNoCountParam("?nocount=1")).toBe("on");
+    expect(noCountChange()).toBe("on");
+    expect(isOwnerBrowser()).toBe(true);
+    // Sigue marcado en la siguiente visita, ya sin el parámetro.
+    expect(applyNoCountParam("")).toBeNull();
+    expect(isOwnerBrowser()).toBe(true);
+    // Y se puede deshacer.
+    expect(applyNoCountParam("?nocount=0")).toBe("off");
+    expect(isOwnerBrowser()).toBe(false);
+    expect(applyNoCountParam("?nocontar=1")).toBe("on");
+    expect(isOwnerBrowser()).toBe(true);
+  });
+
+  it("«han vuelto» son los visitantes del día menos los nuevos", () => {
+    expect(returningVisitors({ visitors: 26, newVisitors: 24 })).toBe(2);
+    expect(returningVisitors({ visitors: 19, newVisitors: 19 })).toBe(0);
+    // Nunca negativo, aunque un contador llegue desordenado.
+    expect(returningVisitors({ visitors: 3, newVisitors: 5 })).toBe(0);
   });
 
   it("la primera visita es nueva y de hoy; la siguiente del mismo día, no", () => {

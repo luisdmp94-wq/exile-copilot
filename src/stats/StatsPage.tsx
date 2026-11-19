@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
-import { OWNER_KEY_STORAGE, StatsResponseSchema, type StatsDay } from "@shared/visitStats";
+import { OWNER_KEY_STORAGE, StatsResponseSchema, returningVisitors, type StatsDay } from "@shared/visitStats";
 import { FeedbackEntrySchema, type FeedbackEntry } from "@shared/feedback";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const KEY_STORAGE = OWNER_KEY_STORAGE;
+const returningOf = (day: StatsDay) => returningVisitors(day);
 
 const SOURCE_LABELS: Record<string, string> = {
   directo: "Directo",
@@ -197,11 +198,12 @@ export function StatsPage() {
 
       {days && (
         <>
-          <div className="mt-5 grid grid-cols-3 gap-3">
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               ["Hoy", days[0]?.visitors ?? 0],
               ["Últimos 7 días", sum(week, (day) => day.visitors)],
               ["Nuevos en 7 días", sum(week, (day) => day.newVisitors)],
+              ["Han vuelto en 7 días", sum(week, returningOf)],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl border border-border bg-card p-4">
                 <p className="text-xs text-muted-foreground">{label}</p>
@@ -210,6 +212,12 @@ export function StatsPage() {
               </div>
             ))}
           </div>
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            «Han vuelto» son visitantes que ya habían entrado otro día desde ese navegador. Si alguien vuelve tres
+            días, cuenta tres. Para que tus otros navegadores no cuenten, abre en ellos{" "}
+            <span className="font-mono text-foreground/90">exilecopilot.com/?nocount=1</span>.
+          </p>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <Breakdown title="De dónde vienen (7 días)" rows={sumRecord(week, (day) => day.sources)} labels={SOURCE_LABELS} />
@@ -274,6 +282,7 @@ export function StatsPage() {
                   <th className="py-1 font-normal">Día</th>
                   <th className="py-1 text-right font-normal">Visitantes</th>
                   <th className="py-1 text-right font-normal">Nuevos</th>
+                  <th className="py-1 text-right font-normal">Vuelven</th>
                   <th className="py-1 text-right font-normal">Páginas vistas</th>
                 </tr>
               </thead>
@@ -285,6 +294,7 @@ export function StatsPage() {
                       <td className="py-1">{day.day}</td>
                       <td className="py-1 text-right tabular-nums">{day.visitors}</td>
                       <td className="py-1 text-right tabular-nums">{day.newVisitors}</td>
+                      <td className="py-1 text-right tabular-nums">{returningOf(day)}</td>
                       <td className="py-1 text-right tabular-nums">{day.visits}</td>
                     </tr>
                   ))}
