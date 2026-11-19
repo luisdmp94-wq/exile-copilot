@@ -54,8 +54,27 @@ export interface QuickReviewResult {
   total: number;
   /** Los que no caben en los 3 primeros, por si el jugador quiere verlos. */
   rest: QuickReviewFinding[];
-  /** Lo que no se pudo revisar por falta de datos. */
+  /** Lo que no se pudo revisar por falta de datos, de lo que más pesa a lo que menos. */
   missing: string[];
+  /** Lo mismo, como claves y en el mismo orden: sirve para llevar al jugador al campo. */
+  missingKeys: QuickReviewGap[];
+}
+
+/** Datos que la revisión puede echar en falta. */
+export type QuickReviewGap = "level" | "res" | "act" | "gem" | "weapon" | "asc";
+
+/** De lo que más cambia el consejo a lo que menos. */
+const GAP_ORDER: QuickReviewGap[] = ["level", "res", "act", "gem", "weapon", "asc"];
+
+/**
+ * Los datos sin los que «no veo nada grave» sería mentira: nivel, resistencias,
+ * acto y nivel de la gema. El arma y la ascendencia afinan, pero no bloquean.
+ */
+const KEY_GAPS: readonly QuickReviewGap[] = ["level", "res", "act", "gem"];
+
+/** Los dos datos clave que más conviene pedir primero; vacío si no falta ninguno. */
+export function firstGapsToAsk(result: Pick<QuickReviewResult, "missingKeys">): QuickReviewGap[] {
+  return result.missingKeys.filter((gap) => KEY_GAPS.includes(gap)).slice(0, 2);
 }
 
 /**
@@ -181,7 +200,7 @@ function joinList(parts: string[], and: string): string {
 export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang = "es"): QuickReviewResult {
   const w = WORDS[lang];
   const findings: QuickReviewFinding[] = [];
-  const missing: string[] = [];
+  const gaps = new Set<QuickReviewGap>();
   const level = input.level !== null && input.level > 0 ? input.level : null;
 
   // 1. Arma atrasada respecto al personaje.
@@ -198,7 +217,7 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
       });
     }
   } else if (input.weaponItemLevel === null) {
-    missing.push(w.missing.weapon);
+    gaps.add("weapon");
   }
 
   // 2. Gema principal por debajo de lo que permite el nivel.
@@ -221,7 +240,7 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
       });
     }
   } else if (input.mainSkillGemLevel === null) {
-    missing.push(w.missing.gem);
+    gaps.add("gem");
   }
 
   // 3. Habilidad que necesita pareja.
@@ -255,10 +274,10 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
       });
     }
   } else if (known.length === 0) {
-    missing.push(w.missing.res);
+    gaps.add("res");
   }
-  if (input.act === null) missing.push(w.missing.act);
-  if (level === null) missing.push(w.missing.level);
+  if (input.act === null) gaps.add("act");
+  if (level === null) gaps.add("level");
 
   // 5. Puntos de ascendencia sin coger.
   if (input.ascendancyPoints !== null && input.act !== null) {
@@ -270,7 +289,7 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
       findings.push({ id: "asc-second", severity: actNumber >= 4 ? 60 : 45, title: w.ascSecondTitle, action: w.ascSecondAction });
     }
   } else if (input.ascendancyPoints === null) {
-    missing.push(w.missing.asc);
+    gaps.add("asc");
   }
 
   // 6. Liche sin maldición.
@@ -279,5 +298,12 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
   }
 
   findings.sort((a, b) => b.severity - a.severity);
-  return { top: findings.slice(0, 3), rest: findings.slice(3), total: findings.length, missing };
+  const missingKeys = GAP_ORDER.filter((gap) => gaps.has(gap));
+  return {
+    top: findings.slice(0, 3),
+    rest: findings.slice(3),
+    total: findings.length,
+    missing: missingKeys.map((gap) => w.missing[gap]),
+    missingKeys,
+  };
 }

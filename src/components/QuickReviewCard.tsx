@@ -4,7 +4,13 @@ import type { ScreenshotReadResponse } from "@shared/screenshotRead.js";
 import { api, getErrorMessage } from "@/lib/api";
 import type { CharacterProfile } from "@shared/domain.js";
 import { readCharacterLevel } from "@shared/domain.js";
-import { reviewCharacter, type QuickReviewAct, type QuickReviewInput } from "@shared/quickReview.js";
+import {
+  firstGapsToAsk,
+  reviewCharacter,
+  type QuickReviewAct,
+  type QuickReviewGap,
+  type QuickReviewInput,
+} from "@shared/quickReview.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { texts, useLang, useText } from "@/i18n/lang";
@@ -42,7 +48,11 @@ const TEXT = texts(
     resultTitle: "Lo que más te frena",
     nothing: "Con estos datos no veo nada grave.",
     nothingAsk: " Si aun así te cuesta, pregúntale al Mentor.",
-    tooLittle: "Necesito un poco más: escribe al menos tu nivel y tus resistencias (tecla C en el juego).",
+    needMore: (list: string) => `Aún no puedo decirte qué te frena. Dime primero ${list}.`,
+    fillNow: "Rellenarlo ahora",
+    and: "y",
+    moreData: "Más datos (opcional)",
+    moreDataHint: "Arma, ascendencia y otras habilidades. Afinan la revisión.",
     invalid: (fields: string) => `Revisa estos números, no pueden ser así: ${fields}.`,
     range: (min: number, max: number) => `entre ${min} y ${max}`,
     more: (count: number) => `Hay ${count} cosa${count === 1 ? "" : "s"} más, menos urgente${count === 1 ? "" : "s"}.`,
@@ -97,7 +107,11 @@ const TEXT = texts(
     resultTitle: "What's holding you back",
     nothing: "With this data I don't see anything serious.",
     nothingAsk: " If it still feels hard, ask the Mentor.",
-    tooLittle: "I need a bit more: enter at least your level and your resistances (C key in game).",
+    needMore: (list: string) => `I can't tell what's holding you back yet. First tell me ${list}.`,
+    fillNow: "Fill it in now",
+    and: "and",
+    moreData: "More details (optional)",
+    moreDataHint: "Weapon, ascendancy and other skills. They sharpen the review.",
     invalid: (fields: string) => `Check these numbers, they can't be right: ${fields}.`,
     range: (min: number, max: number) => `between ${min} and ${max}`,
     more: (count: number) => `There ${count === 1 ? "is" : "are"} ${count} more, less urgent.`,
@@ -207,6 +221,19 @@ const RANGES: Partial<Record<keyof Form, [number, number]>> = {
   lightning: [-200, 90],
 };
 
+/** Campo del formulario al que lleva cada dato que falta. */
+const FIELD_FOR_GAP: Record<QuickReviewGap, keyof Form> = {
+  level: "level",
+  res: "fire",
+  act: "act",
+  gem: "gemLevel",
+  weapon: "weapon",
+  asc: "ascPoints",
+};
+
+/** Lo que afina la revisión pero no hace falta para empezar: va plegado. */
+const OPTIONAL_FIELDS: Array<keyof Form> = ["weapon", "ascendancy", "curse", "otherSkills"];
+
 /** Solo enteros escritos tal cual («1e5» o «3.5» no valen). */
 const parseWhole = (value: string): number | null => {
   const text = value.trim();
@@ -273,6 +300,8 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   });
   const [reviewed, setReviewed] = useState(false);
   const [showRest, setShowRest] = useState(false);
+  // Los datos opcionales empiezan plegados, salvo que ya haya alguno escrito.
+  const [showOptional, setShowOptional] = useState(() => OPTIONAL_FIELDS.some((key) => form[key].trim() !== ""));
   // En móvil empieza plegada: así el equipo sigue en la primera pantalla. En
   // ordenador, abierta. La mascota («No hago daño») la abre con un evento.
   const [wide, setWide] = useState(
@@ -311,11 +340,19 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const result = useMemo(() => reviewCharacter(toInput(form), lang), [form, lang]);
   const invalidKeys = (Object.keys(RANGES) as Array<keyof Form>).filter((key) => fieldIsInvalid(form, key));
-  const resistanceCount = [form.fire, form.cold, form.lightning].filter(
-    (value, index) => value.trim() !== "" && !fieldIsInvalid(form, (["fire", "cold", "lightning"] as const)[index]),
-  ).length;
-  /** Sin nivel ni resistencias, «nada grave» sería mentira: se piden datos. */
-  const tooLittle = numberOrNull(form, "level") === null && resistanceCount === 0;
+  /** Sin los datos clave, «nada grave» sería mentira: se piden los dos que más pesan. */
+  const gapsToAsk = firstGapsToAsk(result);
+  const gapLabel = (gap: QuickReviewGap) => result.missing[result.missingKeys.indexOf(gap)] ?? "";
+  /** Lleva al campo del primer dato que falta; si está plegado, lo despliega antes. */
+  const goToGap = (gap: QuickReviewGap) => {
+    const field = FIELD_FOR_GAP[gap];
+    if (OPTIONAL_FIELDS.includes(field)) setShowOptional(true);
+    window.requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLElement>(`[data-testid="revision-${field}"]`);
+      input?.scrollIntoView({ behavior: "smooth", block: "center" });
+      input?.focus({ preventScroll: true });
+    });
+  };
   const FIELD_LABEL: Partial<Record<keyof Form, string>> = {
     level: t.level,
     gemLevel: t.gemLevel,
@@ -648,7 +685,6 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         ])}
         {textField("mainSkill", t.mainSkill, t.mainSkillHint)}
         {numberField("gemLevel", t.gemLevel, t.gemLevelHint)}
-        {numberField("weapon", t.weapon, t.weaponHint)}
       </div>
 
       <p className="mt-3 text-xs font-medium text-foreground/90">{t.resistances}</p>
@@ -658,7 +694,19 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         {numberField("lightning", t.lightning)}
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <button
+        type="button"
+        className="mt-3 text-left text-xs font-semibold text-primary underline-offset-2 hover:underline"
+        onClick={() => setShowOptional((open) => !open)}
+        aria-expanded={showOptional}
+        aria-controls="revision-opcional"
+        data-testid="revision-mas-datos"
+      >
+        {showOptional ? "▾" : "▸"} {t.moreData}
+        {!showOptional && <span className="ml-1 font-normal text-muted-foreground">· {t.moreDataHint}</span>}
+      </button>
+      <div id="revision-opcional" hidden={!showOptional} className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {numberField("weapon", t.weapon, t.weaponHint)}
         {select("ascendancy", t.ascendancy, [
           ["lich", t.lich],
           ["other", t.other],
@@ -683,8 +731,13 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
               {t.invalid(invalidKeys.map((key) => FIELD_LABEL[key]).join(", "))}
             </p>
           )}
-          {result.top.length === 0 && tooLittle ? (
-            <p className="text-sm text-foreground" data-testid="revision-pocos-datos">{t.tooLittle}</p>
+          {result.top.length === 0 && gapsToAsk.length > 0 ? (
+            <div data-testid="revision-pocos-datos">
+              <p className="text-sm text-foreground">{t.needMore(gapsToAsk.map(gapLabel).join(` ${t.and} `))}</p>
+              <Button type="button" size="sm" className="mt-2" onClick={() => goToGap(gapsToAsk[0])} data-testid="revision-rellenar">
+                {t.fillNow}
+              </Button>
+            </div>
           ) : result.top.length === 0 ? (
             <p className="text-sm text-foreground">
               {t.nothing}
@@ -741,9 +794,18 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
               )}
             </>
           )}
-          {result.missing.length > 0 && (
+          {/* Cuando ya se piden los datos clave no se repite la lista entera de lo que falta. */}
+          {result.missing.length > 0 && !(result.top.length === 0 && gapsToAsk.length > 0) && (
             <p className="mt-3 text-xs text-muted-foreground" data-testid="revision-falta">
-              {t.missing(result.missing.join(", "))}
+              {t.missing(result.missing.join(", "))}{" "}
+              <button
+                type="button"
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+                onClick={() => goToGap(result.missingKeys[0])}
+                data-testid="revision-falta-rellenar"
+              >
+                {t.fillNow}
+              </button>
             </p>
           )}
           {onAskMentor && result.top.length > 0 && (

@@ -124,3 +124,56 @@ describe("revisión rápida: reglas sueltas", () => {
     ]);
   });
 });
+
+// Un visitante nuevo que solo dio nivel y habilidad recibía «no veo nada
+// grave» y una lista de cinco cosas que faltaban (19-11-2026).
+describe("revisión rápida — qué pedir cuando faltan datos", () => {
+  const empty: import("../../shared/quickReview.js").QuickReviewInput = {
+    level: null,
+    act: null,
+    mainSkill: null,
+    mainSkillGemLevel: null,
+    weaponItemLevel: null,
+    resistances: { fire: null, cold: null, lightning: null },
+    ascendancyPoints: null,
+    ascendancy: null,
+    usesCurse: null,
+    otherSkills: [],
+  };
+
+  it("lo que falta sale ordenado por lo que más cambia el consejo", async () => {
+    const { reviewCharacter } = await import("../../shared/quickReview.js");
+    const result = reviewCharacter({ ...empty });
+    expect(result.missingKeys).toEqual(["level", "res", "act", "gem", "weapon", "asc"]);
+    expect(result.missing[0]).toBe("tu nivel");
+    expect(result.missing).toHaveLength(result.missingKeys.length);
+  });
+
+  it("con solo nivel y habilidad pide resistencias y acto, no cinco cosas", async () => {
+    const { reviewCharacter, firstGapsToAsk } = await import("../../shared/quickReview.js");
+    const result = reviewCharacter({ ...empty, level: 22, mainSkill: "Arrebato de tempestad" });
+    expect(result.top).toEqual([]);
+    expect(firstGapsToAsk(result)).toEqual(["res", "act"]);
+  });
+
+  it("con lo clave rellenado ya no pide nada, aunque falten el arma y la ascendencia", async () => {
+    const { reviewCharacter, firstGapsToAsk } = await import("../../shared/quickReview.js");
+    const result = reviewCharacter({
+      ...empty,
+      level: 22,
+      act: 2,
+      mainSkill: "Arrebato de tempestad",
+      mainSkillGemLevel: 7,
+      resistances: { fire: 40, cold: 35, lightning: 30 },
+    });
+    expect(result.top).toEqual([]);
+    expect(firstGapsToAsk(result)).toEqual([]);
+    expect(result.missingKeys).toEqual(["weapon", "asc"]);
+  });
+
+  it("en inglés el orden es el mismo", async () => {
+    const { reviewCharacter } = await import("../../shared/quickReview.js");
+    const result = reviewCharacter({ ...empty, level: 22 }, "en");
+    expect(result.missing.slice(0, 2)).toEqual(["your resistances", "your act"]);
+  });
+});
