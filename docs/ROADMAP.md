@@ -303,6 +303,22 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
   le falta al personaje; preguntar «¿usas esbirros?» y dar más peso al Espíritu.
 - [ ] **Leer una captura de la hoja de personaje** (tecla C) para sacar
   nivel, vida y resistencias sin escribir nada.
+- [ ] **La mascota como guía** (idea de Luis, 19-11-2026; apuntada, sin
+  empezar). Dos partes:
+  1. *Poder preguntarle aunque no tengas equipo.* Hoy el Mentor contesta
+     «necesito más datos, falta: equipo» a quien acaba de crear el personaje.
+     Que responda lo general de un novato («¿por qué me matan?») con lo que
+     sabe, diga qué dato le haría afinar y, si no lo sabe, lo diga y mande a la
+     guía que toca.
+  2. *Que vaya diciendo el siguiente paso.* Un solo consejo cada vez según el
+     estado del personaje («dime tus resistencias», «te falta este punto de
+     ascendencia», «mira las gemas de tu habilidad»), sacado de las reglas y
+     sin IA, con un botón que lleva. Corto y fácil de callar: una mascota que
+     habla mucho molesta.
+  Regla que no cambia: las reglas deciden y la IA solo lo cuenta. Suelta, la
+  IA inventa cosas del juego; solo guía bien cuando habla de lo comprobado
+  (guías, revisión rápida, datos de gemas). Contexto: el 19-11 un visitante
+  nuevo recibía tres «me faltan datos» seguidos en «Personaje y mentor».
 - [ ] **Botón «Conectar con tu cuenta de PoE»** (OAuth oficial). Bloqueado:
   GGG no acepta aplicaciones nuevas ahora mismo («We are currently unable to
   process new applications»). Revisar si reabren.

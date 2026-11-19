@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { canonicalSkillName, isKnownSkillName, sameSkillName } from "@/lib/skillNames";
 import { texts, useLang, useText } from "@/i18n/lang";
 
 /**
@@ -69,6 +70,8 @@ const TEXT = texts(
     typeAndEnter: "Escribe una y pulsa Intro",
     add: "Añadir",
     skillsList: "Habilidades del personaje",
+    unknownSkill: (names: string) =>
+      `No reconozco ${names}. Mira que esté escrita como en el juego. Puedes guardarla igual.`,
     remove: (name: string) => `Quitar ${name}`,
     name: "Nombre (opcional)",
     level: "Nivel (opcional)",
@@ -94,6 +97,8 @@ const TEXT = texts(
     typeAndEnter: "Type one and press Enter",
     add: "Add",
     skillsList: "Character skills",
+    unknownSkill: (names: string) =>
+      `I don't recognise ${names}. Check it's written as in the game. You can still save it.`,
     remove: (name: string) => `Remove ${name}`,
     name: "Name (optional)",
     level: "Level (optional)",
@@ -222,6 +227,9 @@ function QuickCharacterForm({
   );
   const [draftSkill, setDraftSkill] = useState("");
   const [skillNames, setSkillNames] = useState<string[]>([]);
+  // Los nombres en el otro idioma: quien juega con el cliente en español puede
+  // usar la web en inglés (y al revés), y su habilidad tiene que reconocerse.
+  const [otherLangNames, setOtherLangNames] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -239,24 +247,34 @@ function QuickCharacterForm({
       .catch(() => {
         // Sin la lista se puede seguir escribiendo el nombre a mano.
       });
+    api
+      .gemSkills(lang === "en" ? "es" : "en")
+      .then((response) => {
+        if (!cancelled) setOtherLangNames(response.skills.map((item) => item.name));
+      })
+      .catch(() => {
+        // Sin esta lista solo se reconocen los nombres del idioma de la web.
+      });
     return () => {
       cancelled = true;
     };
   }, [lang]);
 
+  /** «killing palm» → «Killing Palm»: como lo escribe el juego, si la web la conoce. */
+  const asInGame = (typed: string) => canonicalSkillName(typed, skillNames, otherLangNames);
+
   const addSkill = () => {
-    const next = draftSkill.trim();
+    const next = asInGame(draftSkill);
     if (!next) return;
-    if (
-      !skills.some(
-        (item) => item.toLocaleLowerCase("es") === next.toLocaleLowerCase("es"),
-      ) &&
-      skills.length < MAX_SKILLS
-    ) {
+    if (!skills.some((item) => sameSkillName(item, next)) && skills.length < MAX_SKILLS) {
       setSkills([...skills, next]);
     }
     setDraftSkill("");
   };
+
+  /** Habilidades que la web no conoce: se avisa sin impedir guardarlas. */
+  const unknownSkills =
+    skillNames.length === 0 ? [] : skills.filter((item) => !isKnownSkillName(item, skillNames, otherLangNames));
 
   const submit = async () => {
     if (!characterClass) {
@@ -271,11 +289,14 @@ function QuickCharacterForm({
       setError(t.badLevel);
       return;
     }
-    const pending = draftSkill.trim();
+    const pending = asInGame(draftSkill);
+    // Las que venían de antes (o se añadieron sin la lista cargada) también se
+    // guardan como las escribe el juego.
+    const listed = skills.map(asInGame);
     const allSkills =
-      pending && !skills.includes(pending) && skills.length < MAX_SKILLS
-        ? [...skills, pending]
-        : skills;
+      pending && !listed.some((item) => sameSkillName(item, pending)) && listed.length < MAX_SKILLS
+        ? [...listed, pending]
+        : listed;
     setError(null);
     const saved = await onCreate({
       name: name.trim() || t.defaultName(shownClass(characterClass)),
@@ -406,6 +427,11 @@ function QuickCharacterForm({
               </li>
             ))}
           </ul>
+        )}
+        {unknownSkills.length > 0 && (
+          <p className="mt-2 text-xs leading-relaxed text-amber-200/90" data-testid="alta-habilidad-desconocida">
+            {t.unknownSkill(unknownSkills.map((item) => `«${item}»`).join(", "))}
+          </p>
         )}
       </div>
 
