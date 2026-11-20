@@ -50,12 +50,14 @@ export const ACT_ONE_GUIDE: ActGuide = {
   route: [
     {
       zone: "La orilla del río",
+      gems: ["Habilidad nv. 1: el molinero hinchado"],
       text: "Mata al molinero hinchado: te da tu primera gema de habilidad.",
       priority: "historia",
       sourceIds: ["poe2db-acto1"],
     },
     {
       zone: "Sierraclara",
+      gems: ["Habilidad nv. 1: un alijo abandonado, en el lado opuesto a la entrada del Lodazal"],
       text: "Busca a Beira, de la manada putrefacta: +10 % de resistencia al hielo para siempre.",
       priority: "clave",
       reward: "+10 % de hielo",
@@ -64,6 +66,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
     },
     {
       zone: "Lodazal",
+      gems: ["Asistencia nv. 1: el devorador"],
       text: "El devorador da una gema de asistencia y 100 de oro.",
       optional: true,
       priority: "recomendable",
@@ -71,10 +74,11 @@ export const ACT_ONE_GUIDE: ActGuide = {
     },
     {
       zone: "El bosque singular",
+      gems: ["Asistencia nv. 1: Areagne, la Bruja olvidada (opcional; te ataca al salir de la Cabaña de la bruja)", "Habilidad nv. 2: el Horror de espinas (opcional)"],
       text: "Frascos medianos gratis en la Cabaña de la bruja.",
       priority: "historia",
       skip: "el Horror de espinas",
-      sourceIds: ["maxroll-subida", "poe2db-acto1"],
+      sourceIds: ["maxroll-subida", "poe2db-acto1", "wiki-bosque"],
     },
     {
       zone: "El valle rojo",
@@ -91,6 +95,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
     },
     {
       zone: "Cementerio de los eternos",
+      gems: ["Asistencia: al terminar la misión de Lachlann"],
       text: "Para llegar a Lachlann del lamento eterno pasa antes por el Mausoleo del pretor y la Tumba de la consorte. Da una gema de asistencia.",
       priority: "historia",
       sourceIds: ["wiki-acto1", "poe2db-acto1"],
@@ -106,6 +111,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
     },
     {
       zone: "Villafrey",
+      gems: ["Espíritu nv. 4: el rey de las nieblas"],
       text: "El rey de las nieblas da +30 de espíritu para siempre.",
       optional: true,
       priority: "clave",
@@ -124,12 +130,14 @@ export const ACT_ONE_GUIDE: ActGuide = {
     },
     {
       zone: "Pueblo de Ogham",
+      gems: ["Habilidad nv. 5: tras el verdugo, al volver al pueblo"],
       text: "El verdugo: apártate de la ráfaga de viento que marca su guillotina. Da una gema de habilidad de nivel 5.",
       priority: "historia",
       sourceIds: ["wiki-verdugo", "poe2db-acto1"],
     },
     {
       zone: "Mansión de Ogham",
+      gems: ["Asistencia: al vencer al conde Geonor"],
       text: "Cirio, el Ritual viviente, da +20 de vida. Al final espera el conde Geonor.",
       priority: "clave",
       reward: "+20 de vida",
@@ -266,6 +274,11 @@ export const ACT_ONE_GUIDE: ActGuide = {
       id: "wiki-acto1",
       label: "PoE2 Wiki — Act 1",
       url: "https://www.poe2wiki.net/wiki/Act_1",
+    },
+    {
+      id: "wiki-bosque",
+      label: "PoE2 Wiki — The Grelwood",
+      url: "https://www.poe2wiki.net/wiki/The_Grelwood",
     },
     {
       id: "wiki-geonor",

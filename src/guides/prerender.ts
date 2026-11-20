@@ -49,8 +49,8 @@ export function renderGuideArticle(guide: ActGuide): string {
         .map(
           (step) =>
             `<li><strong>${escapeHtml(step.zone)} (${ROUTE_PRIORITY_LABEL[step.priority]}):</strong> ${escapeHtml(step.text)}${
-              step.skip ? ` Te puedes saltar: ${escapeHtml(step.skip)}.` : ""
-            }</li>`,
+              step.gems?.length ? ` Gemas seguras: ${step.gems.map(escapeHtml).join("; ")}.` : ""
+            }${step.skip ? ` Te puedes saltar: ${escapeHtml(step.skip)}.` : ""}</li>`,
         )
         .join("")}</ol>`,
     );

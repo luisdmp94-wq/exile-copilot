@@ -62,6 +62,7 @@ export const ACT_THREE_GUIDE: ActGuide = {
   route: [
     {
       zone: "Ciénaga de arena y Campamento del zigurat",
+      gems: ["Habilidad nv. 9: Dregaraíces (opcional)"],
       text: "Llegas al pueblo del acto. Dregaraíces es opcional: solo suelta una gema.",
       priority: "historia",
       skip: "Dregaraíces",
@@ -114,6 +115,7 @@ export const ACT_THREE_GUIDE: ActGuide = {
     },
     {
       zone: "El pantano de los azak",
+      gems: ["Espíritu nv. 10: Ignagduk, la Bruja del pantano"],
       text: "Zona opcional. Ignagduk, la Bruja del pantano, da +30 de espíritu para siempre.",
       optional: true,
       priority: "clave",
@@ -138,6 +140,7 @@ export const ACT_THREE_GUIDE: ActGuide = {
     },
     {
       zone: "La cámara fundida",
+      gems: ["Habilidad nv. 10: Mektul, el Maestro de la forja (opcional)"],
       text: "Mektul, el Maestro de la forja, suelta El martillo de Kamasa: llévaselo a Oswald al pueblo y abres la Mesa de reforja (tres objetos iguales por uno nuevo). También da una gema de habilidad sin tallar de nivel 10. Es una carrera contra el reloj: si te falta daño, vuelve después del acto.",
       optional: true,
       priority: "recomendable",

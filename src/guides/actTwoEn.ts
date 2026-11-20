@@ -44,6 +44,7 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
   route: [
     {
       zone: "Vastiri Outskirts",
+      gems: ["Skill lvl 5: when you beat Rathbreaker, from Zarka"],
       text: "Beat Rathbreaker to board The Ardura Caravan.",
       priority: "historia",
       sourceIds: ["poe2db-acto2"],
@@ -71,6 +72,7 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Halani Gates",
+      gems: ["Skill lvl 7: after Jamanra, from Zarka", "Skill lvl 6: L'im the Impaler, the zone's optional boss"],
       text: "Jamanra, the Risen King, doesn't die: he flees. Then three routes open across the desert, and you have to do all three.",
       priority: "historia",
       sourceIds: ["wiki-acto2", "poe2db-acto2"],
@@ -86,12 +88,14 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Lost City and Buried Shrines",
+      gems: ["Support: when you finish this route, from Zarka"],
       text: "Azarian, the Forsaken Son, waits at the end of the shrines.",
       priority: "historia",
       sourceIds: ["wiki-azarian", "poe2db-acto2"],
     },
     {
       zone: "Mastodon Badlands and The Bone Pits",
+      gems: ["Support: when you finish this route, from Zarka"],
       text: "Ekbab, Ancient Steed. The sun clan relic is on this route: don't leave without it.",
       priority: "historia",
       sourceIds: ["wiki-promesas", "poe2db-acto2"],
@@ -107,6 +111,7 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Titan Grotto",
+      gems: ["Support: when you finish this route, from Zarka"],
       text: "Zalmarath, the Colossus, closes the valley route.",
       priority: "historia",
       sourceIds: ["poe2db-acto2"],

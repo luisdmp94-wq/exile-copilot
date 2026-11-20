@@ -66,6 +66,12 @@ export interface GuideRouteStep {
   reward?: string;
   /** Jefe u objetivo opcional de la zona que no da nada para siempre. */
   skip?: string;
+  /**
+   * Gemas sin tallar que la zona da SIEMPRE (un jefe, una misión o un cofre
+   * fijo), una frase corta por gema: tipo, nivel y de dónde sale. Solo las
+   * comprobadas en las fuentes; lo que cae al azar no va aquí.
+   */
+  gems?: string[];
   /** Solo en las zonas clave: cómo se nota en el juego que la recompensa está cogida. */
   proof?: GuideRewardProof;
   sourceIds: string[];

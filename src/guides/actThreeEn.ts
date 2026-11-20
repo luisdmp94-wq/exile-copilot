@@ -44,6 +44,7 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
   route: [
     {
       zone: "Sandswept Marsh and Ziggurat Encampment",
+      gems: ["Skill lvl 9: Rootdredge (optional)"],
       text: "You reach the act's town. Rootdredge is optional: he only drops a gem.",
       priority: "historia",
       skip: "Rootdredge",
@@ -96,6 +97,7 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Azak Bog",
+      gems: ["Spirit lvl 10: Ignagduk, the Bog Witch"],
       text: "Optional area. Ignagduk, the Bog Witch, gives +30 spirit for good.",
       optional: true,
       priority: "clave",
@@ -120,6 +122,7 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Molten Vault",
+      gems: ["Skill lvl 10: Mektul, the Forgemaster (optional)"],
       text: "Mektul, the Forgemaster, drops The Hammer of Kamasa: take it to Oswald in town and you unlock the Reforging Bench (three identical items for a new one). He also gives a level 10 Uncut Skill Gem. It's a race against the clock: if you lack damage, come back after the act.",
       optional: true,
       priority: "recomendable",

@@ -19,6 +19,8 @@ describe("guías en inglés", () => {
         expect(step.priority).toBe(original.priority);
         expect(Boolean(step.optional)).toBe(Boolean(original.optional));
         expect(Boolean(step.skip)).toBe(Boolean(original.skip));
+        // Las mismas gemas seguras, una a una, en los dos idiomas.
+        expect(step.gems?.length ?? 0).toBe(original.gems?.length ?? 0);
         expect(step.sourceIds).toEqual(original.sourceIds);
         expect(step.proof?.kind).toBe(original.proof?.kind);
         if (step.proof && original.proof && step.proof.kind !== "manual" && original.proof.kind !== "manual") {
@@ -47,7 +49,7 @@ describe("guías en inglés", () => {
         guide.check.nextAct,
         guide.check.focus?.note ?? "",
         ...guide.essentials.map((tip) => tip.text),
-        ...(guide.route ?? []).flatMap((step) => [step.zone, step.text, step.reward ?? "", step.skip ?? "", step.proof?.kind === "manual" ? step.proof.question : ""]),
+        ...(guide.route ?? []).flatMap((step) => [step.zone, step.text, step.reward ?? "", step.skip ?? "", ...(step.gems ?? []), step.proof?.kind === "manual" ? step.proof.question : ""]),
         ...guide.blocks.flatMap((block) => [
           block.title,
           block.intro,

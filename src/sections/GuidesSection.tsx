@@ -36,6 +36,7 @@ const TEXT = texts(
     nothingForever: "No dan nada para siempre.",
     optional: "opcional",
     canSkipOne: (what: string) => `Te puedes saltar: ${what}.`,
+    gems: (count: number): string => (count === 1 ? "Gema segura:" : "Gemas seguras:"),
     moreDetail: "Más detalle",
     intro:
       "es un compañero en español para Path of Exile 2: guías por acto y un mentor que mira tu personaje. Gratis y sin registrarte.",
@@ -66,6 +67,7 @@ const TEXT = texts(
     nothingForever: "They give nothing permanent.",
     optional: "optional",
     canSkipOne: (what: string) => `You can skip: ${what}.`,
+    gems: (count: number): string => (count === 1 ? "Guaranteed gem:" : "Guaranteed gems:"),
     moreDetail: "More detail",
     intro:
       "is a companion for Path of Exile 2 players: act guides and a mentor that looks at your character. Free, no sign-up.",
@@ -252,6 +254,12 @@ function Route({ guide, t }: { guide: ActGuide; t: GuidesText }) {
                   {step.text}
                   <SourceRefs guide={guide} ids={step.sourceIds} />
                 </span>
+                {step.gems && step.gems.length > 0 && (
+                  <span className="mt-0.5 block text-xs text-sky-200/90" data-testid="guia-ruta-gemas">
+                    <Gem className="mr-1 inline size-3.5 align-[-2px]" aria-hidden="true" />
+                    <span className="font-semibold">{t.gems(step.gems.length)}</span> {step.gems.join(" · ")}
+                  </span>
+                )}
                 {step.skip && (
                   <span className="block text-xs text-muted-foreground">{t.canSkipOne(step.skip)}</span>
                 )}

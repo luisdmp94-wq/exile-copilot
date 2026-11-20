@@ -44,12 +44,14 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
   route: [
     {
       zone: "The Riverbank",
+      gems: ["Skill lvl 1: The Bloated Miller"],
       text: "Kill The Bloated Miller: he gives you your first skill gem.",
       priority: "historia",
       sourceIds: ["poe2db-acto1"],
     },
     {
       zone: "Clearfell",
+      gems: ["Skill lvl 1: an abandoned stash, on the side opposite the Mud Burrow entrance"],
       text: "Find Beira of the Rotten Pack: +10% cold resistance for good.",
       priority: "clave",
       reward: "+10% cold",
@@ -58,6 +60,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Mud Burrow",
+      gems: ["Support lvl 1: The Devourer"],
       text: "The Devourer gives a support gem and 100 gold.",
       optional: true,
       priority: "recomendable",
@@ -65,10 +68,11 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "The Grelwood",
+      gems: ["Support lvl 1: Areagne, Forgotten Witch (optional; she attacks as you leave the Witch Hut)", "Skill lvl 2: The Brambleghast (optional)"],
       text: "Free medium flasks at the Witch Hut.",
       priority: "historia",
       skip: "The Brambleghast",
-      sourceIds: ["maxroll-subida", "poe2db-acto1"],
+      sourceIds: ["maxroll-subida", "poe2db-acto1", "wiki-bosque"],
     },
     {
       zone: "The Red Vale",
@@ -85,6 +89,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Cemetery of the Eternals",
+      gems: ["Support: when you finish Lachlann's quest"],
       text: "To reach Lachlann of Endless Lament, go through the Mausoleum of the Praetor and the Tomb of the Consort first. Gives a support gem.",
       priority: "historia",
       sourceIds: ["wiki-acto1", "poe2db-acto1"],
@@ -100,6 +105,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Freythorn",
+      gems: ["Spirit lvl 4: The King in the Mists"],
       text: "The King in the Mists gives +30 spirit for good.",
       optional: true,
       priority: "clave",
@@ -118,12 +124,14 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Ogham Village",
+      gems: ["Skill lvl 5: after The Executioner, back in town"],
       text: "The Executioner: get away from the gust of wind that marks his guillotine. Gives a level 5 skill gem.",
       priority: "historia",
       sourceIds: ["wiki-verdugo", "poe2db-acto1"],
     },
     {
       zone: "Ogham Manor",
+      gems: ["Support: when you beat Count Geonor"],
       text: "Candlemass, the Living Rite, gives +20 life. Count Geonor waits at the end.",
       priority: "clave",
       reward: "+20 life",

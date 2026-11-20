@@ -58,6 +58,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
   route: [
     {
       zone: "Alrededores del Vastiri",
+      gems: ["Habilidad nv. 5: al vencer a Matajefes, te la da Zarka"],
       text: "Vence a Matajefes para subir a la caravana de los ardura.",
       priority: "historia",
       sourceIds: ["poe2db-acto2"],
@@ -85,6 +86,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
     },
     {
       zone: "Las puertas de Halani",
+      gems: ["Habilidad nv. 7: tras Jamanra, te la da Zarka", "Habilidad nv. 6: L'im, jefe opcional de la zona"],
       text: "Jamanra, el Rey ascendido, no muere: huye. Después se abren tres rutas por el desierto y hay que hacer las tres.",
       priority: "historia",
       sourceIds: ["wiki-acto2", "poe2db-acto2"],
@@ -100,12 +102,14 @@ export const ACT_TWO_GUIDE: ActGuide = {
     },
     {
       zone: "La ciudad perdida y Santuarios enterrados",
+      gems: ["Asistencia: al terminar esta ruta, te la da Zarka"],
       text: "Azarian, el Hijo abandonado, espera al fondo de los santuarios.",
       priority: "historia",
       sourceIds: ["wiki-azarian", "poe2db-acto2"],
     },
     {
       zone: "Páramo de los mastodontes y La llanura de huesos",
+      gems: ["Asistencia: al terminar esta ruta, te la da Zarka"],
       text: "Ekbab, Montura ancestral. En esta ruta está la reliquia del clan del sol: no te vayas sin ella.",
       priority: "historia",
       sourceIds: ["wiki-promesas", "poe2db-acto2"],
@@ -121,6 +125,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
     },
     {
       zone: "La gruta del titán",
+      gems: ["Asistencia: al terminar esta ruta, te la da Zarka"],
       text: "Zalmarath, el Coloso, cierra la ruta del valle.",
       priority: "historia",
       sourceIds: ["poe2db-acto2"],
