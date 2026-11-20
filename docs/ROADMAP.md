@@ -319,6 +319,30 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
   IA inventa cosas del juego; solo guía bien cuando habla de lo comprobado
   (guías, revisión rápida, datos de gemas). Contexto: el 19-11 un visitante
   nuevo recibía tres «me faltan datos» seguidos en «Personaje y mentor».
+- [ ] **El árbol de pasivas original en la web** (idea de Luis, 20-11-2026;
+  apuntada, sin empezar). Luis quiere ver el árbol de verdad, el del juego, con
+  su ruta marcada: no una lista de nombres ni un mapa dibujado por nosotros.
+  - *Estado:* el bloque «Tus puntos del árbol» se retiró de las guías el
+    20-11-2026 (daba nombres de nodos sin decir dónde están, servía a una sola
+    build y Luis no lo usaba). Sigue en el código, apagado con
+    `SHOW_PASSIVE_ROUTE` en `src/sections/GuidesSection.tsx`.
+  - *De dónde sale:* GGG publica el árbol en
+    `grindinggear/poe2-skilltree-export`: `data.json` (nodos, posiciones y
+    conexiones) y una carpeta `assets` con sus imágenes, por versión (0.5.5…).
+    La web ya usa de ahí nombres y textos (`server/data/passives/`).
+  - *Derechos (mirado el 20-11-2026, no es consejo legal):* el repositorio no
+    trae licencia; todo es de GGG. Su documentación de desarrolladores dice que,
+    como regla general, su propiedad intelectual no puede usarse para generar
+    ingresos comerciales. La web es gratis y sin anuncios, y lleva el aviso de
+    que no está afiliada a GGG; así lo usan Maxroll, poe2db o Path of Building.
+    Aun así es un permiso de hecho, no un derecho: GGG puede retirarlo. Antes de
+    empezar, releer https://www.pathofexile.com/developer/docs y citar la fuente
+    junto al árbol. Si algún día la web cobra o pone anuncios, esto se revisa.
+  - *Cuándo:* después de la 1.0 (11-12-2026). El árbol cambia con ella y lo que
+    se hiciera ahora habría que rehacerlo.
+  - *Qué decidir entonces:* pintar el árbol oficial entero o solo la zona de la
+    clase; marcar la ruta de una build; leer las pasivas de quien importa desde
+    Path of Building para decirle qué le falta.
 - [ ] **Botón «Conectar con tu cuenta de PoE»** (OAuth oficial). Bloqueado:
   GGG no acepta aplicaciones nuevas ahora mismo («We are currently unable to
   process new applications»). Revisar si reabren.

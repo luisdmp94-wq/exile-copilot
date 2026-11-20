@@ -22,11 +22,19 @@ import type { ActGuide, GuideBlock, GuideRoutePriority, GuideTip } from "@/guide
 import { UPCOMING_GUIDES, UPCOMING_GUIDES_EN, findGuide, guidesFor } from "@/guides";
 import { cn } from "@/lib/utils";
 import { PassiveRouteCard } from "@/components/PassiveRouteCard";
+
+/**
+ * «Tus puntos del árbol» está retirado de momento (20-11-2026): daba nombres
+ * de nodos sin decir dónde están, servía a una sola build y la 1.0 cambia el
+ * árbol. La tarjeta, la ruta y su prueba siguen en el código; para volver a
+ * enseñarla basta con poner esto a `true`.
+ */
+const SHOW_PASSIVE_ROUTE: boolean = false;
 import { texts, useLang, useText } from "@/i18n/lang";
 
 const TEXT = texts(
   {
-    views: { guia: "Guía del acto", comprobar: "Comprobar mi personaje", herramientas: "Gemas, piezas y árbol" },
+    views: { guia: "Guía del acto", comprobar: "Comprobar mi personaje", herramientas: SHOW_PASSIVE_ROUTE ? "Gemas, piezas y árbol" : "Gemas y piezas" },
     priority: { clave: "No te lo saltes", recomendable: "Merece la pena", historia: "Historia" },
     route: "Ruta del acto",
     doneOf: (done: number, total: number) => `${done} de ${total} hechas`,
@@ -54,10 +62,12 @@ const TEXT = texts(
       `Datos comprobados el ${date}. Path of Exile 2 es de Grinding Gear Games; esta guía no es oficial.`,
     checkLead: (act: string) =>
       `Pega tu equipo una vez y sirve para las dos comprobaciones del ${act}. Se queda guardado en este navegador.`,
-    toolsLead: "Tres dudas de cada partida, en cualquier acto: dónde poner los puntos del árbol, qué gema de asistencia poner y cuál de dos piezas te conviene.",
+    toolsLead: SHOW_PASSIVE_ROUTE
+      ? "Tres dudas de cada partida, en cualquier acto: dónde poner los puntos del árbol, qué gema de asistencia poner y cuál de dos piezas te conviene."
+      : "Dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.",
   },
   {
-    views: { guia: "Act guide", comprobar: "Check my character", herramientas: "Gems, items and tree" },
+    views: { guia: "Act guide", comprobar: "Check my character", herramientas: SHOW_PASSIVE_ROUTE ? "Gems, items and tree" : "Gems and items" },
     priority: { clave: "Don't skip it", recomendable: "Worth it", historia: "Story" },
     route: "Act route",
     doneOf: (done: number, total: number) => `${done} of ${total} done`,
@@ -85,7 +95,9 @@ const TEXT = texts(
       `Data checked on ${date}. Path of Exile 2 belongs to Grinding Gear Games; this guide is not official.`,
     checkLead: (act: string) =>
       `Paste your gear once and it works for both ${act} checks. It stays saved in this browser.`,
-    toolsLead: "Three questions every run has, in any act: where to put your passive points, which support gem to use and which of two items suits you.",
+    toolsLead: SHOW_PASSIVE_ROUTE
+      ? "Three questions every run has, in any act: where to put your passive points, which support gem to use and which of two items suits you."
+      : "Two questions every run has, in any act: which support gem to use and which of two items suits you.",
   },
 );
 type GuidesText = (typeof TEXT)["es"];
@@ -582,7 +594,7 @@ export function GuidesSection({
         <p className="text-sm leading-relaxed text-muted-foreground">
           {t.toolsLead}
         </p>
-        <PassiveRouteCard profile={profile} />
+        {SHOW_PASSIVE_ROUTE && <PassiveRouteCard profile={profile} />}
         <GemAdvisorCard
           profile={profile}
           buildMemory={buildMemory ?? []}

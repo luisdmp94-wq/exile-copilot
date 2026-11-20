@@ -2073,46 +2073,12 @@ async function runFlow(mode, port) {
         !(await page.getByTestId("guia-esencial").isVisible()),
     );
     await page.getByTestId("guia-vista-herramientas").click();
-    // «Tus puntos del árbol»: la ruta de la bruja con el texto real de cada nodo.
-    const rutaArbol = page.getByTestId("arbol-ruta");
-    const arbolPrincipal = page.getByTestId("guia-arbol-enlace-0");
+    // «Tus puntos del árbol» está retirado de momento: no debe salir, y la
+    // pestaña ya no lo promete.
     check(
-      `[${mode}] las herramientas de la guía enseñan una ruta del árbol con nodos reales`,
-      (await rutaArbol.isVisible()) &&
-        (await rutaArbol.locator("ol > li").count()) === 9 &&
-        (await page.getByTestId("arbol-ruta-paso-0").innerText()).includes("Poder bruto") &&
-        /Daño de hechizos aumentado un 20\s%/.test(await page.getByTestId("arbol-ruta-da-0").innerText()) &&
-        (await page.getByTestId("arbol-ruta-progreso").innerText()).includes("0 de 9"),
-    );
-    // Tope de texto: a la vista solo el siguiente nodo y una línea por cada uno
-    // de los demás. El detalle, la regla y la letra pequeña van plegados.
-    const palabrasArbol = await rutaArbol.evaluate((element) => {
-      const copy = element.cloneNode(true);
-      if (!(copy instanceof HTMLElement)) return 0;
-      copy.querySelectorAll("details:not([open]) > :not(summary)").forEach((node) => node.remove());
-      return (copy.textContent ?? "").trim().split(/\s+/).filter(Boolean).length;
-    });
-    check(
-      `[${mode}] «Tus puntos del árbol» cabe en poco texto (${palabrasArbol} palabras a la vista)`,
-      palabrasArbol <= 130 &&
-        (await page.getByTestId("arbol-ruta-paso-0").getAttribute("data-next")) === "true" &&
-        (await page.getByTestId("arbol-ruta-da-0").isVisible()) &&
-        !(await page.getByTestId("arbol-ruta-da-1").isVisible()),
-    );
-    await page.getByTestId("arbol-ruta-paso-0").locator("input").check();
-    check(
-      `[${mode}] marcar un nodo del árbol lo cuenta y se recuerda en el navegador`,
-      (await page.getByTestId("arbol-ruta-progreso").innerText()).includes("1 de 9") &&
-        (await page.getByTestId("arbol-ruta-paso-1").getAttribute("data-next")) === "true" &&
-        (await page.getByTestId("arbol-ruta-da-1").isVisible()) &&
-        (await page.evaluate(() => localStorage.getItem("exile-copilot:arbol:bruja-caos-esbirros"))) ===
-          '["witch_sorceress_notable1"]',
-    );
-    check(
-      `[${mode}] la ruta del árbol enlaza a un planificador externo y en español`,
-      (await arbolPrincipal.getAttribute("href")) === "https://poe2db.tw/sp/passive-skill-tree" &&
-        (await arbolPrincipal.getAttribute("target")) === "_blank" &&
-        (await arbolPrincipal.getAttribute("rel")) === "noreferrer",
+      `[${mode}] las herramientas de la guía ya no enseñan la ruta del árbol`,
+      (await page.getByTestId("arbol-ruta").count()) === 0 &&
+        !/árbol|tree/i.test(await page.getByTestId("guia-vista-herramientas").innerText()),
     );
     await page.getByTestId("asistencia-personaje").waitFor({ timeout: 15000 });
     check(
