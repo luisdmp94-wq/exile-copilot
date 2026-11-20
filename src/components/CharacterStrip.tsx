@@ -20,6 +20,7 @@ const TEXT = texts(
     unknownLeague: "desconocida",
     unknownPatch: "desconocido",
     life: "Vida",
+    fromReview: "según tu revisión rápida",
     draft: "Solo con objetos · añade tu clase y tu nivel cuando quieras",
   },
   {
@@ -35,6 +36,7 @@ const TEXT = texts(
     unknownLeague: "unknown",
     unknownPatch: "unknown",
     life: "Life",
+    fromReview: "from your quick review",
     draft: "Items only · add your class and level whenever you like",
   },
 );
@@ -85,13 +87,19 @@ function resistanceTitle(label: string, kind: ResistanceKind, value: number | nu
 interface CharacterStripProps {
   profile: CharacterProfile;
   persisted: boolean;
+  /**
+   * Resistencias que el jugador ya dijo en la revisión rápida. Se enseñan
+   * donde el personaje guardado aún no tiene dato, para no decirle «—» de algo
+   * que ya contestó.
+   */
+  reviewResistances?: Partial<Record<"fire" | "cold" | "lightning", number | null>>;
 }
 
 /**
  * Franja fija del personaje: quién es y lo primero que le mata, visible en
  * las tres áreas. Es solo lectura; editar sigue en «Editar expediente».
  */
-export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
+export function CharacterStrip({ profile, persisted, reviewResistances }: CharacterStripProps) {
   const t = useText(TEXT);
   // «Analizar un objeto» crea un borrador sin clase ni nivel: se dice tal cual
   // en vez de «Desconocida · nivel desconocido».
@@ -144,15 +152,24 @@ export function CharacterStrip({ profile, persisted }: CharacterStripProps) {
       <dl className="grid grid-cols-4 gap-2 sm:gap-4 md:w-[26rem] md:shrink-0 lg:w-[30rem] lg:grid-cols-5">
         {RESISTANCES.map((kind) => {
           const label = t.res[kind];
-          const value = profile.resistances[kind];
+          const fromReview =
+            profile.resistances[kind] === null && kind !== "chaos"
+              ? (reviewResistances?.[kind] ?? null)
+              : null;
+          const value = profile.resistances[kind] ?? fromReview;
           const tone = resistanceTone(kind, value);
           const fill = value === null ? 0 : Math.max(0, Math.min(100, (value / RESISTANCE_CAP) * 100));
           return (
             <div
               key={kind}
               className="min-w-0"
-              title={resistanceTitle(label, kind, value, t)}
+              title={
+                fromReview !== null
+                  ? `${resistanceTitle(label, kind, value, t)} · ${t.fromReview}`
+                  : resistanceTitle(label, kind, value, t)
+              }
               data-testid={`franja-resistencia-${kind}`}
+              data-source={fromReview !== null ? "review" : "profile"}
               data-tone={tone}
             >
               <div className="flex items-baseline justify-between gap-1 text-xs">

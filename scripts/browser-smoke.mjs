@@ -995,13 +995,20 @@ async function runFlow(mode, port) {
     await page.getByText("Titan Warrior").first().waitFor({ timeout: 15000 });
     const partialReadiness = page.getByTestId("recommendations-readiness");
     await partialReadiness.waitFor({ state: "visible", timeout: 15000 });
+    // El panel de importar acaba de cerrarse y, mientras se va, el resto de la
+    // página sigue oculta para lectores de pantalla: se espera a que el botón
+    // sea accesible antes de contar nada.
+    await partialReadiness
+      .getByRole("button", { name: "Completar personaje" })
+      .waitFor({ state: "visible", timeout: 15000 });
     check(
       `[${mode}] el borrador parcial no se presenta como listo ni permite recomendaciones inseguras`,
       (await page.getByTestId("caso-abierto").innerText()).includes("Completa tu personaje") &&
         (await partialReadiness.innerText()).includes("Clase:") &&
         (await partialReadiness.innerText()).includes("Nivel:") &&
         (await partialReadiness.innerText()).includes("Equipo:") &&
-        !(await page.getByRole("button", { name: "Generar recomendaciones" }).isEnabled()) &&
+        // Mientras falten datos no se enseña un botón apagado.
+        (await page.getByRole("button", { name: "Generar recomendaciones" }).count()) === 0 &&
         (await partialReadiness
           .getByRole("button", { name: "Completar personaje" })
           .isVisible()),

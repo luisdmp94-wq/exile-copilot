@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardCheck, Download, Lightbulb, Loader2, PencilLine, Sparkles } from "lucide-react";
+import { ClipboardCheck, Download, Lightbulb, Loader2, PencilLine, Plus, Sparkles } from "lucide-react";
 import { OPEN_REVIEW_EVENT } from "@/components/QuickReviewCard";
 import type { ExportBuildResponse } from "@shared/api.js";
 import { assessCharacterReadiness } from "@shared/characterReadiness.js";
@@ -44,7 +44,8 @@ const TEXT = texts(
       "No generaremos recomendaciones hasta que el árbol pasivo coincida con el parche del personaje.",
     incompleteBody: "Con lo que hay todavía no puedo comparar tu personaje sin inventarme datos. Completa esto:",
     gearOnlyBody:
-      "Para recomendarte equipo necesito ver al menos una pieza tuya: cópiala en el juego con Ctrl+C y pégala. Mientras tanto, la revisión rápida ya te dice qué te frena.",
+      "Para recomendarte equipo necesito ver al menos una pieza tuya. Mientras tanto, la revisión rápida ya te dice qué te frena.",
+    addGear: "Pegar una pieza",
     openReview: "Ir a la revisión rápida",
     completeProfile: "Completar personaje",
     needCharacterTitle: "Necesitas un personaje primero",
@@ -80,7 +81,8 @@ const TEXT = texts(
       "We won't make recommendations until the passive tree matches your character's patch.",
     incompleteBody: "With what's here I can't compare your character yet without making things up. Fill this in:",
     gearOnlyBody:
-      "To recommend gear I need to see at least one of your items: copy it in game with Ctrl+C and paste it. Meanwhile, the quick review already tells you what's holding you back.",
+      "To recommend gear I need to see at least one of your items. Meanwhile, the quick review already tells you what's holding you back.",
+    addGear: "Paste an item",
     openReview: "Go to the quick review",
     completeProfile: "Complete character file",
     needCharacterTitle: "You need a character first",
@@ -153,6 +155,8 @@ interface RecommendationsSectionProps {
   onLoadDemo: () => Promise<void>;
   /** Abre el editor completo cuando el perfil todavía es solo un borrador. */
   onEditProfile: () => void;
+  /** Abre «Añadir equipo». Con esto, si solo falta el equipo, es el botón principal. */
+  onAddGear?: () => void;
   /** Navegación recomendación → objeto; solo se usa con vínculo estructurado. */
   onFocusItem: (itemId: string, trigger: HTMLElement) => void;
   onTrackRecommendation: (recommendation: Recommendation) => void;
@@ -204,6 +208,7 @@ export function RecommendationsSection({
   recommendations,
   onLoadDemo,
   onEditProfile,
+  onAddGear,
   onFocusItem,
   onTrackRecommendation,
   trackingRecommendation,
@@ -256,7 +261,9 @@ export function RecommendationsSection({
       <CardHeader className={compactGenerate ? "px-0 pb-3 pt-0" : undefined}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           {!compactGenerate && <CardTitle className="text-xl">{t.title}</CardTitle>}
-          {showGenerate && (
+          {/* Mientras falten datos no se enseña un botón apagado: abajo se dice
+              qué falta y cómo darlo. */}
+          {showGenerate && !(profile && !readiness.ready) && (
           <Button
             type="button"
             className={compactGenerate ? "min-h-12 px-5 text-base shadow-[0_0_28px_hsl(var(--primary)/0.12)]" : undefined}
@@ -310,7 +317,8 @@ export function RecommendationsSection({
               <p>
                 {versionIssue ? t.versionIssueBody : gearOnly ? t.gearOnlyBody : t.incompleteBody}
               </p>
-              <ul className="space-y-1 text-sm">
+              {/* Si solo falta el equipo, el párrafo de arriba ya lo dice todo. */}
+              <ul className={gearOnly && onAddGear ? "hidden" : "space-y-1 text-sm"}>
                 {readiness.issues.map((issue) => (
                   <li key={issue.id}>
                     <span className="font-medium text-foreground">{lang === "en" ? issue.labelEn : issue.label}:</span>{" "}
@@ -319,9 +327,16 @@ export function RecommendationsSection({
                 ))}
               </ul>
               <div className="flex flex-wrap gap-2">
+                {gearOnly && onAddGear && (
+                  <Button type="button" onClick={onAddGear} data-testid="recommendations-add-gear">
+                    <Plus className="size-4" aria-hidden="true" />
+                    {t.addGear}
+                  </Button>
+                )}
                 {gearOnly && (
                   <Button
                     type="button"
+                    variant={onAddGear ? "secondary" : "default"}
                     onClick={() => {
                       window.dispatchEvent(new Event(OPEN_REVIEW_EVENT));
                       document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -332,10 +347,12 @@ export function RecommendationsSection({
                     {t.openReview}
                   </Button>
                 )}
-                <Button type="button" variant="secondary" onClick={onEditProfile}>
-                  <PencilLine className="size-4" aria-hidden="true" />
-                  {t.completeProfile}
-                </Button>
+                {!(gearOnly && onAddGear) && (
+                  <Button type="button" variant="secondary" onClick={onEditProfile}>
+                    <PencilLine className="size-4" aria-hidden="true" />
+                    {t.completeProfile}
+                  </Button>
+                )}
               </div>
             </AlertDescription>
           </Alert>

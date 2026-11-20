@@ -1876,7 +1876,11 @@ export default function App() {
 
           {character.profile !== null && character.restorationError === null && (
             <div className="xl:col-start-2 xl:row-start-1">
-              <CharacterStrip profile={character.profile} persisted={character.persisted} />
+              <CharacterStrip
+                profile={character.profile}
+                persisted={character.persisted}
+                reviewResistances={quickReviewInput({ ...quickReviewForm }).resistances}
+              />
             </div>
           )}
           {/* Mientras se recupera un personaje guardado se reserva el hueco de su
@@ -2049,6 +2053,7 @@ export default function App() {
                     generateSlot={
                       <RecommendationsSection
                         sectionId="seccion-recomendaciones"
+                        onAddGear={() => openEditor(false, "gear")}
                         profile={character.profile}
                         targetDraft={targetDraft}
                         budget={budget}

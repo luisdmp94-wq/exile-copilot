@@ -173,10 +173,8 @@ export function EquipmentPanel({
       className="gear-board flex flex-col gap-3 border border-border/80 p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3
-          id="equipo-titulo"
-          className="rotulo-seccion text-foreground"
-        >
+        {/* El rótulo visible es el «Equipo» de la sección: este queda para lectores de pantalla. */}
+        <h3 id="equipo-titulo" className="sr-only">
           {t.title}
         </h3>
         <div className="flex flex-wrap items-center gap-2">
@@ -217,7 +215,7 @@ export function EquipmentPanel({
           </ul>
 
           {/* Frascos: grupo derivado de los datos reales, sin número fijo. */}
-          <div className="mt-2 flex flex-col gap-1.5" data-testid="flask-group">
+          <div className={cn("mt-2 flex flex-col gap-1.5", items.length === 0 && "hidden")} data-testid="flask-group">
             <h4 className="rotulo-seccion text-muted-foreground">
               {t.flasks(layout.flaskItems.length)}
             </h4>
@@ -250,7 +248,8 @@ export function EquipmentPanel({
         </div>
 
         <details
-          className={cn("group rounded-md border border-border px-3 py-2", SURFACE)}
+          // Sin ninguna pieza no hay nada que diagnosticar: se enseña al pegar la primera.
+          className={cn("group rounded-md border border-border px-3 py-2", SURFACE, items.length === 0 && "hidden")}
           data-testid="equipment-diagnostics"
         >
           <summary className="-my-2 block cursor-pointer list-none py-3 text-xs text-muted-foreground marker:content-none group-open:mb-0">
