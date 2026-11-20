@@ -234,6 +234,15 @@ describe("supportCandidates — llevar la etiqueta de esbirro no es crear esbirr
     expect(names("Descarga de caos", { maxGrade: 3 }).slice(0, 3)).not.toContain("Transfusión de vida");
   });
 
+  it("una asistencia que solo da daño si llevas cargas o infusiones no es la primera para quien no las usa", () => {
+    // Caso real (20-11-2026): «Inhibidor» salía la primera para Descarga de caos.
+    for (const skill of ["Descarga de caos", "Cometa", "Descarga de escarcha", "Chispa", "Bola de fuego"]) {
+      expect(names(skill, { maxGrade: 3 }).slice(0, 3), skill).not.toContain("Inhibidor");
+    }
+    // No desaparece: sigue entre las que valen.
+    expect(names("Descarga de caos", { maxGrade: 3 })).toContain("Inhibidor");
+  });
+
   it("los efectos que solo tocan a los esbirros que ya tienes tampoco", () => {
     for (const skill of ["Sacrificio", "Festín sombrío", "Pacto oscuro"]) {
       const offered = names(skill, { maxGrade: 5 });

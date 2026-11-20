@@ -579,6 +579,11 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   // Una mejora que solo funciona a veces (hace falta un cadáver, el maná lleno,
   // estar quieto, que el enemigo tenga poca vida…) vale menos que una fija.
   if (/cadaver|a menos que|mientras tengas|mientras estes|si has |vida baja|vida llena/.test(text)) score -= 2;
+  // «Un 4% más de daño por cada tipo de carga o infusión que tengas» no da
+  // nada a quien no lleva cargas ni infusiones encima, que es casi cualquier
+  // novato, y la web no sabe si las lleva (caso real, 20-11-2026: «Inhibidor»
+  // salía la primera para Descarga de caos). Sigue entre las que valen.
+  if (/por cada (?:tipo diferente de )?(?:cargas?|infusion[a-z]*)[^.|]*que tengas/.test(text)) score -= 4;
   // Y una que quita daño a cambio de otra cosa, menos todavía.
   if (/% menos de dano/.test(text)) score -= 3;
   // Una que le pone un enfriamiento largo a la habilidad la deja casi sin uso.
@@ -616,6 +621,9 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   // Lo que apaga justo lo que la habilidad hace bien (congelar, electrocutar…).
   if (undoesWhatSkillDoes(text, skill)) score -= 4;
   if (/no pueden consumir cargas/.test(text) && consumes(skill, "cargas? de (?:poder|frenesi|aguante)")) score -= 3;
+  // Lo mismo con las infusiones: Chispa, Bola de fuego o Cometa consumen una
+  // para su versión fuerte, y una asistencia que lo impide les quita eso.
+  if (/no pueden consumir (?:cargas ni )?infusiones/.test(text) && consumes(skill, "infusion")) score -= 3;
   // Lo que escala con la inteligencia rinde poco en una gema que no es de inteligencia.
   if (/por cada 100 de inteligencia|equivalente a tu inteligencia/.test(text) && skill.attribute !== null && skill.attribute !== "Int") score -= 3;
   // Daño elemental para una habilidad que solo hace caos (veneno): no le llega.
