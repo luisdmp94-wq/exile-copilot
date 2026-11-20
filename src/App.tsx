@@ -78,6 +78,7 @@ import { OPEN_REVIEW_EVENT, QuickReviewCard } from "@/components/QuickReviewCard
 import { SkillGemTeaser } from "@/components/SkillGemTeaser";
 import { mascotNextStep, reviewKnowsBasics } from "@/lib/mascotNextStep";
 import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
+import { cn } from "@/lib/utils";
 import { toInput as quickReviewInput } from "@/lib/quickReviewForm";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
@@ -1974,25 +1975,13 @@ export default function App() {
                 onOpenCrafting={openCraftingForItem}
               />
             ) : (
-              <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(28rem,32rem)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
-                {/* «Tu siguiente paso», la conversación y las alternativas ocupan
-                    la columna ancha de la izquierda; el equipo, la estrecha de la
-                    derecha. Filas 1 y 2 a su medida; la 3 absorbe la altura del
-                    equipo, que ocupa las tres: sin esto quedaban huecos. */}
-                {/* En móvil el caso abierto va PRIMERO: el jugador conoce el
-                    contexto antes de inspeccionar la pieza (§8). */}
-                <div className="order-1 flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
-                  {/* Solo mientras no hay equipo: es cuando la web todavía no
-                      puede recomendar nada más. Con equipo manda «tu siguiente
-                      paso» y, en móvil, el equipo sigue en la primera pantalla. */}
-                  {character.profile && character.profile.items.length === 0 && (
-                    <SkillGemTeaser profile={character.profile} onOpenAdvisor={openGemAdvisor} />
-                  )}
-                  <QuickReviewCard
-                    key={character.profile?.id ?? "sin-personaje"}
-                    profile={character.profile}
-                    onAskMentor={askMentorQuickQuestion}
-                  />
+              <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(24rem,30rem)_minmax(0,1fr)] lg:items-start">
+                {/* Orden de lectura: «tu siguiente paso» arriba y a todo lo
+                    ancho, la conversación justo debajo (ahí se abre al
+                    preguntar), después el equipo junto a lo que frena al
+                    personaje, y al final lo avanzado. En móvil el equipo va
+                    antes que la conversación: sigue en la primera pantalla. */}
+                <div className="order-1 lg:col-span-2">
                   <OpenCase
                     selection={selection}
                     profileReadiness={profileReadiness}
@@ -2094,7 +2083,14 @@ export default function App() {
                 </div>
 
                 {/* Expediente: equipo, memoria de la build y acceso al editor. */}
-                <div className="order-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+                {/* Sin equipo, en móvil va antes lo que ya puede decirle la web
+                    que una cuadrícula de ranuras vacías. */}
+                <div
+                  className={cn(
+                    character.profile && character.profile.items.length === 0 ? "order-3" : "order-2",
+                    "lg:order-3 lg:col-start-1",
+                  )}
+                >
                   <ExpedienteSection
                     profile={character.profile}
                     restoring={character.restoring}
@@ -2119,10 +2115,28 @@ export default function App() {
                   />
                 </div>
 
-                {/* La cabecera ya ofrece el acceso global al Mentor. La
-                    conversación completa aparece después del equipo para no
-                    duplicar la misma decisión en la primera pantalla. */}
-                <div className="order-3 lg:col-start-1 lg:row-start-2">
+                {/* Lo que frena al personaje y, mientras no hay equipo, las
+                    gemas para su habilidad: es lo único que la web puede
+                    darle con lo que ha escrito. */}
+                <div
+                  className={cn(
+                    character.profile && character.profile.items.length === 0 ? "order-2" : "order-3",
+                    "flex flex-col gap-6 lg:order-4 lg:col-start-2",
+                  )}
+                >
+                  <QuickReviewCard
+                    key={character.profile?.id ?? "sin-personaje"}
+                    profile={character.profile}
+                    onAskMentor={askMentorQuickQuestion}
+                  />
+                  {character.profile && character.profile.items.length === 0 && (
+                    <SkillGemTeaser profile={character.profile} onOpenAdvisor={openGemAdvisor} />
+                  )}
+                </div>
+
+                {/* La conversación completa: en ordenador justo bajo «tu
+                    siguiente paso»; en móvil, después del equipo. */}
+                <div className="order-4 lg:order-2 lg:col-span-2">
                   <MentorBriefing
                     open={mentorBriefingOpen}
                     onOpenChange={setMentorBriefingOpen}
@@ -2146,8 +2160,8 @@ export default function App() {
                   </MentorBriefing>
                 </div>
 
-                {/* Memoria y alternativas: tras el equipo y Mentor en móvil. */}
-                <div className="order-4 lg:col-start-1 lg:row-start-3">
+                {/* Memoria y alternativas: al final, a todo lo ancho. */}
+                <div className="order-5 lg:col-span-2">
                   <OpenCaseSecondary
                     selection={selection}
                     sessionSlot={

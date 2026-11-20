@@ -15,7 +15,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Item } from "@shared/domain.js";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useFormatLabels } from "@/lib/formatLabels";
 import { texts, useLang, useText } from "@/i18n/lang";
@@ -170,24 +169,16 @@ export function EquipmentPanel({
   return (
     <section
       aria-labelledby="equipo-titulo"
-      className="gear-board flex flex-col gap-3 border border-border/80 p-3"
+      className="flex flex-col gap-3"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center justify-end">
         {/* El rótulo visible es el «Equipo» de la sección: este queda para lectores de pantalla. */}
         <h3 id="equipo-titulo" className="sr-only">
           {t.title}
         </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="text-muted-foreground">
-            {t.counts(diagnostics.equipped, diagnostics.emptySlots)}
-          </Badge>
-          {onAddItem && (
-            <Button type="button" size="sm" onClick={onAddItem} data-testid="equipo-anadir-pieza">
-              <Plus className="size-4" aria-hidden="true" />
-              {t.addPiece}
-            </Button>
-          )}
-        </div>
+        <span className="text-xs text-muted-foreground" data-testid="equipo-recuento">
+          {t.counts(diagnostics.equipped, diagnostics.emptySlots)}
+        </span>
       </div>
       {/* La paperdoll manda: ocupa todo el ancho y empieza cuanto antes, para
           que quepa entera en el primer viewport de escritorio. Las dos
@@ -213,6 +204,19 @@ export function EquipmentPanel({
               </li>
             ))}
           </ul>
+
+          {onAddItem && (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 w-full"
+              onClick={onAddItem}
+              data-testid="equipo-anadir-pieza"
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              {t.pasteHere}
+            </Button>
+          )}
 
           {/* Frascos: grupo derivado de los datos reales, sin número fijo. */}
           <div className={cn("mt-2 flex flex-col gap-1.5", items.length === 0 && "hidden")} data-testid="flask-group">
@@ -357,22 +361,17 @@ function EquipmentCellButton({ slot, item, highlighted, active, onSelect, onAdd 
         data-slot={slot ?? "other"}
         onClick={onAdd}
         aria-label={t.addToSlot(slotLabel)}
+        title={t.addToSlot(slotLabel)}
         className={cn(
-          "gear-slot group flex h-full min-h-20 w-full flex-col gap-1 border border-dashed border-border/70 p-2 text-left",
-          SURFACE,
-          "transition-colors hover:border-primary/60 hover:bg-primary/[0.05]",
+          "gear-slot group flex h-full min-h-20 w-full flex-col items-center justify-center gap-1.5 border border-dashed border-border p-2 text-center",
+          "text-muted-foreground/70 transition-colors hover:border-primary/60 hover:bg-primary/[0.05] hover:text-primary",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
       >
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-          {slotLabel}
-        </span>
-        <span className="text-xs text-muted-foreground/80">{t.emptySlot}</span>
-        <span className="mt-auto flex items-center gap-1 text-xs font-medium text-primary/80 group-hover:text-primary">
-          <Plus className="size-3.5 shrink-0" aria-hidden="true" />
-          {t.pasteHere}
-        </span>
+        <Icon className="size-5 shrink-0 group-hover:hidden" aria-hidden="true" />
+        <Plus className="hidden size-5 shrink-0 group-hover:block" aria-hidden="true" />
+        <span className="text-xs">{slotLabel}</span>
+        <span className="sr-only">{t.emptySlot}</span>
       </button>
     );
   }
@@ -383,16 +382,12 @@ function EquipmentCellButton({ slot, item, highlighted, active, onSelect, onAdd 
       <div
         data-slot-state="empty"
         data-slot={slot ?? "other"}
-        className={cn(
-          "gear-slot flex h-full min-h-20 flex-col gap-1 border border-dashed border-border/70 p-2",
-          SURFACE,
-        )}
+        title={`${slotLabel}: ${t.emptySlot}`}
+        className="gear-slot flex h-full min-h-20 flex-col items-center justify-center gap-1.5 border border-dashed border-border p-2 text-center text-muted-foreground/70"
       >
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-          {slotLabel}
-        </span>
-        <span className="text-xs text-muted-foreground/80">{t.emptySlot}</span>
+        <Icon className="size-5 shrink-0" aria-hidden="true" />
+        <span className="text-xs">{slotLabel}</span>
+        <span className="sr-only">{t.emptySlot}</span>
       </div>
     );
   }

@@ -94,7 +94,7 @@ export function SkillGemTeaser({ profile, onOpenAdvisor }: SkillGemTeaserProps) 
   return (
     <section
       id="gemas-habilidad"
-      className="rounded-xl border border-primary/35 bg-card p-4 sm:p-5"
+      className="rounded-xl border border-border bg-card p-4 sm:p-5"
       aria-labelledby="gemas-habilidad-titulo"
       data-testid="gemas-habilidad"
     >

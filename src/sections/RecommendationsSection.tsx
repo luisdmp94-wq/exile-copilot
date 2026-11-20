@@ -305,7 +305,8 @@ export function RecommendationsSection({
         )}
         {showGenerate && profile && !readiness.ready && (
           <Alert
-            className="border-amber-500/45 bg-amber-500/8"
+            // Dentro de «tu siguiente paso» ya hay una tarjeta: sin caja propia.
+            className={compactGenerate ? "border-0 bg-transparent p-0" : "border-amber-500/45 bg-amber-500/8"}
             data-testid="recommendations-readiness"
           >
             <AlertTitle>

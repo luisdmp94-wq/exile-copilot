@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
-import { Camera, ClipboardCheck, Loader2, MessageCircleMore } from "lucide-react";
+import { Camera, ClipboardCheck, Loader2, MessageCircleMore, PencilLine } from "lucide-react";
 import type { ScreenshotReadResponse } from "@shared/screenshotRead.js";
 import { api, getErrorMessage } from "@/lib/api";
 import type { CharacterProfile } from "@shared/domain.js";
@@ -21,6 +21,11 @@ import {
 const TEXT = texts(
   {
     title: "Revisión rápida de tu personaje",
+    eyebrow: "Revisión rápida",
+    summaryTitle: "Lo que te frena",
+    editData: "Cambiar datos",
+    hideData: "Ocultar datos",
+    done: "Listo",
     start: "Empezar la revisión",
     lead: "Contesta lo que veas en el juego y te digo los 3 problemas que más te frenan, en orden. No hace falta pegar nada.",
     level: "Tu nivel",
@@ -80,6 +85,11 @@ const TEXT = texts(
   },
   {
     title: "Quick character review",
+    eyebrow: "Quick review",
+    summaryTitle: "What's holding you back",
+    editData: "Edit details",
+    hideData: "Hide details",
+    done: "Done",
     start: "Start the review",
     lead: "Fill in what you see in game and I'll tell you the 3 things holding you back the most, in order. No pasting needed.",
     level: "Your level",
@@ -192,29 +202,17 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   // Cada personaje recuerda su propia revisión: lo de uno no aparece en otro.
   const profileId = profile?.id ?? null;
   const [form, setForm] = useState<Form>(() => quickReviewFormFor(profile, readStored(profileId)));
-  const [reviewed, setReviewed] = useState(false);
   const [showRest, setShowRest] = useState(false);
   // Los datos opcionales empiezan plegados, salvo que ya haya alguno escrito.
   const [showOptional, setShowOptional] = useState(() => OPTIONAL_FIELDS.some((key) => form[key].trim() !== ""));
-  // En móvil empieza plegada: así el equipo sigue en la primera pantalla. En
-  // ordenador, abierta. La mascota («No hago daño») la abre con un evento.
-  const [wide, setWide] = useState(
-    () => typeof window === "undefined" || window.matchMedia?.("(min-width: 768px)").matches !== false,
-  );
-  /** Lo que eligió el jugador; mientras no elija, manda el tamaño de pantalla. */
-  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
-  const expanded = userExpanded ?? wide;
-  const setExpanded = setUserExpanded;
+  // La tarjeta enseña el resultado («lo que te frena»). El formulario con los
+  // datos se abre al pedirlo, o cuando otra parte de la web (la mascota, el
+  // Mentor) manda al jugador a rellenarlo.
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
-    const query = window.matchMedia?.("(min-width: 768px)");
-    const follow = () => setWide(query?.matches !== false);
-    query?.addEventListener?.("change", follow);
-    const open = () => setUserExpanded(true);
+    const open = () => setExpanded(true);
     window.addEventListener(OPEN_REVIEW_EVENT, open);
-    return () => {
-      query?.removeEventListener?.("change", follow);
-      window.removeEventListener(OPEN_REVIEW_EVENT, open);
-    };
+    return () => window.removeEventListener(OPEN_REVIEW_EVENT, open);
   }, []);
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<string | null>(null);
@@ -240,6 +238,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   /** Lleva al campo del primer dato que falta; si está plegado, lo despliega antes. */
   const goToGap = (gap: QuickReviewGap) => {
     const field = FIELD_FOR_GAP[gap];
+    setExpanded(true);
     if (OPTIONAL_FIELDS.includes(field)) setShowOptional(true);
     window.requestAnimationFrame(() => {
       const input = document.querySelector<HTMLElement>(`[data-testid="revision-${field}"]`);
@@ -354,7 +353,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         ?.getAsFile();
       if (!file) return;
       event.preventDefault();
-      setUserExpanded(true);
+      setExpanded(true);
       setReadError(null);
       setReadNote(null);
       setPendingImage((current) => {
@@ -397,11 +396,11 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         step={1}
         value={form[key]}
         onChange={(event) => set(key)(event.target.value)}
-        className={`h-9 ${reviewed && fieldIsInvalid(form, key) ? "border-rose-400/70" : ""}`}
-        aria-invalid={reviewed && fieldIsInvalid(form, key) ? true : undefined}
+        className={`h-9 ${fieldIsInvalid(form, key) ? "border-rose-400/70" : ""}`}
+        aria-invalid={fieldIsInvalid(form, key) ? true : undefined}
         data-testid={`revision-${key}`}
       />
-      {reviewed && fieldIsInvalid(form, key) && RANGES[key] ? (
+      {fieldIsInvalid(form, key) && RANGES[key] ? (
         <span className="text-rose-300">{t.range(RANGES[key][0], RANGES[key][1])}</span>
       ) : (
         hint && <span>{hint}</span>
@@ -444,27 +443,135 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   return (
     <section
       id="revision-rapida"
-      className="scroll-mt-36 rounded-xl border border-primary/35 bg-card p-4 sm:p-5 sm:scroll-mt-24"
+      className="scroll-mt-36 rounded-xl border border-border bg-card p-4 sm:p-5 sm:scroll-mt-24"
       aria-labelledby="revision-rapida-titulo"
       data-testid="revision-rapida"
     >
-      <h2 id="revision-rapida-titulo" className="flex items-center gap-2 text-lg font-semibold text-foreground">
-        <ClipboardCheck className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        {t.title}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">{t.lead}</p>
-
-      {!expanded && (
-        <Button type="button" className="mt-3" onClick={() => setExpanded(true)} data-testid="revision-empezar">
-          <ClipboardCheck className="size-4" aria-hidden="true" />
-          {t.start}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-muted-foreground">{t.eyebrow}</p>
+          <h2 id="revision-rapida-titulo" className="text-lg font-semibold text-foreground">
+            {t.summaryTitle}
+          </h2>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+          aria-controls="revision-datos"
+          data-testid="revision-empezar"
+        >
+          <PencilLine className="size-4" aria-hidden="true" />
+          {expanded ? t.hideData : t.editData}
         </Button>
-      )}
+      </div>
+
+      <div className="mt-3" data-testid="revision-resultado" aria-live="polite">
+          {invalidKeys.length > 0 && (
+            <p className="mb-3 text-sm text-rose-300" role="alert" data-testid="revision-invalido">
+              {t.invalid(invalidKeys.map((key) => FIELD_LABEL[key]).join(", "))}
+            </p>
+          )}
+          {result.top.length === 0 && gapsToAsk.length > 0 ? (
+            <div data-testid="revision-pocos-datos">
+              <p className="text-sm text-foreground">{t.needMore(gapsToAsk.map(gapLabel).join(` ${t.and} `))}</p>
+              <Button type="button" size="sm" variant="secondary" className="mt-2" onClick={() => goToGap(gapsToAsk[0])} data-testid="revision-rellenar">
+                {t.fillNow}
+              </Button>
+            </div>
+          ) : result.top.length === 0 ? (
+            <p className="text-sm text-foreground">
+              {t.nothing}
+              {onAskMentor ? t.nothingAsk : ""}
+            </p>
+          ) : (
+            <>
+              <ol className="space-y-3">
+                {result.top.map((finding, index) => (
+                  <li key={finding.id} className="flex gap-3" data-testid={`revision-problema-${finding.id}`}>
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{finding.title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{finding.action}</p>
+                      {finding.how && finding.how.length > 0 && (
+                        <details className="mt-1.5 text-sm" data-testid={`revision-como-${finding.id}`}>
+                          <summary className="cursor-pointer text-xs font-semibold text-primary">{t.how}</summary>
+                          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-muted-foreground">
+                            {finding.how.map((step) => (
+                              <li key={step}>{step}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              {result.rest.length > 0 && !showRest && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {t.more(result.rest.length)}{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-primary underline-offset-2 hover:underline"
+                    onClick={() => setShowRest(true)}
+                    data-testid="revision-ver-mas"
+                  >
+                    {t.showMore}
+                  </button>
+                </p>
+              )}
+              {showRest && result.rest.length > 0 && (
+                <ul className="mt-3 space-y-2 border-t border-border/60 pt-3" data-testid="revision-resto">
+                  {result.rest.map((finding) => (
+                    <li key={finding.id} className="text-sm">
+                      <p className="font-semibold text-foreground">{finding.title}</p>
+                      <p className="mt-0.5 leading-relaxed text-muted-foreground">{finding.action}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+          {/* Cuando ya se piden los datos clave no se repite la lista entera de lo que falta. */}
+          {result.missing.length > 0 && !(result.top.length === 0 && gapsToAsk.length > 0) && (
+            <p className="mt-3 text-xs text-muted-foreground" data-testid="revision-falta">
+              {t.missing(result.missing.join(", "))}{" "}
+              <button
+                type="button"
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+                onClick={() => goToGap(result.missingKeys[0])}
+                data-testid="revision-falta-rellenar"
+              >
+                {t.fillNow}
+              </button>
+            </p>
+          )}
+          {onAskMentor && result.top.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => onAskMentor(t.askQuestion(result.top.map((finding) => finding.title).join("; ")))}
+              data-testid="revision-mentor"
+            >
+              <MessageCircleMore className="size-4" aria-hidden="true" />
+              {t.ask}
+            </Button>
+          )}
+          <p className="mt-3 text-[11px] text-muted-foreground/80">{t.rules}</p>
+      </div>
 
       {expanded && (
-      <>
+      <div id="revision-datos" className="mt-4 border-t border-border pt-4" data-testid="revision-datos">
+      <p className="text-sm text-muted-foreground">{t.lead}</p>
       <div
-        className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="mt-3 rounded-lg border border-dashed border-border bg-muted/20 p-3 outline-none focus-visible:ring-2 focus-visible:ring-primary"
         tabIndex={0}
         onPaste={onPasteImage}
         data-testid="revision-captura"
@@ -613,112 +720,12 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         <div className="col-span-2 sm:col-span-1">{textField("otherSkills", t.otherSkills, t.otherSkillsHint)}</div>
       </div>
 
-      <Button type="button" className="mt-4" onClick={() => setReviewed(true)} data-testid="revision-revisar">
+      <Button type="button" variant="secondary" className="mt-4" onClick={() => setExpanded(false)} data-testid="revision-revisar">
         <ClipboardCheck className="size-4" aria-hidden="true" />
-        {t.review}
+        {t.done}
       </Button>
 
-      {reviewed && (
-        <div className="mt-4 border-t border-border pt-4" data-testid="revision-resultado" aria-live="polite">
-          {invalidKeys.length > 0 && (
-            <p className="mb-3 text-sm text-rose-300" role="alert" data-testid="revision-invalido">
-              {t.invalid(invalidKeys.map((key) => FIELD_LABEL[key]).join(", "))}
-            </p>
-          )}
-          {result.top.length === 0 && gapsToAsk.length > 0 ? (
-            <div data-testid="revision-pocos-datos">
-              <p className="text-sm text-foreground">{t.needMore(gapsToAsk.map(gapLabel).join(` ${t.and} `))}</p>
-              <Button type="button" size="sm" className="mt-2" onClick={() => goToGap(gapsToAsk[0])} data-testid="revision-rellenar">
-                {t.fillNow}
-              </Button>
-            </div>
-          ) : result.top.length === 0 ? (
-            <p className="text-sm text-foreground">
-              {t.nothing}
-              {onAskMentor ? t.nothingAsk : ""}
-            </p>
-          ) : (
-            <>
-              <p className="text-sm font-semibold text-foreground">{t.resultTitle}</p>
-              <ol className="mt-2 space-y-3">
-                {result.top.map((finding, index) => (
-                  <li key={finding.id} className="flex gap-3" data-testid={`revision-problema-${finding.id}`}>
-                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                      {index + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">{finding.title}</p>
-                      <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{finding.action}</p>
-                      {finding.how && finding.how.length > 0 && (
-                        <details className="mt-1.5 text-sm" data-testid={`revision-como-${finding.id}`}>
-                          <summary className="cursor-pointer text-xs font-semibold text-primary">{t.how}</summary>
-                          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-muted-foreground">
-                            {finding.how.map((step) => (
-                              <li key={step}>{step}</li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              {result.rest.length > 0 && !showRest && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {t.more(result.rest.length)}{" "}
-                  <button
-                    type="button"
-                    className="font-semibold text-primary underline-offset-2 hover:underline"
-                    onClick={() => setShowRest(true)}
-                    data-testid="revision-ver-mas"
-                  >
-                    {t.showMore}
-                  </button>
-                </p>
-              )}
-              {showRest && result.rest.length > 0 && (
-                <ul className="mt-3 space-y-2 border-t border-border/60 pt-3" data-testid="revision-resto">
-                  {result.rest.map((finding) => (
-                    <li key={finding.id} className="text-sm">
-                      <p className="font-semibold text-foreground">{finding.title}</p>
-                      <p className="mt-0.5 leading-relaxed text-muted-foreground">{finding.action}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-          {/* Cuando ya se piden los datos clave no se repite la lista entera de lo que falta. */}
-          {result.missing.length > 0 && !(result.top.length === 0 && gapsToAsk.length > 0) && (
-            <p className="mt-3 text-xs text-muted-foreground" data-testid="revision-falta">
-              {t.missing(result.missing.join(", "))}{" "}
-              <button
-                type="button"
-                className="font-semibold text-primary underline-offset-2 hover:underline"
-                onClick={() => goToGap(result.missingKeys[0])}
-                data-testid="revision-falta-rellenar"
-              >
-                {t.fillNow}
-              </button>
-            </p>
-          )}
-          {onAskMentor && result.top.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => onAskMentor(t.askQuestion(result.top.map((finding) => finding.title).join("; ")))}
-              data-testid="revision-mentor"
-            >
-              <MessageCircleMore className="size-4" aria-hidden="true" />
-              {t.ask}
-            </Button>
-          )}
-          <p className="mt-3 text-[11px] text-muted-foreground/80">{t.rules}</p>
-        </div>
-      )}
-      </>
+      </div>
       )}
     </section>
   );
