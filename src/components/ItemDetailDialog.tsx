@@ -28,6 +28,11 @@ const TEXT = texts(
     itemLevel: "Nivel de objeto",
     quality: "Calidad",
     craft: "Analizar y trabajar esta pieza",
+    replace: "Cambiar por otra",
+    remove: "Quitar del equipo",
+    removeConfirm: "Sí, quitarla",
+    removeCancel: "No, dejarla",
+    removeAsk: "¿Quitar esta pieza de tu equipo? Para recuperarla tendrás que pegarla otra vez.",
     requirements: "Requisitos",
     noRequirements: "Sin requisitos registrados (desconocido).",
     modifiers: (count: number) => `Modificadores (${count})`,
@@ -49,6 +54,11 @@ const TEXT = texts(
     itemLevel: "Item level",
     quality: "Quality",
     craft: "Analyse and work on this item",
+    replace: "Swap for another",
+    remove: "Remove from gear",
+    removeConfirm: "Yes, remove it",
+    removeCancel: "No, keep it",
+    removeAsk: "Remove this item from your gear? To get it back you'll have to paste it again.",
     requirements: "Requirements",
     noRequirements: "No requirements recorded (unknown).",
     modifiers: (count: number) => `Modifiers (${count})`,
@@ -97,6 +107,10 @@ interface ItemDetailDialogProps {
   onGoToRecommendations: () => void;
   /** Lleva esta pieza al banco dedicado, donde vive el único preflight. */
   onGoToCrafting?: (itemId: string) => void;
+  /** Abre «Añadir equipo» para pegar la pieza que sustituye a esta. */
+  onReplace?: () => void;
+  /** Quita la pieza del equipo. */
+  onRemove?: (itemId: string) => void;
   /**
    * Destino de foco ALTERNATIVO al cerrar, consultado antes que el disparador.
    * Devuelve null en un cierre normal (el foco vuelve al disparador); devuelve
@@ -114,6 +128,8 @@ export function ItemDetailDialog({
   onOpenChange,
   onGoToRecommendations,
   onGoToCrafting,
+  onReplace,
+  onRemove,
   getCloseFocusTarget,
 }: ItemDetailDialogProps) {
   // Accesibilidad del cierre: Radix devuelve el foco al elemento que abrió el
@@ -135,6 +151,8 @@ export function ItemDetailDialog({
           relatedRecommendations={relatedRecommendations}
           onGoToRecommendations={onGoToRecommendations}
           onGoToCrafting={onGoToCrafting}
+          onReplace={onReplace}
+          onRemove={onRemove}
           getCloseFocusTarget={getCloseFocusTarget}
         />
       )}
@@ -148,6 +166,8 @@ function ItemDetailContent({
   relatedRecommendations,
   onGoToRecommendations,
   onGoToCrafting,
+  onReplace,
+  onRemove,
   getCloseFocusTarget,
 }: {
   item: Item;
@@ -155,8 +175,12 @@ function ItemDetailContent({
   relatedRecommendations: Recommendation[];
   onGoToRecommendations: () => void;
   onGoToCrafting?: ItemDetailDialogProps["onGoToCrafting"];
+  onReplace?: ItemDetailDialogProps["onReplace"];
+  onRemove?: ItemDetailDialogProps["onRemove"];
   getCloseFocusTarget?: (() => HTMLElement | null) | undefined;
 }) {
+  // Quitar pide un segundo clic: es lo único de este diálogo que no se deshace.
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const t = useText(TEXT);
   const { lang } = useLang();
   const labels = useFormatLabels();
@@ -249,6 +273,50 @@ function ItemDetailContent({
             >
               {t.craft}
             </Button>
+          )}
+
+          {(onReplace || onRemove) && (
+            <div className="flex flex-col gap-2" data-testid="pieza-acciones">
+              {confirmingRemove && onRemove ? (
+                <div className="rounded-md border border-rose-400/40 bg-rose-400/5 p-3">
+                  <p className="text-sm text-foreground">{t.removeAsk}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => onRemove(item.id)}
+                      data-testid="pieza-quitar-confirmar"
+                    >
+                      {t.removeConfirm}
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setConfirmingRemove(false)}>
+                      {t.removeCancel}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {onReplace && (
+                    <Button type="button" size="sm" variant="outline" onClick={onReplace} data-testid="pieza-cambiar">
+                      {t.replace}
+                    </Button>
+                  )}
+                  {onRemove && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-rose-300 hover:text-rose-200"
+                      onClick={() => setConfirmingRemove(true)}
+                      data-testid="pieza-quitar"
+                    >
+                      {t.remove}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           <section className="flex flex-col gap-1">

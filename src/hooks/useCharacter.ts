@@ -57,6 +57,7 @@ const TEXT = texts(
     fixesError: "No se pudieron guardar las correcciones",
     originalGone: "El objeto original ya no está en el personaje",
     itemUpdated: (name: string) => `Objeto actualizado: ${name}`,
+    itemRemoved: (name: string) => `Pieza quitada del equipo: ${name}`,
     updateError: "No se pudo actualizar el personaje; la sesión sigue abierta",
     setAside: "Personaje apartado. Puedes recuperarlo desde la bienvenida.",
     draftDiscarded: "Borrador descartado. Puedes empezar de nuevo.",
@@ -99,6 +100,7 @@ const TEXT = texts(
     fixesError: "Couldn't save the fixes",
     originalGone: "The original item is no longer on your character",
     itemUpdated: (name: string) => `Item updated: ${name}`,
+    itemRemoved: (name: string) => `Item removed from your gear: ${name}`,
     updateError: "Couldn't update your character; the session is still open",
     setAside: "Character put aside. You can bring it back from the welcome screen.",
     draftDiscarded: "Draft discarded. You can start again.",
@@ -203,6 +205,8 @@ export interface CharacterState {
   mutateProfile: (updater: (profile: CharacterProfile) => CharacterProfile) => void;
   /** Sustituye el snapshot de un objeto y persiste el expediente en una sola operación. */
   replaceItemAndSave: (originalItemId: string, resultItem: Item) => Promise<boolean>;
+  /** Quita una pieza del equipo y lo deja guardado. */
+  removeItemAndSave: (itemId: string) => Promise<boolean>;
   saveCorrections: () => Promise<CharacterProfile | null>;
   /** Limpia el perfil actual y el id guardado en localStorage */
   reset: () => void;
@@ -969,6 +973,49 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     [],
   );
 
+  const removeItemAndSave = useCallback(
+    async (itemId: string): Promise<boolean> => {
+      if (!profile) return false;
+      const removed = profile.items.find((item) => item.id === itemId);
+      if (!removed) {
+        toast.error(tx().originalGone);
+        return false;
+      }
+      const nextProfile: CharacterProfile = {
+        ...profile,
+        items: profile.items.filter((item) => item.id !== itemId),
+      };
+      // Un personaje que aún no está guardado (el ejemplo) solo cambia aquí.
+      if (!persisted) {
+        setProfile(nextProfile);
+        setDirty(true);
+        toast.success(tx().itemRemoved(removed.name));
+        return true;
+      }
+      setBusy("save");
+      try {
+        const res = await api.saveCharacter(nextProfile);
+        setProfile(res.profile);
+        persistId(res.profile.id);
+        setDirty(false);
+        setPersisted(true);
+        void refreshSavedCharacters().catch(() => {
+          // El expediente ya se actualizó; la lista es una vista auxiliar.
+        });
+        toast.success(tx().itemRemoved(removed.name));
+        return true;
+      } catch (err) {
+        toast.error(tx().updateError, {
+          description: getErrorMessage(err),
+        });
+        return false;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [profile, persisted, persistId, refreshSavedCharacters],
+  );
+
   const saveCorrections = useCallback(async () => {
     if (!profile) return null;
     setBusy("save");
@@ -1128,6 +1175,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     updateProfile,
     mutateProfile,
     replaceItemAndSave,
+    removeItemAndSave,
     saveCorrections,
     reset,
     restorePrevious,

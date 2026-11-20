@@ -7,6 +7,7 @@ import {
   HardHat,
   Hand,
   Package,
+  Plus,
   RectangleHorizontal,
   Shield,
   Shirt,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import type { Item } from "@shared/domain.js";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useFormatLabels } from "@/lib/formatLabels";
 import { texts, useLang, useText } from "@/i18n/lang";
 
@@ -36,6 +38,9 @@ const TEXT = texts(
     scope: "Solo tu equipo real; sin puntuaciones, comparación con el meta ni objetos de una build objetivo.",
     others: (count: number) => `Otros objetos (${count})`,
     emptySlot: "Ranura vacía",
+    addPiece: "Añadir pieza",
+    pasteHere: "Pegar pieza",
+    addToSlot: (slot: string) => `${slot}: ranura vacía. Pegar una pieza`,
     pointedOut: ". Señalado por una recomendación",
   },
   {
@@ -55,6 +60,9 @@ const TEXT = texts(
     scope: "Only your real gear; no scores, no meta comparison and no items from a target build.",
     others: (count: number) => `Other items (${count})`,
     emptySlot: "Empty slot",
+    addPiece: "Add an item",
+    pasteHere: "Paste an item",
+    addToSlot: (slot: string) => `${slot}: empty slot. Paste an item`,
     pointedOut: ". Pointed out by a recommendation",
   },
 );
@@ -144,6 +152,8 @@ interface EquipmentPanelProps {
   activeItemId?: string | null;
   /** Recibe también el elemento pulsado para devolverle el foco al cerrar. */
   onSelectItem: (item: Item, trigger: HTMLElement) => void;
+  /** Abre «Añadir equipo». Con esto, las ranuras vacías también se pueden pulsar. */
+  onAddItem?: () => void;
 }
 
 export function EquipmentPanel({
@@ -151,6 +161,7 @@ export function EquipmentPanel({
   highlightedItemIds,
   activeItemId = null,
   onSelectItem,
+  onAddItem,
 }: EquipmentPanelProps) {
   const t = useText(TEXT);
   const layout = buildEquipmentLayout(items);
@@ -168,9 +179,17 @@ export function EquipmentPanel({
         >
           {t.title}
         </h3>
-        <Badge variant="outline" className="text-muted-foreground">
-          {t.counts(diagnostics.equipped, diagnostics.emptySlots)}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="text-muted-foreground">
+            {t.counts(diagnostics.equipped, diagnostics.emptySlots)}
+          </Badge>
+          {onAddItem && (
+            <Button type="button" size="sm" onClick={onAddItem} data-testid="equipo-anadir-pieza">
+              <Plus className="size-4" aria-hidden="true" />
+              {t.addPiece}
+            </Button>
+          )}
+        </div>
       </div>
       {/* La paperdoll manda: ocupa todo el ancho y empieza cuanto antes, para
           que quepa entera en el primer viewport de escritorio. Las dos
@@ -191,6 +210,7 @@ export function EquipmentPanel({
                   highlighted={cell.item !== null && highlightedItemIds.has(cell.item.id)}
                   active={cell.item !== null && cell.item.id === activeItemId}
                   onSelect={onSelectItem}
+                  onAdd={onAddItem}
                 />
               </li>
             ))}
@@ -211,6 +231,7 @@ export function EquipmentPanel({
                       highlighted={highlightedItemIds.has(flask.id)}
                       active={flask.id === activeItemId}
                       onSelect={onSelectItem}
+                  onAdd={onAddItem}
                     />
                   </li>
                 ))}
@@ -275,6 +296,7 @@ export function EquipmentPanel({
                   highlighted={highlightedItemIds.has(item.id)}
                   active={item.id === activeItemId}
                   onSelect={onSelectItem}
+                  onAdd={onAddItem}
                 />
               </li>
             ))}
@@ -316,9 +338,10 @@ interface EquipmentCellButtonProps {
   highlighted: boolean;
   active: boolean;
   onSelect: (item: Item, trigger: HTMLElement) => void;
+  onAdd?: () => void;
 }
 
-function EquipmentCellButton({ slot, item, highlighted, active, onSelect }: EquipmentCellButtonProps) {
+function EquipmentCellButton({ slot, item, highlighted, active, onSelect, onAdd }: EquipmentCellButtonProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
   const labels = useFormatLabels();
@@ -326,7 +349,36 @@ function EquipmentCellButton({ slot, item, highlighted, active, onSelect }: Equi
     slot === null ? Package : slot === "flask" ? FlaskConical : SLOT_ICONS[slot];
   const slotLabel = slot === null ? labels.slot.other : labels.slot[slot];
 
-  // Hueco vacío: no es un botón, no hay nada que abrir.
+  // Hueco vacío con «Añadir equipo» a mano: pulsarlo lleva a pegar una pieza.
+  if (item === null && onAdd) {
+    return (
+      <button
+        type="button"
+        data-slot-state="empty"
+        data-slot={slot ?? "other"}
+        onClick={onAdd}
+        aria-label={t.addToSlot(slotLabel)}
+        className={cn(
+          "gear-slot group flex h-full min-h-20 w-full flex-col gap-1 border border-dashed border-border/70 p-2 text-left",
+          SURFACE,
+          "transition-colors hover:border-primary/60 hover:bg-primary/[0.05]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        )}
+      >
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+          {slotLabel}
+        </span>
+        <span className="text-xs text-muted-foreground/80">{t.emptySlot}</span>
+        <span className="mt-auto flex items-center gap-1 text-xs font-medium text-primary/80 group-hover:text-primary">
+          <Plus className="size-3.5 shrink-0" aria-hidden="true" />
+          {t.pasteHere}
+        </span>
+      </button>
+    );
+  }
+
+  // Hueco vacío sin esa opción: no es un botón, no hay nada que abrir.
   if (item === null) {
     return (
       <div

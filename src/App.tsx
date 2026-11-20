@@ -214,7 +214,7 @@ const EMPTY_TARGET: TargetDraft = {
  * vez, dentro del panel lateral «Editar expediente».
  */
 type WorkspaceTab = "expediente" | "plan" | "crafting" | "guias";
-type EditorPrompt = "memory" | "new" | "item" | "import" | null;
+type EditorPrompt = "memory" | "new" | "item" | "gear" | "import" | null;
 
 const APP_TITLE = typeof document === "undefined" ? "" : document.title;
 /** El título de la portada para quien la ve en inglés (el del HTML es el español). */
@@ -324,6 +324,8 @@ const APP_TEXT = texts(
     unknownPatch: "Desconocido",
     sheetMemoryTitle: "Guardar y continuar",
     sheetItemTitle: "Evaluar un objeto",
+    sheetGearTitle: "Añadir equipo",
+    sheetGearText: "En el juego, pon el ratón sobre una pieza y pulsa Ctrl+Alt+C. Pégala aquí: se guarda sola y puedes pegar otra. Si la ranura ya está ocupada, te pregunto cuál sustituir.",
     sheetNewTitle: "Crear personaje",
     sheetImportTitle: "Añadir tu personaje",
     sheetEditTitle: "Editar personaje",
@@ -386,6 +388,8 @@ const APP_TEXT = texts(
     unknownPatch: "Unknown",
     sheetMemoryTitle: "Save and continue",
     sheetItemTitle: "Check an item",
+    sheetGearTitle: "Add gear",
+    sheetGearText: "In game, hover an item and press Ctrl+Alt+C. Paste it here: it saves by itself and you can paste another. If the slot is taken, I'll ask which one to replace.",
     sheetNewTitle: "Create a character",
     sheetImportTitle: "Add your character",
     sheetEditTitle: "Edit your character",
@@ -2094,6 +2098,8 @@ export default function App() {
                     limitations={limitations}
                     focusedItemId={focusedItemId}
                     onFocusHandled={() => setFocusedItemId(null)}
+                    onAddGear={() => openEditor(false, "gear")}
+                    onRemoveItem={character.removeItemAndSave}
                     dialogTriggerRef={dialogTriggerRef}
                     onShowOpenCase={showOpenCase}
                     onInspectItem={(item) => announceMentor({ type: "item", item })}
@@ -2448,7 +2454,7 @@ export default function App() {
             className="w-full gap-0 overflow-y-auto sm:max-w-2xl"
             onOpenAutoFocus={(event) => {
               const guidedTarget =
-                editorPrompt === "item"
+                editorPrompt === "item" || editorPrompt === "gear"
                   ? "item-text"
                   : editorPrompt === "new"
                     ? "char-name"
@@ -2464,6 +2470,8 @@ export default function App() {
               <SheetTitle>
                 {editorPrompt === "memory"
                   ? t.sheetMemoryTitle
+                  : editorPrompt === "gear"
+                    ? t.sheetGearTitle
                   : editorPrompt === "item"
                     ? t.sheetItemTitle
                     : editorPrompt === "new"
@@ -2475,6 +2483,8 @@ export default function App() {
               <SheetDescription>
                 {editorPrompt === "memory"
                   ? t.sheetMemoryText
+                  : editorPrompt === "gear"
+                    ? t.sheetGearText
                   : editorPrompt === "item"
                     ? t.sheetItemText
                     : editorPrompt === "new"
@@ -2498,7 +2508,7 @@ export default function App() {
                   activePatch={activePatchId || "Desconocido"}
                   drafts={editorDrafts}
                   editorMode={
-                    editorPrompt === "item"
+                    editorPrompt === "item" || editorPrompt === "gear"
                       ? "item"
                       : editorPrompt === "new"
                         ? "new"
@@ -2512,7 +2522,7 @@ export default function App() {
                   // sección no repite ni su vacío ni su botón de ejemplo.
                   hideEmptyState={showWelcome}
                   initialFocus={
-                    editorPrompt === "item"
+                    editorPrompt === "item" || editorPrompt === "gear"
                       ? "item"
                       : editorPrompt === "new"
                         ? "character"
@@ -2625,7 +2635,7 @@ export default function App() {
               openQuickReview();
             } else if (mascotStepKind === "gear") {
               navigateWorkspace("expediente");
-              openEditor(false, "item");
+              openEditor(false, "gear");
             } else {
               navigateWorkspace("expediente");
               window.setTimeout(showOpenCase, 150);

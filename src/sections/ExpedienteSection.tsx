@@ -45,6 +45,10 @@ interface ExpedienteSectionProps {
   /** Restaura el contexto de área cuando termina la inspección. */
   onInspectionEnd?: () => void;
   onEditExpediente: () => void;
+  /** Abre «Añadir equipo»: pegar piezas sin pasar por el formulario entero. */
+  onAddGear?: () => void;
+  /** Quita una pieza del equipo y lo guarda. */
+  onRemoveItem?: (itemId: string) => Promise<boolean>;
   journal: JournalState;
   profilePersisted: boolean;
   savingProfile: boolean;
@@ -74,6 +78,8 @@ export function ExpedienteSection({
   onInspectItem,
   onInspectionEnd,
   onEditExpediente,
+  onAddGear,
+  onRemoveItem,
   journal,
   profilePersisted,
   savingProfile,
@@ -169,6 +175,7 @@ export function ExpedienteSection({
           setSelectedItemId(item.id);
           onInspectItem?.(item);
         }}
+        onAddItem={onAddGear}
       />
 
       <BuildMemorySection
@@ -198,6 +205,23 @@ export function ExpedienteSection({
         onOpenChange={(open) => {
           if (!open) closeDetail();
         }}
+        onReplace={
+          onAddGear
+            ? () => {
+                closeDetail();
+                onAddGear();
+              }
+            : undefined
+        }
+        onRemove={
+          onRemoveItem
+            ? (itemId) => {
+                void onRemoveItem(itemId).then((removed) => {
+                  if (removed) closeDetail();
+                });
+              }
+            : undefined
+        }
         onGoToRecommendations={goToOpenCase}
         onGoToCrafting={goToCrafting}
         getCloseFocusTarget={() => {
