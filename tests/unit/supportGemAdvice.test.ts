@@ -221,6 +221,19 @@ describe("supportCandidates — llevar la etiqueta de esbirro no es crear esbirr
     }
   });
 
+  it("una asistencia que te quita vida cada vez que usas la habilidad nunca es la primera", () => {
+    // Caso real (20-11-2026): la web recomendó «Extracción» la primera para
+    // Descarga de caos y el jugador, con 723 de vida, se mataba al lanzarla.
+    for (const skill of ["Descarga de caos", "Contagio", "Drenar esencia", "Chispa"]) {
+      const offered = names(skill, { maxGrade: 3 });
+      expect(offered.slice(0, 3), skill).not.toContain("Extracción");
+    }
+    // Sigue entre las que valen: el jugador que sepa sostenerla la encuentra.
+    expect(names("Descarga de caos", { maxGrade: 3 })).toContain("Extracción");
+    // Las que cambian el coste de maná por vida tampoco van las primeras.
+    expect(names("Descarga de caos", { maxGrade: 3 }).slice(0, 3)).not.toContain("Transfusión de vida");
+  });
+
   it("los efectos que solo tocan a los esbirros que ya tienes tampoco", () => {
     for (const skill of ["Sacrificio", "Festín sombrío", "Pacto oscuro"]) {
       const offered = names(skill, { maxGrade: 5 });

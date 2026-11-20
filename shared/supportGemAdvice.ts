@@ -583,6 +583,16 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   if (/% menos de dano/.test(text)) score -= 3;
   // Una que le pone un enfriamiento largo a la habilidad la deja casi sin uso.
   if (/enfriamiento de \d+ segundos/.test(text)) score -= 4;
+  // Pagar vida cada vez que usas la habilidad mata a quien no sabe sostenerlo
+  // (caso real, 20-11-2026: «Extracción» en una Descarga de caos con 723 de
+  // vida). Sigue saliendo entre las que valen, con su coste a la vista, pero
+  // nunca como la primera.
+  // Las hechas para ofrendas se libran: una ofrenda se lanza de vez en cuando,
+  // no a cada golpe, y sacrificar es justo lo que hacen.
+  const madeForOfferings = /habilidades de ofrenda/.test(normalizeGemText(support.description).split(".")[0] ?? "");
+  if (/sacrific\w+ un \d+% de vida al usarse|pierdes un \d+% de tu vida/.test(text) && !madeForOfferings) score -= 6;
+  // Lo mismo, más suave, con las que cambian el coste de maná por vida.
+  if (/costos? de mana[^.|]*se convierten? en costos? de vida/.test(text)) score -= 3;
   // En una señal, primero lo que está hecho para señales.
   if (skill.tags.includes("Señal") && support.tags.includes("Señal")) score += 6;
   // Lo que premia pegar pegado al enemigo no es para quien dispara de lejos.
