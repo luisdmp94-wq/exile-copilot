@@ -1742,7 +1742,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
               }
             : {}),
         },
-        { priceService, selector: mentorSelector },
+        { priceService, selector: mentorSelector, gems: { data: gemData, locale: gemLocale } },
       );
 
       // Segunda lectura tras la espera asíncrona: si otra pestaña creó o cerró

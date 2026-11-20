@@ -33,6 +33,7 @@ import {
   type PriceLookup,
 } from "../engine/engine.js";
 import { ENGINE_VERSION } from "../engine/rules.js";
+import { answerSupportGemQuestion, type GemKnowledge } from "./gemQuestion.js";
 import {
   MentorAiError,
   type MentorAiContext,
@@ -97,6 +98,8 @@ export interface MentorQueryDependencies {
   priceService?: PriceLookup | null;
   /** null/undefined conserva exactamente el comportamiento por reglas. */
   selector?: MentorDecisionSelector | null;
+  /** Datos de gemas: con ellos el Mentor contesta preguntas de asistencias. */
+  gems?: GemKnowledge | null;
 }
 
 const RISK_LEVEL_ES: Record<Recommendation["risk"]["level"], string> = {
@@ -216,6 +219,33 @@ function unsupportedAnswer(
     responseMode: fallback ? "rules_fallback" : "rules",
     model: fallback?.model ?? null,
     fallbackReason: fallback?.reason ?? null,
+  });
+}
+
+/** Respuesta a una pregunta de gemas de asistencia: texto de las reglas, sin motor ni IA. */
+function gemQuestionAnswer(
+  options: MentorQueryOptions,
+  normalizedQuestion: string,
+  answer: string,
+): MentorAnswer {
+  return MentorAnswerSchema.parse({
+    intent: "conversation",
+    normalizedQuestion,
+    answer,
+    nextAction: null,
+    usedRecommendationIds: [],
+    relatedItemIds: [],
+    sources: [],
+    confidence: null,
+    unverified: [],
+    memoryImpact: memoryImpactWithoutEngine(options.memory),
+    inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
+    unsupported: null,
+    generatedAt: new Date().toISOString(),
+    engineVersion: ENGINE_VERSION,
+    responseMode: "rules",
+    model: null,
+    fallbackReason: null,
   });
 }
 
@@ -1072,6 +1102,14 @@ async function buildAnswer(
   // adquiera capacidades inventadas.
   if (intent === "conversation" && isMentorIdentityQuestion(normalizedQuestion)) {
     return conversationFallback(options, normalizedQuestion);
+  }
+
+  // «¿Qué gema de asistencia le pongo a…?» se contesta con las reglas del
+  // consejero de gemas: no depende del equipo, de la IA ni de la prioridad del
+  // personaje. Un botón de la web (intentHint) nunca es una pregunta de gemas.
+  if (deps.gems && options.intentHint === undefined) {
+    const gemAnswer = answerSupportGemQuestion(deps.gems, options.question, options.profile, lang);
+    if (gemAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, gemAnswer);
   }
 
   // La conversación social nunca se convierte en una recomendación por

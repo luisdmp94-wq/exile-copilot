@@ -1,0 +1,161 @@
+import { describe, expect, it } from "vitest";
+import { CharacterProfileSchema } from "../../shared/domain.js";
+import { normalizeQuestion } from "../../shared/mentorIntent.js";
+import { loadEnglishGemLocale } from "../../server/advice/gemLocale.js";
+import { RecommendationMemorySchema } from "../../shared/domain.js";
+import { MentorAnswerSchema } from "../../shared/mentorQuery.js";
+import { answerMentorQuery } from "../../server/mentor/mentorService.js";
+import { loadGemData } from "../../server/advice/supportGemAdvisor.js";
+import {
+  answerSupportGemQuestion,
+  isSupportGemQuestion,
+  skillInQuestion,
+} from "../../server/mentor/gemQuestion.js";
+
+const gems = { data: loadGemData(), locale: loadEnglishGemLocale() };
+
+function witch(skills: string[] = ["Descarga de caos", "Contagio", "Guerrero esqueleto"]) {
+  return CharacterProfileSchema.parse({
+    id: "bruja",
+    name: "Likewow",
+    characterClass: "Bruja",
+    level: 44,
+    levelSource: "observed",
+    league: "Forbidden Rites",
+    patch: "0.5.5",
+    importedAt: "2026-11-20T00:00:00.000Z",
+    archetype: "Bruja de caos con esbirros",
+    skills: skills.map((name, index) => ({ id: `s${index}`, label: name, mainSkill: name })),
+  });
+}
+
+const ask = (question: string, profile = witch(), lang: "es" | "en" = "es") =>
+  answerSupportGemQuestion(gems, question, profile, lang);
+
+describe("el Mentor reconoce preguntas de gemas de asistencia", () => {
+  it("las que hablan de gemas de asistencia, en los dos idiomas", () => {
+    for (const question of [
+      "hay alguna gema de asistencia para disparo de caos que haga que se puede multiplicar?",
+      "¿Qué gema de asistencia le pongo a Contagio?",
+      "que gemas de soporte van bien con descarga de caos",
+      "which support gem for Chaos Bolt?",
+      "best supports gems for my skill",
+    ]) {
+      expect(isSupportGemQuestion(normalizeQuestion(question)), question).toBe(true);
+    }
+  });
+
+  it("y deja en paz las que no", () => {
+    for (const question of ["¿Qué mejoro ahora?", "¿por qué muero?", "hola", "qué gema subo de nivel", "necesito asistencia"]) {
+      expect(isSupportGemQuestion(normalizeQuestion(question)), question).toBe(false);
+      expect(ask(question)).toBeNull();
+    }
+  });
+});
+
+describe("de qué habilidad habla la pregunta", () => {
+  it("si la nombra tal cual, esa", () => {
+    const found = skillInQuestion(gems, normalizeQuestion("gema de asistencia para Contagio"), witch());
+    expect(found?.how).toBe("named");
+    expect(found?.skill.name).toBe("Contagio");
+  });
+
+  it("si la nombra a medias, la del personaje que más se parece", () => {
+    const found = skillInQuestion(gems, normalizeQuestion("gema de asistencia para disparo de caos"), witch());
+    expect(found?.how).toBe("similar");
+    expect(found?.skill.name).toBe("Descarga de caos");
+  });
+
+  it("si no dice ninguna, la principal del personaje", () => {
+    const found = skillInQuestion(gems, normalizeQuestion("qué gema de asistencia me pongo"), witch());
+    expect(found?.how).toBe("main");
+    expect(found?.skill.name).toBe("Descarga de caos");
+  });
+
+  it("sin personaje ni nombre, no la adivina", () => {
+    expect(skillInQuestion(gems, normalizeQuestion("qué gema de asistencia me pongo"), null)).toBeNull();
+    expect(ask("qué gema de asistencia me pongo", witch([]))).toContain("Dime para qué habilidad");
+  });
+});
+
+describe("la respuesta a una pregunta de gemas", () => {
+  it("el caso real: más proyectiles para «disparo de caos»", () => {
+    const answer = ask("hay alguna gema de asistencia para disparo de caos que haga que se puede multiplicar?");
+    expect(answer).not.toBeNull();
+    expect(answer).toContain("Entiendo que hablas de Descarga de caos");
+    expect(answer).toContain("Sí. Para Descarga de caos, estas asistencias hacen eso:");
+    // Solo propone asistencias que de verdad dan proyectiles, bifurcan o encadenan.
+    expect(answer).toMatch(/proyectiles? adicional|bifurc|encaden/i);
+    expect(answer).toContain("Disparo múltiple");
+    expect(answer).toContain("sin IA");
+    // Como mucho tres, una por línea.
+    expect(answer!.split("\n").filter((line) => line.startsWith("• ")).length).toBeLessThanOrEqual(3);
+  });
+
+  it("sin pedir nada concreto, las que mejor le van", () => {
+    const answer = ask("¿Qué gema de asistencia le pongo a Contagio?");
+    expect(answer).toContain("Para Contagio, las asistencias que mejor le van son:");
+    expect(answer).not.toContain("Entiendo que hablas");
+  });
+
+  it("no propone lo que el personaje ya lleva puesto", () => {
+    const base = ask("gema de asistencia para Descarga de caos con más proyectiles")!;
+    const first = /• ([^(]+) \(/.exec(base)?.[1]?.trim();
+    expect(first).toBeTruthy();
+    const profile = witch();
+    profile.skills[0].supports = [{ name: first!, gemId: null }];
+    const again = ask("gema de asistencia para Descarga de caos con más proyectiles", profile)!;
+    expect(again).not.toContain(`• ${first} (`);
+  });
+
+  it("en inglés contesta en inglés, con los nombres en inglés", () => {
+    const answer = ask("is there a support gem for Chaos Bolt that gives more projectiles?", witch(), "en");
+    expect(answer).toContain("Yes. For Chaos Bolt, these supports do that:");
+    expect(answer).toMatch(/additional projectile|fork|chain/i);
+    expect(answer).toContain("no AI");
+    expect(answer).not.toMatch(/asistencia|habilidad|grado/);
+  });
+});
+
+describe("el Mentor completo contesta preguntas de gemas", () => {
+  const memory = RecommendationMemorySchema.parse({
+    revision: "journal-memory-v1:0000000000000000",
+    primaryEntry: null,
+    recentCompleted: [],
+  });
+  const query = (question: string, intentHint?: "next_improvement") => ({
+    question,
+    ...(intentHint ? { intentHint } : {}),
+    // Sin equipo: antes de este cambio el Mentor ni siquiera llegaba a contestar.
+    profile: witch(),
+    budget: { amount: 50, currency: "chaos" as const },
+    goal: { kind: "survival" as const },
+    league: "Forbidden Rites",
+    patch: "0.5.5",
+    memory,
+  });
+
+  it("sin IA, sin equipo y sin pasar por el motor", async () => {
+    const answer = await answerMentorQuery(
+      query("hay alguna gema de asistencia para disparo de caos que haga que se puede multiplicar?"),
+      { gems },
+    );
+    expect(MentorAnswerSchema.safeParse(answer).success).toBe(true);
+    expect(answer.unsupported).toBeNull();
+    expect(answer.responseMode).toBe("rules");
+    expect(answer.nextAction).toBeNull();
+    expect(answer.usedRecommendationIds).toEqual([]);
+    expect(answer.answer).toContain("Disparo múltiple");
+    expect(answer.answer).toContain("A cambio:");
+  });
+
+  it("sin los datos de gemas, se comporta como antes", async () => {
+    const answer = await answerMentorQuery(query("¿qué gema de asistencia le pongo a Contagio?"), {});
+    expect(answer.unsupported).not.toBeNull();
+  });
+
+  it("un botón de la web (intención fijada) nunca se toma por una pregunta de gemas", async () => {
+    const answer = await answerMentorQuery(query("gema de asistencia para Contagio", "next_improvement"), { gems });
+    expect(answer.answer).not.toContain("las asistencias que mejor le van");
+  });
+});
