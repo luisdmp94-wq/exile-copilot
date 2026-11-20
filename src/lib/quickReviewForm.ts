@@ -125,5 +125,10 @@ export function quickReviewFormFor(
   const written = Object.fromEntries(
     Object.entries(stored).filter(([, value]) => typeof value === "string" && value.trim() !== ""),
   ) as Partial<Form>;
-  return { ...EMPTY, ...fromProfile(profile), ...written };
+  const form = { ...EMPTY, ...fromProfile(profile), ...written };
+  // Un único no se juzga por su nivel de objeto: con uno equipado la casilla
+  // va vacía, aunque en el navegador quedara un número de un arma anterior.
+  const weapon = profile?.items.find((item) => item.slot === "weapon");
+  if (weapon?.rarity === "unique") form.weapon = "";
+  return form;
 }

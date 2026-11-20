@@ -38,6 +38,29 @@ describe("el formulario de la revisión rápida, fuera de su tarjeta", () => {
     expect(quickReviewFormFor(profile(), {}).level).toBe("");
   });
 
+  it("con un arma única equipada, el nivel de objeto va vacío aunque quedara uno guardado", () => {
+    const weapon = (rarity: string) => ({
+      id: "arma",
+      name: "Mordida de destino",
+      baseType: "Varita marchita",
+      slot: "weapon",
+      rarity,
+      itemLevel: 76,
+    });
+    // Única: ni lo que sabe la web ni lo guardado de un arma anterior.
+    const unique = profile({ items: [weapon("unique")] });
+    expect(quickReviewFormFor(unique, {}).weapon).toBe("");
+    expect(quickReviewFormFor(unique, { weapon: "76", act: "3" }).weapon).toBe("");
+    expect(quickReviewFormFor(unique, { weapon: "76", act: "3" }).act).toBe("3");
+    expect(toInput(quickReviewFormFor(unique, { weapon: "76" })).weaponItemLevel).toBeNull();
+    // Rara: se sigue usando, y lo que escribe el jugador manda.
+    const rare = profile({ items: [weapon("rare")] });
+    expect(quickReviewFormFor(rare, {}).weapon).toBe("76");
+    expect(quickReviewFormFor(rare, { weapon: "40" }).weapon).toBe("40");
+    // Sin arma guardada no se toca lo escrito.
+    expect(quickReviewFormFor(profile(), { weapon: "40" }).weapon).toBe("40");
+  });
+
   it("un número imposible no llega a las reglas", () => {
     const input = toInput({ ...EMPTY, level: "300", fire: "abc", act: "3" });
     expect(input.level).toBeNull();
