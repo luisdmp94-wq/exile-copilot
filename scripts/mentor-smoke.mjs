@@ -381,9 +381,12 @@ async function runFlow(mode, port) {
     await abrirMentor(page);
     await seccion.waitFor({ state: "visible", timeout: 20000 });
 
+    // Antes de preguntar, los ejemplos van en «Tu siguiente paso» y no se
+    // repiten en la conversación.
     check(
-      `[${mode}] la sección ofrece sugerencias reconocidas`,
-      (await page.getByTestId("mentor-sugerencia").count()) === 2,
+      `[${mode}] los ejemplos están en «Tu siguiente paso» y no se repiten en la conversación`,
+      (await page.getByTestId("mentor-ejemplo").count()) === 3 &&
+        (await page.getByTestId("mentor-sugerencia").count()) === 0,
     );
 
     // --- Mentor v4: conversación social y memoria de sesión ---------------

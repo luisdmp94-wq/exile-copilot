@@ -18,6 +18,7 @@ import { useFormatLabels } from "@/lib/formatLabels";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
 import { firstGapsToAsk, reviewCharacter } from "@shared/quickReview.js";
+import { mentorReviewAnswer } from "@/lib/mentorReviewAnswer";
 import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
 import { toInput } from "@/lib/quickReviewForm";
 import { texts, useLang, useText } from "@/i18n/lang";
@@ -71,6 +72,8 @@ const TEXT = texts(
     readinessButton: "Completar personaje",
     // Sin equipo todavía: el Mentor contesta con la revisión rápida (reglas).
     reviewFoundTitle: "Aún sin tu equipo, esto ya lo veo",
+    reviewSurvivalTitle: "Por qué mueres, con lo que ya veo",
+    reviewMainTitle: "Tu principal problema, con lo que ya veo",
     reviewAskTitle: "Dime unos datos del juego y te digo qué te frena",
     reviewAskBody: (missing: string) => `Dime ${missing}: lo ves en el juego y es un minuto.`,
     reviewClearTitle: "Con lo que me has contado no veo nada grave",
@@ -80,8 +83,8 @@ const TEXT = texts(
     reviewOpen: "Ir a la revisión rápida",
     reviewOpenFull: "Ver la revisión completa",
     deepMissing: (missing: string) => `Para una respuesta a fondo me falta: ${missing}.`,
-    deepPending: (question: string) =>
-      `Tu pregunta queda guardada: «${question}». Te la contesto a fondo cuando lo completes.`,
+    // La pregunta ya se ve arriba como burbuja: aquí no se repite.
+    deepPending: "Tu pregunta queda guardada: te la contesto a fondo cuando lo completes.",
     patchTitle: (patchId: string) => `El mentor está esperando la revisión de ${patchId}`,
     patchBody: (summary: string) =>
       `${summary} No propondrá mejoras ni acciones mecánicas usando datos del parche anterior.`,
@@ -143,6 +146,8 @@ const TEXT = texts(
       `Your question is saved: “${question}”. I'll answer as soon as you complete your character.`,
     readinessButton: "Finish character file",
     reviewFoundTitle: "Even without your gear, I can already see this",
+    reviewSurvivalTitle: "Why you keep dying, from what I can see",
+    reviewMainTitle: "Your main problem, from what I can see",
     reviewAskTitle: "Tell me a few things from the game and I'll tell you what's holding you back",
     reviewAskBody: (missing: string) => `Tell me ${missing}: you can see it in the game and it takes a minute.`,
     reviewClearTitle: "From what you've told me, I see nothing serious",
@@ -152,8 +157,7 @@ const TEXT = texts(
     reviewOpen: "Go to the quick review",
     reviewOpenFull: "See the full review",
     deepMissing: (missing: string) => `For an in-depth answer I'm missing: ${missing}.`,
-    deepPending: (question: string) =>
-      `Your question is saved: “${question}”. I'll answer it in depth once you complete it.`,
+    deepPending: "Your question is saved: I'll answer it in depth once you complete it.",
     patchTitle: (patchId: string) => `The mentor is waiting for the ${patchId} review`,
     patchBody: (summary: string) =>
       `${summary} It won't suggest upgrades or mechanical actions using data from the previous patch.`,
@@ -252,10 +256,11 @@ export function MentorChatSection({
     !patchBlocked &&
     question.trim().length > 0 &&
     !loading;
+  // Antes de la primera pregunta, los ejemplos van en «Tu siguiente paso»
+  // (MentorQuickAsk): repetirlos aquí debajo sobraba. Tras una respuesta, las
+  // de seguimiento sí ayudan.
   const visibleSuggestions =
-    turns.length === 0
-      ? [t.suggestions[0], t.suggestions[2]]
-      : [t.suggestions[0], t.suggestions[3]];
+    turns.length === 0 ? [] : [t.suggestions[0], t.suggestions[3]];
 
   // Cada pregunta, respuesta o estado de carga deja el ÚLTIMO turno a la vista.
   // Se desplaza el CONTENEDOR del hilo (`scrollTo` sobre el propio elemento),
@@ -317,6 +322,14 @@ export function MentorChatSection({
     !pendingAllowed && pendingText.length > 0 && question.trim() === pendingText
       ? pendingText
       : null;
+  // Sin equipo, la revisión rápida contesta según lo que se ha preguntado.
+  const reviewAnswer = mentorReviewAnswer(review, waitingQuestion);
+  const reviewTitle =
+    reviewAnswer.mode === "survival"
+      ? t.reviewSurvivalTitle
+      : reviewAnswer.mode === "main"
+        ? t.reviewMainTitle
+        : t.reviewFoundTitle;
 
   return (
     /* El título («Habla con tu Mentor») lo pone la sección que envuelve a este
@@ -345,19 +358,35 @@ export function MentorChatSection({
           </Alert>
         ) : !readiness.ready ? (
           onOpenQuickReview ? (
-            <Alert data-testid="mentor-profile-readiness-gate" data-review={review.top.length > 0 ? "found" : reviewGaps.length > 0 ? "ask" : "clear"}>
+            <>
+            {/* La pregunta del jugador se ve como en la conversación: si no,
+                parecía que el Mentor no la había escuchado. */}
+            {waitingQuestion !== null && (
+              <div
+                className="max-w-full self-end rounded-md border border-primary/40 bg-primary/10 p-3 text-sm"
+                data-testid="mentor-pregunta-burbuja"
+              >
+                <p className="mb-1 text-xs font-medium text-muted-foreground">{t.you}</p>
+                <p className="whitespace-pre-wrap break-words text-foreground">{waitingQuestion}</p>
+              </div>
+            )}
+            <Alert
+              data-testid="mentor-profile-readiness-gate"
+              data-review={reviewAnswer.findings.length > 0 ? "found" : reviewGaps.length > 0 ? "ask" : "clear"}
+              data-review-mode={reviewAnswer.mode}
+            >
               <AlertTitle>
-                {review.top.length > 0
-                  ? t.reviewFoundTitle
+                {reviewAnswer.findings.length > 0
+                  ? reviewTitle
                   : reviewGaps.length > 0
                     ? t.reviewAskTitle
                     : t.reviewClearTitle}
               </AlertTitle>
               <AlertDescription className="space-y-3">
-                {review.top.length > 0 ? (
+                {reviewAnswer.findings.length > 0 ? (
                   <>
                     <ol className="space-y-2" data-testid="mentor-revision-hallazgos">
-                      {review.top.map((finding, index) => (
+                      {reviewAnswer.findings.map((finding, index) => (
                         <li key={finding.id} className="text-foreground">
                           <span className="font-semibold">{index + 1}. {finding.title}</span>
                           <span className="block text-muted-foreground">{finding.action}</span>
@@ -380,7 +409,7 @@ export function MentorChatSection({
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" onClick={onOpenQuickReview} data-testid="mentor-ir-revision">
                     <ClipboardCheck className="size-4" aria-hidden="true" />
-                    {review.top.length > 0 ? t.reviewOpenFull : t.reviewOpen}
+                    {reviewAnswer.findings.length > 0 ? t.reviewOpenFull : t.reviewOpen}
                   </Button>
                   <Button type="button" variant="secondary" onClick={onEditProfile}>
                     <PencilLine className="size-4" aria-hidden="true" />
@@ -396,11 +425,12 @@ export function MentorChatSection({
                 </p>
                 {waitingQuestion !== null && (
                   <p className="text-xs font-medium text-foreground" data-testid="mentor-pregunta-en-espera">
-                    {t.deepPending(waitingQuestion)}
+                    {t.deepPending}
                   </p>
                 )}
               </AlertDescription>
             </Alert>
+            </>
           ) : (
           <Alert data-testid="mentor-profile-readiness-gate">
             <AlertTitle>{t.readinessTitle}</AlertTitle>
@@ -431,6 +461,7 @@ export function MentorChatSection({
           </Alert>
         ) : (
           <>
+            {visibleSuggestions.length > 0 && (
             <div className="flex flex-wrap gap-2">
                 {visibleSuggestions.map((sugerencia) => (
                   <Button
@@ -446,6 +477,7 @@ export function MentorChatSection({
                   </Button>
                 ))}
             </div>
+            )}
 
             <div
               ref={threadRef}

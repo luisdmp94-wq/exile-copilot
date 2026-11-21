@@ -70,14 +70,15 @@ export function MentorQuickAsk({ onAsk }: { onAsk: (question: string) => void })
           {t.ask}
         </Button>
       </form>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t.examplesLabel}>
+      {/* Compactos: en el móvil caben dos por fila en vez de uno. */}
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t.examplesLabel}>
         {t.examples.map((example) => (
           <Button
             key={example}
             type="button"
             variant="outline"
             size="sm"
-            className="h-auto min-h-8 whitespace-normal text-left"
+            className="h-auto min-h-8 whitespace-normal px-2.5 py-1 text-left text-xs"
             data-testid="mentor-ejemplo"
             onClick={() => onAsk(example)}
           >
