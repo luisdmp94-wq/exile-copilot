@@ -204,7 +204,7 @@ export function OpenCase({
         </div>
       </section>
       {mentorAskSlot && (
-        <div className="hidden border-t border-border/70 px-5 py-3.5 sm:block">{mentorAskSlot}</div>
+        <div className="border-t border-border/70 px-4 py-3.5 sm:px-5">{mentorAskSlot}</div>
       )}
       </div>
 

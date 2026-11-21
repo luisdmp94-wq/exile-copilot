@@ -118,6 +118,19 @@ describe("sugerencias de la interfaz", () => {
       expect(classifyMentorQuestion(sugerencia).intent, sugerencia).not.toBe("unsupported");
     }
   });
+
+  it("las preguntas de ejemplo de «Tu siguiente paso» están soportadas (src/components/MentorQuickAsk.tsx)", () => {
+    for (const ejemplo of [
+      "¿Por qué muero tanto?",
+      "¿Qué mejoro ahora?",
+      "¿Cuál es mi principal problema?",
+      "Why do I keep dying?",
+      "What should I improve now?",
+      "What's my main problem?",
+    ]) {
+      expect(classifyMentorQuestion(ejemplo).intent, ejemplo).not.toBe("unsupported");
+    }
+  });
 });
 
 describe("determinismo", () => {

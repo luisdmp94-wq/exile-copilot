@@ -1629,8 +1629,13 @@ export default function App() {
     openMentorConversation();
   };
 
+  // Cada petición de abrir la conversación la trae a la vista, aunque ya
+  // estuviera abierta: en el móvil queda bajo el equipo, y la segunda pregunta
+  // de ejemplo no se veía contestar.
+  const [mentorScrollSeq, setMentorScrollSeq] = useState(0);
   const openMentorConversation = () => {
     setMentorBriefingOpen(true);
+    setMentorScrollSeq((seq) => seq + 1);
     navigateWorkspace("expediente");
   };
 
@@ -1644,7 +1649,7 @@ export default function App() {
       briefing?.querySelector<HTMLElement>("#mentor-pregunta")?.focus({ preventScroll: true });
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [tab, mentorBriefingOpen]);
+  }, [tab, mentorBriefingOpen, mentorScrollSeq]);
 
   const contextualProfileId = character.profile?.id ?? null;
   const contextualProfileName = character.profile?.name ?? null;
