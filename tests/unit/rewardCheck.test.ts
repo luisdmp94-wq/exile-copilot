@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseItemText } from "../../server/importers/itemTextParser.js";
 import { ACT_ONE_GUIDE } from "../../src/guides/actOne.js";
 import { ACT_TWO_GUIDE } from "../../src/guides/actTwo.js";
+import { ACT_THREE_GUIDE } from "../../src/guides/actThree.js";
+import { ACT_FOUR_GUIDE } from "../../src/guides/actFour.js";
 import { checkRewards, rewardInputsNeeded, type RewardCheckInput } from "../../src/lib/rewardCheck.js";
 
 const piece = (itemClass: string, name: string, lines: string[] = [], properties: string[] = []) =>
@@ -152,5 +154,29 @@ describe("checkRewards — acto 2", () => {
     const lines = checkRewards(ACT_TWO_GUIDE, [ACT_ONE_GUIDE], act2);
     expect(line(lines, "Prueba de las sekhemas").status).toBe("ask");
     expect(line(lines, "Valle de los titanes").question).toContain("reliquias");
+  });
+});
+
+describe("checkRewards — acto 4", () => {
+  const earlier = [ACT_ONE_GUIDE, ACT_TWO_GUIDE, ACT_THREE_GUIDE];
+  const act4: RewardCheckInput = { ...base, currentAct: null };
+  const books = ["El final del viaje", "La prueba de los ancestros"];
+
+  it("los tatuajes se eligen: no pide resistencias ni en qué acto estás", () => {
+    // Sin resistencias que restar, la tarjeta no pregunta el acto (tras el
+    // acto 4 vienen los interludios, no un «acto 5»).
+    expect(rewardInputsNeeded(ACT_FOUR_GUIDE)).toEqual({ resistances: [], spirit: false, weaponSetPoints: true });
+    const lines = checkRewards(ACT_FOUR_GUIDE, earlier, act4);
+    expect(line(lines, "Salones de los muertos").status).toBe("ask");
+    expect(line(lines, "Salones de los muertos").question).toContain("tatuajes de resistencia");
+  });
+
+  it("los libros se cuentan con los de los actos 1 a 3: 16 puntos en total", () => {
+    const all = checkRewards(ACT_FOUR_GUIDE, earlier, { ...act4, weaponSetPoints: 16 });
+    expect(books.map((zone) => line(all, zone).status)).toEqual(["ok", "ok"]);
+    const one = checkRewards(ACT_FOUR_GUIDE, earlier, { ...act4, weaponSetPoints: 14 });
+    expect(line(one, books[0]).text).toContain("Tienes 14 y con los libros hasta aquí serían 16");
+    const none = checkRewards(ACT_FOUR_GUIDE, earlier, { ...act4, weaponSetPoints: 12 });
+    expect(books.map((zone) => line(none, zone).status)).toEqual(["missing", "missing"]);
   });
 });

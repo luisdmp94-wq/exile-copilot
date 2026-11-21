@@ -189,6 +189,10 @@ export function RewardCheckCard({ guide, earlier, items }: RewardCheckCardProps)
           )}
         </p>
 
+        {/* El acto solo importa para restar resistencias: en una guía sin
+            recompensas de resistencia (acto 4: tatuajes que se eligen) no se
+            pregunta, y así no hace falta llamar «acto 5» a los interludios. */}
+        {needed.resistances.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.actGroup}>
           <span className={cn("text-sm", currentAct === null ? "font-semibold text-amber-200" : "text-muted-foreground")}>
             {currentAct === null ? t.whereFirst : t.whereNow}
@@ -207,6 +211,7 @@ export function RewardCheckCard({ guide, earlier, items }: RewardCheckCardProps)
             </Button>
           ))}
         </div>
+        )}
         {needed.resistances.length > 0 && (
           <p className="text-xs text-muted-foreground">
             {t.whyAct(guide.act + 1)}

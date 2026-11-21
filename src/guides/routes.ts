@@ -11,6 +11,7 @@ export const GUIDE_ROUTES = [
   { slug: "acto-1", actLabel: { es: "acto 1", en: "act 1" } },
   { slug: "acto-2", actLabel: { es: "acto 2", en: "act 2" } },
   { slug: "acto-3", actLabel: { es: "acto 3", en: "act 3" } },
+  { slug: "acto-4", actLabel: { es: "acto 4", en: "act 4" } },
 ] as const;
 
 export const DEFAULT_GUIDE_SLUG: string = GUIDE_ROUTES[0].slug;
