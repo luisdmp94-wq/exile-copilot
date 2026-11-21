@@ -586,6 +586,16 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   if (/por cada (?:tipo diferente de )?(?:cargas?|infusion[a-z]*)[^.|]*que tengas/.test(text)) score -= 4;
   // Y una que quita daño a cambio de otra cosa, menos todavía.
   if (/% menos de dano/.test(text)) score -= 3;
+  // Encoger el área de toda la habilidad («un 50% menos de área de efecto») es
+  // un cambio que se nota en cada uso: más daño en el centro, pero se escapan
+  // los grupos. Caso real (20-11-2026): «Área concentrada» salía la primera en
+  // casi tres de cada diez habilidades. Sigue entre las que valen; si el
+  // jugador pide daño o jefes, su nota la vuelve a subir, y si pide área, baja
+  // más. Lo que solo encoge las réplicas o las fisuras ramificadas no cuenta.
+  if (/asistidas tienen un \d+% menos de area de efecto(?! en las replicas)/.test(text)) {
+    score -= 3;
+    if (NOTE_NEEDS[4][0].test(note)) score -= 4;
+  }
   // Una que le pone un enfriamiento largo a la habilidad la deja casi sin uso.
   if (/enfriamiento de \d+ segundos/.test(text)) score -= 4;
   // Pagar vida cada vez que usas la habilidad mata a quien no sabe sostenerlo

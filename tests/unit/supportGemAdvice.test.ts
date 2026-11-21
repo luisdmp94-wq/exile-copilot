@@ -17,7 +17,10 @@ const data = GemDataSchema.parse(
 
 const ALL: GemAttribute[] = ["Fue", "Des", "Int"];
 
-function names(skillName: string, options: { maxGrade?: number; attributes?: GemAttribute[]; socketed?: string[] } = {}) {
+function names(
+  skillName: string,
+  options: { maxGrade?: number; attributes?: GemAttribute[]; socketed?: string[]; note?: string } = {},
+) {
   const skill = findSkill(data, skillName);
   if (!skill) throw new Error(`No existe la habilidad ${skillName}`);
   return supportCandidates(data, {
@@ -25,6 +28,7 @@ function names(skillName: string, options: { maxGrade?: number; attributes?: Gem
     maxGrade: options.maxGrade ?? 1,
     attributes: options.attributes ?? ALL,
     socketed: options.socketed,
+    note: options.note,
   }).map((candidate) => candidate.support.name);
 }
 
@@ -241,6 +245,20 @@ describe("supportCandidates — llevar la etiqueta de esbirro no es crear esbirr
     }
     // No desaparece: sigue entre las que valen.
     expect(names("Descarga de caos", { maxGrade: 3 })).toContain("Inhibidor");
+  });
+
+  it("una asistencia que encoge el área de la habilidad no es la respuesta automática", () => {
+    // Caso real (20-11-2026): «Área concentrada» (un 50% menos de área) salía
+    // la primera en casi tres de cada diez habilidades.
+    for (const skill of ["Cometa", "Bola de fuego", "Nova de hielo", "Contagio", "Tormenta de huesos"]) {
+      expect(names(skill, { maxGrade: 3 })[0], skill).not.toBe("Área concentrada");
+    }
+    // Quien pide daño contra jefes la vuelve a ver arriba: ahí sí compensa.
+    expect(names("Cometa", { maxGrade: 1, note: "pega poco a los jefes" }).slice(0, 3)).toContain("Área concentrada");
+    // Quien pide limpiar grupos no la ve entre las primeras.
+    expect(names("Cometa", { maxGrade: 3, note: "quiero limpiar grupos" }).slice(0, 5)).not.toContain("Área concentrada");
+    // Sigue entre las que valen.
+    expect(names("Cometa", { maxGrade: 3 })).toContain("Área concentrada");
   });
 
   it("los efectos que solo tocan a los esbirros que ya tienes tampoco", () => {

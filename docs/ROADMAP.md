@@ -343,6 +343,24 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
   - *Qué decidir entonces:* pintar el árbol oficial entero o solo la zona de la
     clase; marcar la ruta de una build; leer las pasivas de quien importa desde
     Path of Building para decirle qué le falta.
+- [ ] **Recorridos anónimos en las estadísticas** (idea de Luis, 21-11-2026;
+  apuntada, sin empezar). Saber qué hace la gente mientras usa la web, no solo
+  cuántos entran. Hoy `/estadisticas` suma cifras sueltas por día (visitas,
+  origen, pestañas, seis herramientas) y no sabe en qué orden hace las cosas
+  una visita ni dónde se va.
+  - *Qué hacer:* guardar el camino de cada visita como un texto sin dueño
+    («Reddit → Guías → Plan → pega pieza → se va») y enseñar los 10 caminos más
+    repetidos y dónde se va la gente. Sumar contadores que faltan: «ha visto el
+    top 10», «ha usado una build como objetivo», «ha abierto la guía del acto
+    X», «ha abierto la mascota». Encaja en `server/analytics.ts`
+    (`daily_counts`) sin tablas por persona.
+  - *Por qué así:* cumple lo que promete la web (no se guarda nada que
+    identifique, sin banner de cookies, sin terceros). Descartado de momento
+    Microsoft Clarity: graba vídeos de cada visita, pero manda los datos a
+    Microsoft, obliga a banner de cookies en Europa y a cambiar el texto de
+    privacidad.
+  - *Origen:* el 20-11 las estadísticas decían que los de Reddit abren mucho
+    «Plan y mercado», pero no si miraban el top 10.
 - [ ] **Botón «Conectar con tu cuenta de PoE»** (OAuth oficial). Bloqueado:
   GGG no acepta aplicaciones nuevas ahora mismo («We are currently unable to
   process new applications»). Revisar si reabren.
