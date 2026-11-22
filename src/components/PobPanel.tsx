@@ -16,9 +16,11 @@ const TEXT = texts(
     downloading: (pct: number) => `Descargando PoB2… ${pct} %`,
     starting: "Arrancando PoB2…",
     calculating: "Calculando…",
-    failed: "PoB2 no ha podido arrancar en este navegador.",
+    failed: "No se pudo descargar o arrancar PoB2. Revisa tu conexión y prueba otra vez.",
     retry: "Reintentar",
     error: "PoB2 no ha podido calcular tu personaje.",
+    dataError: "No se pudieron cargar los datos de PoB2. Revisa tu conexión y prueba otra vez.",
+    staleNote: "Son los números de antes: el último cálculo no salió.",
     skill: "Habilidad",
     computedFor: (name: string, level: number | null) => `Calculado para ${name}${level ? `, nivel ${level}` : ""}.`,
     dps: "Daño por segundo",
@@ -28,11 +30,11 @@ const TEXT = texts(
     mana: "Maná",
     spirit: "Espíritu",
     ehp: "Aguante",
-    ehpHelp: "El daño que aguantas antes de morir, según PoB2.",
+    ehpHelp: "El daño que aguantas antes de morir.",
     resists: "Resistencias",
     resist: { fire: "Fuego", cold: "Hielo", lightning: "Rayo", chaos: "Caos" } as Record<string, string>,
     capped: "al tope",
-    missing: (points: number) => `te faltan ${points}`,
+    missing: (points: number) => `te faltan ${points} %`,
     withChanges: "Con tus cambios",
     picksTitle: "Lo mejor cerca, según PoB2",
     picksLead: "Probando cada notable a pocos puntos de tu árbol:",
@@ -41,24 +43,26 @@ const TEXT = texts(
     points: (points: number) => `${points} ${points === 1 ? "punto" : "puntos"}`,
     show: "Ver",
     take: "Coger",
+    gives: "Da",
+    unsupportedLines: "Ver cuáles",
     noPicks: "Ningún notable cercano sube tu daño ni tu aguante.",
     notes: "Ten en cuenta",
-    noteSpanish: (count: number) =>
-      `${count} ${count === 1 ? "objeto está" : "objetos están"} en español y PoB2 solo lee inglés: sus líneas no cuentan. Importa tu código de PoB2 o pega los objetos desde el juego en inglés.`,
+    noteSpanish: (count: number) => `${count} ${count === 1 ? "objeto está" : "objetos están"} en español: PoB2 no los lee.`,
     noteTranslated: (count: number) =>
       `${count === 1 ? "Tu objeto en español se ha traducido" : `Tus ${count} objetos en español se han traducido`} al inglés para PoB2.`,
     noteUntranslated: (count: number) => `${count} ${count === 1 ? "línea no se pudo traducir y no cuenta" : "líneas no se pudieron traducir y no cuentan"}.`,
-    noteUnknownBases: (count: number) => `De ${count} ${count === 1 ? "objeto" : "objetos"} no reconozco la base: sus números de base no cuentan.`,
-    noteResists: "Las resistencias llevan la penalización aproximada de tu acto (por tu nivel).",
+    noteUnknownBases: (count: number) => `De ${count} ${count === 1 ? "objeto" : "objetos"} no reconozco la base.`,
+    noteResists: "Resistencias con la penalización de tu acto (según tu nivel).",
     noteUnsupported: (count: number) => `PoB2 no entiende ${count} ${count === 1 ? "línea" : "líneas"} de tu equipo.`,
     noteGems: (names: string) => `PoB2 no reconoce: ${names}.`,
-    noteLevels: "Los niveles de gema salen de tu nivel de personaje (no los sabemos).",
-    noteProfile: "Sin tu código de PoB2 faltan joyas, ascendencia y configuración: los números son aproximados.",
+    noteLevels: "Niveles de gema según tu nivel de personaje.",
+    noteProfile: "Sin tu código de PoB2 faltan joyas y ascendencia: números aproximados.",
     noteNoClass: "No sé tu clase: sin ella PoB2 no puede leer tu árbol.",
     footer: (version: string) =>
       `Calculado en tu navegador con Path of Building 2 ${version}, de la comunidad (licencia MIT). Los números dependen de lo que la web sabe de tu personaje.`,
     export: "Exportar a PoB2",
-    exportLead: "Copia este código y pégalo en Path of Building 2: Importar/Exportar → Importar.",
+    exportLead: "Tu personaje tal como está en la web. En Path of Building 2: Importar/Exportar → pega el código → Importar.",
+    exportFailed: "No se pudo crear el código. Prueba otra vez.",
     copy: "Copiar el código",
     copied: "Copiado",
   },
@@ -70,9 +74,11 @@ const TEXT = texts(
     downloading: (pct: number) => `Downloading PoB2… ${pct}%`,
     starting: "Starting PoB2…",
     calculating: "Calculating…",
-    failed: "PoB2 couldn't start in this browser.",
+    failed: "PoB2 couldn't download or start. Check your connection and try again.",
     retry: "Try again",
     error: "PoB2 couldn't calculate your character.",
+    dataError: "PoB2's data couldn't load. Check your connection and try again.",
+    staleNote: "These are the earlier numbers: the last calculation failed.",
     skill: "Skill",
     computedFor: (name: string, level: number | null) => `Calculated for ${name}${level ? `, level ${level}` : ""}.`,
     dps: "Damage per second",
@@ -82,11 +88,11 @@ const TEXT = texts(
     mana: "Mana",
     spirit: "Spirit",
     ehp: "Toughness",
-    ehpHelp: "The damage you can take before dying, according to PoB2.",
+    ehpHelp: "The damage you can take before dying.",
     resists: "Resistances",
     resist: { fire: "Fire", cold: "Cold", lightning: "Lightning", chaos: "Chaos" } as Record<string, string>,
     capped: "capped",
-    missing: (points: number) => `${points} missing`,
+    missing: (points: number) => `${points}% missing`,
     withChanges: "With your changes",
     picksTitle: "Best nearby, according to PoB2",
     picksLead: "Trying every notable a few points from your tree:",
@@ -95,24 +101,26 @@ const TEXT = texts(
     points: (points: number) => `${points} ${points === 1 ? "point" : "points"}`,
     show: "Show",
     take: "Take",
+    gives: "Gives",
+    unsupportedLines: "See which",
     noPicks: "No nearby notable raises your damage or toughness.",
     notes: "Keep in mind",
-    noteSpanish: (count: number) =>
-      `${count} ${count === 1 ? "item is" : "items are"} in Spanish and PoB2 only reads English: their lines don't count. Import your PoB2 code or paste the items from the game in English.`,
+    noteSpanish: (count: number) => `${count} ${count === 1 ? "item is" : "items are"} in Spanish: PoB2 doesn't read ${count === 1 ? "it" : "them"}.`,
     noteTranslated: (count: number) =>
       `${count === 1 ? "Your Spanish item was" : `Your ${count} Spanish items were`} translated to English for PoB2.`,
     noteUntranslated: (count: number) => `${count} ${count === 1 ? "line couldn't be translated and doesn't count" : "lines couldn't be translated and don't count"}.`,
-    noteUnknownBases: (count: number) => `I don't recognise the base of ${count} ${count === 1 ? "item" : "items"}: its base numbers don't count.`,
-    noteResists: "Resistances use your act's approximate penalty (from your level).",
+    noteUnknownBases: (count: number) => `I don't recognise the base of ${count} ${count === 1 ? "item" : "items"}.`,
+    noteResists: "Resistances with your act's penalty (from your level).",
     noteUnsupported: (count: number) => `PoB2 doesn't understand ${count} ${count === 1 ? "line" : "lines"} of your gear.`,
     noteGems: (names: string) => `PoB2 doesn't recognise: ${names}.`,
-    noteLevels: "Gem levels come from your character level (we don't know them).",
-    noteProfile: "Without your PoB2 code, jewels, ascendancy and configuration are missing: the numbers are approximate.",
+    noteLevels: "Gem levels from your character level.",
+    noteProfile: "Without your PoB2 code, jewels and ascendancy are missing: approximate numbers.",
     noteNoClass: "I don't know your class: without it PoB2 can't read your tree.",
     footer: (version: string) =>
       `Calculated in your browser with Path of Building 2 ${version}, by the community (MIT licence). The numbers depend on what the site knows about your character.`,
     export: "Export to PoB2",
-    exportLead: "Copy this code and paste it into Path of Building 2: Import/Export → Import.",
+    exportLead: "Your character as it is on the site. In Path of Building 2: Import/Export → paste the code → Import.",
+    exportFailed: "The code couldn't be made. Try again.",
     copy: "Copy the code",
     copied: "Copied",
   },
@@ -121,6 +129,10 @@ const TEXT = texts(
 export interface PobPick {
   key: string;
   name: string;
+  /** Lo que da el notable, en el idioma de la página. */
+  stats: string[];
+  /** Nodos que se cogen para llegar (el notable incluido). */
+  path: string[];
   points: number;
   /** % de daño o de aguante que gana. */
   gain: number;
@@ -134,6 +146,8 @@ interface PobPanelProps {
   onEnable: () => void;
   onRetry: () => void;
   busy: boolean;
+  /** Los números son de una petición anterior. */
+  stale: boolean;
   error: string | null;
   analysis: PobAnalysis | null;
   /** El árbol guardado, para comparar mientras se edita. */
@@ -150,6 +164,8 @@ interface PobPanelProps {
   onTakeNode: (key: string) => void;
   /** Escribe el código de PoB2 del personaje (con el árbol que se ve). */
   makeCode: () => Promise<string>;
+  /** Cambia cuando cambia lo que se exportaría: el código viejo se borra. */
+  exportKey: string;
   version: string | null;
 }
 
@@ -158,7 +174,9 @@ function useFormat() {
   const locale = lang === "es" ? "es-ES" : "en-GB";
   const whole = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
   const one = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
-  return { whole: (value: number) => whole.format(value), one: (value: number) => one.format(value) };
+  // «17 %» en español, «17%» en inglés.
+  const percent = lang === "es" ? " %" : "%";
+  return { whole: (value: number) => whole.format(value), one: (value: number) => one.format(value), percent };
 }
 
 /** Cambio entre dos valores, como «+12» o «−3,5 %», solo si se nota. */
@@ -166,7 +184,7 @@ function Delta({ before, after, percent }: { before: number; after: number; perc
   const format = useFormat();
   const change = percent ? (before > 0 ? ((after - before) / before) * 100 : 0) : after - before;
   if (Math.abs(change) < (percent ? 0.05 : 0.5)) return null;
-  const text = `${change > 0 ? "+" : "−"}${percent ? format.one(Math.abs(change)) : format.whole(Math.abs(change))}${percent ? " %" : ""}`;
+  const text = `${change > 0 ? "+" : "−"}${percent ? format.one(Math.abs(change)) : format.whole(Math.abs(change))}${percent ? format.percent : ""}`;
   return <span className={cn("ml-1 text-xs tabular-nums", change > 0 ? "text-emerald-300" : "text-rose-300")}>{text}</span>;
 }
 
@@ -186,12 +204,13 @@ function Stat({
   percent?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background/40 px-3 py-2" title={help}>
+    <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold tabular-nums text-foreground">
         {value}
         {before !== undefined && after !== undefined && <Delta before={before} after={after} percent={percent} />}
       </p>
+      {help && <p className="text-[11px] leading-snug text-muted-foreground">{help}</p>}
     </div>
   );
 }
@@ -205,6 +224,7 @@ function ExportCode({ makeCode }: { makeCode: () => Promise<string> }) {
   const [code, setCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [working, setWorking] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
     <div className="flex flex-col gap-2">
       <Button
@@ -215,9 +235,13 @@ function ExportCode({ makeCode }: { makeCode: () => Promise<string> }) {
         disabled={working}
         onClick={() => {
           setWorking(true);
+          setFailed(false);
           makeCode()
             .then(setCode)
-            .catch(() => setCode(null))
+            .catch(() => {
+              setCode(null);
+              setFailed(true);
+            })
             .finally(() => setWorking(false));
         }}
         data-testid="pob-exportar"
@@ -225,6 +249,11 @@ function ExportCode({ makeCode }: { makeCode: () => Promise<string> }) {
         {working ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
         {t.export}
       </Button>
+      {failed && (
+        <p className="text-xs text-amber-200" role="status">
+          {t.exportFailed}
+        </p>
+      )}
       {code && (
         <div className="flex flex-col gap-2" data-testid="pob-codigo">
           <p className="text-xs text-muted-foreground">{t.exportLead}</p>
@@ -285,7 +314,7 @@ export function PobPanel(props: PobPanelProps) {
           <span className="text-xs text-muted-foreground">{t.size}</span>
         </div>
         <div className="mt-3">
-          <ExportCode makeCode={props.makeCode} />
+          <ExportCode key={props.exportKey} makeCode={props.makeCode} />
         </div>
       </div>
     );
@@ -313,7 +342,7 @@ export function PobPanel(props: PobPanelProps) {
     );
   }
   if (notes && notes.unknownBases > 0) noteLines.push(t.noteUnknownBases(notes.unknownBases));
-  if (analysis && analysis.unsupported.length > 0) noteLines.push(t.noteUnsupported(analysis.unsupported.length));
+  const unsupported = analysis?.unsupported ?? [];
   if (notes && notes.unknownGems.length > 0) noteLines.push(t.noteGems([...new Set(notes.unknownGems)].slice(0, 4).join(", ")));
   if (notes && notes.guessedGemLevels > 0) noteLines.push(t.noteLevels);
   if (notes?.base === "profile") noteLines.push(t.noteProfile, t.noteResists);
@@ -330,19 +359,24 @@ export function PobPanel(props: PobPanelProps) {
         )}
       </div>
 
-      {status.state === "failed" ? (
+      {status.state === "failed" || props.error === "data" ? (
         <div className="mt-2 flex flex-col items-start gap-2">
           <p className="text-sm text-muted-foreground" role="status">
-            {t.failed}
+            {props.error === "data" ? t.dataError : t.failed}
           </p>
           <Button type="button" variant="outline" size="sm" onClick={props.onRetry}>
             {t.retry}
           </Button>
         </div>
-      ) : props.error && !main ? (
-        <p className="mt-2 text-sm text-muted-foreground" role="status" data-testid="pob-error">
-          {t.error}
-        </p>
+      ) : props.error ? (
+        <div className="mt-2 flex flex-col items-start gap-1.5" data-testid="pob-error">
+          <p className="text-sm text-muted-foreground" role="status">
+            {t.error} {main && props.stale ? t.staleNote : ""}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={props.onRetry}>
+            {t.retry}
+          </Button>
+        </div>
       ) : null}
 
       {props.skills.length > 1 && (
@@ -374,7 +408,7 @@ export function PobPanel(props: PobPanelProps) {
       )}
 
       {main && (
-        <div className={cn("mt-2 flex flex-col gap-2 transition-opacity", props.busy && "opacity-70")} data-testid="pob-numeros">
+        <div className={cn("mt-2 flex flex-col gap-2 transition-opacity", (props.busy || props.stale) && "opacity-60")} data-testid="pob-numeros">
           {editing && base && <p className="text-xs font-semibold text-emerald-200">{t.withChanges}</p>}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Stat
@@ -403,12 +437,15 @@ export function PobPanel(props: PobPanelProps) {
                   <li key={element} className="tabular-nums">
                     <span className="text-muted-foreground">{t.resist[element]}:</span>{" "}
                     <span className={cn("font-semibold", elemental && missing > 0 ? "text-amber-200" : "text-foreground")}>
-                      {format.whole(resist.value)} %
+                      {format.whole(resist.value)}
+                      {format.percent}
                     </span>
                     {base && <Delta before={base.resists[element].value} after={resist.value} />}
-                    <span className="block text-[11px] text-muted-foreground">
-                      {missing === 0 ? t.capped : t.missing(Math.round(missing))}
-                    </span>
+                    {elemental && (
+                      <span className="block text-[11px] text-muted-foreground">
+                        {missing === 0 ? t.capped : t.missing(Math.round(missing))}
+                      </span>
+                    )}
                   </li>
                 );
               })}
@@ -433,6 +470,11 @@ export function PobPanel(props: PobPanelProps) {
                       {pick.kind === "damage" ? t.damagePick(format.one(pick.gain)) : t.defencePick(format.one(pick.gain))}
                     </span>
                     <span className="text-xs text-muted-foreground">{t.points(pick.points)}</span>
+                    {pick.stats.length > 0 && (
+                      <span className="order-last w-full pb-1 text-xs leading-relaxed text-muted-foreground" data-testid="pob-mejor-da">
+                        {t.gives}: {pick.stats.join(" · ")}
+                      </span>
+                    )}
                     <span className="ml-auto flex gap-1">
                       <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => props.onShowNode(pick.key)}>
                         <MapPin className="size-3.5" aria-hidden="true" />
@@ -453,19 +495,34 @@ export function PobPanel(props: PobPanelProps) {
         </div>
       )}
 
-      {noteLines.length > 0 && main && (
+      {(noteLines.length > 0 || unsupported.length > 0) && main && (
         <div className="mt-3 rounded-md border border-amber-400/30 bg-amber-400/5 p-2" data-testid="pob-notas">
           <p className="text-xs font-semibold text-amber-100">{t.notes}</p>
           <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-xs text-amber-100/90">
             {noteLines.map((line) => (
               <li key={line}>{line}</li>
             ))}
+            {unsupported.length > 0 && (
+              <li>
+                {t.noteUnsupported(unsupported.length)}{" "}
+                <details className="inline">
+                  <summary className="inline cursor-pointer underline-offset-2 hover:underline">{t.unsupportedLines}</summary>
+                  <ul className="mt-1 space-y-0.5 pl-2 text-amber-100/80">
+                    {unsupported.slice(0, 12).map((entry, index) => (
+                      <li key={`${entry.item}-${index}`}>
+                        <span className="font-medium">{entry.item}:</span> {entry.line}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </li>
+            )}
           </ul>
         </div>
       )}
 
       <div className="mt-3">
-        <ExportCode makeCode={props.makeCode} />
+        <ExportCode key={props.exportKey} makeCode={props.makeCode} />
       </div>
       {props.version && <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/80">{t.footer(props.version)}</p>}
     </div>

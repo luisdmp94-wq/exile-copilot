@@ -2157,6 +2157,7 @@ export default function App() {
                   )}
                   {engineProfile && (
                     <PassiveTreeCard
+                      key={`arbol-${engineProfile.id}`}
                       profile={engineProfile}
                       onPasteCode={() => openEditor(false, "pob")}
                       onSetSkill={() => openQuickReview()}

@@ -7,6 +7,7 @@ import type {
   GoalKind,
 } from "@shared/domain.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
+import { withoutPobXml } from "@shared/pobBuild.js";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { buildTargetFromDraft } from "@/lib/buildTarget";
 import type { ContextEnvelope } from "@shared/mentorContext.js";
@@ -36,7 +37,8 @@ export function buildMentorRequest(
   return {
     question,
     ...(intentHint ? { intentHint } : {}),
-    profile,
+    // El XML de PoB2 solo lo usa el motor del navegador: no viaja al servidor.
+    profile: withoutPobXml(profile),
     target: buildTargetFromDraft(targetDraft),
     budget,
     goal: { kind: goal },

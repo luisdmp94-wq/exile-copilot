@@ -26,6 +26,7 @@ const TEXT = texts(
     expand: "Ver más grande",
     shrink: "Ver más pequeño",
     help: "Arrastra para moverte, rueda o pellizca para acercar. Toca un nodo para ver lo que da.",
+    keyboard: "Con teclado: flechas para moverte, + y − para acercar, Intro para elegir el nodo del centro.",
     mapLabel: (taken: number, suggested: number) =>
       `Árbol de pasivas: ${taken} nodos cogidos en dorado y ${suggested} propuestos en verde.`,
     taken: "Ya lo tienes",
@@ -50,6 +51,7 @@ const TEXT = texts(
     expand: "Make it bigger",
     shrink: "Make it smaller",
     help: "Drag to move, scroll or pinch to zoom. Tap a node to see what it gives.",
+    keyboard: "With the keyboard: arrows to move, + and − to zoom, Enter to pick the node in the middle.",
     mapLabel: (taken: number, suggested: number) =>
       `Passive tree: ${taken} allocated nodes in gold and ${suggested} suggested in green.`,
     taken: "You have it",
@@ -457,7 +459,6 @@ export default function PassiveTreeMap({
     const node = prepared.data.nodes[focusKey];
     if (node) {
       setSelected(focusKey);
-      onSelect?.(focusKey);
       setView((current) => ({ x: node.x, y: node.y, scale: Math.max(current?.scale ?? 0.2, 0.22) }));
     }
   }
@@ -586,8 +587,11 @@ export default function PassiveTreeMap({
     const rect = event.currentTarget.getBoundingClientRect();
     const hit = hitTest(event.clientX - rect.left, event.clientY - rect.top);
     setSelected(hit);
-    onSelect?.(hit);
   };
+
+  useEffect(() => {
+    onSelect?.(selected);
+  }, [selected, onSelect]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLCanvasElement>) => {
     const step = 120;
@@ -607,6 +611,24 @@ export default function PassiveTreeMap({
     } else if (event.key === "-") {
       event.preventDefault();
       zoomAt(1 / 1.3);
+    } else if (event.key === "Enter" || event.key === " ") {
+      // Con teclado: elige el nodo más cercano al centro de la vista.
+      event.preventDefault();
+      if (!prepared || !view) return;
+      let best: string | null = null;
+      let bestDistance = 60 / view.scale;
+      for (const key of prepared.keys) {
+        const node = prepared.data.nodes[key];
+        if (node.kind === "start") continue;
+        const distance = Math.hypot(node.x - view.x, node.y - view.y);
+        if (distance < bestDistance) {
+          best = key;
+          bestDistance = distance;
+        }
+      }
+      setSelected(best);
+    } else if (event.key === "Escape") {
+      setSelected(null);
     }
   };
 
@@ -636,7 +658,7 @@ export default function PassiveTreeMap({
           ref={canvasRef}
           className="block size-full touch-none cursor-grab active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-primary"
           role="img"
-          aria-label={t.mapLabel(allocated.length, planned.size)}
+          aria-label={`${t.mapLabel(allocated.length, planned.size)} ${t.keyboard}`}
           tabIndex={0}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -667,7 +689,6 @@ export default function PassiveTreeMap({
               const next = fitView();
               if (next) setView(next);
               setSelected(null);
-              onSelect?.(null);
             }}
             aria-label={t.center}
             title={t.center}

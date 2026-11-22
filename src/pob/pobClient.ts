@@ -1,6 +1,11 @@
 /**
  * La página habla con Path of Building 2 a través de este cliente: un solo
  * worker por pestaña, que se crea la primera vez que alguien lo necesita.
+ *
+ * El worker calcula de uno en uno. Mientras calcula, de cada fila («lane»:
+ * el árbol que se ve, el guardado para comparar…) solo espera la última
+ * petición: si llega otra (el jugador sigue tocando el árbol), la anterior se
+ * descarta sin calcularse.
  */
 import type { PobWorkerRequest, PobWorkerResponse } from "./pobProtocol";
 import type { PobAnalyseArgs, PobAnalysis, PobBundleMeta } from "./pobTypes";
@@ -12,6 +17,13 @@ export type PobStatus =
   | { state: "failed"; message: string };
 
 type Listener = (status: PobStatus) => void;
+
+/** Una petición que ya no hace falta porque llegó otra más nueva. */
+export class PobSupersededError extends Error {
+  constructor() {
+    super("superseded");
+  }
+}
 
 const OPT_IN_KEY = "exile-copilot:pob-enabled";
 
@@ -32,11 +44,18 @@ export function rememberPobOptIn(): void {
   }
 }
 
+interface Pending {
+  args: PobAnalyseArgs;
+  resolve: (analysis: PobAnalysis) => void;
+  reject: (error: Error) => void;
+}
+
 class PobClient {
   private worker: Worker | null = null;
   private status: PobStatus = { state: "idle" };
   private readonly listeners = new Set<Listener>();
-  private readonly pending = new Map<number, { resolve: (analysis: PobAnalysis) => void; reject: (error: Error) => void }>();
+  private running: (Pending & { id: number }) | null = null;
+  private readonly queued = new Map<string, Pending>();
   private nextId = 1;
 
   getStatus(): PobStatus {
@@ -65,11 +84,15 @@ class PobClient {
     return worker;
   }
 
+  /** El motor no sirve (no descargó, no arrancó o se rompió): se tira y se puede reintentar. */
   private fail(message: string): void {
     this.worker?.terminate();
     this.worker = null;
-    for (const { reject } of this.pending.values()) reject(new Error(message));
-    this.pending.clear();
+    const error = new Error(message);
+    this.running?.reject(error);
+    for (const pending of this.queued.values()) pending.reject(error);
+    this.running = null;
+    this.queued.clear();
     this.setStatus({ state: "failed", message });
   }
 
@@ -84,19 +107,28 @@ class PobClient {
       case "failed":
         this.fail(message.message);
         break;
-      case "result": {
-        const request = this.pending.get(message.id);
-        this.pending.delete(message.id);
-        request?.resolve(message.analysis);
-        break;
-      }
+      case "result":
       case "error": {
-        const request = this.pending.get(message.id);
-        this.pending.delete(message.id);
-        request?.reject(new Error(message.message));
+        const request = this.running;
+        if (!request || request.id !== message.id) break;
+        this.running = null;
+        if (message.type === "result") request.resolve(message.analysis);
+        else request.reject(new Error(message.message));
+        this.pump();
         break;
       }
     }
+  }
+
+  private pump(): void {
+    if (this.running) return;
+    const [lane, next] = this.queued.entries().next().value ?? [];
+    if (!lane || !next) return;
+    this.queued.delete(lane);
+    const id = this.nextId++;
+    this.running = { ...next, id };
+    const request: PobWorkerRequest = { type: "analyse", id, args: next.args };
+    this.ensureWorker().postMessage(request);
   }
 
   start(): void {
@@ -106,13 +138,12 @@ class PobClient {
     this.ensureWorker().postMessage(request);
   }
 
-  analyse(args: PobAnalyseArgs): Promise<PobAnalysis> {
+  analyse(args: PobAnalyseArgs, lane = "main"): Promise<PobAnalysis> {
     this.start();
-    const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      const request: PobWorkerRequest = { type: "analyse", id, args };
-      this.ensureWorker().postMessage(request);
+      this.queued.get(lane)?.reject(new PobSupersededError());
+      this.queued.set(lane, { args, resolve, reject });
+      this.pump();
     });
   }
 }

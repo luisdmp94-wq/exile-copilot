@@ -9,7 +9,7 @@ import wasmUrl from "lua-wasm-bindings/dist/glue/glue-lua-5.2.4.wasm?url";
 import engineUrl from "../../server/data/pob/engine.json.gz?url";
 import boot from "./engine/boot.lua?raw";
 import commands from "./engine/commands.lua?raw";
-import { PobEngine, type GlueFactory } from "./pobEngine";
+import { PobEngine, PobEngineError, type GlueFactory } from "./pobEngine";
 import type { PobBundle } from "./pobTypes";
 import type { PobWorkerRequest, PobWorkerResponse } from "./pobProtocol";
 
@@ -77,12 +77,26 @@ self.onmessage = (event: MessageEvent<PobWorkerRequest>) => {
   }
   if (request.type === "analyse") {
     engine ??= start();
-    engine
+    const current = engine;
+    current
       .then((ready) => {
-        const analysis = ready.analyse(request.args);
-        post({ type: "result", id: request.id, analysis });
+        try {
+          const analysis = ready.analyse(request.args);
+          post({ type: "result", id: request.id, analysis });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          // Un error de PoB2 con esta build: el motor sigue vivo. Cualquier
+          // otro (WebAssembly abortado, sin memoria) lo deja roto: se tira.
+          if (error instanceof PobEngineError) {
+            post({ type: "error", id: request.id, message });
+          } else {
+            if (engine === current) engine = null;
+            post({ type: "failed", message });
+          }
+        }
       })
       .catch((error: unknown) => {
+        // No llegó a arrancar: ya se avisó con «failed» al empezar.
         post({ type: "error", id: request.id, message: error instanceof Error ? error.message : String(error) });
       });
   }

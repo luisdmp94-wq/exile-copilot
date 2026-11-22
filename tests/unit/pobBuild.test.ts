@@ -12,6 +12,8 @@ import {
   pobContentDigests,
   pobXmlForProfile,
   resistancePenaltyFor,
+  trimPobXml,
+  withoutPobXml,
   type PobBuildData,
   type PobGemInfo,
 } from "../../shared/pobBuild.js";
@@ -164,7 +166,7 @@ describe("la build de PoB2 desde un código importado", () => {
   const imported = profileFromPob(decoded.partial, decoded.warnings, { league: "Estándar", patch: "0.5.5" }).profile;
 
   it("al importar se guardan el XML, los niveles de gema y los atributos elegidos", () => {
-    expect(imported.pobImport?.xml).toBe(xml);
+    expect(imported.pobImport?.xml).toBe(trimPobXml(xml));
     expect(imported.skills.map((skill) => skill.level)).toEqual([11, 11]);
     expect(imported.passives.attributeChoices).toEqual({ "62797": "int" });
     expect(imported.pobImport?.itemsDigest).toBe(pobContentDigests(imported).items);
@@ -211,6 +213,59 @@ describe("la build de PoB2 desde un código importado", () => {
     expect(built.xml).not.toContain('<Spec id="1"');
     expect(built.xml).toMatch(/<Gem nameSpec="Poisonburst Arrow" enabled="true" quality="0" level="20"\/>/);
     expect(built.notes.guessedGemLevels).toBe(1);
+  });
+
+  it("al guardar se recorta a lo que se calcula: sin estadísticas, otros árboles ni otros sets", () => {
+    const big = [
+      "<PathOfBuilding2>",
+      '<Build level="40" className="Witch"><PlayerStat stat="Life" value="1"/></Build>',
+      "<Notes>muchas notas</Notes>",
+      '<Tree activeSpec="2"><Spec nodes="1"/><Spec nodes="54447" treeVersion="0_5" classInternalId="1"><Sockets><Socket nodeId="61419" itemId="7"/></Sockets></Spec></Tree>',
+      '<Skills activeSkillSet="2"><SkillSet id="1"><Skill enabled="true"><Gem nameSpec="Fireball" level="1"/></Skill></SkillSet><SkillSet id="2"><Skill enabled="true" label="vacío"/><Skill enabled="true"><Gem nameSpec="Contagion" level="5"/></Skill></SkillSet></Skills>',
+      '<Items activeItemSet="2"><Item id="1">Rarity: RARE\nViejo\nWithered Wand</Item><Item id="5">Rarity: RARE\nNuevo\nWithered Wand</Item><Item id="7">Rarity: RARE\nJoya\nRuby</Item><ItemSet id="1"><Slot name="Weapon 1" itemId="1"/></ItemSet><ItemSet id="2"><Slot name="Weapon 1" itemId="5"/></ItemSet></Items>',
+      '<Config activeConfigSet="1"><ConfigSet id="1"><Input name="enemyLevel" number="70"/></ConfigSet><ConfigSet id="2"/></Config>',
+      "</PathOfBuilding2>",
+    ].join("\n");
+    const trimmed = trimPobXml(big);
+    expect(trimmed).not.toContain("PlayerStat");
+    expect(trimmed).not.toContain("Notes");
+    expect(trimmed).toContain('<Tree activeSpec="1"><Spec nodes="54447"');
+    expect(trimmed).not.toContain('nameSpec="Fireball"');
+    expect(trimmed).toContain('<Skills activeSkillSet="1"><SkillSet id="1">');
+    // El objeto del set activo y la joya del árbol se quedan; el del otro set, no.
+    expect(trimmed).toContain("Nuevo");
+    expect(trimmed).toContain("Joya");
+    expect(trimmed).not.toContain("Viejo");
+    expect(trimmed).toContain('<Config activeConfigSet="1"><ConfigSet id="1"><Input name="enemyLevel" number="70"/>');
+    // Un grupo vacío (`<Skill …/>`) no descoloca la habilidad principal.
+    const read = readPobXml(big);
+    const witch = profileFromPob(read.partial, read.warnings, { league: "Estándar", patch: "0.5.5" }).profile;
+    expect(pobXmlForProfile(witch, data, { mainSkill: "Contagio" }).mainGroup).toBe(2);
+  });
+
+  it("cambiar objetos en la web deja las joyas en su sitio", () => {
+    const withJewel = [
+      "<PathOfBuilding2>",
+      '<Build level="40" className="Witch"/>',
+      '<Tree activeSpec="1"><Spec nodes="54447" treeVersion="0_5" classInternalId="1"><Sockets><Socket nodeId="61419" itemId="7"/></Sockets></Spec></Tree>',
+      '<Items activeItemSet="1"><Item id="5">Rarity: RARE\nNuevo\nWithered Wand</Item><Item id="7">Rarity: RARE\nJoya\nRuby</Item><ItemSet id="1"><Slot name="Weapon 1" itemId="5"/></ItemSet></Items>',
+      "</PathOfBuilding2>",
+    ].join("\n");
+    const read = readPobXml(withJewel);
+    const witch = profileFromPob(read.partial, read.warnings, { league: "Estándar", patch: "0.5.5" }).profile;
+    const boots = parseItemText(["Item Class: Boots", "Rarity: Rare", "Golem Tread", "Runeforged Quickslip Shoes", "--------", "+40 to maximum Life"].join("\n")).item;
+    const built = pobXmlForProfile({ ...witch, items: [...witch.items, { ...boots, slot: "boots" }] }, data);
+    expect(built.notes.rebuilt).toEqual(["items"]);
+    expect(built.xml).toContain('<Item id="7">');
+    expect(built.xml).toContain('<Socket nodeId="61419" itemId="7"/>');
+    expect(built.xml).toMatch(/<Slot name="Boots" itemId="\d+"\/>/);
+  });
+
+  it("el orden de las habilidades no cuenta como cambio, y el XML no viaja al servidor", () => {
+    const reordered = { ...imported, skills: [...imported.skills].reverse() };
+    expect(pobXmlForProfile(reordered, data).notes.rebuilt).toEqual([]);
+    expect(withoutPobXml(imported).pobImport?.xml).toBeUndefined();
+    expect(withoutPobXml(imported).pobImport?.passiveTreeVersion).toBe(imported.pobImport?.passiveTreeVersion);
   });
 
   it("el código de exportar es zlib en base64url, como el de PoB2", () => {

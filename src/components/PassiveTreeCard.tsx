@@ -2,7 +2,15 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react
 import { Check, Copy, MapPin, Network, Pencil, ShieldPlus, Undo2 } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import { GGG_AFFILIATION_NOTICE, GGG_AFFILIATION_NOTICE_ES } from "@shared/passiveRegistry.js";
-import { classStartFor, exportClassName, nodeName, readAllocated, treeForClass, type TreeGraph } from "@shared/passiveTree.js";
+import {
+  classStartFor,
+  exportClassName,
+  nodeName,
+  nodeStats,
+  readAllocated,
+  treeForClass,
+  type TreeGraph,
+} from "@shared/passiveTree.js";
 import {
   allocateNode,
   deallocateNode,
@@ -78,7 +86,10 @@ const TEXT = texts(
     save: "Guardar mi árbol",
     saving: "Guardando…",
     take: (points: number) => `Coger (${points === 1 ? "1 punto" : `${points} puntos`})`,
-    remove: (count: number) => (count > 1 ? `Quitar (y ${count - 1} que se quedan sueltos)` : "Quitar"),
+    remove: (count: number) => (count > 1 ? `Quitar ${count} nodos` : "Quitar"),
+    removeHelp: (count: number) => `Los ${count - 1} de detrás se quedan sin camino y se quitan también.`,
+    attributeGroup: "Atributo que da este nodo",
+    discard: "¿Tirar los cambios?",
     cantTake: "No se llega desde tu árbol.",
     locked: "Este nodo lo abre otra cosa (una ascendencia o un objeto): no se coge con puntos.",
     choiceFirst: "Primero coge el nodo del que sale esta opción.",
@@ -131,7 +142,10 @@ const TEXT = texts(
     save: "Save my tree",
     saving: "Saving…",
     take: (points: number) => `Take (${points === 1 ? "1 point" : `${points} points`})`,
-    remove: (count: number) => (count > 1 ? `Remove (and ${count - 1} left loose)` : "Remove"),
+    remove: (count: number) => (count > 1 ? `Remove ${count} nodes` : "Remove"),
+    removeHelp: (count: number) => `The ${count - 1} behind it lose their path and go too.`,
+    attributeGroup: "Attribute this node gives",
+    discard: "Throw away the changes?",
     cantTake: "It can't be reached from your tree.",
     locked: "Something else opens this node (an ascendancy or an item): it isn't taken with points.",
     choiceFirst: "Take the node this option comes from first.",
@@ -150,7 +164,7 @@ interface PassiveTreeCardProps {
   /** Abre la revisión rápida para decir la habilidad principal. */
   onSetSkill: () => void;
   /** Guarda el árbol marcado a mano. */
-  onSavePassives: (refs: string[], attributeChoices: Record<string, Attribute>) => Promise<boolean>;
+  onSavePassives: (refs: string[], attributeChoices: Record<string, Attribute>, treeVersion: string | null) => Promise<boolean>;
 }
 
 function joinNames(names: string[], lang: "es" | "en"): string {
@@ -272,32 +286,55 @@ function Step({
 }
 
 interface Draft {
+  /** Lo que el editor no toca y se guarda tal cual: ascendencia y nodos de otra versión del árbol. */
+  keep: string[];
+  /** Inicio de la clase en este árbol (de lo guardado o de la clase). */
+  origin: string;
   allocated: Set<string>;
   choices: Record<string, Attribute>;
   history: Array<{ allocated: Set<string>; choices: Record<string, Attribute> }>;
 }
 
+/** Lo que gana cada notable cercano que probó PoB2 (clave del notable → % de daño y de aguante). */
+function exploreGains(analysis: PobAnalysis | null): Map<string, { damage: number; defence: number; points: number; path: string[] }> {
+  const gains = new Map<string, { damage: number; defence: number; points: number; path: string[] }>();
+  if (!analysis) return gains;
+  for (const entry of analysis.explore) {
+    gains.set(entry.id, {
+      damage: percentGain(damageOf(analysis.main), damageOf(entry.after)),
+      defence: percentGain(analysis.main.ehp, entry.after.ehp),
+      points: entry.points,
+      path: entry.path,
+    });
+  }
+  return gains;
+}
+
 /** Mejores notables cercanos según PoB2: más daño o más aguante por punto. */
-function picksFrom(analysis: PobAnalysis | null, name: (key: string) => string): PobPick[] {
-  if (!analysis || analysis.explore.length === 0) return [];
-  const base = analysis.main;
-  const scored = analysis.explore.map((entry) => ({
-    key: entry.id,
+function picksFrom(
+  gains: ReturnType<typeof exploreGains>,
+  describe: (key: string) => { name: string; stats: string[] },
+): PobPick[] {
+  const scored = [...gains.entries()].map(([key, gain]) => ({ key, ...gain }));
+  const pick = (entry: (typeof scored)[number], kind: PobPick["kind"]): PobPick => ({
+    key: entry.key,
+    ...describe(entry.key),
     points: entry.points,
-    damage: percentGain(damageOf(base), damageOf(entry.after)),
-    defence: percentGain(base.ehp, entry.after.ehp),
-  }));
+    path: entry.path,
+    gain: kind === "damage" ? entry.damage : entry.defence,
+    kind,
+  });
   const damage = scored
     .filter((entry) => entry.damage >= 0.5)
     .sort((a, b) => b.damage / b.points - a.damage / a.points)
     .slice(0, 3)
-    .map((entry): PobPick => ({ key: entry.key, name: name(entry.key), points: entry.points, gain: entry.damage, kind: "damage" }));
-  const taken = new Set(damage.map((pick) => pick.key));
+    .map((entry) => pick(entry, "damage"));
+  const taken = new Set(damage.map((entry) => entry.key));
   const defence = scored
     .filter((entry) => entry.defence >= 0.5 && !taken.has(entry.key))
     .sort((a, b) => b.defence / b.points - a.defence / a.points)
     .slice(0, 2)
-    .map((entry): PobPick => ({ key: entry.key, name: name(entry.key), points: entry.points, gain: entry.defence, kind: "defence" }));
+    .map((entry) => pick(entry, "defence"));
   return [...damage, ...defence];
 }
 
@@ -327,6 +364,8 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   const [saving, setSaving] = useState(false);
   const [pobEnabled, setPobEnabled] = useState(pobOptedIn);
   const [pobSkill, setPobSkill] = useState<string | null>(null);
+  const [pobRetry, setPobRetry] = useState(0);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const pobStatus = usePobStatus();
 
   useEffect(() => {
@@ -369,20 +408,25 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     () => (graph ? savedRefs.filter((ref) => graph.ascendancy.has(ref)) : []),
     [graph, savedRefs],
   );
-  const nameOf = useCallback(
+  const describeNode = useCallback(
     (key: string) => {
       const node = classTree?.nodes[key];
-      return node ? nodeName(node, lang) : key;
+      return node ? { name: nodeName(node, lang), stats: nodeStats(node, lang) } : { name: key, stats: [] };
     },
     [classTree, lang],
   );
 
+  // Un notable de «Lo mejor cerca» que el jugador ha pedido ver: su camino en el mapa.
+  const [pickPreview, setPickPreview] = useState<{ key: string; path: string[] } | null>(null);
   const suggestions: MapSuggestion[] = useMemo(() => {
     if (!data) return [];
     const list = data.offence.map((step, index) => ({ key: step.key, path: step.path, label: String(index + 1) }));
     if (data.defence) list.push({ key: data.defence.key, path: data.defence.path, label: lang === "es" ? "Defensa" : "Defence" });
+    if (pickPreview && !list.some((step) => step.key === pickPreview.key)) {
+      list.push({ key: pickPreview.key, path: pickPreview.path, label: t.pob });
+    }
     return list;
-  }, [data, lang]);
+  }, [data, lang, pickPreview, t.pob]);
 
   const show = (key: string) => {
     setFocus((current) => ({ key, nonce: current.nonce + 1 }));
@@ -398,16 +442,22 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   const beginEditing = () => {
     if (!graph || !start) return;
     const read = readAllocated(graph, savedRefs, profile.characterClass);
+    // El inicio que trae el árbol manda: si no casa con la clase, quitar un
+    // nodo no debe soltar el árbol entero.
+    const origin = read.start ?? start;
     const allocated = new Set(read.allocated);
-    allocated.add(start);
-    setDraft({ allocated, choices: { ...(profile.passives.attributeChoices ?? {}) }, history: [] });
+    allocated.add(origin);
+    const keep = savedRefs.filter((ref) => !(ref in graph.data.nodes) && !graph.keyById.has(ref));
+    setDraft({ keep, origin, allocated, choices: { ...(profile.passives.attributeChoices ?? {}) }, history: [] });
     setSelected(null);
+    setConfirmCancel(false);
   };
 
   const pushDraft = (allocated: Set<string>, choices: Record<string, Attribute>) => {
     setDraft((current) =>
       current
         ? {
+            ...current,
             allocated,
             choices,
             history: [...current.history.slice(-40), { allocated: current.allocated, choices: current.choices }],
@@ -417,8 +467,8 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   };
 
   const take = (key: string) => {
-    if (!graph || !start || !draft) return;
-    const result = allocateNode(graph, draft.allocated, start, key);
+    if (!graph || !draft) return;
+    const result = allocateNode(graph, draft.allocated, draft.origin, key);
     if (!result.ok) return;
     const choices = { ...draft.choices };
     const attribute = defaultAttribute(profile.characterClass);
@@ -429,8 +479,8 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   };
 
   const remove = (key: string) => {
-    if (!graph || !start || !draft) return;
-    const result = deallocateNode(graph, draft.allocated, start, key);
+    if (!graph || !draft) return;
+    const result = deallocateNode(graph, draft.allocated, draft.origin, key);
     if (!result.ok) return;
     const choices = Object.fromEntries(Object.entries(draft.choices).filter(([node]) => result.allocated.has(node)));
     pushDraft(result.allocated, choices);
@@ -445,7 +495,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     setDraft((current) => {
       if (!current || current.history.length === 0) return current;
       const previous = current.history[current.history.length - 1];
-      return { allocated: previous.allocated, choices: previous.choices, history: current.history.slice(0, -1) };
+      return { ...current, allocated: previous.allocated, choices: previous.choices, history: current.history.slice(0, -1) };
     });
   };
 
@@ -453,14 +503,14 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     if (!draft) return null;
     // PoB2 cuenta el inicio de la clase solo si hay algo más cogido.
     const main = draft.allocated.size > 1 ? [...draft.allocated] : [];
-    return [...main, ...ascendancyRefs];
-  }, [draft, ascendancyRefs]);
+    return [...main, ...draft.keep];
+  }, [draft]);
 
   const save = async () => {
     if (!draft || !draftRefs) return;
     setSaving(true);
     const choices = Object.fromEntries(Object.entries(draft.choices).filter(([key]) => draft.allocated.has(key)));
-    const ok = await onSavePassives(draftRefs, choices);
+    const ok = await onSavePassives(draftRefs, choices, data?.tree.version ?? null);
     setSaving(false);
     if (ok) {
       setDraft(null);
@@ -469,58 +519,10 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   };
 
   const editPreview: MapSuggestion[] = useMemo(() => {
-    if (!draft || !graph || !start || !selected || draft.allocated.has(selected)) return [];
-    const path = previewPath(graph, draft.allocated, start, selected);
+    if (!draft || !graph || !selected || draft.allocated.has(selected)) return [];
+    const path = previewPath(graph, draft.allocated, draft.origin, selected);
     return path && path.length > 0 ? [{ key: selected, path, label: `+${path.length}` }] : [];
-  }, [draft, graph, start, selected]);
-
-  const nodeActions = (key: string) => {
-    if (!draft || !graph || !start) return null;
-    const node = graph.data.nodes[key];
-    if (!node || node.kind === "start") return null;
-    if (draft.allocated.has(key)) {
-      const removal = deallocateNode(graph, draft.allocated, start, key);
-      const count = removal.ok ? removal.removed.length : 1;
-      return (
-        <div className="mt-2 flex flex-col gap-2" data-testid="arbol-editar-nodo">
-          {node.kind === "attribute" && (
-            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t.attribute}>
-              <span className="text-xs text-muted-foreground">{t.attribute}:</span>
-              {(["str", "dex", "int"] as const).map((attribute) => (
-                <button
-                  key={attribute}
-                  type="button"
-                  onClick={() => chooseAttribute(key, attribute)}
-                  aria-pressed={(draft.choices[key] ?? defaultAttribute(profile.characterClass)) === attribute}
-                  className={cn(
-                    "rounded-full border px-2.5 py-0.5 text-xs",
-                    (draft.choices[key] ?? defaultAttribute(profile.characterClass)) === attribute
-                      ? "border-primary bg-primary/20 text-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {t.attributes[attribute]}
-                </button>
-              ))}
-            </div>
-          )}
-          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => remove(key)} data-testid="arbol-quitar">
-            {t.remove(count)}
-          </Button>
-        </div>
-      );
-    }
-    if (node.locked) return <p className="mt-2 text-xs text-muted-foreground">{t.locked}</p>;
-    const path = previewPath(graph, draft.allocated, start, key);
-    if (path === null) {
-      return <p className="mt-2 text-xs text-muted-foreground">{node.choiceOf !== undefined ? t.choiceFirst : t.cantTake}</p>;
-    }
-    return (
-      <Button type="button" size="sm" className="mt-2" onClick={() => take(key)} data-testid="arbol-coger">
-        {t.take(path.length)}
-      </Button>
-    );
-  };
+  }, [draft, graph, selected]);
 
   // ---------------------------------------------------------------------------
   // Path of Building 2
@@ -553,9 +555,11 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
         : profile,
     [profile, draft],
   );
+  // Con árbol guardado se espera a las sugerencias: así se calcula una vez, con sus caminos.
+  const adviceSettled = !hasTree || data !== null || failedKey === requestKey;
   const currentRequest: PobRequest | null = useMemo(
     () =>
-      hasTree || draftRefs
+      draftRefs || (hasTree && adviceSettled)
         ? {
             profile: pobProfile,
             mainSkill,
@@ -564,14 +568,14 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
             explorePoints: 6,
           }
         : null,
-    [hasTree, draftRefs, pobProfile, mainSkill, candidates],
+    [hasTree, adviceSettled, draftRefs, pobProfile, mainSkill, candidates],
   );
   const baselineRequest: PobRequest | null = useMemo(
     () => (draft && hasTree ? { profile, mainSkill } : null),
     [draft, hasTree, profile, mainSkill],
   );
-  const current = usePobAnalysis(currentRequest, pobEnabled);
-  const baseline = usePobAnalysis(baselineRequest, pobEnabled && draft !== null);
+  const current = usePobAnalysis(currentRequest, pobEnabled, pobRetry);
+  const baseline = usePobAnalysis(baselineRequest, pobEnabled && draft !== null, pobRetry, "baseline");
 
   const stepPob = useMemo(() => {
     const result = new Map<string, StepPob>();
@@ -586,10 +590,75 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     return result;
   }, [current.result, draft]);
 
-  const picks = useMemo(() => picksFrom(current.result?.analysis ?? null, nameOf), [current.result, nameOf]);
+  const gains = useMemo(() => exploreGains(current.result?.analysis ?? null), [current.result]);
+  const picks = useMemo(() => picksFrom(gains, describeNode), [gains, describeNode]);
+
+  const nodeActions = (key: string) => {
+    if (!draft || !graph) return null;
+    const node = graph.data.nodes[key];
+    if (!node || node.kind === "start") return null;
+    if (draft.allocated.has(key)) {
+      const removal = deallocateNode(graph, draft.allocated, draft.origin, key);
+      const count = removal.ok ? removal.removed.length : 1;
+      return (
+        <div className="mt-2 flex flex-col gap-2" data-testid="arbol-editar-nodo">
+          {node.kind === "attribute" && (
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t.attributeGroup}>
+              <span className="text-xs text-muted-foreground">{t.attribute}:</span>
+              {(["str", "dex", "int"] as const).map((attribute) => (
+                <button
+                  key={attribute}
+                  type="button"
+                  onClick={() => chooseAttribute(key, attribute)}
+                  aria-pressed={(draft.choices[key] ?? defaultAttribute(profile.characterClass)) === attribute}
+                  className={cn(
+                    "rounded-full border px-2.5 py-0.5 text-xs",
+                    (draft.choices[key] ?? defaultAttribute(profile.characterClass)) === attribute
+                      ? "border-primary bg-primary/20 text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.attributes[attribute]}
+                </button>
+              ))}
+            </div>
+          )}
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => remove(key)} data-testid="arbol-quitar">
+            {t.remove(count)}
+          </Button>
+          {count > 1 && <p className="text-xs text-muted-foreground">{t.removeHelp(count)}</p>}
+        </div>
+      );
+    }
+    if (node.locked) return <p className="mt-2 text-xs text-muted-foreground">{t.locked}</p>;
+    const path = previewPath(graph, draft.allocated, draft.origin, key);
+    if (path === null) {
+      return <p className="mt-2 text-xs text-muted-foreground">{node.choiceOf !== undefined ? t.choiceFirst : t.cantTake}</p>;
+    }
+    const gain = gains.get(key);
+    const number = new Intl.NumberFormat(lang === "es" ? "es-ES" : "en-GB", { maximumFractionDigits: 1, signDisplay: "always" });
+    const pobLine = gain
+      ? [
+          Math.abs(gain.damage) >= 0.05 ? t.pobDamage(number.format(gain.damage)) : null,
+          Math.abs(gain.defence) >= 0.05 ? t.pobDefence(number.format(gain.defence)) : null,
+        ].filter(Boolean)
+      : [];
+    return (
+      <div className="mt-2 flex flex-col items-start gap-1.5">
+        {pobLine.length > 0 && (
+          <p className="text-xs tabular-nums text-primary" data-testid="arbol-nodo-pob">
+            {t.pob}: {pobLine.join(" · ")}
+          </p>
+        )}
+        <Button type="button" size="sm" onClick={() => take(key)} data-testid="arbol-coger">
+          {t.take(path.length)}
+        </Button>
+      </div>
+    );
+  };
 
   // PoB2 nombra la habilidad en inglés: en español se enseña como en el juego.
-  const pobData = usePobData(pobEnabled);
+  const { data: pobData } = usePobData(pobEnabled);
   const computedSkill = useMemo(() => {
     const skill = current.result?.analysis.skill;
     if (!skill?.name) return null;
@@ -607,6 +676,12 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     pobClient.start();
   };
 
+  // Lo que cambiaría el código de exportar: si cambia, el código viejo se borra.
+  const exportKey = useMemo(
+    () => JSON.stringify([profile.id, profile.level, draftRefs ?? savedRefs, draft?.choices ?? profile.passives.attributeChoices ?? null, mainSkill]),
+    [profile.id, profile.level, draftRefs, savedRefs, draft, profile.passives.attributeChoices, mainSkill],
+  );
+
   const makeCode = async () => {
     const pobData = await loadPobData();
     const built = pobXmlForProfile(pobProfile, pobData, { mainSkill, ...(draftRefs ? { passives: draftRefs } : {}) });
@@ -615,6 +690,13 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
 
   const takePick = (key: string) => {
     take(key);
+    show(key);
+  };
+
+  // «Ver» en «Lo mejor cerca»: fuera del editor, el camino del notable se pinta en el mapa.
+  const showPick = (key: string) => {
+    const gain = gains.get(key);
+    if (!draft && gain) setPickPreview({ key, path: gain.path });
     show(key);
   };
 
@@ -650,11 +732,15 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
       status={pobStatus}
       enabled={pobEnabled}
       onEnable={enablePob}
-      onRetry={() => pobClient.start()}
+      onRetry={() => {
+        pobClient.start();
+        setPobRetry((value) => value + 1);
+      }}
       busy={current.busy}
+      stale={current.stale}
       error={current.error}
       analysis={current.result?.analysis ?? null}
-      baseline={baseline.result?.analysis ?? null}
+      baseline={baseline.stale ? null : (baseline.result?.analysis ?? null)}
       notes={current.result?.notes ?? null}
       skills={damageSkills}
       skill={mainSkill}
@@ -662,9 +748,10 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
       computedSkill={computedSkill}
       picks={picks}
       editing={editing}
-      onShowNode={show}
+      onShowNode={showPick}
       onTakeNode={takePick}
       makeCode={makeCode}
+      exportKey={exportKey}
       version={pobStatus.state === "ready" ? pobStatus.meta.pobVersion : null}
     />
   );
@@ -677,12 +764,22 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
           {t.editingTitle}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">{t.editingHelp}</p>
-        <p className="mt-2 text-sm tabular-nums text-foreground" data-testid="arbol-puntos">
-          {t.pointsUsed(used, maxPoints, level)}
-        </p>
-        {used > maxPoints && <p className="text-xs text-amber-200">{t.pointsOver}</p>}
-        {ascendancyRefs.length > 0 && <p className="text-xs text-muted-foreground">{t.ascendancyKept(ascendancyRefs.length)}</p>}
-        <div className="mt-2 flex flex-wrap gap-2">
+        {ascendancyRefs.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{t.ascendancyKept(ascendancyRefs.length)}</p>}
+      </div>
+      {map([...draft.allocated], editPreview)}
+      {pobPanel}
+      {/* Siempre a mano: en el móvil el editor es largo y guardar no puede quedarse arriba. */}
+      <div
+        className="sticky bottom-3 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-emerald-400/40 bg-card/95 p-2.5 shadow-lg backdrop-blur"
+        data-testid="arbol-barra"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-sm tabular-nums text-foreground" data-testid="arbol-puntos">
+            {t.pointsUsed(used, maxPoints, level)}
+          </p>
+          {used > maxPoints && <p className="text-xs text-amber-200">{t.pointsOver}</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" onClick={() => void save()} disabled={saving} data-testid="arbol-guardar">
             {saving ? t.saving : t.save}
           </Button>
@@ -692,19 +789,24 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant={confirmCancel ? "destructive" : "ghost"}
             size="sm"
             onClick={() => {
+              // Con cambios hechos, el primer toque pregunta y el segundo los tira.
+              if (draft.history.length > 0 && !confirmCancel) {
+                setConfirmCancel(true);
+                return;
+              }
               setDraft(null);
               setSelected(null);
+              setConfirmCancel(false);
             }}
+            onBlur={() => setConfirmCancel(false)}
           >
-            {t.cancel}
+            {confirmCancel ? t.discard : t.cancel}
           </Button>
         </div>
       </div>
-      {map([...draft.allocated], editPreview)}
-      {pobPanel}
     </div>
   );
 

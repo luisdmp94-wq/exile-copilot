@@ -98,12 +98,38 @@ export function digest(value: unknown): string {
   return hash.toString(36);
 }
 
-/** Lo que cuenta de los objetos y gemas para saber si el jugador los cambió. */
+/**
+ * Lo que cuenta de los objetos y gemas para saber si el jugador los cambió en
+ * la web. No depende del orden (la revisión rápida reordena las habilidades).
+ * Empieza por «2:»; las huellas viejas (sin prefijo) se comparan con la fórmula vieja.
+ */
 export function pobContentDigests(profile: Pick<CharacterProfile, "items" | "skills">): { items: string; skills: string } {
+  const items = profile.items.map((item) => JSON.stringify([item.slot, item.rawText ?? item.name, item.baseType])).sort();
+  const skills = profile.skills
+    .map((skill) => JSON.stringify([plain(skill.mainSkill), skill.supports.map((support) => plain(support.name)).sort()]))
+    .sort();
+  return { items: `2:${digest(items)}`, skills: `2:${digest(skills)}` };
+}
+
+function legacyContentDigests(profile: Pick<CharacterProfile, "items" | "skills">): { items: string; skills: string } {
   return {
     items: digest(profile.items.map((item) => [item.slot, item.rawText ?? item.name, item.baseType])),
     skills: digest(profile.skills.map((skill) => [skill.mainSkill, skill.level ?? null, skill.supports.map((support) => support.name)])),
   };
+}
+
+function unchangedSinceImport(saved: string | undefined, profile: CharacterProfile, part: "items" | "skills"): boolean {
+  if (!saved) return true;
+  const now = saved.startsWith("2:") ? pobContentDigests(profile) : legacyContentDigests(profile);
+  return now[part] === saved;
+}
+
+/** El personaje sin el XML de PoB2: lo que viaja al Mentor y a las recomendaciones, que no lo usan. */
+export function withoutPobXml<T extends Pick<CharacterProfile, "pobImport">>(profile: T): T {
+  if (!profile.pobImport?.xml) return profile;
+  const { xml: _xml, ...rest } = profile.pobImport;
+  void _xml;
+  return { ...profile, pobImport: rest };
 }
 
 // ---------------------------------------------------------------------------
@@ -317,10 +343,21 @@ function gemXml(gem: PobGemInfo, level: number, quality: number): string {
 }
 
 function itemsXml(profile: CharacterProfile, data: PobBuildData, notes: PobXmlNotes): string {
+  const { items, slots } = itemEntries(profile, data, notes, 1);
+  return `<Items activeItemSet="1">${items.join("")}<ItemSet id="1">${slots.join("")}</ItemSet></Items>`;
+}
+
+/** Los objetos de la ficha como `<Item>` (con ids desde `firstId`) y sus `<Slot>`. */
+function itemEntries(
+  profile: CharacterProfile,
+  data: PobBuildData,
+  notes: PobXmlNotes,
+  firstId: number,
+): { items: string[]; slots: string[] } {
   const used = new Map<string, number>();
   const items: string[] = [];
   const slots: string[] = [];
-  let id = 0;
+  let id = firstId - 1;
   for (const item of profile.items) {
     const names = SLOT_NAMES[item.slot];
     if (!names) continue;
@@ -346,7 +383,7 @@ function itemsXml(profile: CharacterProfile, data: PobBuildData, notes: PobXmlNo
     items.push(`<Item id="${id}">\n${escapeXml(text)}\n</Item>`);
     slots.push(`<Slot name="${slotName}" itemId="${id}"/>`);
   }
-  return `<Items activeItemSet="1">${items.join("")}<ItemSet id="1">${slots.join("")}</ItemSet></Items>`;
+  return { items, slots };
 }
 
 function mainGroupIndex(groups: Array<{ mainName: string | null }>, data: PobBuildData, mainSkill: string | null | undefined): number {
@@ -426,50 +463,165 @@ function attributeOverrideXml(choices: Record<string, "str" | "dex" | "int">, no
   return `<AttributeOverride strNodes="${byAttribute("str")}" dexNodes="${byAttribute("dex")}" intNodes="${byAttribute("int")}"/>`;
 }
 
-/** Aplica `change` al n-ésimo `<Spec>` (1 = el primero), con o sin cuerpo. */
-function patchSpec(xml: string, index: number, change: (spec: string) => string): string {
-  let seen = 0;
-  return xml.replace(/<Spec\b[^>]*?(?:\/>|>[\s\S]*?<\/Spec>)/g, (spec) => {
-    seen++;
-    return seen === index ? change(spec) : spec;
-  });
-}
-
 function setAttribute(tag: string, name: string, value: string): string {
   const pattern = new RegExp(`\\s${name}="[^"]*"`);
   const replacement = ` ${name}="${escapeXml(value)}"`;
   return pattern.test(tag) ? tag.replace(pattern, replacement) : tag.replace(/\s*\/?>$/, (end) => `${replacement}${end}`);
 }
 
-/** Los grupos de habilidades del XML importado, con el nombre de su primera gema. */
-function importedGroups(xml: string): Array<{ mainName: string | null }> {
-  const skills = /<Skills\b[^>]*>([\s\S]*?)<\/Skills>/.exec(xml)?.[1] ?? "";
-  const activeSet = /activeSkillSet="(\d+)"/.exec(/<Skills\b[^>]*>/.exec(xml)?.[0] ?? "")?.[1] ?? "1";
-  const sets = [...skills.matchAll(/<SkillSet\b[^>]*\bid="(\d+)"[^>]*>([\s\S]*?)<\/SkillSet>/g)];
-  const body = sets.find((set) => set[1] === activeSet)?.[2] ?? sets[0]?.[2] ?? skills;
-  return [...body.matchAll(/<Skill\b[^>]*>([\s\S]*?)<\/Skill>/g)].map((match) => ({
-    mainName: /<Gem\b[^>]*\bnameSpec="([^"]*)"/.exec(match[1])?.[1] ?? null,
+interface XmlElement {
+  /** El elemento entero, de `<Tag` a `</Tag>` (o `/>`). */
+  full: string;
+  /** Solo la etiqueta de apertura. */
+  open: string;
+  /** Lo de dentro (vacío si se cierra solo). */
+  body: string;
+}
+
+/** Los `<tag>` de un trozo de XML, con o sin cuerpo (no sirve para etiquetas anidadas iguales). */
+function xmlElements(xml: string, tag: string): XmlElement[] {
+  const pattern = new RegExp(`<${tag}\\b[^>]*?(?:\\/>|>([\\s\\S]*?)<\\/${tag}>)`, "g");
+  return [...xml.matchAll(pattern)].map((match) => ({
+    full: match[0],
+    open: /^<[^>]*>/.exec(match[0])?.[0] ?? match[0],
+    body: match[1] ?? "",
   }));
+}
+
+function xmlAttribute(open: string, name: string): string | null {
+  return new RegExp(`\\s${name}="([^"]*)"`).exec(open)?.[1] ?? null;
+}
+
+/** De varios `<Set>` dentro de `parent`, el activo, ya con id 1 y el padre apuntando a él. */
+function keepActiveSet(parent: XmlElement, setTag: string, activeAttribute: string): { open: string; set: XmlElement } | null {
+  const sets = xmlElements(parent.body, setTag);
+  if (sets.length === 0) return null;
+  const activeId = xmlAttribute(parent.open, activeAttribute) ?? "1";
+  const set = sets.find((candidate) => xmlAttribute(candidate.open, "id") === activeId) ?? sets[0];
+  const open = set.open;
+  const renamed = setAttribute(open, "id", "1");
+  return {
+    open: setAttribute(parent.open, activeAttribute, "1"),
+    set: { full: renamed + set.full.slice(open.length), open: renamed, body: set.body },
+  };
+}
+
+/**
+ * El XML de PoB2 recortado a lo que se calcula: el árbol, el equipo, las
+ * gemas y la configuración activos (sin notas, sin estadísticas guardadas,
+ * sin los otros árboles o sets). Así el personaje cabe en lo que guarda la web
+ * y PoB2 no intenta cargar árboles de versiones que el motor no lleva.
+ */
+export function trimPobXml(xml: string): string {
+  const root = /<PathOfBuilding2\b[^>]*>/.exec(xml)?.[0] ?? "<PathOfBuilding2>";
+  const parts: string[] = [];
+
+  const build = xmlElements(xml, "Build")[0];
+  if (build) parts.push(build.full.replace(/\s*<PlayerStat\b[^>]*\/>/g, ""));
+
+  const tree = xmlElements(xml, "Tree")[0];
+  let spec: XmlElement | null = null;
+  if (tree) {
+    const specs = xmlElements(tree.body, "Spec");
+    spec = specs[Number(xmlAttribute(tree.open, "activeSpec") ?? "1") - 1] ?? specs[0] ?? null;
+    if (spec) parts.push(`<Tree activeSpec="1">${spec.full}</Tree>`);
+  }
+
+  const skills = xmlElements(xml, "Skills")[0];
+  if (skills) {
+    const active = keepActiveSet(skills, "SkillSet", "activeSkillSet");
+    parts.push(active ? `${active.open}${active.set.full}</Skills>` : skills.full);
+  }
+
+  const items = xmlElements(xml, "Items")[0];
+  if (items) {
+    const active = keepActiveSet(items, "ItemSet", "activeItemSet");
+    if (active) {
+      // Solo los objetos que se usan: los del set activo y las joyas del árbol.
+      const used = new Set<string>();
+      for (const slot of xmlElements(active.set.body, "Slot")) used.add(xmlAttribute(slot.open, "itemId") ?? "");
+      for (const socket of xmlElements(spec?.body ?? "", "Socket")) used.add(xmlAttribute(socket.open, "itemId") ?? "");
+      used.delete("0");
+      const kept = xmlElements(items.body, "Item").filter((item) => used.has(xmlAttribute(item.open, "id") ?? ""));
+      parts.push(`${active.open}${kept.map((item) => item.full).join("")}${active.set.full}</Items>`);
+    } else {
+      parts.push(items.full);
+    }
+  }
+
+  const config = xmlElements(xml, "Config")[0];
+  if (config) {
+    const active = keepActiveSet(config, "ConfigSet", "activeConfigSet");
+    parts.push(active ? `${active.open}${active.set.full}</Config>` : config.full);
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${root}\n${parts.join("\n")}\n</PathOfBuilding2>`;
+}
+
+/** Los grupos de habilidades del XML (ya recortado), con el nombre de su primera gema. */
+function importedGroups(xml: string): Array<{ mainName: string | null }> {
+  const skills = xmlElements(xml, "Skills")[0];
+  if (!skills) return [];
+  const set = xmlElements(skills.body, "SkillSet")[0];
+  return xmlElements(set ? set.body : skills.body, "Skill").map((skill) => ({
+    mainName: /<Gem\b[^>]*\bnameSpec="([^"]*)"/.exec(skill.body)?.[1] ?? null,
+  }));
+}
+
+/**
+ * Objetos cambiados en la web: los de la ficha entran con ids nuevos y ocupan
+ * sus huecos; los demás objetos (las joyas del árbol, por ejemplo) se quedan.
+ */
+function patchImportedItems(xml: string, profile: CharacterProfile, data: PobBuildData, notes: PobXmlNotes): string {
+  const items = xmlElements(xml, "Items")[0];
+  if (!items) return xml.replace(/<\/PathOfBuilding2>\s*$/, `${itemsXml(profile, data, notes)}\n</PathOfBuilding2>`);
+  const existing = xmlElements(items.body, "Item");
+  const maxId = Math.max(0, ...existing.map((item) => Number(xmlAttribute(item.open, "id") ?? "0") || 0));
+  const { items: added, slots } = itemEntries(profile, data, notes, maxId + 1);
+  const managed = new Set(Object.values(SLOT_NAMES).flat());
+  const set = xmlElements(items.body, "ItemSet")[0];
+  const keptSlots = set
+    ? xmlElements(set.body, "Slot")
+        .filter((slot) => !managed.has(xmlAttribute(slot.open, "name") ?? ""))
+        .map((slot) => slot.full)
+    : [];
+  const setOpen = set ? set.open.replace(/\/>$/, ">") : '<ItemSet id="1">';
+  const next = `${setAttribute(items.open, "activeItemSet", "1")}${existing.map((item) => item.full).join("")}${added.join("")}${setOpen}${keptSlots.join("")}${slots.join("")}</ItemSet></Items>`;
+  return xml.replace(items.full, () => next);
+}
+
+/**
+ * Gemas añadidas en la web: entran como grupos nuevos. Lo que ya estaba en el
+ * código (niveles, calidades, soportes, grupos de objetos) no se toca.
+ */
+function appendImportedSkills(xml: string, profile: CharacterProfile, data: PobBuildData, notes: PobXmlNotes): { xml: string; added: number } {
+  const present = new Set([...xml.matchAll(/<Gem\b[^>]*\bnameSpec="([^"]*)"/g)].map((match) => plain(match[1])));
+  const missing = skillGroupsXml(profile, data, notes).filter((group) => group.mainName && !present.has(plain(group.mainName)));
+  if (missing.length === 0) return { xml, added: 0 };
+  const groups = missing.map((group) => group.xml).join("");
+  if (/<\/SkillSet>/.test(xml)) return { xml: xml.replace(/<\/SkillSet>/, () => `${groups}</SkillSet>`), added: missing.length };
+  if (/<\/Skills>/.test(xml)) return { xml: xml.replace(/<\/Skills>/, () => `${groups}</Skills>`), added: missing.length };
+  return {
+    xml: xml.replace(/<\/PathOfBuilding2>\s*$/, () => `<Skills activeSkillSet="1"><SkillSet id="1">${groups}</SkillSet></Skills>\n</PathOfBuilding2>`),
+    added: missing.length,
+  };
 }
 
 /** XML importado de PoB2, con lo que el jugador cambió en la web encima. */
 function xmlFromImport(profile: CharacterProfile, data: PobBuildData, options: PobXmlOptions, imported: string): PobXmlResult {
   const notes = emptyNotes("import");
-  let xml = imported;
-  const digests = pobContentDigests(profile);
+  // Los perfiles guardados antes de recortar al importar traen el XML entero.
+  let xml = trimPobXml(imported);
   const saved = profile.pobImport;
 
-  if (saved?.itemsDigest && saved.itemsDigest !== digests.items) {
-    xml = xml.replace(/<Items\b[\s\S]*?<\/Items>/, itemsXml(profile, data, notes));
+  if (!unchangedSinceImport(saved?.itemsDigest, profile, "items")) {
+    xml = patchImportedItems(xml, profile, data, notes);
     notes.rebuilt.push("items");
   }
-  if (saved?.skillsDigest && saved.skillsDigest !== digests.skills) {
-    const groups = skillGroupsXml(profile, data, notes);
-    xml = xml.replace(
-      /<Skills\b[\s\S]*?<\/Skills>/,
-      `<Skills activeSkillSet="1" defaultGemLevel="characterLevel"><SkillSet id="1">${groups.map((group) => group.xml).join("")}</SkillSet></Skills>`,
-    );
-    notes.rebuilt.push("skills");
+  if (!unchangedSinceImport(saved?.skillsDigest, profile, "skills")) {
+    const appended = appendImportedSkills(xml, profile, data, notes);
+    xml = appended.xml;
+    if (appended.added > 0) notes.rebuilt.push("skills");
   }
 
   const groups = importedGroups(xml);
@@ -491,15 +643,12 @@ function xmlFromImport(profile: CharacterProfile, data: PobBuildData, options: P
     setAttribute(setAttribute(tag, "level", String(level)), "mainSocketGroup", String(mainGroup)),
   );
 
-  // El árbol: el de la web (puede haberlo editado), en el Spec activo.
+  // El árbol: el de la web (puede haberlo editado).
   const nodes = nodeKeys(options.passives ?? profile.passives.allocated.map((node) => node.ref), data);
-  const treeTag = /<Tree\b[^>]*>/.exec(xml)?.[0] ?? "";
-  const activeSpec = Number(/activeSpec="(\d+)"/.exec(treeTag)?.[1] ?? "1");
   const choices = options.attributeChoices ?? profile.passives.attributeChoices;
   const pobClass = pobClassFor(data, profile.characterClass);
   const ascendancy = pobAscendancyFor(pobClass, profile.ascendancy);
-  let activeSpecXml: string | null = null;
-  patchSpec(xml, activeSpec, (spec) => {
+  const patchTree = (spec: string): string => {
     const open = /^<Spec\b[^>]*?(?=\/?>)/.exec(spec)?.[0] ?? "<Spec";
     let tag = setAttribute(`${open}>`, "nodes", nodes.join(","));
     // Códigos viejos o hechos a mano sin la clase en el árbol: PoB2 los rechaza.
@@ -518,14 +667,15 @@ function xmlFromImport(profile: CharacterProfile, data: PobBuildData, options: P
       else if (next.endsWith("/>")) next = `${next.slice(0, -2)}><Overrides>${override}</Overrides></Spec>`;
       else next = next.replace(/<\/Spec>$/, `<Overrides>${override}</Overrides></Spec>`);
     }
-    activeSpecXml = next;
     return next;
-  });
-  // Solo el árbol activo: PoB2 carga también los demás, y en versiones viejas
-  // que el motor no lleva.
-  if (activeSpecXml !== null) {
-    const kept: string = activeSpecXml;
-    xml = xml.replace(/<Tree\b[^>]*>[\s\S]*?<\/Tree>/, () => `<Tree activeSpec="1">${kept}</Tree>`);
+  };
+  const spec = xmlElements(xml, "Spec")[0];
+  if (spec) {
+    const patched = patchTree(spec.full);
+    xml = xml.replace(spec.full, () => patched);
+  } else {
+    const patched = patchTree(`<Spec nodes=""/>`);
+    xml = xml.replace(/<\/PathOfBuilding2>\s*$/, () => `<Tree activeSpec="1">${patched}</Tree>\n</PathOfBuilding2>`);
   }
   return { xml, notes, mainGroup, mainSkill: groups[mainGroup - 1]?.mainName ?? null };
 }

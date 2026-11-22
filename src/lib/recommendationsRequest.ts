@@ -6,6 +6,7 @@ import type {
   GoalKind,
 } from "@shared/domain.js";
 import { buildRecommendationMemory } from "@shared/journalMemory.js";
+import { withoutPobXml } from "@shared/pobBuild.js";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { buildTargetFromDraft } from "@/lib/buildTarget";
 
@@ -23,7 +24,8 @@ export function buildRecommendationsRequest(
   journal: CharacterJournal | null,
 ): RecommendationsRequest {
   return {
-    profile,
+    // El XML de PoB2 solo lo usa el motor del navegador: no viaja al servidor.
+    profile: withoutPobXml(profile),
     target: buildTargetFromDraft(targetDraft),
     budget,
     goal: { kind: goal },

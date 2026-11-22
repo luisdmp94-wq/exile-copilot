@@ -1,3 +1,4 @@
+import { trimPobXml } from "../../shared/pobBuild.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
@@ -113,7 +114,7 @@ describe("pob adapter — procedencia de versión", () => {
       passiveTreeVersion: "0_5",
     });
     // El XML entero se guarda para calcular con el motor de PoB2 en la web.
-    expect(result.profile?.pobImport?.xml).toBe(xml);
+    expect(result.profile?.pobImport?.xml).toBe(trimPobXml(xml));
     expect(result.profile?.sources[0]?.label).toContain("compatibilidad 0_1 · árbol 0_5");
   });
 

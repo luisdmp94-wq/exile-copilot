@@ -3,10 +3,14 @@ import {
   type CharacterProfile,
 } from "../../shared/domain.js";
 import type { PobPartial } from "../adapters/pobXml.js";
-import { pobContentDigests } from "../../shared/pobBuild.js";
+import { pobContentDigests, trimPobXml } from "../../shared/pobBuild.js";
 
-/** El XML se guarda para el motor de PoB2 si cabe (el esquema admite 2 MB). */
-const MAX_STORED_XML = 2_000_000;
+/**
+ * El XML se guarda recortado a lo que se calcula (árbol, equipo, gemas y
+ * configuración activos) y solo si es razonable: el personaje entero no puede
+ * pasar de 512 KiB al guardarse. Si no cabe, la web escribe la build desde la ficha.
+ */
+const MAX_STORED_XML = 250_000;
 
 /**
  * Personaje a partir de lo leído en un código PoB2, sin dependencias de Node:
@@ -23,6 +27,12 @@ function versionFamily(value: string | undefined): string | null {
   if (!value) return null;
   const match = /^\s*(\d+)[_.](\d+)/.exec(value);
   return match ? `${match[1]}.${match[2]}` : null;
+}
+
+function storedXml(partial: PobPartial): { xml?: string; itemsDigest?: string; skillsDigest?: string } {
+  if (!partial.xml) return {};
+  const xml = trimPobXml(partial.xml);
+  return xml.length <= MAX_STORED_XML ? { xml, ...digestsOf(partial) } : {};
 }
 
 function digestsOf(partial: PobPartial): { itemsDigest: string; skillsDigest: string } {
@@ -80,9 +90,7 @@ export function profileFromPob(
             ...(partial.passiveTreeVersion
               ? { passiveTreeVersion: partial.passiveTreeVersion }
               : {}),
-            ...(partial.xml && partial.xml.length <= MAX_STORED_XML
-              ? { xml: partial.xml, ...digestsOf(partial) }
-              : {}),
+            ...storedXml(partial),
           },
         }
       : {}),

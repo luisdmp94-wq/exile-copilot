@@ -186,7 +186,11 @@ export interface CharacterState {
   /** Apunta en el personaje cargado que esa habilidad ya lleva esa asistencia, y guarda. */
   rememberSupport: (skillName: string, supportName: string) => Promise<boolean>;
   /** Guarda el árbol marcado a mano (claves del árbol) y los atributos elegidos. */
-  savePassives: (refs: string[], attributeChoices: Record<string, "str" | "dex" | "int">) => Promise<boolean>;
+  savePassives: (
+    refs: string[],
+    attributeChoices: Record<string, "str" | "dex" | "int">,
+    treeVersion: string | null,
+  ) => Promise<boolean>;
   /** Completa el personaje cargado con los datos del alta corta y lo guarda. */
   completeQuick: (input: QuickCharacterInput) => Promise<CharacterProfile | null>;
   importBuild: (
@@ -660,10 +664,12 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
   );
 
   const savePassives = useCallback(
-    async (refs: string[], attributeChoices: Record<string, "str" | "dex" | "int">) => {
+    async (refs: string[], attributeChoices: Record<string, "str" | "dex" | "int">, treeVersion: string | null) => {
       if (!profile) return false;
       const next: CharacterProfile = {
         ...profile,
+        // Marcado sobre el árbol de la web: el aviso «tu código es de otro árbol» ya no aplica.
+        ...(profile.pobImport && treeVersion ? { pobImport: { ...profile.pobImport, passiveTreeVersion: treeVersion } } : {}),
         passives: {
           allocated: refs.map((ref) => ({ ref, isOfficialId: false })),
           ...(Object.keys(attributeChoices).length > 0 ? { attributeChoices } : {}),

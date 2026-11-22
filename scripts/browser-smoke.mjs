@@ -1881,6 +1881,7 @@ async function runFlow(mode, port) {
         "datos del parche anterior",
       ) && (await page.getByTestId("mentor-preguntar").count()) === 0,
     );
+    if (runtimeErrors.length > 0) console.log(`   errores: ${JSON.stringify(runtimeErrors.slice(0, 5), null, 2)}`);
     check(
       `[${mode}] recorrido completo sin errores de navegador ni API`,
       runtimeErrors.length === 0,
