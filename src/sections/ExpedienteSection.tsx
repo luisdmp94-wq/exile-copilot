@@ -15,6 +15,7 @@ const TEXT = texts(
     unverified: (count: number) =>
       `${count} dato(s) sin verificar — ver «Evidencia y limitaciones»`,
     editProfile: "Editar personaje",
+    editHint: "Nivel, resistencias y habilidades: rellénalo rápido con una captura o un código de PoB2.",
     restoring: "Restaurando tu último personaje…",
   },
   {
@@ -22,6 +23,7 @@ const TEXT = texts(
     unverified: (count: number) =>
       `${count} unverified ${count === 1 ? "detail" : "details"} — see “Evidence and limits”`,
     editProfile: "Edit character",
+    editHint: "Level, resistances and skills: fill them in fast with a screenshot or a PoB2 code.",
     restoring: "Restoring your last character…",
   },
 );
@@ -149,12 +151,26 @@ export function ExpedienteSection({
       {/* Nombre, clase, nivel y estado de guardado viven en la franja del
           personaje (CharacterStrip), visible en las tres áreas. */}
       <div className="flex flex-col gap-1.5">
-        <h2
-          id="expediente-equipo-titulo"
-          className="dossier-title text-lg font-semibold leading-tight text-foreground"
-        >
-          {t.equipment}
-        </h2>
+        {/* El editor va arriba y destacado: abajo del todo, tras el equipo y la
+            memoria de la build, casi no se veía. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2
+            id="expediente-equipo-titulo"
+            className="dossier-title text-lg font-semibold leading-tight text-foreground"
+          >
+            {t.equipment}
+          </h2>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onEditExpediente}
+            data-testid="abrir-editor-expediente"
+          >
+            <Pencil className="size-4" aria-hidden="true" />
+            {t.editProfile}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">{t.editHint}</p>
         {limitations.length > 0 && (
           <p
             className="flex items-center gap-1.5 text-xs text-muted-foreground"
@@ -185,18 +201,6 @@ export function ExpedienteSection({
         savingProfile={savingProfile}
         onSaveProfile={onSaveProfile}
       />
-
-      <div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onEditExpediente}
-          data-testid="abrir-editor-expediente"
-        >
-          <Pencil className="size-4" aria-hidden="true" />
-          {t.editProfile}
-        </Button>
-      </div>
 
       <ItemDetailDialog
         item={selectedItem}

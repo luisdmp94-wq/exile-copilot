@@ -8,7 +8,9 @@ import type { ActGuide } from "./guide";
  * dicen tal cual en vez de esconderlas:
  *  - El acto es de islas y el orden es libre: la ruta sigue el orden que
  *    poe2db da «solo como sugerencia», con el consejo de Maxroll de dejar
- *    Arastas y Ngakanu para el final.
+ *    Arastas y Ngakanu para el final. El primer viaje NO es libre: Luis lo
+ *    comprobó jugando (0.5.5, 22-11-2026) y el juego manda primero a Bahía
+ *    de las anclas y luego a El final del viaje.
  *  - Dónde está Matiki y las tres piezas del arma precursora cambia cada liga
  *    (tabla de versiones de la wiki): la guía no nombra la zona.
  *  - poe2db da gemas de habilidad de nivel 12 en varias islas; las páginas de
@@ -43,7 +45,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
   },
   essentials: [
     {
-      text: "Es un acto de islas y puedes hacerlas en el orden que quieras. Deja Arastas y Ngakanu para el final.",
+      text: "El juego te manda primero a Bahía de las anclas y a El final del viaje. Después, haz las islas en el orden que quieras y deja Arastas y Ngakanu para el final.",
       sourceIds: ["poe2db-acto4", "maxroll-subida"],
     },
     {
@@ -64,9 +66,15 @@ export const ACT_FOUR_GUIDE: ActGuide = {
   route: [
     {
       zone: "Marca del rey",
-      text: "El pueblo del acto. Desde aquí navegas a las islas: el orden es libre.",
+      text: "El pueblo del acto. Desde aquí navegas a las islas: primero a Bahía de las anclas y, después, a las demás en el orden que quieras.",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "wiki-acto4"],
+    },
+    {
+      zone: "Bahía de las anclas y El final del viaje",
+      text: "Tu primer viaje: el juego te manda aquí antes que a ninguna otra isla. El capitán Hartlin espera en El final del viaje.",
+      priority: "historia",
+      sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "Isla del clan y Madrigueras volcánicas",
@@ -74,12 +82,6 @@ export const ACT_FOUR_GUIDE: ActGuide = {
       priority: "historia",
       skip: "La bestia ciega",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
-    },
-    {
-      zone: "Bahía de las anclas y El final del viaje",
-      text: "El capitán Hartlin espera en El final del viaje.",
-      priority: "historia",
-      sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "El final del viaje",

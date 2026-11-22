@@ -20,7 +20,7 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
   },
   essentials: [
     {
-      text: "It's an act of islands and you can do them in any order. Leave Arastas and Ngakanu for last.",
+      text: "The game sends you to Kedge Bay and Journey's End first. After that, do the islands in any order and leave Arastas and Ngakanu for last.",
       sourceIds: ["poe2db-acto4", "maxroll-subida"],
     },
     {
@@ -39,9 +39,15 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
   route: [
     {
       zone: "Kingsmarch",
-      text: "The act's town. From here you sail to the islands: the order is up to you.",
+      text: "The act's town. From here you sail to the islands: Kedge Bay first, then the rest in any order.",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "wiki-acto4"],
+    },
+    {
+      zone: "Kedge Bay and Journey's End",
+      text: "Your first trip: the game sends you here before any other island. Captain Hartlin waits in Journey's End.",
+      priority: "historia",
+      sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "Isle of Kin and Volcanic Warrens",
@@ -49,12 +55,6 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
       priority: "historia",
       skip: "The Blind Beast",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
-    },
-    {
-      zone: "Kedge Bay and Journey's End",
-      text: "Captain Hartlin waits in Journey's End.",
-      priority: "historia",
-      sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "Journey's End",
