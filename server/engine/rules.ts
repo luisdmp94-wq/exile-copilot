@@ -4,6 +4,7 @@ import {
   type BuildTarget,
   type CharacterProfile,
   type GoalKind,
+  type Item,
   type ResistanceKind,
   type SourceEvidence,
 } from "../../shared/domain.js";
@@ -438,20 +439,36 @@ export const attributeRequirementsRule: Rule = ({ profile, lang }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Regla 4: arma (ballesta) sin quality o con pocos mods explícitos
+// Regla 4: arma sin quality o con pocos mods explícitos
 // ---------------------------------------------------------------------------
+
+/**
+ * Armas de hechicero: varitas, cetros y bastones (no los báculos, que son de
+ * ataque). La calidad apenas les da daño a los hechizos; lo que cuenta son los
+ * niveles de habilidades de hechizo y el daño de hechizos.
+ */
+const CASTER_WEAPON_RE = /wand|varita|sceptre|cetro|\bstaff\b|\bstaves\b|bast[oó]n/i;
+
+export function isCasterWeapon(item: Pick<Item, "itemClass" | "baseType">): boolean {
+  return CASTER_WEAPON_RE.test(item.itemClass?.trim() || item.baseType);
+}
+
 export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
   const t = tr(lang);
   const weapon = profile.items.find((i) => i.slot === "weapon");
   if (!weapon) return [];
-
+  const caster = isCasterWeapon(weapon);
   const explicitCount = weapon.modifiers.filter((m) => m.kind === "explicit").length;
   const quality = weapon.quality ?? 0;
-  if (quality > 0 && explicitCount >= MIN_WEAPON_EXPLICITS) return [];
+  // A un arma de hechicero la calidad apenas le da daño, y un único trae sus
+  // mods fijos. Antes una varita única buena salía como «mejora el arma».
+  const lacksQuality = quality === 0 && !caster;
+  const fewMods = weapon.rarity !== "unique" && explicitCount < MIN_WEAPON_EXPLICITS;
+  if (!lacksQuality && !fewMods) return [];
 
   const issues: string[] = [];
-  if (quality === 0) issues.push(t("sin calidad", "without quality"));
-  if (explicitCount < MIN_WEAPON_EXPLICITS) issues.push(t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit modifiers`));
+  if (lacksQuality) issues.push(t("sin calidad", "without quality"));
+  if (fewMods) issues.push(t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit modifiers`));
 
   // Solo hay precio consultable para ÚNICOS (match exacto de nombre). Un rare
   // nunca se valora con precios de únicos aunque coincida la base.
@@ -471,14 +488,30 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
     {
       ruleId: "mejora-arma",
       title: t("Mejorar el arma", "Upgrade your weapon"),
-      action: t(
-        `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca una ${weapon.baseType} o base similar con mejores mods dentro de tu presupuesto.`,
-        `Your weapon "${weapon.name}" (${weapon.baseType}) is ${issues.join(" and ")}. Look for a ${weapon.baseType} or a similar base with better modifiers within your budget.`,
-      ),
-      reason: t(
-        "El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.",
-        "Your weapon is the main damage lever in most attack builds; a better base is worth several smaller upgrades.",
-      ),
+      // Sin «busca una ${baseType}»: mandaba a buscar la misma base que ya tenía.
+      action: !fewMods
+        ? t(
+            `Tu arma "${weapon.name}" (${weapon.baseType}) está sin calidad. Súbele la calidad antes de cambiarla: es daño gratis.`,
+            `Your weapon "${weapon.name}" (${weapon.baseType}) has no quality. Raise its quality before replacing it: it's free damage.`,
+          )
+        : caster
+        ? t(
+            `Tu arma "${weapon.name}" (${weapon.baseType}) tiene ${issues.join(" y ")}. Busca una con «+X al nivel de las habilidades de hechizo» y daño de hechizos aumentado, dentro de tu presupuesto.`,
+            `Your weapon "${weapon.name}" (${weapon.baseType}) has ${issues.join(" and ")}. Look for one with "+X to Level of all Spell Skills" and increased spell damage, within your budget.`,
+          )
+        : t(
+            `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca otra con mejores mods, o de una base de más nivel, dentro de tu presupuesto.`,
+            `Your weapon "${weapon.name}" (${weapon.baseType}) is ${issues.join(" and ")}. Look for one with better modifiers, or a higher-level base, within your budget.`,
+          ),
+      reason: caster
+        ? t(
+            "En un arma de hechicero, lo que más daño da son los niveles de habilidades de hechizo y el daño de hechizos; la calidad apenas cuenta.",
+            "On a caster weapon, spell skill levels and spell damage give the most damage; quality barely matters.",
+          )
+        : t(
+            "El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.",
+            "Your weapon is the main damage lever in most attack builds; a better base is worth several smaller upgrades.",
+          ),
       impactMetric: t("daño del arma", "weapon damage"),
       impactDescription: t(
         "Impacto estimado en daño por mejora de base/mods del arma (métrica parcial orientativa).",

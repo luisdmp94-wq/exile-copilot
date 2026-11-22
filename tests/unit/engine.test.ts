@@ -18,6 +18,7 @@ import {
   attributeRequirementsRule,
   lifeRule,
   skillLinksRule,
+  weaponUpgradeRule,
 } from "../../server/engine/rules.js";
 import { createDatabase } from "../../server/db/database.js";
 import { PoeNinjaClient, PriceService, type QuotesResult } from "../../server/services/poeninja.js";
@@ -291,6 +292,69 @@ describe("engine — exactitud y contratos", () => {
     const rec = result.recommendations.find((r) => r.id === "rec-mejora-arma");
     expect(rec?.cost.known).toBe(false);
     expect(rec?.unverified.some((u) => u.includes("No verificado"))).toBe(true);
+  });
+});
+
+describe("regla del arma: únicos y armas de hechicero", () => {
+  function withWeapon(patch: Record<string, unknown>): CharacterProfile {
+    const profile = demoProfile();
+    const weapon = profile.items.find((i) => i.slot === "weapon")!;
+    Object.assign(weapon, patch);
+    return profile;
+  }
+  const run = (profile: CharacterProfile, lang: "es" | "en" = "es") =>
+    weaponUpgradeRule({ profile, league: BASE_OPTIONS.league, patch: BASE_OPTIONS.patch, lang });
+
+  it("una varita única sin calidad no se marca como «mejora el arma»", () => {
+    // La pluma cruel: única, sus mods son fijos y la calidad no da daño de hechizos.
+    const profile = withWeapon({
+      name: "La pluma cruel",
+      baseType: "Varita marchita",
+      itemClass: "Varitas",
+      rarity: "unique",
+      quality: 0,
+    });
+    expect(run(profile)).toEqual([]);
+  });
+
+  it("una varita rara con pocos mods pide niveles de hechizo, no calidad ni la misma base", () => {
+    const profile = withWeapon({ name: "Varita gastada", baseType: "Varita marchita", itemClass: "Varitas", quality: 0 });
+    const [candidate] = run(profile);
+    expect(candidate?.action).toContain("«+X al nivel de las habilidades de hechizo»");
+    expect(candidate?.action).not.toMatch(/calidad/);
+    expect(candidate?.action).not.toContain("Busca una Varita marchita");
+    const [english] = run(profile, "en");
+    expect(english?.action).toContain('"+X to Level of all Spell Skills"');
+  });
+
+  it("una varita rara con sus mods llenos no se marca aunque no tenga calidad", () => {
+    const profile = withWeapon({ baseType: "Withered Wand", itemClass: "Wands", quality: 0 });
+    const weapon = profile.items.find((i) => i.slot === "weapon")!;
+    weapon.modifiers = [...weapon.modifiers, { ...weapon.modifiers[0]!, id: "extra-mod" }];
+    expect(run(profile)).toEqual([]);
+  });
+
+  it("los bastones son de hechicero y los báculos de ataque", () => {
+    for (const itemClass of ["Staves", "Bastones"]) {
+      const [candidate] = run(withWeapon({ baseType: "Ashen Staff", itemClass }));
+      expect(candidate?.action, itemClass).not.toMatch(/calidad/);
+    }
+    for (const itemClass of ["Quarterstaves", "Báculos"]) {
+      const [candidate] = run(withWeapon({ baseType: "Wrapped Quarterstaff", itemClass }));
+      expect(candidate?.action, itemClass).toContain("sin calidad");
+    }
+  });
+
+  it("un arma de ataque ya no manda a buscar su misma base", () => {
+    const [candidate] = run(demoProfile());
+    expect(candidate?.action).toContain("Busca otra con mejores mods");
+    expect(candidate?.action).toContain("sin calidad");
+  });
+
+  it("un arma de ataque única solo sin calidad pide subirle la calidad", () => {
+    const [candidate] = run(profileWithUniqueWeapon());
+    expect(candidate?.action).toContain("Súbele la calidad");
+    expect(candidate?.action).not.toContain("mods explícitos");
   });
 });
 
