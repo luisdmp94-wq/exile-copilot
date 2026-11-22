@@ -310,6 +310,16 @@ const SURVIVAL_RECOMMENDATION_IDS: ReadonlySet<string> = new Set([
   "rec-datos-vida",
 ]);
 
+/**
+ * Recomendaciones que responden a «me falta daño»: arma, supports de la skill
+ * principal y requisitos de atributos (sin ellos, gemas y equipo no rinden).
+ */
+const DAMAGE_RECOMMENDATION_IDS: ReadonlySet<string> = new Set([
+  "rec-mejora-arma",
+  "rec-enlaces-skill",
+  "rec-requisitos-atributos",
+]);
+
 function answerFromRecommendation(
   recommendation: Recommendation,
   intent: "next_improvement" | "explain_priority",
@@ -328,17 +338,21 @@ function answerFromRecommendation(
       : lang === "en"
         ? focus === "survival"
           ? `If you die often, the first thing I'd check is "${title}". ${reason}`
-          : intent === "explain_priority"
-            ? `Your main problem right now is "${title}". ${reason}`
-            : `What I'd do next: ${title}. ${reason}`
+          : focus === "damage"
+            ? `If you're low on damage, the first thing I'd check is "${title}". ${reason}`
+            : intent === "explain_priority"
+              ? `Your main problem right now is "${title}". ${reason}`
+              : `What I'd do next: ${title}. ${reason}`
       : focus === "survival"
         ? `Si mueres a menudo, lo primero que revisaría es «${title}». ${reason}`
-        : intent === "explain_priority"
-          ? // Sin «Impacto estimado… (métrica parcial orientativa). Riesgo medio: …»:
-            // era jerga del motor en mitad de la respuesta. El riesgo sigue en la
-            // tarjeta de la recomendación.
-            `Tu principal problema ahora es «${title}». ${reason}`
-          : `Lo siguiente que haría: ${title}. ${reason}`;
+        : focus === "damage"
+          ? `Si te falta daño, lo primero que revisaría es «${title}». ${reason}`
+          : intent === "explain_priority"
+            ? // Sin «Impacto estimado… (métrica parcial orientativa). Riesgo medio: …»:
+              // era jerga del motor en mitad de la respuesta. El riesgo sigue en la
+              // tarjeta de la recomendación.
+              `Tu principal problema ahora es «${title}». ${reason}`
+            : `Lo siguiente que haría: ${title}. ${reason}`;
 
   return MentorAnswerSchema.parse({
     intent,
@@ -359,16 +373,34 @@ function answerFromRecommendation(
   });
 }
 
-function survivalNothingFoundAnswer(
+/**
+ * «Me falta daño» sin nada que corregir en arma, supports ni atributos. Señala
+ * lo que más daño da en campaña y aún no compruebo con equipo: el nivel de la
+ * gema principal.
+ */
+function damageNothingFoundAnswer(lang: AnswerLang): string {
+  return lang === "en"
+    ? "In what I can check (weapon, your main skill's supports and attribute requirements) " +
+        "I don't find a clear cause. What usually gives the most damage while levelling is your " +
+        "main skill gem's level: keep it as high as your character allows, using an uncut gem " +
+        "of a higher level."
+    : "En lo que puedo revisar —arma, supports de la skill principal y requisitos de atributos— " +
+        "no encuentro una causa clara. Lo que más daño suele dar mientras subes de nivel es el nivel " +
+        "de tu gema principal: llévala tan alta como te deje tu personaje, con una gema sin tallar " +
+        "de nivel más alto.";
+}
+
+function focusNothingFoundAnswer(
   normalizedQuestion: string,
   result: EngineResult,
   answerMetadata: AnswerMetadata,
   lang: AnswerLang = "es",
+  focus: MentorQuestionFocus = "survival",
 ): MentorAnswer {
   return MentorAnswerSchema.parse({
     intent: "explain_priority",
     normalizedQuestion,
-    answer: lang === "en"
+    answer: focus === "damage" ? damageNothingFoundAnswer(lang) : lang === "en"
       ? "In what I can check (elemental resistances, chaos resistance, life and empty gear slots) " +
         "I don't find a clear cause for your deaths. It may be something I don't check yet, like " +
         "armour, evasion, energy shield or the exact mechanic that kills you. If you tell me what " +
@@ -1076,7 +1108,9 @@ async function buildAnswer(
   const { normalizedQuestion, focus } = classified;
   const lang = langOf(options);
   // «¿Por qué muero?» se evalúa como supervivencia, sea cual sea el objetivo guardado.
-  const engineGoal: Goal = focus === "survival" ? { ...options.goal, kind: "survival" } : options.goal;
+  // «Me falta daño», igual con el objetivo daño.
+  const engineGoal: Goal =
+    focus === "survival" || focus === "damage" ? { ...options.goal, kind: focus } : options.goal;
   const selector = deps.selector ?? null;
   const readiness = assessMentorReadiness(options.profile);
   const hasStructuredCraftingContext =
@@ -1207,16 +1241,16 @@ async function buildAnswer(
 
   /**
    * Respuesta por reglas, igual sin IA que cuando la IA falla: con foco
-   * supervivencia solo vale una recomendación defensiva, o se dice que no la hay.
+   * supervivencia solo vale una recomendación defensiva, y con foco daño una
+   * de daño; si no la hay, se dice.
    */
   const answerByRules = (recommendation: Recommendation, answerMetadata: AnswerMetadata): MentorAnswer => {
-    if (focus === "survival") {
-      const defensive = result.recommendations.find((candidate) =>
-        SURVIVAL_RECOMMENDATION_IDS.has(candidate.id),
-      );
-      return defensive
-        ? answerFromRecommendation(defensive, "explain_priority", normalizedQuestion, result, answerMetadata, focus, lang)
-        : survivalNothingFoundAnswer(normalizedQuestion, result, answerMetadata, lang);
+    if (focus === "survival" || focus === "damage") {
+      const allowed = focus === "survival" ? SURVIVAL_RECOMMENDATION_IDS : DAMAGE_RECOMMENDATION_IDS;
+      const focused = result.recommendations.find((candidate) => allowed.has(candidate.id));
+      return focused
+        ? answerFromRecommendation(focused, "explain_priority", normalizedQuestion, result, answerMetadata, focus, lang)
+        : focusNothingFoundAnswer(normalizedQuestion, result, answerMetadata, lang, focus);
     }
     return answerFromRecommendation(
       recommendation,

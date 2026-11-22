@@ -75,6 +75,7 @@ const TEXT = texts(
     // Sin equipo todavía: el Mentor contesta con la revisión rápida (reglas).
     reviewFoundTitle: "Aún sin tu equipo, esto ya lo veo",
     reviewSurvivalTitle: "Por qué mueres, con lo que ya veo",
+    reviewDamageTitle: "Por qué te falta daño, con lo que ya veo",
     reviewMainTitle: "Tu principal problema, con lo que ya veo",
     reviewAskTitle: "Dime unos datos del juego y te digo qué te frena",
     reviewAskBody: (missing: string) => `Dime ${missing}: lo ves en el juego y es un minuto.`,
@@ -149,6 +150,7 @@ const TEXT = texts(
     readinessButton: "Finish character file",
     reviewFoundTitle: "Even without your gear, I can already see this",
     reviewSurvivalTitle: "Why you keep dying, from what I can see",
+    reviewDamageTitle: "Why you're low on damage, from what I can see",
     reviewMainTitle: "Your main problem, from what I can see",
     reviewAskTitle: "Tell me a few things from the game and I'll tell you what's holding you back",
     reviewAskBody: (missing: string) => `Tell me ${missing}: you can see it in the game and it takes a minute.`,
@@ -329,9 +331,11 @@ export function MentorChatSection({
   const reviewTitle =
     reviewAnswer.mode === "survival"
       ? t.reviewSurvivalTitle
-      : reviewAnswer.mode === "main"
-        ? t.reviewMainTitle
-        : t.reviewFoundTitle;
+      : reviewAnswer.mode === "damage"
+        ? t.reviewDamageTitle
+        : reviewAnswer.mode === "main"
+          ? t.reviewMainTitle
+          : t.reviewFoundTitle;
 
   return (
     /* El título («Habla con tu Mentor») lo pone la sección que envuelve a este

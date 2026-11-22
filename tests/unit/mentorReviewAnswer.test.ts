@@ -19,6 +19,20 @@ describe("mentorReviewAnswer: sin equipo, la respuesta depende de la pregunta", 
     expect(mentorReviewAnswer(review, "Why do I keep dying?").mode).toBe("survival");
   });
 
+  it("«me falta daño» da solo lo que hace pegar más, sin resistencias", () => {
+    const withRes = { top: [finding("res", 95), finding("gem", 80)], rest: [finding("asc-first", 70), finding("weapon", 60)] };
+    const answer = mentorReviewAnswer(withRes, "me falta daño");
+    expect(answer.mode).toBe("damage");
+    expect(ids(answer)).toEqual(["gem", "asc-first", "weapon"]);
+    expect(mentorReviewAnswer(withRes, "I need more damage").mode).toBe("damage");
+  });
+
+  it("si no hay nada de daño que decir, no promete «por qué te falta daño»", () => {
+    const answer = mentorReviewAnswer({ top: [finding("res", 90)], rest: [] }, "me falta daño");
+    expect(answer.mode).toBe("list");
+    expect(ids(answer)).toEqual(["res"]);
+  });
+
   it("«¿Cuál es mi principal problema?» da solo el primero", () => {
     const answer = mentorReviewAnswer(review, "¿Cuál es mi principal problema?");
     expect(answer.mode).toBe("main");

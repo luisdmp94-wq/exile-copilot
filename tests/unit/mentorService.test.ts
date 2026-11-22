@@ -1117,6 +1117,50 @@ describe("mentor — «¿por qué muero?» se responde con lo defensivo", () => 
   });
 });
 
+describe("mentor — «me falta daño» se responde con lo que da daño", () => {
+  const balanced = { ...BASE, goal: { kind: "balanced" as const } };
+  const DAMAGE_IDS = ["rec-mejora-arma", "rec-enlaces-skill", "rec-requisitos-atributos"];
+
+  it("habla de daño y no de resistencias", async () => {
+    for (const question of ["me falta daño", "Hola, no mato nada", "I need more damage"]) {
+      const answer = await answerMentorQuery(
+        { ...balanced, question, lang: question.startsWith("I") ? "en" : "es", memory: emptyMemory() },
+        { priceService: offlinePriceService() },
+      );
+      expect(answer.intent, question).toBe("explain_priority");
+      expect(answer.usedRecommendationIds).toHaveLength(1);
+      expect(DAMAGE_IDS, question).toContain(answer.usedRecommendationIds[0]);
+      expect(answer.answer, question).not.toMatch(/resistencia|resistance/i);
+    }
+  });
+
+  it("empieza por «Si te falta daño»", async () => {
+    const answer = await answerMentorQuery(
+      { ...balanced, question: "me falta daño", memory: emptyMemory() },
+      { priceService: offlinePriceService() },
+    );
+    expect(answer.answer.startsWith("Si te falta daño, lo primero que revisaría es «")).toBe(true);
+  });
+
+  it("cuando la IA falla, el respaldo por reglas usa el mismo foco daño", async () => {
+    const { MentorAiError } = await import("../../server/mentor/mentorAi.js");
+    const answer = await answerMentorQuery(
+      { ...balanced, question: "me falta daño", memory: emptyMemory() },
+      {
+        priceService: offlinePriceService(),
+        selector: {
+          name: "proveedor-caducado",
+          select: async () => {
+            throw new MentorAiError("Clave caducada; se usaron las reglas.");
+          },
+        },
+      },
+    );
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(DAMAGE_IDS).toContain(answer.usedRecommendationIds[0]);
+  });
+});
+
 describe("mentor — «¿por qué muero?» cuando la IA falla", () => {
   it("el respaldo por reglas usa el mismo foco defensivo", async () => {
     const { MentorAiError } = await import("../../server/mentor/mentorAi.js");

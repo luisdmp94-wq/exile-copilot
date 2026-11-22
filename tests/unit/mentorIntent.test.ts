@@ -163,6 +163,36 @@ describe("foco supervivencia («¿por qué muero?»)", () => {
   });
 });
 
+describe("foco daño («me falta daño»)", () => {
+  it("marca las preguntas sobre poco daño como daño", () => {
+    for (const question of [
+      "me falta daño",
+      "¿Por qué hago tan poco daño?",
+      "Hola, no mato nada",
+      "tardo mucho en matar a los jefes",
+      "¿qué mejoro para tener más daño?",
+      "I need more damage",
+      "how do I kill faster?",
+    ]) {
+      expect(classifyMentorQuestion(question).focus, question).toBe("damage");
+    }
+    expect(classifyMentorQuestion("me falta daño").intent).toBe("explain_priority");
+    expect(classifyMentorQuestion("¿qué mejoro para tener más daño?").intent).toBe("next_improvement");
+  });
+
+  it("pedir la cifra de daño no es quejarse de poco daño", () => {
+    for (const question of ["¿Cuánto daño hago?", "dime mi DPS", "What's my damage?"]) {
+      expect(classifyMentorQuestion(question), question).toMatchObject({ intent: "unsupported", focus: null });
+    }
+  });
+
+  it("recibir daño es aguante, no daño", () => {
+    expect(classifyMentorQuestion("recibo mucho daño").focus).toBe("survival");
+    expect(classifyMentorQuestion("I take too much damage").focus).toBe("survival");
+    expect(classifyMentorQuestion("¿por qué muero si tengo mucho daño?").focus).toBe("survival");
+  });
+});
+
 describe("preguntas en inglés", () => {
   it("reconoce las preguntas habituales en inglés", () => {
     expect(classifyMentorQuestion("Why do I keep dying?")).toMatchObject({ intent: "explain_priority", focus: "survival" });

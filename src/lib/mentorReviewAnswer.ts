@@ -7,13 +7,18 @@ import type { QuickReviewFinding, QuickReviewResult } from "@shared/quickReview.
  *
  * - «¿Por qué muero?» (foco supervivencia): primero lo que hace aguantar
  *   (resistencias), aunque no sea lo que más frena en general.
+ * - «Me falta daño» (foco daño): primero lo que hace pegar más (gema, arma,
+ *   contagio, maldición, ascendencia), sin las resistencias.
  * - «¿Cuál es mi principal problema?» (explicar prioridad): solo el primero.
  * - Lo demás («¿Qué mejoro ahora?» o sin pregunta): los 3 que más frenan.
  */
-export type MentorReviewMode = "survival" | "main" | "list";
+export type MentorReviewMode = "survival" | "damage" | "main" | "list";
 
 /** Lo que hace aguantar más golpes, según la revisión rápida. */
 const SURVIVAL_IDS = new Set(["res"]);
+
+/** Lo que hace pegar más, según la revisión rápida. */
+const DAMAGE_IDS = new Set(["gem", "weapon", "contagion", "curse", "asc-first", "asc-second"]);
 
 export function mentorReviewAnswer(
   review: Pick<QuickReviewResult, "top" | "rest">,
@@ -28,6 +33,13 @@ export function mentorReviewAnswer(
     if (survival.length === 0) return { mode: "list", findings: review.top };
     const others = all.filter((finding) => !SURVIVAL_IDS.has(finding.id));
     return { mode: "survival", findings: [...survival, ...others].slice(0, 3) };
+  }
+  if (focus === "damage") {
+    // Solo lo que da daño: a quien pregunta por daño no se le contesta «mejor
+    // resistencias». «all» ya viene ordenado por gravedad.
+    const damage = all.filter((finding) => DAMAGE_IDS.has(finding.id));
+    if (damage.length === 0) return { mode: "list", findings: review.top };
+    return { mode: "damage", findings: damage.slice(0, 3) };
   }
   if (intent === "explain_priority") return { mode: "main", findings: all.slice(0, 1) };
   return { mode: "list", findings: review.top };

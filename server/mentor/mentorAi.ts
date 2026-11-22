@@ -207,7 +207,8 @@ REGLAS INQUEBRANTABLES:
   ni resultados que no estén en CONTEXT.
 - Si heuristicIntent es explain_priority y NO existe envelope.craftingState, nunca uses
   explain_context: usa choose_recommendation con el candidato que responde a la pregunta
-  (por ejemplo, para «¿por qué muero?», el que más ayuda a aguantar) y explica en message
+  (por ejemplo, para «¿por qué muero?», el que más ayuda a aguantar; para «me falta daño»,
+  el que más daño da, nunca uno de resistencias) y explica en message
   por qué es lo primero, con hechos de CONTEXT.
 - Si existe activeAction, usa explain_current_case: una sola acción a la vez.
 - Si el único candidato es session_gate, elígelo; no busques una alternativa.

@@ -132,9 +132,57 @@ const SURVIVAL_PATTERNS: readonly string[] = [
   "tankier",
   "squishy",
   "one shotted",
+  "recibo mucho dano",
+  "me hacen mucho dano",
+  "too much damage",
 ];
 
-export type MentorQuestionFocus = "survival" | null;
+/**
+ * Preguntas sobre que FALTA DAÑO o se mata lento. Igual que morir: marcan el
+ * foco «daño», para que el mentor mire primero lo que hace pegar más. Sin
+ * esto, «me falta daño» no se entendía y la lista empezaba por resistencias.
+ * Se comprueban DESPUÉS de las de morir: «recibo mucho daño» es aguante.
+ * («dano» es «daño» ya normalizado: la «ñ» se pliega a «n».)
+ */
+const DAMAGE_PATTERNS: readonly string[] = [
+  "dano",
+  "dps",
+  "no mato",
+  "mato lento",
+  "mato muy lento",
+  "tardo en matar",
+  "tardo mucho en matar",
+  "matar mas rapido",
+  "pego poco",
+  "pego flojo",
+  "pego muy poco",
+  // Inglés
+  "damage",
+  "kill faster",
+  "killing slow",
+  "kill slow",
+  "kills slow",
+  "takes forever to kill",
+  "hit harder",
+];
+
+/**
+ * Piden una CIFRA de daño («dime mi DPS», «¿cuánto daño hago?»). El Mentor no
+ * la calcula: esas preguntas no llevan foco daño y siguen sin respuesta.
+ */
+const NUMBER_REQUEST_PATTERNS: readonly string[] = [
+  "cuanto",
+  "dime el",
+  "dime mi",
+  "calcula",
+  "how much",
+  "calculate",
+  "what is my",
+  "whats my",
+  "what s my",
+];
+
+export type MentorQuestionFocus = "survival" | "damage" | null;
 
 /** Conversación social que no debe convertirse en una recomendación. */
 const CONVERSATION_PATTERNS: readonly string[] = [
@@ -194,7 +242,7 @@ export function classifyMentorQuestion(question: string): {
   normalizedQuestion: string;
   /** Patrón que disparó la clasificación; null si no hubo ninguno. */
   matchedPattern: string | null;
-  /** «survival» si la pregunta habla de morir o aguantar. */
+  /** «survival» si habla de morir o aguantar; «damage» si de que falta daño. */
   focus: MentorQuestionFocus;
 } {
   const normalized = normalizeQuestion(question);
@@ -202,7 +250,13 @@ export function classifyMentorQuestion(question: string): {
     return { intent: "unsupported", normalizedQuestion: normalized, matchedPattern: null, focus: null };
   }
   const survivalPattern = SURVIVAL_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null;
-  const focus: MentorQuestionFocus = survivalPattern ? "survival" : null;
+  const asksForNumber = NUMBER_REQUEST_PATTERNS.some((pattern) => normalized.includes(pattern));
+  const damagePattern =
+    survivalPattern || asksForNumber
+      ? null
+      : (DAMAGE_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null);
+  const focusPattern = survivalPattern ?? damagePattern;
+  const focus: MentorQuestionFocus = survivalPattern ? "survival" : damagePattern ? "damage" : null;
 
   for (const pattern of EXPLAIN_PRIORITY_PATTERNS) {
     if (normalized.includes(pattern)) {
@@ -224,10 +278,11 @@ export function classifyMentorQuestion(question: string): {
       };
     }
   }
-  // «Me matan mucho» no pide explícitamente una explicación, pero sí la merece,
-  // y va antes que el saludo: «hola, me matan mucho» es una pregunta de juego.
-  if (survivalPattern) {
-    return { intent: "explain_priority", normalizedQuestion: normalized, matchedPattern: survivalPattern, focus };
+  // «Me matan mucho» o «me falta daño» no piden explícitamente una explicación,
+  // pero sí la merecen, y van antes que el saludo: «hola, me matan mucho» es
+  // una pregunta de juego.
+  if (focusPattern) {
+    return { intent: "explain_priority", normalizedQuestion: normalized, matchedPattern: focusPattern, focus };
   }
   if (isMentorIdentityQuestion(normalized)) {
     return {
