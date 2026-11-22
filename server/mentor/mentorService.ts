@@ -289,6 +289,20 @@ type AnswerMetadata = {
   fallbackReason: string | null;
 };
 
+/**
+ * Datos pendientes que el JUGADOR puede resolver mirando el juego o rellenando
+ * su perfil: un dato que falta, el límite de resistencias o sus atributos.
+ * El resto (precio en el mercado, caché de precios, heurísticas del motor…) no
+ * se le puede preguntar: «necesito el precio de tu varita» no tiene respuesta
+ * útil en el chat, y la IA lo volvía a preguntar en cada turno.
+ */
+const ASKABLE_FACT_RE =
+  /falta el dato|is missing from the profile|confirma el l[ií]mite|confirm each resistance|rev[ií]salos|check them/i;
+
+function isAskableFact(text: string): boolean {
+  return ASKABLE_FACT_RE.test(text);
+}
+
 function metadata(
   mode: AnswerMetadata["responseMode"] = "rules",
   model: string | null = null,
@@ -758,7 +772,7 @@ function buildAiContext(
   for (const recommendation of recommendations) {
     for (const rawFact of recommendation.unverified) {
       const text = compact(publicText(rawFact, recommendations), 400);
-      if (!text) continue;
+      if (!text || !isAskableFact(text)) continue;
       const current = missingByText.get(text);
       if (current) {
         if (!current.recommendationIds.includes(recommendation.id)) {

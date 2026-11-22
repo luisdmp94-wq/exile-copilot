@@ -370,6 +370,27 @@ describe("Mentor v3 — conversación fundamentada", () => {
     expect(answer.fallbackReason).toContain("caso actual");
   });
 
+  it("nunca le pregunta al jugador el precio de mercado de su objeto", async () => {
+    // Con un arma única el motor deja «no hay precio confirmado en poe.ninja»;
+    // la IA lo preguntaba en cada turno y el jugador no podía resolverlo.
+    const profile = demoProfile();
+    const weapon = profile.items.find((item) => item.slot === "weapon")!;
+    weapon.rarity = "unique";
+    weapon.name = "Fake Unique";
+    const received: MentorAiContext[] = [];
+    const selector = v3Selector((context) => {
+      received.push(context);
+      return { kind: "no_safe_action", recommendationId: null, missingFactId: null };
+    });
+    await answerMentorQuery(
+      { ...BASE, profile, question: "me falta daño", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    const facts = received[0]!.missingFacts.map((fact) => fact.text).join(" | ");
+    expect(facts).not.toMatch(/precio|poe\.ninja|mercado|price|market/i);
+  });
+
   it("los datos pendientes visibles nunca filtran ids de recomendación", async () => {
     const selector = v3Selector((context) => ({
       kind: "ask_missing_fact",
