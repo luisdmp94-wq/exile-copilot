@@ -67,7 +67,7 @@ describe("registro: artefacto y procedencia", () => {
   });
 
   it("la procedencia fija commit, hash y propietario, sin atribuir el parche a GGG", () => {
-    const p = getRegistryProvenance();
+    const p = getRegistryProvenance("passiveRegistry.1e9eb2d8");
     expect(p.sourceRepository).toBe("grindinggear/poe2-skilltree-export");
     expect(p.sourceUrl).toBe("https://github.com/grindinggear/poe2-skilltree-export");
     expect(p.sourceCommit).toBe(PINNED_COMMIT);
@@ -86,7 +86,7 @@ describe("registro: artefacto y procedencia", () => {
   });
 
   it("el resumen para la UI expone origen y licencia sin cargar todo el registro", () => {
-    const s = getRegistrySource();
+    const s = getRegistrySource("passiveRegistry.1e9eb2d8");
     expect(s.game).toBe("poe2");
     expect(s.sourceCommit).toBe(PINNED_COMMIT);
     expect(s.testedAgainstPatch).toBe("0.5.4f");
@@ -118,6 +118,23 @@ describe("registro: resolución de pasivas y ascendencias", () => {
     expect(registrySupportsPatch("0.5.4f", ["passiveRegistry.1e9eb2d8"])).toBe(true);
     expect(registrySupportsPatch("1.0", ["passiveRegistry.1e9eb2d8"])).toBe(false);
     expect(registrySupportsPatch("0.5.4f", [])).toBe(false);
+  });
+
+  it("cada parche resuelve con su propio registro: 0.5.4f y 0.5.5 conviven", () => {
+    const latest = getRegistryProvenance();
+    expect(latest.sourceCommit).toBe("bd87e6512c92b868542eddfb1ba4ea8b6dc2da36");
+    expect(latest.sourceCommitMessage).toBe("0.5.5");
+    expect(latest.testedAgainstPatch).toBe("0.5.5");
+    expect(registrySupportsPatch("0.5.5", ["passive-registry.bd87e651"])).toBe(true);
+    // Una evidencia de otro parche no abre el registro nuevo, ni al revés.
+    expect(registrySupportsPatch("0.5.5", ["passiveRegistry.1e9eb2d8"])).toBe(false);
+    expect(registrySupportsPatch("0.5.4f", ["passive-registry.bd87e651"])).toBe(false);
+
+    const build = GggBuildPlannerV1Schema.parse(JSON.parse(titanRaw));
+    const old = resolvePlan(build, "0.5.4f", ["passiveRegistry.1e9eb2d8"]);
+    const current = resolvePlan(build, "0.5.5", ["passive-registry.bd87e651"]);
+    expect(old.source.testedAgainstPatch).toBe("0.5.4f");
+    expect(current.source.testedAgainstPatch).toBe("0.5.5");
   });
 
   it("Titan Warrior resuelve 34/34 pasivas contra el árbol oficial", () => {

@@ -33,16 +33,16 @@ import {
 // --- Revisión FIJADA del export oficial -------------------------------------
 const SOURCE_REPOSITORY = "grindinggear/poe2-skilltree-export";
 const SOURCE_URL = "https://github.com/grindinggear/poe2-skilltree-export";
-const SOURCE_COMMIT = "1e9eb2d8c1946398c3aaaacfbaead5c75c0d1fa6";
-const SOURCE_COMMIT_DATE = "2026-06-15T23:50:47Z";
+const SOURCE_COMMIT = "bd87e6512c92b868542eddfb1ba4ea8b6dc2da36";
+const SOURCE_COMMIT_DATE = "2026-09-04T17:12:04Z";
 /** Etiqueta que la PROPIA fuente da a ese commit. No es nuestro parche probado. */
-const SOURCE_COMMIT_MESSAGE = "0.5.2";
+const SOURCE_COMMIT_MESSAGE = "0.5.5";
 const SOURCE_FILE_URL = `https://raw.githubusercontent.com/${SOURCE_REPOSITORY}/${SOURCE_COMMIT}/data.json`;
-const SOURCE_FILE_SHA256 = "f83c94ce7b09f2bfc5b3b1d63523c2ab3d2582d0e964f6aeec34b8b0390abcfe";
-const SOURCE_FILE_BYTES = 5_141_380;
-const RETRIEVED_AT = "2026-08-20";
+const SOURCE_FILE_SHA256 = "b52be9c4f17e4114064255ef1b8c58292e9db0e395d95af235a8d3fef0d44642";
+const SOURCE_FILE_BYTES = 5_140_821;
+const RETRIEVED_AT = "2026-11-22";
 /** Compatibilidad PROBADA por nosotros; GGG no afirma esta correspondencia. */
-const TESTED_AGAINST_PATCH = "0.5.4f";
+const TESTED_AGAINST_PATCH = "0.5.5";
 const LICENSE_NOTE =
   "No se encontró licencia explícita en el repositorio de origen (GitHub no declara licencia). " +
   "Los datos pertenecen a Grinding Gear Games; se usan solo para resolver identificadores oficiales.";

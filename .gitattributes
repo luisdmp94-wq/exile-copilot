@@ -7,3 +7,8 @@ server/data/passives/*.json text eol=lf
 # (npm run data:items-en): el paquete es binario; los JSON, LF como arriba.
 server/data/pob/*.gz binary
 server/data/pob/*.json text eol=lf
+
+# Fuentes y recibos de evidencia de parche: sus huellas SHA-256 se calculan
+# sobre los bytes; LF en cualquier plataforma para que coincidan en Render.
+docs/evidence/release/**/*.md text eol=lf
+docs/evidence/0.5.5/*.md text eol=lf

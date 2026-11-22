@@ -378,24 +378,23 @@ describe("api (integración, app Express con db :memory:)", () => {
     const body = await jsonOf(res);
     expect(body.ok).toBe(true);
     expect(body.patch).toEqual({
-      id: "0.5.4f",
-      content: "0.5.4",
-      hotfix: "f",
-      asOf: "2026-08-12",
-      source: expect.stringContaining("0.5.4f Hotfix"),
+      id: "0.5.5",
+      content: "0.5.5",
+      hotfix: "h",
+      asOf: "2026-11-22",
+      source: expect.stringContaining("0.5.5h Patch Notes"),
       // La misma fuente en inglés, para la versión inglesa de la cabecera.
       sourceEn: expect.stringContaining("official patch notes forum"),
     });
-    // El juego va por delante de los datos revisados: se dice cuál es, sin
-    // cambiar el parche contra el que trabaja la web.
+    // El parche revisado coincide con el que juega la gente.
     expect(body.livePatch).toEqual({ id: "0.5.5", label: "0.5.5", releaseDate: "2026-09-04" });
     expect(body.services).toEqual({
       mentor: { mode: "rules-only", provider: null },
     });
     expect(body.compatibility).toMatchObject({
-      patchId: "0.5.4f",
+      patchId: "0.5.5",
       status: "limited",
-      reviewedAt: "2026-08-30",
+      reviewedAt: "2026-11-22",
     });
     expect(
       body.compatibility.features.find(
@@ -412,7 +411,7 @@ describe("api (integración, app Express con db :memory:)", () => {
         (feature: { id: string }) => feature.id === "advanced-crafting",
       ),
     ).toMatchObject({ status: "review-required" });
-    expect(body.dataUpdatedAt).toBe("2026-08-30T00:00:00.000Z");
+    expect(body.dataUpdatedAt).toBe("2026-11-22T00:00:00.000Z");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
@@ -423,7 +422,7 @@ describe("api (integración, app Express con db :memory:)", () => {
       ok: true,
       status: "ready",
       mode: "local",
-      patchId: "0.5.4f",
+      patchId: "0.5.5",
       checks: [
         expect.objectContaining({ id: "database", status: "pass" }),
         expect.objectContaining({ id: "patch-metadata", status: "pass" }),
@@ -664,8 +663,9 @@ describe("api (integración, app Express con db :memory:)", () => {
       id: "0.5.5",
       status: "released",
       releaseDate: "2026-09-04",
-      asOf: "2026-10-24",
-      source: expect.stringContaining("Forbidden Rites"),
+      hotfix: "h",
+      asOf: "2026-11-22",
+      source: expect.stringContaining("0.5.5h"),
     });
     expect(body.patches[2]).toMatchObject({
       id: "1.0",
@@ -685,58 +685,71 @@ describe("api (integración, app Express con db :memory:)", () => {
         (candidate: { patchId: string }) => candidate.patchId === "0.5.5",
       ),
     ).toMatchObject({
-      status: "review-required",
-      reviewedAt: null,
+      status: "limited",
+      reviewedAt: "2026-11-22",
       features: expect.arrayContaining([
-        expect.objectContaining({ id: "item-import", status: "review-required" }),
-        expect.objectContaining({ id: "basic-crafting", status: "review-required" }),
+        expect.objectContaining({ id: "item-import", status: "limited" }),
+        expect.objectContaining({ id: "basic-crafting", status: "limited" }),
         expect.objectContaining({ id: "advanced-crafting", status: "review-required" }),
-        expect.objectContaining({ id: "passive-tree", status: "review-required" }),
-        expect.objectContaining({ id: "market", status: "review-required" }),
+        expect.objectContaining({ id: "passive-tree", status: "limited" }),
+        expect.objectContaining({ id: "market", status: "limited" }),
       ]),
     });
     expect(body.goals).toContain("survival");
     expect(body.currencies).toEqual(["chaos", "exalted", "divine", "gold"]);
   });
 
-  it("0.5.5 está publicado, pero el despliegue sigue bloqueado hasta revisar su compatibilidad", async () => {
-    const announcedApp = createApiApp({
+  it("0.5.5 revisado: opera con límites visibles y Essences/Alloys siguen detenidos", async () => {
+    const reviewedApp = createApiApp({
       dbPath: ":memory:",
       config: { poeNinjaOffline: true, defaultPatch: "0.5.5" },
     });
-    const announcedServer = await new Promise<Server>((resolve) => {
-      const candidate = announcedApp.listen(0, () => resolve(candidate));
+    const reviewedServer = await new Promise<Server>((resolve) => {
+      const candidate = reviewedApp.listen(0, () => resolve(candidate));
     });
     try {
-      const { port } = announcedServer.address() as AddressInfo;
+      const { port } = reviewedServer.address() as AddressInfo;
       const origin = `http://127.0.0.1:${port}`;
       const health = await jsonOf(await fetch(`${origin}/health`));
-      expect(health.patch).toMatchObject({ id: "0.5.5", asOf: "2026-10-24" });
+      expect(health.patch).toMatchObject({ id: "0.5.5", hotfix: "h", asOf: "2026-11-22" });
       expect(health.compatibility).toMatchObject({
         patchId: "0.5.5",
-        status: "review-required",
-        reviewedAt: null,
+        status: "limited",
+        reviewedAt: "2026-11-22",
       });
-      expect(
-        health.compatibility.features.every(
-          (feature: { status: string; evidenceIds: string[] }) =>
-            feature.status === "review-required" && feature.evidenceIds.length === 0,
+      const byId = new Map(
+        health.compatibility.features.map(
+          (feature: { id: string; status: string; evidenceIds: string[] }) => [feature.id, feature],
         ),
-      ).toBe(true);
+      );
+      // Ninguna evidencia queda anulada por el filtro de integridad.
+      for (const id of ["item-import", "basic-crafting", "passive-tree", "market"]) {
+        expect(byId.get(id)).toMatchObject({ status: "limited" });
+      }
+      expect(byId.get("advanced-crafting")).toMatchObject({ status: "review-required" });
 
       const ready = await fetch(`${origin}/ready`);
-      expect(ready.status).toBe(503);
+      expect(ready.status).toBe(200);
       expect(await jsonOf(ready)).toMatchObject({
-        ok: false,
         patchId: "0.5.5",
         checks: expect.arrayContaining([
           expect.objectContaining({ id: "patch-metadata", status: "pass" }),
-          expect.objectContaining({ id: "patch-guidance", status: "block" }),
+          expect.objectContaining({ id: "patch-guidance", status: "pass" }),
         ]),
       });
+
+      // Crafting básico conserva sus acciones observadas y el mercado abre con
+      // su propia captura de 0.5.5, sin depender del id de 0.5.4f.
+      const knowledge = await fetch(
+        `${origin}/crafting/knowledge?itemClass=Ballestas&baseType=Ballesta%20barnizada&patch=0.5.5`,
+      );
+      expect(knowledge.status).toBe(200);
+      expect((await jsonOf(knowledge)).actions.length).toBeGreaterThan(0);
+      const market = await fetch(`${origin}/market/prices?names=Divine%20Orb&patch=0.5.5`);
+      expect(market.status).toBe(200);
     } finally {
       await new Promise<void>((resolve, reject) =>
-        announcedServer.close((error) => (error ? reject(error) : resolve())),
+        reviewedServer.close((error) => (error ? reject(error) : resolve())),
       );
     }
   });

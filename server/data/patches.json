@@ -14,10 +14,10 @@
     "status": "released",
     "releaseDate": "2026-09-04",
     "content": "0.5.5",
-    "hotfix": null,
-    "asOf": "2026-10-24",
-    "source": "Steam Community — anuncio oficial 'Path of Exile 2: 0.5.5 Event League & Duelist Deep Dive' (Natalia_GGG, 2026-08-27), lanzamiento 2026-09-04; poe.ninja lista la liga Forbidden Rites activa el 2026-10-24",
-    "sourceEn": "Steam Community — official announcement 'Path of Exile 2: 0.5.5 Event League & Duelist Deep Dive' (Natalia_GGG, 2026-08-27), released 2026-09-04; poe.ninja lists the Forbidden Rites league as active on 2026-10-24"
+    "hotfix": "h",
+    "asOf": "2026-11-22",
+    "source": "pathofexile.com — foro oficial de parches, del hilo '0.5.5 Patch Notes' (2026-09-03) al '0.5.5h Patch Notes' (Kieren_GGG, 2026-11-18)",
+    "sourceEn": "pathofexile.com — official patch notes forum, from the '0.5.5 Patch Notes' thread (2026-09-03) to '0.5.5h Patch Notes' (Kieren_GGG, 2026-11-18)"
   },
   {
     "id": "1.0",

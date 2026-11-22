@@ -743,7 +743,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           allowsPatchFeature(patchRecord, "passive-tree") &&
           registrySupportsPatch(patch, passiveCoverage.evidenceIds)
         ) {
-          res.json({ ...result, resolution: resolvePlan(result.plan.build) });
+          res.json({
+            ...result,
+            resolution: resolvePlan(result.plan.build, patch, passiveCoverage.evidenceIds),
+          });
           return;
         }
         res.json({
@@ -1593,9 +1596,11 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       }
       const patchRecord = compatibilityForPatch(patchCompatibility, patch);
       const marketCoverage = patchFeatureCoverage(patchRecord, "market");
+      // La cobertura ya llega filtrada por su evidencia (área, parche y huella):
+      // cada parche autoriza su propia captura de poe.ninja, no un id fijo.
       if (
         !allowsPatchFeature(patchRecord, "market") ||
-        !marketCoverage.evidenceIds.includes("poe-ninja-economy-endpoint")
+        marketCoverage.evidenceIds.length === 0
       ) {
         throw new ApiHttpError(
           422,

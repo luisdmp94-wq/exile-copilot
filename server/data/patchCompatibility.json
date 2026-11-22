@@ -24,7 +24,9 @@
           "note": "El formato avanzado en español se contrasta con objetos copiados del cliente; la evidencia original no muestra por sí sola el parche.",
           "noteEn": "The advanced Spanish format is checked against items copied from the game client; the original evidence doesn't show the patch on its own.",
           "evidence": "Fixtures locales capturadas el 22/08/2026 y regresiones del importador.",
-          "evidenceIds": ["item-parser-fixtures-2026-08-22"]
+          "evidenceIds": [
+            "item-parser-fixtures-2026-08-22"
+          ]
         },
         {
           "id": "basic-crafting",
@@ -47,7 +49,10 @@
           "note": "Essences y Alloys quedan detenidos hasta verificar sus reglas específicamente contra 0.5.4f.",
           "noteEn": "Essences and Alloys are on hold until their rules are checked specifically against 0.5.4f.",
           "evidence": "Las fuentes registradas solo alcanzan 0.5.0 para Essences y 0.5.3 para Alloys; no autorizan 0.5.4f.",
-          "evidenceIds": ["crafting-essences-sources", "crafting-alloys-sources"]
+          "evidenceIds": [
+            "crafting-essences-sources",
+            "crafting-alloys-sources"
+          ]
         },
         {
           "id": "passive-tree",
@@ -57,7 +62,9 @@
           "note": "Los ids y textos se resuelven contra el export oficial de PoE2; la presencia en el export no confirma por sí sola que cada nodo siga activo o asignable.",
           "noteEn": "Ids and text are matched against the official PoE2 export; being in the export doesn't confirm on its own that each node is still active or can be allocated.",
           "evidence": "Registro passiveRegistry.1e9eb2d8 derivado del export oficial de PoE2 y probado contra 0.5.4f.",
-          "evidenceIds": ["passiveRegistry.1e9eb2d8"]
+          "evidenceIds": [
+            "passiveRegistry.1e9eb2d8"
+          ]
         },
         {
           "id": "market",
@@ -67,66 +74,78 @@
           "note": "Los precios son consultas temporales de poe.ninja, no valores garantizados.",
           "noteEn": "Prices are point-in-time lookups from poe.ninja, not guaranteed values.",
           "evidence": "Respuesta fechada del endpoint de economía y aviso de procedencia visible.",
-          "evidenceIds": ["poe-ninja-economy-endpoint"]
+          "evidenceIds": [
+            "poe-ninja-economy-endpoint"
+          ]
         }
       ]
     },
     {
       "patchId": "0.5.5",
-      "status": "review-required",
-      "reviewedAt": null,
-      "summary": "0.5.5 salió el 4 de septiembre de 2026, pero todavía no hemos revisado sus datos con el juego. No hereda datos ni reglas de 0.5.4f.",
-      "summaryEn": "0.5.5 came out on 4 September 2026, but we haven't checked its data against the game yet. It doesn't inherit data or rules from 0.5.4f.",
+      "status": "limited",
+      "reviewedAt": "2026-11-22",
+      "summary": "Revisado con las notas oficiales hasta 0.5.5h: lo básico sigue igual. Aún faltan copias del juego para confirmarlo y no tenemos las probabilidades de cada modificador.",
+      "summaryEn": "Checked against the official notes up to 0.5.5h: the basics are unchanged. We still need copies from the game to confirm it, and we don't have the odds for each modifier.",
       "features": [
         {
           "id": "item-import",
           "label": "Importación de objetos",
           "labelEn": "Item import",
-          "status": "review-required",
-          "note": "Detenido hasta reproducir textos copiados directamente del cliente 0.5.5 en los idiomas soportados.",
-          "noteEn": "On hold until we reproduce text copied straight from the 0.5.5 client in the supported languages.",
-          "evidence": "El anuncio oficial no documenta el formato de objetos de 0.5.5.",
-          "evidenceIds": []
+          "status": "limited",
+          "note": "Las notas oficiales hasta 0.5.5h no cambian el formato de Ctrl+C. Aún no hemos copiado objetos del cliente 0.5.5h para confirmarlo.",
+          "noteEn": "The official notes up to 0.5.5h don't change the Ctrl+C format. We haven't copied items from the 0.5.5h client yet to confirm it.",
+          "evidence": "Revisión de los 20 hilos oficiales de 0.5.5 a 0.5.5h del 22/11/2026.",
+          "evidenceIds": [
+            "item-import-0.5.5-notas-2026-11-22"
+          ]
         },
         {
           "id": "basic-crafting",
           "label": "Crafting básico guiado",
           "labelEn": "Guided basic crafting",
-          "status": "review-required",
-          "note": "Detenido hasta contrastar monedas y transiciones con las notas y el cliente 0.5.5.",
-          "noteEn": "On hold until currencies and transitions are checked against the 0.5.5 notes and client.",
-          "evidence": "El anuncio oficial anticipa contenido, pero no aporta reglas completas de crafting.",
-          "evidenceIds": []
+          "status": "limited",
+          "note": "Transmutación, Aumento, Regio y Exaltado no cambian en 0.5.5h según las notas oficiales. Se cubren legalidad estructural y comparación antes/después; el resultado aleatorio no se predice.",
+          "noteEn": "Transmutation, Augmentation, Regal and Exalted don't change in 0.5.5h according to the official notes. Covers which currency an item accepts and the before/after comparison; the random result isn't predicted.",
+          "evidence": "Notas oficiales hasta 0.5.5h y texto de poe2db del 22/11/2026; las observaciones dentro del juego siguen siendo las del 22/08/2026.",
+          "evidenceIds": [
+            "basic-crafting-0.5.5-notas-2026-11-22",
+            "poe2-observed-currency-actions-2026-08-22",
+            "poe2-mod-pools-unavailable-2026-08-22"
+          ]
         },
         {
           "id": "advanced-crafting",
           "label": "Essences, Alloys y rutas avanzadas",
           "labelEn": "Essences, Alloys and advanced routes",
           "status": "review-required",
-          "note": "Detenido hasta revisar Essences, Alloys y cualquier cambio del parche con evidencia propia de 0.5.5.",
-          "noteEn": "On hold until Essences, Alloys and any patch changes are reviewed with evidence from 0.5.5 itself.",
-          "evidence": "Las evidencias existentes pertenecen a 0.5.0 y 0.5.3; no autorizan 0.5.5.",
+          "note": "Essences y Alloys siguen detenidos: sus reglas se revisaron contra 0.5.0 y 0.5.3, y nadie las ha comparado una a una con 0.5.5h.",
+          "noteEn": "Essences and Alloys stay on hold: their rules were checked against 0.5.0 and 0.5.3, and nobody has compared them one by one with 0.5.5h.",
+          "evidence": "Las notas de 0.5.5h no cambian Essences ni Alloys, pero eso no demuestra que nuestras reglas de 0.5.0/0.5.3 sigan bien.",
           "evidenceIds": []
         },
         {
           "id": "passive-tree",
           "label": "Árbol de pasivas",
           "labelEn": "Passive tree",
-          "status": "review-required",
-          "note": "Detenido hasta fijar y probar un export oficial contra 0.5.5.",
-          "noteEn": "On hold until an official export is pinned and tested against 0.5.5.",
-          "evidence": "El registro actual está probado exclusivamente contra 0.5.4f.",
-          "evidenceIds": []
+          "status": "limited",
+          "note": "Los ids y textos se resuelven contra el export oficial de 0.5.5; la presencia en el export no confirma por sí sola que cada nodo siga activo o asignable.",
+          "noteEn": "Ids and text are matched against the official 0.5.5 export; being in the export doesn't confirm on its own that each node is still active or can be allocated.",
+          "evidence": "Registro passiveRegistry.bd87e651 derivado del export oficial de GGG «0.5.5» y probado contra 0.5.5.",
+          "evidenceIds": [
+            "passive-registry.bd87e651"
+          ]
         },
         {
           "id": "market",
           "label": "Mercado",
           "labelEn": "Market",
-          "status": "review-required",
-          "note": "Detenido hasta confirmar la liga y una fuente de economía que identifique 0.5.5.",
-          "noteEn": "On hold until the league and an economy source that identifies 0.5.5 are confirmed.",
-          "evidence": "Todavía no existe una captura posterior al lanzamiento de 0.5.5.",
-          "evidenceIds": []
+          "status": "limited",
+          "note": "Los precios son consultas temporales de poe.ninja para Runes of Aldur, no valores garantizados. poe.ninja no indexa la liga de evento Forbidden Rites.",
+          "noteEn": "Prices are point-in-time lookups from poe.ninja for Runes of Aldur, not guaranteed values. poe.ninja doesn't index the Forbidden Rites event league.",
+          "evidence": "Captura fechada de ligas y cotizaciones de poe.ninja del 22/11/2026.",
+          "evidenceIds": [
+            "market-0.5.5-poe-ninja-2026-11-22"
+          ]
         }
       ]
     },

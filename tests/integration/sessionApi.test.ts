@@ -221,7 +221,7 @@ describe("API de sesiones adaptativas", () => {
     const savedProfile = {
       ...demoProfile,
       id: "sesion-api-parche-autoritativo",
-      patch: "0.5.5",
+      patch: "1.0",
     };
     expect((await postJson("/character", { profile: savedProfile })).status).toBe(200);
     const empty = JournalResponseSchema.parse(

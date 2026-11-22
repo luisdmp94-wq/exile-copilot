@@ -50,7 +50,7 @@ PUBLIC_DEPLOYMENT=true
 HOST=127.0.0.1
 PORT=7177
 DATABASE_PATH=/ruta/persistente/exile-copilot.db
-DEFAULT_PATCH=0.5.4f
+DEFAULT_PATCH=0.5.5
 SECURE_COOKIES=true
 TRUST_PROXY=loopback
 API_RATE_LIMIT_PER_MINUTE=300
@@ -306,6 +306,31 @@ diario y una sesión activa del Mentor; cierra SQLite, copia también los archiv
 misma sesión anónima. Nunca lee `DATABASE_PATH` ni la base real. Este simulacro
 prueba nuestro procedimiento, pero no sustituye la
 restauración periódica de una copia creada por el alojamiento real.
+
+### Lo que hay de verdad en Render (comprobado el 22-11-2026)
+
+Fuente: <https://render.com/docs/disks>.
+
+- La base vive en el disco persistente de 1 GB montado en `/data`:
+  `/data/exile-copilot.db`, con sus `-wal` y `-shm` (SQLite en modo WAL).
+- Render hace **una instantánea automática del disco cada 24 horas** y la
+  guarda **7 días**. Van cifradas. Se restauran desde la página *Disk* del
+  servicio en el panel.
+- Restaurar **sustituye el disco entero**: se pierde todo lo escrito después de
+  esa instantánea. No se puede restaurar un solo archivo.
+- La instantánea se toma con la web en marcha. SQLite en WAL se recupera de
+  una copia así igual que de un apagón, pero nadie lo ha probado aquí.
+- Ningún otro servicio de Render puede leer este disco (ni un cron job). Para
+  sacar una copia hay que hacerlo desde el propio servicio: SSH + `scp` o la
+  pestaña *Shell*.
+
+Lo que falta:
+
+1. **No hay copia fuera de Render.** Si se borra el servicio o la cuenta, se
+   pierden la base y sus instantáneas.
+2. **Nunca se ha restaurado una copia real.** `drill:restore` prueba el
+   procedimiento con datos inventados, no una instantánea de Render.
+3. Las instantáneas duran 7 días: un fallo que se note tarde no tiene vuelta.
 
 ## Recuperación
 

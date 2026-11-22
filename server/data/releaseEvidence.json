@@ -70,6 +70,54 @@
       "artifactPath": "docs/PLAN.md",
       "artifactSha256": "7e953591e66c02d05cc63e1b244cce037df2bc8d3355ed0d709c696b00bbc675",
       "note": "Describe el contrato y sus límites, pero una fuente viva sin captura del lanzamiento no demuestra un parche concreto."
+    },
+    {
+      "evidenceId": "item-import-0.5.5-notas-2026-11-22",
+      "featureId": "item-import",
+      "patch": "0.5.5",
+      "asOf": "2026-11-22",
+      "method": "official-source-review",
+      "artifactPath": "docs/evidence/release/0.5.5/item-import-0.5.5-notas-2026-11-22.md",
+      "artifactSha256": "0083d02962e3eb28885e28776cc4da339c9c0fb614707110bdc738fa7ef2d4e0",
+      "note": "Las notas oficiales de 0.5.5 a 0.5.5h no cambian el formato de Ctrl+C; solo arreglan la copia de objetos enlazados en el chat. No sustituye una copia directa del cliente 0.5.5h en español e inglés, que sigue pendiente.",
+      "subjectPath": "docs/evidence/0.5.5/notas-oficiales-0.5.5.md",
+      "subjectSha256": "9cb941abe9633edfa3e7c83a2a0c925edd8f346aaf7b23a17b7acb744433792f"
+    },
+    {
+      "evidenceId": "basic-crafting-0.5.5-notas-2026-11-22",
+      "featureId": "basic-crafting",
+      "patch": "0.5.5",
+      "asOf": "2026-11-22",
+      "method": "official-source-review",
+      "artifactPath": "docs/evidence/release/0.5.5/basic-crafting-0.5.5-notas-2026-11-22.md",
+      "artifactSha256": "e9e50de461aa767eb7047ba1725ea41c369a831f75033a95f7f857c6b42e2553",
+      "note": "Ninguna nota oficial de 0.5.5 a 0.5.5h cambia Transmutación, Aumento, Regio ni Exaltado; el texto de poe2db en inglés y español coincide con las transiciones que enseña la web. No es una observación nueva dentro del cliente.",
+      "subjectPath": "docs/evidence/0.5.5/notas-oficiales-0.5.5.md",
+      "subjectSha256": "9cb941abe9633edfa3e7c83a2a0c925edd8f346aaf7b23a17b7acb744433792f"
+    },
+    {
+      "evidenceId": "market-0.5.5-poe-ninja-2026-11-22",
+      "featureId": "market",
+      "patch": "0.5.5",
+      "asOf": "2026-11-22",
+      "method": "live-service-contract",
+      "artifactPath": "docs/evidence/release/0.5.5/market-0.5.5-poe-ninja-2026-11-22.md",
+      "artifactSha256": "8440eaa56b19a82a915974e19f7770ebe52b611efeaaebfd784bcc98b4b0235b",
+      "note": "Captura fechada de las ligas y de una cotización de Runes of Aldur en poe.ninja, la liga indexada que corre con el cliente 0.5.5h según las notas oficiales. Los precios son una foto temporal, no un valor garantizado.",
+      "subjectPath": "docs/evidence/0.5.5/mercado-poe-ninja-2026-11-22.md",
+      "subjectSha256": "31896076d2e2a49a75d62b3eafebcea1f6b01f5b95eb916a8446f2f7d3dbeba3"
+    },
+    {
+      "evidenceId": "passive-registry.bd87e651",
+      "featureId": "passive-tree",
+      "patch": "0.5.5",
+      "asOf": "2026-11-22",
+      "method": "official-export",
+      "artifactPath": "docs/evidence/release/0.5.5/passive-registry.bd87e651.md",
+      "artifactSha256": "51da8a0faa5353d59c7e5bd43142726c115ebf97ff922a50cb19016d96c4376c",
+      "note": "Registro generado del export oficial grindinggear/poe2-skilltree-export fijado en el commit bd87e651 (mensaje de GGG: 0.5.5) y probado contra 0.5.5. Estar en el export no confirma por sí solo que cada nodo sea asignable.",
+      "subjectPath": "server/data/passives/passiveRegistry.bd87e651.json",
+      "subjectSha256": "b6ef888fe2f1198c1d03cea181c129f4961fe0095f4e6a6288502d00d10929f2"
     }
   ]
 }

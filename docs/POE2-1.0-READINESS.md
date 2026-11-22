@@ -112,7 +112,15 @@ la auditoría.
 
 La cobertura de `0.5.4f` es **limitada y explícita**: importación de objetos y árbol de pasivas tienen cobertura registrada; Crafting básico y mercado conservan límites visibles. Crafting avanzado está en `review-required` porque sus evidencias solo alcanzan 0.5.0/0.5.3: Essences y Alloys no se ofrecen, no pueden iniciar una sesión y tampoco pueden reaparecer como recomendación del Mentor hasta revisarse contra el parche activo.
 
-`0.5.5` está registrado como **anunciado para el 4 de septiembre de 2026**, con fuente oficial del 27 de agosto, pero sus cinco áreas permanecen en `review-required`: las notas del parche y las capturas directas del cliente todavía no existen. El parche operativo sigue siendo `0.5.4f`; el orden del catálogo nunca puede adelantar automáticamente la aplicación. El Duelista anunciado pertenece al lanzamiento `1.0` del 11 de diciembre, no se trata como una clase disponible en `0.5.5`.
+`0.5.5` se revisó el 22-11-2026 contra las notas oficiales hasta **0.5.5h**
+(fuentes en `docs/evidence/0.5.5/`). Su cobertura es **limitada**: importación
+de objetos, Crafting básico, pasivas (registro `passive-registry.bd87e651`) y
+mercado tienen evidencia propia de 0.5.5; Essences y Alloys siguen en
+`review-required`. `npm run readiness:0.5.5` sigue bloqueado por lo que solo
+puede hacerse en el juego: copias directas de objetos en `es` y `en`, una nueva
+observación de las monedas básicas y los dos recorridos reales. El ensayo y lo
+que falló del proceso están en [DIA-DE-LA-1.0.md](DIA-DE-LA-1.0.md). El
+Duelista anunciado pertenece al lanzamiento `1.0` del 11 de diciembre.
 
 La transición intermedia usa exactamente el mismo contrato mediante
 `npm run readiness:0.5.5`. Cuando el informe tenga evidencias reales posteriores

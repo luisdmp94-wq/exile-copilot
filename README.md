@@ -1,134 +1,92 @@
-# Exile Mentor
+# Exile Copilot
 
-**What to fix first in your Path of Exile 2 build.**
+**El compañero en español para empezar en Path of Exile 2.**
+Web: <https://exilecopilot.com> · Español e inglés · Gratis, sin cuenta.
 
-Paste your Path of Building 2 code (or type four numbers from your character
-sheet) and Exile Mentor tells you, in plain words, the top things holding your
-character back — and remembers your last check so you can see your progress.
+*A Path of Exile 2 companion for new players, in Spanish and English.*
 
-> Free, no account, no ads. Your build never leaves your browser.
+## Qué hace
 
-*Resumen en español [más abajo](#en-español).*
+- **Tu personaje y el mentor.** Pegas tu personaje (código de Path of
+  Building 2 o los datos a mano) y el mentor te dice qué mejorar primero, con
+  el dato que lo justifica. Si no sabe algo, lo dice.
+- **Guías por acto.** Actos 1 a 4: zonas, jefes y recompensas, en orden.
+- **Árbol de pasivas.** El árbol oficial de GGG con los nombres en español.
+  Path of Building 2 funciona **dentro del navegador**: marcas el árbol a mano,
+  ves sus números reales y lo exportas a PoB2.
+- **Crafting.** Te enseña el siguiente paso seguro y lo haces tú en el juego.
+  No promete resultados ni probabilidades que no puede demostrar.
+- **Plan y mercado.** Un plan con el siguiente paso de tu personaje y precios
+  de poe.ninja (una foto del momento, no un precio garantizado).
 
-## What it checks
+Qué parte está comprobada para cada parche del juego:
+`server/data/patchCompatibility.json` y
+[docs/POE2-1.0-READINESS.md](docs/POE2-1.0-READINESS.md).
 
-Exile Mentor only says things it can back up with the numbers it read:
+## Arrancar en local
 
-| Check | Example |
-| --- | --- |
-| Elemental resistances below 75% | `Fire 52% · 23 points short` — *you take 92% more fire damage than at 75%* |
-| Empty gear slots | `Empty: Belt, Ring 2` |
-| Negative chaos resistance | `Chaos −24% · 24 points short of 0%` |
-
-Up to three priorities, most urgent first. "Extra damage taken" is plain
-arithmetic: damage of a type scales with `100 − resistance`. If everything it
-checks is fine, it says so instead of inventing advice.
-
-**Campaign or maps.** Each act takes 10% off your elemental resistances, so
-75% is unrealistic early on. In campaign mode the target stays 75%, but the
-urgency is softened (negative resistances are urgent, below the ~30% that
-community guides suggest is important) and the penalty is explained. Mapping
-mode keeps the strict 75% check.
-
-**Your progress.** Each check is saved in your browser (up to 20, nothing is
-sent anywhere). Next time you get a comparison: level, resistance changes,
-slots you filled and priorities you fixed. One click forgets them all.
-
-**Share it.** *Copy summary* puts the result as plain text on your clipboard,
-ready to paste on Discord or Reddit when you ask for help.
-
-**English and Spanish**, switchable at any time.
-
-## How to use it
-
-1. In **Path of Building 2**: *Import/Export Build → Generate → Copy*.
-2. Paste the code into Exile Mentor and press **Check my build**.
-3. No PoB? Choose **I'll type it in** and copy your four resistances from the
-   in-game character sheet, then tick any empty gear slots.
-
-The numbers are the ones Path of Building calculates with your PoB
-configuration, so they can differ slightly from the game if PoB is set up
-differently (campaign penalty, buffs, charges).
-
-## Privacy
-
-- The PoB code is decompressed and read **in your browser**. There are no
-  requests to any server when you check a build.
-- Saved checks and your language choice live in your browser's local storage.
-- The public site is static: no accounts, cookies, analytics or third-party
-  scripts.
-
-## Status
-
-Early release ahead of Path of Exile 2's 1.0 launch (11 December 2026). The
-rules will be reviewed against the 1.0 patch notes. Planned next: knowing which
-act you are in and the next goal for your character while you level.
-
-## Run it locally
-
-Requires **Node.js 24** and npm.
+Hace falta **Node.js 24** y npm.
 
 ```bash
 npm install
-npm run dev            # http://localhost:7100/check
+cp .env.example .env      # valores de desarrollo; no hace falta tocarlos
+npm run dev               # web y API en http://localhost:7100
 ```
 
-| Command | What it does |
+| Comando | Para qué |
 | --- | --- |
-| `npm run build:check` | Builds the public static site into `dist-check/` |
-| `npm run preview:check` | Serves that build on http://localhost:7300 |
-| `npm test` | Runs the test suite (Vitest) |
-| `npm run test:check` | Builds the public site and walks through it in a real browser (Edge/Chromium), with the production security headers |
+| `npm test` | Tests (Vitest) |
 | `npm run lint` | ESLint |
+| `npm run build` | Compila web, guías y servidor (`dist/`, `dist-server/`) |
+| `npm start` | Arranca lo compilado, como en producción |
+| `node scripts/browser-smoke.mjs` | Recorre la web en un navegador real (`--dev`: modo desarrollo; `--all`: los dos) |
+| `node scripts/mentor-smoke.mjs` | Recorre el mentor (mismas opciones) |
 
-The public site is a static build of the `relaunch` branch (build command
-`npm run build:check`, output directory `dist-check`), meant for Cloudflare
-Pages; `public-check/_headers` holds its security headers.
+La base de datos es SQLite (`DATABASE_PATH`, por defecto
+`./data/exile-copilot.db`). El mentor con IA es opcional: sin clave, el mentor
+funciona solo con reglas.
 
-### Where the code lives
+## Datos del juego
 
-| Path | Purpose |
+Cuando cambia el parche, estos comandos rehacen los datos. Cada uno comprueba
+lo que descarga y no escribe nada si algo falla.
+
+| Comando | Qué actualiza |
 | --- | --- |
-| `src/check/` | The build check page, manual form and standalone entry |
-| `src/lib/buildPriorities.ts` | The rules |
-| `src/lib/checkHistory.ts` | Saved checks and progress comparison |
-| `src/lib/checkText.ts` | All texts, English and Spanish |
-| `src/lib/pobBrowser.ts` | Reads a PoB2 code in the browser |
-| `server/adapters/pobXml.ts`, `server/importers/pobProfile.ts` | PoB2 XML reading, shared by browser and server |
-| `tests/unit/` | Tests (`buildPriorities`, `checkHistory`, `checkText`, `pobBrowser`…) |
+| `npm run data:status` | Resumen: qué está al día y qué falta. Con `-- --online --target 1.0` mira también GGG y PoB2 |
+| `npm run data:tree -- --latest` | Árbol de pasivas (export oficial de GGG + nombres en español de poe2db) |
+| `npm run data:pob -- --latest` | Path of Building 2 para el navegador (motor, clases, gemas) |
+| `npm run data:items-en` | Traducción de objetos en español (modificadores, bases, únicos) |
+| `npm run data:gems` / `-- --en` | Gemas en español / inglés (poe2db) |
 
-The repository still contains the previous, larger app (*Exile Copilot*:
-server, crafting guide, AI mentor). Its documentation is the
-[README in the `archivo-v0` branch](https://github.com/luisdmp94-wq/exile-copilot/blob/archivo-v0/README.md).
+El paso a paso del día de un parche grande está en
+[docs/DIA-DE-LA-1.0.md](docs/DIA-DE-LA-1.0.md).
 
-## Data and assets
+## Despliegue
 
-- No game data APIs are used by the build check: everything comes from the
-  code or numbers you provide.
-- No Grinding Gear Games artwork is used. The icon is an original design.
+- **Render**, servicio web desde el `Dockerfile`, una instancia, disco
+  persistente en `/data` para SQLite, salud en `/api/ready`.
+- **Cada push a `main` se publica solo.** Durante 1-2 minutos la web puede
+  dar errores mientras arranca la versión nueva.
+- La configuración vive en Render → Environment (`DEFAULT_PATCH`,
+  `DEFAULT_LEAGUE`, claves). Nunca en el repositorio.
+- Detalles, variables y copias de seguridad:
+  [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-## Disclaimer
+## Dónde está cada cosa
+
+| Ruta | Qué hay |
+| --- | --- |
+| `src/` | La web (React). `src/guides/` guías por acto, `src/pob/` PoB2 en el navegador |
+| `server/` | La API (Express + SQLite), mentor, crafting, mercado |
+| `server/data/` | Datos versionados del juego y fichas de compatibilidad |
+| `scripts/` | Comandos de datos, pruebas de humo y auditorías |
+| `docs/` | Proceso, decisiones y evidencias |
+
+## Licencias y avisos
+
+Path of Building 2 se usa bajo su licencia (`server/data/pob/LICENSE-PathOfBuilding.md`).
+Otros avisos en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 This product isn't affiliated with or endorsed by Grinding Gear Games in any
 way. Path of Exile is a trademark of Grinding Gear Games.
-
----
-
-## En español
-
-**Exile Mentor** te dice qué arreglar primero en tu personaje de Path of Exile 2.
-
-- Pega tu código de **Path of Building 2** o escribe tus cuatro resistencias de
-  la hoja de personaje.
-- Te da hasta 3 prioridades con su dato: resistencias elementales por debajo
-  del 75 %, huecos de equipo vacíos y resistencia al caos negativa, con cuánto
-  daño extra recibes por ello.
-- Recuerda tu último chequeo y te dice qué has mejorado.
-- Funciona en español e inglés.
-- **Tu build no sale de tu navegador**: no hay cuentas, ni servidor, ni
-  analítica.
-
-Para ejecutarlo en local: `npm install` y `npm run dev`, y abre
-http://localhost:7100/check.
-
-*Este producto no está afiliado ni respaldado por Grinding Gear Games.*

@@ -21,20 +21,35 @@ import type { GggBuildPlannerV1 } from "../../shared/gggBuildPlanner.js";
  */
 
 /**
- * Artefacto activo. El nombre lleva el commit de origen (no un parche del
- * juego): al fijar una revisión nueva se cambia aquí de forma consciente.
+ * Artefactos versionados, el más reciente primero. El nombre lleva el commit
+ * de origen (no un parche del juego). Se conservan varios a la vez para que
+ * un parche nuevo pueda prepararse antes de cambiar `DEFAULT_PATCH`: cada
+ * parche solo resuelve con el registro probado contra él y autorizado por su
+ * cobertura. Al fijar una revisión nueva se añade aquí de forma consciente.
  */
-const REGISTRY_FILE = "passiveRegistry.1e9eb2d8.json";
-export const PASSIVE_REGISTRY_EVIDENCE_ID = "passiveRegistry.1e9eb2d8";
+const REGISTRY_FILES = [
+  { file: "passiveRegistry.bd87e651.json", evidenceId: "passive-registry.bd87e651" },
+  { file: "passiveRegistry.1e9eb2d8.json", evidenceId: "passiveRegistry.1e9eb2d8" },
+] as const;
+/** Registro más reciente: el que audita `readiness` para el parche objetivo. */
+export const PASSIVE_REGISTRY_EVIDENCE_ID: string = REGISTRY_FILES[0].evidenceId;
 
-let cached: {
+interface LoadedRegistry {
   registry: PassiveRegistry;
   nodesById: Map<string, PassiveRegistry["nodes"][number]>;
   ascendanciesById: Map<string, PassiveRegistry["ascendancies"][number]>;
-} | null = null;
+}
 
-function load(): NonNullable<typeof cached> {
-  if (cached !== null) return cached;
+const cache = new Map<string, LoadedRegistry>();
+
+function load(evidenceId: string = PASSIVE_REGISTRY_EVIDENCE_ID): LoadedRegistry {
+  const hit = cache.get(evidenceId);
+  if (hit !== undefined) return hit;
+  const entry = REGISTRY_FILES.find((candidate) => candidate.evidenceId === evidenceId);
+  if (entry === undefined) {
+    throw new Error(`No hay ningún registro de pasivas con la evidencia ${evidenceId}.`);
+  }
+  const REGISTRY_FILE = entry.file;
 
   const path = fileURLToPath(new URL(`../data/passives/${REGISTRY_FILE}`, import.meta.url));
   let raw: string;
@@ -58,17 +73,37 @@ function load(): NonNullable<typeof cached> {
   }
 
   const registry = parsed.data;
-  cached = {
+  const loaded: LoadedRegistry = {
     registry,
     nodesById: new Map(registry.nodes.map((n) => [n.id, n])),
     ascendanciesById: new Map(registry.ascendancies.map((a) => [a.id, a])),
   };
-  return cached;
+  cache.set(evidenceId, loaded);
+  return loaded;
+}
+
+/**
+ * Registro que puede resolver un parche: probado dentro del propio artefacto
+ * contra ese parche y con su id de evidencia autorizado por la cobertura.
+ */
+function registryEvidenceForPatch(
+  patch: string,
+  authorizedEvidenceIds: readonly string[],
+): string | null {
+  for (const entry of REGISTRY_FILES) {
+    if (!authorizedEvidenceIds.includes(entry.evidenceId)) continue;
+    if (load(entry.evidenceId).registry.provenance.testedAgainstPatch === patch) {
+      return entry.evidenceId;
+    }
+  }
+  return null;
 }
 
 /** Procedencia resumida del registro (para la UI y los informes). */
-export function getRegistrySource(): RegistrySourceSummary {
-  const { registry } = load();
+export function getRegistrySource(
+  evidenceId: string = PASSIVE_REGISTRY_EVIDENCE_ID,
+): RegistrySourceSummary {
+  const { registry } = load(evidenceId);
   const p = registry.provenance;
   return {
     game: registry.game,
@@ -81,8 +116,10 @@ export function getRegistrySource(): RegistrySourceSummary {
 }
 
 /** Procedencia completa (auditoría). */
-export function getRegistryProvenance(): PassiveRegistry["provenance"] {
-  return load().registry.provenance;
+export function getRegistryProvenance(
+  evidenceId: string = PASSIVE_REGISTRY_EVIDENCE_ID,
+): PassiveRegistry["provenance"] {
+  return load(evidenceId).registry.provenance;
 }
 
 /**
@@ -93,18 +130,18 @@ export function registrySupportsPatch(
   patch: string,
   authorizedEvidenceIds: readonly string[],
 ): boolean {
-  return (
-    getRegistryProvenance().testedAgainstPatch === patch &&
-    authorizedEvidenceIds.includes(PASSIVE_REGISTRY_EVIDENCE_ID)
-  );
+  return registryEvidenceForPatch(patch, authorizedEvidenceIds) !== null;
 }
 
 /**
  * Id de PassiveSkills → nombre inglés oficial verificado.
  * Desconocido → `{ verified: false, name: null }` con el id crudo intacto.
  */
-export function resolvePassive(id: string): ResolvedPassive {
-  const node = load().nodesById.get(id);
+export function resolvePassive(
+  id: string,
+  evidenceId: string = PASSIVE_REGISTRY_EVIDENCE_ID,
+): ResolvedPassive {
+  const node = load(evidenceId).nodesById.get(id);
   if (node === undefined) {
     return { id, name: null, verified: false, stats: [], nodeType: null, ascendancyId: null };
   }
@@ -123,8 +160,11 @@ export function resolvePassive(id: string): ResolvedPassive {
  * La fuente publica algunas ascendencias sin nombre (`name: null`): en ese caso
  * la clase sí se verifica pero el nombre queda como desconocido.
  */
-export function resolveAscendancy(id: string): ResolvedAscendancy {
-  const asc = load().ascendanciesById.get(id);
+export function resolveAscendancy(
+  id: string,
+  evidenceId: string = PASSIVE_REGISTRY_EVIDENCE_ID,
+): ResolvedAscendancy {
+  const asc = load(evidenceId).ascendanciesById.get(id);
   if (asc === undefined) {
     return { id, name: null, className: null, verified: false };
   }
@@ -141,20 +181,29 @@ export function resolveAscendancy(id: string): ResolvedAscendancy {
  * Resuelve los identificadores de un `.build` oficial. NO modifica el plan:
  * devuelve una estructura paralela con el id crudo siempre presente.
  */
-export function resolvePlan(build: GggBuildPlannerV1): PlanResolution {
+export function resolvePlan(
+  build: GggBuildPlannerV1,
+  patch?: string,
+  authorizedEvidenceIds?: readonly string[],
+): PlanResolution {
+  const evidenceId =
+    patch !== undefined && authorizedEvidenceIds !== undefined
+      ? registryEvidenceForPatch(patch, authorizedEvidenceIds) ?? PASSIVE_REGISTRY_EVIDENCE_ID
+      : PASSIVE_REGISTRY_EVIDENCE_ID;
   const passives = (build.passives ?? []).map((entry) =>
-    resolvePassive(typeof entry === "string" ? entry : entry.id),
+    resolvePassive(typeof entry === "string" ? entry : entry.id, evidenceId),
   );
   return {
-    ascendancy: build.ascendancy !== undefined ? resolveAscendancy(build.ascendancy) : null,
+    ascendancy:
+      build.ascendancy !== undefined ? resolveAscendancy(build.ascendancy, evidenceId) : null,
     passives,
     resolvedCount: passives.filter((p) => p.verified).length,
     totalCount: passives.length,
-    source: getRegistrySource(),
+    source: getRegistrySource(evidenceId),
   };
 }
 
 /** Solo para tests: fuerza una recarga del artefacto. */
 export function resetRegistryCacheForTests(): void {
-  cached = null;
+  cache.clear();
 }

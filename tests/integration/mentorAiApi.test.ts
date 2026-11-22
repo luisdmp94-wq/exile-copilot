@@ -114,8 +114,8 @@ describe("POST /mentor/query — Hito 6E", () => {
 
     await withServer(selector, async (base) => {
       const body = await request(base, "¿Qué mejoro ahora?");
-      body.profile.patch = "0.5.5";
-      body.patch = "0.5.5";
+      body.profile.patch = "1.0";
+      body.patch = "1.0";
 
       const response = await post(base, "/mentor/query", body);
       expect(response.status).toBe(422);

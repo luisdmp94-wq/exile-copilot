@@ -154,6 +154,27 @@ async function main(): Promise<void> {
     entry ? `${entry.id} · ${entry.status ?? "sin estado"}${entry.releaseDate ? ` · ${entry.releaseDate}` : ""}` : `no hay ficha de ${target}`,
     "docs/POE2-1.0-READINESS.md, paso 1 (fuente oficial posterior al lanzamiento)",
   );
+  // Compatibilidad: sin ella, la web no puede trabajar con el parche aunque
+  // todos los datos de arriba estén al día (Crafting, mercado y Mentor se cierran).
+  const compatibility = read("server/data/patchCompatibility.json") as {
+    patches?: Array<{
+      patchId: string;
+      status: string;
+      reviewedAt: string | null;
+      features: Array<{ id: string; status: string }>;
+    }>;
+  };
+  const coverage = compatibility.patches?.find((record) => record.patchId === target);
+  const stopped = coverage?.features.filter((feature) => feature.status === "review-required") ?? [];
+  row(
+    coverage !== undefined && coverage.status !== "review-required",
+    "Compatibilidad",
+    coverage
+      ? `${coverage.status}${coverage.reviewedAt ? ` · revisada ${coverage.reviewedAt}` : " · sin revisar"}` +
+          (stopped.length > 0 ? ` · detenido: ${stopped.map((feature) => feature.id).join(", ")}` : "")
+      : `no hay ficha de compatibilidad de ${target}`,
+    `npm run readiness:${target} y docs/POE2-1.0-READINESS.md`,
+  );
   if (process.env.DEFAULT_PATCH) {
     row(
       process.env.DEFAULT_PATCH === target,
