@@ -12,6 +12,20 @@ export type ImportedItemPlacement =
   | { kind: "collision"; item: Item; candidates: Item[] };
 
 const RING_SLOTS = ["ring1", "ring2"] as const;
+const HAND_SLOTS = ["weapon", "offhand"] as const;
+
+/**
+ * Armas de una mano: caben en la mano secundaria (varita + cetro, dos dagas…).
+ * El parser las manda todas a «weapon»; sin esto, pegar la segunda chocaba con
+ * la primera aunque la mano secundaria estuviera libre. Manda la clase del
+ * objeto («Cetros», «Varitas», «Mazas de una mano»); la base solo si no hay clase.
+ */
+const ONE_HANDED_RE =
+  /wand|varita|sceptre|cetro|dagger|daga|claw|garra|spear|lanza|flail|mangual|one hand|una mano/i;
+
+function isOneHandedWeapon(item: Item): boolean {
+  return item.slot === "weapon" && ONE_HANDED_RE.test(item.itemClass?.trim() || item.baseType);
+}
 
 export function planImportedItemPlacement(
   currentItems: readonly Item[],
@@ -34,6 +48,21 @@ export function planImportedItemPlacement(
       return { kind: "append", item: { ...importedItem, slot: emptySlot } };
     }
     return { kind: "collision", item: importedItem, candidates: occupiedRings };
+  }
+
+  // Con un arma a dos manos (o que no sabemos si es de una) en la principal, la
+  // secundaria no está libre de verdad: se pregunta como siempre.
+  const mainHand = currentItems.find((candidate) => candidate.slot === "weapon");
+  if (isOneHandedWeapon(importedItem) && (!mainHand || isOneHandedWeapon(mainHand))) {
+    const emptyHand = HAND_SLOTS.find(
+      (slot) => !currentItems.some((candidate) => candidate.slot === slot),
+    );
+    if (emptyHand) return { kind: "append", item: { ...importedItem, slot: emptyHand } };
+    const occupiedHands = HAND_SLOTS.flatMap((slot) => {
+      const item = currentItems.find((candidate) => candidate.slot === slot);
+      return item ? [item] : [];
+    });
+    return { kind: "collision", item: importedItem, candidates: occupiedHands };
   }
 
   const occupied = currentItems.find((candidate) => candidate.slot === importedItem.slot);
