@@ -7,6 +7,7 @@ import { firstGapsToAsk, reviewCharacter, type QuickReviewGap } from "@shared/qu
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { texts, useLang, useText } from "@/i18n/lang";
+import { loadGemNamePairs, sameGem } from "@/lib/gemNamePairs";
 import { readQuickReviewForm, writeQuickReviewForm } from "@/lib/quickReviewStorage";
 import { pastedImage, screenshotDataUrl } from "@/lib/screenshotImage";
 import {
@@ -231,6 +232,48 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   /** Habilidades leídas de la captura, para elegir la principal con un clic. */
   const [readSkills, setReadSkills] = useState<ScreenshotReadResponse["skills"]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // El nivel de gema que trae el código de PoB2 del personaje: si es mayor que
+  // el escrito (las gemas solo suben), manda el del código, que es más nuevo.
+  const [gemPairs, setGemPairs] = useState<Map<string, number> | null>(null);
+  const hasCodeLevels = profile?.skills.some((skill) => skill.level !== undefined) ?? false;
+  useEffect(() => {
+    if (!hasCodeLevels) return;
+    let cancelled = false;
+    loadGemNamePairs()
+      .then((pairs) => {
+        if (!cancelled) setGemPairs(pairs);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasCodeLevels]);
+  const codeGemLevel =
+    profile?.skills.find((skill) => skill.level !== undefined && form.mainSkill.trim() !== "" && sameGem(gemPairs, skill.mainSkill, form.mainSkill))
+      ?.level ?? null;
+  const [syncedGemLevel, setSyncedGemLevel] = useState<string | null>(null);
+  const syncKey = codeGemLevel !== null ? `${form.mainSkill}|${codeGemLevel}` : null;
+  if (syncKey !== null && syncKey !== syncedGemLevel) {
+    setSyncedGemLevel(syncKey);
+    const typed = Number(form.gemLevel.trim());
+    if (form.gemLevel.trim() === "" || !Number.isFinite(typed) || typed < (codeGemLevel ?? 0)) {
+      setForm((current) => ({ ...current, gemLevel: String(codeGemLevel) }));
+    }
+  }
+  // El nivel del código también lo ve el Mentor: se recuerda como si lo hubiera escrito.
+  // Solo el nivel: lo demás que viene de la ficha no se congela en este navegador.
+  useEffect(() => {
+    if (codeGemLevel === null || form.gemLevel !== String(codeGemLevel)) return;
+    const stored = readStored(profileId);
+    if (stored.gemLevel !== undefined && stored.gemLevel !== form.gemLevel) {
+      try {
+        writeQuickReviewForm(window.localStorage, profileId, { ...stored, gemLevel: form.gemLevel });
+        window.dispatchEvent(new Event(QUICK_REVIEW_CHANGED_EVENT));
+      } catch {
+        // Sin almacenamiento vale para esta visita.
+      }
+    }
+  }, [codeGemLevel, form.gemLevel, profileId]);
   const result = useMemo(() => reviewCharacter(toInput(form), lang), [form, lang]);
   const invalidKeys = (Object.keys(RANGES) as Array<keyof Form>).filter((key) => fieldIsInvalid(form, key));
   /** Sin los datos clave, «nada grave» sería mentira: se piden los dos que más pesan. */

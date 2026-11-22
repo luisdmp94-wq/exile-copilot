@@ -19,6 +19,7 @@ import {
   pointsSpent,
   previewPath,
 } from "@shared/passiveTreeEdit.js";
+import { orderStepsByGain, standalonePaths } from "@shared/passiveTreeOrder.js";
 import { findPobGem, pobCodeFromDeflated, pobXmlForProfile } from "@shared/pobBuild.js";
 import {
   treeRequestFromProfile,
@@ -63,6 +64,7 @@ const TEXT = texts(
     pob: "PoB2",
     pobDamage: (gain: string) => `${gain} % daño`,
     pobDefence: (gain: string) => `${gain} % aguante`,
+    orderedByPob: "Ordenados por lo que más daño te da por punto según PoB2.",
     onTheWay: (count: number) => `Lo que coges por el camino (${count} ${count === 1 ? "nodo" : "nodos"})`,
     search: "En el juego, escribe el nombre en «Busca aquí» del árbol y te lo marca.",
     copy: "Copiar el nombre",
@@ -119,6 +121,7 @@ const TEXT = texts(
     pob: "PoB2",
     pobDamage: (gain: string) => `${gain}% damage`,
     pobDefence: (gain: string) => `${gain}% toughness`,
+    orderedByPob: "Ordered by what gives you most damage per point according to PoB2.",
     onTheWay: (count: number) => `What you take on the way (${count} ${count === 1 ? "node" : "nodes"})`,
     search: "In the game, type the name in the tree's search box and it gets highlighted.",
     copy: "Copy the name",
@@ -210,6 +213,8 @@ function CopyName({ name }: { name: string }) {
 interface StepPob {
   damage: number;
   defence: number;
+  /** Puntos de su camino desde el árbol de hoy. */
+  points: number;
 }
 
 function Step({
@@ -418,15 +423,6 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
 
   // Un notable de «Lo mejor cerca» que el jugador ha pedido ver: su camino en el mapa.
   const [pickPreview, setPickPreview] = useState<{ key: string; path: string[] } | null>(null);
-  const suggestions: MapSuggestion[] = useMemo(() => {
-    if (!data) return [];
-    const list = data.offence.map((step, index) => ({ key: step.key, path: step.path, label: String(index + 1) }));
-    if (data.defence) list.push({ key: data.defence.key, path: data.defence.path, label: lang === "es" ? "Defensa" : "Defence" });
-    if (pickPreview && !list.some((step) => step.key === pickPreview.key)) {
-      list.push({ key: pickPreview.key, path: pickPreview.path, label: t.pob });
-    }
-    return list;
-  }, [data, lang, pickPreview, t.pob]);
 
   const show = (key: string) => {
     setFocus((current) => ({ key, nonce: current.nonce + 1 }));
@@ -533,14 +529,27 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     if (fromAdvice.length > 0) return fromAdvice.slice(0, 4);
     return [...new Set(profile.skills.map((skill) => skill.mainSkill))].slice(0, 4);
   }, [data, profile.skills]);
-  const mainSkill = pobSkill && damageSkills.includes(pobSkill) ? pobSkill : (damageSkills[0] ?? null);
+  // Sin elegir, la habilidad principal del personaje (la de la revisión rápida va la primera).
+  const plainName = (name: string) => name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const declaredMain = profile.skills[0]?.mainSkill ?? "";
+  const defaultSkill = damageSkills.find((name) => plainName(name) === plainName(declaredMain)) ?? damageSkills[0] ?? null;
+  const mainSkill = pobSkill && damageSkills.includes(pobSkill) ? pobSkill : defaultSkill;
 
+  // Lo que gana cada paso se mide con su camino desde el árbol de hoy (el
+  // segundo paso de las reglas cuenta desde el primero): así se pueden comparar.
+  const ownPaths = useMemo(
+    () =>
+      data && graph && start
+        ? standalonePaths(graph, data.allocated, start, [...data.offence, ...(data.defence ? [data.defence] : [])].map((step) => step.key))
+        : null,
+    [data, graph, start],
+  );
   const candidates = useMemo(
     () =>
       data
-        ? [...data.offence, ...(data.defence ? [data.defence] : [])].map((step) => ({ id: step.key, path: step.path }))
+        ? [...data.offence, ...(data.defence ? [data.defence] : [])].map((step) => ({ id: step.key, path: ownPaths?.get(step.key) ?? step.path }))
         : [],
-    [data],
+    [data, ownPaths],
   );
   const pobProfile = useMemo(
     () =>
@@ -556,7 +565,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     [profile, draft],
   );
   // Con árbol guardado se espera a las sugerencias: así se calcula una vez, con sus caminos.
-  const adviceSettled = !hasTree || data !== null || failedKey === requestKey;
+  const adviceSettled = !hasTree || (data !== null && graph !== null) || failedKey === requestKey;
   const currentRequest: PobRequest | null = useMemo(
     () =>
       draftRefs || (hasTree && adviceSettled)
@@ -585,10 +594,29 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
       result.set(candidate.id, {
         damage: percentGain(damageOf(analysis.main), damageOf(candidate.after)),
         defence: percentGain(analysis.main.ehp, candidate.after.ehp),
+        points: candidate.points,
       });
     }
     return result;
   }, [current.result, draft]);
+
+  // Con los números de PoB2, primero lo que más daño da por punto.
+  const classGraph = useMemo(() => (graph && classTree ? { ...graph, data: classTree } : graph), [graph, classTree]);
+  const ordered = useMemo(() => {
+    const steps = data?.offence ?? [];
+    if (!data || !classGraph || !start || stepPob.size === 0) return { steps, reordered: false };
+    return orderStepsByGain(steps, stepPob, classGraph, data.allocated, start, lang);
+  }, [data, classGraph, start, stepPob, lang]);
+
+  const suggestions: MapSuggestion[] = useMemo(() => {
+    if (!data) return [];
+    const list = ordered.steps.map((step, index) => ({ key: step.key, path: step.path, label: String(index + 1) }));
+    if (data.defence) list.push({ key: data.defence.key, path: data.defence.path, label: lang === "es" ? "Defensa" : "Defence" });
+    if (pickPreview && !list.some((step) => step.key === pickPreview.key)) {
+      list.push({ key: pickPreview.key, path: pickPreview.path, label: t.pob });
+    }
+    return list;
+  }, [data, ordered, lang, pickPreview, t.pob]);
 
   const gains = useMemo(() => exploreGains(current.result?.analysis ?? null), [current.result]);
   const picks = useMemo(() => picksFrom(gains, describeNode), [gains, describeNode]);
@@ -893,9 +921,14 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
               {data.offence.length > 0 && (
                 <>
                   <p className="text-sm text-foreground/90">{t.forSkills(joinNames(data.skills, lang))}</p>
+                  {ordered.reordered && (
+                    <p className="text-xs text-primary" data-testid="arbol-orden-pob">
+                      {t.orderedByPob}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">{t.search}</p>
                   <ol className="flex flex-col gap-2">
-                    {data.offence.map((step, index) => (
+                    {ordered.steps.map((step, index) => (
                       <Step
                         key={step.key}
                         step={step}
