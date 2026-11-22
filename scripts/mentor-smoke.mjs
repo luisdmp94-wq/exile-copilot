@@ -100,6 +100,10 @@ function startServer(mode, port) {
       // haría durante una sesión; evita que el propio smoke choque con el
       // límite de producción sin modificar dicho límite en la aplicación.
       MENTOR_RATE_LIMIT_PER_MINUTE: "300",
+      // Lo mismo con el límite de escrituras (60/min), como en browser-smoke:
+      // el recorrido guarda la conversación muchas veces en un minuto y la
+      // consola acababa con un 429 al guardar el hilo.
+      WRITE_RATE_LIMIT_PER_MINUTE: "2000",
       // El smoke ordinario prueba la procedencia por reglas. La variante
       // explícita de fallback activa IA con su propio proveedor simulado.
       MENTOR_AI_ENABLED: EXPECT_AI_FALLBACK ? "true" : "false",

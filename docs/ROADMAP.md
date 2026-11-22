@@ -352,6 +352,32 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
     `docs/DIA-DE-LA-1.0.md`).
   - *Pendiente, si hace falta:* marcar en el árbol la ruta de una build
     objetivo (hoy marca lo que tiene el jugador y lo propuesto).
+- [x] **Path of Building 2 dentro de la web, sin descargar nada** (Luis,
+  22-11-2026: «da igual cuánto trabajo, que quede bien»).
+  - *Fase 1, el árbol a mano:* en «Tu árbol de pasivas», «Editar mi árbol» y,
+    sin código, «Marcarlo yo en el árbol». Tocar un nodo enseña lo que cuesta
+    y se coge el camino; quitar suelta lo que se queda sin conexión
+    (`shared/passiveTreeEdit.ts`). Los nodos de atributo eligen fuerza,
+    destreza o inteligencia. Se guarda en el personaje y las sugerencias salen
+    igual que con un código. «Exportar a PoB2» da el código para abrirlo en
+    Path of Building 2.
+  - *Fase 2, los cálculos de PoB2:* el motor de PoB2 corre en el navegador
+    (Lua 5.2 en WebAssembly, en un worker; `src/pob/`). Se descarga al pulsar
+    «Calcular con PoB2» (4 MB comprimido, una vez) y da daño, vida, escudo,
+    maná, espíritu, aguante y resistencias; lo que gana cada paso propuesto; y
+    «Lo mejor cerca, según PoB2» (cada notable a 6 puntos o menos, probado de
+    verdad). Editando, enseña la diferencia con el árbol guardado.
+  - *Precisión:* con código de PoB2 se calcula con su XML original (equipo,
+    joyas, atributos, configuración): los números salen como en el PoB2 de
+    escritorio (comprobado con la Liche de Luis). Sin código se escribe la
+    build desde la ficha; los objetos en español se traducen al inglés con las
+    tablas de poe2db (`npm run data:items-en`) y la web dice lo que no pudo.
+  - *Cómo se empaqueta:* `npm run data:pob` (ver `docs/DIA-DE-LA-1.0.md`).
+    PoB2 usa extensiones de su LuaJIT (`+=`, `continue`, `?.`, `|x| -> e`);
+    `scripts/lib/luaCompat.ts` las reescribe a Lua estándar.
+  - *Pendiente:* «Entra con tu cuenta de PoE» cuando GGG vuelva a aceptar
+    aplicaciones nuevas (hoy su registro está cerrado); elegir los puntos de
+    ascendencia a mano (hoy se conservan los del código de PoB2).
 - [ ] **Recorridos anónimos en las estadísticas** (idea de Luis, 21-11-2026;
   apuntada, sin empezar). Saber qué hace la gente mientras usa la web, no solo
   cuántos entran. Hoy `/estadisticas` suma cifras sueltas por día (visitas,

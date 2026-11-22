@@ -3,6 +3,10 @@ import {
   type CharacterProfile,
 } from "../../shared/domain.js";
 import type { PobPartial } from "../adapters/pobXml.js";
+import { pobContentDigests } from "../../shared/pobBuild.js";
+
+/** El XML se guarda para el motor de PoB2 si cabe (el esquema admite 2 MB). */
+const MAX_STORED_XML = 2_000_000;
 
 /**
  * Personaje a partir de lo leído en un código PoB2, sin dependencias de Node:
@@ -19,6 +23,11 @@ function versionFamily(value: string | undefined): string | null {
   if (!value) return null;
   const match = /^\s*(\d+)[_.](\d+)/.exec(value);
   return match ? `${match[1]}.${match[2]}` : null;
+}
+
+function digestsOf(partial: PobPartial): { itemsDigest: string; skillsDigest: string } {
+  const digests = pobContentDigests({ items: partial.items, skills: partial.skills });
+  return { itemsDigest: digests.items, skillsDigest: digests.skills };
 }
 
 export function profileFromPob(
@@ -53,7 +62,10 @@ export function profileFromPob(
     patch: defaults.patch,
     items: partial.items,
     skills: partial.skills,
-    passives: { allocated: partial.passives },
+    passives: {
+      allocated: partial.passives,
+      ...(partial.attributeChoices ? { attributeChoices: partial.attributeChoices } : {}),
+    },
     attributes: partial.attributes ?? { str: null, dex: null, int: null },
     resistances: partial.resistances ?? { fire: null, cold: null, lightning: null, chaos: null },
     ...(partial.life !== undefined ? { life: partial.life } : {}),
@@ -61,12 +73,15 @@ export function profileFromPob(
     ...(partial.evasion !== undefined ? { evasion: partial.evasion } : {}),
     ...(partial.armour !== undefined ? { armour: partial.armour } : {}),
     ...(partial.notes ? { notes: partial.notes } : {}),
-    ...(partial.targetVersion || partial.passiveTreeVersion
+    ...(partial.targetVersion || partial.passiveTreeVersion || partial.xml
       ? {
           pobImport: {
             ...(partial.targetVersion ? { targetVersion: partial.targetVersion } : {}),
             ...(partial.passiveTreeVersion
               ? { passiveTreeVersion: partial.passiveTreeVersion }
+              : {}),
+            ...(partial.xml && partial.xml.length <= MAX_STORED_XML
+              ? { xml: partial.xml, ...digestsOf(partial) }
               : {}),
           },
         }

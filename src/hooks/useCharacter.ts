@@ -185,6 +185,8 @@ export interface CharacterState {
   ) => Promise<CharacterProfile | null>;
   /** Apunta en el personaje cargado que esa habilidad ya lleva esa asistencia, y guarda. */
   rememberSupport: (skillName: string, supportName: string) => Promise<boolean>;
+  /** Guarda el árbol marcado a mano (claves del árbol) y los atributos elegidos. */
+  savePassives: (refs: string[], attributeChoices: Record<string, "str" | "dex" | "int">) => Promise<boolean>;
   /** Completa el personaje cargado con los datos del alta corta y lo guarda. */
   completeQuick: (input: QuickCharacterInput) => Promise<CharacterProfile | null>;
   importBuild: (
@@ -644,6 +646,31 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
           ];
       try {
         const res = await api.saveCharacter({ ...profile, skills });
+        setProfile(res.profile);
+        persistId(res.profile.id);
+        setDirty(false);
+        setPersisted(true);
+        return true;
+      } catch (err) {
+        toast.error(tx().noteError, { description: getErrorMessage(err) });
+        return false;
+      }
+    },
+    [profile, persistId],
+  );
+
+  const savePassives = useCallback(
+    async (refs: string[], attributeChoices: Record<string, "str" | "dex" | "int">) => {
+      if (!profile) return false;
+      const next: CharacterProfile = {
+        ...profile,
+        passives: {
+          allocated: refs.map((ref) => ({ ref, isOfficialId: false })),
+          ...(Object.keys(attributeChoices).length > 0 ? { attributeChoices } : {}),
+        },
+      };
+      try {
+        const res = await api.saveCharacter(next);
         setProfile(res.profile);
         persistId(res.profile.id);
         setDirty(false);
@@ -1168,6 +1195,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
     createQuick,
     completeQuick,
     rememberSupport,
+    savePassives,
     importBuild,
     importItemText,
     resolvePendingItemImport,

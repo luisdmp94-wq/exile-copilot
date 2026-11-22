@@ -2,3 +2,8 @@
 # El generador (scripts/build-passive-registry.ts) escribe LF; el checkout
 # debe restaurar LF también en Windows para que regenerar deje git limpio.
 server/data/passives/*.json text eol=lf
+
+# Motor de Path of Building 2 (npm run data:pob) y traducción de objetos
+# (npm run data:items-en): el paquete es binario; los JSON, LF como arriba.
+server/data/pob/*.gz binary
+server/data/pob/*.json text eol=lf

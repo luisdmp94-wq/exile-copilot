@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Expand, Loader2, LocateFixed, Minus, Plus, Shrink } from "lucide-react";
-import treeUrl from "../../server/data/passives/tree.json?url";
 import skillsUrl from "@/assets/arbol/skills.webp";
 import skillsOffUrl from "@/assets/arbol/skills-disabled.webp";
 import frameUrl from "@/assets/arbol/frame.webp";
@@ -13,6 +12,7 @@ import {
   type TreeNodeData,
 } from "@shared/passiveTree.js";
 import { Button } from "@/components/ui/button";
+import { loadPassiveTree } from "@/lib/passiveTreeData";
 import { cn } from "@/lib/utils";
 import { texts, useLang, useText } from "@/i18n/lang";
 
@@ -81,6 +81,14 @@ interface PassiveTreeMapProps {
   /** Nodo al que ir (cambia `focusNonce` para repetir el mismo). */
   focusKey: string | null;
   focusNonce: number;
+  /** Avisa de qué nodo ha tocado el jugador (null = ninguno). */
+  onSelect?: (key: string | null) => void;
+  /** Botones bajo la ficha del nodo tocado (el editor: coger, quitar…). */
+  nodeActions?: (key: string) => ReactNode;
+  /** Editando: el encuadre no salta cada vez que se coge un nodo. */
+  keepView?: boolean;
+  /** Texto del estado de un nodo cogido o propuesto (el editor dice otra cosa). */
+  stateLabels?: Partial<Record<"taken" | "planned" | "free", string>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,19 +101,7 @@ interface Sheets {
   frame: HTMLImageElement;
 }
 
-let treePromise: Promise<PassiveTreeData> | null = null;
 let sheetsPromise: Promise<Sheets> | null = null;
-
-function loadTree(): Promise<PassiveTreeData> {
-  treePromise ??= fetch(treeUrl).then(async (response) => {
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return (await response.json()) as PassiveTreeData;
-  });
-  treePromise.catch(() => {
-    treePromise = null;
-  });
-  return treePromise;
-}
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -361,7 +357,17 @@ const MAX_SCALE = 0.9;
  * El árbol oficial dibujado con sus imágenes: lo cogido en dorado, el camino
  * propuesto en verde y cada notable propuesto con su número y su nombre.
  */
-export default function PassiveTreeMap({ characterClass, allocated, suggestions, focusKey, focusNonce }: PassiveTreeMapProps) {
+export default function PassiveTreeMap({
+  characterClass,
+  allocated,
+  suggestions,
+  focusKey,
+  focusNonce,
+  onSelect,
+  nodeActions,
+  keepView = false,
+  stateLabels,
+}: PassiveTreeMapProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -376,7 +382,7 @@ export default function PassiveTreeMap({ characterClass, allocated, suggestions,
 
   useEffect(() => {
     let cancelled = false;
-    loadTree()
+    loadPassiveTree()
       .then((data) => {
         if (!cancelled) setBaseData(data);
       })
@@ -429,7 +435,9 @@ export default function PassiveTreeMap({ characterClass, allocated, suggestions,
   }, [prepared, size.width, size.height, allocated, suggestions]);
 
   // Primer encuadre, y otra vez si cambia lo que se enseña.
-  const fitKey = `${allocated.length}|${suggestions.map((suggestion) => suggestion.key).join(",")}|${prepared ? 1 : 0}|${size.width > 0 ? 1 : 0}`;
+  const fitKey = keepView
+    ? `editando|${prepared ? 1 : 0}|${size.width > 0 ? 1 : 0}`
+    : `${allocated.length}|${suggestions.map((suggestion) => suggestion.key).join(",")}|${prepared ? 1 : 0}|${size.width > 0 ? 1 : 0}`;
   // Se ajusta durante el render (como `viewRequest` en las guías): así no hay
   // un pintado intermedio con el encuadre viejo.
   const [fittedFor, setFittedFor] = useState("");
@@ -449,6 +457,7 @@ export default function PassiveTreeMap({ characterClass, allocated, suggestions,
     const node = prepared.data.nodes[focusKey];
     if (node) {
       setSelected(focusKey);
+      onSelect?.(focusKey);
       setView((current) => ({ x: node.x, y: node.y, scale: Math.max(current?.scale ?? 0.2, 0.22) }));
     }
   }
@@ -575,7 +584,9 @@ export default function PassiveTreeMap({ characterClass, allocated, suggestions,
     if (pointers.current.size < 2) gesture.current.pinch = null;
     if (!wasTap) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    setSelected(hitTest(event.clientX - rect.left, event.clientY - rect.top));
+    const hit = hitTest(event.clientX - rect.left, event.clientY - rect.top);
+    setSelected(hit);
+    onSelect?.(hit);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLCanvasElement>) => {
@@ -656,6 +667,7 @@ export default function PassiveTreeMap({ characterClass, allocated, suggestions,
               const next = fitView();
               if (next) setView(next);
               setSelected(null);
+              onSelect?.(null);
             }}
             aria-label={t.center}
             title={t.center}
@@ -685,7 +697,7 @@ export default function PassiveTreeMap({ characterClass, allocated, suggestions,
               ? nodeName(selectedNode, lang)
               : t.kinds[selectedNode.kind]}
             <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {t.kinds[selectedNode.kind]} · {selectedState === "taken" ? t.taken : selectedState === "planned" ? t.planned : t.free}
+              {t.kinds[selectedNode.kind]} · {stateLabels?.[selectedState] ?? (selectedState === "taken" ? t.taken : selectedState === "planned" ? t.planned : t.free)}
             </span>
           </p>
           {selectedStats.length > 0 && (
@@ -696,6 +708,7 @@ export default function PassiveTreeMap({ characterClass, allocated, suggestions,
             </ul>
           )}
           {statsInEnglish && t.english && <p className="mt-1 text-xs text-muted-foreground/80">{t.english}</p>}
+          {selected && nodeActions ? nodeActions(selected) : null}
         </div>
       )}
     </div>

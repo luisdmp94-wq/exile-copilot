@@ -108,10 +108,12 @@ describe("pob adapter — procedencia de versión", () => {
 
     expect(result.warnings.some((warning) => warning.startsWith("Incompatibilidad de versión"))).toBe(false);
     expect(result.warnings.join(" ")).toContain("árbol pasivo 0_5");
-    expect(result.profile?.pobImport).toEqual({
+    expect(result.profile?.pobImport).toMatchObject({
       targetVersion: "0_1",
       passiveTreeVersion: "0_5",
     });
+    // El XML entero se guarda para calcular con el motor de PoB2 en la web.
+    expect(result.profile?.pobImport?.xml).toBe(xml);
     expect(result.profile?.sources[0]?.label).toContain("compatibilidad 0_1 · árbol 0_5");
   });
 

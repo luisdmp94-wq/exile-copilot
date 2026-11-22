@@ -1128,6 +1128,35 @@ async function runFlow(mode, port) {
       `[${mode}] «Tu árbol de pasivas» lee el árbol del código PoB2`,
       (await page.getByTestId("arbol-vacio").count()) === 0 && /pasivas en el árbol/.test(await treeCard.innerText()),
     );
+    // Path of Building 2 en el navegador: se descarga al pedirlo y calcula.
+    await page.getByTestId("pob-empezar").click();
+    const pobNumbers = await page
+      .getByTestId("pob-numeros")
+      .waitFor({ state: "visible", timeout: 120000 })
+      .then(() => page.getByTestId("pob-numeros").innerText())
+      .catch(() => "");
+    check(
+      `[${mode}] PoB2 corre en el navegador y da vida y resistencias`,
+      /Vida\s+[\d.]+/i.test(pobNumbers) && /Fuego:/.test(pobNumbers),
+    );
+    await page.getByTestId("pob-exportar").click();
+    const exportedCode = await page
+      .getByTestId("pob-codigo")
+      .locator("textarea")
+      .inputValue({ timeout: 15000 })
+      .catch(() => "");
+    check(`[${mode}] «Exportar a PoB2» da un código de PoB2`, /^eJ[\w-]{100,}/.test(exportedCode));
+    // El editor del árbol: se abre con los puntos contados y se cancela sin guardar.
+    await page.getByTestId("arbol-editar").click();
+    const pointsText = await page
+      .getByTestId("arbol-puntos")
+      .innerText({ timeout: 15000 })
+      .catch(() => "");
+    await page.getByTestId("arbol-editor").getByRole("button", { name: "Cancelar" }).click();
+    check(
+      `[${mode}] «Editar mi árbol» cuenta los puntos y se cancela sin tocar nada`,
+      /\d+ puntos de unos \d+/.test(pointsText) && (await page.getByTestId("arbol-editor").count()) === 0,
+    );
     const partialAnalysis = page.getByTestId("profile-partial-analysis");
     await partialAnalysis.waitFor({ state: "visible", timeout: 15000 });
     const openCaseText = await page.getByTestId("caso-abierto").innerText();

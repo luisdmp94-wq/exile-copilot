@@ -1,0 +1,565 @@
+/**
+ * El personaje de la web convertido en una build de Path of Building 2 (XML).
+ *
+ * Dos caminos:
+ *  - Si vino de un código de PoB2, se usa ese XML tal cual (con su equipo,
+ *    joyas, atributos elegidos y configuración) y solo se cambia lo que el
+ *    jugador tocó en la web: árbol, nivel y, si los cambió, objetos o gemas.
+ *  - Si no, se escribe desde la ficha: clase, árbol, gemas con su nivel y
+ *    objetos con su texto.
+ *
+ * Lo usan «Tus números» (el motor de PoB2 en el navegador) y «Exportar a
+ * PoB2». Sin DOM ni Node.
+ */
+import type { CharacterProfile, Item, ItemSlot } from "./domain.js";
+import { itemToEnglish, type ItemTranslations } from "./itemTranslation.js";
+import { exportClassName } from "./passiveTree.js";
+
+export interface PobClassInfo {
+  name: string;
+  integerId: number;
+  ascendancies: Array<{ internalId: string; name: string }>;
+}
+
+export interface PobGemInfo {
+  gameId: string;
+  variantId: string;
+  name: string;
+  support: boolean;
+  /** Nivel de personaje que pide cada nivel de la gema (índice 0 = nivel 1). */
+  levels: number[];
+}
+
+export interface PobBuildData {
+  /** Versión del árbol del motor («0_5»). */
+  treeVersion: string;
+  classes: PobClassInfo[];
+  gems: PobGemInfo[];
+  /** Nombre de gema en español (minúsculas) → nombre en inglés. */
+  spanishGems: Record<string, string>;
+  /** Clave numérica del árbol para una referencia que no lo sea («chaos31»). */
+  resolveNode?: (ref: string) => string | null;
+  /** Para traducir objetos copiados de un cliente en español. */
+  itemTranslations?: ItemTranslations;
+}
+
+/** Nombres de ascendencia del cliente en español (poe2db/sp) → inglés. */
+export const ASCENDANCY_FROM_SPANISH: Record<string, string> = {
+  infernalista: "Infernalist",
+  "maga de sangre": "Blood Mage",
+  "mago de sangre": "Blood Mage",
+  liche: "Lich",
+  "liche abisal": "Abyssal Lich",
+  titan: "Titan",
+  "adalid de guerra": "Warbringer",
+  "herrero de kitava": "Smith of Kitava",
+  estratega: "Tactician",
+  "cazador de brujas": "Witchhunter",
+  "legionario gemita": "Gemling Legionnaire",
+  tejetormentas: "Stormweaver",
+  cronomante: "Chronomancer",
+  "discipula de varashta": "Disciple of Varashta",
+  amazona: "Amazon",
+  "caminante espiritual": "Spirit Walker",
+  ritualista: "Ritualist",
+  tiradora: "Deadeye",
+  rastreadora: "Pathfinder",
+  "artista marcial": "Martial Artist",
+  invocador: "Invoker",
+  "acolito de chayula": "Acolyte of Chayula",
+  oraculo: "Oracle",
+  chaman: "Shaman",
+};
+
+function plain(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+export function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Huella corta y estable (FNV-1a) para saber si algo cambió desde que se importó. */
+export function digest(value: unknown): string {
+  const text = JSON.stringify(value);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+/** Lo que cuenta de los objetos y gemas para saber si el jugador los cambió. */
+export function pobContentDigests(profile: Pick<CharacterProfile, "items" | "skills">): { items: string; skills: string } {
+  return {
+    items: digest(profile.items.map((item) => [item.slot, item.rawText ?? item.name, item.baseType])),
+    skills: digest(profile.skills.map((skill) => [skill.mainSkill, skill.level ?? null, skill.supports.map((support) => support.name)])),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Clase, ascendencia y gemas
+// ---------------------------------------------------------------------------
+
+export function pobClassFor(data: PobBuildData, characterClass: string | null | undefined): PobClassInfo | null {
+  const name = exportClassName(characterClass);
+  return data.classes.find((candidate) => candidate.name === name) ?? null;
+}
+
+export function pobAscendancyFor(
+  pobClass: PobClassInfo | null,
+  ascendancy: string | null | undefined,
+): { internalId: string; name: string } | null {
+  if (!pobClass || !ascendancy) return null;
+  const wanted = plain(ascendancy);
+  const english = ASCENDANCY_FROM_SPANISH[wanted] ?? ascendancy.trim();
+  return (
+    pobClass.ascendancies.find((candidate) => plain(candidate.name) === plain(english)) ??
+    pobClass.ascendancies.find((candidate) => plain(candidate.internalId) === wanted) ??
+    null
+  );
+}
+
+export function findPobGem(data: PobBuildData, name: string, gemId?: string | null): PobGemInfo | null {
+  if (gemId) {
+    const byId = data.gems.find((gem) => gem.gameId === gemId);
+    if (byId) return byId;
+  }
+  const raw = name.trim().replace(/^(?:Support|Soporte):\s*/i, "");
+  const english = data.spanishGems[plain(raw)] ?? raw;
+  const wanted = plain(english).replace(/\s+support$/, "");
+  return data.gems.find((gem) => plain(gem.name) === wanted) ?? null;
+}
+
+/** El nivel que PoB2 pondría a la gema para este nivel de personaje («characterLevel»). */
+export function gemLevelFor(gem: PobGemInfo, characterLevel: number): number {
+  for (let level = gem.levels.length; level >= 1; level--) {
+    if ((gem.levels[level - 1] ?? 0) <= characterLevel) return level;
+  }
+  return 1;
+}
+
+// ---------------------------------------------------------------------------
+// Objetos
+// ---------------------------------------------------------------------------
+
+const SLOT_NAMES: Partial<Record<ItemSlot, string[]>> = {
+  weapon: ["Weapon 1"],
+  offhand: ["Weapon 2"],
+  helmet: ["Helmet"],
+  body: ["Body Armour"],
+  gloves: ["Gloves"],
+  boots: ["Boots"],
+  belt: ["Belt"],
+  amulet: ["Amulet"],
+  ring1: ["Ring 1"],
+  ring2: ["Ring 2"],
+  flask: ["Flask 1", "Flask 2"],
+  charm: ["Charm 1", "Charm 2", "Charm 3"],
+};
+
+/** ¿El texto del objeto está en español (copiado de un cliente en español)? */
+export function isSpanishItemText(text: string): boolean {
+  return /^(?:Clase de objeto|Rareza)\s*:/im.test(text);
+}
+
+/** ¿Este objeto está en español? Por su texto copiado o, sin él, por su base. */
+export function isSpanishItem(item: Item, translations?: ItemTranslations): boolean {
+  if (item.rawText && item.rawText.trim()) return isSpanishItemText(item.rawText);
+  if (translations && item.baseType in translations.bases) return true;
+  return item.modifiers.some((modifier) => /^Otorga la habilidad/i.test(modifier.text));
+}
+
+const RARITY_NAME: Record<Item["rarity"], string> = {
+  normal: "NORMAL",
+  magic: "MAGIC",
+  rare: "RARE",
+  unique: "UNIQUE",
+  currency: "NORMAL",
+  gem: "NORMAL",
+  other: "RARE",
+};
+
+/** En el texto de PoB2, runas y encantamientos van con los implícitos y una marca delante. */
+const IMPLICIT_KINDS = new Set(["implicit", "enchant", "rune"]);
+const KIND_PREFIX: Partial<Record<string, string>> = { enchant: "{enchant}", rune: "{rune}" };
+
+/** Texto del objeto que PoB2 sabe leer: el copiado del juego o uno hecho con sus líneas. */
+export function pobItemText(item: Item): { text: string; fromRaw: boolean } {
+  if (item.rawText && item.rawText.trim()) return { text: item.rawText.trim(), fromRaw: true };
+  const lines = [`Rarity: ${RARITY_NAME[item.rarity]}`];
+  if (item.rarity === "rare" || item.rarity === "unique") lines.push(item.name);
+  lines.push(item.baseType || item.name);
+  if (item.quality) lines.push(`Quality: +${item.quality}%`);
+  const implicit = item.modifiers.filter((modifier) => IMPLICIT_KINDS.has(modifier.kind));
+  lines.push(`Implicits: ${implicit.length}`, ...implicit.map((modifier) => `${KIND_PREFIX[modifier.kind] ?? ""}${modifier.text}`));
+  lines.push(
+    ...item.modifiers.filter((modifier) => !implicit.includes(modifier) && modifier.kind !== "quality").map((modifier) => modifier.text),
+  );
+  return { text: lines.join("\n"), fromRaw: false };
+}
+
+/** «Grants Skill: Level 16 Chaos Bolt» (u «Otorga la habilidad: Nivel 16 Descarga de caos») → «chaos bolt». */
+function grantedSkills(items: Item[], data: PobBuildData): Set<string> {
+  const names = new Set<string>();
+  for (const item of items) {
+    const text = [item.rawText ?? "", ...item.modifiers.map((modifier) => modifier.text)].join("\n");
+    for (const match of text.matchAll(/^(?:Grants Skill|Otorga la habilidad)\s*:\s*(?:(?:Level|Nivel)\s+\d+\s+)?(.+?)\s*$/gim)) {
+      const name = plain(match[1]);
+      names.add(plain(data.spanishGems[name] ?? match[1]));
+    }
+  }
+  return names;
+}
+
+// ---------------------------------------------------------------------------
+// XML
+// ---------------------------------------------------------------------------
+
+export interface PobXmlNotes {
+  /** De dónde sale el XML. */
+  base: "import" | "profile";
+  /** Gemas que PoB2 no conoce por ese nombre. */
+  unknownGems: string[];
+  /** Gemas sin nivel conocido: se pone el que permite el nivel del personaje. */
+  guessedGemLevels: number;
+  /** Objetos hechos con sus líneas (sin el texto copiado del juego). */
+  itemsWithoutText: number;
+  /** Objetos en español que no se han podido traducir: PoB2 solo lee inglés. */
+  spanishItems: number;
+  /** Objetos en español traducidos al inglés para PoB2. */
+  translatedItems: number;
+  /** Líneas de esos objetos que no se pudieron traducir (no cuentan). */
+  untranslatedLines: number;
+  /** Objetos cuya base no se reconoce en inglés. */
+  unknownBases: number;
+  /** No se sabe la clase: sin ella PoB2 no puede leer el árbol. */
+  noClass: boolean;
+  /** Se reescribió algo del XML importado porque cambió en la web. */
+  rebuilt: Array<"items" | "skills">;
+}
+
+export interface PobXmlResult {
+  xml: string;
+  notes: PobXmlNotes;
+  /** Grupo principal (1 = el primero), el de la habilidad de daño elegida. */
+  mainGroup: number;
+  /** Nombre en inglés del grupo principal, si se sabe. */
+  mainSkill: string | null;
+}
+
+export interface PobXmlOptions {
+  /** Habilidad de daño que calcular (nombre en cualquier idioma). */
+  mainSkill?: string | null;
+  /** Árbol a usar en vez del guardado (el editor de la web). */
+  passives?: string[];
+  /** Atributos elegidos a usar en vez de los guardados (el editor de la web). */
+  attributeChoices?: Record<string, "str" | "dex" | "int">;
+}
+
+function nodeKeys(refs: string[], data: PobBuildData): string[] {
+  const keys = new Set<string>();
+  for (const ref of refs) {
+    const key = /^\d+$/.test(ref) ? ref : data.resolveNode?.(ref) ?? null;
+    if (key) keys.add(key);
+  }
+  return [...keys];
+}
+
+interface SkillGroupXml {
+  xml: string;
+  mainName: string | null;
+}
+
+function skillGroupsXml(profile: CharacterProfile, data: PobBuildData, notes: PobXmlNotes): SkillGroupXml[] {
+  const level = profile.level || 1;
+  const granted = grantedSkills(profile.items, data);
+  const groups: SkillGroupXml[] = [];
+  for (const setup of profile.skills) {
+    const main = findPobGem(data, setup.mainSkill, setup.mainSkillGemId);
+    if (!main) {
+      notes.unknownGems.push(setup.mainSkill);
+      continue;
+    }
+    // La habilidad que da un arma la crea PoB2 solo a partir del objeto.
+    if (granted.has(plain(main.name))) continue;
+    const gems: string[] = [];
+    const mainLevel = setup.level ?? gemLevelFor(main, level);
+    if (setup.level === undefined) notes.guessedGemLevels++;
+    gems.push(gemXml(main, mainLevel, setup.quality ?? 0));
+    for (const support of setup.supports) {
+      const gem = findPobGem(data, support.name, support.gemId);
+      if (!gem) {
+        notes.unknownGems.push(support.name);
+        continue;
+      }
+      gems.push(gemXml(gem, gem.support ? 1 : gemLevelFor(gem, level), 0));
+    }
+    groups.push({
+      mainName: main.name,
+      xml: `<Skill enabled="true" label="${escapeXml(setup.label && setup.label !== setup.mainSkill ? setup.label : "")}" mainActiveSkill="1" includeInFullDPS="false">${gems.join("")}</Skill>`,
+    });
+  }
+  return groups;
+}
+
+function gemXml(gem: PobGemInfo, level: number, quality: number): string {
+  return `<Gem gemId="${escapeXml(gem.gameId)}" variantId="${escapeXml(gem.variantId)}" nameSpec="${escapeXml(gem.name)}" level="${level}" quality="${quality}" enabled="true"/>`;
+}
+
+function itemsXml(profile: CharacterProfile, data: PobBuildData, notes: PobXmlNotes): string {
+  const used = new Map<string, number>();
+  const items: string[] = [];
+  const slots: string[] = [];
+  let id = 0;
+  for (const item of profile.items) {
+    const names = SLOT_NAMES[item.slot];
+    if (!names) continue;
+    const count = used.get(item.slot) ?? 0;
+    const slotName = names[count];
+    if (!slotName) continue;
+    used.set(item.slot, count + 1);
+    let { text, fromRaw } = pobItemText(item);
+    if (isSpanishItem(item, data.itemTranslations)) {
+      if (data.itemTranslations) {
+        const translated = itemToEnglish(item, data.itemTranslations, data.spanishGems);
+        text = translated.text;
+        fromRaw = true;
+        notes.translatedItems++;
+        notes.untranslatedLines += translated.untranslated;
+        if (translated.unknownBase) notes.unknownBases++;
+      } else {
+        notes.spanishItems++;
+      }
+    }
+    if (!fromRaw) notes.itemsWithoutText++;
+    id++;
+    items.push(`<Item id="${id}">\n${escapeXml(text)}\n</Item>`);
+    slots.push(`<Slot name="${slotName}" itemId="${id}"/>`);
+  }
+  return `<Items activeItemSet="1">${items.join("")}<ItemSet id="1">${slots.join("")}</ItemSet></Items>`;
+}
+
+function mainGroupIndex(groups: Array<{ mainName: string | null }>, data: PobBuildData, mainSkill: string | null | undefined): number {
+  if (mainSkill) {
+    const gem = findPobGem(data, mainSkill);
+    const wanted = plain(gem?.name ?? mainSkill);
+    const index = groups.findIndex((group) => group.mainName !== null && plain(group.mainName) === wanted);
+    if (index >= 0) return index + 1;
+  }
+  return 1;
+}
+
+function emptyNotes(base: PobXmlNotes["base"]): PobXmlNotes {
+  return {
+    base,
+    unknownGems: [],
+    guessedGemLevels: 0,
+    itemsWithoutText: 0,
+    spanishItems: 0,
+    translatedItems: 0,
+    untranslatedLines: 0,
+    unknownBases: 0,
+    noClass: false,
+    rebuilt: [],
+  };
+}
+
+/**
+ * Penalización de resistencias elementales del acto en que suele estar un
+ * personaje de este nivel (las opciones de PoB2: 0 en el acto 1, −10 por acto,
+ * −60 en el final del juego). Solo se usa sin código de PoB2: con él manda la
+ * configuración del jugador.
+ */
+export function resistancePenaltyFor(level: number): number {
+  if (level < 15) return 0;
+  if (level < 28) return -10;
+  if (level < 38) return -20;
+  if (level < 48) return -30;
+  if (level < 55) return -40;
+  if (level < 65) return -50;
+  return -60;
+}
+
+/** XML desde la ficha del personaje. */
+function xmlFromProfile(profile: CharacterProfile, data: PobBuildData, options: PobXmlOptions): PobXmlResult {
+  const notes = emptyNotes("profile");
+  const pobClass = pobClassFor(data, profile.characterClass);
+  if (!pobClass) notes.noClass = true;
+  const ascendancy = pobAscendancyFor(pobClass, profile.ascendancy);
+  const nodes = nodeKeys(options.passives ?? profile.passives.allocated.map((node) => node.ref), data);
+  const groups = skillGroupsXml(profile, data, notes);
+  const mainGroup = mainGroupIndex(groups, data, options.mainSkill);
+  const level = Math.max(1, Math.min(100, profile.level || 1));
+  const xml = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<PathOfBuilding2>`,
+    `<Build level="${level}" targetVersion="0_1" className="${escapeXml(pobClass?.name ?? "Witch")}" ascendClassName="${escapeXml(ascendancy?.name ?? "None")}" mainSocketGroup="${mainGroup}" viewMode="TREE" characterLevelAutoMode="false"/>`,
+    `<Tree activeSpec="1"><Spec title="Exile Copilot" treeVersion="${escapeXml(data.treeVersion)}" classInternalId="${pobClass?.integerId ?? 1}" ascendancyInternalId="${escapeXml(ascendancy?.internalId ?? "")}" nodes="${nodes.join(",")}">`,
+    `<Overrides>${attributeOverrideXml(options.attributeChoices ?? profile.passives.attributeChoices ?? {}, nodes)}</Overrides>`,
+    `</Spec></Tree>`,
+    `<Skills activeSkillSet="1" defaultGemLevel="characterLevel"><SkillSet id="1">${groups.map((group) => group.xml).join("")}</SkillSet></Skills>`,
+    itemsXml(profile, data, notes),
+    `<Config activeConfigSet="1"><ConfigSet id="1" title="Default"><Input name="resistancePenalty" number="${resistancePenaltyFor(level)}"/></ConfigSet></Config>`,
+    `</PathOfBuilding2>`,
+  ].join("\n");
+  return { xml, notes, mainGroup, mainSkill: groups[mainGroup - 1]?.mainName ?? null };
+}
+
+/** `<AttributeOverride …/>`: qué nodos «+5 a cualquier atributo» dan fuerza, destreza o inteligencia. */
+function attributeOverrideXml(choices: Record<string, "str" | "dex" | "int">, nodes: string[]): string {
+  const taken = new Set(nodes);
+  const byAttribute = (attribute: "str" | "dex" | "int") =>
+    Object.entries(choices)
+      .filter(([key, value]) => value === attribute && taken.has(key))
+      .map(([key]) => key)
+      .join(",");
+  return `<AttributeOverride strNodes="${byAttribute("str")}" dexNodes="${byAttribute("dex")}" intNodes="${byAttribute("int")}"/>`;
+}
+
+/** Aplica `change` al n-ésimo `<Spec>` (1 = el primero), con o sin cuerpo. */
+function patchSpec(xml: string, index: number, change: (spec: string) => string): string {
+  let seen = 0;
+  return xml.replace(/<Spec\b[^>]*?(?:\/>|>[\s\S]*?<\/Spec>)/g, (spec) => {
+    seen++;
+    return seen === index ? change(spec) : spec;
+  });
+}
+
+function setAttribute(tag: string, name: string, value: string): string {
+  const pattern = new RegExp(`\\s${name}="[^"]*"`);
+  const replacement = ` ${name}="${escapeXml(value)}"`;
+  return pattern.test(tag) ? tag.replace(pattern, replacement) : tag.replace(/\s*\/?>$/, (end) => `${replacement}${end}`);
+}
+
+/** Los grupos de habilidades del XML importado, con el nombre de su primera gema. */
+function importedGroups(xml: string): Array<{ mainName: string | null }> {
+  const skills = /<Skills\b[^>]*>([\s\S]*?)<\/Skills>/.exec(xml)?.[1] ?? "";
+  const activeSet = /activeSkillSet="(\d+)"/.exec(/<Skills\b[^>]*>/.exec(xml)?.[0] ?? "")?.[1] ?? "1";
+  const sets = [...skills.matchAll(/<SkillSet\b[^>]*\bid="(\d+)"[^>]*>([\s\S]*?)<\/SkillSet>/g)];
+  const body = sets.find((set) => set[1] === activeSet)?.[2] ?? sets[0]?.[2] ?? skills;
+  return [...body.matchAll(/<Skill\b[^>]*>([\s\S]*?)<\/Skill>/g)].map((match) => ({
+    mainName: /<Gem\b[^>]*\bnameSpec="([^"]*)"/.exec(match[1])?.[1] ?? null,
+  }));
+}
+
+/** XML importado de PoB2, con lo que el jugador cambió en la web encima. */
+function xmlFromImport(profile: CharacterProfile, data: PobBuildData, options: PobXmlOptions, imported: string): PobXmlResult {
+  const notes = emptyNotes("import");
+  let xml = imported;
+  const digests = pobContentDigests(profile);
+  const saved = profile.pobImport;
+
+  if (saved?.itemsDigest && saved.itemsDigest !== digests.items) {
+    xml = xml.replace(/<Items\b[\s\S]*?<\/Items>/, itemsXml(profile, data, notes));
+    notes.rebuilt.push("items");
+  }
+  if (saved?.skillsDigest && saved.skillsDigest !== digests.skills) {
+    const groups = skillGroupsXml(profile, data, notes);
+    xml = xml.replace(
+      /<Skills\b[\s\S]*?<\/Skills>/,
+      `<Skills activeSkillSet="1" defaultGemLevel="characterLevel"><SkillSet id="1">${groups.map((group) => group.xml).join("")}</SkillSet></Skills>`,
+    );
+    notes.rebuilt.push("skills");
+  }
+
+  const groups = importedGroups(xml);
+  const mainGroup = mainGroupIndex(groups, data, options.mainSkill);
+  const level = Math.max(1, Math.min(100, profile.level || 1));
+  // Una gema sin nivel o sin calidad tumba el cálculo de PoB2: se pone el
+  // nivel que permite el personaje y calidad 0.
+  xml = xml.replace(/<Gem\b[^>]*?\/?>/g, (tag) => {
+    let next = tag;
+    if (!/\squality="\d+"/.test(next)) next = setAttribute(next, "quality", "0");
+    if (/\slevel="\d+"/.test(next)) return next;
+    const name = /\snameSpec="([^"]*)"/.exec(next)?.[1] ?? "";
+    const gemId = /\sgemId="([^"]*)"/.exec(next)?.[1] ?? null;
+    const gem = findPobGem(data, name, gemId);
+    notes.guessedGemLevels++;
+    return setAttribute(next, "level", String(gem && !gem.support ? gemLevelFor(gem, level) : 1));
+  });
+  xml = xml.replace(/<Build\b[^>]*>/, (tag) =>
+    setAttribute(setAttribute(tag, "level", String(level)), "mainSocketGroup", String(mainGroup)),
+  );
+
+  // El árbol: el de la web (puede haberlo editado), en el Spec activo.
+  const nodes = nodeKeys(options.passives ?? profile.passives.allocated.map((node) => node.ref), data);
+  const treeTag = /<Tree\b[^>]*>/.exec(xml)?.[0] ?? "";
+  const activeSpec = Number(/activeSpec="(\d+)"/.exec(treeTag)?.[1] ?? "1");
+  const choices = options.attributeChoices ?? profile.passives.attributeChoices;
+  const pobClass = pobClassFor(data, profile.characterClass);
+  const ascendancy = pobAscendancyFor(pobClass, profile.ascendancy);
+  let activeSpecXml: string | null = null;
+  patchSpec(xml, activeSpec, (spec) => {
+    const open = /^<Spec\b[^>]*?(?=\/?>)/.exec(spec)?.[0] ?? "<Spec";
+    let tag = setAttribute(`${open}>`, "nodes", nodes.join(","));
+    // Códigos viejos o hechos a mano sin la clase en el árbol: PoB2 los rechaza.
+    if (!/\s(?:classInternalId|classId)="/.test(tag)) {
+      if (pobClass) tag = setAttribute(tag, "classInternalId", String(pobClass.integerId));
+      else notes.noClass = true;
+    }
+    if (!/\s(?:ascendancyInternalId|ascendClassId)="/.test(tag)) tag = setAttribute(tag, "ascendancyInternalId", ascendancy?.internalId ?? "");
+    // El motor solo lleva el árbol más nuevo (la web ya avisa si el código es de otro).
+    tag = setAttribute(tag, "treeVersion", data.treeVersion);
+    let next = tag.slice(0, -1) + spec.slice(open.length);
+    if (choices) {
+      const override = attributeOverrideXml(choices, nodes);
+      if (/<AttributeOverride\b[^>]*\/>/.test(next)) next = next.replace(/<AttributeOverride\b[^>]*\/>/, override);
+      else if (/<Overrides>/.test(next)) next = next.replace(/<Overrides>/, `<Overrides>${override}`);
+      else if (next.endsWith("/>")) next = `${next.slice(0, -2)}><Overrides>${override}</Overrides></Spec>`;
+      else next = next.replace(/<\/Spec>$/, `<Overrides>${override}</Overrides></Spec>`);
+    }
+    activeSpecXml = next;
+    return next;
+  });
+  // Solo el árbol activo: PoB2 carga también los demás, y en versiones viejas
+  // que el motor no lleva.
+  if (activeSpecXml !== null) {
+    const kept: string = activeSpecXml;
+    xml = xml.replace(/<Tree\b[^>]*>[\s\S]*?<\/Tree>/, () => `<Tree activeSpec="1">${kept}</Tree>`);
+  }
+  return { xml, notes, mainGroup, mainSkill: groups[mainGroup - 1]?.mainName ?? null };
+}
+
+/** La build de PoB2 de este personaje. */
+export function pobXmlForProfile(profile: CharacterProfile, data: PobBuildData, options: PobXmlOptions = {}): PobXmlResult {
+  const imported = profile.pobImport?.xml;
+  if (imported && /<PathOfBuilding2\b/.test(imported)) return xmlFromImport(profile, data, options, imported);
+  return xmlFromProfile(profile, data, options);
+}
+
+// ---------------------------------------------------------------------------
+// Código de PoB2
+// ---------------------------------------------------------------------------
+
+/** zlib → base64url, el formato de «Importar/Exportar» de PoB2. */
+export function pobCodeFromDeflated(deflated: Uint8Array): string {
+  let binary = "";
+  for (let index = 0; index < deflated.length; index += 0x8000) {
+    binary += String.fromCharCode(...deflated.subarray(index, index + 0x8000));
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+/** Gemas en español → inglés, desde los dos archivos de gemas de la web (mismo slug). */
+export function spanishGemNames(
+  es: Array<{ slug: string; name: string }>,
+  en: Array<{ slug: string; name: string }>,
+): Record<string, string> {
+  const english = new Map(en.map((gem) => [gem.slug, gem.name]));
+  const result: Record<string, string> = {};
+  for (const gem of es) {
+    const name = english.get(gem.slug);
+    if (name) result[plain(gem.name)] = name;
+  }
+  return result;
+}

@@ -1,0 +1,142 @@
+[
+  {
+    "ascendancies": [
+      {
+        "internalId": "Witch1",
+        "name": "Infernalist"
+      },
+      {
+        "internalId": "Witch2",
+        "name": "Blood Mage"
+      },
+      {
+        "internalId": "Witch3",
+        "name": "Lich"
+      },
+      {
+        "internalId": "Witch3b",
+        "name": "Abyssal Lich"
+      }
+    ],
+    "integerId": 1,
+    "name": "Witch"
+  },
+  {
+    "ascendancies": [
+      {
+        "internalId": "Ranger1",
+        "name": "Deadeye"
+      },
+      {
+        "internalId": "Ranger3",
+        "name": "Pathfinder"
+      }
+    ],
+    "integerId": 2,
+    "name": "Ranger"
+  },
+  {
+    "ascendancies": [
+      {
+        "internalId": "Warrior1",
+        "name": "Titan"
+      },
+      {
+        "internalId": "Warrior2",
+        "name": "Warbringer"
+      },
+      {
+        "internalId": "Warrior3",
+        "name": "Smith of Kitava"
+      }
+    ],
+    "integerId": 6,
+    "name": "Warrior"
+  },
+  {
+    "ascendancies": [
+      {
+        "internalId": "Sorceress1",
+        "name": "Stormweaver"
+      },
+      {
+        "internalId": "Sorceress2",
+        "name": "Chronomancer"
+      },
+      {
+        "internalId": "Sorceress3",
+        "name": "Disciple of Varashta"
+      }
+    ],
+    "integerId": 7,
+    "name": "Sorceress"
+  },
+  {
+    "ascendancies": [
+      {
+        "internalId": "Huntress1",
+        "name": "Amazon"
+      },
+      {
+        "internalId": "Huntress2",
+        "name": "Spirit Walker"
+      },
+      {
+        "internalId": "Huntress3",
+        "name": "Ritualist"
+      }
+    ],
+    "integerId": 8,
+    "name": "Huntress"
+  },
+  {
+    "ascendancies": [
+      {
+        "internalId": "Mercenary1",
+        "name": "Tactician"
+      },
+      {
+        "internalId": "Mercenary2",
+        "name": "Witchhunter"
+      },
+      {
+        "internalId": "Mercenary3",
+        "name": "Gemling Legionnaire"
+      }
+    ],
+    "integerId": 9,
+    "name": "Mercenary"
+  },
+  {
+    "ascendancies": [
+      {
+        "internalId": "Monk1",
+        "name": "Martial Artist"
+      },
+      {
+        "internalId": "Monk2",
+        "name": "Invoker"
+      },
+      {
+        "internalId": "Monk3",
+        "name": "Acolyte of Chayula"
+      }
+    ],
+    "integerId": 10,
+    "name": "Monk"
+  },
+  {
+    "ascendancies": [
+      {
+        "internalId": "Druid1",
+        "name": "Oracle"
+      },
+      {
+        "internalId": "Druid2",
+        "name": "Shaman"
+      }
+    ],
+    "integerId": 11,
+    "name": "Druid"
+  }
+]

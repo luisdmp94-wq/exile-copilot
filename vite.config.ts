@@ -51,6 +51,8 @@ export default defineConfig({
   // navegador buscaba los archivos en /guias/assets y la página no arrancaba.
   base: '/',
   plugins: [react(), apiMiddleware()],
+  // El motor de Path of Building 2 corre en un worker con módulos (src/pob).
+  worker: { format: "es" },
   build: {
     rollupOptions: {
       output: {

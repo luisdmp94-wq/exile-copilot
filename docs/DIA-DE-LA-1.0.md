@@ -40,21 +40,39 @@ npm run data:gems
 npm run data:gems -- --en
 ```
 
-**4. Guías por acto.** Jugar cada acto (o mirar poe2db) y comprobar zonas,
+**4. Path of Building 2 en la web** («Tus números con PoB2», el editor del
+árbol y «Exportar a PoB2»). Cuando PoB2 publique su versión para la 1.0
+(suele ser el mismo día o al siguiente):
+
+```
+npm run data:pob -- --latest
+npm run data:items-en
+```
+
+- `data:pob` descarga PoB2, lo pasa a Lua 5.2, lo arranca en Node y calcula
+  una build de prueba: si algo falla, no escribe nada. El resumen dice
+  cuántas clases y gemas trae.
+- Si PoB2 aún no tiene el árbol de la 1.0, el motor sigue con el 0.5 y los
+  códigos nuevos dan números raros: esperar a su versión.
+- `data:items-en` rehace la traducción de objetos en español (modificadores,
+  bases y únicos de poe2db).
+- `npx vitest run tests/integration/pobEngine.test.ts tests/unit/pobBuild.test.ts`
+
+**5. Guías por acto.** Jugar cada acto (o mirar poe2db) y comprobar zonas,
 jefes y recompensas. Al terminar, cambiar `checkedPatch` y `checkedOn` en
 `src/guides/actOne.ts` … `actFour.ts` (y los `En`). Si la 1.0 trae actos
 nuevos, son guías nuevas.
 
-**5. Parche y liga en la web.** Seguir
+**6. Parche y liga en la web.** Seguir
 [POE2-1.0-READINESS.md](POE2-1.0-READINESS.md) (`npm run readiness:1.0`).
 En Render → Environment, cuando toque: `DEFAULT_PATCH` y `DEFAULT_LEAGUE`
 (la liga nueva).
 
-**6. Builds destacadas.** Las de 0.5.5 se apartan solas. Buscar builds de la
+**7. Builds destacadas.** Las de 0.5.5 se apartan solas. Buscar builds de la
 1.0 con autor y fuente visibles.
 
-**7. Subir.** `npx vitest run`, `npm run build`, las pruebas de humo, push.
+**8. Subir.** `npx vitest run`, `npm run build`, las pruebas de humo, push.
 Comprobar en exilecopilot.com que el árbol dice «árbol 1.0».
 
-**8. Avisar.** Steam y Reddit, un par de días después del lanzamiento
+**9. Avisar.** Steam y Reddit, un par de días después del lanzamiento
 (cuando la gente ya está en la campaña).

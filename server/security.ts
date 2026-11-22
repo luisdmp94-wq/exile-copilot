@@ -116,9 +116,11 @@ export function securityHeaders(config: ServerConfig): RequestHandler {
     res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
     if (config.nodeEnv === "production") {
       res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      // 'wasm-unsafe-eval' deja compilar WebAssembly (el motor de Path of
+      // Building 2 en un worker propio); no permite eval de JavaScript.
       res.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://www.youtube-nocookie.com; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
+        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://www.youtube-nocookie.com; form-action 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
       );
     }
     next();

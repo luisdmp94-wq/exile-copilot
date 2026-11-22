@@ -29,6 +29,10 @@ export interface PobPartial {
   skills: SkillSetup[];
   items: Item[];
   passives: PassiveNode[];
+  /** Atributo elegido en los nodos «+5 a cualquier atributo» del árbol activo. */
+  attributeChoices?: Record<string, "str" | "dex" | "int">;
+  /** El XML completo, para calcular con el motor de PoB2 sin perder nada. */
+  xml?: string;
   attributes?: Attributes;
   resistances?: Resistances;
   life?: number;
@@ -285,6 +289,9 @@ function extractActiveSkills(xml: string): SkillSetup[] {
   const setups: SkillSetup[] = [];
   for (const skill of extractElements(activeSet.body, "Skill")) {
     if (/^(?:false|0)$/i.test(skill.attrs.enabled ?? "")) continue;
+    // Grupos que PoB2 crea solo (p. ej. «Explode» al matar): no son gemas del jugador.
+    const source = skill.attrs.source ?? "";
+    if (source && !/^Item:/i.test(source)) continue;
     const gems = extractElements(skill.body, "Gem").filter(
       (gem) => !/^(?:false|0)$/i.test(gem.attrs.enabled ?? ""),
     );
@@ -296,6 +303,8 @@ function extractActiveSkills(xml: string): SkillSetup[] {
       label: skill.attrs.label || skill.attrs.slot || mainName,
       mainSkill: mainName,
       mainSkillGemId: main?.attrs.gemId ?? null,
+      ...(integerStat(main?.attrs.level) !== undefined ? { level: integerStat(main?.attrs.level) } : {}),
+      ...(integerStat(main?.attrs.quality) !== undefined ? { quality: integerStat(main?.attrs.quality) } : {}),
       supports: gems.slice(1).flatMap((gem) => {
         const name = gemDisplayName(gem.attrs);
         return name ? [{ name, gemId: gem.attrs.gemId ?? null }] : [];
@@ -317,6 +326,20 @@ function extractActivePassives(xml: string): PassiveNode[] {
   const activeSpec = extractActiveTreeSpec(xml);
   const refs = (activeSpec?.attrs.nodes ?? "").split(",").map((ref) => ref.trim()).filter(Boolean);
   return [...new Set(refs)].map((ref) => ({ ref, isOfficialId: false }));
+}
+
+/** `<AttributeOverride strNodes="…" dexNodes="…" intNodes="…"/>` del árbol activo. */
+function extractAttributeChoices(xml: string): Record<string, "str" | "dex" | "int"> {
+  const activeSpec = extractActiveTreeSpec(xml);
+  const override = activeSpec ? extractElements(activeSpec.body, "AttributeOverride")[0] ?? null : null;
+  const choices: Record<string, "str" | "dex" | "int"> = {};
+  if (!override) return choices;
+  for (const [attribute, name] of [["str", "strNodes"], ["dex", "dexNodes"], ["int", "intNodes"]] as const) {
+    for (const ref of (override.attrs[name] ?? "").split(",")) {
+      if (/^\d+$/.test(ref.trim())) choices[ref.trim()] = attribute;
+    }
+  }
+  return choices;
 }
 
 function extractXmlFields(xml: string, warnings: string[]): PobPartial {
@@ -362,6 +385,8 @@ function extractXmlFields(xml: string, warnings: string[]): PobPartial {
   partial.skills = extractActiveSkills(xml);
   partial.mainSkills = partial.skills.map((skill) => skill.mainSkill).slice(0, 5);
   partial.passives = extractActivePassives(xml);
+  const choices = extractAttributeChoices(xml);
+  if (Object.keys(choices).length > 0) partial.attributeChoices = choices;
   const notes = extractElement(xml, "Notes");
   const noteText = notes ? decodeXmlText(notes.body).trim() : "";
   if (noteText) partial.notes = noteText;
@@ -391,6 +416,7 @@ export function readPobXml(xml: string): PobDecodeResult {
       return { ok: false, xml, partial: emptyPartial(), warnings };
     }
     const partial = extractXmlFields(xml, warnings);
+    partial.xml = xml;
     warnings.push(`No verificado — instantánea leída de PoB2: ${partial.items.length} objeto(s), ${partial.skills.length} grupo(s) de habilidad y ${partial.passives.length} pasiva(s).`);
     if (partial.items.length === 0) warnings.push("El código PoB2 no contiene equipo activo.");
     if (partial.skills.length === 0) warnings.push("El código PoB2 no contiene grupos de habilidades activos.");

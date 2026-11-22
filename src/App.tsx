@@ -2160,6 +2160,7 @@ export default function App() {
                       profile={engineProfile}
                       onPasteCode={() => openEditor(false, "pob")}
                       onSetSkill={() => openQuickReview()}
+                      onSavePassives={character.savePassives}
                     />
                   )}
                 </div>

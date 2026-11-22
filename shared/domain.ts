@@ -203,6 +203,10 @@ export const SkillSetupSchema = z.object({
   /** Id oficial de BaseItemTypes de la gema principal. null = no verificado. */
   mainSkillGemId: z.string().nullable().default(null),
   supports: z.array(SupportGemSchema).default([]),
+  /** Nivel de la gema principal (de PoB2 o escrito). Ausente = no se sabe. */
+  level: z.number().int().min(1).max(40).optional(),
+  /** Calidad de la gema principal, si se sabe. */
+  quality: z.number().int().min(0).max(40).optional(),
 });
 export type SkillSetup = z.infer<typeof SkillSetupSchema>;
 
@@ -217,6 +221,11 @@ export type PassiveNode = z.infer<typeof PassiveNodeSchema>;
 
 export const PassiveSelectionSchema = z.object({
   allocated: z.array(PassiveNodeSchema).default([]),
+  /**
+   * Atributo elegido en cada nodo «+5 a cualquier atributo» (clave del árbol →
+   * str/dex/int). Ausente en perfiles viejos y en los que no lo dicen.
+   */
+  attributeChoices: z.record(z.string(), z.enum(["str", "dex", "int"])).optional(),
 });
 export type PassiveSelection = z.infer<typeof PassiveSelectionSchema>;
 
@@ -335,6 +344,14 @@ export const PobImportProvenanceSchema = z.object({
   targetVersion: z.string().trim().min(1).max(40).optional(),
   /** Versión del árbol pasivo activo, comparable con la familia del parche. */
   passiveTreeVersion: z.string().trim().min(1).max(40).optional(),
+  /**
+   * El XML original de PoB2. Con él, «Tus números» calcula con el mismo equipo,
+   * joyas, atributos y configuración que el PoB2 del jugador.
+   */
+  xml: z.string().max(2_000_000).optional(),
+  /** Huella de objetos y gemas al importar: si cambian en la web, se reescriben. */
+  itemsDigest: z.string().max(40).optional(),
+  skillsDigest: z.string().max(40).optional(),
 });
 export type PobImportProvenance = z.infer<typeof PobImportProvenanceSchema>;
 

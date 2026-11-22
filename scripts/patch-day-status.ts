@@ -77,6 +77,33 @@ async function main(): Promise<void> {
     }
   }
 
+  // Path of Building 2 en la web («Tus números», editor, exportar).
+  const pob = read("server/data/pob/meta.json") as { commit: string; commitDate: string; pobVersion: string; treeVersion: string };
+  // El árbol del motor («0_5») tiene que ser de la misma familia que el parche.
+  const pobOk = family(pob.treeVersion) === targetFamily;
+  row(
+    pobOk,
+    "Motor de PoB2",
+    `PoB2 ${pob.pobVersion}, árbol ${pob.treeVersion} (${pob.commit.slice(0, 8)}, ${pob.commitDate.slice(0, 10)})`,
+    "npm run data:pob -- --latest y npm run data:items-en (cuando PoB2 publique su versión del parche)",
+  );
+  if (process.argv.includes("--online")) {
+    try {
+      const response = await fetch("https://api.github.com/repos/PathOfBuildingCommunity/PathOfBuilding-PoE2/commits/dev", {
+        headers: { "User-Agent": "exile-copilot-data" },
+      });
+      const latest = (await response.json()) as { sha: string; commit: { message: string; committer: { date: string } } };
+      row(
+        latest.sha === pob.commit,
+        "  último de PoB2",
+        `${latest.commit.message.split("\n")[0].slice(0, 60)} (${latest.sha.slice(0, 8)}, ${latest.commit.committer.date.slice(0, 10)})`,
+        "Hay cambios en PoB2: npm run data:pob -- --latest (si traen el parche nuevo)",
+      );
+    } catch (error) {
+      row(false, "  último de PoB2", `no se pudo mirar (${error instanceof Error ? error.message : String(error)})`);
+    }
+  }
+
   // Gemas (consejero de gemas, revisión rápida, Mentor).
   for (const [file, label] of [
     ["server/data/gems.es.json", "Gemas (español)"],
