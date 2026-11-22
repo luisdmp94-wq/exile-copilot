@@ -22,6 +22,7 @@ import type { ActGuide, GuideBlock, GuideRoutePriority, GuideTip } from "@/guide
 import { UPCOMING_GUIDES, UPCOMING_GUIDES_EN, findGuide, guidesFor } from "@/guides";
 import { cn } from "@/lib/utils";
 import { PassiveRouteCard } from "@/components/PassiveRouteCard";
+import { LAST_GUIDE_STORAGE_KEY, ROUTE_CHANGED_EVENT, ROUTE_STORAGE_PREFIX, nextRouteIndex } from "@/lib/resumePoint";
 
 /**
  * «Tus puntos del árbol» está retirado de momento (20-11-2026): daba nombres
@@ -37,6 +38,7 @@ const TEXT = texts(
     views: { guia: "Guía del acto", comprobar: "Comprobar mi personaje", herramientas: SHOW_PASSIVE_ROUTE ? "Gemas, piezas y árbol" : "Gemas y piezas" },
     priority: { clave: "No te lo saltes", recomendable: "Merece la pena", historia: "Historia" },
     route: "Ruta del acto",
+    nextStep: "Siguiente",
     doneOf: (done: number, total: number) => `${done} de ${total} hechas`,
     routeLead: "Las zonas en orden. Marca cada una al terminarla.",
     mostImportant: "Lo más importante, para siempre:",
@@ -70,6 +72,7 @@ const TEXT = texts(
     views: { guia: "Act guide", comprobar: "Check my character", herramientas: SHOW_PASSIVE_ROUTE ? "Gems, items and tree" : "Gems and items" },
     priority: { clave: "Don't skip it", recomendable: "Worth it", historia: "Story" },
     route: "Act route",
+    nextStep: "Next",
     doneOf: (done: number, total: number) => `${done} of ${total} done`,
     routeLead: "The zones in order. Tick each one when you finish it.",
     mostImportant: "Most important, for good:",
@@ -125,7 +128,6 @@ function SourceRefs({ guide, ids }: { guide: ActGuide; ids: string[] }) {
   );
 }
 
-const ROUTE_STORAGE_PREFIX = "exile-copilot:guia-ruta:";
 const PIECES_STORAGE_KEY = "exile-copilot:guia-piezas";
 const VIEW_STORAGE_KEY = "exile-copilot:guia-vista";
 
@@ -191,12 +193,15 @@ function Route({ guide, t }: { guide: ActGuide; t: GuidesText }) {
     setDone(next);
     try {
       window.localStorage.setItem(ROUTE_STORAGE_PREFIX + guide.slug, JSON.stringify(next));
+      window.dispatchEvent(new Event(ROUTE_CHANGED_EVENT));
     } catch {
       // Sin almacenamiento (modo privado) la ruta sigue funcionando en esta visita.
     }
   };
 
   const doneCount = steps.filter((_step, index) => done.includes(keyOf(index))).length;
+  // La zona que toca va resaltada: es a donde lleva «Sigues por aquí».
+  const nextIndex = nextRouteIndex(steps, (index) => done.includes(keyOf(index)));
   const keySteps = steps.filter((step) => step.priority === "clave");
   const skippable = steps.flatMap((step) => (step.skip ? [`${step.skip} (${step.zone})`] : []));
 
@@ -237,7 +242,14 @@ function Route({ guide, t }: { guide: ActGuide; t: GuidesText }) {
           const checked = done.includes(keyOf(index));
           const id = `guia-ruta-${guide.slug}-${index}`;
           return (
-            <li key={step.zone} className="flex gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary/50">
+            <li
+              key={step.zone}
+              className={cn(
+                "flex gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary/50",
+                index === nextIndex && doneCount > 0 && "bg-primary/[0.07] ring-1 ring-primary/40",
+              )}
+              data-testid={index === nextIndex && doneCount > 0 ? "guia-ruta-siguiente" : undefined}
+            >
               <input
                 id={id}
                 type="checkbox"
@@ -257,6 +269,11 @@ function Route({ guide, t }: { guide: ActGuide; t: GuidesText }) {
                 >
                   {t.priority[step.priority]}
                 </span>
+                {index === nextIndex && doneCount > 0 && (
+                  <span className="ml-1 rounded-full bg-primary px-1.5 py-px text-[11px] font-semibold text-primary-foreground">
+                    {t.nextStep}
+                  </span>
+                )}
                 {step.optional && step.priority !== "clave" && (
                   <span className="ml-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted-foreground">
                     {t.optional}
@@ -373,6 +390,14 @@ export function GuidesSection({
   const { lang } = useLang();
   const guides = guidesFor(lang);
   const guide = findGuide(guideSlug, lang);
+  // «Sigues por aquí» recuerda la última guía abierta.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LAST_GUIDE_STORAGE_KEY, guide.slug);
+    } catch {
+      // Sin almacenamiento no hay «Sigues por aquí»; la guía funciona igual.
+    }
+  }, [guide.slug]);
   // El equipo pegado es del personaje, no de un acto: se comparte entre guías
   // y se recuerda en el navegador para no pegar nueve piezas cada vez.
   const [pastedItems, setPastedItems] = useState<Item[]>(readStoredPieces);

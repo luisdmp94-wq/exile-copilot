@@ -287,11 +287,14 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
   hacer «Me matan» (resistencias, vida, frascos) y «No sé adónde ir».
   Origen: partida de Luis del 17-11 y comentario en Steam («para novatos,
   simplemente jugad»).
-- [ ] **Revisión del árbol de pasivas desde un código PoB2** (la importación
-  ya existe; falta poner nombre a cada pasiva y señalar las que no encajan con
-  el daño). Esperar al 1.0: el árbol cambiará y PoB2 publicará datos nuevos.
-  Ni PoB2 (versión publicada de julio, desarrollo del 10-09) ni el export de
-  GGG 0.5.5 traen todavía todos los nodos del juego (p. ej. «Entropía»).
+- [x] **Revisión del árbol de pasivas desde un código PoB2** (hecho el
+  22-11-2026). Tarjeta «Tu árbol de pasivas» en «Personaje y mentor»
+  (`src/components/PassiveTreeCard.tsx`): con el código de PoB2 da hasta tres
+  notables de daño en el orden en que se cogen y uno de defensa, con lo que
+  dan, el porqué y el camino. Reglas sin IA (`shared/passiveTreeAdvice.ts`); el
+  Mentor contesta lo mismo a «¿por dónde sigo en el árbol?»
+  (`server/mentor/treeQuestion.ts`). «Entropía» sí está: es la versión de la
+  Bruja de un notable, y el árbol ya aplica esas versiones por clase.
 - [x] **Comparador «¿Cuál de estas dos es mejor?» con el personaje en cuenta**
   (hecho el 17-11: resistencias del personaje descontando la pieza puesta,
   tope del 75 % y botón «Llevo esbirros»).
@@ -319,8 +322,12 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
   IA inventa cosas del juego; solo guía bien cuando habla de lo comprobado
   (guías, revisión rápida, datos de gemas). Contexto: el 19-11 un visitante
   nuevo recibía tres «me faltan datos» seguidos en «Personaje y mentor».
-- [ ] **El árbol de pasivas original en la web** (idea de Luis, 20-11-2026;
-  apuntada, sin empezar). Luis quiere ver el árbol de verdad, el del juego, con
+- [x] **El árbol de pasivas original en la web** (idea de Luis, 20-11-2026;
+  hecho el 22-11-2026, antes de la 1.0 porque los datos se regeneran con
+  `npm run data:tree -- --latest`). Se dibuja el árbol oficial con sus
+  posiciones, conexiones, iconos y marcos (`src/components/PassiveTreeMap.tsx`):
+  lo cogido en dorado y el camino propuesto en verde, con el nombre de cada
+  notable. Luis quiere ver el árbol de verdad, el del juego, con
   su ruta marcada: no una lista de nombres ni un mapa dibujado por nosotros.
   - *Estado:* el bloque «Tus puntos del árbol» se retiró de las guías el
     20-11-2026 (daba nombres de nodos sin decir dónde están, servía a una sola
@@ -335,14 +342,16 @@ Ideas que Luis ha pedido guardar. No se empiezan sin su sí.
     como regla general, su propiedad intelectual no puede usarse para generar
     ingresos comerciales. La web es gratis y sin anuncios, y lleva el aviso de
     que no está afiliada a GGG; así lo usan Maxroll, poe2db o Path of Building.
-    Aun así es un permiso de hecho, no un derecho: GGG puede retirarlo. Antes de
-    empezar, releer https://www.pathofexile.com/developer/docs y citar la fuente
-    junto al árbol. Si algún día la web cobra o pone anuncios, esto se revisa.
-  - *Cuándo:* después de la 1.0 (11-12-2026). El árbol cambia con ella y lo que
-    se hiciera ahora habría que rehacerlo.
-  - *Qué decidir entonces:* pintar el árbol oficial entero o solo la zona de la
-    clase; marcar la ruta de una build; leer las pasivas de quien importa desde
-    Path of Building para decirle qué le falta.
+    Aun así es un permiso de hecho, no un derecho: GGG puede retirarlo. Releído
+    el 22-11-2026: su política para terceros prohíbe usar su propiedad
+    intelectual para generar ingresos y pide el aviso «This product isn't
+    affiliated with or endorsed by Grinding Gear Games in any way». La tarjeta
+    del árbol cita la fuente y lleva ese aviso. Si algún día la web cobra o pone
+    anuncios, esto se revisa.
+  - *El día de la 1.0:* `npm run data:tree -- --latest` (ver
+    `docs/DIA-DE-LA-1.0.md`).
+  - *Pendiente, si hace falta:* marcar en el árbol la ruta de una build
+    objetivo (hoy marca lo que tiene el jugador y lo propuesto).
 - [ ] **Recorridos anónimos en las estadísticas** (idea de Luis, 21-11-2026;
   apuntada, sin empezar). Saber qué hace la gente mientras usa la web, no solo
   cuántos entran. Hoy `/estadisticas` suma cifras sueltas por día (visitas,

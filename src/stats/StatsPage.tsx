@@ -30,6 +30,7 @@ const USE_LABELS: Record<string, string> = {
   mentor: "Preguntas al Mentor",
   "personaje-guardado": "Personajes guardados",
   "captura-leida": "Capturas leídas",
+  "codigo-pob": "Códigos PoB2 leídos",
 };
 
 const AREA_LABELS: Record<string, string> = {

@@ -55,14 +55,16 @@ export function SkillGemTeaser({ profile, onOpenAdvisor }: SkillGemTeaserProps) 
   const grade = teaserGradeFor(reading.known ? reading.level : null);
   const archetype = profile.archetype?.trim() ?? "";
   const characterClass = profile.characterClass.trim();
-  const [answer, setAnswer] = useState<SupportAdviceResponse | null>(null);
-  const [failed, setFailed] = useState(false);
+  // Cada respuesta y cada fallo van con la pregunta que los produjo: al cambiar
+  // de habilidad o de idioma, lo anterior deja de valer sin borrarlo a mano.
+  const requestKey = JSON.stringify([skill, grade, lang, archetype, characterClass]);
+  const [result, setResult] = useState<{ key: string; answer: SupportAdviceResponse | null; failed: boolean } | null>(null);
+  const answer = result?.key === requestKey ? result.answer : null;
+  const failed = result?.key === requestKey && result.failed;
 
   useEffect(() => {
     if (skill === null) return;
     let cancelled = false;
-    setAnswer(null);
-    setFailed(false);
     api
       .supportGemPreview({
         skill: skill.slice(0, 80),
@@ -75,17 +77,17 @@ export function SkillGemTeaser({ profile, onOpenAdvisor }: SkillGemTeaserProps) 
         },
       })
       .then((response) => {
-        if (!cancelled) setAnswer(response);
+        if (!cancelled) setResult({ key: requestKey, answer: response, failed: false });
       })
       .catch(() => {
         // Habilidad que la web no conoce o servidor ocupado: la tarjeta no
         // aparece. No es momento de decirle otro «no» al jugador.
-        if (!cancelled) setFailed(true);
+        if (!cancelled) setResult({ key: requestKey, answer: null, failed: true });
       });
     return () => {
       cancelled = true;
     };
-  }, [skill, grade, lang, archetype, characterClass]);
+  }, [skill, grade, lang, archetype, characterClass, requestKey]);
 
   if (skill === null || failed) return null;
   if (answer !== null && answer.recommended === null) return null;

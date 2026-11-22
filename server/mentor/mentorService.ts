@@ -34,6 +34,8 @@ import {
 } from "../engine/engine.js";
 import { ENGINE_VERSION } from "../engine/rules.js";
 import { answerSupportGemQuestion, type GemKnowledge } from "./gemQuestion.js";
+import { answerPassiveTreeQuestion } from "./treeQuestion.js";
+import type { TreeKnowledge } from "../advice/passiveTreeAdvisor.js";
 import {
   MentorAiError,
   type MentorAiContext,
@@ -100,6 +102,8 @@ export interface MentorQueryDependencies {
   selector?: MentorDecisionSelector | null;
   /** Datos de gemas: con ellos el Mentor contesta preguntas de asistencias. */
   gems?: GemKnowledge | null;
+  /** Árbol de pasivas: con él contesta «¿por dónde sigo en el árbol?». */
+  tree?: TreeKnowledge | null;
 }
 
 const UNSUPPORTED_REASON =
@@ -1146,6 +1150,12 @@ async function buildAnswer(
   if (deps.gems && options.intentHint === undefined) {
     const gemAnswer = answerSupportGemQuestion(deps.gems, options.question, options.profile, lang);
     if (gemAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, gemAnswer);
+  }
+
+  // «¿Por dónde sigo en el árbol?»: las mismas reglas que la tarjeta del árbol.
+  if (deps.tree && options.intentHint === undefined) {
+    const treeAnswer = answerPassiveTreeQuestion(deps.tree, options.question, options.profile, lang);
+    if (treeAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, treeAnswer);
   }
 
   // La conversación social nunca se convierte en una recomendación por

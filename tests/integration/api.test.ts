@@ -1618,3 +1618,30 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.content).toContain("Cubrir resistencias elementales hasta el cap");
   });
 });
+
+describe("POST /passive-tree/advice", () => {
+  it("devuelve los próximos notables con el árbol oficial", async () => {
+    const res = await postJson("/passive-tree/advice", {
+      characterClass: "Bruja",
+      ascendancy: null,
+      passives: ["54447"],
+      skills: ["Drenar esencia", "Contagio"],
+      weapons: ["wand"],
+      defence: "life",
+      usesArmour: false,
+      usesEvasion: false,
+      treeVersion: "0_5",
+      lang: "es",
+    });
+    expect(res.status).toBe(200);
+    const body = await jsonOf(res);
+    expect(body.offence.length).toBeGreaterThan(0);
+    expect(body.skills).toEqual(["Drenar esencia", "Contagio"]);
+    expect(body.allocated).toContain("54447");
+  });
+
+  it("rechaza una petición mal formada", async () => {
+    const res = await postJson("/passive-tree/advice", { passives: "nada" });
+    expect(res.status).toBe(400);
+  });
+});

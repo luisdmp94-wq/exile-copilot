@@ -76,7 +76,7 @@ interface CharacterSectionProps {
    */
   hideEmptyState: boolean;
   editorMode?: "full" | "import" | "new" | "item" | "memory";
-  initialFocus?: "import" | "character" | "item" | null;
+  initialFocus?: "import" | "character" | "item" | "pob" | null;
   /** Notifica una persistencia real para actualizar el mentor contextual. */
   onProfileSaved?: (profile: CharacterProfile) => void;
   /** Continúa directamente al banco de Crafting con el objeto recién leído. */
@@ -309,6 +309,27 @@ export function CharacterSection({
   const originBadge = { label: t.origin[origin], className: ORIGIN_BADGE_CLASSES[origin] };
 
   useEffect(() => {
+    if (initialFocus === "pob") {
+      // «Pegar mi código de PoB2» desde el árbol: abre ese apartado y pone el
+      // cursor en la caja del código.
+      // El panel lateral tarda un momento en montarse: se prueba unas veces.
+      let tries = 0;
+      let timer = 0;
+      const open = () => {
+        const details = document.querySelector<HTMLDetailsElement>('[data-testid="lectura-rapida-pob"]');
+        const box = document.getElementById("lectura-rapida-pob-codigo");
+        if (!details || !box) {
+          tries += 1;
+          if (tries < 20) timer = window.setTimeout(open, 50);
+          return;
+        }
+        details.open = true;
+        box.scrollIntoView({ block: "center" });
+        box.focus({ preventScroll: true });
+      };
+      timer = window.setTimeout(open, 0);
+      return () => window.clearTimeout(timer);
+    }
     const id =
       initialFocus === "import"
         ? "panel-importacion"

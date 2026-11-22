@@ -1,6 +1,11 @@
 import type { z } from "zod";
 import type { CharacterProfile } from "@shared/domain.js";
 import {
+  PassiveTreeAdviceResponseSchema,
+  type PassiveTreeAdviceRequest,
+  type PassiveTreeAdviceResponse,
+} from "@shared/passiveTreeRequest.js";
+import {
   GemSkillListResponseSchema,
   SupportAdviceResponseSchema,
   type GemSkillListResponse,
@@ -305,6 +310,10 @@ export const api = {
   /** Lo mismo con solo las reglas, sin IA: para lo que la web enseña sin que se lo pidan. */
   supportGemPreview: (payload: SupportAdviceRequest): Promise<SupportAdviceResponse> =>
     request("/api/advice/support-gem/preview", SupportAdviceResponseSchema, jsonInit(payload)),
+
+  /** «¿Por dónde sigo en el árbol?»: solo reglas, no cuenta como uso. */
+  passiveTreeAdvice: (payload: PassiveTreeAdviceRequest): Promise<PassiveTreeAdviceResponse> =>
+    request("/api/passive-tree/advice", PassiveTreeAdviceResponseSchema, jsonInit(payload)),
 
   supportGemPlan: (payload: SupportPlanRequest): Promise<SupportPlanResponse> =>
     request("/api/advice/support-plan", SupportPlanResponseSchema, jsonInit(payload)),

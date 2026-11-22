@@ -113,6 +113,8 @@ import {
   type SupportPlanExplainer,
 } from "./advice/supportGemAdvisor.js";
 import { loadEnglishGemLocale, localizeSkill } from "./advice/gemLocale.js";
+import { advisePassiveTree, loadPassiveTree, type TreeKnowledge } from "./advice/passiveTreeAdvisor.js";
+import { PassiveTreeAdviceRequestSchema } from "../shared/passiveTreeRequest.js";
 import { SupportAdviceRequestSchema } from "../shared/supportGemAdvice.js";
 import { SupportPlanRequestSchema } from "../shared/supportGemPlan.js";
 import {
@@ -380,6 +382,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       : createSupportPlanExplainer(config);
   const gemData = loadGemData();
   const gemLocale = loadEnglishGemLocale();
+  const treeKnowledge: TreeKnowledge = { tree: loadPassiveTree(), gems: gemData, locale: gemLocale };
   const patches = loadPatches();
   const releaseEvidenceCatalog = loadReleaseEvidenceCatalog();
   const patchCompatibility = gatePatchCompatibilityByEvidence(
@@ -527,6 +530,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     "POST /mentor/query": "mentor",
     "POST /character": "personaje-guardado",
     "POST /quick-review/screenshot": "captura-leida",
+    "POST /import/build": "codigo-pob",
   };
   app.use((req, res, next) => {
     const event = USAGE_ROUTES[`${req.method} ${req.path}`];
@@ -772,6 +776,18 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         );
       }
       res.json({ item: parsed.item, warnings: parsed.warnings });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /passive-tree/advice — «¿por dónde sigo en el árbol?»: los próximos
+  // notables del personaje, con las reglas y el árbol oficial. Lo pide la
+  // tarjeta del árbol al abrirse: no gasta IA ni cuenta como uso.
+  app.post("/passive-tree/advice", guidanceLimiter, (req, res, next) => {
+    try {
+      const body = PassiveTreeAdviceRequestSchema.parse(req.body);
+      res.json(advisePassiveTree(treeKnowledge, body));
     } catch (err) {
       next(err);
     }
@@ -1742,7 +1758,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
               }
             : {}),
         },
-        { priceService, selector: mentorSelector, gems: { data: gemData, locale: gemLocale } },
+        { priceService, selector: mentorSelector, gems: { data: gemData, locale: gemLocale }, tree: treeKnowledge },
       );
 
       // Segunda lectura tras la espera asíncrona: si otra pestaña creó o cerró

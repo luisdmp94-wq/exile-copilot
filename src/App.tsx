@@ -71,6 +71,8 @@ import { MentorBriefing, OpenCase, OpenCaseSecondary } from "@/components/OpenCa
 import { OpenCaseEvidence } from "@/components/OpenCaseEvidence";
 import { OpenCaseRecommendation } from "@/components/OpenCaseRecommendation";
 import { ExpedienteSection } from "@/sections/ExpedienteSection";
+import { PassiveTreeCard } from "@/components/PassiveTreeCard";
+import { ResumeBanner } from "@/components/ResumeBanner";
 import { CharacterStrip } from "@/components/CharacterStrip";
 import { MentorQuickAsk } from "@/components/MentorQuickAsk";
 import { RecommendationsSection } from "@/sections/RecommendationsSection";
@@ -215,7 +217,7 @@ const EMPTY_TARGET: TargetDraft = {
  * vez, dentro del panel lateral «Editar expediente».
  */
 type WorkspaceTab = "expediente" | "plan" | "crafting" | "guias";
-type EditorPrompt = "memory" | "new" | "item" | "gear" | "import" | null;
+type EditorPrompt = "memory" | "new" | "item" | "gear" | "import" | "pob" | null;
 
 const APP_TITLE = typeof document === "undefined" ? "" : document.title;
 /** El título de la portada para quien la ve en inglés (el del HTML es el español). */
@@ -1161,6 +1163,14 @@ export default function App() {
     }, 120);
   };
 
+  /** «Sigues por aquí»: abre la guía de ese acto en la zona que toca. */
+  const continueGuide = (slug: string, step: number | null) => {
+    setGuideSlug(slug);
+    setGuideViewRequest((current) => ({ view: "guia", seq: (current?.seq ?? 0) + 1 }));
+    navigateWorkspace("guias");
+    scrollToWhenPainted(step === null ? '[data-testid="guia-ruta"]' : `#guia-ruta-${slug}-${step - 1}`);
+  };
+
   /** Abre el consejero completo de gemas, en Guías. */
   const openGemAdvisor = () => {
     setGuideViewRequest((current) => ({ view: "herramientas", seq: (current?.seq ?? 0) + 1 }));
@@ -1936,6 +1946,7 @@ export default function App() {
             ) : showWelcome ? (
               // Sin personaje: solo la bienvenida. Ni expediente ni caso vacíos.
               <div className="flex flex-col gap-6">
+                <ResumeBanner onContinue={continueGuide} />
                 <WelcomePanel
                   loadingDemo={character.busy === "demo"}
                   onLoadDemo={() => void character.loadDemo()}
@@ -1992,6 +2003,7 @@ export default function App() {
                     preguntar), después el equipo junto a lo que frena al
                     personaje, y al final lo avanzado. En móvil el equipo va
                     antes que la conversación: sigue en la primera pantalla. */}
+                <ResumeBanner onContinue={continueGuide} className="order-0 lg:col-span-2" />
                 <div className="order-1 lg:col-span-2">
                   <OpenCase
                     selection={selection}
@@ -2142,6 +2154,13 @@ export default function App() {
                   />
                   {character.profile && character.profile.items.length === 0 && (
                     <SkillGemTeaser profile={character.profile} onOpenAdvisor={openGemAdvisor} />
+                  )}
+                  {engineProfile && (
+                    <PassiveTreeCard
+                      profile={engineProfile}
+                      onPasteCode={() => openEditor(false, "pob")}
+                      onSetSkill={() => openQuickReview()}
+                    />
                   )}
                 </div>
 
@@ -2558,7 +2577,9 @@ export default function App() {
                         ? "character"
                         : editorPrompt === "import"
                           ? "import"
-                          : null
+                          : editorPrompt === "pob"
+                            ? "pob"
+                            : null
                   }
                   onProfileSaved={(savedProfile) => {
                     announceMentor({ type: "profileSaved" });

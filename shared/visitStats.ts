@@ -102,6 +102,7 @@ export const USAGE_EVENTS = [
   "mentor",
   "personaje-guardado",
   "captura-leida",
+  "codigo-pob",
 ] as const;
 export type UsageEvent = (typeof USAGE_EVENTS)[number];
 

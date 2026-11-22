@@ -166,6 +166,8 @@ export function mergeImportedProfile(current: CharacterProfile, imported: Charac
   if (imported.passives.allocated.length > 0) {
     next = { ...next, passives: imported.passives };
     filled += 1;
+    // La versión del árbol del código: el árbol de la web avisa si no es la suya.
+    if (imported.pobImport) next = { ...next, pobImport: imported.pobImport };
   }
   if (imported.levelSource === "observed") {
     next = { ...next, level: imported.level, levelSource: "observed" };

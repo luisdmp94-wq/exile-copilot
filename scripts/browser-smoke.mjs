@@ -1098,6 +1098,18 @@ async function runFlow(mode, port) {
     const equipmentGrid = page.getByTestId("equipment-grid");
     await equipmentGrid.waitFor({ state: "visible", timeout: 15000 });
     const equippedFromPob = await equipmentGrid.locator('[data-slot-state="filled"]').count();
+    // Tras guardar, el botón espera a que cargue el diario del personaje: se le
+    // da ese momento en vez de mirarlo justo al aparecer el equipo.
+    await page
+      .waitForFunction(
+        () =>
+          [...document.querySelectorAll("button")].some(
+            (button) => button.textContent?.includes("Generar recomendaciones") && !button.disabled,
+          ),
+        null,
+        { timeout: 10000 },
+      )
+      .catch(() => undefined);
     check(
       `[${mode}] PoB2 reconstruye el set activo sin fingir que está completo (${equippedFromPob} objetos)`,
       equippedFromPob === 2 &&
@@ -1105,6 +1117,16 @@ async function runFlow(mode, port) {
         (await equipmentGrid.locator('[data-slot="boots"][data-slot-state="filled"]').count()) === 1 &&
         (await page.getByTestId("recommendations-readiness").count()) === 0 &&
         (await page.getByRole("button", { name: "Generar recomendaciones" }).isEnabled()),
+    );
+    // El código trae el árbol: la tarjeta lo lee y no pide pegar el código.
+    const treeCard = page.getByTestId("arbol-pasivas");
+    await treeCard.waitFor({ state: "visible", timeout: 15000 });
+    await page
+      .waitForFunction(() => !document.querySelector('[data-testid="arbol-pasivas"] [role="status"]'), null, { timeout: 15000 })
+      .catch(() => undefined);
+    check(
+      `[${mode}] «Tu árbol de pasivas» lee el árbol del código PoB2`,
+      (await page.getByTestId("arbol-vacio").count()) === 0 && /pasivas en el árbol/.test(await treeCard.innerText()),
     );
     const partialAnalysis = page.getByTestId("profile-partial-analysis");
     await partialAnalysis.waitFor({ state: "visible", timeout: 15000 });

@@ -2,6 +2,7 @@ import { useRef, useState, type ClipboardEvent } from "react";
 import { Camera, FileCode2, Loader2 } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import type { ScreenshotSkill } from "@shared/screenshotRead.js";
+import { exportClassName } from "@shared/passiveTree.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { texts, useText } from "@/i18n/lang";
@@ -165,10 +166,14 @@ export function ProfileQuickRead({ profile, onApply }: ProfileQuickReadProps) {
       // Solo los avisos que cambian lo que debe hacer el jugador; el resto es
       // detalle técnico de la lectura.
       const known = (value: string) => value.trim() !== "" && value !== "Desconocida";
+      // PoB2 escribe la clase en inglés («Witch») y la web la guarda en español
+      // («Bruja»): son la misma.
+      const sameClass = (a: string, b: string) =>
+        (exportClassName(a) ?? a.trim().toLocaleLowerCase()) === (exportClassName(b) ?? b.trim().toLocaleLowerCase());
       const otherClass =
         known(profile.characterClass) &&
         known(res.profile.characterClass) &&
-        res.profile.characterClass.trim().toLocaleLowerCase() !== profile.characterClass.trim().toLocaleLowerCase();
+        !sameClass(res.profile.characterClass, profile.characterClass);
       const versionWarning = res.warnings.find((warning) => warning.startsWith("Incompatibilidad de versión"));
       setNote(
         [
@@ -276,6 +281,7 @@ export function ProfileQuickRead({ profile, onApply }: ProfileQuickReadProps) {
           onChange={(event) => setPobCode(event.target.value)}
           placeholder={t.pobPlaceholder}
           aria-label={t.pobTitle}
+          id="lectura-rapida-pob-codigo"
           rows={3}
           className="mt-2 font-mono text-xs"
           disabled={reading !== null}
