@@ -31,7 +31,8 @@ export function standalonePaths(
   return paths;
 }
 
-function onTheWay(graph: TreeGraph, path: string[], lang: "es" | "en"): Array<{ count: number; text: string }> {
+/** Lo que se coge por el camino (sin el notable), agrupado por lo que da. */
+export function onTheWayGroups(graph: TreeGraph, path: string[], lang: "es" | "en"): Array<{ count: number; text: string }> {
   const groups = new Map<string, number>();
   for (const key of path.slice(0, -1)) {
     const node = graph.data.nodes[key];
@@ -67,7 +68,7 @@ export function orderStepsByGain<T extends OrderableStep>(
   const chained = sorted.map((step) => {
     const path = previewPath(graph, taken, start, step.key) ?? step.path;
     for (const key of path) taken.add(key);
-    return { ...step, path, points: path.length, onTheWay: onTheWay(graph, path, lang) };
+    return { ...step, path, points: path.length, onTheWay: onTheWayGroups(graph, path, lang) };
   });
   return { steps: chained, reordered: true };
 }

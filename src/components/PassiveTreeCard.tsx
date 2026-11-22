@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, MapPin, Network, Pencil, ShieldPlus, Undo2 } from "lucide-react";
 import type { CharacterProfile } from "@shared/domain.js";
 import { GGG_AFFILIATION_NOTICE, GGG_AFFILIATION_NOTICE_ES } from "@shared/passiveRegistry.js";
@@ -19,7 +19,7 @@ import {
   pointsSpent,
   previewPath,
 } from "@shared/passiveTreeEdit.js";
-import { orderStepsByGain, standalonePaths } from "@shared/passiveTreeOrder.js";
+import { onTheWayGroups, orderStepsByGain, standalonePaths } from "@shared/passiveTreeOrder.js";
 import { findPobGem, pobCodeFromDeflated, pobXmlForProfile } from "@shared/pobBuild.js";
 import {
   treeRequestFromProfile,
@@ -65,6 +65,7 @@ const TEXT = texts(
     pobDamage: (gain: string) => `${gain} % daño`,
     pobDefence: (gain: string) => `${gain} % aguante`,
     orderedByPob: "Ordenados por lo que más daño te da por punto según PoB2.",
+    defenceByPob: "Según PoB2, es lo que más aguante te da por punto cerca de tu árbol.",
     onTheWay: (count: number) => `Lo que coges por el camino (${count} ${count === 1 ? "nodo" : "nodos"})`,
     search: "En el juego, escribe el nombre en «Busca aquí» del árbol y te lo marca.",
     copy: "Copiar el nombre",
@@ -122,6 +123,7 @@ const TEXT = texts(
     pobDamage: (gain: string) => `${gain}% damage`,
     pobDefence: (gain: string) => `${gain}% toughness`,
     orderedByPob: "Ordered by what gives you most damage per point according to PoB2.",
+    defenceByPob: "According to PoB2, it's what gives you most toughness per point near your tree.",
     onTheWay: (count: number) => `What you take on the way (${count} ${count === 1 ? "node" : "nodes"})`,
     search: "In the game, type the name in the tree's search box and it gets highlighted.",
     copy: "Copy the name",
@@ -372,6 +374,19 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   const [pobRetry, setPobRetry] = useState(0);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const pobStatus = usePobStatus();
+  // PoB2 (4 MB y bastante memoria) arranca cuando el jugador llega a la
+  // tarjeta, no al abrir la web: quien solo mira las guías no lo paga.
+  const sectionRef = useRef<HTMLElement>(null);
+  const [seen, setSeen] = useState(() => typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (seen || !section) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setSeen(true);
+    });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [seen]);
 
   useEffect(() => {
     if (!hasTree) return;
@@ -583,8 +598,9 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     () => (draft && hasTree ? { profile, mainSkill } : null),
     [draft, hasTree, profile, mainSkill],
   );
-  const current = usePobAnalysis(currentRequest, pobEnabled, pobRetry);
-  const baseline = usePobAnalysis(baselineRequest, pobEnabled && draft !== null, pobRetry, "baseline");
+  const pobActive = pobEnabled && (seen || draft !== null);
+  const current = usePobAnalysis(currentRequest, pobActive, pobRetry);
+  const baseline = usePobAnalysis(baselineRequest, pobActive && draft !== null, pobRetry, "baseline");
 
   const stepPob = useMemo(() => {
     const result = new Map<string, StepPob>();
@@ -600,6 +616,8 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     return result;
   }, [current.result, draft]);
 
+  const gains = useMemo(() => exploreGains(current.result?.analysis ?? null), [current.result]);
+
   // Con los números de PoB2, primero lo que más daño da por punto.
   const classGraph = useMemo(() => (graph && classTree ? { ...graph, data: classTree } : graph), [graph, classTree]);
   const ordered = useMemo(() => {
@@ -608,18 +626,55 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     return orderStepsByGain(steps, stepPob, classGraph, data.allocated, start, lang);
   }, [data, classGraph, start, stepPob, lang]);
 
+  // «Si mueres mucho»: si PoB2 encuentra cerca algo que da bastante más aguante
+  // por punto que lo que eligen las reglas, se propone eso (y se dice por qué).
+  const defence = useMemo((): { step: Suggestion | null; pob: StepPob | null } => {
+    const rules = data?.defence ?? null;
+    const rulesPob = rules ? (stepPob.get(rules.key) ?? null) : null;
+    if (!data || draft || !classGraph) return { step: rules, pob: rulesPob };
+    const taken = new Set(ordered.steps.map((step) => step.key));
+    const best = [...gains.entries()]
+      .filter(([key, gain]) => gain.defence >= 3 && !taken.has(key))
+      .sort((a, b) => b[1].defence / b[1].points - a[1].defence / a[1].points)[0];
+    if (!best) return { step: rules, pob: rulesPob };
+    const [key, gain] = best;
+    const rulesPerPoint = rulesPob ? rulesPob.defence / Math.max(1, rulesPob.points) : 0;
+    if (rules && (rulesPob === null || rules.key === key || gain.defence / gain.points <= rulesPerPoint * 2)) {
+      return { step: rules, pob: rulesPob };
+    }
+    const node = describeNode(key);
+    return {
+      step: {
+        key,
+        name: node.name,
+        search: node.name,
+        stats: node.stats,
+        points: gain.points,
+        path: gain.path,
+        onTheWay: onTheWayGroups(classGraph, gain.path, lang),
+        reasons: [t.defenceByPob],
+        kind: "defence",
+      },
+      pob: { damage: gain.damage, defence: gain.defence, points: gain.points },
+    };
+  }, [data, draft, classGraph, ordered, gains, stepPob, describeNode, lang, t.defenceByPob]);
+
+  // «Lo mejor cerca» no repite lo que ya está en la lista de arriba.
+  const picks = useMemo(() => {
+    const shown = new Set([...ordered.steps.map((step) => step.key), ...(defence.step ? [defence.step.key] : [])]);
+    return picksFrom(new Map([...gains].filter(([key]) => draft !== null || !shown.has(key))), describeNode);
+  }, [gains, describeNode, ordered, defence, draft]);
+
   const suggestions: MapSuggestion[] = useMemo(() => {
     if (!data) return [];
     const list = ordered.steps.map((step, index) => ({ key: step.key, path: step.path, label: String(index + 1) }));
-    if (data.defence) list.push({ key: data.defence.key, path: data.defence.path, label: lang === "es" ? "Defensa" : "Defence" });
+    if (defence.step) list.push({ key: defence.step.key, path: defence.step.path, label: lang === "es" ? "Defensa" : "Defence" });
     if (pickPreview && !list.some((step) => step.key === pickPreview.key)) {
       list.push({ key: pickPreview.key, path: pickPreview.path, label: t.pob });
     }
     return list;
-  }, [data, ordered, lang, pickPreview, t.pob]);
+  }, [data, ordered, defence, lang, pickPreview, t.pob]);
 
-  const gains = useMemo(() => exploreGains(current.result?.analysis ?? null), [current.result]);
-  const picks = useMemo(() => picksFrom(gains, describeNode), [gains, describeNode]);
 
   const nodeActions = (key: string) => {
     if (!draft || !graph) return null;
@@ -686,7 +741,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   };
 
   // PoB2 nombra la habilidad en inglés: en español se enseña como en el juego.
-  const { data: pobData } = usePobData(pobEnabled);
+  const { data: pobData } = usePobData(pobActive);
   const computedSkill = useMemo(() => {
     const skill = current.result?.analysis.skill;
     if (!skill?.name) return null;
@@ -701,6 +756,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   const enablePob = () => {
     rememberPobOptIn();
     setPobEnabled(true);
+    setSeen(true);
     pobClient.start();
   };
 
@@ -840,6 +896,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
 
   return (
     <section
+      ref={sectionRef}
       id="arbol-pasivas"
       className="rounded-xl border border-border bg-card p-4 sm:p-5"
       aria-labelledby="arbol-pasivas-titulo"
@@ -914,7 +971,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
                 {t.setSkill}
               </Button>
             </div>
-          ) : data.offence.length === 0 && data.defence === null ? (
+          ) : data.offence.length === 0 && defence.step === null ? (
             <p className="text-sm text-muted-foreground">{t.nothing}</p>
           ) : (
             <>
@@ -941,21 +998,15 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
                   </ol>
                 </>
               )}
-              {data.defence && (
+              {defence.step && (
                 <div data-testid="arbol-defensa">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                     <ShieldPlus className="size-4 shrink-0 text-emerald-300" aria-hidden="true" />
                     {t.defenceTitle}
                   </p>
-                  <p className="text-xs text-muted-foreground">{t.defenceLead(data.defence.points)}</p>
+                  <p className="text-xs text-muted-foreground">{t.defenceLead(defence.step.points)}</p>
                   <ol className="mt-2">
-                    <Step
-                      step={data.defence}
-                      label="D"
-                      first
-                      onShow={() => show(data.defence!.key)}
-                      pob={stepPob.get(data.defence.key) ?? null}
-                    />
+                    <Step step={defence.step} label="D" first onShow={() => show(defence.step!.key)} pob={defence.pob} />
                   </ol>
                 </div>
               )}
