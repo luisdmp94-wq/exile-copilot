@@ -471,7 +471,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] el modo visible declara ${EXPECT_AI_FALLBACK ? "respaldo IA" : "reglas"}`,
       EXPECT_AI_FALLBACK
-        ? modoMentor.includes("Respaldo por reglas")
+        ? modoMentor.includes("Respuesta por reglas")
         : modoMentor.includes("Reglas verificables"),
     );
     const textoMentor = await seccion.innerText();

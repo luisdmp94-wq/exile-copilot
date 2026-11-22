@@ -59,7 +59,9 @@ const TEXT = texts(
     } as Record<MentorAnswer["intent"], string>,
     suggestions: [...MENTOR_SUGGESTIONS] as string[],
     modeAi: "IA fundamentada",
-    modeFallback: "Respaldo por reglas",
+    // Antes «Respaldo por reglas», en ámbar: parecía un error. Las reglas
+    // contestan bien; la causa técnica sigue en «Ver evidencia y limitaciones».
+    modeFallback: "Respuesta por reglas",
     modeRules: "Reglas verificables",
     noProfileTitle: "Necesitas un personaje primero",
     noProfileBody:
@@ -134,7 +136,7 @@ const TEXT = texts(
       "Why do you recommend this?",
     ],
     modeAi: "Grounded AI",
-    modeFallback: "Rule-based answer",
+    modeFallback: "Answer from rules",
     modeRules: "Checkable rules",
     noProfileTitle: "You need a character first",
     noProfileBody:
@@ -343,9 +345,7 @@ export function MentorChatSection({
             "w-fit",
             latestAnswer?.responseMode === "ai"
               ? "border-primary/45 bg-primary/10 text-primary"
-              : latestAnswer?.responseMode === "rules_fallback"
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
-                : "text-muted-foreground",
+              : "text-muted-foreground",
           )}
           data-testid="mentor-modo"
         >

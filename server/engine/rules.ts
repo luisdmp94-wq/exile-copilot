@@ -450,7 +450,7 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
   if (quality > 0 && explicitCount >= MIN_WEAPON_EXPLICITS) return [];
 
   const issues: string[] = [];
-  if (quality === 0) issues.push(t("sin quality", "without quality"));
+  if (quality === 0) issues.push(t("sin calidad", "without quality"));
   if (explicitCount < MIN_WEAPON_EXPLICITS) issues.push(t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit modifiers`));
 
   // Solo hay precio consultable para ÚNICOS (match exacto de nombre). Un rare

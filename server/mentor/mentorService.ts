@@ -102,12 +102,6 @@ export interface MentorQueryDependencies {
   gems?: GemKnowledge | null;
 }
 
-const RISK_LEVEL_ES: Record<Recommendation["risk"]["level"], string> = {
-  low: "bajo",
-  medium: "medio",
-  high: "alto",
-};
-
 const UNSUPPORTED_REASON =
   "Todavía no sé responder esa pregunta con seguridad. Solo respondo a partir de tu " +
   "personaje, tu build objetivo, tu presupuesto y tu diario: no invento estadísticas, " +
@@ -122,11 +116,6 @@ const MENTOR_SUGGESTIONS_EN = [
   "What's my main problem?",
   "Why do you recommend this?",
 ];
-const RISK_LEVEL_EN: Record<Recommendation["risk"]["level"], string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-};
 
 /** Idioma de la respuesta: el de la página, español si no llega. */
 type AnswerLang = "es" | "en";
@@ -333,8 +322,6 @@ function answerFromRecommendation(
   const title = publicText(recommendation.title, [recommendation]);
   const reason = publicText(recommendation.reason, [recommendation]);
   const action = publicText(recommendation.action, [recommendation]);
-  const impact = publicText(recommendation.impact.description, [recommendation]);
-  const risk = publicText(recommendation.risk.description, [recommendation]);
   const answer =
     recommendation.actionKind === "session_gate"
       ? `${title}. ${reason} ${action}`
@@ -342,14 +329,15 @@ function answerFromRecommendation(
         ? focus === "survival"
           ? `If you die often, the first thing I'd check is "${title}". ${reason}`
           : intent === "explain_priority"
-            ? `Your main problem right now is "${title}". ${reason} ` +
-              `${impact} ${RISK_LEVEL_EN[recommendation.risk.level]} risk: ${risk}`
+            ? `Your main problem right now is "${title}". ${reason}`
             : `What I'd do next: ${title}. ${reason}`
       : focus === "survival"
         ? `Si mueres a menudo, lo primero que revisaría es «${title}». ${reason}`
         : intent === "explain_priority"
-          ? `Tu principal problema ahora es «${title}». ${reason} ` +
-            `${impact} Riesgo ${RISK_LEVEL_ES[recommendation.risk.level]}: ${risk}`
+          ? // Sin «Impacto estimado… (métrica parcial orientativa). Riesgo medio: …»:
+            // era jerga del motor en mitad de la respuesta. El riesgo sigue en la
+            // tarjeta de la recomendación.
+            `Tu principal problema ahora es «${title}». ${reason}`
           : `Lo siguiente que haría: ${title}. ${reason}`;
 
   return MentorAnswerSchema.parse({

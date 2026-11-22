@@ -405,14 +405,17 @@ describe("mentor — intención explain_priority", () => {
     expect(explicacion.answer).not.toBe(siguiente.answer);
   });
 
-  it("no muestra niveles internos (low/medium/high) en el texto que lee la persona", async () => {
+  it("no muestra niveles internos ni jerga del motor en el texto que lee la persona", async () => {
     const explicacion = await answerMentorQuery(
       { ...BASE, question: "¿Cuál es mi principal problema?", memory: emptyMemory() },
       { priceService: offlinePriceService() },
     );
 
-    expect(explicacion.answer).toMatch(/Riesgo (bajo|medio|alto):/);
+    expect(explicacion.answer).toMatch(/^Tu principal problema ahora es «/);
     expect(explicacion.answer).not.toMatch(/\b(low|medium|high)\b/);
+    // Antes colgaba «Impacto estimado… (métrica parcial orientativa). Riesgo medio: …».
+    expect(explicacion.answer).not.toMatch(/Riesgo|métrica|orientativa/);
+    expect(explicacion.answer).not.toMatch(/quality/);
   });
 });
 
