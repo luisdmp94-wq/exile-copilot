@@ -70,7 +70,10 @@ El paso a paso del día de un parche grande está en
   dar errores mientras arranca la versión nueva.
 - La configuración vive en Render → Environment (`DEFAULT_PATCH`,
   `DEFAULT_LEAGUE`, claves). Nunca en el repositorio.
-- Detalles, variables y copias de seguridad:
+- **Copias:** Render guarda una instantánea del disco al día (7 días) y la web
+  sube cada noche una copia de SQLite a Cloudflare R2 (30 días).
+  `npm run backup -- list | check | now`.
+- Detalles, variables y cómo restaurar:
   [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Dónde está cada cosa

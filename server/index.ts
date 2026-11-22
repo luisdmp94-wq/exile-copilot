@@ -6,6 +6,12 @@ import { closeApiApp, createApiApp } from "./app.js";
 import { securityHeaders } from "./security.js";
 import { assertPublicDeploymentConfig } from "./deploymentReadiness.js";
 import { isAppRoute, isPrivateRoute } from "./appRoutes.js";
+import {
+  loadR2BackupConfig,
+  missingR2BackupVariables,
+  startNightlyR2Backup,
+  type NightlyBackupHandle,
+} from "./backup/r2Backup.js";
 
 /**
  * Servidor standalone: monta la API en /api y sirve el build estático del
@@ -82,6 +88,24 @@ const server = app.listen(config.port, config.host, () => {
   );
 });
 
+// Copia nocturna de SQLite a Cloudflare R2 (docs/DEPLOYMENT.md). Sin sus
+// variables la web funciona igual; solo se avisa en el registro.
+// Un valor mal copiado nunca tumba la web: solo deja la copia apagada.
+let nightlyBackup: NightlyBackupHandle | null = null;
+let backupConfig: ReturnType<typeof loadR2BackupConfig> = null;
+try {
+  backupConfig = loadR2BackupConfig();
+} catch (error) {
+  console.warn(`[copia] configuración no válida: ${error instanceof Error ? error.message : String(error)}`);
+}
+if (backupConfig !== null && config.databasePath !== ":memory:") {
+  nightlyBackup = startNightlyR2Backup(backupConfig, config.databasePath);
+} else if (config.publicDeployment && missingR2BackupVariables().length > 0) {
+  console.warn(
+    `[copia] copia nocturna a R2 desactivada; faltan: ${missingR2BackupVariables().join(", ")}`,
+  );
+}
+
 // Cierre limpio con señales (orquestador, despliegue o Ctrl+C). Primero deja
 // de aceptar tráfico, después libera SQLite. Una conexión atascada no puede
 // impedir indefinidamente un despliegue ni una copia consistente.
@@ -90,6 +114,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     if (shuttingDown) return;
     shuttingDown = true;
+    nightlyBackup?.stop();
     console.log(`[exile-copilot] cierre solicitado (${signal}); drenando conexiones`);
     server.closeIdleConnections();
     const forceTimer = setTimeout(() => {

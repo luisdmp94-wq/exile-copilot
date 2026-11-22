@@ -324,13 +324,68 @@ Fuente: <https://render.com/docs/disks>.
   sacar una copia hay que hacerlo desde el propio servicio: SSH + `scp` o la
   pestaña *Shell*.
 
-Lo que falta:
+Lo que faltaba el 22-11 y cómo se cubre:
 
-1. **No hay copia fuera de Render.** Si se borra el servicio o la cuenta, se
-   pierden la base y sus instantáneas.
-2. **Nunca se ha restaurado una copia real.** `drill:restore` prueba el
-   procedimiento con datos inventados, no una instantánea de Render.
-3. Las instantáneas duran 7 días: un fallo que se note tarde no tiene vuelta.
+1. **No había copia fuera de Render** → copia nocturna a Cloudflare R2 (abajo).
+2. **Nunca se había restaurado una copia real** → `backup -- check` baja la
+   última copia de R2, la abre y cuenta lo que hay.
+3. Las instantáneas de Render duran 7 días → en R2 se guardan 30.
+
+### Copia nocturna a Cloudflare R2
+
+La propia web copia la base cada noche (por defecto a las 3:00 UTC):
+`VACUUM INTO` (copia consistente con la web en marcha), `integrity_check`,
+gzip y subida a R2. Al arrancar mira si la última copia tiene más de 25 horas
+y, si es así, hace una a los 2 minutos. Código: `server/backup/`. Sin sus
+variables la web funciona igual y avisa en el registro.
+
+Coste: el plan gratis de R2 cubre 10 GB y un millón de escrituras al mes. Una
+copia al día de una base pequeña es **0 €**. Cloudflare pide un método de pago
+para activar R2 aunque no cobre.
+
+**Ponerla en marcha (una vez):**
+
+1. Cloudflare → *R2 Object Storage* → activar R2.
+2. *Create bucket*: nombre `exile-copilot-copias`, ubicación automática. No
+   elegir la jurisdicción UE: cambia la dirección (habría que poner
+   `R2_BACKUP_ENDPOINT=https://<id>.eu.r2.cloudflarestorage.com`).
+3. En el bucket → *Settings* → *Object lifecycle rules* → regla nueva: borrar
+   objetos con prefijo `exile-copilot/` a los 30 días.
+4. R2 → *Manage API tokens* → *Create API token*: permiso *Object Read &
+   Write*, solo para el bucket `exile-copilot-copias`. Copiar *Access Key ID* y
+   *Secret Access Key* (el secreto solo se ve una vez). El *Account ID* está en
+   la portada de R2.
+5. Render → Environment → añadir:
+
+   ```text
+   R2_BACKUP_ACCOUNT_ID=<Account ID>
+   R2_BACKUP_BUCKET=exile-copilot-copias
+   R2_BACKUP_ACCESS_KEY_ID=<Access Key ID>
+   R2_BACKUP_SECRET_ACCESS_KEY=<Secret Access Key>
+   ```
+
+   Opcional: `BACKUP_HOUR_UTC` (0-23, por defecto 3).
+6. Guardar. Render vuelve a desplegar. En *Logs* debe salir
+   `[copia] copia nocturna a R2 activada` y, unos 2 minutos después,
+   `[copia] copia de recuperación al arrancar: subida exile-copilot/…`.
+
+**Comprobar o restaurar:**
+
+```text
+npm run backup -- list                      # copias del bucket
+npm run backup -- check                     # baja la última, integrity_check y recuento
+npm run backup -- check --save copia.db     # además la deja en disco
+npm run backup -- now                       # copia ahora
+```
+
+En local, con las cuatro variables en `.env`. En Render, desde *Shell*:
+`node dist-server/server/backup/cli.js check` (o `now`, `list`).
+
+Para volver a una copia de R2 en Render: `check --save /data/restaurada.db`
+desde *Shell* y después seguir «Recuperación» (abajo) con ese archivo. Render
+no deja parar el proceso desde la Shell: hace falta cambiar un momento el
+comando de arranque. Es raro necesitarlo; para errores de los últimos 7 días
+es más sencillo restaurar una instantánea del disco.
 
 ## Recuperación
 
