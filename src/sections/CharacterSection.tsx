@@ -505,6 +505,17 @@ export function CharacterSection({
               id="item-text"
               value={itemText}
               onChange={(e) => setItemText(e.target.value)}
+              onPaste={(e) => {
+                // Pegar una pieza nueva con texto ya en el cuadro (un análisis
+                // que falló, un «Cancelar y revisar») la ponía DETRÁS de la
+                // anterior y se leían como una sola. Una pieza completa del
+                // juego sustituye lo que hubiera.
+                const pasted = e.clipboardData.getData("text");
+                if (itemText.trim() && /^\s*(?:item class|clase de objeto)\s*:/i.test(pasted)) {
+                  e.preventDefault();
+                  setItemText(pasted);
+                }
+              }}
               rows={5}
               maxLength={MAX_ITEM_TEXT_CHARACTERS}
               disabled={busy !== null}

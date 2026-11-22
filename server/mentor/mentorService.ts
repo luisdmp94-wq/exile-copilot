@@ -394,14 +394,14 @@ function answerFromRecommendation(
  */
 function damageNothingFoundAnswer(lang: AnswerLang): string {
   return lang === "en"
-    ? "In what I can check (weapon, your main skill's supports and attribute requirements) " +
-        "I don't find a clear cause. What usually gives the most damage while levelling is your " +
-        "main skill gem's level: keep it as high as your character allows, using an uncut gem " +
-        "of a higher level."
-    : "En lo que puedo revisar —arma, supports de la skill principal y requisitos de atributos— " +
-        "no encuentro una causa clara. Lo que más daño suele dar mientras subes de nivel es el nivel " +
-        "de tu gema principal: llévala tan alta como te deje tu personaje, con una gema sin tallar " +
-        "de nivel más alto.";
+    ? "In what I can check (your weapon, your main skill's support gems and your attributes) " +
+        "I don't see a clear cause. What usually gives the most damage while levelling is your " +
+        "main skill gem's level: raise it with an uncut gem of a higher level, as far as your " +
+        "character level allows. The quick review tells you if it's behind."
+    : "En lo que puedo revisar (tu arma, los apoyos de tu habilidad principal y tus atributos) " +
+        "no veo una causa clara. Lo que más daño suele dar mientras subes de nivel es el nivel " +
+        "de tu gema principal: súbela con una gema sin tallar de más nivel, hasta donde te deje " +
+        "tu personaje. La revisión rápida te dice si va atrasada.";
 }
 
 function focusNothingFoundAnswer(

@@ -40,10 +40,11 @@ describe("badges de riesgo", () => {
 });
 
 describe("badges de confianza", () => {
-  it("alta verde, media ámbar, baja roja (escala invertida respecto al riesgo)", () => {
+  it("alta verde, media ámbar, baja gris: un consejo orientativo no es una alarma", () => {
     expect(paleta(CONFIDENCE_BADGE_CLASSES.high)).toBe(VERDE);
     expect(paleta(CONFIDENCE_BADGE_CLASSES.medium)).toBe(AMBAR);
-    expect(paleta(CONFIDENCE_BADGE_CLASSES.low)).toBe(ROJO);
+    expect(paleta(CONFIDENCE_BADGE_CLASSES.low)).toBe("desconocida");
+    expect(CONFIDENCE_BADGE_CLASSES.low).toContain("text-muted-foreground");
   });
 
   it("confianza alta usa las clases positivas, NUNCA las del riesgo alto", () => {
@@ -56,6 +57,6 @@ describe("badges de confianza", () => {
   it("riesgo y confianza no comparten un único mapa", () => {
     // Si alguien volviese a unificarlos, los extremos coincidirían.
     expect(CONFIDENCE_BADGE_CLASSES.high).toBe(RISK_BADGE_CLASSES.low);
-    expect(CONFIDENCE_BADGE_CLASSES.low).toBe(RISK_BADGE_CLASSES.high);
+    expect(CONFIDENCE_BADGE_CLASSES.low).not.toBe(RISK_BADGE_CLASSES.high);
   });
 });

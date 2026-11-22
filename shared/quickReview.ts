@@ -92,6 +92,13 @@ export function maxGemLevelFor(characterLevel: number): number {
   return best;
 }
 
+/**
+ * Id de la habilidad principal que el jugador escribió en la revisión rápida y
+ * que su perfil no tenía. De ella NO se sabe qué apoyos lleva: el motor no
+ * puede decir «tiene 0 apoyos» de algo que nadie le ha contado.
+ */
+export const QUICK_REVIEW_SKILL_ID = "revision-rapida-habilidad";
+
 /** Resistencia elemental orientativa: la de las guías en campaña, el tope en mapas. */
 export function resistanceTargetFor(act: QuickReviewAct): number {
   return act === "maps" ? 75 : 30;

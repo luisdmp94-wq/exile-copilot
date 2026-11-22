@@ -8,6 +8,8 @@ import {
   type ResistanceKind,
   type SourceEvidence,
 } from "../../shared/domain.js";
+import { QUICK_REVIEW_SKILL_ID } from "../../shared/quickReview.js";
+import { resistancesFromItems } from "../../shared/itemResistances.js";
 
 /**
  * Reglas deterministas del motor de recomendaciones.
@@ -28,7 +30,7 @@ export const RECOMMENDATION_LABELS: Record<string, string> = {
   "rec-resistencia-caos": "Corregir la resistencia al caos negativa",
   "rec-requisitos-atributos": "Resolver requisitos de atributos no cumplidos",
   "rec-mejora-arma": "Mejorar el arma",
-  "rec-enlaces-skill": "Completar los supports de la skill principal",
+  "rec-enlaces-skill": "Ponle apoyos a tu habilidad principal",
   "rec-vida-baja": "Subir la vida máxima",
   "rec-datos-resistencias": "Completar datos del personaje: resistencias",
   "rec-datos-atributos": "Completar datos del personaje: atributos",
@@ -151,15 +153,19 @@ function dataGapCandidate(args: {
   detail: string;
   goalWeights?: Record<GoalKind, number>;
   lang?: RuleLang;
+  /** Qué hacer, si el dato tiene un sitio concreto donde mirarlo y anotarlo. */
+  action?: string;
 }): RuleCandidate {
   const t = tr(args.lang);
   return {
     ruleId: args.ruleId,
     title: t(`Completa los datos de tu personaje: ${args.what}`, `Fill in your character's data: ${args.what}`),
-    action: t(
-      `El dato "${args.what}" es desconocido en tu perfil. Anótalo manualmente para poder evaluarlo.`,
-      `"${args.what}" is unknown in your profile. Write it down by hand so it can be evaluated.`,
-    ),
+    action:
+      args.action ??
+      t(
+        `Me falta tu dato de ${args.what}. Míralo en el juego (tecla C) y anótalo en los datos de tu personaje.`,
+        `I'm missing your ${args.what}. Check it in game (C key) and write it in your character's data.`,
+      ),
     reason: t(
       `Sin el dato "${args.what}" no se puede evaluar esta área sin inventar números.`,
       `Without "${args.what}" this area can't be evaluated without making up numbers.`,
@@ -221,11 +227,21 @@ export const elementalResistancesRule: Rule = ({ profile, lang }) => {
 
   const out: RuleCandidate[] = [];
   if (unknown.length > 0) {
+    // Lo que suma el equipo orienta, pero el valor real (tecla C) incluye
+    // pasivas y penalizaciones: se pide ese y se dice de dónde sale cada uno.
+    const gear = resistancesFromItems(profile.items);
+    const gearList = unknown
+      .map((k) => `${label(k)} ${gear[k] >= 0 ? "+" : ""}${gear[k]} %`)
+      .join(", ");
     out.push(
       dataGapCandidate({
         ruleId: "datos-resistencias",
         what: t("resistencias", "resistances"),
         detail: t(`Resistencias desconocidas: ${listarResistencias(unknown)}.`, `Unknown resistances: ${listarResistencias(unknown, lang)}.`),
+        action: t(
+          `Mira tus resistencias en el juego (tecla C) y escríbelas en la revisión rápida.${gear.found ? ` Tu equipo suma ahora: ${gearList}; el juego añade tus pasivas.` : ""}`,
+          `Check your resistances in game (C key) and write them in the quick review.${gear.found ? ` Your gear adds up to: ${gearList}; the game adds your passives.` : ""}`,
+        ),
         lang,
         // Para survival es el dato crítico: sin resistencias no se puede evaluar nada.
         goalWeights: { ...BALANCED, survival: 2.5 },
@@ -543,6 +559,9 @@ export const skillLinksRule: Rule = ({ profile, lang }) => {
   const t = tr(lang);
   const main = profile.skills[0];
   if (!main) return [];
+  // La habilidad que el jugador escribió en la revisión rápida llega sin sus
+  // apoyos: no se sabe cuántos lleva, así que no se afirma «tiene 0».
+  if (main.id === QUICK_REVIEW_SKILL_ID) return [];
   if (main.supports.length >= MIN_MAIN_SUPPORTS) return [];
 
   const missing = MIN_MAIN_SUPPORTS - main.supports.length;
@@ -568,14 +587,14 @@ export const skillLinksRule: Rule = ({ profile, lang }) => {
   return [
     {
       ruleId: "enlaces-skill",
-      title: t("Completar los supports de la skill principal", "Fill in your main skill's supports"),
+      title: t("Ponle apoyos a tu habilidad principal", "Fill in your main skill's supports"),
       action: t(
-        `"${main.mainSkill}" tiene ${main.supports.length} support(s). Añade ${missing} support(s) compatible(s) con su tipo de daño (revisa las guías de referencia guardadas).`,
+        `"${main.mainSkill}" lleva ${main.supports.length} ${main.supports.length === 1 ? "apoyo" : "apoyos"}. Ponle ${missing} más que ${missing === 1 ? "encaje" : "encajen"} con su tipo de daño (mira tu guía de referencia).`,
         `"${main.mainSkill}" has ${main.supports.length} ${main.supports.length === 1 ? "support" : "supports"}. Add ${missing} more that ${missing === 1 ? "fits" : "fit"} its damage type (check your saved reference guides).`,
       ),
       reason: t(
-        `La skill principal tiene menos de ${MIN_MAIN_SUPPORTS} supports, que es un umbral heurístico del Copiloto. El efecto real depende de que cada support sea compatible y debe comprobarse en PoE2.`,
-        `Your main skill has fewer than ${MIN_MAIN_SUPPORTS} supports, which is a Copilot rule of thumb. The real effect depends on each support being compatible and must be checked in PoE2.`,
+        `Con menos de ${MIN_MAIN_SUPPORTS} gemas de apoyo, tu habilidad principal suele quedarse corta de daño. Es una regla orientativa: cada apoyo tiene que encajar con ella, compruébalo en el juego.`,
+        `With fewer than ${MIN_MAIN_SUPPORTS} support gems, your main skill usually falls short on damage. It's a rule of thumb: each support has to fit the skill, so check it in game.`,
       ),
       impactMetric: t("enlaces de skill", "skill links"),
       impactDescription: t(

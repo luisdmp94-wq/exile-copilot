@@ -58,6 +58,18 @@ const FIXED_ASSIGNMENT_RE = /^(?:asigna|allocates?)\s+.+?\s+(?:—|–|-)\s*(?:v
  */
 const GRANTED_SKILL_RE = /^(?:otorga la habilidad|grants skill)\s*:/iu;
 
+/** Primera línea de cada pieza copiada del juego. */
+const ITEM_CLASS_LINE_RE = /^(?:item class|clase de objeto)\s*:/i;
+
+/**
+ * Cabecera de un mod de ÚNICO con descripciones avanzadas:
+ * `{ Mod. único — Daño, Lanzador de hechizos }` / `{ Unique Modifier — … }`.
+ * Agrupa la línea siguiente como el resto de cabeceras; leída suelta contaba
+ * como un mod más (una varita única aparecía con 11 «mods»).
+ */
+const UNIQUE_MODIFIER_HEADER_RE =
+  /^\{\s*(?:(?:mod\.|modifier)\s+(?:único|unico|unique)|unique\s+modifier)([\s\S]*?)\}$/iu;
+
 const RARITY_MAP: Record<string, ItemRarity> = {
   normal: "normal",
   magic: "magic",
@@ -286,12 +298,23 @@ interface AdvancedModifierHeader {
   desecrated?: boolean;
   fractured?: boolean;
   mutated?: boolean;
+  /** Mod de único: no ocupa prefijo ni sufijo. No se copia al modificador. */
+  unique?: boolean;
 }
 
 function parseAdvancedModifierHeader(line: string): AdvancedModifierHeader | null {
   const implicit = /^\{\s*(?:(?:corruption|corrupci[oó]n)\s+)?(?:implicit\s+modifier|(?:mod\.|modifier)\s+(?:implícito|implicito|implicit))([\s\S]*?)\}$/i.exec(
     line,
   );
+  const unique = UNIQUE_MODIFIER_HEADER_RE.exec(line);
+  if (unique) {
+    const tags = /—\s*([^—]+?)(?:\s*—|$)/u
+      .exec(unique[1] ?? "")?.[1]
+      ?.split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    return { kind: "explicit", unique: true, ...(tags && tags.length > 0 ? { tags } : {}) };
+  }
   if (implicit) {
     const tagsMatch = /—\s*([^—]+?)(?:\s*—|$)/u.exec(implicit[1] ?? "");
     const tags = tagsMatch?.[1]
@@ -444,6 +467,8 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
   const reqAcc: { level?: number; str?: number; dex?: number; int?: number } = {};
 
   let pendingAdvanced: { header: AdvancedModifierHeader; lines: string[] } | null = null;
+  /** Ids de los mods de único que llegaron con su cabecera `{ Mod. único … }`. */
+  const uniqueModifierIds = new Set<string>();
   const flushAdvanced = (): void => {
     if (!pendingAdvanced) return;
     const text = pendingAdvanced.lines.join("\n").trim();
@@ -453,13 +478,16 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
       return;
     }
     const observedRolls = extractObservedModifierRolls(text);
+    const { unique, ...header } = pendingAdvanced.header;
+    const id = crypto.randomUUID();
+    if (unique) uniqueModifierIds.add(id);
     result.modifiers.push({
-      id: crypto.randomUUID(),
+      id,
       text,
       values: extractNumbers(text),
       ...(observedRolls.length > 0 ? { observedRolls } : {}),
       verified: false,
-      ...pendingAdvanced.header,
+      ...header,
     });
     pendingAdvanced = null;
   };
@@ -609,6 +637,13 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
         continue;
       }
 
+      // En un único copiado con descripciones avanzadas, cada mod llega con su
+      // cabecera `{ Mod. único … }`. Una línea suelta después es el texto
+      // decorativo en cursiva («Con un movimiento del dedo…»), no un mod.
+      if (result.rarity === "unique" && uniqueModifierIds.size > 0 && !/\(\s*(?:implicit|implícito|implicito|enchant|encantamiento|rune|runa)\s*\)\s*$/iu.test(line)) {
+        continue;
+      }
+
       // Todo lo demás se conserva como mod (nunca se inventa ni se descarta).
       let kind: Modifier["kind"] = "explicit";
       let text = line;
@@ -665,7 +700,7 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
    */
   const explicitModifiers = result.modifiers.filter((modifier) => modifier.kind === "explicit");
   const everyExplicitClassified = explicitModifiers.every(
-    (modifier) => modifier.affix !== undefined,
+    (modifier) => modifier.affix !== undefined || uniqueModifierIds.has(modifier.id),
   );
   const structurallyComplete =
     itemClass.length > 0 &&
@@ -680,7 +715,23 @@ function parseSections(sections: string[][], warnings: string[]): ParsedSections
 
 export function parseItemText(input: string): ParsedItemText {
   const warnings: string[] = [];
-  const lines = input.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").split("\n");
+  const allLines = input.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").split("\n");
+
+  // Dos piezas pegadas seguidas (el cuadro ya ten\u00eda una y se peg\u00f3 otra detr\u00e1s)
+  // no son un objeto: la segunda cabecera \u00abClase de objeto\u00bb abre otra pieza.
+  // Antes se le\u00eda todo junto y los guantes acababan con los mods del cetro.
+  // Se guarda solo la primera y se avisa; nunca se mezclan.
+  const headerIndexes = allLines.flatMap((line, index) =>
+    ITEM_CLASS_LINE_RE.test(line.trim()) ? [index] : [],
+  );
+  const secondHeader = headerIndexes[1];
+  const lines = secondHeader === undefined ? allLines : allLines.slice(0, secondHeader);
+  const pastedText = secondHeader === undefined ? input : lines.join("\n").trimEnd();
+  if (secondHeader !== undefined) {
+    warnings.push(
+      `Pegaste ${headerIndexes.length} piezas juntas: solo se guard\u00f3 la primera. Pega cada pieza por separado.`,
+    );
+  }
 
   const sections: string[][] = [[]];
   for (const line of lines) {
@@ -706,7 +757,7 @@ export function parseItemText(input: string): ParsedItemText {
         slot: "other",
         rarity: "other",
         modifiers: [],
-        rawText: input,
+        rawText: pastedText,
         sources: [],
       },
       warnings: [
@@ -732,7 +783,7 @@ export function parseItemText(input: string): ParsedItemText {
     slot,
     rarity: parsed.rarity,
     modifiers: parsed.modifiers,
-    rawText: input,
+    rawText: pastedText,
     sources: [
       {
         kind: "user",

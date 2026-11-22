@@ -98,7 +98,8 @@ describe("engine — exactitud y contratos", () => {
       patch: BASE_OPTIONS.patch,
     });
 
-    expect(candidate?.reason).toContain("umbral heurístico");
+    expect(candidate?.reason).toContain("regla orientativa");
+    expect(candidate?.reason).not.toMatch(/heurístico|Copiloto|support/);
     expect(candidate?.riskDescription).toContain("coste todavía no están verificados");
     expect(candidate?.reason).not.toContain("más barato");
     expect(candidate?.confidenceBase).toBe("low");

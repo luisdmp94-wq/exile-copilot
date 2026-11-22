@@ -79,7 +79,7 @@ import { SkillGemTeaser } from "@/components/SkillGemTeaser";
 import { mascotNextStep, reviewKnowsBasics } from "@/lib/mascotNextStep";
 import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
 import { cn } from "@/lib/utils";
-import { toInput as quickReviewInput } from "@/lib/quickReviewForm";
+import { profileWithQuickReview, toInput as quickReviewInput } from "@/lib/quickReviewForm";
 import type { TargetDraft } from "@/sections/TargetSection";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
@@ -597,6 +597,14 @@ export default function App() {
   // hasta que el perfil ya ha sido persistido para este visitante.
   const journal = useJournal(character.profile?.id ?? null, character.persisted);
   const mentor = useMentor();
+  // Lo que el jugador ya contestó en la revisión rápida (se relee al cambiar).
+  const quickReviewForm = useQuickReviewForm(character.profile);
+  // El personaje que ven el motor y el Mentor: el guardado más esas respuestas
+  // (nivel, habilidad principal, resistencias). Ver `profileWithQuickReview`.
+  const engineProfile = useMemo(
+    () => (character.profile ? profileWithQuickReview(character.profile, quickReviewForm) : null),
+    [character.profile, quickReviewForm],
+  );
   const characterJournal =
     character.profile && journal.journal?.characterId === character.profile.id
       ? journal.journal
@@ -740,10 +748,10 @@ export default function App() {
   }, [profilePatch]);
 
   // Invalidación: si los inputs cambian tras generar, las recomendaciones quedan obsoletas.
-  const currentInputsKey = character.profile
+  const currentInputsKey = engineProfile
     ? JSON.stringify(
         buildRecommendationsRequest(
-          character.profile,
+          engineProfile,
           targetDraft,
           budget,
           goal,
@@ -823,11 +831,11 @@ export default function App() {
           lastAction: null,
         }
       : undefined;
-  const currentMentorInputsKey = character.profile
+  const currentMentorInputsKey = engineProfile
     ? mentorInputsKey(
         buildMentorRequest(
           "",
-          character.profile,
+          engineProfile,
           targetDraft,
           budget,
           goal,
@@ -922,8 +930,6 @@ export default function App() {
     () => assessMentorReadiness(character.profile),
     [character.profile],
   );
-  // Lo que el jugador ya contestó en la revisión rápida (se relee al cambiar).
-  const quickReviewForm = useQuickReviewForm(character.profile);
   /**
    * Ids del paperdoll: SOLO los del contenido dominante. Al cambiar de caso se
    * sustituyen por los del nuevo o por un conjunto vacío; ninguna celda queda
@@ -1580,7 +1586,7 @@ export default function App() {
     const outcome = await mentor.ask(
       buildMentorRequest(
         question,
-        character.profile,
+        engineProfile ?? character.profile,
         targetDraft,
         budget,
         goal,
@@ -2048,7 +2054,7 @@ export default function App() {
                       <RecommendationsSection
                         sectionId="seccion-recomendaciones"
                         onAddGear={() => openEditor(false, "gear")}
-                        profile={character.profile}
+                        profile={engineProfile}
                         targetDraft={targetDraft}
                         budget={budget}
                         goal={goal}
@@ -2195,7 +2201,7 @@ export default function App() {
                     othersSlot={
                       <RecommendationsSection
                         sectionId="seccion-recomendaciones-otras"
-                        profile={character.profile}
+                        profile={engineProfile}
                         targetDraft={targetDraft}
                         budget={budget}
                         goal={goal}

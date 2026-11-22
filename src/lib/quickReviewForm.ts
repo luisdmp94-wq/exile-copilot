@@ -4,7 +4,7 @@
  */
 import type { CharacterProfile } from "@shared/domain.js";
 import { readCharacterLevel } from "@shared/domain.js";
-import type { QuickReviewAct, QuickReviewInput } from "@shared/quickReview.js";
+import { QUICK_REVIEW_SKILL_ID, type QuickReviewAct, type QuickReviewInput } from "@shared/quickReview.js";
 
 /** Se lanza en `window` cada vez que el jugador cambia un dato de la revisión. */
 export const QUICK_REVIEW_CHANGED_EVENT = "exile-copilot:revision-cambiada";
@@ -112,6 +112,62 @@ export function toInput(form: Form): QuickReviewInput {
       .map((skill) => skill.trim())
       .filter(Boolean),
   };
+}
+
+const sameSkill = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase("es") === b.trim().toLocaleLowerCase("es");
+
+/**
+ * El personaje que ven el motor y el Mentor: el guardado, con lo que el jugador
+ * contestó en la revisión rápida mirando el juego. Antes esas respuestas solo
+ * movían la tarjeta: el Mentor seguía con «resistencias desconocidas», el nivel
+ * viejo y la habilidad equivocada aunque el jugador ya los hubiera escrito.
+ *
+ * Solo se usan los números válidos; lo vacío no pisa nada. No se guarda: el
+ * expediente del servidor no cambia por mirar la revisión.
+ */
+export function profileWithQuickReview(profile: CharacterProfile, form: Form): CharacterProfile {
+  const input = toInput(form);
+  let next = profile;
+
+  if (input.level !== null) {
+    next = { ...next, level: input.level, levelSource: "observed" };
+  }
+
+  const { fire, cold, lightning } = input.resistances;
+  if (fire !== null || cold !== null || lightning !== null) {
+    next = {
+      ...next,
+      resistances: {
+        ...next.resistances,
+        ...(fire !== null ? { fire } : {}),
+        ...(cold !== null ? { cold } : {}),
+        ...(lightning !== null ? { lightning } : {}),
+      },
+    };
+  }
+
+  // La habilidad que hace el daño va la primera: el motor toma la primera
+  // como principal. Si el perfil ya la tiene, se adelanta con sus apoyos.
+  const main = input.mainSkill;
+  if (main !== null && !(next.skills[0] && sameSkill(next.skills[0].mainSkill, main))) {
+    const existing = next.skills.find((skill) => sameSkill(skill.mainSkill, main));
+    const skills = existing
+      ? [existing, ...next.skills.filter((skill) => skill !== existing)]
+      : [
+          {
+            id: QUICK_REVIEW_SKILL_ID,
+            label: "",
+            mainSkill: main,
+            mainSkillGemId: null,
+            supports: [],
+          },
+          ...next.skills,
+        ];
+    next = { ...next, skills };
+  }
+
+  return next;
 }
 
 /**

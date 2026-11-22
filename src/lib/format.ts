@@ -191,11 +191,15 @@ export const RISK_BADGE_CLASSES: Record<RiskLevel, string> = {
   high: NIVEL_NEGATIVO,
 };
 
-/** Confianza: alta verde, media ámbar, baja roja (escala invertida). */
+/**
+ * Confianza: alta verde, media ámbar, baja gris. La mayoría de consejos son
+ * reglas orientativas (confianza baja): en rojo, cada respuesta normal del
+ * Mentor parecía un error. Baja no es una alarma: es «compruébalo en el juego».
+ */
 export const CONFIDENCE_BADGE_CLASSES: Record<ConfidenceLevel, string> = {
   high: NIVEL_POSITIVO,
   medium: NIVEL_INTERMEDIO,
-  low: NIVEL_NEGATIVO,
+  low: "border-border bg-muted/40 text-muted-foreground",
 };
 
 export function formatDateTime(iso: string): string {
