@@ -99,6 +99,21 @@ export function maxGemLevelFor(characterLevel: number): number {
  */
 export const QUICK_REVIEW_SKILL_ID = "revision-rapida-habilidad";
 
+/** Habilidades leídas de una captura: tampoco se sabe qué apoyos llevan. */
+export const SCREENSHOT_SKILL_ID_PREFIX = "captura-habilidad:";
+
+/**
+ * ¿De esta habilidad se desconocen los apoyos? Llegó por la revisión rápida o
+ * por una captura y nadie le ha puesto apoyos todavía. En cuanto el jugador
+ * añade uno, vuelve a tratarse como cualquier otra.
+ */
+export function skillSupportsUnknown(skill: { id: string; supports: readonly unknown[] }): boolean {
+  return (
+    skill.supports.length === 0 &&
+    (skill.id === QUICK_REVIEW_SKILL_ID || skill.id.startsWith(SCREENSHOT_SKILL_ID_PREFIX))
+  );
+}
+
 /** Resistencia elemental orientativa: la de las guías en campaña, el tope en mapas. */
 export function resistanceTargetFor(act: QuickReviewAct): number {
   return act === "maps" ? 75 : 30;

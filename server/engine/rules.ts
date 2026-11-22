@@ -8,7 +8,7 @@ import {
   type ResistanceKind,
   type SourceEvidence,
 } from "../../shared/domain.js";
-import { QUICK_REVIEW_SKILL_ID } from "../../shared/quickReview.js";
+import { skillSupportsUnknown } from "../../shared/quickReview.js";
 import { resistancesFromItems } from "../../shared/itemResistances.js";
 
 /**
@@ -559,9 +559,9 @@ export const skillLinksRule: Rule = ({ profile, lang }) => {
   const t = tr(lang);
   const main = profile.skills[0];
   if (!main) return [];
-  // La habilidad que el jugador escribió en la revisión rápida llega sin sus
+  // La habilidad que llegó por la revisión rápida o una captura viene sin sus
   // apoyos: no se sabe cuántos lleva, así que no se afirma «tiene 0».
-  if (main.id === QUICK_REVIEW_SKILL_ID) return [];
+  if (skillSupportsUnknown(main)) return [];
   if (main.supports.length >= MIN_MAIN_SUPPORTS) return [];
 
   const missing = MIN_MAIN_SUPPORTS - main.supports.length;

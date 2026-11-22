@@ -18,6 +18,9 @@ import {
   type Resistances,
   type SkillSetup,
 } from "@shared/domain.js";
+import { ProfileQuickRead } from "@/components/ProfileQuickRead";
+import { QUICK_REVIEW_CHANGED_EVENT } from "@/lib/quickReviewForm";
+import { patchQuickReviewForm } from "@/lib/quickReviewStorage";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -654,6 +657,20 @@ function ProfileEditor({
   const { lang } = useLang();
   const levelReading = readCharacterLevel(profile);
 
+  /**
+   * El nivel y las resistencias que el jugador corrige aquí también cambian en
+   * la revisión rápida: el Mentor usa la revisión por encima del perfil, y un
+   * número viejo escrito allí taparía la corrección.
+   */
+  const syncReview = (values: Record<string, string>) => {
+    try {
+      patchQuickReviewForm(window.localStorage, profile.id, values);
+      window.dispatchEvent(new Event(QUICK_REVIEW_CHANGED_EVENT));
+    } catch {
+      // Sin almacenamiento, el perfil ya lleva el dato.
+    }
+  };
+
   const addSkill = () => {
     const skill: SkillSetup = {
       id: `skill-${Date.now()}`,
@@ -673,6 +690,7 @@ function ProfileEditor({
 
   return (
     <div className="flex flex-col gap-5">
+      <ProfileQuickRead profile={profile} onApply={(next) => onMutate(() => next)} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="char-name">{t.name}</Label>
@@ -737,12 +755,12 @@ function ProfileEditor({
                 // Vaciar el campo no es evidencia de nivel: vuelve al mínimo
                 // técnico y Crafting sigue tratándolo como desconocido.
                 onUpdate({ level: PLACEHOLDER_CHARACTER_LEVEL, levelSource: "placeholder" });
+                syncReview({ level: "" });
                 return;
               }
-              onUpdate({
-                level: Math.min(100, Math.max(1, parsed)),
-                levelSource: "observed",
-              });
+              const level = Math.min(100, Math.max(1, parsed));
+              onUpdate({ level, levelSource: "observed" });
+              syncReview({ level: String(level) });
             }}
           />
         </div>
@@ -845,14 +863,16 @@ function ProfileEditor({
                 type="number"
                 value={nullableToInput(profile.resistances[key])}
                 placeholder={t.unknown}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const value = inputToNullable(e.target.value);
                   onUpdate({
                     resistances: {
                       ...profile.resistances,
-                      [key]: inputToNullable(e.target.value),
+                      [key]: value,
                     },
-                  })
-                }
+                  });
+                  if (key !== "chaos") syncReview({ [key]: value === null ? "" : String(value) });
+                }}
               />
             </div>
           ))}

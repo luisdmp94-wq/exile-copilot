@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { texts, useLang, useText } from "@/i18n/lang";
 import { readQuickReviewForm, writeQuickReviewForm } from "@/lib/quickReviewStorage";
+import { pastedImage, screenshotDataUrl } from "@/lib/screenshotImage";
 import {
   LICH,
   QUICK_REVIEW_CHANGED_EVENT,
@@ -324,13 +325,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
     }
     setReading(true);
     try {
-      const bitmap = await createImageBitmap(file);
-      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      applyRead(await api.readScreenshot(canvas.toDataURL("image/jpeg", 0.85)));
+      applyRead(await api.readScreenshot(await screenshotDataUrl(file)));
     } catch (err) {
       setReadError(getErrorMessage(err));
     } finally {
@@ -345,12 +340,12 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   // imagen se le enseña y espera su «sí»: en el portapapeles puede haber otra cosa.
   useEffect(() => {
     const onDocumentPaste = (event: globalThis.ClipboardEvent) => {
+      // Otro cuadro ya se quedó la captura (el editor del personaje).
+      if (event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('[data-testid="revision-rapida"]')) return;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
-      const file = [...(event.clipboardData?.items ?? [])]
-        .find((item) => item.kind === "file" && item.type.startsWith("image/"))
-        ?.getAsFile();
+      const file = pastedImage(event.clipboardData);
       if (!file) return;
       event.preventDefault();
       setExpanded(true);
@@ -376,9 +371,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   );
 
   const onPasteImage = (event: ClipboardEvent<HTMLElement>) => {
-    const file = [...event.clipboardData.items]
-      .find((item) => item.kind === "file" && item.type.startsWith("image/"))
-      ?.getAsFile();
+    const file = pastedImage(event.clipboardData);
     if (!file) return;
     event.preventDefault();
     dropPending();

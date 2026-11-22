@@ -68,3 +68,20 @@ export function writeQuickReviewForm(store: QuickReviewStore, profileId: string 
     // Sin almacenamiento, el formulario vale para esta visita.
   }
 }
+
+/**
+ * Cambia solo algunos datos de la revisión de ese personaje y avisa a quien la
+ * lee. Lo usa el editor del personaje: si el jugador corrige ahí el nivel, las
+ * resistencias o la habilidad principal (a mano, con una captura o con PoB2),
+ * la revisión no puede seguir con el número viejo, porque el Mentor usa el de
+ * la revisión por encima del perfil.
+ */
+export function patchQuickReviewForm(
+  store: QuickReviewStore,
+  profileId: string,
+  values: Record<string, string>,
+): void {
+  if (Object.keys(values).length === 0) return;
+  const current = peekQuickReviewForm(store, profileId);
+  writeQuickReviewForm(store, profileId, { ...current, ...values });
+}
