@@ -24,6 +24,11 @@ import type { ActGuide } from "./guide";
  *    coinciden del todo en los tipos de daño; se pone lo que dicen dos.
  *  - No hay cifra de la comunidad para salir del acto 4: se usa la misma
  *    referencia (30 %) que en los actos anteriores y lo que dice Maxroll.
+ *  - Trozos de mapa rasgado (para Punta del botín): poe2db dice de dónde
+ *    sale el de Isla del clan (el cuerpo de un marinero en la orilla) y el
+ *    de Bahía de las anclas (un cofre); de Isla Whakapanu e Isla de los
+ *    alcaudones solo dice que hay uno. Así se cuenta. Añadido el 22-11-2026
+ *    porque Luis los echó en falta jugando.
  * Nombres en español según poe2db.tw/sp (zonas, jefes y objetos comprobados
  * el 21-11-2026). Revisar entera al salir la 1.0.
  */
@@ -72,13 +77,13 @@ export const ACT_FOUR_GUIDE: ActGuide = {
     },
     {
       zone: "Bahía de las anclas y El final del viaje",
-      text: "Tu primer viaje: el juego te manda aquí antes que a ninguna otra isla. El capitán Hartlin espera en El final del viaje.",
+      text: "Tu primer viaje: el juego te manda aquí antes que a ninguna otra isla. El capitán Hartlin espera en El final del viaje. Abre el cofre de la bahía: guarda un Trozo de mapa rasgado (2 de 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "Isla del clan y Madrigueras volcánicas",
-      text: "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra.",
+      text: "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra. En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (1 de 4).",
       priority: "historia",
       skip: "La bestia ciega",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
@@ -101,7 +106,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
     },
     {
       zone: "Isla Whakapanu y Cavernas melodiosas",
-      text: "Diamora, Canción de muerte: mientras canta, no la mires de frente (petrifica). Después habla con Ange: abre el intercambio de monedas y el escondite.",
+      text: "Diamora, Canción de muerte: mientras canta, no la mires de frente (petrifica). Después habla con Ange: abre el intercambio de monedas y el escondite. En esta isla hay otro Trozo de mapa rasgado (3 de 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "maxroll-subida"],
     },
@@ -144,9 +149,16 @@ export const ACT_FOUR_GUIDE: ActGuide = {
     },
     {
       zone: "Isla de los alcaudones",
-      text: "El azote de los cielos: quédate delante de él y rueda para esquivar sus morteros de sangre.",
+      text: "El azote de los cielos: quédate delante de él y rueda para esquivar sus morteros de sangre. Aquí está el último Trozo de mapa rasgado (4 de 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes"],
+    },
+    {
+      zone: "Punta del botín",
+      text: "Isla opcional de Expedición (nivel 53). Solo se abre cuando tienes los cuatro Trozos de mapa rasgado: Isla del clan, Bahía de las anclas, Isla Whakapanu e Isla de los alcaudones.",
+      optional: true,
+      priority: "recomendable",
+      sourceIds: ["poe2db-acto4", "wiki-acto4"],
     },
     {
       zone: "Arastas",
@@ -263,10 +275,6 @@ export const ACT_FOUR_GUIDE: ActGuide = {
         {
           text: "La Lección de Rakiata: el 15 % de tu armadura también vale contra daño elemental, desvío igual al 12 % de tu evasión y el escudo de energía empieza a recargarse un 12 % antes.",
           sourceIds: ["wiki-medicina"],
-        },
-        {
-          text: "Punta del botín es una isla opcional de Expedición. No se abre hasta que entregues los cuatro Trozos de mapa rasgado: Isla del clan, Bahía de las anclas, Isla Whakapanu e Isla de los alcaudones.",
-          sourceIds: ["wiki-acto4", "ggg-050"],
         },
         {
           text: "Arastas y Ngakanu tienen tiendas (hechizos y herrero) que puedes visitar antes de hacerlas.",

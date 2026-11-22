@@ -45,13 +45,13 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Kedge Bay and Journey's End",
-      text: "Your first trip: the game sends you here before any other island. Captain Hartlin waits in Journey's End.",
+      text: "Your first trip: the game sends you here before any other island. Captain Hartlin waits in Journey's End. Open the chest in the bay: it holds a Torn Map Piece (2 of 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "Isle of Kin and Volcanic Warrens",
-      text: "Krutog, Lord of Kin, hits with lightning. The Blind Beast is optional: it drops a rune Dannig swaps for another.",
+      text: "Krutog, Lord of Kin, hits with lightning. The Blind Beast is optional: it drops a rune Dannig swaps for another. On the shore, a sailor's body drops a Torn Map Piece (1 of 4).",
       priority: "historia",
       skip: "The Blind Beast",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
@@ -74,7 +74,7 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Whakapanu Island and Singing Caverns",
-      text: "Diamora, Song of Death: while she sings, don't face her gaze (it petrifies). Then talk to Ange: it unlocks the currency exchange and your hideout.",
+      text: "Diamora, Song of Death: while she sings, don't face her gaze (it petrifies). Then talk to Ange: it unlocks the currency exchange and your hideout. This island has another Torn Map Piece (3 of 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "maxroll-subida"],
     },
@@ -117,9 +117,16 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Shrike Island",
-      text: "Scourge of the Skies: stay in front of it and roll to dodge its blood mortars.",
+      text: "Scourge of the Skies: stay in front of it and roll to dodge its blood mortars. The last Torn Map Piece is here (4 of 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes"],
+    },
+    {
+      zone: "Plunder's Point",
+      text: "Optional Expedition island (level 53). It only opens once you have all four Torn Map Pieces: Isle of Kin, Kedge Bay, Whakapanu Island and Shrike Island.",
+      optional: true,
+      priority: "recomendable",
+      sourceIds: ["poe2db-acto4", "wiki-acto4"],
     },
     {
       zone: "Arastas",
@@ -236,10 +243,6 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
         {
           text: "Rakiata's Lesson: 15% of your armour also applies to elemental damage, deflection equal to 12% of your evasion, and energy shield starts recharging 12% sooner.",
           sourceIds: ["wiki-medicina"],
-        },
-        {
-          text: "Plunder's Point is an optional Expedition island. It doesn't open until you hand in the four Torn Map Pieces: Isle of Kin, Kedge Bay, Whakapanu Island and Shrike Island.",
-          sourceIds: ["wiki-acto4", "ggg-050"],
         },
         {
           text: "Arastas and Ngakanu have shops (spells and blacksmith) you can visit before doing them.",
