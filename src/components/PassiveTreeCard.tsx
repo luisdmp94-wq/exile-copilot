@@ -54,7 +54,7 @@ const TEXT = texts(
     loading: "Leyendo tu árbol…",
     failed: "No he podido leer tu árbol ahora. Prueba otra vez en un momento.",
     retry: "Reintentar",
-    summary: (taken: number, version: string) => `Tienes ${taken} pasivas en el árbol ${version}.`,
+    summary: (taken: number, version: string) => `Tienes ${taken} ${taken === 1 ? "pasiva" : "pasivas"} en el árbol ${version}.`,
     forSkills: (skills: string) => `Lo que más ayuda a ${skills}, en el orden en que se coge:`,
     noSkill: "Tengo tu árbol, pero no sé qué habilidad usas para hacer daño. Dímela y te digo qué notables le sirven.",
     setSkill: "Decir mi habilidad",
@@ -112,7 +112,7 @@ const TEXT = texts(
     loading: "Reading your tree…",
     failed: "I couldn't read your tree right now. Try again in a moment.",
     retry: "Try again",
-    summary: (taken: number, version: string) => `You have ${taken} passives on the ${version} tree.`,
+    summary: (taken: number, version: string) => `You have ${taken} ${taken === 1 ? "passive" : "passives"} on the ${version} tree.`,
     forSkills: (skills: string) => `What helps ${skills} most, in the order you take it:`,
     noSkill: "I have your tree, but I don't know which skill does your damage. Tell me and I'll show which notables help it.",
     setSkill: "Tell you my skill",
@@ -959,7 +959,8 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
       ) : (
         <div className="mt-2 flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            {t.summary(data.allocated.length, data.tree.version)}{" "}
+            {/* El nodo de inicio de la clase viene en la lista (el mapa lo pinta), pero no es un punto gastado. */}
+            {t.summary(data.allocated.filter((key) => key !== data.start).length, data.tree.version)}{" "}
             {data.unknownCount > 0 && data.versionMismatch === null ? t.unknown(data.unknownCount) : null}
           </p>
           {data.versionMismatch && (

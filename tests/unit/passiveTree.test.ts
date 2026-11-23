@@ -257,6 +257,20 @@ describe("el Mentor contesta «¿por dónde sigo en el árbol?»", () => {
     }
   });
 
+  it("«notable» y «passive» como palabras corrientes no son preguntas del árbol", () => {
+    for (const question of [
+      "¿Hay una diferencia notable entre estas dos armas?",
+      "no noto una mejora notable con el anillo nuevo",
+      "is a passive playstyle like minions good for a beginner?",
+      "¿qué hace la pasiva Entradas oscuras?",
+    ]) {
+      expect(isPassiveTreeQuestion(normalizeQuestion(question)), question).toBe(false);
+    }
+    for (const question of ["¿qué notable cojo ahora?", "cuál es la siguiente pasiva", "which notable next?", "where do I put my passive points", "qué keystone me conviene"]) {
+      expect(isPassiveTreeQuestion(normalizeQuestion(question)), question).toBe(true);
+    }
+  });
+
   it("sin árbol, explica cómo meterlo", () => {
     const answer = answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", profile({ passives: { allocated: [] } }), "es");
     expect(answer).toMatch(/código de Path of Building 2/);

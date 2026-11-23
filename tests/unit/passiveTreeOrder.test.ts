@@ -50,3 +50,34 @@ describe("el orden de los notables con los números de PoB2", () => {
     expect(orderStepsByGain(steps, missing, graph, [], start, "es").reordered).toBe(false);
   });
 });
+
+describe("un notable que queda de camino a otro", () => {
+  /** Dos notables de la Bruja en la misma rama: para llegar al segundo se pasa por el primero. */
+  function inLine(): [string, string] {
+    const reach = reachFrom(graph, new Set([start]), start);
+    const notables = [...reach.dist.keys()].filter((key) => graph.data.nodes[key]?.kind === "notable");
+    for (const behind of notables) {
+      const path = standalonePaths(graph, [], start, [behind]).get(behind)!;
+      const before = path.slice(0, -1).find((key) => graph.data.nodes[key]?.kind === "notable");
+      if (before) return [before, behind];
+    }
+    throw new Error("El árbol no tiene dos notables en línea desde el inicio de la Bruja.");
+  }
+
+  it("aunque PoB2 prefiera el de detrás, ningún paso sale con «+0 puntos»", () => {
+    const [first, behind] = inLine();
+    const own = standalonePaths(graph, [], start, [first, behind]);
+    // Las reglas: primero el que pilla de paso, y desde él, el de detrás.
+    const rules = [
+      { key: first, path: own.get(first)!, points: own.get(first)!.length, onTheWay: [] },
+      { key: behind, path: own.get(behind)!.slice(own.get(first)!.length), points: own.get(behind)!.length - own.get(first)!.length, onTheWay: [] },
+    ];
+    const gains = new Map([
+      [first, { damage: 1, points: own.get(first)!.length }],
+      [behind, { damage: 90, points: own.get(behind)!.length }],
+    ]);
+    const result = orderStepsByGain(rules, gains, graph, [], start, "es");
+    expect(result.steps.every((step) => step.points > 0 && step.path.length > 0)).toBe(true);
+    expect(result).toEqual({ steps: rules, reordered: false });
+  });
+});
