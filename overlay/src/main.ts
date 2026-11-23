@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { BrowserWindow, Menu, Tray, app, dialog, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { ClientLogTail, findClientLog, type LogEvent } from "./clientLog";
+import { createForegroundReader, isGameExecutable, shouldBeVisible } from "./foreground";
 import {
   NEW_RUN,
   onArea,
@@ -63,8 +64,16 @@ let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let tail: ClientLogTail | null = null;
 let currentLog: string | null = null;
-let moving = false;
 let showSummary = false;
+/** Arrastre por el asa: el proceso principal sigue al ratón hasta soltar. */
+let dragging: { timer: NodeJS.Timeout } | null = null;
+let userHidden = false;
+const startedAt = Date.now();
+/** Los primeros segundos se ve siempre, para que el jugador sepa que arrancó. */
+const STARTING_MS = 8000;
+const readForeground = createForegroundReader();
+/** Clics y ratón pasan al juego; el movimiento llega igual para notar el asa. */
+const PASS_THROUGH = { forward: true } as const;
 let problem: string | null = null;
 /** Teclas que otro programa ya tenía: se avisa aparte para que no lo borre el registro. */
 let keyProblem: string | null = null;
@@ -90,9 +99,9 @@ function render(): void {
   win.webContents.send("estado", {
     view: viewOf(saved.run, saved.settings.route),
     settings: saved.settings,
-    moving,
     showSummary,
     problem: problem ?? keyProblem,
+    waitingForGame: saved.settings.onlyWithGame && readForeground !== null && isStarting() && !gameInFront(),
   });
 }
 
@@ -156,17 +165,49 @@ async function chooseLog(): Promise<void> {
   startTail(path, null);
 }
 
-function setMoving(next: boolean): void {
-  if (!win) return;
-  moving = next;
-  win.setIgnoreMouseEvents(!next);
-  win.setFocusable(next);
-  if (!next) {
-    const [x, y] = win.getPosition();
-    saved = { ...saved, x: x!, y: y! };
-    persist();
+const isStarting = () => Date.now() - startedAt < STARTING_MS;
+const gameInFront = () => isGameExecutable(readForeground?.() ?? null, process.env.VENTANITA_JUEGO ?? null);
+
+/** Cada cuarto de segundo: visible solo con PoE2 delante (si el jugador lo quiere así). */
+function syncVisibility(): void {
+  if (!win || win.isDestroyed()) return;
+  const visible = shouldBeVisible({
+    userHidden,
+    onlyWithGame: saved.settings.onlyWithGame,
+    dragging: dragging !== null,
+    starting: isStarting(),
+    foreground: readForeground ? readForeground() : undefined,
+    ownExecutable: process.execPath,
+    extraGame: process.env.VENTANITA_JUEGO ?? null,
+  });
+  if (visible && !win.isVisible()) {
+    win.showInactive();
+    win.setAlwaysOnTop(true, "screen-saver");
+  } else if (!visible && win.isVisible()) {
+    win.hide();
   }
-  render();
+}
+
+function endDrag(): void {
+  if (!dragging || !win) return;
+  clearInterval(dragging.timer);
+  dragging = null;
+  const [x, y] = win.getPosition();
+  saved = { ...saved, x: x!, y: y! };
+  persist();
+  win.setIgnoreMouseEvents(true, PASS_THROUGH);
+}
+
+function resetPosition(): void {
+  const position = defaultPosition();
+  win?.setPosition(position.x, position.y);
+  saved = { ...saved, x: position.x, y: position.y };
+  persist();
+}
+
+function setUserHidden(hidden: boolean): void {
+  userHidden = hidden;
+  syncVisibility();
   buildTrayMenu();
 }
 
@@ -201,7 +242,13 @@ function buildTrayMenu(): void {
       { label: "Ruta rápida (sin lo que no da nada para siempre)", type: "radio", checked: s.route === "rapida", click: () => updateSettings({ route: "rapida" }) },
       { type: "separator" },
       { label: showSummary ? "Cerrar recompensas del acto (Ctrl+Alt+R)" : "Ver recompensas del acto (Ctrl+Alt+R)", click: toggleSummary },
-      { label: moving ? "Fijar la ventanita aquí" : "Mover la ventanita", click: () => setMoving(!moving) },
+      {
+        label: "Mostrar solo con PoE2 delante",
+        type: "checkbox",
+        checked: s.onlyWithGame,
+        click: () => updateSettings({ onlyWithGame: !s.onlyWithGame }),
+      },
+      { label: "Volver a su sitio (bajo el minimapa)", click: resetPosition },
       {
         label: "Aspecto",
         submenu: [
@@ -216,20 +263,11 @@ function buildTrayMenu(): void {
           { label: "Fondo opaco", type: "radio", checked: s.opacity === "opaca", click: () => updateSettings({ opacity: "opaca" }) },
         ],
       },
-      {
-        label: win?.isVisible() && !win.isMinimized() ? "Ocultar" : "Mostrar",
-        click: () => {
-          if (win?.isVisible() && !win.isMinimized()) win.hide();
-          else {
-            win?.restore();
-            win?.showInactive();
-          }
-          buildTrayMenu();
-        },
-      },
+      { label: userHidden ? "Mostrar" : "Ocultar", click: () => setUserHidden(!userHidden) },
       { type: "separator" },
       { label: "Re Pág / Av Pág: paso anterior / siguiente", enabled: false },
       { label: "Fin: marcar la recompensa como cogida", enabled: false },
+      { label: "Para moverla: arrastra el asa ⠿ de la izquierda", enabled: false },
       { type: "separator" },
       { label: "Empezar de cero (personaje nuevo)", click: () => update(NEW_RUN) },
       { label: "Elegir Client.txt…", click: () => void chooseLog() },
@@ -239,7 +277,12 @@ function buildTrayMenu(): void {
 }
 
 async function createWindow(): Promise<void> {
-  const position = saved.x !== undefined && saved.y !== undefined ? { x: saved.x, y: saved.y } : defaultPosition();
+  // En las capturas de prueba se pinta fuera de la pantalla, para no salir encima del juego.
+  const position = process.env.VENTANITA_CAPTURA
+    ? { x: -4000, y: -4000 }
+    : saved.x !== undefined && saved.y !== undefined
+      ? { x: saved.x, y: saved.y }
+      : defaultPosition();
   win = new BrowserWindow({
     ...position,
     width: Math.round(BASE_WIDTH * scale()),
@@ -256,7 +299,7 @@ async function createWindow(): Promise<void> {
     webPreferences: { preload: join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true },
   });
   win.setAlwaysOnTop(true, "screen-saver");
-  win.setIgnoreMouseEvents(true);
+  win.setIgnoreMouseEvents(true, PASS_THROUGH);
   // No tiene botón en la barra de tareas: si «Mostrar escritorio» (Win+D) la
   // minimiza, no habría forma de recuperarla. Vuelve sola, sin robar el foco.
   win.on("minimize", () => {
@@ -267,6 +310,32 @@ async function createWindow(): Promise<void> {
   win.showInactive();
   render();
 }
+
+// El ratón entra o sale del asa: solo ahí la ventanita deja de ser transparente a los clics.
+ipcMain.on("asa", (_event, over: unknown) => {
+  if (!win || dragging) return;
+  win.setIgnoreMouseEvents(over !== true, PASS_THROUGH);
+});
+
+// Arrastre por el asa: se sigue el cursor desde aquí, que no se pierde aunque el ratón vaya rápido.
+ipcMain.on("arrastre", (_event, phase: unknown) => {
+  if (!win) return;
+  if (phase === "inicio" && !dragging) {
+    const cursor = screen.getCursorScreenPoint();
+    const [x, y] = win.getPosition();
+    const offset = { x: cursor.x - x!, y: cursor.y - y! };
+    const started = Date.now();
+    const timer = setInterval(() => {
+      const point = screen.getCursorScreenPoint();
+      win?.setPosition(point.x - offset.x, point.y - offset.y);
+      // Por si nunca llega el «soltar»: como mucho un minuto.
+      if (Date.now() - started > 60_000) endDrag();
+    }, 16);
+    dragging = { timer };
+  } else if (phase === "fin") {
+    endDrag();
+  }
+});
 
 ipcMain.on("altura", (_event, height: unknown) => {
   if (!win || typeof height !== "number" || !Number.isFinite(height)) return;
@@ -289,7 +358,6 @@ function runTestActions(list: string): void {
     if (action === "rapida") updateSettings({ route: "rapida" });
     if (action === "compacta") updateSettings({ compact: true });
     if (action === "grande") updateSettings({ size: "grande" });
-    if (action === "mover") setMoving(true);
   }
 }
 
@@ -326,6 +394,10 @@ if (!app.requestSingleInstanceLock()) {
       render();
       void chooseLog();
     }
+
+    setInterval(syncVisibility, 250);
+    // Al terminar el arranque, el aviso «saldrá con PoE2 delante» se va.
+    setTimeout(render, STARTING_MS + 100);
 
     if (process.env.VENTANITA_ACCIONES) runTestActions(process.env.VENTANITA_ACCIONES);
     const capture = process.env.VENTANITA_CAPTURA;

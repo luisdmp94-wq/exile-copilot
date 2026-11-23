@@ -32,16 +32,21 @@ guía (actos 1 a 4, las guías de `src/guides`).
 | Fin | Marcar la recompensa del paso como cogida |
 | Ctrl+Alt+R | Ver o cerrar las recompensas del acto |
 
-Para moverla: icono de la bandeja → «Mover la ventanita», arrástrala y luego
-«Fijar la ventanita aquí». Si otro programa ya usa una de las teclas, la
-ventanita lo avisa.
+**Moverla:** arrastra el asa ⠿ de la izquierda de la cabecera. El resto de la
+ventanita deja pasar los clics al juego. Si se pierde: bandeja → «Volver a su
+sitio». Si otro programa ya usa una de las teclas, la ventanita lo avisa.
+
+**Solo con PoE2 delante:** al cambiar de ventana (Alt+Tab) se esconde y vuelve
+con el juego. Se mira qué programa está delante preguntando a Windows, no al
+juego. Se puede quitar en la bandeja («Mostrar solo con PoE2 delante»).
 
 Mientras la ventanita está abierta, esas teclas son suyas también en otros
 programas (por ejemplo, Re Pág en el navegador).
 
 **Icono ámbar de la bandeja** (abajo a la derecha): ruta completa o rápida,
-recompensas, mover, aspecto (tamaño, compacta, fondo), ocultar, empezar de
-cero (personaje nuevo), elegir Client.txt y salir.
+recompensas, solo con PoE2 delante, volver a su sitio, aspecto (tamaño,
+compacta, fondo), ocultar, empezar de cero (personaje nuevo), elegir
+Client.txt y salir.
 
 ## Qué hace y qué no
 

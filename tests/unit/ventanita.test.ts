@@ -29,6 +29,7 @@ import {
   viewOf,
   type Run,
 } from "../../overlay/src/run";
+import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../overlay/src/foreground";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { ZONE_CODES } from "../../overlay/src/zones";
 
@@ -294,5 +295,50 @@ describe("ventanita: estado guardado", () => {
 
   it("los textos son los de la guía, sin tocar", () => {
     expect(viewOf(play(["G1_1", "G1_2"]), "completa").text).toBe(routeOf(1)[1]!.text);
+  });
+});
+
+describe("ventanita: solo con PoE2 delante", () => {
+  it("reconoce los ejecutables de PoE2 de Steam y del cliente independiente", () => {
+    expect(isGameExecutable(String.raw`C:\Program Files (x86)\Steam\steamapps\common\Path of Exile 2\PathOfExileSteam.exe`)).toBe(true);
+    expect(isGameExecutable("D:/Juegos/PathOfExile_x64Steam.exe")).toBe(true);
+    expect(isGameExecutable("C:/GGG/Path of Exile 2/PathOfExile.exe")).toBe(true);
+    expect(isGameExecutable("C:/Windows/notepad.exe")).toBe(false);
+    expect(isGameExecutable("C:/Windows/notepad.exe", "Notepad.exe")).toBe(true);
+    expect(isGameExecutable(null)).toBe(false);
+  });
+
+  const base: VisibilityInput = {
+    userHidden: false,
+    onlyWithGame: true,
+    dragging: false,
+    starting: false,
+    foreground: "C:/Steam/PathOfExileSteam.exe",
+    ownExecutable: "C:/ventanita/electron.exe",
+  };
+
+  it("se ve con el juego delante y se esconde al cambiar de ventana", () => {
+    expect(shouldBeVisible(base)).toBe(true);
+    expect(shouldBeVisible({ ...base, foreground: "C:/Program Files/Google/Chrome/chrome.exe" })).toBe(false);
+    expect(shouldBeVisible({ ...base, foreground: null })).toBe(false);
+  });
+
+  it("sigue viéndose mientras se arrastra, al tocar el asa y en el arranque", () => {
+    const away = { ...base, foreground: "C:/x/discord.exe" };
+    expect(shouldBeVisible({ ...away, dragging: true })).toBe(true);
+    expect(shouldBeVisible({ ...away, starting: true })).toBe(true);
+    expect(shouldBeVisible({ ...base, foreground: "c:/VENTANITA/Electron.exe" })).toBe(true);
+  });
+
+  it("ocultarla desde la bandeja manda; sin el ajuste o sin poder saberlo, siempre visible", () => {
+    expect(shouldBeVisible({ ...base, userHidden: true })).toBe(false);
+    expect(shouldBeVisible({ ...base, onlyWithGame: false, foreground: "C:/x/chrome.exe" })).toBe(true);
+    expect(shouldBeVisible({ ...base, foreground: undefined })).toBe(true);
+  });
+
+  it("el ajuste viene activado y se puede quitar", () => {
+    expect(DEFAULT_SETTINGS.onlyWithGame).toBe(true);
+    expect(sanitizeSettings({ onlyWithGame: false }).onlyWithGame).toBe(false);
+    expect(sanitizeSettings({}).onlyWithGame).toBe(true);
   });
 });

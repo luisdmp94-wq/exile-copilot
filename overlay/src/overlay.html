@@ -15,7 +15,9 @@
       body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--texto); -webkit-user-select: none; user-select: none; }
       [hidden] { display: none !important; }
       .caja { background: var(--fondo); border: 1px solid var(--borde); border-radius: 8px; padding: 8px 12px 7px; }
-      body.moviendo .caja { border: 1px dashed #ef9f27; -webkit-app-region: drag; cursor: move; }
+      #asa { flex-shrink: 0; margin: -4px 0 -4px -6px; padding: 2px 4px; font-size: 13px; line-height: 1; color: #888780; cursor: grab; border-radius: 4px; }
+      #asa:hover { color: var(--oro); background: rgba(239, 159, 39, 0.15); }
+      #asa:active { cursor: grabbing; }
 
       .cabecera { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--suave); }
       #pos { white-space: nowrap; flex-shrink: 0; }
@@ -67,6 +69,7 @@
   <body>
     <div class="caja">
       <div class="cabecera">
+        <span id="asa" title="Arrastra para moverla">⠿</span>
         <span id="pos">Acto 1</span><span>·</span><span id="zona"></span>
         <span id="ruta" hidden>rápida</span>
         <span id="tag" class="tag"></span>

@@ -4,9 +4,9 @@ import type { Settings } from "./settings";
 interface OverlayState {
   view: StepView;
   settings: Settings;
-  moving: boolean;
   showSummary: boolean;
   problem: string | null;
+  waitingForGame: boolean;
 }
 
 declare global {
@@ -14,6 +14,8 @@ declare global {
     ventanita: {
       onState: (callback: (state: OverlayState) => void) => void;
       reportHeight: (height: number) => void;
+      grip: (over: boolean) => void;
+      drag: (phase: "inicio" | "fin") => void;
     };
   }
 }
@@ -71,10 +73,9 @@ function draw(state: OverlayState): void {
   const { view, settings } = state;
   const body = document.body;
   body.className = [
-    state.moving ? "moviendo" : "",
     settings.compact ? "compacta" : "",
     `fondo-${settings.opacity}`,
-    view.outside && !state.showSummary && !state.moving ? "fuera" : "",
+    view.outside && !state.showSummary ? "fuera" : "",
     state.showSummary ? "con-resumen" : "",
   ]
     .filter(Boolean)
@@ -89,11 +90,11 @@ function draw(state: OverlayState): void {
   if (settings.route === "rapida") byId("ruta").removeAttribute("hidden");
   else byId("ruta").setAttribute("hidden", "");
 
-  // Avisos, de más a menos urgente: problema, moverla, lo que te dejaste, fuera de la campaña.
+  // Avisos, de más a menos urgente: problema, arranque, lo que te dejaste, fuera de la campaña.
   const notice = state.problem
     ? state.problem
-    : state.moving
-      ? "Arrástrala a su sitio. Luego, en el icono de la bandeja: «Fijar la ventanita aquí»."
+    : state.waitingForGame
+      ? "Lista. Saldrá cuando tengas PoE2 delante."
       : view.leftBehind
         ? `Te dejaste en el acto ${view.leftBehind.act}: ${view.leftBehind.items.map((item) => `${item.zone} (${item.reward})`).join(", ")}.`
         : view.outside
@@ -102,7 +103,7 @@ function draw(state: OverlayState): void {
             ? `Vas ${view.areaLevel - view.charLevel} niveles por debajo de la zona: sube alguno antes del jefe.`
             : null;
   setText("aviso", notice);
-  byId("aviso").className = view.leftBehind && !state.problem && !state.moving ? "aviso importante" : "aviso";
+  byId("aviso").className = view.leftBehind && !state.problem && !state.waitingForGame ? "aviso importante" : "aviso";
 
   const reward = byId("recompensa");
   reward.hidden = !view.reward;
@@ -128,6 +129,34 @@ function draw(state: OverlayState): void {
 }
 
 window.ventanita.onState(draw);
+
+// El asa: al pasar por encima la ventanita acepta el ratón; al pulsar, se arrastra.
+const grip = byId("asa");
+let gripActive = false;
+let draggingNow = false;
+const setGrip = (over: boolean) => {
+  if (gripActive === over) return;
+  gripActive = over;
+  window.ventanita.grip(over);
+};
+grip.addEventListener("mousemove", () => setGrip(true));
+grip.addEventListener("mouseleave", () => {
+  if (!draggingNow) setGrip(false);
+});
+grip.addEventListener("pointerdown", (event) => {
+  grip.setPointerCapture(event.pointerId);
+  draggingNow = true;
+  window.ventanita.drag("inicio");
+});
+const endDrag = () => {
+  if (!draggingNow) return;
+  draggingNow = false;
+  // Tras soltar vuelve a dejar pasar los clics; si el ratón sigue encima, el siguiente movimiento lo nota.
+  gripActive = false;
+  window.ventanita.drag("fin");
+};
+grip.addEventListener("pointerup", endDrag);
+grip.addEventListener("lostpointercapture", endDrag);
 // La ventana mide lo que mide la caja, también cuando el texto termina de colocarse.
 new ResizeObserver(() => window.ventanita.reportHeight(document.querySelector(".caja")!.getBoundingClientRect().height + 1)).observe(
   document.querySelector(".caja")!,
