@@ -53,7 +53,6 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
     {
       zone: "Jungle Ruins",
       text: "Mighty Silverfist, among the stone ruins: 2 weapon set passive points.",
-      optional: true,
       priority: "clave",
       reward: "2 passive points",
       proof: { kind: "weaponSetPoints", amount: 2 },
@@ -77,7 +76,6 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
     {
       zone: "Jiquani's Machinarium",
       text: "Blackjaw, the Remnant, is optional but gives +10% fire resistance for good.",
-      optional: true,
       priority: "clave",
       reward: "+10% fire",
       proof: { kind: "resistance", element: "fire", amount: 10 },
@@ -150,7 +148,6 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
     {
       zone: "Aggorat (Past)",
       text: "Kill Vaal until the Sacrificial Heart drops and use it at the altar: 2 weapon set passive points.",
-      optional: true,
       priority: "clave",
       reward: "2 passive points",
       proof: { kind: "weaponSetPoints", amount: 2 },

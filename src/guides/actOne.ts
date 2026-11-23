@@ -103,7 +103,6 @@ export const ACT_ONE_GUIDE: ActGuide = {
     {
       zone: "Terrenos de caza",
       text: "El cuervo repicador da un libro con 2 puntos de pasiva de set de arma.",
-      optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
       proof: { kind: "weaponSetPoints", amount: 2 },
@@ -122,7 +121,6 @@ export const ACT_ONE_GUIDE: ActGuide = {
     {
       zone: "Tierras de cultivo de Ogham",
       text: "Misión «El laúd perdido»: está en La cabaña de Una. Da otro libro con 2 puntos.",
-      optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
       proof: { kind: "weaponSetPoints", amount: 2 },

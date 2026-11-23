@@ -64,3 +64,22 @@ describe("enlaces directos a una herramienta", () => {
     expect(directToolFromSearch("?open=<script>")).toBeNull();
   });
 });
+
+describe("guías: «opcional» es la zona entera, no su jefe", () => {
+  // Zonas de paso obligatorias para la historia (poe2db y maxroll 0.5.5,
+  // revisado el 23-11-2026). Lo opcional en ellas es el jefe o la misión.
+  const ZONAS_DE_PASO: Record<number, string[]> = {
+    1: ["Terrenos de caza", "Tierras de cultivo de Ogham"],
+    2: ["Keth", "Valle de los titanes", "Deshar"],
+    3: ["Ruinas de la jungla", "Taller de máquinas de Jiquani", "Aggorat (pasado)"],
+  };
+
+  it.each(Object.entries(ZONAS_DE_PASO))("acto %s: sus zonas de paso no se marcan opcionales", (act, zones) => {
+    const guide = GUIDES.find((candidate) => candidate.act === Number(act))!;
+    for (const zone of zones) {
+      const step = guide.route?.find((candidate) => candidate.zone === zone);
+      expect(step, zone).toBeDefined();
+      expect(step!.optional, zone).toBeFalsy();
+    }
+  });
+});
