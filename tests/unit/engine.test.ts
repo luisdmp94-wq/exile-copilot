@@ -335,15 +335,45 @@ describe("regla del arma: únicos y armas de hechicero", () => {
     expect(run(profile)).toEqual([]);
   });
 
-  it("los bastones son de hechicero y los báculos de ataque", () => {
-    for (const itemClass of ["Staves", "Bastones"]) {
-      const [candidate] = run(withWeapon({ baseType: "Ashen Staff", itemClass }));
-      expect(candidate?.action, itemClass).not.toMatch(/calidad/);
+  it("los báculos son de hechicero y los bastones de ataque, como los llama el juego", () => {
+    // El juego en español: «Báculo ceniciento» = Ashen Staff; «Bastón envuelto» = Wrapped Quarterstaff (el del monje).
+    for (const [itemClass, baseType] of [["Staves", "Ashen Staff"], ["Báculos", "Báculo ceniciento"], ["", "Báculo ceniciento"]]) {
+      const [candidate] = run(withWeapon({ baseType, itemClass }));
+      expect(candidate?.action, `${itemClass} ${baseType}`).not.toMatch(/calidad/);
+      expect(candidate?.action, `${itemClass} ${baseType}`).toContain("habilidades de hechizo");
     }
-    for (const itemClass of ["Quarterstaves", "Báculos"]) {
-      const [candidate] = run(withWeapon({ baseType: "Wrapped Quarterstaff", itemClass }));
-      expect(candidate?.action, itemClass).toContain("sin calidad");
+    for (const [itemClass, baseType] of [["Quarterstaves", "Wrapped Quarterstaff"], ["Bastones", "Bastón envuelto"], ["", "Bastón envuelto"]]) {
+      const [candidate] = run(withWeapon({ baseType, itemClass }));
+      expect(candidate?.action, `${itemClass} ${baseType}`).toContain("sin calidad");
+      expect(candidate?.action, `${itemClass} ${baseType}`).not.toContain("hechizo");
     }
+  });
+
+  it("una varita leída de un código de PoB2 (clase «Weapons») sigue siendo una varita", () => {
+    const [candidate] = run(withWeapon({ name: "Doom Bite", baseType: "Withered Wand", itemClass: "Weapons", quality: 0 }));
+    expect(candidate?.action).toContain("habilidades de hechizo");
+    expect(candidate?.action).not.toMatch(/calidad/);
+  });
+
+  it("a un arma corrupta no le pide subir la calidad: no se puede", () => {
+    const profile = demoProfile();
+    const weapon = profile.items.find((i) => i.slot === "weapon")!;
+    weapon.craftingState = { ...weapon.craftingState!, corrupted: true };
+    weapon.modifiers = [...weapon.modifiers, { ...weapon.modifiers[0]!, id: "extra-1" }, { ...weapon.modifiers[0]!, id: "extra-2" }];
+    const plenty = weapon.modifiers.filter((m) => m.kind === "explicit").length;
+    // Con mods de sobra y corrupta: nada que decir. Sin corromper, sí pediría calidad.
+    expect(plenty).toBeGreaterThanOrEqual(3);
+    expect(run(profile)).toEqual([]);
+    weapon.craftingState = { ...weapon.craftingState!, corrupted: false };
+    expect(run(profile)[0]?.action).toContain("sin calidad");
+  });
+
+  it("a un cetro no le pide calidad ni niveles de hechizo", () => {
+    const [candidate] = run(withWeapon({ name: "Cetro gastado", baseType: "Cetro aromático", itemClass: "Cetros", quality: 0 }));
+    expect(candidate?.action).not.toMatch(/calidad/);
+    expect(candidate?.action).not.toContain("hechizo");
+    expect(candidate?.action).toContain("Busca otra con mejores mods");
+    expect(candidate?.reason).toContain("cetro");
   });
 
   it("un arma de ataque ya no manda a buscar su misma base", () => {

@@ -459,14 +459,30 @@ export const attributeRequirementsRule: Rule = ({ profile, lang }) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Armas de hechicero: varitas, cetros y bastones (no los báculos, que son de
- * ataque). La calidad apenas les da daño a los hechizos; lo que cuenta son los
- * niveles de habilidades de hechizo y el daño de hechizos.
+ * Armas de hechizos: varitas y báculos. La calidad apenas les da daño; lo que
+ * cuenta son los niveles de habilidades de hechizo y el daño de hechizos.
+ *
+ * Ojo con el español del juego: «báculo» es el Staff del hechicero y «bastón»
+ * el Quarterstaff del monje, que es de ataque (los 17 Staff y los 36
+ * Quarterstaff de server/data/pob/item-translations.json). Estaban al revés.
  */
-const CASTER_WEAPON_RE = /wand|varita|sceptre|cetro|\bstaff\b|\bstaves\b|bast[oó]n/i;
+const SPELL_WEAPON_RE = /wand|varita|\bstaff\b|\bstaves\b|b[aá]culo/i;
+/** Cetros: tampoco viven de la calidad, pero no son de hechizos (espíritu, esbirros, aliados). */
+const SCEPTRE_RE = /sceptre|cetro/i;
 
+/**
+ * Clase y base juntas: un arma leída de un código de PoB2 llega con la clase
+ * genérica «Weapons», y lo que dice qué es está en la base («Withered Wand»).
+ */
+const weaponWords = (item: Pick<Item, "itemClass" | "baseType">) => `${item.itemClass ?? ""} ${item.baseType}`;
+
+function isSpellWeapon(item: Pick<Item, "itemClass" | "baseType">): boolean {
+  return SPELL_WEAPON_RE.test(weaponWords(item));
+}
+
+/** Armas a las que la calidad apenas da daño: varitas, báculos y cetros. */
 export function isCasterWeapon(item: Pick<Item, "itemClass" | "baseType">): boolean {
-  return CASTER_WEAPON_RE.test(item.itemClass?.trim() || item.baseType);
+  return isSpellWeapon(item) || SCEPTRE_RE.test(weaponWords(item));
 }
 
 export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
@@ -474,11 +490,13 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
   const weapon = profile.items.find((i) => i.slot === "weapon");
   if (!weapon) return [];
   const caster = isCasterWeapon(weapon);
+  const spell = isSpellWeapon(weapon);
   const explicitCount = weapon.modifiers.filter((m) => m.kind === "explicit").length;
   const quality = weapon.quality ?? 0;
   // A un arma de hechicero la calidad apenas le da daño, y un único trae sus
   // mods fijos. Antes una varita única buena salía como «mejora el arma».
-  const lacksQuality = quality === 0 && !caster;
+  // A un arma corrupta no se le puede subir la calidad: no se le pide.
+  const lacksQuality = quality === 0 && !caster && weapon.craftingState?.corrupted !== true;
   const fewMods = weapon.rarity !== "unique" && explicitCount < MIN_WEAPON_EXPLICITS;
   if (!lacksQuality && !fewMods) return [];
 
@@ -510,7 +528,7 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
             `Tu arma "${weapon.name}" (${weapon.baseType}) está sin calidad. Súbele la calidad antes de cambiarla: es daño gratis.`,
             `Your weapon "${weapon.name}" (${weapon.baseType}) has no quality. Raise its quality before replacing it: it's free damage.`,
           )
-        : caster
+        : spell
         ? t(
             `Tu arma "${weapon.name}" (${weapon.baseType}) tiene ${issues.join(" y ")}. Busca una con «+X al nivel de las habilidades de hechizo» y daño de hechizos aumentado, dentro de tu presupuesto.`,
             `Your weapon "${weapon.name}" (${weapon.baseType}) has ${issues.join(" and ")}. Look for one with "+X to Level of all Spell Skills" and increased spell damage, within your budget.`,
@@ -519,10 +537,15 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
             `Tu arma "${weapon.name}" (${weapon.baseType}) está ${issues.join(" y ")}. Busca otra con mejores mods, o de una base de más nivel, dentro de tu presupuesto.`,
             `Your weapon "${weapon.name}" (${weapon.baseType}) is ${issues.join(" and ")}. Look for one with better modifiers, or a higher-level base, within your budget.`,
           ),
-      reason: caster
+      reason: spell
         ? t(
             "En un arma de hechicero, lo que más daño da son los niveles de habilidades de hechizo y el daño de hechizos; la calidad apenas cuenta.",
             "On a caster weapon, spell skill levels and spell damage give the most damage; quality barely matters.",
+          )
+        : caster
+        ? t(
+            "En un cetro lo que cuenta son sus modificadores; la calidad apenas importa.",
+            "On a sceptre what matters is its modifiers; quality barely matters.",
           )
         : t(
             "El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.",
