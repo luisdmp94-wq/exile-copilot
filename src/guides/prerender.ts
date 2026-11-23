@@ -1,4 +1,5 @@
 import type { ActGuide, GuideRoutePriority, GuideTip } from "./guide";
+import { withArticle } from "../lib/guideCheck";
 import { guidePageTitle } from "./index";
 
 /**
@@ -68,7 +69,7 @@ export function renderGuideArticle(guide: ActGuide): string {
     parts.push(`</section>`);
   });
   parts.push(
-    `<section><h2>¿Está listo tu personaje para el ${escapeHtml(guide.check.nextAct)}?</h2><p>Pega tus objetos copiados del juego con Ctrl+C, o tu código de Path of Building, y la guía te dice qué resistencia te falta.</p></section>`,
+    `<section><h2>¿Está listo tu personaje para ${escapeHtml(withArticle(guide.check.nextAct))}?</h2><p>Pega tus objetos copiados del juego con Ctrl+C, o tu código de Path of Building, y la guía te dice qué resistencia te falta.</p></section>`,
   );
   parts.push(
     `<section><h2>Fuentes</h2><ol>${guide.sources

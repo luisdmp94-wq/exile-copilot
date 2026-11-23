@@ -77,13 +77,13 @@ export const ACT_FOUR_GUIDE: ActGuide = {
     },
     {
       zone: "Bahía de las anclas y El final del viaje",
-      text: "Tu primer viaje: el juego te manda aquí antes que a ninguna otra isla. El capitán Hartlin espera en El final del viaje. Abre el cofre de la bahía: guarda un Trozo de mapa rasgado (2 de 4).",
+      text: "Tu primer viaje: el juego te manda aquí antes que a ninguna otra isla. El capitán Hartlin espera en El final del viaje. Abre el cofre de la bahía: guarda un Trozo de mapa rasgado (1 de 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "Isla del clan y Madrigueras volcánicas",
-      text: "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra. En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (1 de 4).",
+      text: "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra. En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (2 de 4).",
       priority: "historia",
       skip: "La bestia ciega",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
@@ -100,7 +100,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
     },
     {
       zone: "Prisión abandonada y Confinamiento solitario",
-      text: "El prisionero se cura al 50 %, al 25 % y al 10 % de vida: dispárale con la balista para cortarlo. En la capilla, la Diosa de la justicia te deja elegir +30 % de recuperación de vida o de maná con frascos (se puede cambiar).",
+      text: "El prisionero se cura al 50 %, al 25 % y al 10 % de vida: dispárale con la balista para cortarle la cura. En la capilla, la Diosa de la justicia te deja elegir +30 % de recuperación de vida o de maná con frascos (se puede cambiar).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "wiki-prision", "maxroll-jefes"],
     },
@@ -155,7 +155,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
     },
     {
       zone: "Punta del botín",
-      text: "Isla opcional de Expedición (nivel 53). Solo se abre cuando tienes los cuatro Trozos de mapa rasgado: Isla del clan, Bahía de las anclas, Isla Whakapanu e Isla de los alcaudones.",
+      text: "Isla opcional de Expedición (nivel 53). Solo se abre cuando tienes los cuatro Trozos de mapa rasgado: Bahía de las anclas, Isla del clan, Isla Whakapanu e Isla de los alcaudones.",
       optional: true,
       priority: "recomendable",
       sourceIds: ["poe2db-acto4", "wiki-acto4"],
@@ -202,7 +202,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
       more: [
         {
           lead: "El prisionero (Confinamiento solitario):",
-          text: "se cura al 50 %, al 25 % y al 10 % de vida. Cada vez, dispárale con la balista para cortarlo.",
+          text: "se cura al 50 %, al 25 % y al 10 % de vida. Cada vez, dispárale con la balista para cortarle la cura.",
           sourceIds: ["maxroll-jefes", "poe2db-acto4"],
         },
         {
@@ -217,7 +217,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
         },
         {
           lead: "Torvian, la Mano del Salvador:",
-          text: "corta a los sacerdotes que le ayudan. No cruces sus muros sagrados: te frenan y te hacen más fácil de criticar.",
+          text: "interrumpe a los sacerdotes que le ayudan. No cruces sus muros sagrados: te frenan y recibes más golpes críticos.",
           sourceIds: ["maxroll-jefes"],
         },
         {
@@ -239,7 +239,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
       ],
       tips: [
         {
-          lead: "Los tres tatuajes de Salones de los muertos son +15 % gratis.",
+          lead: "Los tres tatuajes de Salones de los muertos dan +5 % a cada resistencia, gratis.",
           text: "Apunta a un 30 % en las tres antes de los interludios. Maxroll aconseja acercarte al 75 % todo lo que puedas.",
           sourceIds: ["wiki-salones", "maxroll-subida"],
         },
