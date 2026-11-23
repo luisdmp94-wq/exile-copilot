@@ -12,7 +12,7 @@ guía (actos 1 a 4, las guías de `src/guides`).
 ## Qué enseña
 
 - La zona donde estás, en grande, y el texto entero de su paso en la guía.
-- **La recompensa para siempre** del paso («Para siempre: +10 % de hielo»)
+- **La recompensa para siempre** del paso («Para siempre: +10 % resistencia al hielo»)
   con una casilla que **se marca sola** cuando el juego escribe que la has
   recibido. Tu primera ascendencia también: se nota en que tu clase cambia
   («Bruja» → «Liche») en la siguiente subida de nivel. Solo los puntos de la

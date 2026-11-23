@@ -229,7 +229,7 @@ describe("ventanita: ruta rápida", () => {
   });
 
   it("«Luego» dice la zona siguiente y su recompensa para siempre, si la tiene", () => {
-    expect(viewOf(play(["G1_1"]), "completa").next).toEqual({ zone: "Sierraclara", reward: "+10 % de hielo" });
+    expect(viewOf(play(["G1_1"]), "completa").next).toEqual({ zone: "Sierraclara", reward: "+10 % resistencia al hielo" });
     expect(viewOf(play(["G1_1", "G1_2"]), "completa").next).toEqual({ zone: "Lodazal", reward: null });
   });
 });
@@ -237,7 +237,7 @@ describe("ventanita: ruta rápida", () => {
 describe("ventanita: recompensas y lo que te dejas", () => {
   it("Fin marca y desmarca la recompensa del paso, solo si la tiene", () => {
     const clearfell = play(["G1_1", "G1_2"]);
-    expect(viewOf(clearfell, "completa").reward).toEqual({ text: "+10 % de hielo", checked: false, auto: true });
+    expect(viewOf(clearfell, "completa").reward).toEqual({ text: "+10 % resistencia al hielo", checked: false, auto: true });
     const marked = onToggleReward(clearfell);
     expect(viewOf(marked, "completa").reward?.checked).toBe(true);
     expect(viewOf(onToggleReward(marked), "completa").reward?.checked).toBe(false);

@@ -35,7 +35,8 @@
       .aviso { font-size: 11px; color: var(--oro); margin-top: 4px; line-height: 1.35; }
       .aviso.importante { color: #f5c4b3; background: rgba(153, 60, 29, 0.35); border-radius: 4px; padding: 3px 6px; }
 
-      .objetivo { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12px; }
+      /* Si la recompensa es larga («+10 % resistencia al hielo»), la nota baja a la línea siguiente. */
+      .objetivo { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; margin-top: 5px; font-size: 12px; }
       #recompensa + #jefe { margin-top: 3px; }
       .casilla { width: 13px; height: 13px; flex-shrink: 0; border: 1px solid var(--oro); border-radius: 3px; font-size: 11px; line-height: 13px; text-align: center; color: #0a0806; cursor: pointer; }
       .casilla.hecha { background: var(--oro); }
