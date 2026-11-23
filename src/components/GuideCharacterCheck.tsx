@@ -30,6 +30,7 @@ import {
   type GuideCheckTargets,
 } from "@/lib/guideCheck";
 import { readPobCodeInBrowser } from "@/lib/pobBrowser";
+import { sendUseBeacon } from "@/lib/visitBeacon";
 import { cn } from "@/lib/utils";
 import { quoted, texts, useLang, useText } from "@/i18n/lang";
 import { displayProfileValue } from "@/lib/format";
@@ -281,6 +282,7 @@ export function GuideCharacterCheck({
     try {
       const result = await readPobCodeInBrowser(text);
       if (result.ok) {
+        if (import.meta.env.PROD) sendUseBeacon("codigo-pob");
         setPobProfile(result.profile);
         setUseExpediente(false);
         setChecked(true);

@@ -157,6 +157,7 @@ import { ScreenshotReadRequestSchema } from "../shared/screenshotRead.js";
 import { createScreenshotReader, type ScreenshotReader } from "./advice/screenshotReader.js";
 import {
   AreaBeaconSchema,
+  UseBeaconSchema,
   VISIT_OWNER_HEADER,
   VISIT_SOURCE_HEADER,
   VisitBeaconSchema,
@@ -531,6 +532,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     "POST /character": "personaje-guardado",
     "POST /quick-review/screenshot": "captura-leida",
     "POST /import/build": "codigo-pob",
+    "POST /recommendations": "recomendaciones",
   };
   app.use((req, res, next) => {
     const event = USAGE_ROUTES[`${req.method} ${req.path}`];
@@ -648,6 +650,17 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     try {
       const beacon = AreaBeaconSchema.parse(req.body);
       if (!looksLikeBot(req.get("user-agent"))) recordArea(db, beacon);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /visit/use — un uso que pasa solo en el navegador (PoB2), sin datos de la persona.
+  app.post("/visit/use", (req, res, next) => {
+    try {
+      const beacon = UseBeaconSchema.parse(req.body);
+      if (!looksLikeBot(req.get("user-agent"))) recordUse(db, beacon.event, new Date(), beacon.source);
       res.status(204).end();
     } catch (err) {
       next(err);

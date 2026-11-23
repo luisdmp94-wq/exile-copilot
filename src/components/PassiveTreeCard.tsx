@@ -30,6 +30,7 @@ import { loadPassiveGraph } from "@/lib/passiveTreeData";
 import { Button } from "@/components/ui/button";
 import { PobPanel, type PobPick } from "@/components/PobPanel";
 import { cn } from "@/lib/utils";
+import { sendUseBeacon } from "@/lib/visitBeacon";
 import { texts, useLang, useText } from "@/i18n/lang";
 import type { MapSuggestion } from "@/components/PassiveTreeMap";
 import { pobClient, pobOptedIn, rememberPobOptIn } from "@/pob/pobClient";
@@ -758,6 +759,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
     setPobEnabled(true);
     setSeen(true);
     pobClient.start();
+    if (import.meta.env.PROD) sendUseBeacon("calculo-pob");
   };
 
   // Lo que cambiaría el código de exportar: si cambia, el código viejo se borra.
@@ -769,7 +771,9 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
   const makeCode = async () => {
     const pobData = await loadPobData();
     const built = pobXmlForProfile(pobProfile, pobData, { mainSkill, ...(draftRefs ? { passives: draftRefs } : {}) });
-    return pobCodeFromDeflated(await deflate(built.xml));
+    const code = pobCodeFromDeflated(await deflate(built.xml));
+    if (import.meta.env.PROD) sendUseBeacon("exportar-pob");
+    return code;
   };
 
   const takePick = (key: string) => {

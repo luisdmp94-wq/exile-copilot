@@ -36,6 +36,7 @@ import {
 } from "@/lib/checkText";
 import { checkSummaryText } from "@/lib/checkSummary";
 import { readPobCodeInBrowser } from "@/lib/pobBrowser";
+import { sendUseBeacon } from "@/lib/visitBeacon";
 import { ManualCheckForm } from "./ManualCheckForm";
 
 /**
@@ -373,6 +374,7 @@ export function BuildCheckPage({ standalone = false }: { standalone?: boolean })
       });
       return;
     }
+    if (import.meta.env.PROD) sendUseBeacon("codigo-pob");
     setState({
       status: "done",
       profile: result.profile,

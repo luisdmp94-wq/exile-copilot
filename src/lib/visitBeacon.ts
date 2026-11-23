@@ -4,6 +4,7 @@ import {
   looksLikeBot,
   pageOf,
   sourceFromHeader,
+  type BrowserUsageEvent,
   type VisitArea,
   type VisitBeacon,
   type VisitSource,
@@ -158,6 +159,28 @@ export function sendAreaBeacon(area: VisitArea): void {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ area, source: visitSource() }),
+      credentials: "same-origin",
+      keepalive: true,
+    }).catch(() => undefined);
+  } catch {
+    // El contador nunca debe estorbar a la web.
+  }
+}
+
+/**
+ * Un uso que pasa solo en el navegador (leer, calcular o exportar con PoB2).
+ * Cuenta cada vez, como los usos que ve el servidor; nunca al dueño ni a un
+ * programa. Si falla, no pasa nada.
+ */
+export function sendUseBeacon(event: BrowserUsageEvent): void {
+  try {
+    if (isOwnerBrowser()) return;
+    const page = globalThis as unknown as { navigator: { userAgent?: string; webdriver?: boolean } };
+    if (looksLikeBot(page.navigator.userAgent, page.navigator.webdriver === true)) return;
+    void fetch("/api/visit/use", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, source: visitSource() }),
       credentials: "same-origin",
       keepalive: true,
     }).catch(() => undefined);

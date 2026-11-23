@@ -31,6 +31,9 @@ const USE_LABELS: Record<string, string> = {
   "personaje-guardado": "Personajes guardados",
   "captura-leida": "Capturas leídas",
   "codigo-pob": "Códigos PoB2 leídos",
+  recomendaciones: "Recomendaciones del Mentor",
+  "calculo-pob": "Cálculos con PoB2",
+  "exportar-pob": "Exportados a PoB2",
 };
 
 const AREA_LABELS: Record<string, string> = {
@@ -225,6 +228,11 @@ export function StatsPage() {
             <Breakdown title="Qué abren (7 días)" rows={sumRecord(week, (day) => day.areas)} labels={AREA_LABELS} />
             <Breakdown title="Qué usan (7 días)" rows={sumRecord(week, (day) => day.uses)} labels={USE_LABELS} />
           </div>
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            Desde el 23-11-2026 también se cuentan las recomendaciones del Mentor y PoB2 en el navegador (códigos
+            leídos en guías y revisión, cálculos y exportados). Antes no se veían.
+          </p>
 
           <section className="mt-3 rounded-xl border border-border bg-card p-4" data-testid="estadisticas-avisos">
             <h2 className="text-sm font-semibold">

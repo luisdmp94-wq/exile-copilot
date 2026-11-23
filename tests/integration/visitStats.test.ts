@@ -71,6 +71,54 @@ describe("contador de visitas por la API", () => {
     expect(await usesNow()).toBe(before + 1);
   });
 
+  it("los usos de PoB2 en el navegador se apuntan por su baliza, con su origen", async () => {
+    const usesNow = async () =>
+      ((await (await fetch(`${base}/stats`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json()) as {
+        days: Array<{ uses: Record<string, number>; bySource: Record<string, { uses: Record<string, number> }> }>;
+      }).days[0];
+    for (const event of ["codigo-pob", "calculo-pob", "exportar-pob"]) {
+      expect((await post(base, "/visit/use", { event, source: "steam" })).status).toBe(204);
+    }
+    const today = await usesNow();
+    expect(today.uses).toMatchObject({ "codigo-pob": 1, "calculo-pob": 1, "exportar-pob": 1 });
+    expect(today.bySource.steam?.uses).toMatchObject({ "codigo-pob": 1, "calculo-pob": 1, "exportar-pob": 1 });
+
+    // Solo la lista cerrada del navegador: lo que cuenta el servidor no se puede inflar por aquí.
+    expect((await post(base, "/visit/use", { event: "mentor", source: "steam" })).status).toBe(400);
+    expect((await post(base, "/visit/use", { event: "codigo-pob", source: "steam", extra: 1 })).status).toBe(400);
+    // Un robot que se identifica como tal no suma.
+    const bot = await fetch(`${base}/visit/use`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 HeadlessChrome/131.0" },
+      body: JSON.stringify({ event: "codigo-pob", source: "directo" }),
+    });
+    expect(bot.status).toBe(204);
+    expect((await usesNow()).uses["codigo-pob"]).toBe(1);
+  });
+
+  it("«Generar recomendaciones» cuenta solo cuando sale bien", async () => {
+    // Sin personaje la petición falla y no suma.
+    expect((await post(base, "/recommendations", {})).status).toBeGreaterThanOrEqual(400);
+    const countNow = async () =>
+      ((await (await fetch(`${base}/stats`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json()) as {
+        days: Array<{ uses: Record<string, number> }>;
+      }).days[0].uses.recomendaciones ?? 0;
+    expect(await countNow()).toBe(0);
+
+    const { profile } = (await (await fetch(`${base}/character/demo`)).json()) as {
+      profile: { league: string; patch: string };
+    };
+    const ok = await post(base, "/recommendations", {
+      profile,
+      budget: { amount: 50, currency: "chaos" },
+      goal: { kind: "survival" },
+      league: profile.league,
+      patch: profile.patch,
+    });
+    expect(ok.status).toBe(200);
+    expect(await countNow()).toBe(1);
+  });
+
   it("rechaza visitas con datos que no son de la lista cerrada", async () => {
     expect((await post(base, "/visit", { page: "inicio", source: "foro-de-alguien", firstVisit: true, firstToday: true })).status).toBe(400);
     expect(

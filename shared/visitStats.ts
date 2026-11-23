@@ -103,8 +103,29 @@ export const USAGE_EVENTS = [
   "personaje-guardado",
   "captura-leida",
   "codigo-pob",
+  // Desde el 23-11-2026. «Generar recomendaciones» del mentor.
+  "recomendaciones",
+  // PoB2 dentro del navegador: no pasan por el servidor y los avisa la web.
+  "calculo-pob",
+  "exportar-pob",
 ] as const;
 export type UsageEvent = (typeof USAGE_EVENTS)[number];
+
+/**
+ * Usos que ocurren solo en el navegador (el código PoB2 se lee y se calcula
+ * allí, sin servidor), así que la web los avisa con una baliza. Lista cerrada:
+ * lo demás lo cuenta el servidor al responder bien.
+ */
+export const BROWSER_USAGE_EVENTS = ["codigo-pob", "calculo-pob", "exportar-pob"] as const;
+export type BrowserUsageEvent = (typeof BROWSER_USAGE_EVENTS)[number];
+
+export const UseBeaconSchema = z
+  .object({
+    event: z.enum(BROWSER_USAGE_EVENTS),
+    source: z.enum(VISIT_SOURCES),
+  })
+  .strict();
+export type UseBeacon = z.infer<typeof UseBeaconSchema>;
 
 /**
  * Cabecera con la que la web dice de dónde llegó esta visita, para sumar cada
