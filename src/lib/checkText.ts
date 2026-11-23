@@ -146,7 +146,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
     locale: "es-ES",
     noData: "sin dato",
     page: {
-      kicker: "Exile Mentor · Path of Exile 2",
+      kicker: "Exile Copilot · Path of Exile 2",
       title: "Chequeo de build",
       intro: "Dame los datos de tu personaje y te digo qué arreglar primero.",
       stageGroup: "¿Dónde está tu personaje?",
@@ -240,7 +240,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       copied: "Copiado. Ya puedes pegarlo en Discord o Reddit.",
       copyFailed: "No he podido copiarlo. Selecciona el resumen a mano:",
       stage: { campaign: "en la campaña", maps: "en mapas" },
-      footer: (siteUrl) => `Chequeo hecho con Exile Mentor: ${siteUrl}`,
+      footer: (siteUrl) => `Chequeo hecho con Exile Copilot: ${siteUrl}`,
     },
     history: {
       heading: "Tu progreso",
@@ -287,7 +287,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
     locale: "en-US",
     noData: "no data",
     page: {
-      kicker: "Exile Mentor · Path of Exile 2",
+      kicker: "Exile Copilot · Path of Exile 2",
       title: "Build check",
       intro: "Give me your character's numbers and I'll tell you what to fix first.",
       stageGroup: "Where is your character?",
@@ -379,7 +379,7 @@ export const CHECK_TEXT: Record<CheckLang, CheckText> = {
       copied: "Copied. You can paste it on Discord or Reddit.",
       copyFailed: "I couldn't copy it. Select the summary by hand:",
       stage: { campaign: "in the campaign", maps: "mapping" },
-      footer: (siteUrl) => `Checked with Exile Mentor: ${siteUrl}`,
+      footer: (siteUrl) => `Checked with Exile Copilot: ${siteUrl}`,
     },
     history: {
       heading: "Your progress",

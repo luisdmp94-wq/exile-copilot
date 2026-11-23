@@ -1,5 +1,5 @@
 /**
- * Prueba de navegador del chequeo de build (Exile Mentor) sobre la web pública.
+ * Prueba de navegador del chequeo de build (Exile Copilot) sobre la web pública.
  *
  * Uso:
  *   npm run test:check   → construye dist-check/ y ejecuta esta prueba
@@ -76,8 +76,8 @@ async function run(page, requests) {
 
   // 1. Portada
   await page.goto(`${BASE}/?lang=es`);
-  check("título con el nombre Exile Mentor", (await page.title()).includes("Exile Mentor"));
-  check("no aparece el nombre antiguo en la página", !(await page.locator("body").innerText()).includes("Copilot"));
+  check("título con el nombre Exile Copilot", (await page.title()).includes("Exile Copilot"));
+  check("no aparece el nombre antiguo en la página", !(await page.locator("body").innerText()).includes("Exile Mentor"));
   check(
     "empieza en «En la campaña»",
     (await page.getByRole("button", { name: "En la campaña" }).getAttribute("aria-pressed")) === "true",
@@ -123,9 +123,9 @@ async function run(page, requests) {
   const summary = await page.evaluate(() => navigator.clipboard.readText());
   check(
     "copiar resumen: personaje, prioridades y dirección de la web",
-    summary.startsWith("Exile Mentor · Ranger · Ritualist · nivel 90 · en la campaña") &&
+    summary.startsWith("Exile Copilot · Ranger · Ritualist · nivel 90 · en la campaña") &&
       summary.includes("1. [Urgente] Rellena los huecos de equipo vacíos") &&
-      summary.endsWith(`Chequeo hecho con Exile Mentor: ${BASE}`),
+      summary.endsWith(`Chequeo hecho con Exile Copilot: ${BASE}`),
   );
 
   // 4. Mapas y cambio de idioma sobre el mismo resultado

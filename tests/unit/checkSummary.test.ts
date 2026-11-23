@@ -7,7 +7,7 @@ const lowRes: BuildCheckInput = {
   resistances: { fire: 52, cold: 75, lightning: 61, chaos: -24 },
   equippedSlots: ALL_SLOTS.filter((slot) => slot !== "ring2"),
 };
-const siteUrl = "https://exile-mentor.pages.dev";
+const siteUrl = "https://exilecopilot.com";
 
 describe("resumen para compartir", () => {
   it("repite lo que muestra la página, con personaje, etapa y dirección", () => {
@@ -21,11 +21,11 @@ describe("resumen para compartir", () => {
       }),
     ).toBe(
       [
-        "Exile Mentor · Ranger · Ritualist · nivel 90 · en mapas",
+        "Exile Copilot · Ranger · Ritualist · nivel 90 · en mapas",
         "1. [Urgente] Sube tus resistencias elementales al 75% — Fuego 52% · te faltan 23 puntos; Rayo 61% · te faltan 14 puntos",
         "2. [Importante] Rellena el hueco de equipo vacío — Vacío: Anillo 2",
         "3. [Importante] Saca la resistencia al caos de negativo — Caos −24% · te faltan 24 puntos para llegar a 0%",
-        "Chequeo hecho con Exile Mentor: https://exile-mentor.pages.dev",
+        "Chequeo hecho con Exile Copilot: https://exilecopilot.com",
       ].join("\n"),
     );
   });
@@ -38,9 +38,9 @@ describe("resumen para compartir", () => {
       lang: "en",
       siteUrl,
     });
-    expect(summary.split("\n")[0]).toBe("Exile Mentor · in the campaign");
+    expect(summary.split("\n")[0]).toBe("Exile Copilot · in the campaign");
     expect(summary).toContain("[Minor] Keep raising your elemental resistances");
-    expect(summary.endsWith("Checked with Exile Mentor: https://exile-mentor.pages.dev")).toBe(true);
+    expect(summary.endsWith("Checked with Exile Copilot: https://exilecopilot.com")).toBe(true);
   });
 
   it("si no hay nada urgente lo dice tal cual", () => {

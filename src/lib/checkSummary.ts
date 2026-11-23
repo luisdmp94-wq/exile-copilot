@@ -15,7 +15,7 @@ export function checkSummaryText(options: {
   siteUrl: string;
 }): string {
   const text = CHECK_TEXT[options.lang];
-  const header = ["Exile Mentor", options.identity, text.summary.stage[options.stage]]
+  const header = ["Exile Copilot", options.identity, text.summary.stage[options.stage]]
     .filter((part): part is string => !!part)
     .join(" · ");
   const lines =
