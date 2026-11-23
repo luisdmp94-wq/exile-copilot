@@ -10,7 +10,8 @@
       .caja { margin: 0; background: rgba(10, 8, 6, 0.74); border: 1px solid rgba(239, 159, 39, 0.35); border-radius: 8px; padding: 9px 12px 8px; }
       body.moviendo .caja { border: 1px dashed #ef9f27; -webkit-app-region: drag; cursor: move; }
       .cabecera { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #b4b2a9; }
-      #zona { color: #fac775; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      #pos { white-space: nowrap; flex-shrink: 0; }
+      #zona { min-width: 0; color: #fac775; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
       .tag { margin-left: auto; flex-shrink: 0; font-size: 11px; padding: 0 6px; border-radius: 4px; }
       .tag.clave { background: #633806; color: #fac775; }
       .tag.recomendable { background: #085041; color: #9fe1cb; }
