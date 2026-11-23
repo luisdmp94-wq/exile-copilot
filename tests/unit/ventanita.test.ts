@@ -315,6 +315,16 @@ describe("ventanita: tu nivel contra el de la zona", () => {
 });
 
 describe("ventanita: estado guardado", () => {
+  it("si se cierra estando fuera de las guías, al volver sigue fuera", () => {
+    // «Pasaje oscuro» (Abyss_Intro) es de la liga: no es de ningún acto.
+    const away = play(["G4_town", "G4_5_1", "Abyss_Intro"]);
+    expect(viewOf(away, "completa").outside).toBe(true);
+    const reopened = sanitizeRun(JSON.parse(JSON.stringify(away)));
+    expect(viewOf(reopened, "completa")).toMatchObject({ outside: true, zone: "Prisión abandonada y Confinamiento solitario" });
+    // Y al entrar otra vez en una zona de la guía, vuelve a enseñarla.
+    expect(viewOf(play(["G4_town"], reopened), "completa").outside).toBe(false);
+  });
+
   it("una partida o unos ajustes raros no rompen nada", () => {
     expect(sanitizeRun(null)).toEqual(NEW_RUN);
     expect(sanitizeRun({ progress: { act: 1, index: 1 }, visited: ["G1_1", 3], checked: "x", charLevel: 900 })).toEqual({

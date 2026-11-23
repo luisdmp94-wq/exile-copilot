@@ -132,5 +132,6 @@ export function sanitize(value: unknown): Progress {
   const index = Number(candidate?.index);
   if (!Number.isInteger(act) || !Number.isInteger(index)) return START;
   if (index < 0 || index >= routeOf(act).length) return START;
-  return { act, index, outside: false };
+  // Si se cerró estando fuera de las guías (un pasaje de la liga, la guarida), sigue fuera al volver.
+  return { act, index, outside: candidate?.outside === true };
 }
