@@ -136,6 +136,41 @@ describe("las reglas que valoran cada línea", () => {
     expect(lineValue("8% increased maximum Life", witchBuild).defence).toBeGreaterThan(0.5);
   });
 
+  it("el «Por qué» no dice lo contrario de lo que hace el nodo", () => {
+    const warrior = buildProfile(context([skill("Boneshatter", true)], { weapons: ["mace"], usesArmour: true }));
+    // Líneas tal cual están en el árbol del juego.
+    // Romper la armadura del enemigo no es «más armadura».
+    for (const line of ["Break 40% increased Armour", "25% increased Armour Break Duration"]) {
+      const value = lineValue(line, warrior);
+      expect(value.reasons, line).not.toContain("armour");
+      expect(value.defence, line).toBe(0);
+    }
+    expect(lineValue("25% reduced Armour Break taken", warrior).defence).toBeGreaterThan(0);
+    expect(lineValue("20% increased Armour", warrior).reasons).toContain("armour");
+    // Umbral sacado del escudo de energía no es «más escudo de energía».
+    const hallowed = lineValue("Gain additional Ailment Threshold equal to 20% of maximum Energy Shield", witchBuild);
+    expect(hallowed.reasons).toEqual([]);
+    expect(hallowed.defence).toBeGreaterThan(0);
+    // Maldiciones sobre ti no son «tus maldiciones pegan más fuerte».
+    expect(lineValue("30% increased Damage per Curse on you", witchBuild)).toMatchObject({ offence: 0, reasons: [] });
+    expect(lineValue("30% reduced effect of Curses on you", witchBuild).reasons).not.toContain("curse");
+    expect(lineValue("30% reduced effect of Curses on you", witchBuild).defence).toBeGreaterThan(0);
+    // La exposición baja las resistencias del enemigo.
+    expect(lineValue("Exposure you inflict lowers Resistances by an additional 5%", witchBuild).reasons).not.toContain("resist");
+    // Lo que te quita no suma: resistencia negativa y perder vida.
+    for (const line of ["-7% to Chaos Resistance", "-10% to all Elemental Resistances", "Lose 3% of maximum Life and Energy Shield when you use a Chaos Skill"]) {
+      const value = lineValue(line, witchBuild);
+      expect(value.defence, line).toBeLessThanOrEqual(0);
+      expect(value.reasons, line).toEqual([]);
+    }
+    // La vida que explota es la del enemigo.
+    const explode = lineValue("Burning Enemies you kill have a 5% chance to Explode, dealing a tenth of their maximum Life as Fire Damage", witchBuild);
+    expect(explode.reasons).not.toContain("life");
+    // Y lo normal sigue igual.
+    expect(lineValue("+10% to Fire Resistance", witchBuild).reasons).toContain("resist");
+    expect(lineValue("8% increased maximum Life", witchBuild).reasons).toContain("life");
+  });
+
   it("un daño con el tiempo apenas gana con críticos", () => {
     const crit = lineValue("16% increased Critical Hit Chance for Spells", witchBuild).offence;
     const chaos = lineValue("12% increased Chaos Damage", witchBuild).offence;
