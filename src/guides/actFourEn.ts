@@ -102,7 +102,7 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
       text: "Three optional tests, each with a tattoo to choose. Take the resistance ones: +5% fire, +5% cold and +5% lightning. At the end, Yama the White hits with chaos.",
       optional: true,
       priority: "clave",
-      reward: "+5% to all three",
+      reward: "+5% to all 3 resistances",
       proof: { kind: "manual", question: "Did you pick the three resistance tattoos in the Halls of the Dead?" },
       sourceIds: ["wiki-salones", "wiki-resistencias", "maxroll-jefes"],
     },

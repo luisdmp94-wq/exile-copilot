@@ -77,7 +77,7 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
       zone: "Jiquani's Machinarium",
       text: "Blackjaw, the Remnant, is optional but gives +10% fire resistance for good.",
       priority: "clave",
-      reward: "+10% fire",
+      reward: "+10% fire resistance",
       proof: { kind: "resistance", element: "fire", amount: 10 },
       sourceIds: ["poe2db-acto3", "maxroll-subida"],
     },

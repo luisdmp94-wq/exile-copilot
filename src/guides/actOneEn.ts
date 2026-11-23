@@ -54,7 +54,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
       gems: ["Skill lvl 1: an abandoned stash, on the side opposite the Mud Burrow entrance"],
       text: "Find Beira of the Rotten Pack: +10% cold resistance for good.",
       priority: "clave",
-      reward: "+10% cold",
+      reward: "+10% cold resistance",
       proof: { kind: "resistance", element: "cold", amount: 10 },
       sourceIds: ["wiki-resistencias", "poe2db-acto1"],
     },
