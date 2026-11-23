@@ -178,6 +178,9 @@ describe("la build de PoB2 desde un código importado", () => {
     expect(built.notes.base).toBe("import");
     expect(built.notes.rebuilt).toEqual([]);
     expect(built.xml).toContain('level="45"');
+    // El nivel lo fija la web: PoB2 no debe recalcularlo por su cuenta a mitad de cuenta.
+    expect(built.xml).toMatch(/<Build\b[^>]*characterLevelAutoMode="false"/);
+    expect(built.xml).not.toContain('characterLevelAutoMode="true"');
     expect(built.xml).toContain('mainSocketGroup="2"');
     expect(built.xml).toContain('nodes="54447,62797,14033"');
     // Lo demás, intacto: configuración, objetos y estadísticas guardadas.

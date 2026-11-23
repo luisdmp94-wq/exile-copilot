@@ -639,8 +639,15 @@ function xmlFromImport(profile: CharacterProfile, data: PobBuildData, options: P
     notes.guessedGemLevels++;
     return setAttribute(next, "level", String(gem && !gem.support ? gemLevelFor(gem, level) : 1));
   });
+  // El nivel lo pone la web. Con el modo automático de PoB2 encendido (viene así
+  // en los códigos nuevos), el motor recalcula el nivel por los puntos gastados a
+  // mitad de cuenta: lo que da cada nodo salía medido con otro nivel que el resto.
   xml = xml.replace(/<Build\b[^>]*>/, (tag) =>
-    setAttribute(setAttribute(tag, "level", String(level)), "mainSocketGroup", String(mainGroup)),
+    setAttribute(
+      setAttribute(setAttribute(tag, "level", String(level)), "mainSocketGroup", String(mainGroup)),
+      "characterLevelAutoMode",
+      "false",
+    ),
   );
 
   // El árbol: el de la web (puede haberlo editado).
