@@ -25,12 +25,12 @@ import { DEFAULT_SETTINGS, SIZE_SCALE, sanitizeSettings, type Settings } from ".
  */
 
 const BASE_WIDTH = 340;
-const KEYS = {
-  prev: "PageUp",
-  next: "PageDown",
-  reward: "End",
-  summary: "Control+Alt+R",
-} as const;
+/** Solo para pruebas: cuatro teclas que nadie usa (F13…F16) en lugar de las del jugador. */
+const TEST_KEYS = (process.env.VENTANITA_TECLAS_PRUEBA ?? "").split(",").map((key) => key.trim()).filter(Boolean);
+const KEYS =
+  TEST_KEYS.length === 4
+    ? { prev: TEST_KEYS[0]!, next: TEST_KEYS[1]!, reward: TEST_KEYS[2]!, summary: TEST_KEYS[3]! }
+    : { prev: "PageUp", next: "PageDown", reward: "End", summary: "Control+Alt+R" };
 
 /**
  * Qué sabe sacar la ventanita del registro. Si sube, la partida guardada se
@@ -259,9 +259,39 @@ const isStarting = () => Date.now() - startedAt < STARTING_MS;
 const gameInFront = () => isGameExecutable(readForeground?.() ?? null, process.env.VENTANITA_JUEGO ?? null);
 
 /** Cada cuarto de segundo: visible solo con PoE2 delante (si el jugador lo quiere así). */
+/** Las teclas, cogidas o sueltas ahora mismo. */
+let shortcutsOn = false;
+
+/**
+ * Coge o suelta las teclas. Re Pág, Av Pág y Fin son teclas corrientes: la
+ * ventanita solo se las queda mientras se ve con el juego delante. Antes las
+ * tenía siempre, y dejaban de funcionar en el navegador o en otro juego.
+ */
+function setShortcuts(on: boolean): void {
+  // Una captura de prueba no coge teclas (se las quitaría a la ventanita del jugador), salvo las de prueba.
+  if ((CAPTURE && TEST_KEYS.length !== 4) || on === shortcutsOn) return;
+  shortcutsOn = on;
+  if (!on) {
+    globalShortcut.unregisterAll();
+    return;
+  }
+  const shortcuts: Array<[string, () => void]> = [
+    [KEYS.prev, () => update(onMove(saved.run, -1, saved.settings.route))],
+    [KEYS.next, () => update(onMove(saved.run, 1, saved.settings.route))],
+    [KEYS.reward, () => update(onToggleReward(saved.run))],
+    [KEYS.summary, toggleSummary],
+  ];
+  const taken = shortcuts.filter(([key, action]) => !globalShortcut.register(key, action)).map(([key]) => key);
+  const next = taken.length > 0 ? `Otro programa ya usa ${taken.join(", ")}: esa tecla no funcionará aquí.` : null;
+  if (next !== keyProblem) {
+    keyProblem = next;
+    render();
+  }
+}
+
 function syncVisibility(): void {
   if (!win || win.isDestroyed()) return;
-  const visible = shouldBeVisible({
+  const now = {
     userHidden,
     onlyWithGame: saved.settings.onlyWithGame,
     dragging: dragging !== null,
@@ -269,7 +299,10 @@ function syncVisibility(): void {
     foreground: readForeground ? readForeground() : undefined,
     ownExecutable: process.execPath,
     extraGame: process.env.VENTANITA_JUEGO ?? null,
-  });
+  };
+  const visible = shouldBeVisible(now);
+  // Los segundos de arranque se ve sobre lo que haya delante, pero sin teclas.
+  setShortcuts(shouldBeVisible({ ...now, starting: false, dragging: false }));
   if (visible && !win.isVisible()) {
     win.showInactive();
     win.setAlwaysOnTop(true, "screen-saver");
@@ -552,15 +585,7 @@ void takeOver().then((mine) => {
     tray.on("click", () => tray?.popUpContextMenu());
     buildTrayMenu();
 
-    const shortcuts: Array<[string, () => void]> = [
-      [KEYS.prev, () => update(onMove(saved.run, -1, saved.settings.route))],
-      [KEYS.next, () => update(onMove(saved.run, 1, saved.settings.route))],
-      [KEYS.reward, () => update(onToggleReward(saved.run))],
-      [KEYS.summary, toggleSummary],
-    ];
-    // Una captura de prueba no coge teclas: se las quitaría a la ventanita del jugador.
-    const taken = CAPTURE ? [] : shortcuts.filter(([key, action]) => !globalShortcut.register(key, action)).map(([key]) => key);
-    if (taken.length > 0) keyProblem = `Otro programa ya usa ${taken.join(", ")}: esa tecla no funcionará aquí.`;
+    // Las teclas no se cogen aquí: las coge y las suelta `syncVisibility`, según haya juego delante.
 
     const envLog = process.env.VENTANITA_CLIENT_TXT;
     const known = saved.logPath && existsSync(saved.logPath) ? saved.logPath : null;

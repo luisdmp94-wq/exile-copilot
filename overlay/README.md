@@ -62,8 +62,9 @@ la casilla y los ajustes cogen el ratón; el resto deja pasar los clics al juego
 con el juego. Se mira qué programa está delante preguntando a Windows, no al
 juego. Se puede quitar en los ajustes («Solo con PoE2 delante»).
 
-Mientras la ventanita está abierta, esas teclas son suyas también en otros
-programas (por ejemplo, Re Pág en el navegador).
+Las teclas solo son suyas mientras se ve con el juego delante. Al cambiar de
+ventana las suelta: Re Pág, Av Pág y Fin funcionan normal en el navegador o en
+otro juego aunque la ventanita siga abierta.
 
 **Icono ámbar de la bandeja** (abajo a la derecha; Windows 11 lo guarda tras
 la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar».
