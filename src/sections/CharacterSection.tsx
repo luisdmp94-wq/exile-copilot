@@ -1084,7 +1084,9 @@ function ProfileEditor({
                   onChange={(e) =>
                     onMutate((p) => ({
                       ...p,
+                      // Con ...p.passives: sin él se perdían las elecciones de atributo del árbol.
                       passives: {
+                        ...p.passives,
                         allocated: p.passives.allocated.map((n, i) =>
                           i === index ? { ...n, ref: e.target.value } : n,
                         ),
@@ -1118,6 +1120,7 @@ function ProfileEditor({
                     onMutate((p) => ({
                       ...p,
                       passives: {
+                        ...p.passives,
                         allocated: p.passives.allocated.filter((_, i) => i !== index),
                       },
                     }))
@@ -1138,6 +1141,7 @@ function ProfileEditor({
               onMutate((p) => ({
                 ...p,
                 passives: {
+                  ...p.passives,
                   allocated: [
                     ...p.passives.allocated,
                     { ref: "", isOfficialId: false },
