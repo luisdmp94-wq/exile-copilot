@@ -53,7 +53,7 @@ export const REWARD_RULES: Record<number, Record<string, RewardRule>> = {
   4: {
     "El final del viaje": { kinds: ["puntos"], where: ["G4_town"] },
     // La lección de Kaom o la de Rakiata, con Kaimana.
-    "Isla Whakapanu": { anyIn: ["G4_town", "G4_3_1", "G4_11_1a", "G4_11_1b"] },
+    "Isla Whakapanu": { anyIn: ["G4_town", "G4_3_1", "G4_11_1a"] },
     "El ojo de Hinekora": { kinds: ["mana"] },
     // Tres tatuajes a elegir: lo normal son las tres resistencias.
     "Salones de los muertos": { kinds: ["hielo", "fuego", "rayo"], anyIn: ["G4_4_2"] },

@@ -70,7 +70,9 @@ export const ZONE_CODES: Record<number, Record<string, string[]>> = {
     "El final del viaje": ["G4_2_2"],
     "Prisión abandonada y Confinamiento solitario": ["G4_5_1", "G4_5_2"],
     "Isla Whakapanu y Cavernas melodiosas": ["G4_3_1", "G4_3_2"],
-    "Isla Whakapanu": ["G4_3_1"],
+    // La aleta del gran blanco se entrega a Kaimana en Ngakanu, en su versión
+    // en paz (G4_11_1a): se visita antes de que la historia te lleve allí.
+    "Isla Whakapanu": ["G4_3_1", "G4_11_1a"],
     "El ojo de Hinekora": ["G4_4_1"],
     "Salones de los muertos": ["G4_4_2"],
     "La prueba de los ancestros": ["G4_4_3"],
@@ -78,6 +80,7 @@ export const ZONE_CODES: Record<number, Record<string, string[]>> = {
     "Punta del botín": ["G4_13"],
     Arastas: ["G4_8a", "G4_8b"],
     "La excavación": ["G4_10"],
-    "Ngakanu y El corazón de la tribu": ["G4_11_1a", "G4_11_1b", "G4_11_2"],
+    // Ngakanu atacada (G4_11_1b), tras La excavación; la versión en paz es del paso de la aleta.
+    "Ngakanu y El corazón de la tribu": ["G4_11_1b", "G4_11_2"],
   },
 };

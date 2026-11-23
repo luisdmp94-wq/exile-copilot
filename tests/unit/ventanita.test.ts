@@ -132,6 +132,17 @@ describe("ventanita: tabla de zonas", () => {
 describe("ventanita: qué paso enseñar", () => {
   const walk = (codes: string[], from: Progress = START) => codes.reduce(enterZone, from);
 
+  it("Ngakanu en paz es el paso de la aleta (Kaimana), no el jefe final", () => {
+    const zoneOf = (progress: Progress) => routeOf(progress.act)[progress.index]!.zone;
+    // Con la aleta del gran blanco vas a Ngakanu antes de que la historia te lleve.
+    expect(zoneOf(walk(["G4_town", "G4_3_1", "G4_3_2", "G4_town", "G4_11_1a"]))).toBe("Isla Whakapanu");
+    // También si ya ibas más adelante por otras islas.
+    expect(zoneOf(walk(["G4_town", "G4_4_2", "G4_town", "G4_11_1a"]))).toBe("Isla Whakapanu");
+    // Ngakanu atacada, tras La excavación, sí es el final.
+    expect(zoneOf(walk(["G4_town", "G4_10", "G4_11_1b"]))).toBe("Ngakanu y El corazón de la tribu");
+    expect(zoneOf(walk(["G4_town", "G4_10", "G4_11_1b", "G4_11_2"]))).toBe("Ngakanu y El corazón de la tribu");
+  });
+
   it("sigue el acto 1 zona a zona y el pueblo no mueve la guía", () => {
     let progress = walk(["G1_1", "G1_town", "G1_2"]);
     expect(routeOf(1)[progress.index]!.zone).toBe("Sierraclara");
