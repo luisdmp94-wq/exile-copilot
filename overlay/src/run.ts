@@ -172,9 +172,12 @@ export interface StepView {
   /** Fuera de la ruta rápida (estás en una zona que esa ruta no hace). */
   offRoute: boolean;
   reward: { text: string; checked: boolean } | null;
-  /** Solo en la ruta rápida: el jefe que no da nada para siempre. */
-  skipHint: string | null;
-  next: { zone: string; text: string } | null;
+  /** Gemas sin tallar que la zona da siempre, una frase por gema. */
+  gems: string[];
+  /** Jefe u objetivo opcional de la zona: no da nada para siempre. */
+  skip: string | null;
+  /** El paso siguiente: la zona y, si la tiene, su recompensa para siempre. */
+  next: { zone: string; reward: string | null } | null;
   outside: boolean;
   areaLevel: number | null;
   charLevel: number | null;
@@ -217,8 +220,9 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     optional: step.optional === true,
     offRoute: mode === "rapida" && skippedInFastRoute(step),
     reward: step.reward ? { text: step.reward, checked: run.checked.includes(stepKey(progress.act, progress.index)) } : null,
-    skipHint: mode === "rapida" ? (step.skip ?? null) : null,
-    next: nextStep ? { zone: nextStep.zone, text: nextStep.text } : null,
+    gems: step.gems ?? [],
+    skip: step.skip ?? null,
+    next: nextStep ? { zone: nextStep.zone, reward: nextStep.reward ?? null } : null,
     outside: progress.outside,
     areaLevel: run.areaLevel,
     charLevel: run.charLevel,

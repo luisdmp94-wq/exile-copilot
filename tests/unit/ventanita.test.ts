@@ -30,6 +30,7 @@ import {
   type Run,
 } from "../../overlay/src/run";
 import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../overlay/src/foreground";
+import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { ZONE_CODES } from "../../overlay/src/zones";
 
@@ -192,10 +193,17 @@ describe("ventanita: ruta rápida", () => {
     expect(view.next?.zone).toBe("El bosque singular");
   });
 
-  it("en la rápida dice qué jefe sin premio puedes saltarte", () => {
-    const grelwood = play(["G1_1", "G1_2", "G1_4"]);
-    expect(viewOf(grelwood, "rapida").skipHint).toBe("el Horror de espinas");
-    expect(viewOf(grelwood, "completa").skipHint).toBeNull();
+  it("dice qué jefe opcional tiene la zona y qué gemas fijas da", () => {
+    const grelwood = viewOf(play(["G1_1", "G1_2", "G1_4"]), "completa");
+    expect(grelwood.skip).toBe("el Horror de espinas");
+    expect(grelwood.gems).toEqual(routeOf(1)[3]!.gems);
+    const redVale = viewOf(play(["G1_1", "G1_2", "G1_4", "G1_5"]), "completa");
+    expect(redVale).toMatchObject({ skip: null, gems: [] });
+  });
+
+  it("«Luego» dice la zona siguiente y su recompensa para siempre, si la tiene", () => {
+    expect(viewOf(play(["G1_1"]), "completa").next).toEqual({ zone: "Sierraclara", reward: "+10 % de hielo" });
+    expect(viewOf(play(["G1_1", "G1_2"]), "completa").next).toEqual({ zone: "Lodazal", reward: null });
   });
 });
 
@@ -340,5 +348,28 @@ describe("ventanita: solo con PoE2 delante", () => {
     expect(DEFAULT_SETTINGS.onlyWithGame).toBe(true);
     expect(sanitizeSettings({ onlyWithGame: false }).onlyWithGame).toBe(false);
     expect(sanitizeSettings({}).onlyWithGame).toBe(true);
+  });
+});
+
+describe("ventanita: siempre dentro de la pantalla", () => {
+  const screen = { x: 0, y: 0, width: 1536, height: 960 };
+  const box = { width: 340, height: 120 };
+
+  it("dentro de la pantalla se queda donde la dejaste", () => {
+    expect(keepInside({ x: 1100, y: 260, ...box }, screen)).toEqual({ x: 1100, y: 260 });
+  });
+
+  it("si se sale por un borde, vuelve entera", () => {
+    expect(keepInside({ x: 1400, y: 900, ...box }, screen)).toEqual({ x: 1196, y: 840 });
+    expect(keepInside({ x: -80, y: -15, ...box }, screen)).toEqual({ x: 0, y: 0 });
+  });
+
+  it("en una segunda pantalla a la izquierda respeta sus bordes", () => {
+    const left = { x: -1920, y: 0, width: 1920, height: 1080 };
+    expect(keepInside({ x: -2000, y: 1000, ...box }, left)).toEqual({ x: -1920, y: 960 });
+  });
+
+  it("si no cabe, manda la esquina del asa", () => {
+    expect(keepInside({ x: 50, y: 50, width: 400, height: 300 }, { x: 0, y: 0, width: 300, height: 200 })).toEqual({ x: 0, y: 0 });
   });
 });

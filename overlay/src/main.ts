@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { BrowserWindow, Menu, Tray, app, dialog, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { ClientLogTail, findClientLog, type LogEvent } from "./clientLog";
 import { createForegroundReader, isGameExecutable, shouldBeVisible } from "./foreground";
+import { keepInside } from "./place";
 import {
   NEW_RUN,
   onArea,
@@ -64,9 +65,16 @@ let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let tail: ClientLogTail | null = null;
 let currentLog: string | null = null;
-let showSummary = false;
+/** El panel abierto bajo el paso: las recompensas del acto o los ajustes. Solo uno a la vez. */
+let panel: "resumen" | "ajustes" | null = null;
 /** Arrastre por el asa: el proceso principal sigue al ratón hasta soltar. */
 let dragging: { timer: NodeJS.Timeout } | null = null;
+/** Dónde quiere el jugador la ventanita (esquina de arriba a la izquierda). */
+let place = { x: 0, y: 0 };
+/** Lo que mide el contenido, en píxeles de la página (sin el tamaño elegido). */
+let contentHeight = 110;
+/** Capturas de prueba: se pinta fuera de la pantalla y no coge las teclas del jugador. */
+const CAPTURE = process.env.VENTANITA_CAPTURA;
 let userHidden = false;
 const startedAt = Date.now();
 /** Los primeros segundos se ve siempre, para que el jugador sepa que arrancó. */
@@ -93,15 +101,40 @@ function persist(): void {
 
 const scale = () => SIZE_SCALE[saved.settings.size];
 
+const boxSize = () => ({
+  width: Math.round(BASE_WIDTH * scale()),
+  height: Math.min(600, Math.max(24, Math.ceil(contentHeight * scale()))),
+});
+
+/** Donde se pinta de verdad: el sitio elegido, pero siempre entera dentro de la pantalla. */
+function shownPlace(): { x: number; y: number } {
+  if (CAPTURE) return place;
+  const size = boxSize();
+  const center = { x: Math.round(place.x + size.width / 2), y: Math.round(place.y + size.height / 2) };
+  // La pantalla entera, no el «área de trabajo»: PoE2 sin bordes tapa la barra de tareas.
+  return keepInside({ ...place, ...size }, screen.getDisplayNearestPoint(center).bounds);
+}
+
+/**
+ * Coloca la ventana. Siempre con ancho y alto: con la pantalla al 125 %,
+ * mover solo la posición (setPosition) la hace crecer un píxel cada vez.
+ */
+function applyBounds(): void {
+  if (!win || win.isDestroyed()) return;
+  win.setBounds({ ...shownPlace(), ...boxSize() });
+}
+
 function render(): void {
   if (!win) return;
   win.webContents.setZoomFactor(scale());
+  applyBounds();
   win.webContents.send("estado", {
     view: viewOf(saved.run, saved.settings.route),
     settings: saved.settings,
-    showSummary,
+    showSummary: panel === "resumen",
+    showSettings: panel === "ajustes",
     problem: problem ?? keyProblem,
-    waitingForGame: saved.settings.onlyWithGame && readForeground !== null && isStarting() && !gameInFront(),
+    waitingForGame: !CAPTURE && saved.settings.onlyWithGame && readForeground !== null && isStarting() && !gameInFront(),
   });
 }
 
@@ -188,21 +221,25 @@ function syncVisibility(): void {
   }
 }
 
+function savePlace(): void {
+  saved = { ...saved, x: place.x, y: place.y };
+  persist();
+}
+
 function endDrag(): void {
   if (!dragging || !win) return;
   clearInterval(dragging.timer);
   dragging = null;
-  const [x, y] = win.getPosition();
-  saved = { ...saved, x: x!, y: y! };
-  persist();
+  // Se guarda donde quedó a la vista, no donde apuntaba el ratón fuera de la pantalla.
+  place = shownPlace();
+  savePlace();
   win.setIgnoreMouseEvents(true, PASS_THROUGH);
 }
 
 function resetPosition(): void {
-  const position = defaultPosition();
-  win?.setPosition(position.x, position.y);
-  saved = { ...saved, x: position.x, y: position.y };
-  persist();
+  place = defaultPosition();
+  applyBounds();
+  savePlace();
 }
 
 function setUserHidden(hidden: boolean): void {
@@ -211,12 +248,14 @@ function setUserHidden(hidden: boolean): void {
   buildTrayMenu();
 }
 
-function toggleSummary(): void {
-  showSummary = !showSummary;
-  if (showSummary) saved = { ...saved, run: onDismissNotice(saved.run) };
+function togglePanel(which: "resumen" | "ajustes"): void {
+  panel = panel === which ? null : which;
+  if (panel === "resumen") saved = { ...saved, run: onDismissNotice(saved.run) };
   render();
   buildTrayMenu();
 }
+
+const toggleSummary = () => togglePanel("resumen");
 
 /** Un círculo ámbar de 16 px para la bandeja, sin archivos de imagen. */
 function trayIcon(): Electron.NativeImage {
@@ -241,7 +280,7 @@ function buildTrayMenu(): void {
       { label: "Ruta completa", type: "radio", checked: s.route === "completa", click: () => updateSettings({ route: "completa" }) },
       { label: "Ruta rápida (sin lo que no da nada para siempre)", type: "radio", checked: s.route === "rapida", click: () => updateSettings({ route: "rapida" }) },
       { type: "separator" },
-      { label: showSummary ? "Cerrar recompensas del acto (Ctrl+Alt+R)" : "Ver recompensas del acto (Ctrl+Alt+R)", click: toggleSummary },
+      { label: panel === "resumen" ? "Cerrar recompensas del acto (Ctrl+Alt+R)" : "Ver recompensas del acto (Ctrl+Alt+R)", click: toggleSummary },
       {
         label: "Mostrar solo con PoE2 delante",
         type: "checkbox",
@@ -278,15 +317,14 @@ function buildTrayMenu(): void {
 
 async function createWindow(): Promise<void> {
   // En las capturas de prueba se pinta fuera de la pantalla, para no salir encima del juego.
-  const position = process.env.VENTANITA_CAPTURA
+  place = CAPTURE
     ? { x: -4000, y: -4000 }
     : saved.x !== undefined && saved.y !== undefined
       ? { x: saved.x, y: saved.y }
       : defaultPosition();
   win = new BrowserWindow({
-    ...position,
-    width: Math.round(BASE_WIDTH * scale()),
-    height: 110,
+    ...shownPlace(),
+    ...boxSize(),
     transparent: true,
     frame: false,
     resizable: false,
@@ -311,7 +349,7 @@ async function createWindow(): Promise<void> {
   render();
 }
 
-// El ratón entra o sale del asa: solo ahí la ventanita deja de ser transparente a los clics.
+// El ratón entra o sale del asa, del engranaje o de los ajustes: solo ahí la ventanita coge los clics.
 ipcMain.on("asa", (_event, over: unknown) => {
   if (!win || dragging) return;
   win.setIgnoreMouseEvents(over !== true, PASS_THROUGH);
@@ -321,16 +359,20 @@ ipcMain.on("asa", (_event, over: unknown) => {
 ipcMain.on("arrastre", (_event, phase: unknown) => {
   if (!win) return;
   if (phase === "inicio" && !dragging) {
-    const cursor = screen.getCursorScreenPoint();
-    const [x, y] = win.getPosition();
-    const offset = { x: cursor.x - x!, y: cursor.y - y! };
+    let last = screen.getCursorScreenPoint();
+    const shown = shownPlace();
+    const offset = { x: last.x - shown.x, y: last.y - shown.y };
     const started = Date.now();
     const timer = setInterval(() => {
       const point = screen.getCursorScreenPoint();
-      win?.setPosition(point.x - offset.x, point.y - offset.y);
+      if (point.x !== last.x || point.y !== last.y) {
+        last = point;
+        place = { x: point.x - offset.x, y: point.y - offset.y };
+        applyBounds();
+      }
       // Por si nunca llega el «soltar»: como mucho un minuto.
       if (Date.now() - started > 60_000) endDrag();
-    }, 16);
+    }, 8);
     dragging = { timer };
   } else if (phase === "fin") {
     endDrag();
@@ -339,17 +381,62 @@ ipcMain.on("arrastre", (_event, phase: unknown) => {
 
 ipcMain.on("altura", (_event, height: unknown) => {
   if (!win || typeof height !== "number" || !Number.isFinite(height)) return;
-  const [x, y] = win.getPosition();
-  win.setBounds({
-    x: x!,
-    y: y!,
-    width: Math.round(BASE_WIDTH * scale()),
-    height: Math.min(600, Math.max(24, Math.ceil(height * scale()))),
-  });
+  contentHeight = height;
+  applyBounds();
 });
 
-/** Solo para pruebas: acciones de teclado simuladas antes de una captura. */
-function runTestActions(list: string): void {
+// Los botones de la propia ventanita (engranaje, ajustes, casilla). Solo estas órdenes, nada más.
+ipcMain.on("accion", (_event, name: unknown, value: unknown) => {
+  const s = saved.settings;
+  switch (name) {
+    case "ajustes":
+      return togglePanel("ajustes");
+    case "resumen":
+      return togglePanel("resumen");
+    case "recompensa":
+      return update(onToggleReward(saved.run));
+    case "ruta":
+      return updateSettings(sanitizeSettings({ ...s, route: value }));
+    case "tamano":
+      return updateSettings(sanitizeSettings({ ...s, size: value }));
+    case "fondo":
+      return updateSettings(sanitizeSettings({ ...s, opacity: value }));
+    case "compacta":
+      return updateSettings({ compact: !s.compact });
+    case "solo-juego":
+      return updateSettings({ onlyWithGame: !s.onlyWithGame });
+    case "sitio":
+      return resetPosition();
+    case "cero":
+      return update(NEW_RUN);
+    case "registro":
+      return void chooseLog();
+    case "salir":
+      return app.quit();
+    default:
+      return undefined;
+  }
+});
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Solo para pruebas: ratón simulado dentro de la página (no mueve el ratón de
+ * verdad), para comprobar los botones y el asa sin tener la ventanita en pantalla.
+ */
+async function mouseForTest(selector: string, steps: Array<"mouseDown" | "mouseUp">): Promise<void> {
+  if (!win) return;
+  const point = (await win.webContents.executeJavaScript(
+    `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`,
+  )) as { x: number; y: number };
+  const at = { x: Math.round(point.x * scale()), y: Math.round(point.y * scale()) };
+  win.webContents.sendInputEvent({ type: "mouseMove", ...at });
+  for (const type of steps) win.webContents.sendInputEvent({ type, ...at, button: "left", clickCount: 1 });
+  await pause(250);
+}
+
+/** Solo para pruebas: acciones simuladas antes de una captura. */
+async function runTestActions(list: string): Promise<void> {
   for (const action of list.split(",").map((item) => item.trim())) {
     if (action === "siguiente") update(onMove(saved.run, 1, saved.settings.route));
     if (action === "anterior") update(onMove(saved.run, -1, saved.settings.route));
@@ -358,6 +445,10 @@ function runTestActions(list: string): void {
     if (action === "rapida") updateSettings({ route: "rapida" });
     if (action === "compacta") updateSettings({ compact: true });
     if (action === "grande") updateSettings({ size: "grande" });
+    if (action.startsWith("clic:")) await mouseForTest(action.slice(5), ["mouseDown", "mouseUp"]);
+    if (action.startsWith("pulsa:")) await mouseForTest(action.slice(6), ["mouseDown"]);
+    if (action.startsWith("suelta:")) await mouseForTest(action.slice(7), ["mouseUp"]);
+    if (action === "espera") await pause(1000);
   }
 }
 
@@ -372,6 +463,8 @@ if (!app.requestSingleInstanceLock()) {
     await createWindow();
     tray = new Tray(trayIcon());
     tray.setToolTip("Exile Copilot · ventanita guía");
+    // El clic izquierdo abre el mismo menú: en Windows solo salía con el derecho.
+    tray.on("click", () => tray?.popUpContextMenu());
     buildTrayMenu();
 
     const shortcuts: Array<[string, () => void]> = [
@@ -380,7 +473,8 @@ if (!app.requestSingleInstanceLock()) {
       [KEYS.reward, () => update(onToggleReward(saved.run))],
       [KEYS.summary, toggleSummary],
     ];
-    const taken = shortcuts.filter(([key, action]) => !globalShortcut.register(key, action)).map(([key]) => key);
+    // Una captura de prueba no coge teclas: se las quitaría a la ventanita del jugador.
+    const taken = CAPTURE ? [] : shortcuts.filter(([key, action]) => !globalShortcut.register(key, action)).map(([key]) => key);
     if (taken.length > 0) keyProblem = `Otro programa ya usa ${taken.join(", ")}: esa tecla no funcionará aquí.`;
 
     const envLog = process.env.VENTANITA_CLIENT_TXT;
@@ -399,15 +493,27 @@ if (!app.requestSingleInstanceLock()) {
     // Al terminar el arranque, el aviso «saldrá con PoE2 delante» se va.
     setTimeout(render, STARTING_MS + 100);
 
-    if (process.env.VENTANITA_ACCIONES) runTestActions(process.env.VENTANITA_ACCIONES);
-    const capture = process.env.VENTANITA_CAPTURA;
+    if (process.env.VENTANITA_ACCIONES) void runTestActions(process.env.VENTANITA_ACCIONES);
+    const capture = CAPTURE;
     if (capture) {
       setTimeout(async () => {
         const image = await win!.webContents.capturePage();
         writeFileSync(capture, image.toPNG());
+        // Junto a la imagen, dónde está y cuánto mide la ventana de verdad.
+        writeFileSync(`${capture}.json`, JSON.stringify({ bounds: win!.getBounds(), place, dragging: dragging !== null }));
         app.quit();
       }, Number(process.env.VENTANITA_CAPTURA_MS ?? 2500));
     }
+  });
+
+  // Abrirla otra vez (el acceso directo) la reinicia con lo último compilado,
+  // en vez de no hacer nada porque ya había una abierta.
+  app.on("second-instance", () => {
+    globalShortcut.unregisterAll();
+    tail?.stop();
+    persist();
+    app.relaunch();
+    app.exit(0);
   });
 
   app.on("will-quit", () => {
