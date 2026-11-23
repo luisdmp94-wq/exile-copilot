@@ -490,9 +490,35 @@ async function runTestActions(list: string): Promise<void> {
 // Para pruebas: guardar el estado en otra carpeta y no pisar el del jugador.
 if (process.env.VENTANITA_DATOS) app.setPath("userData", process.env.VENTANITA_DATOS);
 
-if (!app.requestSingleInstanceLock()) {
-  app.quit();
-} else {
+/**
+ * Solo una ventanita a la vez. Si ya hay una abierta, se le pide que se cierre
+ * y se espera a que suelte el sitio: así, abrirla otra vez (el acceso directo)
+ * deja siempre la última versión compilada. La vieja se cierra sola; aquí no
+ * se relanza nada.
+ */
+async function takeOver(): Promise<boolean> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (app.requestSingleInstanceLock()) return true;
+    await pause(300);
+  }
+  return false;
+}
+let leaving = false;
+
+void takeOver().then((mine) => {
+  if (!mine) {
+    app.quit();
+    return;
+  }
+
+  // Otra ventanita quiere abrirse: esta guarda y se cierra. Con un respiro,
+  // para que la otra reciba la respuesta antes de que esta desaparezca.
+  app.on("second-instance", () => {
+    if (leaving) return;
+    leaving = true;
+    setTimeout(() => app.quit(), 50);
+  });
+
   void app.whenReady().then(async () => {
     saved = loadSaved();
     await createWindow();
@@ -542,19 +568,9 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
-  // Abrirla otra vez (el acceso directo) la reinicia con lo último compilado,
-  // en vez de no hacer nada porque ya había una abierta.
-  app.on("second-instance", () => {
-    globalShortcut.unregisterAll();
-    tail?.stop();
-    persist();
-    app.relaunch();
-    app.exit(0);
-  });
-
   app.on("will-quit", () => {
     globalShortcut.unregisterAll();
     tail?.stop();
     persist();
   });
-}
+});
