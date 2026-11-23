@@ -71,7 +71,6 @@ export const ACT_THREE_GUIDE: ActGuide = {
     {
       zone: "Ruinas de la jungla",
       text: "Puñoplateado poderoso, entre las ruinas de piedra: 2 puntos de pasiva de set de arma.",
-      optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
       proof: { kind: "weaponSetPoints", amount: 2 },
@@ -95,7 +94,6 @@ export const ACT_THREE_GUIDE: ActGuide = {
     {
       zone: "Taller de máquinas de Jiquani",
       text: "Quijada negra, el Remanente, es opcional pero da +10 % de resistencia al fuego para siempre.",
-      optional: true,
       priority: "clave",
       reward: "+10 % de fuego",
       proof: { kind: "resistance", element: "fire", amount: 10 },
@@ -168,7 +166,6 @@ export const ACT_THREE_GUIDE: ActGuide = {
     {
       zone: "Aggorat (pasado)",
       text: "Mata vaal hasta que caiga el Corazón sacrificial y úsalo en el altar: 2 puntos de pasiva de set de arma.",
-      optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
       proof: { kind: "weaponSetPoints", amount: 2 },

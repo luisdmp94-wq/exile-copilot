@@ -94,7 +94,6 @@ export const ACT_TWO_GUIDE: ActGuide = {
     {
       zone: "Keth",
       text: "Kabala, Reina constrictora, suelta un libro con 2 puntos de pasiva de set de arma. Llévate también la reliquia de su clan.",
-      optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
       proof: { kind: "weaponSetPoints", amount: 2 },
@@ -117,7 +116,6 @@ export const ACT_TWO_GUIDE: ActGuide = {
     {
       zone: "Valle de los titanes",
       text: "Promesas antiguas: pon las dos reliquias en el medallón y ganas un espacio más para viales.",
-      optional: true,
       priority: "clave",
       reward: "+1 espacio para viales",
       proof: { kind: "manual", question: "¿Pusiste las dos reliquias en el medallón del Valle de los titanes?" },
@@ -133,7 +131,6 @@ export const ACT_TWO_GUIDE: ActGuide = {
     {
       zone: "Deshar",
       text: "El rhoa abandonado: busca la Última carta y llévasela a Shambrin. Da otro libro con 2 puntos.",
-      optional: true,
       priority: "clave",
       reward: "2 puntos de pasiva",
       proof: { kind: "weaponSetPoints", amount: 2 },

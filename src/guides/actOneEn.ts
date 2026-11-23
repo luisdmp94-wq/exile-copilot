@@ -97,7 +97,6 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     {
       zone: "Hunting Grounds",
       text: "The Crowbell gives a book with 2 weapon set passive points.",
-      optional: true,
       priority: "clave",
       reward: "2 passive points",
       proof: { kind: "weaponSetPoints", amount: 2 },
@@ -116,7 +115,6 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
     {
       zone: "Ogham Farmlands",
       text: "Quest “The Lost Lute”: it's at Una's Hut. Gives another book with 2 points.",
-      optional: true,
       priority: "clave",
       reward: "2 passive points",
       proof: { kind: "weaponSetPoints", amount: 2 },

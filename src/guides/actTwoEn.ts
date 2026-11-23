@@ -80,7 +80,6 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
     {
       zone: "Keth",
       text: "Kabala, Constrictor Queen, drops a book with 2 weapon set passive points. Take her clan's relic too.",
-      optional: true,
       priority: "clave",
       reward: "2 passive points",
       proof: { kind: "weaponSetPoints", amount: 2 },
@@ -103,7 +102,6 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
     {
       zone: "Valley of the Titans",
       text: "Ancient Vows: put both relics in the medallion and you get one more charm slot.",
-      optional: true,
       priority: "clave",
       reward: "+1 charm slot",
       proof: { kind: "manual", question: "Did you put both relics in the medallion in the Valley of the Titans?" },
@@ -119,7 +117,6 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
     {
       zone: "Deshar",
       text: "The Abandoned Rhoa: find the Final Letter and bring it to Shambrin. Gives another book with 2 points.",
-      optional: true,
       priority: "clave",
       reward: "2 passive points",
       proof: { kind: "weaponSetPoints", amount: 2 },
