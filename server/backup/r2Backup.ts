@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -125,6 +125,9 @@ async function send(
  * conexión: no toca la que usa la web.
  */
 export function snapshotDatabase(databasePath: string): { gzip: Buffer; databaseBytes: number } {
+  // Abrir una ruta que no existe crea una base vacía, que pasa integrity_check
+  // y se subiría como si fuera una copia buena.
+  if (!existsSync(databasePath)) throw new Error(`No existe la base de datos en ${databasePath}: no hay nada que copiar.`);
   const dir = mkdtempSync(join(tmpdir(), "exile-copilot-backup-"));
   const target = join(dir, "copia.db");
   try {
@@ -222,13 +225,32 @@ export function msUntilNextRun(now: Date, hourUtc: number): number {
   return next.getTime() - now.getTime();
 }
 
+/** Margen por si el reloj de R2 y el del servidor no van al segundo. */
+const CATCH_UP_TOLERANCE_MS = 5 * 60_000;
+
+/**
+ * ¿Falta la copia de la última hora programada? Se compara con esa hora, no
+ * con «hace 25 horas»: si el servicio se reinicia justo a la hora de la copia
+ * (un despliegue a las 3:00), la de ayer tiene 24 horas y con el umbral de 25
+ * se daba por reciente; el día se quedaba sin copia.
+ */
+export function needsCatchUp(newestLastModified: string | undefined, now: Date, hourUtc: number): boolean {
+  if (newestLastModified === undefined) return true;
+  const newest = Date.parse(newestLastModified);
+  if (Number.isNaN(newest)) return true;
+  const lastDue = new Date(now);
+  lastDue.setUTCHours(hourUtc, 0, 0, 0);
+  if (lastDue.getTime() > now.getTime()) lastDue.setUTCDate(lastDue.getUTCDate() - 1);
+  return newest < lastDue.getTime() - CATCH_UP_TOLERANCE_MS;
+}
+
 export interface NightlyBackupHandle {
   stop(): void;
 }
 
 /**
- * Programa la copia diaria. Además, poco después de arrancar mira si la
- * última copia tiene más de 25 horas (un reinicio justo a la hora de la copia
+ * Programa la copia diaria. Además, poco después de arrancar mira si falta la
+ * copia de la última hora programada (un reinicio justo a la hora de la copia
  * no debe saltarse un día) y, si es así, hace una enseguida.
  */
 export function startNightlyR2Backup(
@@ -271,8 +293,7 @@ export function startNightlyR2Backup(
     void (async () => {
       try {
         const newest = (await listR2Backups(config))[0];
-        const age = newest ? Date.now() - Date.parse(newest.lastModified) : Number.POSITIVE_INFINITY;
-        if (!(age < 25 * 3_600_000)) await run("copia de recuperación al arrancar");
+        if (needsCatchUp(newest?.lastModified, new Date(), config.hourUtc)) await run("copia de recuperación al arrancar");
       } catch (error) {
         log.warn(
           `[copia] no se pudo mirar la última copia: ${error instanceof Error ? error.message : String(error)}`,

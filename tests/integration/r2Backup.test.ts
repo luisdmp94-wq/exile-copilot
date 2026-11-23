@@ -11,7 +11,9 @@ import {
   loadR2BackupConfig,
   missingR2BackupVariables,
   msUntilNextRun,
+  needsCatchUp,
   runR2Backup,
+  snapshotDatabase,
   startNightlyR2Backup,
   type R2BackupConfig,
 } from "../../server/backup/r2Backup.js";
@@ -194,5 +196,25 @@ describe("copia nocturna de SQLite a Cloudflare R2", () => {
   it("calcula la espera hasta la próxima hora UTC", () => {
     expect(msUntilNextRun(new Date("2026-11-23T02:30:00Z"), 3)).toBe(30 * 60_000);
     expect(msUntilNextRun(new Date("2026-11-23T03:00:00Z"), 3)).toBe(24 * 3_600_000);
+  });
+
+  it("un reinicio justo a la hora de la copia no se salta el día", () => {
+    // Copia de ayer a las 3:00; el servicio se reinicia hoy a las 3:00:10 y mira a las 3:02.
+    const yesterday = "2026-11-22T03:00:06Z";
+    expect(needsCatchUp(yesterday, new Date("2026-11-23T03:02:10Z"), 3)).toBe(true);
+    // Con la copia de hoy ya hecha, un reinicio a mediodía no hace otra.
+    expect(needsCatchUp("2026-11-23T03:00:06Z", new Date("2026-11-23T12:00:00Z"), 3)).toBe(false);
+    // Antes de la hora de hoy, la de ayer vale: la de hoy la hará el temporizador.
+    expect(needsCatchUp(yesterday, new Date("2026-11-23T02:00:00Z"), 3)).toBe(false);
+    // Unos segundos de diferencia entre relojes no cuentan como copia que falta.
+    expect(needsCatchUp("2026-11-23T02:59:58Z", new Date("2026-11-23T12:00:00Z"), 3)).toBe(false);
+    // Sin copias, o con una fecha ilegible, se hace.
+    expect(needsCatchUp(undefined, new Date("2026-11-23T12:00:00Z"), 3)).toBe(true);
+    expect(needsCatchUp("no es una fecha", new Date("2026-11-23T12:00:00Z"), 3)).toBe(true);
+  });
+
+  it("no sube una base vacía si la ruta no existe", () => {
+    const missing = join(tmpdir(), "exile-copilot-no-existe", "nada.db");
+    expect(() => snapshotDatabase(missing)).toThrow(/No existe la base de datos/);
   });
 });

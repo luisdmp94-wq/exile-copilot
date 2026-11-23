@@ -12,6 +12,9 @@ server/data/pob/*.json text eol=lf
 # sobre los bytes; LF en cualquier plataforma para que coincidan en Render.
 docs/evidence/release/**/*.md text eol=lf
 docs/evidence/0.5.5/*.md text eol=lf
+# Y las de cualquier versión que venga (docs/evidence/1.0/…): sin esta línea,
+# una fuente nueva guardada en Windows daría una huella que Render no reconoce.
+docs/evidence/**/*.md text eol=lf
 
 # docs/PLAN.md también es artefacto de evidencia (poe-ninja-economy-endpoint):
 # su huella es la del texto con LF, la misma que ve Render.

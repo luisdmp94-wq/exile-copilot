@@ -335,8 +335,8 @@ Lo que faltaba el 22-11 y cómo se cubre:
 
 La propia web copia la base cada noche (por defecto a las 3:00 UTC):
 `VACUUM INTO` (copia consistente con la web en marcha), `integrity_check`,
-gzip y subida a R2. Al arrancar mira si la última copia tiene más de 25 horas
-y, si es así, hace una a los 2 minutos. Código: `server/backup/`. Sin sus
+gzip y subida a R2. Al arrancar mira si falta la copia de la última hora
+programada y, si es así, hace una a los 2 minutos. Código: `server/backup/`. Sin sus
 variables la web funciona igual y avisa en el registro.
 
 Coste: el plan gratis de R2 cubre 10 GB y un millón de escrituras al mes. Una
@@ -374,12 +374,20 @@ para activar R2 aunque no cobre.
 ```text
 npm run backup -- list                      # copias del bucket
 npm run backup -- check                     # baja la última, integrity_check y recuento
+npm run backup -- check --key <clave>       # lo mismo con una copia anterior (clave de «list»)
 npm run backup -- check --save copia.db     # además la deja en disco
-npm run backup -- now                       # copia ahora
 ```
 
 En local, con las cuatro variables en `.env`. En Render, desde *Shell*:
 `node dist-server/server/backup/cli.js check` (o `now`, `list`).
+
+`now` (copia ahora) es para la Shell de Render. En local se niega salvo con
+`--desde-este-equipo`: subiría la base de pruebas del portátil al bucket como
+la copia más nueva, y un `check --save` posterior restauraría esa.
+
+Si la copia de anoche ya trae datos estropeados (un despliegue malo por la
+tarde), las anteriores siguen en R2: `list` y después
+`check --key <clave> --save /data/restaurada.db`.
 
 Para volver a una copia de R2 en Render: `check --save /data/restaurada.db`
 desde *Shell* y después seguir «Recuperación» (abajo) con ese archivo. Render
