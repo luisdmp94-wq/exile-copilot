@@ -46,6 +46,7 @@ const EXPLAIN_PRIORITY_PATTERNS: readonly string[] = [
   "explicacion",
   "problema principal",
   "principal problema",
+  "mayor problema",
   "mi problema",
   "que me falla",
   "que esta mal",
@@ -55,6 +56,7 @@ const EXPLAIN_PRIORITY_PATTERNS: readonly string[] = [
   "reason",
   "explain",
   "main problem",
+  "biggest problem",
   "my problem",
   "whats wrong",
   "what s wrong",
@@ -177,9 +179,35 @@ const NUMBER_REQUEST_PATTERNS: readonly string[] = [
   "calcula",
   "how much",
   "calculate",
-  "what is my",
-  "whats my",
-  "what s my",
+];
+/** «What's my DPS?» pide una cifra; «What's my main problem? I do no damage» no. */
+const NUMBER_REQUEST_RE = /\bwhat(?:s| s| is) my (?:dps|damage)\b/;
+
+/**
+ * El jugador RECIBE daño: es aguante, aunque la frase lleve «daño» y no
+ * «morir». Sin esto, «el jefe me hace mucho daño» se contestaba con «si te
+ * falta daño, mejora el arma».
+ */
+const TAKES_DAMAGE_RES: readonly RegExp[] = [
+  /\b(?:me|nos) (?:hace|hacen|hizo|hicieron|mete|meten|pega|pegan|quita|quitan)\b.*\bdano\b/,
+  /\b(?:recibo|recibimos|recibir|recibiendo|sufro|sufrir)\b.*\bdano\b/,
+  /\bdano (?:que )?(?:recibo|me hace|me hacen)\b/,
+  /\bcontra el dano\b/,
+  /\b(?:i|we|i m|im) (?:take|took|keep taking|am taking)\b.*\bdamage\b/,
+  /\b(?:take|taking|took) (?:a lot of|so much|too much|tons of|loads of|way too much) damage\b/,
+  /\b(?:boss|bosses|enemy|enemies|monsters?|mobs?|they|everything) (?:deal|deals|do|does|hit|hits)\b.*\bdamage\b/,
+  /\b(?:get|getting|got) (?:killed|one ?shot|destroyed|deleted)\b/,
+];
+
+/**
+ * El ENEMIGO no muere: es que falta daño, aunque la frase lleve «muere» o
+ * «morir». Sin esto, «el jefe no se muere» se contestaba como «¿por qué muero?».
+ */
+const ENEMY_SURVIVES_RES: readonly RegExp[] = [
+  /\bno (?:se )?(?:muere|mueren|muera|mueran)\b/,
+  /\b(?:tarda|tardan|cuesta|cuestan)\b.*\b(?:morir|caer)\b/,
+  /\b(?:won t|wont|doesn t|doesnt|don t|dont|never|not) die\b/,
+  /\b(?:take|takes|taking) (?:forever|ages|so long|too long) to die\b/,
 ];
 
 export type MentorQuestionFocus = "survival" | "damage" | null;
@@ -249,12 +277,22 @@ export function classifyMentorQuestion(question: string): {
   if (normalized.length === 0) {
     return { intent: "unsupported", normalizedQuestion: normalized, matchedPattern: null, focus: null };
   }
-  const survivalPattern = SURVIVAL_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null;
-  const asksForNumber = NUMBER_REQUEST_PATTERNS.some((pattern) => normalized.includes(pattern));
+  // Quién recibe el daño y quién no muere pesa más que la palabra suelta.
+  const takesDamage = TAKES_DAMAGE_RES.some((pattern) => pattern.test(normalized));
+  const enemySurvives = !takesDamage && ENEMY_SURVIVES_RES.some((pattern) => pattern.test(normalized));
+  const survivalPattern = enemySurvives
+    ? null
+    : takesDamage
+      ? "recibe dano"
+      : (SURVIVAL_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null);
+  const asksForNumber =
+    NUMBER_REQUEST_PATTERNS.some((pattern) => normalized.includes(pattern)) || NUMBER_REQUEST_RE.test(normalized);
   const damagePattern =
     survivalPattern || asksForNumber
       ? null
-      : (DAMAGE_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null);
+      : enemySurvives
+        ? "el enemigo no muere"
+        : (DAMAGE_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null);
   const focusPattern = survivalPattern ?? damagePattern;
   const focus: MentorQuestionFocus = survivalPattern ? "survival" : damagePattern ? "damage" : null;
 
