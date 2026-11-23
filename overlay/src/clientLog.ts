@@ -1,32 +1,43 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { nameId } from "./characters";
 import { bossSignOf, rewardKindOf, type RewardKind } from "./objectives";
 
 /**
- * Lectura de Client.txt, el registro que escribe PoE2. Solo se miran cuatro
+ * Lectura de Client.txt, el registro que escribe PoE2. Solo se miran seis
  * cosas: el cambio de zona, la subida de nivel, el mensaje de una recompensa
- * para siempre recibida y las frases que ciertos personajes del juego dicen
- * al caer un jefe. El resto (chat, nombre de cuenta, nombres de personaje…)
- * se descarta aquí mismo, sin guardarlo ni pasarlo a nadie. Nada sale del
- * equipo.
+ * para siempre recibida, las frases que ciertos personajes del juego dicen
+ * al caer un jefe, la vuelta a la pantalla de entrada y quién se une o sale
+ * de tu zona (para no confundir a otro jugador contigo). De tus personajes
+ * se usa el nombre; de los demás jugadores, solo una huella. El resto (chat,
+ * nombre de cuenta…) se descarta aquí mismo, sin guardarlo ni pasarlo a
+ * nadie. Nada sale del equipo.
  */
 
 const AREA_LINE = /Generating level (\d+) area "([^"]+)"/;
 // «Liche (Liche) es ahora nivel 51» en español; «… is now level 51» en inglés (las dos salen en el Client.txt real).
-const LEVEL_LINE = /\) (?:is now level|es ahora nivel) (\d+)/;
+const LEVEL_LINE = /\] : (\S+) \(.*\) (?:is now level|es ahora nivel) (\d+)/;
+// Volver a la pantalla de entrada (abrir el juego o cambiar de personaje).
+const LOGIN_LINE = /\] Async connecting to \S*login/;
 
 // El texto de una línea normal del juego, sin la fecha ni el número de proceso.
 const INFO_LINE = /\[INFO Client \d+\] (.+)$/;
 // «Exiliada ha recibido X», «Has recibido X», «You have received X».
-const REWARD_LINE = /^: (?:\S+ han? recibido|Has recibido|You have received|\S+ has received) (.+)$/;
+const REWARD_LINE = /^: (?:(\S+) han? recibido|Has recibido|You have received|(\S+) has received) (.+)$/;
+// Otro jugador entra o sale de tu zona.
+const OTHER_LINE = /^: (\S+) (?:se ha unido al área|ha abandonado el área|has joined the area|has left the area)\.$/;
 // «Quien habla: lo que dice». El chat de otros jugadores empieza por # @ % $ &.
 const SPEECH_LINE = /^([^#@%$&:[][^:]{0,60}): (.+)$/;
 
 export type LogEvent =
   | { kind: "area"; code: string; level: number }
-  | { kind: "level"; level: number }
-  /** Recibiste una recompensa para siempre. */
-  | { kind: "reward"; reward: RewardKind }
+  | { kind: "level"; level: number; name: string }
+  /** Alguien recibió una recompensa para siempre; `name` es null cuando el juego dice «has recibido». */
+  | { kind: "reward"; reward: RewardKind; name: string | null }
+  /** Se volvió a la pantalla de entrada: a partir de aquí puede jugar otro personaje. */
+  | { kind: "login" }
+  /** Otro jugador pasó por tu zona; solo queda la huella de su nombre. */
+  | { kind: "other"; id: string }
   /** Se dijo una frase que solo se oye con el jefe de ese paso ya vencido. */
   | { kind: "boss"; act: number; zone: string };
 
@@ -34,14 +45,17 @@ export function parseLine(line: string): LogEvent | null {
   const area = AREA_LINE.exec(line);
   if (area) return { kind: "area", level: Number(area[1]), code: area[2]! };
   const level = LEVEL_LINE.exec(line);
-  if (level) return { kind: "level", level: Number(level[1]) };
+  if (level) return { kind: "level", name: level[1]!, level: Number(level[2]) };
+  if (LOGIN_LINE.test(line)) return { kind: "login" };
   const text = INFO_LINE.exec(line)?.[1];
   if (!text) return null;
   const reward = REWARD_LINE.exec(text);
   if (reward) {
-    const kind = rewardKindOf(reward[1]!);
-    return kind ? { kind: "reward", reward: kind } : null;
+    const kind = rewardKindOf(reward[3]!);
+    return kind ? { kind: "reward", reward: kind, name: reward[1] ?? reward[2] ?? null } : null;
   }
+  const other = OTHER_LINE.exec(text);
+  if (other) return { kind: "other", id: nameId(other[1]!) };
   const speech = SPEECH_LINE.exec(text);
   if (!speech) return null;
   // Solo cuenta si es una de las frases de la tabla; cualquier otra se olvida aquí.

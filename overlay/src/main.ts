@@ -1,17 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { BrowserWindow, Menu, Tray, app, dialog, globalShortcut, ipcMain, nativeImage, screen } from "electron";
-import { ClientLogTail, findClientLog, type LogEvent } from "./clientLog";
+import { EMPTY_ROSTER, onLog, type Roster } from "./characters";
+import { ClientLogTail, findClientLog } from "./clientLog";
 import { createForegroundReader, isGameExecutable, shouldBeVisible } from "./foreground";
 import { keepInside } from "./place";
 import {
   NEW_RUN,
-  onArea,
-  onBoss,
   onDismissNotice,
-  onLevel,
   onMove,
-  onReward,
   onToggleBoss,
   onToggleReward,
   sanitizeRun,
@@ -37,12 +34,20 @@ const KEYS = {
 
 /**
  * Qué sabe sacar la ventanita del registro. Si sube, la partida guardada se
- * rehace repasando Client.txt entero una vez (antes no miraba recompensas ni jefes).
+ * rehace repasando Client.txt entero una vez (2: recompensas y jefes; 3: una
+ * partida por personaje).
  */
-const LOG_FORMAT = 2;
+const LOG_FORMAT = 3;
 
 interface Saved {
+  /** La partida del personaje con el que juegas. */
   run: Run;
+  /** Su nombre, cuando el registro lo ha dicho. */
+  character?: string | null;
+  /** Las partidas de tus otros personajes. */
+  runs?: Record<string, Run>;
+  /** Huellas de otros jugadores vistos: sus niveles y recompensas no cuentan. */
+  others?: string[];
   settings: Settings;
   x?: number;
   y?: number;
@@ -58,8 +63,15 @@ function loadSaved(): Saved {
   try {
     const raw = JSON.parse(readFileSync(statePath(), "utf8")) as Partial<Saved> & { progress?: unknown };
     const run = sanitizeRun(raw.run ?? { progress: raw.progress });
+    const strings = (list: unknown) => (Array.isArray(list) ? list.filter((item): item is string => typeof item === "string") : []);
+    const runs = Object.fromEntries(
+      Object.entries(raw.runs && typeof raw.runs === "object" ? raw.runs : {}).map(([name, other]) => [name, sanitizeRun(other)]),
+    );
     return {
       run,
+      character: typeof raw.character === "string" ? raw.character : null,
+      runs,
+      others: strings(raw.others),
       settings: sanitizeSettings(raw.settings),
       ...(typeof raw.x === "number" && typeof raw.y === "number" ? { x: raw.x, y: raw.y } : {}),
       ...(typeof raw.logPath === "string" ? { logPath: raw.logPath } : {}),
@@ -94,6 +106,24 @@ const readForeground = createForegroundReader();
 /** Clics y ratón pasan al juego; el movimiento llega igual para notar el asa. */
 const PASS_THROUGH = { forward: true } as const;
 let problem: string | null = null;
+/** Lo que no se guarda de los personajes: si aún no se sabe quién juega y de cuál se vino. */
+let unsure: Roster["unsure"] = null;
+let cameFrom: Roster["cameFrom"] = null;
+
+const roster = (): Roster => ({
+  current: saved.character ?? null,
+  run: saved.run,
+  runs: saved.runs ?? {},
+  others: saved.others ?? [],
+  unsure,
+  cameFrom,
+});
+
+function keepRoster(next: Roster): void {
+  unsure = next.unsure;
+  cameFrom = next.cameFrom;
+  saved = { ...saved, run: next.run, character: next.current, runs: next.runs, others: next.others };
+}
 /** Teclas que otro programa ya tenía: se avisa aparte para que no lo borre el registro. */
 let keyProblem: string | null = null;
 
@@ -148,6 +178,7 @@ function render(): void {
     settings: saved.settings,
     showSummary: panel === "resumen",
     showSettings: panel === "ajustes",
+    character: saved.character ?? null,
     problem: problem ?? keyProblem,
     waitingForGame: !CAPTURE && saved.settings.onlyWithGame && readForeground !== null && isStarting() && !gameInFront(),
   });
@@ -175,19 +206,6 @@ function defaultPosition(): { x: number; y: number } {
   };
 }
 
-function apply(run: Run, event: LogEvent): Run {
-  switch (event.kind) {
-    case "area":
-      return onArea(run, event.code, event.level);
-    case "level":
-      return onLevel(run, event.level);
-    case "reward":
-      return onReward(run, event.reward);
-    case "boss":
-      return onBoss(run, event.act, event.zone);
-  }
-}
-
 function startTail(path: string, from: number | null): void {
   tail?.stop();
   problem = null;
@@ -195,22 +213,28 @@ function startTail(path: string, from: number | null): void {
   // Repasar desde el principio es reconstruir la partida desde cero;
   // lo que el jugador marcó a mano se conserva.
   const byHand = { checked: saved.run.checked, bosses: saved.run.bosses };
-  let replayed = from === null ? NEW_RUN : saved.run;
+  let replayed = from === null ? EMPTY_ROSTER : roster();
   tail = new ClientLogTail(path, (event, replaying) => {
-    if (replaying) replayed = apply(replayed, event);
-    else update(apply(saved.run, event));
+    if (replaying) {
+      replayed = onLog(replayed, event);
+    } else {
+      keepRoster(onLog(roster(), event));
+      persist();
+      render();
+    }
   });
   try {
     tail.start(from);
+    let run = replayed.run;
     if (from === null) {
-      replayed = {
-        ...replayed,
-        checked: [...new Set([...replayed.checked, ...byHand.checked])],
-        bosses: [...new Set([...replayed.bosses, ...byHand.bosses])],
+      run = {
+        ...run,
+        checked: [...new Set([...run.checked, ...byHand.checked])],
+        bosses: [...new Set([...run.bosses, ...byHand.bosses])],
       };
     }
     // Lo repasado al arrancar no avisa de nada: ya pasó.
-    saved = { ...saved, run: onDismissNotice(replayed) };
+    keepRoster({ ...replayed, run: onDismissNotice(run) });
     persist();
   } catch {
     problem = "No puedo leer Client.txt.";

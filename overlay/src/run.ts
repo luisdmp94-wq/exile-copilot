@@ -72,9 +72,14 @@ export function missedRewards(run: Pick<Run, "visited" | "checked">, act: number
   });
 }
 
-/** Entra en una zona (línea «Generating level N area "X"» de Client.txt). */
-export function onArea(run: Run, code: string, level: number): Run {
-  if (isNewCharacter(run.progress, code)) {
+/**
+ * Entra en una zona (línea «Generating level N area "X"» de Client.txt).
+ * `guessNew`: sin saber quién juega, volver a la orilla del río desde un acto
+ * posterior se toma por un personaje nuevo. Con el personaje ya nombrado no
+ * hace falta adivinar: puede volver allí sin perder su partida.
+ */
+export function onArea(run: Run, code: string, level: number, guessNew = true): Run {
+  if (guessNew && isNewCharacter(run.progress, code)) {
     // El nivel se sabrá con su primera subida; hasta entonces, en blanco.
     return onArea(NEW_RUN, code, level);
   }

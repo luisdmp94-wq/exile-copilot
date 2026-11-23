@@ -6,6 +6,8 @@ interface OverlayState {
   settings: Settings;
   showSummary: boolean;
   showSettings: boolean;
+  /** El personaje al que se le apunta la partida, si el registro ya lo ha nombrado. */
+  character: string | null;
   problem: string | null;
   waitingForGame: boolean;
 }
@@ -112,9 +114,9 @@ function drawSettings(settings: Settings): void {
   toggle("ajuste-solo-juego", "Solo con PoE2 delante", settings.onlyWithGame);
 }
 
-function levelText(view: StepView): string | null {
+function levelText(view: StepView, character: string | null): string | null {
   if (view.areaLevel === null) return null;
-  const you = view.charLevel === null ? "" : ` · tú ${view.charLevel}`;
+  const you = view.charLevel === null ? "" : ` · ${character ?? "tú"} ${view.charLevel}`;
   return `zona nv ${view.areaLevel}${you}`;
 }
 
@@ -183,7 +185,7 @@ function draw(state: OverlayState): void {
     : "Fin de las guías (actos 1-4)";
 
   const level = byId("nivel");
-  const levelLabel = levelText(view);
+  const levelLabel = levelText(view, state.character);
   level.hidden = !levelLabel;
   level.textContent = levelLabel ?? "";
   level.className = `nivel ${view.level ?? ""}`;

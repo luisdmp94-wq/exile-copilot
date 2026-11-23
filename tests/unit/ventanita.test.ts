@@ -2,6 +2,7 @@ import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { EMPTY_ROSTER, nameId, onLog, type Roster } from "../../overlay/src/characters";
 import { ClientLogTail, parseLine, type LogEvent } from "../../overlay/src/clientLog";
 import {
   GUIDES,
@@ -53,8 +54,8 @@ const play = (codes: Array<string | [string, number]>, from: Run = NEW_RUN) =>
 describe("ventanita: leer Client.txt", () => {
   it("saca la zona con su nivel y la subida de nivel; ignora lo demás", () => {
     expect(parseLine(AREA_LINE)).toEqual({ kind: "area", level: 48, code: "G4_5_1" });
-    expect(parseLine(LEVEL_LINE)).toEqual({ kind: "level", level: 51 });
-    expect(parseLine(LEVEL_LINE_EN)).toEqual({ kind: "level", level: 2 });
+    expect(parseLine(LEVEL_LINE)).toEqual({ kind: "level", name: "Exiliada", level: 51 });
+    expect(parseLine(LEVEL_LINE_EN)).toEqual({ kind: "level", name: "Exiliada", level: 2 });
     expect(parseLine(SCENE_LINE)).toBeNull();
     expect(parseLine("[INFO Client 1] : Exiliada ha muerto.")).toBeNull();
     expect(parseLine("[INFO Client 1] Balbala: Libérame… te lo ruego…")).toBeNull();
@@ -131,6 +132,14 @@ describe("ventanita: tabla de zonas", () => {
 
 describe("ventanita: qué paso enseñar", () => {
   const walk = (codes: string[], from: Progress = START) => codes.reduce(enterZone, from);
+
+  it("volver al pueblo del acto 4 no devuelve la guía al primer paso", () => {
+    const zoneOf = (progress: Progress) => routeOf(progress.act)[progress.index]!.zone;
+    expect(zoneOf(walk(["G4_town"]))).toBe("Marca del rey");
+    expect(zoneOf(walk(["G4_town", "G4_5_1", "G4_town"]))).toBe("Prisión abandonada y Confinamiento solitario");
+    // Volver a una zona que no es pueblo sí enseña su paso, aunque quede atrás.
+    expect(zoneOf(walk(["G4_town", "G4_5_1", "G4_town", "G4_1_1"]))).toBe("Isla del clan y Madrigueras volcánicas");
+  });
 
   it("Ngakanu en paz es el paso de la aleta (Kaimana), no el jefe final", () => {
     const zoneOf = (progress: Progress) => routeOf(progress.act)[progress.index]!.zone;
@@ -396,14 +405,17 @@ const MARKS = "<<set:F>><<set:S>><<set:FS>>";
 describe("ventanita: objetivos que se marcan solos", () => {
   it("lee el mensaje de una recompensa para siempre, en español y en inglés", () => {
     const kind = (text: string) => parseLine(info(text));
-    expect(kind(": Exiliada ha recibido +10% a la resistencia al [Resistances|hielo].")).toEqual({ kind: "reward", reward: "hielo" });
-    expect(kind(": Exiliados han recibido +30 al [Spirit|espíritu].")).toEqual({ kind: "reward", reward: "espiritu" });
-    expect(kind(": Has recibido 2 puntos de habilidad pasiva de set de armas.")).toEqual({ kind: "reward", reward: "puntos" });
-    expect(kind(": You have received +10% to [Resistances|Cold Resistance].")).toEqual({ kind: "reward", reward: "hielo" });
-    expect(kind(": You have received 2 Weapon Set Passive Skill Points.")).toEqual({ kind: "reward", reward: "puntos" });
-    expect(kind(": Exiliada ha recibido +20 a la vida máxima.")).toEqual({ kind: "reward", reward: "vida" });
-    expect(kind(": Exiliada ha recibido Maná máximo aumentado un 5%.")).toEqual({ kind: "reward", reward: "mana" });
-    expect(kind(": Exiliada ha recibido +1 espacio para [Charm|viales].")).toEqual({ kind: "reward", reward: "otra" });
+    const mine = { kind: "reward", name: "Exiliada" };
+    const unnamed = { kind: "reward", name: null };
+    expect(kind(": Exiliada ha recibido +10% a la resistencia al [Resistances|hielo].")).toEqual({ ...mine, reward: "hielo" });
+    expect(kind(": Exiliados han recibido +30 al [Spirit|espíritu].")).toEqual({ kind: "reward", name: "Exiliados", reward: "espiritu" });
+    expect(kind(": Has recibido 2 puntos de habilidad pasiva de set de armas.")).toEqual({ ...unnamed, reward: "puntos" });
+    expect(kind(": You have received +10% to [Resistances|Cold Resistance].")).toEqual({ ...unnamed, reward: "hielo" });
+    expect(kind(": You have received 2 Weapon Set Passive Skill Points.")).toEqual({ ...unnamed, reward: "puntos" });
+    expect(kind(": Exiliada has received +10% to [Resistances|Cold Resistance].")).toEqual({ ...mine, reward: "hielo" });
+    expect(kind(": Exiliada ha recibido +20 a la vida máxima.")).toEqual({ ...mine, reward: "vida" });
+    expect(kind(": Exiliada ha recibido Maná máximo aumentado un 5%.")).toEqual({ ...mine, reward: "mana" });
+    expect(kind(": Exiliada ha recibido +1 espacio para [Charm|viales].")).toEqual({ ...mine, reward: "otra" });
   });
 
   it("no cuenta dos veces los puntos ni lo de fuera de la campaña", () => {
@@ -526,5 +538,96 @@ describe("ventanita: objetivos que se marcan solos", () => {
     const old = onBoss(onReward(play(["G1_1", "G1_12"]), "espiritu"), 1, "Villafrey");
     const fresh = play(["G2_1", "G1_1"], old);
     expect(fresh).toMatchObject({ checked: [], bosses: [], area: "G1_1" });
+  });
+});
+
+describe("ventanita: una partida por personaje", () => {
+  const LOGIN = info("Async connecting to fra.login.pathofexile2.com:20481");
+  const level = (name: string, n: number) => info(`: ${name} (Bruja) es ahora nivel ${n}`);
+  const joined = (name: string) => info(`: ${name} se ha unido al área.`);
+  const left = (name: string) => info(`: ${name} ha abandonado el área.`);
+  const cold = (name: string) => info(`: ${name} ha recibido +10% a la resistencia al [Resistances|hielo].`);
+  const feed = (lines: string[], from: Roster = EMPTY_ROSTER) =>
+    lines.reduce((roster, line) => {
+      const event = parseLine(line);
+      return event ? onLog(roster, event) : roster;
+    }, from);
+  const zoneOf = (run: Run) => routeOf(run.progress.act)[run.progress.index]!.zone;
+
+  // Ana llega al acto 2 con el hielo de Sierraclara cogido.
+  const ana = feed([LOGIN, area(1, "G1_1"), level("Ana", 2), area(3, "G1_2"), cold("Ana"), area(16, "G2_1"), level("Ana", 16)]);
+
+  it("lee la vuelta a la entrada y a los otros jugadores sin guardar su nombre", () => {
+    expect(parseLine(LOGIN)).toEqual({ kind: "login" });
+    expect(parseLine(joined("Vecino"))).toEqual({ kind: "other", id: nameId("Vecino") });
+    expect(parseLine(left("Vecino"))).toEqual({ kind: "other", id: nameId("vecino") });
+    expect(parseLine(info(": Vecino has joined the area."))).toEqual({ kind: "other", id: nameId("Vecino") });
+    expect(nameId("Vecino")).toMatch(/^[0-9a-f]{8}$/);
+    expect(JSON.stringify(feed([joined("Vecino"), level("Vecino", 9)], ana))).not.toContain("Vecino");
+  });
+
+  it("el primer nombre que sale es el de tu personaje", () => {
+    expect(ana).toMatchObject({ current: "Ana", unsure: null, runs: {} });
+    expect(ana.run).toMatchObject({ charLevel: 16, checked: ["1:1"], area: "G2_1" });
+  });
+
+  it("al entrar con otro personaje, lo andado desde la entrada es suyo y el anterior queda como estaba", () => {
+    const both = feed([LOGIN, area(1, "G1_1"), area(3, "G1_2"), level("Blas", 2)], ana);
+    expect(both.current).toBe("Blas");
+    expect(both.run).toMatchObject({ charLevel: 2, checked: [], visited: ["G1_1", "G1_2"] });
+    expect(both.runs.Ana).toEqual(ana.run);
+    // De vuelta con Ana: su partida, tal cual, y la de Blas guardada.
+    const back = feed([LOGIN, area(18, "G2_10_1"), level("Ana", 17)], both);
+    expect(back.current).toBe("Ana");
+    expect(back.run).toMatchObject({ charLevel: 17, checked: ["1:1"] });
+    expect(zoneOf(back.run)).toBe("Cantera y mina Mawdun");
+    expect(zoneOf(back.runs.Blas!)).toBe("Sierraclara");
+    expect(back.runs.Ana).toBeUndefined();
+  });
+
+  it("mientras no se sabe quién juega, se enseña lo que pasa sobre la partida de antes", () => {
+    const waiting = feed([LOGIN, area(18, "G2_10_1")], ana);
+    expect(waiting.current).toBe("Ana");
+    expect(zoneOf(waiting.run)).toBe("Cantera y mina Mawdun");
+    // Dos entradas seguidas sin nombre: se parte otra vez de la partida segura.
+    expect(feed([LOGIN], waiting).run).toEqual(ana.run);
+  });
+
+  it("un personaje ya nombrado vuelve a la orilla del río sin perder su partida", () => {
+    const sameSession = feed([area(1, "G1_1")], ana);
+    expect(sameSession.run.checked).toEqual(["1:1"]);
+    const nextDay = feed([LOGIN, area(1, "G1_1"), area(16, "G2_1"), level("Ana", 17)], ana);
+    expect(nextDay.run).toMatchObject({ charLevel: 17, checked: ["1:1"] });
+  });
+
+  it("un personaje que llega a nivel 2 empieza limpio aunque repita el nombre", () => {
+    const reborn = feed([LOGIN, area(1, "G1_1"), level("Ana", 2)], ana);
+    expect(reborn.run).toMatchObject({ charLevel: 2, checked: [], visited: ["G1_1"] });
+  });
+
+  it("el nivel y las recompensas de otro jugador no cuentan", () => {
+    const party = feed([joined("Vecino"), level("Vecino", 40), cold("Vecino")], feed([area(3, "G1_2")], feed([LOGIN, area(1, "G1_1"), level("Ana", 2)])));
+    expect(party.current).toBe("Ana");
+    expect(party.run).toMatchObject({ charLevel: 2, checked: [] });
+    // Aunque ya estuviera en la zona y no se le viera entrar: no hubo vuelta a la entrada.
+    const silent = feed([level("Vecino", 40)], ana);
+    expect(silent).toMatchObject({ current: "Ana", others: [nameId("Vecino")] });
+    expect(silent.run.charLevel).toBe(16);
+  });
+
+  it("si se tomó a un compañero por tu personaje, al verle salir se vuelve al tuyo con lo andado", () => {
+    // Entras, tu compañero ya estaba en la zona y sube de nivel antes que tú.
+    const fooled = feed([LOGIN, area(18, "G2_10_1"), level("Vecino", 30)], ana);
+    expect(fooled.current).toBe("Vecino");
+    const fixed = feed([area(19, "G2_10_2"), left("Vecino")], fooled);
+    expect(fixed.current).toBe("Ana");
+    expect(fixed.run).toMatchObject({ charLevel: 16, checked: ["1:1"] });
+    expect(fixed.run.visited).toEqual(expect.arrayContaining(["G1_2", "G2_10_1", "G2_10_2"]));
+    expect(fixed.runs).toEqual({});
+    // Y si antes de verle salir subes tú, también se arregla.
+    const byLevel = feed([area(19, "G2_10_2"), level("Ana", 17)], fooled);
+    expect(byLevel).toMatchObject({ current: "Ana", others: [nameId("Vecino")], runs: {} });
+    expect(byLevel.run).toMatchObject({ charLevel: 17, checked: ["1:1"] });
+    expect(byLevel.run.visited).toContain("G2_10_2");
   });
 });

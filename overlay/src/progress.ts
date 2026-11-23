@@ -71,7 +71,8 @@ export function codesOfStep(act: number, index: number): string[] {
  * El jugador entra en una zona. Se enseña el paso de esa zona; si la zona
  * sale en varios pasos, el primero que no ha pasado todavía. Una zona sin
  * paso (el pueblo, una cueva de paso) deja la guía donde estaba. Una zona de
- * otro acto cambia de acto.
+ * otro acto cambia de acto. Un pueblo que es paso (Marca del rey) solo cuenta
+ * al llegar al acto: volver a él más tarde no devuelve la guía al principio.
  */
 export function enterZone(progress: Progress, code: string): Progress {
   const act = actOfCode(code);
@@ -80,6 +81,7 @@ export function enterZone(progress: Progress, code: string): Progress {
   if (act !== progress.act) return { act, index: matches[0] ?? 0, outside: false };
   if (matches.length === 0) return { ...progress, outside: false };
   const ahead = matches.find((index) => index >= progress.index);
+  if (ahead === undefined && /_town$/i.test(code)) return { ...progress, outside: false };
   return { act, index: ahead ?? matches[matches.length - 1]!, outside: false };
 }
 
