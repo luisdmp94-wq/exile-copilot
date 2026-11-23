@@ -8,8 +8,8 @@ Cómo: cinco revisores independientes, uno por zona, que solo leyeron. Después
 comprobé cada hallazgo que he arreglado contra el código o los datos del
 juego. Lo que no comprobé yo lo digo en cada punto.
 
-Dónde están los arreglos: rama `revision-opus-5-5`, nueve commits, sin pasar a
-`main` y sin subir. Cada arreglo lleva su test.
+Dónde están los arreglos: rama `revision-opus-5-5`, diez commits de arreglo,
+sin pasar a `main` y sin subir. Cada arreglo lleva su test.
 
 ## Lo esencial
 
@@ -220,6 +220,12 @@ añaden los suyos; estos otros siguen igual.
 - Los datos del juego de las guías no se contrastaron con las fuentes (sin
   red en la revisión).
 - El motor de PoB2 solo lo arrancó un revisor, dos veces.
-- Mientras se hacía esto había una partida en marcha en el portátil: pasé los
-  tests de cada arreglo y los tipos, no la batería entera ni `npm run build`.
-  **Antes de subir a `main` hay que pasar las dos cosas.**
+
+## Comprobado en la rama
+
+- Batería completa: 156 archivos, 1544 tests, todos pasan (antes del último
+  ajuste del lector de PoB2; sus tests se repitieron después).
+- `eslint` limpio y `tsc -b` sin errores.
+- `npm run build` termina bien; la página generada del acto 4 dice «para los
+  interludios» y numera los Trozos de mapa 1, 2, 3 y 4.
+- Al pasar a `main`, repetir batería y compilación por si `main` cambió.
