@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildTreeGraph,
   readAllocated,
+  exportClassName,
   treeForClass,
   treeVersionFamily,
   type PassiveTreeData,
@@ -35,9 +36,19 @@ export function loadPassiveTree(): PassiveTreeData {
   return cachedTree;
 }
 
+/**
+ * Con qué clave se guarda el grafo. Es la clase reconocida, no el texto que
+ * llega: el texto lo escribe cualquiera desde fuera, y guardar un grafo por
+ * cada texto distinto (1 MB cada uno, para siempre) dejaría al servidor sin
+ * memoria. Lo que no es una clase conocida comparte el grafo sin clase.
+ */
+export function graphCacheKey(characterClass: string | null): string {
+  return exportClassName(characterClass) ?? "";
+}
+
 /** El grafo de la clase (con sus versiones de nodo), hecho una vez por clase. */
 function graphFor(tree: PassiveTreeData, characterClass: string | null): TreeGraph {
-  const key = (characterClass ?? "").trim().toLowerCase();
+  const key = graphCacheKey(characterClass);
   const known = graphs.get(key);
   if (known) return known;
   const graph = buildTreeGraph(treeForClass(tree, characterClass));

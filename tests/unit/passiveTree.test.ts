@@ -12,7 +12,7 @@ import {
 } from "../../shared/passiveTree.js";
 import { adviseTree, buildProfile, lineValue, type TreeAdviceContext, type TreeSkill } from "../../shared/passiveTreeAdvice.js";
 import { PassiveTreeAdviceResponseSchema, treeRequestFromProfile, weaponKindOf } from "../../shared/passiveTreeRequest.js";
-import { loadPassiveTree, advisePassiveTree } from "../../server/advice/passiveTreeAdvisor.js";
+import { loadPassiveTree, advisePassiveTree, graphCacheKey } from "../../server/advice/passiveTreeAdvisor.js";
 import { loadGemData } from "../../server/advice/supportGemAdvisor.js";
 import { loadEnglishGemLocale } from "../../server/advice/gemLocale.js";
 import { answerPassiveTreeQuestion, isPassiveTreeQuestion } from "../../server/mentor/treeQuestion.js";
@@ -271,5 +271,21 @@ describe("el Mentor contesta «¿por dónde sigo en el árbol?»", () => {
 
   it("no contesta lo que no es del árbol", () => {
     expect(answerPassiveTreeQuestion(knowledge, "me falta daño", profile(), "es")).toBeNull();
+  });
+});
+
+describe("árbol de pasivas: la memoria no depende de lo que escriba un desconocido", () => {
+  it("guarda un grafo por clase reconocida, en español o en inglés", () => {
+    expect(graphCacheKey("Bruja")).toBe("Witch");
+    expect(graphCacheKey("  witch ")).toBe("Witch");
+    expect(graphCacheKey("Cazadora")).toBe("Huntress");
+  });
+
+  it("mil clases inventadas comparten el mismo grafo sin clase", () => {
+    // La petición es pública y la clase es texto libre de hasta 60 letras:
+    // cada texto distinto guardaba para siempre un grafo de 1 MB.
+    const keys = new Set(Array.from({ length: 1000 }, (_, index) => graphCacheKey(`clase-inventada-${index}`)));
+    expect([...keys]).toEqual([""]);
+    expect(graphCacheKey(null)).toBe("");
   });
 });
