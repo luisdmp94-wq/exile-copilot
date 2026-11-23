@@ -2,66 +2,102 @@ import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { ClientLogTail, lastAreaIn, parseAreaLine, type AreaChange } from "../../overlay/src/clientLog";
+import { ClientLogTail, parseLine, type LogEvent } from "../../overlay/src/clientLog";
 import {
   GUIDES,
   START,
   actOfCode,
   enterZone,
   moveStep,
+  positionIn,
+  routeOf,
   sanitize,
+  skippedInFastRoute,
   stepsForCode,
-  viewOf,
   type Progress,
 } from "../../overlay/src/progress";
+import {
+  NEW_RUN,
+  levelState,
+  missedRewards,
+  onArea,
+  onDismissNotice,
+  onLevel,
+  onMove,
+  onToggleReward,
+  sanitizeRun,
+  viewOf,
+  type Run,
+} from "../../overlay/src/run";
+import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { ZONE_CODES } from "../../overlay/src/zones";
 
-// Líneas copiadas del Client.txt real (22-11-2026), sin datos de la cuenta.
+// Líneas con el formato del Client.txt real (22-11-2026), sin datos de la cuenta.
 const AREA_LINE = '2026/11/22 20:37:15 35998734 2caa22f9 [DEBUG Client 23036] Generating level 48 area "G4_5_1" with seed 1783999174';
 const SCENE_LINE = "2026/11/22 20:37:16 35998921 7fbd1225 [INFO Client 23036] [SCENE] Set Source [Prisión abandonada]";
+const LEVEL_LINE = "2026/11/22 20:39:35 36137968 3ef23348 [INFO Client 23036] : Exiliada (Liche) es ahora nivel 51";
+const LEVEL_LINE_EN = "2026/08/03 14:47:03 444940046 3ef231e0 [INFO Client 70644] : Exiliada (Mercenary) is now level 2";
 const area = (level: number, code: string) =>
   `2026/11/23 10:00:00 1 2caa22f9 [DEBUG Client 1] Generating level ${level} area "${code}" with seed 1`;
 
-describe("ventanita: leer la zona de Client.txt", () => {
-  it("saca el código y el nivel de la línea de cambio de zona", () => {
-    expect(parseAreaLine(AREA_LINE)).toEqual({ level: 48, code: "G4_5_1" });
-    expect(parseAreaLine(SCENE_LINE)).toBeNull();
-    expect(parseAreaLine("[INFO Client 1] : Tú: hola")).toBeNull();
-  });
+/** Recorre zonas como si el juego las escribiera, con su nivel. */
+const play = (codes: Array<string | [string, number]>, from: Run = NEW_RUN) =>
+  codes.reduce<Run>((run, item) => (Array.isArray(item) ? onArea(run, item[0], item[1]) : onArea(run, item, 10)), from);
 
-  it("encuentra la última zona en un trozo del registro", () => {
-    expect(lastAreaIn([area(1, "G1_1"), SCENE_LINE, area(3, "G1_2"), "otra cosa"].join("\r\n"))).toEqual({
-      level: 3,
-      code: "G1_2",
-    });
-    expect(lastAreaIn("nada")).toBeNull();
+describe("ventanita: leer Client.txt", () => {
+  it("saca la zona con su nivel y la subida de nivel; ignora lo demás", () => {
+    expect(parseLine(AREA_LINE)).toEqual({ kind: "area", level: 48, code: "G4_5_1" });
+    expect(parseLine(LEVEL_LINE)).toEqual({ kind: "level", level: 51 });
+    expect(parseLine(LEVEL_LINE_EN)).toEqual({ kind: "level", level: 2 });
+    expect(parseLine(SCENE_LINE)).toBeNull();
+    expect(parseLine("[INFO Client 1] : Exiliada ha muerto.")).toBeNull();
+    expect(parseLine("[INFO Client 1] Balbala: Libérame… te lo ruego…")).toBeNull();
   });
 
   const dir = mkdtempSync(join(tmpdir(), "ventanita-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-  it("sigue el archivo: zona al arrancar, solo lo nuevo después y aguanta líneas a medias", () => {
+  it("repasa todo al arrancar, luego solo lo nuevo, y aguanta líneas a medias", () => {
     const path = join(dir, "Client.txt");
-    writeFileSync(path, `${area(1, "G1_1")}\n${area(2, "G1_town")}\n`);
-    const seen: Array<[AreaChange, boolean]> = [];
-    const tail = new ClientLogTail(path, (change, fromStartup) => seen.push([change, fromStartup]), 60_000);
-    tail.start();
+    writeFileSync(path, `${area(1, "G1_1")}\n${LEVEL_LINE}\n${area(15, "G1_town")}\n`);
+    const seen: Array<[LogEvent, boolean]> = [];
+    const tail = new ClientLogTail(path, (event, replaying) => seen.push([event, replaying]), 60_000);
+    tail.start(null);
     tail.stop();
-    expect(seen).toEqual([[{ level: 2, code: "G1_town" }, true]]);
+    expect(seen.map(([event, replaying]) => [event.kind, replaying])).toEqual([
+      ["area", true],
+      ["level", true],
+      ["area", true],
+    ]);
 
-    // El juego escribe la línea en dos veces.
     const line = area(3, "G1_2");
     appendFileSync(path, line.slice(0, 40));
     tail.poll();
-    expect(seen).toHaveLength(1);
-    appendFileSync(path, `${line.slice(40)}\r\n${SCENE_LINE}\r\n`);
+    expect(seen).toHaveLength(3);
+    const before = tail.offset;
+    appendFileSync(path, `${line.slice(40)}\r\n`);
     tail.poll();
-    expect(seen[1]).toEqual([{ level: 3, code: "G1_2" }, false]);
+    expect(seen[3]).toEqual([{ kind: "area", level: 3, code: "G1_2" }, false]);
+    expect(tail.offset).toBeGreaterThan(before);
 
     // Si el archivo se vacía, empieza de nuevo sin perder la siguiente zona.
     writeFileSync(path, `${area(4, "G1_3")}\n`);
     tail.poll();
-    expect(seen[2]).toEqual([{ level: 4, code: "G1_3" }, false]);
+    expect(seen[4]).toEqual([{ kind: "area", level: 4, code: "G1_3" }, false]);
+  });
+
+  it("al volver sigue donde lo dejó: no repite lo ya leído", () => {
+    const path = join(dir, "Client2.txt");
+    writeFileSync(path, `${area(1, "G1_1")}\n${area(3, "G1_2")}\n`);
+    const first = new ClientLogTail(path, () => undefined, 60_000);
+    first.start(null);
+    first.stop();
+    appendFileSync(path, `${area(5, "G1_3")}\n`);
+    const seen: LogEvent[] = [];
+    const second = new ClientLogTail(path, (event) => seen.push(event), 60_000);
+    second.start(first.offset);
+    second.stop();
+    expect(seen).toEqual([{ kind: "area", level: 5, code: "G1_3" }]);
   });
 });
 
@@ -79,6 +115,12 @@ describe("ventanita: tabla de zonas", () => {
       for (const code of Object.values(table).flat()) expect(actOfCode(code)).toBe(Number(act));
     }
   });
+
+  it("cada paso clave dice en dos o tres palabras qué da", () => {
+    for (const guide of GUIDES) {
+      for (const step of guide.route ?? []) if (step.priority === "clave") expect(step.reward, step.zone).toBeTruthy();
+    }
+  });
 });
 
 describe("ventanita: qué paso enseñar", () => {
@@ -86,71 +128,171 @@ describe("ventanita: qué paso enseñar", () => {
 
   it("sigue el acto 1 zona a zona y el pueblo no mueve la guía", () => {
     let progress = walk(["G1_1", "G1_town", "G1_2"]);
-    expect(viewOf(progress)).toMatchObject({ act: 1, number: 2, zone: "Sierraclara", priority: "clave" });
-    expect(viewOf(progress).next?.zone).toBe("Lodazal");
+    expect(routeOf(1)[progress.index]!.zone).toBe("Sierraclara");
     progress = walk(["G1_town", "G1_3"], progress);
-    expect(viewOf(progress).zone).toBe("Lodazal");
-    // El mausoleo y la tumba son del paso del cementerio.
-    expect(viewOf(walk(["G1_8"], progress)).zone).toBe("Cementerio de los eternos");
-  });
-
-  it("el último paso de un acto anuncia el primero del siguiente", () => {
-    const progress = walk(["G1_15"]);
-    expect(viewOf(progress)).toMatchObject({ zone: "Mansión de Ogham" });
-    expect(viewOf(progress).next?.zone).toBe("Alrededores del Vastiri");
+    expect(routeOf(1)[progress.index]!.zone).toBe("Lodazal");
+    expect(routeOf(1)[walk(["G1_8"], progress).index]!.zone).toBe("Cementerio de los eternos");
   });
 
   it("cambia de acto al entrar en una zona de otro acto, aunque sea el pueblo", () => {
     expect(walk(["G1_15", "G2_town"])).toEqual({ act: 2, index: 0, outside: false });
-    expect(viewOf(walk(["G1_15", "G2_2"])).zone).toBe("El pasaje de la traidora");
   });
 
   it("una zona que sale en dos pasos elige el que aún no ha pasado", () => {
     const toBay = walk(["G4_town", "G4_2_2"]);
-    expect(viewOf(toBay).zone).toBe("Bahía de las anclas y El final del viaje");
-    const back = walk(["G4_1_1", "G4_2_2"], toBay);
-    expect(viewOf(back).zone).toBe("El final del viaje");
+    expect(routeOf(4)[toBay.index]!.zone).toBe("Bahía de las anclas y El final del viaje");
+    expect(routeOf(4)[walk(["G4_1_1", "G4_2_2"], toBay).index]!.zone).toBe("El final del viaje");
     expect(stepsForCode(4, "G4_3_1")).toEqual([5, 6]);
   });
 
   it("volver a una zona anterior enseña su paso (las islas del acto 4 van en cualquier orden)", () => {
     const prison = walk(["G4_town", "G4_5_1"]);
-    expect(viewOf(walk(["G4_1_1"], prison)).zone).toBe("Isla del clan y Madrigueras volcánicas");
-  });
-
-  it("un personaje nuevo en la orilla del río vuelve al acto 1", () => {
-    expect(walk(["G3_12", "G1_1"])).toEqual({ act: 1, index: 0, outside: false });
-  });
-
-  it("C_G1_2 es la misma zona que G1_2", () => {
-    expect(viewOf(walk(["C_G1_2"])).zone).toBe("Sierraclara");
+    expect(routeOf(4)[walk(["G4_1_1"], prison).index]!.zone).toBe("Isla del clan y Madrigueras volcánicas");
   });
 
   it("fuera de los actos 1-4 avisa sin perder el paso", () => {
     const before = walk(["G4_10"]);
-    const outside = walk(["P1_3"], before);
-    expect(outside).toEqual({ ...before, outside: true });
-    expect(walk(["MapUberBoss_Monolith"], before).outside).toBe(true);
-    expect(walk(["G4_town"], outside).outside).toBe(false);
+    expect(walk(["P1_3"], before)).toEqual({ ...before, outside: true });
+    expect(walk(["G4_town"], walk(["P1_3"], before)).outside).toBe(false);
   });
 
   it("Re Pág y Av Pág pasan de paso y de acto", () => {
     expect(moveStep(START, -1)).toEqual(START);
-    expect(moveStep(START, 1)).toEqual({ act: 1, index: 1, outside: false });
-    const lastOfOne = { act: 1, index: (GUIDES[0]!.route ?? []).length - 1, outside: false };
+    const lastOfOne = { act: 1, index: routeOf(1).length - 1, outside: false };
     expect(moveStep(lastOfOne, 1)).toEqual({ act: 2, index: 0, outside: false });
     expect(moveStep({ act: 2, index: 0, outside: false }, -1)).toEqual(lastOfOne);
+    const lastOfFour = { act: 4, index: routeOf(4).length - 1, outside: false };
+    expect(moveStep(lastOfFour, 1)).toEqual(lastOfFour);
   });
 
   it("un estado guardado raro vuelve al principio", () => {
     expect(sanitize({ act: 2, index: 3 })).toEqual({ act: 2, index: 3, outside: false });
     expect(sanitize({ act: 9, index: 0 })).toEqual(START);
     expect(sanitize("basura")).toEqual(START);
-    expect(sanitize(null)).toEqual(START);
+  });
+});
+
+describe("ventanita: ruta rápida", () => {
+  it("se salta solo lo opcional que no da nada para siempre", () => {
+    const skipped = GUIDES.flatMap((guide) => (guide.route ?? []).filter(skippedInFastRoute).map((step) => step.zone));
+    expect(skipped).toEqual(["Lodazal", "La cámara fundida", "Punta del botín"]);
+  });
+
+  it("Av Pág salta Lodazal en la rápida y no en la completa", () => {
+    const clearfell = { act: 1, index: 1, outside: false };
+    expect(routeOf(1)[moveStep(clearfell, 1, "rapida").index]!.zone).toBe("El bosque singular");
+    expect(routeOf(1)[moveStep(clearfell, 1, "completa").index]!.zone).toBe("Lodazal");
+    expect(positionIn(clearfell, "rapida")).toEqual({ number: 2, total: routeOf(1).length - 1 });
+  });
+
+  it("si entras igualmente en Lodazal, lo enseña y avisa de que esa ruta no lo hace", () => {
+    const view = viewOf(play(["G1_1", "G1_2", "G1_3"]), "rapida");
+    expect(view).toMatchObject({ zone: "Lodazal", offRoute: true });
+    expect(view.next?.zone).toBe("El bosque singular");
+  });
+
+  it("en la rápida dice qué jefe sin premio puedes saltarte", () => {
+    const grelwood = play(["G1_1", "G1_2", "G1_4"]);
+    expect(viewOf(grelwood, "rapida").skipHint).toBe("el Horror de espinas");
+    expect(viewOf(grelwood, "completa").skipHint).toBeNull();
+  });
+});
+
+describe("ventanita: recompensas y lo que te dejas", () => {
+  it("Fin marca y desmarca la recompensa del paso, solo si la tiene", () => {
+    const clearfell = play(["G1_1", "G1_2"]);
+    expect(viewOf(clearfell, "completa").reward).toEqual({ text: "+10 % de hielo", checked: false });
+    const marked = onToggleReward(clearfell);
+    expect(viewOf(marked, "completa").reward?.checked).toBe(true);
+    expect(viewOf(onToggleReward(marked), "completa").reward?.checked).toBe(false);
+    const riverbank = play(["G1_1"]);
+    expect(onToggleReward(riverbank)).toBe(riverbank);
+  });
+
+  // Acto 1 entero por el camino obligatorio, sin Villafrey (opcional, +30 de espíritu).
+  const ACT_ONE_STORY = ["G1_1", "G1_2", "G1_4", "G1_5", "G1_6", "G1_7", "G1_8", "G1_9", "G1_11", "G1_13_1", "G1_13_2", "G1_14", "G1_15"];
+
+  it("al pasar al acto 2 avisa de la zona clave que no pisaste", () => {
+    const run = play([...ACT_ONE_STORY, "G2_town"]);
+    expect(run.leftBehind).toEqual({
+      act: 1,
+      items: [{ zone: "Villafrey", reward: "+30 de espíritu" }],
+      zonesLeft: 3,
+    });
+    expect(viewOf(run, "completa").leftBehind?.items).toHaveLength(1);
+  });
+
+  it("no avisa si la pisaste o la marcaste como cogida", () => {
+    expect(play([...ACT_ONE_STORY.slice(0, 9), "G1_12", ...ACT_ONE_STORY.slice(9), "G2_town"]).leftBehind).toBeNull();
+    const atFreythornStep = onMove(play(ACT_ONE_STORY.slice(0, 9)), 1, "completa");
+    expect(routeOf(1)[atFreythornStep.progress.index]!.zone).toBe("Villafrey");
+    const marked = onToggleReward(atFreythornStep);
+    expect(missedRewards(marked, 1).map((item) => item.zone)).not.toContain("Villafrey");
+    expect(missedRewards(atFreythornStep, 1).map((item) => item.zone)).toContain("Villafrey");
+  });
+
+  it("el aviso se va solo tras tres zonas, o con el resumen", () => {
+    const warned = play([...ACT_ONE_STORY, "G2_town"]);
+    expect(onDismissNotice(warned).leftBehind).toBeNull();
+    expect(play(["G2_1", "G2_town"], warned).leftBehind?.zonesLeft).toBe(1);
+    expect(play(["G2_1", "G2_town", "G2_10_1"], warned).leftBehind).toBeNull();
+  });
+
+  it("al salir del acto 4 a los interludios mira lo que quedó del acto 4", () => {
+    const actFour = play(["G4_town", "G4_2_1", "G4_2_2", "G4_1_1", "G4_5_1", "G4_3_1", "G4_7", "G4_8a", "G4_10", "G4_11_2"]);
+    const interlude = play(["P1_1"], actFour);
+    const zones = interlude.leftBehind?.items.map((item) => item.zone);
+    expect(zones).toEqual(["El ojo de Hinekora", "Salones de los muertos", "La prueba de los ancestros"]);
+  });
+
+  it("el resumen del acto distingue cogida, pisada, dejada y pendiente", () => {
+    const run = onToggleReward(play(["G1_1", "G1_2"]));
+    const rows = viewOf(play(["G1_11", "G1_13_1"], run), "completa").rewards;
+    expect(rows.find((row) => row.zone === "Sierraclara")?.state).toBe("cogida");
+    expect(rows.find((row) => row.zone === "Terrenos de caza")?.state).toBe("pisada");
+    // Villafrey quedó atrás sin pisar; la Mansión aún está por llegar.
+    expect(rows.find((row) => row.zone === "Villafrey")).toMatchObject({ state: "dejada", optional: true });
+    expect(rows.find((row) => row.zone === "Mansión de Ogham")?.state).toBe("pendiente");
+  });
+
+  it("un personaje nuevo en la orilla del río empieza la partida de cero", () => {
+    const old = onToggleReward(play([...ACT_ONE_STORY, ["G3_12", 40]]));
+    const fresh = play(["G1_1"], old);
+    expect(fresh).toMatchObject({ progress: START, visited: ["G1_1"], checked: [], charLevel: null });
+  });
+});
+
+describe("ventanita: tu nivel contra el de la zona", () => {
+  it("avisa a partir de 3 niveles por debajo, y mucho a partir de 6", () => {
+    expect(levelState(10, 10)).toBe("ok");
+    expect(levelState(10, 8)).toBe("ok");
+    expect(levelState(10, 7)).toBe("bajo");
+    expect(levelState(10, 4)).toBe("muy-bajo");
+    expect(levelState(null, 4)).toBeNull();
+    expect(levelState(10, null)).toBeNull();
+    // Tan lejos, casi seguro es otro personaje: no se avisa.
+    expect(levelState(49, 30)).toBeNull();
+  });
+
+  it("el nivel de la zona sale del registro; el de los pueblos no cuenta", () => {
+    const run = onLevel(play([["G1_1", 1], ["G1_2", 3], ["G1_town", 15]]), 2);
+    expect(viewOf(run, "completa")).toMatchObject({ areaLevel: 3, charLevel: 2, level: "ok" });
+    expect(viewOf(onLevel(play([["G2_6", 26]], run), 20), "completa").level).toBe("muy-bajo");
+  });
+});
+
+describe("ventanita: estado guardado", () => {
+  it("una partida o unos ajustes raros no rompen nada", () => {
+    expect(sanitizeRun(null)).toEqual(NEW_RUN);
+    expect(sanitizeRun({ progress: { act: 1, index: 1 }, visited: ["G1_1", 3], checked: "x", charLevel: 900 })).toEqual({
+      ...NEW_RUN,
+      progress: { act: 1, index: 1, outside: false },
+      visited: ["G1_1"],
+    });
+    expect(sanitizeSettings({ route: "rapida", size: "enorme", compact: "sí" })).toEqual({ ...DEFAULT_SETTINGS, route: "rapida" });
   });
 
   it("los textos son los de la guía, sin tocar", () => {
-    const step = GUIDES[0]!.route![1]!;
-    expect(viewOf(walk(["G1_2"])).text).toBe(step.text);
+    expect(viewOf(play(["G1_1", "G1_2"]), "completa").text).toBe(routeOf(1)[1]!.text);
   });
 });

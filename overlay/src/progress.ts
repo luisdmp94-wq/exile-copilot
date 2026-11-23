@@ -2,17 +2,19 @@ import { ACT_FOUR_GUIDE } from "../../src/guides/actFour";
 import { ACT_ONE_GUIDE } from "../../src/guides/actOne";
 import { ACT_THREE_GUIDE } from "../../src/guides/actThree";
 import { ACT_TWO_GUIDE } from "../../src/guides/actTwo";
-import type { ActGuide, GuideRoutePriority, GuideRouteStep } from "../../src/guides/guide";
+import type { ActGuide, GuideRouteStep } from "../../src/guides/guide";
 import { ZONE_CODES } from "./zones";
 
 /**
- * En qué paso de la guía va el jugador y qué se enseña en la ventanita.
- * Todo es puro: recibe el estado y devuelve el nuevo, sin leer archivos.
+ * En qué paso de la guía va el jugador. Todo es puro: recibe el estado y
+ * devuelve el nuevo, sin leer archivos.
  */
 
 export const GUIDES: ActGuide[] = [ACT_ONE_GUIDE, ACT_TWO_GUIDE, ACT_THREE_GUIDE, ACT_FOUR_GUIDE];
-const FIRST_ACT = 1;
-const LAST_ACT = GUIDES.length;
+export const FIRST_ACT = 1;
+export const LAST_ACT = GUIDES.length;
+
+export type RouteMode = "completa" | "rapida";
 
 export interface Progress {
   act: number;
@@ -23,8 +25,20 @@ export interface Progress {
 
 export const START: Progress = { act: FIRST_ACT, index: 0, outside: false };
 
-function routeOf(act: number): GuideRouteStep[] {
+export function routeOf(act: number): GuideRouteStep[] {
   return GUIDES.find((guide) => guide.act === act)?.route ?? [];
+}
+
+/**
+ * La ruta rápida se salta las zonas opcionales que no dan nada para siempre
+ * (Lodazal, la cámara fundida, Punta del botín). Lo permanente se queda.
+ */
+export function skippedInFastRoute(step: GuideRouteStep): boolean {
+  return step.optional === true && step.priority !== "clave";
+}
+
+function shownIn(mode: RouteMode, step: GuideRouteStep): boolean {
+  return mode === "completa" || !skippedInFastRoute(step);
 }
 
 /** «C_G1_2» es la misma zona que «G1_2». */
@@ -47,11 +61,17 @@ export function stepsForCode(act: number, code: string): number[] {
   return routeOf(act).flatMap((step, index) => ((table[step.zone] ?? []).includes(wanted) ? [index] : []));
 }
 
+/** Los códigos de zona de un paso. */
+export function codesOfStep(act: number, index: number): string[] {
+  const step = routeOf(act)[index];
+  return step ? (ZONE_CODES[act]?.[step.zone] ?? []) : [];
+}
+
 /**
  * El jugador entra en una zona. Se enseña el paso de esa zona; si la zona
  * sale en varios pasos, el primero que no ha pasado todavía. Una zona sin
  * paso (el pueblo, una cueva de paso) deja la guía donde estaba. Una zona de
- * otro acto cambia de acto; volver a G1_1 es un personaje nuevo.
+ * otro acto cambia de acto.
  */
 export function enterZone(progress: Progress, code: string): Progress {
   const act = actOfCode(code);
@@ -63,16 +83,44 @@ export function enterZone(progress: Progress, code: string): Progress {
   return { act, index: ahead ?? matches[matches.length - 1]!, outside: false };
 }
 
-/** Re Pág / Av Pág: un paso atrás o adelante, saltando de acto en los extremos. */
-export function moveStep(progress: Progress, delta: 1 | -1): Progress {
-  const route = routeOf(progress.act);
-  const index = progress.index + delta;
-  if (index >= 0 && index < route.length) return { act: progress.act, index, outside: false };
-  if (delta === 1 && progress.act < LAST_ACT) return { act: progress.act + 1, index: 0, outside: false };
-  if (delta === -1 && progress.act > FIRST_ACT) {
-    return { act: progress.act - 1, index: routeOf(progress.act - 1).length - 1, outside: false };
+/** Volver a la orilla del río desde un acto posterior es un personaje nuevo. */
+export function isNewCharacter(progress: Progress, code: string): boolean {
+  return normalizeCode(code) === "G1_1" && progress.act > FIRST_ACT;
+}
+
+/**
+ * Re Pág / Av Pág: un paso atrás o adelante, saltando de acto en los
+ * extremos. En la ruta rápida se saltan los pasos que esa ruta no hace.
+ */
+export function moveStep(progress: Progress, delta: 1 | -1, mode: RouteMode = "completa"): Progress {
+  let act = progress.act;
+  let index = progress.index;
+  for (;;) {
+    index += delta;
+    if (index >= routeOf(act).length) {
+      if (act >= LAST_ACT) return { ...progress, outside: false };
+      act += 1;
+      index = 0;
+    } else if (index < 0) {
+      if (act <= FIRST_ACT) return { ...progress, outside: false };
+      act -= 1;
+      index = routeOf(act).length - 1;
+    }
+    if (shownIn(mode, routeOf(act)[index]!)) return { act, index, outside: false };
   }
-  return { ...progress, outside: false };
+}
+
+/** El paso siguiente que enseña la ruta, aunque sea del acto siguiente. */
+export function nextShown(progress: Progress, mode: RouteMode): { act: number; index: number } | null {
+  const next = moveStep(progress, 1, mode);
+  return next.act === progress.act && next.index === progress.index ? null : next;
+}
+
+/** Posición «n de total» contando solo los pasos que enseña la ruta. */
+export function positionIn(progress: Progress, mode: RouteMode): { number: number; total: number } {
+  const route = routeOf(progress.act);
+  const shown = route.flatMap((step, index) => (shownIn(mode, step) || index === progress.index ? [index] : []));
+  return { number: shown.indexOf(progress.index) + 1, total: shown.length };
 }
 
 /** Un estado guardado que ya no encaja (otra versión de las guías) vuelve al principio. */
@@ -83,34 +131,4 @@ export function sanitize(value: unknown): Progress {
   if (!Number.isInteger(act) || !Number.isInteger(index)) return START;
   if (index < 0 || index >= routeOf(act).length) return START;
   return { act, index, outside: false };
-}
-
-export interface StepView {
-  act: number;
-  number: number;
-  total: number;
-  zone: string;
-  text: string;
-  priority: GuideRoutePriority;
-  optional: boolean;
-  next: { zone: string; text: string } | null;
-  outside: boolean;
-}
-
-/** Lo que pinta la ventanita, con los textos tal cual están en la guía. */
-export function viewOf(progress: Progress): StepView {
-  const route = routeOf(progress.act);
-  const step = route[progress.index] ?? route[0]!;
-  const nextStep = route[progress.index + 1] ?? routeOf(progress.act + 1)[0] ?? null;
-  return {
-    act: progress.act,
-    number: progress.index + 1,
-    total: route.length,
-    zone: step.zone,
-    text: step.text,
-    priority: step.priority,
-    optional: step.optional === true,
-    next: nextStep ? { zone: nextStep.zone, text: nextStep.text } : null,
-    outside: progress.outside,
-  };
 }

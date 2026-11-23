@@ -5,35 +5,86 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
     <title>Exile Copilot · ventanita guía</title>
     <style>
+      :root {
+        --texto: #f1efe8; --suave: #b4b2a9; --oro: #fac775; --borde: rgba(239, 159, 39, 0.35);
+        --fondo: rgba(10, 8, 6, 0.74);
+      }
+      body.fondo-clara { --fondo: rgba(10, 8, 6, 0.55); }
+      body.fondo-opaca { --fondo: rgba(10, 8, 6, 0.92); }
       html, body { margin: 0; background: transparent; overflow: hidden; }
-      body { font-family: "Segoe UI", system-ui, sans-serif; color: #f1efe8; -webkit-user-select: none; user-select: none; }
-      .caja { margin: 0; background: rgba(10, 8, 6, 0.74); border: 1px solid rgba(239, 159, 39, 0.35); border-radius: 8px; padding: 9px 12px 8px; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--texto); -webkit-user-select: none; user-select: none; }
+      [hidden] { display: none !important; }
+      .caja { background: var(--fondo); border: 1px solid var(--borde); border-radius: 8px; padding: 8px 12px 7px; }
       body.moviendo .caja { border: 1px dashed #ef9f27; -webkit-app-region: drag; cursor: move; }
-      .cabecera { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #b4b2a9; }
+
+      .cabecera { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--suave); }
       #pos { white-space: nowrap; flex-shrink: 0; }
-      #zona { min-width: 0; color: #fac775; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-      .tag { margin-left: auto; flex-shrink: 0; font-size: 11px; padding: 0 6px; border-radius: 4px; }
-      .tag.clave { background: #633806; color: #fac775; }
+      #zona { min-width: 0; color: var(--oro); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      #ruta { flex-shrink: 0; font-size: 10px; color: #9fe1cb; border: 1px solid rgba(159, 225, 203, 0.4); border-radius: 4px; padding: 0 4px; }
+      .tag { margin-left: auto; flex-shrink: 0; font-size: 11px; padding: 0 6px; border-radius: 4px; white-space: nowrap; }
+      .tag.clave { background: #633806; color: var(--oro); }
       .tag.recomendable { background: #085041; color: #9fe1cb; }
       .tag.historia, .tag.opcional { background: #444441; color: #d3d1c7; }
-      #aviso { font-size: 11px; color: #fac775; margin-top: 4px; }
-      #ahora { font-size: 14px; line-height: 1.4; margin: 5px 0 6px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-      .pie { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #b4b2a9; border-top: 1px solid rgba(241, 239, 232, 0.12); padding-top: 5px; }
+
+      .aviso { font-size: 11px; color: var(--oro); margin-top: 4px; line-height: 1.35; }
+      .aviso.importante { color: #f5c4b3; background: rgba(153, 60, 29, 0.35); border-radius: 4px; padding: 3px 6px; }
+
+      #recompensa { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12px; }
+      .casilla { width: 12px; height: 12px; flex-shrink: 0; border: 1px solid var(--oro); border-radius: 3px; font-size: 10px; line-height: 12px; text-align: center; color: #0a0806; }
+      .casilla.hecha { background: var(--oro); }
+      #premio { color: var(--oro); }
+      #premio-nota { margin-left: auto; font-size: 10px; color: var(--suave); }
+
+      #ahora { font-size: 14px; line-height: 1.4; margin: 4px 0 5px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+      #saltar { font-size: 11px; color: #9fe1cb; margin: -2px 0 5px; }
+      .pie { display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--suave); border-top: 1px solid rgba(241, 239, 232, 0.12); padding-top: 4px; }
       #luego { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .tecla { flex-shrink: 0; font-family: Consolas, monospace; border: 1px solid rgba(241, 239, 232, 0.3); border-radius: 4px; padding: 0 4px; color: #d3d1c7; }
+      .nivel { flex-shrink: 0; white-space: nowrap; }
+      .nivel.bajo { color: var(--oro); }
+      .nivel.muy-bajo { color: #f09595; }
+
+      #resumen { display: none; margin-top: 6px; border-top: 1px solid rgba(241, 239, 232, 0.12); padding-top: 5px; }
+      body.con-resumen #resumen { display: block; }
+      #resumen-titulo { font-size: 11px; color: var(--suave); margin-bottom: 3px; }
+      #lista { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+      #lista li { display: flex; gap: 6px; align-items: baseline; padding: 1px 0; }
+      #lista .marca { width: 10px; flex-shrink: 0; text-align: center; color: var(--suave); }
+      #lista .cogida .marca { color: var(--oro); }
+      #lista .dejada .marca, #lista .dejada .donde { color: #f0997b; }
+      #lista .pendiente .premio { color: var(--suave); }
+      #lista .premio { flex-shrink: 0; }
+      #lista .donde { min-width: 0; font-size: 10px; color: var(--suave); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .ayuda { font-size: 10px; color: var(--suave); margin-top: 4px; }
+
+      body.compacta #recompensa, body.compacta .pie, body.compacta #saltar { display: none; }
+      body.compacta #ahora { -webkit-line-clamp: 2; margin-bottom: 0; }
+      /* Fuera de la campaña se queda en una línea para no estorbar en mapas y guarida. */
+      body.fuera #recompensa, body.fuera #ahora, body.fuera .pie, body.fuera #saltar { display: none; }
+      body.fuera .caja { padding: 4px 10px; }
+      body.fuera #aviso { margin-top: 2px; }
     </style>
   </head>
   <body>
     <div class="caja">
       <div class="cabecera">
         <span id="pos">Acto 1</span><span>·</span><span id="zona"></span>
+        <span id="ruta" hidden>rápida</span>
         <span id="tag" class="tag"></span>
       </div>
-      <div id="aviso" hidden></div>
+      <div id="aviso" class="aviso" hidden></div>
+      <div id="recompensa" hidden>
+        <span id="casilla" class="casilla"></span><span id="premio"></span><span id="premio-nota"></span>
+      </div>
       <div id="ahora">Buscando tu zona en Client.txt…</div>
+      <div id="saltar" hidden></div>
       <div class="pie">
         <span id="luego"></span>
-        <span id="k-prev" class="tecla">Re Pág</span><span id="k-next" class="tecla">Av Pág</span>
+        <span id="nivel" class="nivel" hidden></span>
+      </div>
+      <div id="resumen">
+        <div id="resumen-titulo"></div>
+        <ul id="lista"></ul>
+        <div class="ayuda">✓ cogida (Fin) · ? estuviste en la zona · ○ te la dejaste · Ctrl+Alt+R cierra</div>
       </div>
     </div>
     <script src="renderer.js"></script>

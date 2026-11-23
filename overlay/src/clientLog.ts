@@ -2,30 +2,23 @@ import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } fro
 import { join } from "node:path";
 
 /**
- * Lectura de Client.txt, el registro que escribe PoE2. Solo se mira la línea
- * de cambio de zona; el resto (chat, nombre de cuenta…) se descarta sin
- * guardarlo. Nada sale del equipo.
+ * Lectura de Client.txt, el registro que escribe PoE2. Solo se miran dos
+ * líneas: el cambio de zona y la subida de nivel. El resto (chat, nombre de
+ * cuenta, nombres de personaje…) se descarta sin guardarlo. Nada sale del
+ * equipo.
  */
 
 const AREA_LINE = /Generating level (\d+) area "([^"]+)"/;
+// «Liche (Liche) es ahora nivel 51» en español; «… is now level 51» en inglés (las dos salen en el Client.txt real).
+const LEVEL_LINE = /\) (?:is now level|es ahora nivel) (\d+)/;
 
-export interface AreaChange {
-  level: number;
-  code: string;
-}
+export type LogEvent = { kind: "area"; code: string; level: number } | { kind: "level"; level: number };
 
-export function parseAreaLine(line: string): AreaChange | null {
-  const match = AREA_LINE.exec(line);
-  return match ? { level: Number(match[1]), code: match[2]! } : null;
-}
-
-/** La última zona escrita en un trozo de texto. */
-export function lastAreaIn(text: string): AreaChange | null {
-  const lines = text.split(/\r?\n/);
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const area = parseAreaLine(lines[index]!);
-    if (area) return area;
-  }
+export function parseLine(line: string): LogEvent | null {
+  const area = AREA_LINE.exec(line);
+  if (area) return { kind: "area", level: Number(area[1]), code: area[2]! };
+  const level = LEVEL_LINE.exec(line);
+  if (level) return { kind: "level", level: Number(level[1]) };
   return null;
 }
 
@@ -58,48 +51,52 @@ export function findClientLog(env: NodeJS.ProcessEnv = process.env): string | nu
   return candidateLogPaths(env).find((path) => existsSync(path)) ?? null;
 }
 
-/** Cuánto del final se lee al arrancar para saber la zona actual. */
-const STARTUP_TAIL_BYTES = 4 * 1024 * 1024;
-/** Más de esto de golpe (el juego escribió mucho) se lee solo el final. */
-const MAX_READ_BYTES = 8 * 1024 * 1024;
+/** Se lee por trozos: Client.txt puede pesar cientos de MB. */
+const CHUNK_BYTES = 8 * 1024 * 1024;
 
-function readRange(path: string, start: number, end: number): string {
-  const length = Math.max(0, end - start);
-  if (length === 0) return "";
+function readRange(path: string, start: number, length: number): string {
+  if (length <= 0) return "";
   const buffer = Buffer.alloc(length);
   const fd = openSync(path, "r");
   try {
-    readSync(fd, buffer, 0, length, start);
+    const read = readSync(fd, buffer, 0, length, start);
+    return buffer.subarray(0, read).toString("utf8");
   } finally {
     closeSync(fd);
   }
-  return buffer.toString("utf8");
 }
 
 /**
- * Sigue Client.txt como `tail -f`: al arrancar busca la última zona en el
- * final del archivo y luego, cada medio segundo, lee solo lo nuevo. Si el
- * archivo se vacía (el jugador lo borró), vuelve a empezar desde cero.
+ * Sigue Client.txt como `tail -f`. Al arrancar repasa lo que el juego
+ * escribió desde la última vez (o todo, la primera vez), para saber qué
+ * zonas pisaste aunque la ventanita estuviera cerrada. Luego, cada medio
+ * segundo, lee solo lo nuevo. Si el archivo se vacía, vuelve a empezar.
  */
 export class ClientLogTail {
-  private offset = 0;
   private remainder = "";
   private timer: NodeJS.Timeout | null = null;
+  private position = 0;
   private readonly path: string;
-  private readonly onArea: (area: AreaChange, fromStartup: boolean) => void;
+  private readonly onEvent: (event: LogEvent, replaying: boolean) => void;
   private readonly intervalMs: number;
 
-  constructor(path: string, onArea: (area: AreaChange, fromStartup: boolean) => void, intervalMs = 500) {
+  constructor(path: string, onEvent: (event: LogEvent, replaying: boolean) => void, intervalMs = 500) {
     this.path = path;
-    this.onArea = onArea;
+    this.onEvent = onEvent;
     this.intervalMs = intervalMs;
   }
 
-  start(): void {
+  /** Hasta dónde se ha leído, para seguir desde ahí la próxima vez. */
+  get offset(): number {
+    // Una línea a medias se vuelve a leer entera la próxima vez.
+    return Math.max(0, this.position - Buffer.byteLength(this.remainder, "utf8"));
+  }
+
+  /** Repasa desde `from` (null = desde el principio) y empieza a vigilar. */
+  start(from: number | null): void {
     const size = statSync(this.path).size;
-    const last = lastAreaIn(readRange(this.path, Math.max(0, size - STARTUP_TAIL_BYTES), size));
-    this.offset = size;
-    if (last) this.onArea(last, true);
+    this.position = from !== null && from <= size ? from : 0;
+    this.read(true);
     this.timer = setInterval(() => this.poll(), this.intervalMs);
   }
 
@@ -110,25 +107,30 @@ export class ClientLogTail {
 
   /** Lee lo nuevo. Público para los tests. */
   poll(): void {
+    this.read(false);
+  }
+
+  private read(replaying: boolean): void {
     let size: number;
     try {
       size = statSync(this.path).size;
     } catch {
       return;
     }
-    if (size < this.offset) {
-      this.offset = 0;
+    if (size < this.position) {
+      this.position = 0;
       this.remainder = "";
     }
-    if (size === this.offset) return;
-    const start = Math.max(this.offset, size - MAX_READ_BYTES);
-    const text = this.remainder + readRange(this.path, start, size);
-    this.offset = size;
-    const lines = text.split(/\r?\n/);
-    this.remainder = lines.pop() ?? "";
-    for (const line of lines) {
-      const area = parseAreaLine(line);
-      if (area) this.onArea(area, false);
+    while (this.position < size) {
+      const length = Math.min(CHUNK_BYTES, size - this.position);
+      const text = this.remainder + readRange(this.path, this.position, length);
+      this.position += length;
+      const lines = text.split(/\r?\n/);
+      this.remainder = lines.pop() ?? "";
+      for (const line of lines) {
+        const event = parseLine(line);
+        if (event) this.onEvent(event, replaying);
+      }
     }
   }
 }
