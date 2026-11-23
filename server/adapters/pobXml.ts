@@ -424,10 +424,16 @@ export function isWellFormedPobXml(xml: string): boolean {
   for (;;) {
     const start = xml.indexOf("<", at);
     if (start < 0) break;
+    // Un «<» que no abre una etiqueta («<3» en las notas de una build) es texto.
+    if (!/[A-Za-z_/?!]/.test(xml.charAt(start + 1))) {
+      at = start + 1;
+      continue;
+    }
     const end = xml.indexOf(">", start + 1);
     if (end < 0) return false;
     const inner = xml.slice(start + 1, end);
-    if (inner.includes("<")) return false;
+    // Otra etiqueta que empieza dentro de esta: es la forma que atascaba las búsquedas.
+    if (/<[A-Za-z_/]/.test(inner)) return false;
     at = end + 1;
     if (inner.startsWith("?") || inner.startsWith("!")) continue;
     const closing = inner.startsWith("/");

@@ -189,6 +189,12 @@ describe("pob adapter — XML hecho a mala fe", () => {
     expect(readPobXml(xml).ok).toBe(true);
   });
 
+  it("un «<» suelto en las notas de una build no hace rechazar el código", () => {
+    const xml = `<PathOfBuilding2><Build level="70" className="Witch"/><Notes>Me encanta esta build <3 y con vida < 50% va sobrada</Notes></PathOfBuilding2>`;
+    expect(isWellFormedPobXml(xml)).toBe(true);
+    expect(readPobXml(xml).ok).toBe(true);
+  });
+
   it("rechaza enseguida miles de etiquetas sin cerrar, en vez de tardar minutos", () => {
     // Con estas formas las búsquedas del lector crecían al cuadrado: 160.000 letras eran 4 segundos
     // de servidor parado, y el límite de entrada deja pasar trece veces más.
