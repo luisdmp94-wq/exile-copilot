@@ -134,7 +134,7 @@ export const ACT_FOUR_GUIDE: ActGuide = {
       text: "Tres pruebas opcionales, cada una con un tatuaje a elegir. Coge los de resistencia: +5 % de fuego, +5 % de hielo y +5 % de rayo. Al final, Yama, el Blanco, pega con caos.",
       optional: true,
       priority: "clave",
-      reward: "+5 % a las tres",
+      reward: "+5 % a las 3 resistencias",
       proof: { kind: "manual", question: "¿Elegiste los tres tatuajes de resistencia en Salones de los muertos?" },
       sourceIds: ["wiki-salones", "wiki-resistencias", "maxroll-jefes"],
     },

@@ -126,7 +126,7 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
       zone: "The Spires of Deshar",
       text: "Shrine of the Sisters of Garukhan: +10% lightning resistance for good. Then Tor Gul, the Defiler.",
       priority: "clave",
-      reward: "+10% lightning",
+      reward: "+10% lightning resistance",
       proof: { kind: "resistance", element: "lightning", amount: 10 },
       sourceIds: ["maxroll-subida", "wiki-resistencias", "poe2db-acto2"],
     },

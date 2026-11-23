@@ -60,7 +60,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
       gems: ["Habilidad nv. 1: un alijo abandonado, en el lado opuesto a la entrada del Lodazal"],
       text: "Busca a Beira, de la manada putrefacta: +10 % de resistencia al hielo para siempre.",
       priority: "clave",
-      reward: "+10 % de hielo",
+      reward: "+10 % resistencia al hielo",
       proof: { kind: "resistance", element: "cold", amount: 10 },
       sourceIds: ["wiki-resistencias", "poe2db-acto1"],
     },

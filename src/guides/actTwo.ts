@@ -140,7 +140,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
       zone: "Las torres de Deshar",
       text: "Santuario de las Hermanas de Garukhan: +10 % de resistencia al rayo para siempre. Después, Tor Gul, el Profanador.",
       priority: "clave",
-      reward: "+10 % de rayo",
+      reward: "+10 % resistencia al rayo",
       proof: { kind: "resistance", element: "lightning", amount: 10 },
       sourceIds: ["maxroll-subida", "wiki-resistencias", "poe2db-acto2"],
     },

@@ -95,7 +95,7 @@ export const ACT_THREE_GUIDE: ActGuide = {
       zone: "Taller de máquinas de Jiquani",
       text: "Quijada negra, el Remanente, es opcional pero da +10 % de resistencia al fuego para siempre.",
       priority: "clave",
-      reward: "+10 % de fuego",
+      reward: "+10 % resistencia al fuego",
       proof: { kind: "resistance", element: "fire", amount: 10 },
       sourceIds: ["poe2db-acto3", "maxroll-subida"],
     },
