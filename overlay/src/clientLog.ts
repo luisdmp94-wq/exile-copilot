@@ -16,7 +16,7 @@ import { bossSignOf, rewardKindOf, type RewardKind } from "./objectives";
 
 const AREA_LINE = /Generating level (\d+) area "([^"]+)"/;
 // «Liche (Liche) es ahora nivel 51» en español; «… is now level 51» en inglés (las dos salen en el Client.txt real).
-const LEVEL_LINE = /\] : (\S+) \(.*\) (?:is now level|es ahora nivel) (\d+)/;
+const LEVEL_LINE = /\] : (\S+) \((.*)\) (?:is now level|es ahora nivel) (\d+)/;
 // Volver a la pantalla de entrada (abrir el juego o cambiar de personaje).
 const LOGIN_LINE = /\] Async connecting to \S*login/;
 
@@ -31,7 +31,7 @@ const SPEECH_LINE = /^([^#@%$&:[][^:]{0,60}): (.+)$/;
 
 export type LogEvent =
   | { kind: "area"; code: string; level: number }
-  | { kind: "level"; level: number; name: string }
+  | { kind: "level"; level: number; name: string; className: string }
   /** Alguien recibió una recompensa para siempre; `name` es null cuando el juego dice «has recibido». */
   | { kind: "reward"; reward: RewardKind; name: string | null }
   /** Se volvió a la pantalla de entrada: a partir de aquí puede jugar otro personaje. */
@@ -45,7 +45,7 @@ export function parseLine(line: string): LogEvent | null {
   const area = AREA_LINE.exec(line);
   if (area) return { kind: "area", level: Number(area[1]), code: area[2]! };
   const level = LEVEL_LINE.exec(line);
-  if (level) return { kind: "level", name: level[1]!, level: Number(level[2]) };
+  if (level) return { kind: "level", name: level[1]!, className: level[2]!, level: Number(level[3]) };
   if (LOGIN_LINE.test(line)) return { kind: "login" };
   const text = INFO_LINE.exec(line)?.[1];
   if (!text) return null;

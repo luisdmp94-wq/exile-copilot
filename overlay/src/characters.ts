@@ -57,7 +57,7 @@ function step(run: Run, event: LogEvent, guessNew: boolean): Run {
     case "area":
       return onArea(run, event.code, event.level, guessNew);
     case "level":
-      return onLevel(run, event.level);
+      return onLevel(run, event.level, event.className);
     case "reward":
       return onReward(run, event.reward);
     case "boss":
@@ -86,6 +86,8 @@ function mergeRuns(mine: Run, strayed: Run): Run {
     checked: union(mine.checked, strayed.checked),
     bosses: union(mine.bosses, strayed.bosses),
     charLevel: mine.charLevel,
+    className: mine.className,
+    hears: mine.hears || strayed.hears,
   };
 }
 

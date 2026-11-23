@@ -1,6 +1,7 @@
 import type { GuideRoutePriority } from "../../src/guides/guide";
-import { BOSS_SIGNS, REWARD_RULES, type RewardKind } from "./objectives";
+import { BASE_CLASSES, BOSS_SIGNS, REWARD_RULES, type RewardKind } from "./objectives";
 import {
+  FIRST_ACT,
   LAST_ACT,
   START,
   actOfCode,
@@ -43,6 +44,10 @@ export interface Run {
   area: string | null;
   areaLevel: number | null;
   charLevel: number | null;
+  /** La clase que dice la última subida de nivel («Bruja», «Liche»). */
+  className: string | null;
+  /** El registro ha dicho alguna recompensa de este personaje: si una no consta, es que no la tiene. */
+  hears: boolean;
   leftBehind: LeftBehind | null;
 }
 
@@ -54,6 +59,8 @@ export const NEW_RUN: Run = {
   area: null,
   areaLevel: null,
   charLevel: null,
+  className: null,
+  hears: false,
   leftBehind: null,
 };
 
@@ -61,14 +68,28 @@ const LEFT_BEHIND_ZONES = 3;
 
 const stepKey = (act: number, index: number) => `${act}:${index}`;
 
-/** Lo permanente de un acto que se quedó sin hacer: zonas clave que no pisaste. */
-export function missedRewards(run: Pick<Run, "visited" | "checked">, act: number): LeftBehind["items"] {
+/**
+ * ¿Se sabría si este personaje tiene la recompensa del paso? Sí cuando el
+ * juego la anuncia con un mensaje y el registro ya ha dicho alguna de las
+ * suyas. La ascendencia no cuenta: solo se nota si se le ve cambiar de clase.
+ */
+function wouldBeKnown(run: Pick<Run, "hears">, act: number, zone: string): boolean {
+  const rule = REWARD_RULES[act]?.[zone];
+  if (!rule || !run.hears) return false;
+  return rule.anyIn !== undefined || (rule.kinds ?? []).some((kind) => kind !== "ascendencia");
+}
+
+/**
+ * Lo permanente de un acto que se quedó sin hacer: zonas clave que no pisaste
+ * y, cuando se sabe, las que pisaste sin llevarte la recompensa.
+ */
+export function missedRewards(run: Pick<Run, "visited" | "checked" | "hears">, act: number): LeftBehind["items"] {
   const visited = new Set(run.visited);
   return routeOf(act).flatMap((step, index) => {
     if (step.priority !== "clave" || !step.reward) return [];
     if (run.checked.includes(stepKey(act, index))) return [];
-    const codes = codesOfStep(act, index);
-    return codes.some((code) => visited.has(code)) ? [] : [{ zone: step.zone, reward: step.reward }];
+    const stepped = codesOfStep(act, index).some((code) => visited.has(code));
+    return stepped && !wouldBeKnown(run, act, step.zone) ? [] : [{ zone: step.zone, reward: step.reward }];
   });
 }
 
@@ -102,7 +123,7 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
       : null
     : null;
   if (leftAct !== null) {
-    const items = missedRewards({ visited, checked: run.checked }, leftAct);
+    const items = missedRewards({ visited, checked: run.checked, hears: run.hears }, leftAct);
     leftBehind = items.length > 0 ? { act: leftAct, items, zonesLeft: LEFT_BEHIND_ZONES } : null;
   }
   // El nivel de un pueblo no dice nada de lo duro que es el acto.
@@ -132,7 +153,8 @@ export function onReward(run: Run, kind: RewardKind): Run {
     sameKind.find((item) => item.codes.some((code) => visited.has(code))) ??
     sameKind[0] ??
     (kind === "puntos" ? undefined : open.find((item) => item.rule.anyIn?.includes(area)));
-  return pick ? { ...run, checked: [...run.checked, stepKey(act, pick.index)] } : run;
+  if (!pick) return run.hears ? run : { ...run, hears: true };
+  return { ...run, hears: true, checked: [...run.checked, stepKey(act, pick.index)] };
 }
 
 /** Se oyó la frase que solo se dice con el jefe de ese paso vencido, y estás en su zona. */
@@ -152,9 +174,31 @@ export function onToggleBoss(run: Run): Run {
   return { ...run, bosses };
 }
 
-/** Sube de nivel (línea «… is now level N»). */
-export function onLevel(run: Run, level: number): Run {
-  return { ...run, charLevel: level };
+/** El primer paso de ascendencia sin marcar, en cualquier acto. */
+function ascendancyStep(run: Run): string | null {
+  for (let act = FIRST_ACT; act <= LAST_ACT; act += 1) {
+    const index = routeOf(act).findIndex(
+      (step, at) => REWARD_RULES[act]?.[step.zone]?.kinds?.includes("ascendencia") && !run.checked.includes(stepKey(act, at)),
+    );
+    if (index >= 0) return stepKey(act, index);
+  }
+  return null;
+}
+
+/**
+ * Sube de nivel (línea «Exiliada (Liche) es ahora nivel 33»). Si la clase
+ * pasa de una sin ascender a otra que no lo es, ha ascendido: se marca sola.
+ */
+export function onLevel(run: Run, level: number, className: string | null = null): Run {
+  const ascended =
+    run.className !== null && className !== null && BASE_CLASSES.has(run.className) && !BASE_CLASSES.has(className);
+  const key = ascended ? ascendancyStep(run) : null;
+  return {
+    ...run,
+    charLevel: level,
+    className: className ?? run.className,
+    checked: key ? [...run.checked, key] : run.checked,
+  };
 }
 
 export function onMove(run: Run, delta: 1 | -1, mode: RouteMode): Run {
@@ -187,6 +231,8 @@ export function sanitizeRun(value: unknown): Run {
     area: typeof raw.area === "string" ? raw.area : null,
     areaLevel: level(raw.areaLevel),
     charLevel: level(raw.charLevel),
+    className: typeof raw.className === "string" ? raw.className : null,
+    hears: raw.hears === true,
     leftBehind: null,
   };
 }
@@ -212,8 +258,11 @@ export function levelState(areaLevel: number | null, charLevel: number | null): 
 export interface RewardRow {
   zone: string;
   reward: string;
-  /** cogida: marcada con Fin · pisada: estuviste en la zona · dejada: quedó atrás sin pisar · pendiente: más adelante. */
-  state: "cogida" | "pisada" | "dejada" | "pendiente";
+  /**
+   * cogida: la tienes · falta: estuviste y el registro no dice que la cogieras ·
+   * pisada: estuviste, no se puede saber · dejada: quedó atrás sin pisar · pendiente: más adelante.
+   */
+  state: "cogida" | "falta" | "pisada" | "dejada" | "pendiente";
   optional: boolean;
 }
 
@@ -246,6 +295,8 @@ export interface StepView {
   leftBehind: LeftBehind | null;
   /** Las recompensas para siempre del acto, para el resumen. */
   rewards: RewardRow[];
+  /** Lo que se quedó sin coger en los actos anteriores. */
+  missedBefore: Array<{ act: number; zone: string; reward: string }>;
 }
 
 export function rewardRows(run: Run, act: number): RewardRow[] {
@@ -256,7 +307,9 @@ export function rewardRows(run: Run, act: number): RewardRow[] {
     const state: RewardRow["state"] = run.checked.includes(stepKey(act, index))
       ? "cogida"
       : codesOfStep(act, index).some((code) => visited.has(code))
-        ? "pisada"
+        ? wouldBeKnown(run, act, step.zone)
+          ? "falta"
+          : "pisada"
         : ahead(index)
           ? "pendiente"
           : "dejada";
@@ -299,5 +352,8 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     level: levelState(run.areaLevel, run.charLevel),
     leftBehind: run.leftBehind,
     rewards: rewardRows(run, progress.act),
+    missedBefore: Array.from({ length: progress.act - FIRST_ACT }, (_, offset) => FIRST_ACT + offset).flatMap((act) =>
+      missedRewards(run, act).map((item) => ({ act, ...item })),
+    ),
   };
 }

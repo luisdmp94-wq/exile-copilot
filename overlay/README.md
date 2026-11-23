@@ -14,8 +14,10 @@ guía (actos 1 a 4, las guías de `src/guides`).
 - La zona donde estás, en grande, y el texto entero de su paso en la guía.
 - **La recompensa para siempre** del paso («Para siempre: +10 % de hielo»)
   con una casilla que **se marca sola** cuando el juego escribe que la has
-  recibido. Las dos ascendencias no dejan mensaje: pulsa **Fin** o haz clic.
-- **El jefe de la zona**, cuando el registro deja saber que ha caído (14 de
+  recibido. Tu primera ascendencia también: se nota en que tu clase cambia
+  («Bruja» → «Liche») en la siguiente subida de nivel. Solo los puntos de la
+  Prueba de Caos se marcan a mano (**Fin** o clic).
+- **El jefe de la zona**, cuando el registro deja saber que ha caído (15 de
   los jefes de los actos 1-4): su casilla también se marca sola.
 - **«Zona hecha: puedes seguir»**, en verde, cuando todo lo que se puede
   comprobar del paso está hecho.
@@ -30,8 +32,10 @@ guía (actos 1 a 4, las guías de `src/guides`).
 - **Lo que te dejas:** al pasar de acto avisa de las zonas con algo para
   siempre que no pisaste («Te dejaste en el acto 1: Villafrey (+30 de
   espíritu)»). Se va solo tras tres zonas.
-- **Recompensas del acto** (Ctrl+Alt+R): ✓ cogida · ? estuviste en la zona
-  pero no consta cogida · ○ te la dejaste · · más adelante.
+- **Recompensas del acto** (Ctrl+Alt+R): ✓ la tienes · ○ no la tienes
+  (estuviste y el juego nunca escribió que la recibieras, o ni pisaste la
+  zona) · ? estuviste y no se puede saber · · más adelante. Debajo, **lo que
+  te falta de los actos anteriores**.
 - **Ruta rápida** (icono de la bandeja): se salta Lodazal, la cámara fundida y
   Punta del botín, y dice qué jefes sin premio puedes saltarte.
 - Fuera de los actos 1-4 (guarida, mapas, interludios) se queda en una línea.

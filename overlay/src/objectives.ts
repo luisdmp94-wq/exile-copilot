@@ -16,7 +16,18 @@
  * La clave es el texto `zone` del paso en la guía, como en `zones.ts`.
  */
 
-export type RewardKind = "puntos" | "hielo" | "fuego" | "rayo" | "espiritu" | "vida" | "mana" | "otra";
+export type RewardKind = "puntos" | "hielo" | "fuego" | "rayo" | "espiritu" | "vida" | "mana" | "otra" | "ascendencia";
+
+/**
+ * Las clases sin ascender, en español e inglés. La ascendencia no deja mensaje,
+ * pero la línea de subida de nivel dice la clase: si pasa de una de estas a
+ * otra que no lo es («Bruja» → «Liche»), el personaje ha ascendido. Una clase
+ * que no esté aquí (las que traiga la 1.0) no marca nada: mejor a mano que mal.
+ */
+export const BASE_CLASSES: ReadonlySet<string> = new Set([
+  ...["Guerrero", "Mercenario", "Bruja", "Hechicera", "Exploradora", "Monje", "Cazadora", "Druida"],
+  ...["Warrior", "Mercenary", "Witch", "Sorceress", "Ranger", "Monk", "Huntress", "Druid"],
+]);
 
 export interface RewardRule {
   /** Tipos de mensaje que dan por cogida la recompensa del paso. */
@@ -36,6 +47,8 @@ export const REWARD_RULES: Record<number, Record<string, RewardRule>> = {
     "Mansión de Ogham": { kinds: ["vida"] },
   },
   2: {
+    // Sin mensaje: se nota en que la clase del personaje cambia.
+    "Prueba de las sekhemas": { kinds: ["ascendencia"] },
     Keth: { kinds: ["puntos"] },
     // El medallón deja elegir: un espacio para viales u otra mejora.
     "Valle de los titanes": { anyIn: ["G2_6"] },
@@ -132,6 +145,11 @@ export const BOSS_SIGNS: Record<number, Record<string, BossSign>> = {
     },
   },
   3: {
+    "Templo de Kopec": {
+      boss: "Ketzuli, Sumo sacerdote del sol",
+      // Alva entra en la sala y habla solo con Ketzuli ya vencido.
+      lines: [["Alva", "La ingenuidad vaal nunca deja de sorprenderme…"]],
+    },
     "Las cámaras negras (pasado)": {
       boss: "Doryani, Taumaturgo real",
       lines: [

@@ -62,14 +62,15 @@
       #resumen, #ajustes { display: none; margin-top: 6px; border-top: 1px solid var(--raya); padding-top: 5px; }
       body.con-resumen #resumen, body.con-ajustes #ajustes { display: block; }
       .panel-titulo { font-size: 11px; color: var(--suave); margin-bottom: 4px; }
-      #lista { list-style: none; margin: 0; padding: 0; font-size: 12px; }
-      #lista li { display: flex; gap: 6px; align-items: baseline; padding: 1px 0; }
-      #lista .marca { width: 10px; flex-shrink: 0; text-align: center; color: var(--suave); }
-      #lista .cogida .marca { color: var(--oro); }
-      #lista .dejada .marca, #lista .dejada .donde { color: #f0997b; }
-      #lista .pendiente .premio { color: var(--suave); }
-      #lista .premio { flex-shrink: 0; }
-      #lista .donde { min-width: 0; font-size: 10px; color: var(--suave); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .lista { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+      .lista li { display: flex; gap: 6px; align-items: baseline; padding: 1px 0; }
+      .lista .marca { width: 10px; flex-shrink: 0; text-align: center; color: var(--suave); }
+      .lista .cogida .marca { color: var(--oro); }
+      .lista .dejada .marca, .lista .dejada .donde, .lista .falta .marca, .lista .falta .donde { color: #f0997b; }
+      .lista .pendiente .premio { color: var(--suave); }
+      .lista .premio { flex-shrink: 0; }
+      .lista .donde { min-width: 0; font-size: 10px; color: var(--suave); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      #antes-titulo { margin-top: 6px; }
       .ayuda { font-size: 10px; line-height: 1.4; color: var(--suave); margin-top: 4px; }
 
       .fila { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 4px; font-size: 11px; }
@@ -117,8 +118,10 @@
       </div>
       <div id="resumen">
         <div id="resumen-titulo" class="panel-titulo"></div>
-        <ul id="lista"></ul>
-        <div class="ayuda">✓ cogida · ? estuviste, pero no consta cogida · ○ te la dejaste<br />Ctrl+Alt+R cierra esta lista</div>
+        <ul id="lista" class="lista"></ul>
+        <div id="antes-titulo" class="panel-titulo" hidden>De actos anteriores te falta</div>
+        <ul id="antes" class="lista"></ul>
+        <div class="ayuda">✓ la tienes · ○ no la tienes · ? estuviste, no se puede saber<br />Ctrl+Alt+R cierra esta lista</div>
       </div>
       <div id="ajustes" data-raton>
         <div class="panel-titulo">Ajustes · el engranaje ⚙ los cierra</div>

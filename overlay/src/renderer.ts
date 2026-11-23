@@ -32,13 +32,30 @@ function setText(id: string, text: string | null): void {
   element.hidden = !text;
 }
 
-const ROW_MARK: Record<RewardRow["state"], string> = { cogida: "✓", pisada: "?", dejada: "○", pendiente: "·" };
+const ROW_MARK: Record<RewardRow["state"], string> = { cogida: "✓", falta: "○", pisada: "?", dejada: "○", pendiente: "·" };
 const ROW_NOTE: Record<RewardRow["state"], string> = {
   cogida: "",
+  falta: "aún no la tienes",
   pisada: "",
   dejada: "te la dejaste",
   pendiente: "más adelante",
 };
+
+function rewardLine(state: RewardRow["state"], rewardText: string, where: string): HTMLLIElement {
+  const item = document.createElement("li");
+  item.className = state;
+  const mark = document.createElement("span");
+  mark.className = "marca";
+  mark.textContent = ROW_MARK[state];
+  const reward = document.createElement("span");
+  reward.className = "premio";
+  reward.textContent = rewardText;
+  const zone = document.createElement("span");
+  zone.className = "donde";
+  zone.textContent = where;
+  item.append(mark, reward, zone);
+  return item;
+}
 
 /** «sáltate a el Horror» → «sáltate al Horror». */
 function skipSentence(target: string): string {
@@ -77,25 +94,15 @@ function drawExtras(view: StepView, route: Settings["route"]): void {
 }
 
 function drawSummary(view: StepView): void {
-  const list = byId("lista");
-  list.replaceChildren(
-    ...view.rewards.map((row) => {
-      const item = document.createElement("li");
-      item.className = row.state;
-      const mark = document.createElement("span");
-      mark.className = "marca";
-      mark.textContent = ROW_MARK[row.state];
-      const reward = document.createElement("span");
-      reward.className = "premio";
-      reward.textContent = row.reward;
-      const zone = document.createElement("span");
-      zone.className = "donde";
-      zone.textContent = [row.zone, row.optional ? "opcional" : "", ROW_NOTE[row.state]].filter(Boolean).join(" · ");
-      item.append(mark, reward, zone);
-      return item;
-    }),
+  byId("lista").replaceChildren(
+    ...view.rewards.map((row) =>
+      rewardLine(row.state, row.reward, [row.zone, row.optional ? "opcional" : "", ROW_NOTE[row.state]].filter(Boolean).join(" · ")),
+    ),
   );
   byId("resumen-titulo").textContent = `Acto ${view.act}: lo que da algo para siempre`;
+  // Lo que quedó sin coger en los actos de antes: sigue ahí, se puede volver a por ello.
+  byId("antes-titulo").hidden = view.missedBefore.length === 0;
+  byId("antes").replaceChildren(...view.missedBefore.map((item) => rewardLine("dejada", item.reward, `${item.zone} · acto ${item.act}`)));
 }
 
 /** Los ajustes: se marca lo elegido para que se vea de un vistazo. */

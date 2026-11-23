@@ -21,6 +21,7 @@ import {
   NEW_RUN,
   levelState,
   missedRewards,
+  rewardRows,
   onArea,
   onDismissNotice,
   onLevel,
@@ -54,8 +55,10 @@ const play = (codes: Array<string | [string, number]>, from: Run = NEW_RUN) =>
 describe("ventanita: leer Client.txt", () => {
   it("saca la zona con su nivel y la subida de nivel; ignora lo demás", () => {
     expect(parseLine(AREA_LINE)).toEqual({ kind: "area", level: 48, code: "G4_5_1" });
-    expect(parseLine(LEVEL_LINE)).toEqual({ kind: "level", name: "Exiliada", level: 51 });
-    expect(parseLine(LEVEL_LINE_EN)).toEqual({ kind: "level", name: "Exiliada", level: 2 });
+    expect(parseLine(LEVEL_LINE)).toEqual({ kind: "level", name: "Exiliada", className: "Liche", level: 51 });
+    expect(parseLine(LEVEL_LINE_EN)).toEqual({ kind: "level", name: "Exiliada", className: "Mercenary", level: 2 });
+    // Las ascendencias de dos palabras también.
+    expect(parseLine("[INFO Client 1] : Exiliada (Cazador de brujas) es ahora nivel 24")).toMatchObject({ className: "Cazador de brujas" });
     expect(parseLine(SCENE_LINE)).toBeNull();
     expect(parseLine("[INFO Client 1] : Exiliada ha muerto.")).toBeNull();
     expect(parseLine("[INFO Client 1] Balbala: Libérame… te lo ruego…")).toBeNull();
@@ -478,11 +481,53 @@ describe("ventanita: objetivos que se marcan solos", () => {
     }
   });
 
-  it("toda recompensa para siempre se marca sola, menos las dos ascendencias", () => {
+  it("toda recompensa para siempre se marca sola, menos los puntos de la Prueba de Caos", () => {
     const byHand = GUIDES.flatMap((guide) =>
       (guide.route ?? []).filter((step) => step.reward && !REWARD_RULES[guide.act]?.[step.zone]).map((step) => step.zone),
     );
-    expect(byHand).toEqual(["Prueba de las sekhemas", "Prueba de Caos"]);
+    expect(byHand).toEqual(["Prueba de Caos"]);
+  });
+
+  it("la ascendencia se marca sola cuando la clase deja de ser la de partida", () => {
+    const witch = onLevel(play(["G2_1", "G2_13"]), 24, "Bruja");
+    expect(witch.checked).toEqual([]);
+    const lich = onLevel(witch, 25, "Liche");
+    expect(lich.checked).toEqual(["2:3"]);
+    // Cambiar de ascendencia más tarde no marca nada más.
+    expect(onLevel(lich, 60, "Infernalista").checked).toEqual(["2:3"]);
+    // Vale en cualquier zona: la línea sale en la siguiente subida de nivel.
+    expect(onLevel(onLevel(play(["G3_1"]), 30, "Witch"), 31, "Lich").checked).toEqual(["2:3"]);
+  });
+
+  it("cambiar el idioma del juego, o una clase que no conoce, no se toma por ascender", () => {
+    expect(onLevel(onLevel(NEW_RUN, 4, "Warrior"), 5, "Guerrero").checked).toEqual([]);
+    expect(onLevel(onLevel(NEW_RUN, 4, "Duelista"), 5, "Duelist").checked).toEqual([]);
+    expect(onLevel(onLevel(NEW_RUN, 4, "Duelista"), 30, "Gladiador").checked).toEqual([]);
+    // Sin clase en la línea, se conserva la última conocida.
+    expect(onLevel(onLevel(NEW_RUN, 4, "Bruja"), 5)).toMatchObject({ className: "Bruja", charLevel: 5 });
+  });
+
+  it("si el registro ya dice sus recompensas, pisar la zona sin cogerla consta como que falta", () => {
+    // Estuvo en la Mansión de Ogham (G1_14, G1_15) y nunca recibió el +20 de vida.
+    const manor = play(["G1_1", "G1_2", "G1_14", "G1_15"]);
+    const row = (run: Run, zone: string) => rewardRows(run, 1).find((item) => item.zone === zone)!.state;
+    // Sin haber oído nunca una recompensa (otro idioma) no se puede saber.
+    expect(row(manor, "Mansión de Ogham")).toBe("pisada");
+    expect(missedRewards(manor, 1).map((item) => item.zone)).not.toContain("Mansión de Ogham");
+    const heard = play(["G1_14", "G1_15"], onReward(play(["G1_1", "G1_2"]), "hielo"));
+    expect(row(heard, "Sierraclara")).toBe("cogida");
+    expect(row(heard, "Mansión de Ogham")).toBe("falta");
+    expect(missedRewards(heard, 1).map((item) => item.zone)).toContain("Mansión de Ogham");
+    // Al pasar de acto lo avisa, y en el acto 2 sigue constando en «de actos anteriores».
+    const nextAct = play(["G2_1"], heard);
+    expect(nextAct.leftBehind?.items.map((item) => item.zone)).toContain("Mansión de Ogham");
+    expect(viewOf(nextAct, "completa").missedBefore).toContainEqual({ act: 1, zone: "Mansión de Ogham", reward: "+20 de vida" });
+    expect(viewOf(heard, "completa").missedBefore).toEqual([]);
+  });
+
+  it("la ascendencia nunca consta como que falta: solo se sabe si se le ve ascender", () => {
+    const trial = play(["G2_1", "G2_13", "G2_3"], onReward(play(["G1_1", "G1_2"]), "hielo"));
+    expect(rewardRows(trial, 2).find((item) => item.zone === "Prueba de las sekhemas")!.state).toBe("pisada");
   });
 
   it("marca la recompensa del paso al recibirla, y solo una vez", () => {
