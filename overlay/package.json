@@ -1,0 +1,14 @@
+{
+  "name": "exile-copilot-ventanita",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ventanita guía de Exile Copilot encima de Path of Exile 2. Solo lee Client.txt.",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron ."
+  },
+  "devDependencies": {
+    "electron": "45.4.1"
+  }
+}

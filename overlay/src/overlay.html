@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
+    <title>Exile Copilot · ventanita guía</title>
+    <style>
+      html, body { margin: 0; background: transparent; overflow: hidden; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; color: #f1efe8; -webkit-user-select: none; user-select: none; }
+      .caja { margin: 0; background: rgba(10, 8, 6, 0.74); border: 1px solid rgba(239, 159, 39, 0.35); border-radius: 8px; padding: 9px 12px 8px; }
+      body.moviendo .caja { border: 1px dashed #ef9f27; -webkit-app-region: drag; cursor: move; }
+      .cabecera { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #b4b2a9; }
+      #zona { color: #fac775; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .tag { margin-left: auto; flex-shrink: 0; font-size: 11px; padding: 0 6px; border-radius: 4px; }
+      .tag.clave { background: #633806; color: #fac775; }
+      .tag.recomendable { background: #085041; color: #9fe1cb; }
+      .tag.historia, .tag.opcional { background: #444441; color: #d3d1c7; }
+      #aviso { font-size: 11px; color: #fac775; margin-top: 4px; }
+      #ahora { font-size: 14px; line-height: 1.4; margin: 5px 0 6px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+      .pie { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #b4b2a9; border-top: 1px solid rgba(241, 239, 232, 0.12); padding-top: 5px; }
+      #luego { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tecla { flex-shrink: 0; font-family: Consolas, monospace; border: 1px solid rgba(241, 239, 232, 0.3); border-radius: 4px; padding: 0 4px; color: #d3d1c7; }
+    </style>
+  </head>
+  <body>
+    <div class="caja">
+      <div class="cabecera">
+        <span id="pos">Acto 1</span><span>·</span><span id="zona"></span>
+        <span id="tag" class="tag"></span>
+      </div>
+      <div id="aviso" hidden></div>
+      <div id="ahora">Buscando tu zona en Client.txt…</div>
+      <div class="pie">
+        <span id="luego"></span>
+        <span id="k-prev" class="tecla">Re Pág</span><span id="k-next" class="tecla">Av Pág</span>
+      </div>
+    </div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
