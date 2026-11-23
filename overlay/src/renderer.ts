@@ -153,14 +153,28 @@ function draw(state: OverlayState): void {
   setText("aviso", notice);
   byId("aviso").className = view.leftBehind && !state.problem && !state.waitingForGame ? "aviso importante" : "aviso";
 
-  const reward = byId("recompensa");
-  reward.hidden = !view.reward;
+  // Los objetivos que el registro deja comprobar: la recompensa para siempre y el jefe.
+  const goal = (row: string, box: string, done: boolean) => {
+    byId(row).className = done ? "objetivo hecho" : "objetivo";
+    byId(box).textContent = done ? "✓" : "";
+    byId(box).className = done ? "casilla hecha" : "casilla";
+  };
+  byId("recompensa").hidden = !view.reward;
   if (view.reward) {
-    byId("casilla").textContent = view.reward.checked ? "✓" : "";
-    byId("casilla").className = view.reward.checked ? "casilla hecha" : "casilla";
+    goal("recompensa", "casilla", view.reward.checked);
     byId("premio").textContent = view.reward.text;
-    byId("premio-nota").textContent = view.reward.checked ? "cogida" : "pulsa Fin al cogerla";
+    byId("premio-nota").textContent = view.reward.checked ? "cogida" : view.reward.auto ? "se marca sola" : "pulsa Fin al cogerla";
   }
+  byId("jefe").hidden = !view.boss;
+  if (view.boss) {
+    goal("jefe", "jefe-casilla", view.boss.dead);
+    byId("jefe-nombre").textContent = view.boss.name;
+    byId("jefe-nota").textContent = view.boss.dead ? "muerto" : "se marca solo";
+  }
+  setText(
+    "hecho",
+    view.ready !== true ? null : view.boss ? "✓ Zona hecha: puedes seguir." : "✓ Ya tienes lo de esta zona: puedes seguir.",
+  );
 
   byId("ahora").textContent = view.text;
   drawExtras(view, settings.route);

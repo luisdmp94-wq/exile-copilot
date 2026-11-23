@@ -1,4 +1,5 @@
 import type { GuideRoutePriority } from "../../src/guides/guide";
+import { BOSS_SIGNS, REWARD_RULES, type RewardKind } from "./objectives";
 import {
   LAST_ACT,
   START,
@@ -34,8 +35,12 @@ export interface Run {
   progress: Progress;
   /** Códigos de zona de los actos 1-4 que ha pisado este personaje. */
   visited: string[];
-  /** Recompensas marcadas como cogidas: «acto:paso». */
+  /** Recompensas marcadas como cogidas (por el registro o a mano): «acto:paso». */
   checked: string[];
+  /** Pasos cuyo jefe ya cayó: «acto:paso». */
+  bosses: string[];
+  /** Código de la zona donde está ahora, también fuera de las guías. */
+  area: string | null;
   areaLevel: number | null;
   charLevel: number | null;
   leftBehind: LeftBehind | null;
@@ -45,6 +50,8 @@ export const NEW_RUN: Run = {
   progress: START,
   visited: [],
   checked: [],
+  bosses: [],
+  area: null,
   areaLevel: null,
   charLevel: null,
   leftBehind: null,
@@ -95,7 +102,49 @@ export function onArea(run: Run, code: string, level: number): Run {
   }
   // El nivel de un pueblo no dice nada de lo duro que es el acto.
   const areaLevel = /_town$/i.test(code) || act === null ? run.areaLevel : level;
-  return { ...run, progress, visited, areaLevel, leftBehind };
+  return { ...run, progress, visited, area: normalizeCode(code), areaLevel, leftBehind };
+}
+
+/**
+ * El juego dice que recibiste una recompensa para siempre: se marca sola la
+ * del paso al que corresponde, en el acto donde estás. Si hay dos pasos con
+ * la misma (dos libros de 2 puntos), gana el de la zona donde estás; si no,
+ * el primero que ya pisaste.
+ */
+export function onReward(run: Run, kind: RewardKind): Run {
+  const area = run.area;
+  const act = area ? actOfCode(area) : null;
+  if (!area || act === null) return run;
+  const visited = new Set(run.visited);
+  const open = routeOf(act).flatMap((step, index) => {
+    const rule = REWARD_RULES[act]?.[step.zone];
+    if (!rule || !step.reward || run.checked.includes(stepKey(act, index))) return [];
+    return [{ index, rule, codes: codesOfStep(act, index) }];
+  });
+  const sameKind = open.filter((item) => item.rule.kinds?.includes(kind));
+  const pick =
+    sameKind.find((item) => item.codes.includes(area) || item.rule.where?.includes(area)) ??
+    sameKind.find((item) => item.codes.some((code) => visited.has(code))) ??
+    sameKind[0] ??
+    (kind === "puntos" ? undefined : open.find((item) => item.rule.anyIn?.includes(area)));
+  return pick ? { ...run, checked: [...run.checked, stepKey(act, pick.index)] } : run;
+}
+
+/** Se oyó la frase que solo se dice con el jefe de ese paso vencido, y estás en su zona. */
+export function onBoss(run: Run, act: number, zone: string): Run {
+  const index = routeOf(act).findIndex((step) => step.zone === zone);
+  if (index < 0 || !run.area || !codesOfStep(act, index).includes(run.area)) return run;
+  const key = stepKey(act, index);
+  return run.bosses.includes(key) ? run : { ...run, bosses: [...run.bosses, key] };
+}
+
+/** Marca o desmarca a mano el jefe del paso que se ve (por si el registro no lo dijo). */
+export function onToggleBoss(run: Run): Run {
+  const { act, index } = run.progress;
+  if (!BOSS_SIGNS[act]?.[routeOf(act)[index]?.zone ?? ""]) return run;
+  const key = stepKey(act, index);
+  const bosses = run.bosses.includes(key) ? run.bosses.filter((item) => item !== key) : [...run.bosses, key];
+  return { ...run, bosses };
 }
 
 /** Sube de nivel (línea «… is now level N»). */
@@ -129,6 +178,8 @@ export function sanitizeRun(value: unknown): Run {
     progress: sanitize(raw.progress),
     visited: strings(raw.visited),
     checked: strings(raw.checked),
+    bosses: strings(raw.bosses),
+    area: typeof raw.area === "string" ? raw.area : null,
     areaLevel: level(raw.areaLevel),
     charLevel: level(raw.charLevel),
     leftBehind: null,
@@ -171,7 +222,12 @@ export interface StepView {
   optional: boolean;
   /** Fuera de la ruta rápida (estás en una zona que esa ruta no hace). */
   offRoute: boolean;
-  reward: { text: string; checked: boolean } | null;
+  /** `auto`: el registro la marca sola al recibirla; si no, se marca a mano. */
+  reward: { text: string; checked: boolean; auto: boolean } | null;
+  /** El jefe de la zona, solo si el registro deja saber cuándo cae. */
+  boss: { name: string; dead: boolean } | null;
+  /** Todo lo que se puede comprobar del paso está hecho: se puede seguir. Null si no hay nada que comprobar. */
+  ready: boolean | null;
   /** Gemas sin tallar que la zona da siempre, una frase por gema. */
   gems: string[];
   /** Jefe u objetivo opcional de la zona: no da nada para siempre. */
@@ -210,6 +266,13 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
   const next = nextShown(progress, mode);
   const nextStep = next ? routeOf(next.act)[next.index]! : null;
   const { number, total } = positionIn(progress, mode);
+  const key = stepKey(progress.act, progress.index);
+  const reward = step.reward
+    ? { text: step.reward, checked: run.checked.includes(key), auto: REWARD_RULES[progress.act]?.[step.zone] !== undefined }
+    : null;
+  const sign = BOSS_SIGNS[progress.act]?.[step.zone];
+  const boss = sign ? { name: sign.boss, dead: run.bosses.includes(key) } : null;
+  const goals = [reward?.checked, boss?.dead].filter((goal): goal is boolean => goal !== undefined);
   return {
     act: progress.act,
     number,
@@ -219,7 +282,9 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     priority: step.priority,
     optional: step.optional === true,
     offRoute: mode === "rapida" && skippedInFastRoute(step),
-    reward: step.reward ? { text: step.reward, checked: run.checked.includes(stepKey(progress.act, progress.index)) } : null,
+    reward,
+    boss,
+    ready: goals.length > 0 ? goals.every(Boolean) : null,
     gems: step.gems ?? [],
     skip: step.skip ?? null,
     next: nextStep ? { zone: nextStep.zone, reward: nextStep.reward ?? null } : null,

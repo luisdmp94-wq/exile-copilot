@@ -23,13 +23,17 @@ import {
   onArea,
   onDismissNotice,
   onLevel,
+  onBoss,
   onMove,
+  onReward,
+  onToggleBoss,
   onToggleReward,
   sanitizeRun,
   viewOf,
   type Run,
 } from "../../overlay/src/run";
 import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../overlay/src/foreground";
+import { BOSS_SIGNS, REWARD_RULES, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
 import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { ZONE_CODES } from "../../overlay/src/zones";
@@ -210,7 +214,7 @@ describe("ventanita: ruta rápida", () => {
 describe("ventanita: recompensas y lo que te dejas", () => {
   it("Fin marca y desmarca la recompensa del paso, solo si la tiene", () => {
     const clearfell = play(["G1_1", "G1_2"]);
-    expect(viewOf(clearfell, "completa").reward).toEqual({ text: "+10 % de hielo", checked: false });
+    expect(viewOf(clearfell, "completa").reward).toEqual({ text: "+10 % de hielo", checked: false, auto: true });
     const marked = onToggleReward(clearfell);
     expect(viewOf(marked, "completa").reward?.checked).toBe(true);
     expect(viewOf(onToggleReward(marked), "completa").reward?.checked).toBe(false);
@@ -371,5 +375,145 @@ describe("ventanita: siempre dentro de la pantalla", () => {
 
   it("si no cabe, manda la esquina del asa", () => {
     expect(keepInside({ x: 50, y: 50, width: 400, height: 300 }, { x: 0, y: 0, width: 300, height: 200 })).toEqual({ x: 0, y: 0 });
+  });
+});
+
+// Líneas con el formato del Client.txt real (23-11-2026), con el nombre del personaje cambiado.
+const info = (text: string) => `2026/11/23 21:06:17 1 3ef23348 [INFO Client 25188] ${text}`;
+const MARKS = "<<set:F>><<set:S>><<set:FS>>";
+
+describe("ventanita: objetivos que se marcan solos", () => {
+  it("lee el mensaje de una recompensa para siempre, en español y en inglés", () => {
+    const kind = (text: string) => parseLine(info(text));
+    expect(kind(": Exiliada ha recibido +10% a la resistencia al [Resistances|hielo].")).toEqual({ kind: "reward", reward: "hielo" });
+    expect(kind(": Exiliados han recibido +30 al [Spirit|espíritu].")).toEqual({ kind: "reward", reward: "espiritu" });
+    expect(kind(": Has recibido 2 puntos de habilidad pasiva de set de armas.")).toEqual({ kind: "reward", reward: "puntos" });
+    expect(kind(": You have received +10% to [Resistances|Cold Resistance].")).toEqual({ kind: "reward", reward: "hielo" });
+    expect(kind(": You have received 2 Weapon Set Passive Skill Points.")).toEqual({ kind: "reward", reward: "puntos" });
+    expect(kind(": Exiliada ha recibido +20 a la vida máxima.")).toEqual({ kind: "reward", reward: "vida" });
+    expect(kind(": Exiliada ha recibido Maná máximo aumentado un 5%.")).toEqual({ kind: "reward", reward: "mana" });
+    expect(kind(": Exiliada ha recibido +1 espacio para [Charm|viales].")).toEqual({ kind: "reward", reward: "otra" });
+  });
+
+  it("no cuenta dos veces los puntos ni lo de fuera de la campaña", () => {
+    expect(parseLine(info(": Has recibido 2 puntos de habilidades pasivas."))).toBeNull();
+    expect(parseLine(info(": You have received 2 Passive Skill Points."))).toBeNull();
+    expect(parseLine(info(": Has recibido 2 puntos de habilidad del atlas de expedición."))).toBeNull();
+    expect(rewardKindOf("un punto de habilidad de anillos del árbol del génesis.")).toBeNull();
+  });
+
+  it("reconoce la frase de un jefe al caer, con marcas o sin ellas", () => {
+    const villafrey = { kind: "boss", act: 1, zone: "Villafrey" };
+    expect(parseLine(info(`El rey de las nieblas: ${MARKS}Nos volveremos a encontrar...`))).toEqual(villafrey);
+    expect(parseLine(info("El rey de las nieblas: Nos volveremos a encontrar..."))).toEqual(villafrey);
+    expect(parseLine(info(`Lachlann del lamento eterno: ${MARKS}Juntos… al fin…`))).toMatchObject({ zone: "Cementerio de los eternos" });
+    const yama = `Yama el Blanco: ${MARKS}<if:MS>{¡Ahhh! Bien, bien. Yama puede verte. Eres digno.}<elif:FS>{¡Ahhh! Bien, bien. Yama puede verte. Eres digna.}`;
+    expect(parseLine(info(yama))).toMatchObject({ act: 4, zone: "Salones de los muertos" });
+    expect(parseLine(info("Yama el Blanco: ¡Ahhh! Bien, bien. Yama puede verte. Eres digna."))).toMatchObject({ act: 4 });
+  });
+
+  it("no se fía de otro que diga lo mismo, ni de los gritos del combate, ni del chat", () => {
+    // Otros jefes repiten las frases de estos: solo vale si lo dice el de verdad.
+    expect(parseLine(info(`Connal, el Atormentado: ${MARKS}Juntos… al fin…`))).toBeNull();
+    expect(parseLine(info(`Malgor, el Señor náutico: ${MARKS}No... creas sus mentiras...`))).toBeNull();
+    expect(parseLine(info(`El rey de las nieblas: ${MARKS}¡Prisión de espinas!`))).toBeNull();
+    expect(parseLine(info("#Alguien: Nos volveremos a encontrar..."))).toBeNull();
+    expect(parseLine(info("@De Alguien: El rey de las nieblas: Nos volveremos a encontrar..."))).toBeNull();
+    expect(bossSignOf("Mortimer", "¡Tú, allí! ¡Por favor, ayúdanos!")).toBeNull();
+  });
+
+  it("quita las marcas del juego de una frase", () => {
+    expect(cleanSpeech(`${MARKS}¡Debo hacer que <i>{sufran}!`)).toBe("¡Debo hacer que sufran!");
+    expect(cleanSpeech("<if:MS>{¡Usurpador!}<elif:FS>{¡Usurpadora!}")).toBe("¡Usurpador!");
+  });
+
+  it("las tablas hablan de pasos que existen y de zonas de su acto", () => {
+    for (const guide of GUIDES) {
+      const steps = new Map((guide.route ?? []).map((step) => [step.zone, step]));
+      for (const [zone, rule] of Object.entries(REWARD_RULES[guide.act] ?? {})) {
+        expect(steps.get(zone)?.reward, zone).toBeTruthy();
+        for (const code of [...(rule.where ?? []), ...(rule.anyIn ?? [])]) expect(actOfCode(code), code).toBe(guide.act);
+      }
+      for (const [zone, sign] of Object.entries(BOSS_SIGNS[guide.act] ?? {})) {
+        expect(steps.has(zone), zone).toBe(true);
+        expect(sign.lines.length).toBeGreaterThan(0);
+        for (const [who, text] of sign.lines) {
+          expect(cleanSpeech(text)).toBe(text);
+          expect(bossSignOf(who, text)).toEqual({ act: guide.act, zone });
+        }
+      }
+    }
+  });
+
+  it("toda recompensa para siempre se marca sola, menos las dos ascendencias", () => {
+    const byHand = GUIDES.flatMap((guide) =>
+      (guide.route ?? []).filter((step) => step.reward && !REWARD_RULES[guide.act]?.[step.zone]).map((step) => step.zone),
+    );
+    expect(byHand).toEqual(["Prueba de las sekhemas", "Prueba de Caos"]);
+  });
+
+  it("marca la recompensa del paso al recibirla, y solo una vez", () => {
+    const clearfell = onReward(play(["G1_1", "G1_2"]), "hielo");
+    expect(viewOf(clearfell, "completa")).toMatchObject({ reward: { checked: true, auto: true }, boss: null, ready: true });
+    expect(onReward(clearfell, "hielo")).toBe(clearfell);
+    // Una recompensa que no es de este paso no lo marca.
+    expect(onReward(play(["G1_1", "G1_2"]), "fuego").checked).toEqual([]);
+  });
+
+  it("con dos libros de puntos en el acto, marca el de donde estás", () => {
+    const hunting = play(["G1_1", "G1_2", "G1_11", "G1_13_1", "G1_town"]);
+    // En el pueblo: el libro de Una (Tierras de cultivo), no el del cuervo.
+    const lute = onReward(hunting, "puntos");
+    expect(lute.checked).toEqual(["1:9"]);
+    // El otro libro, usado más tarde también en el pueblo, marca el que queda.
+    expect(onReward(lute, "puntos").checked).toEqual(["1:9", "1:7"]);
+    // En Terrenos de caza, el del cuervo.
+    expect(onReward(play(["G1_1", "G1_11"]), "puntos").checked).toEqual(["1:7"]);
+  });
+
+  it("si la recompensa se elige entre varias, vale cualquiera recibida en su zona", () => {
+    const titans = play(["G2_1", "G2_6"]);
+    expect(onReward(titans, "otra").checked).toEqual(["2:8"]);
+    // Los puntos nunca cuentan como «cualquiera»: son de un libro, y marcan el primer libro del acto.
+    expect(onReward(titans, "puntos").checked).toEqual(["2:5"]);
+    // Los tres tatuajes de Salones de los muertos: el primero marca, los otros no repiten.
+    const halls = onReward(onReward(play(["G4_town", "G4_4_2"]), "hielo"), "fuego");
+    expect(halls.checked).toEqual(["4:8"]);
+  });
+
+  it("fuera de los actos 1-4 no marca nada", () => {
+    const interlude = play(["G4_10", "P3_2"]);
+    expect(onReward(interlude, "espiritu")).toBe(interlude);
+    expect(onReward(NEW_RUN, "hielo")).toBe(NEW_RUN);
+  });
+
+  it("da por muerto al jefe solo si estás en su zona", () => {
+    const freythorn = play(["G1_1", "G1_12"]);
+    expect(viewOf(freythorn, "completa")).toMatchObject({ boss: { name: "el rey de las nieblas", dead: false }, ready: false });
+    const dead = onBoss(freythorn, 1, "Villafrey");
+    expect(viewOf(dead, "completa")).toMatchObject({ boss: { dead: true }, ready: false });
+    // Con el jefe muerto y el espíritu recibido, la zona está hecha.
+    expect(viewOf(onReward(dead, "espiritu"), "completa").ready).toBe(true);
+    const elsewhere = play(["G1_1", "G1_2"]);
+    expect(onBoss(elsewhere, 1, "Villafrey")).toBe(elsewhere);
+  });
+
+  it("una zona sin nada que comprobar no dice ni que sí ni que no", () => {
+    expect(viewOf(play(["G1_1", "G1_2", "G1_4", "G1_5"]), "completa")).toMatchObject({ reward: null, boss: null, ready: null });
+  });
+
+  it("el jefe también se puede marcar a mano, solo donde hay jefe que marcar", () => {
+    const riverbank = play(["G1_1"]);
+    const byHand = onToggleBoss(riverbank);
+    expect(viewOf(byHand, "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+    expect(onToggleBoss(byHand).bosses).toEqual([]);
+    const redVale = play(["G1_1", "G1_2", "G1_4", "G1_5"]);
+    expect(onToggleBoss(redVale)).toBe(redVale);
+  });
+
+  it("un personaje nuevo empieza sin nada marcado", () => {
+    const old = onBoss(onReward(play(["G1_1", "G1_12"]), "espiritu"), 1, "Villafrey");
+    const fresh = play(["G2_1", "G1_1"], old);
+    expect(fresh).toMatchObject({ checked: [], bosses: [], area: "G1_1" });
   });
 });

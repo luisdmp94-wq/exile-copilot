@@ -7,9 +7,12 @@ import { keepInside } from "./place";
 import {
   NEW_RUN,
   onArea,
+  onBoss,
   onDismissNotice,
   onLevel,
   onMove,
+  onReward,
+  onToggleBoss,
   onToggleReward,
   sanitizeRun,
   viewOf,
@@ -32,6 +35,12 @@ const KEYS = {
   summary: "Control+Alt+R",
 } as const;
 
+/**
+ * Qué sabe sacar la ventanita del registro. Si sube, la partida guardada se
+ * rehace repasando Client.txt entero una vez (antes no miraba recompensas ni jefes).
+ */
+const LOG_FORMAT = 2;
+
 interface Saved {
   run: Run;
   settings: Settings;
@@ -40,6 +49,7 @@ interface Saved {
   logPath?: string;
   /** Hasta dónde se leyó Client.txt, para repasar solo lo nuevo al volver. */
   logOffset?: number;
+  logFormat?: number;
 }
 
 const statePath = () => join(app.getPath("userData"), "estado.json");
@@ -54,6 +64,7 @@ function loadSaved(): Saved {
       ...(typeof raw.x === "number" && typeof raw.y === "number" ? { x: raw.x, y: raw.y } : {}),
       ...(typeof raw.logPath === "string" ? { logPath: raw.logPath } : {}),
       ...(typeof raw.logOffset === "number" ? { logOffset: raw.logOffset } : {}),
+      ...(typeof raw.logFormat === "number" ? { logFormat: raw.logFormat } : {}),
     };
   } catch {
     return { run: NEW_RUN, settings: DEFAULT_SETTINGS };
@@ -92,7 +103,11 @@ function persist(): void {
     const logOffset = tail?.offset;
     writeFileSync(
       statePath(),
-      JSON.stringify({ ...saved, ...(currentLog ? { logPath: currentLog } : {}), ...(logOffset !== undefined ? { logOffset } : {}) }, null, 2),
+      JSON.stringify(
+        { ...saved, ...(currentLog ? { logPath: currentLog } : {}), ...(logOffset !== undefined ? { logOffset } : {}), logFormat: LOG_FORMAT },
+        null,
+        2,
+      ),
     );
   } catch {
     // Sin poder guardar, la ventanita sigue; solo olvida la partida al cerrarla.
@@ -161,14 +176,25 @@ function defaultPosition(): { x: number; y: number } {
 }
 
 function apply(run: Run, event: LogEvent): Run {
-  return event.kind === "area" ? onArea(run, event.code, event.level) : onLevel(run, event.level);
+  switch (event.kind) {
+    case "area":
+      return onArea(run, event.code, event.level);
+    case "level":
+      return onLevel(run, event.level);
+    case "reward":
+      return onReward(run, event.reward);
+    case "boss":
+      return onBoss(run, event.act, event.zone);
+  }
 }
 
 function startTail(path: string, from: number | null): void {
   tail?.stop();
   problem = null;
   currentLog = path;
-  // Repasar desde el principio es reconstruir la partida desde cero.
+  // Repasar desde el principio es reconstruir la partida desde cero;
+  // lo que el jugador marcó a mano se conserva.
+  const byHand = { checked: saved.run.checked, bosses: saved.run.bosses };
   let replayed = from === null ? NEW_RUN : saved.run;
   tail = new ClientLogTail(path, (event, replaying) => {
     if (replaying) replayed = apply(replayed, event);
@@ -176,6 +202,13 @@ function startTail(path: string, from: number | null): void {
   });
   try {
     tail.start(from);
+    if (from === null) {
+      replayed = {
+        ...replayed,
+        checked: [...new Set([...replayed.checked, ...byHand.checked])],
+        bosses: [...new Set([...replayed.bosses, ...byHand.bosses])],
+      };
+    }
     // Lo repasado al arrancar no avisa de nada: ya pasó.
     saved = { ...saved, run: onDismissNotice(replayed) };
     persist();
@@ -395,6 +428,8 @@ ipcMain.on("accion", (_event, name: unknown, value: unknown) => {
       return togglePanel("resumen");
     case "recompensa":
       return update(onToggleReward(saved.run));
+    case "jefe":
+      return update(onToggleBoss(saved.run));
     case "ruta":
       return updateSettings(sanitizeSettings({ ...s, route: value }));
     case "tamano":
@@ -482,7 +517,8 @@ if (!app.requestSingleInstanceLock()) {
     const logPath = envLog ?? known ?? findClientLog();
     if (logPath) {
       // Mismo archivo que la última vez: se sigue donde se dejó. Si no, se repasa entero.
-      startTail(logPath, logPath === saved.logPath ? (saved.logOffset ?? null) : null);
+      const upToDate = logPath === saved.logPath && saved.logFormat === LOG_FORMAT;
+      startTail(logPath, upToDate ? (saved.logOffset ?? null) : null);
     } else {
       problem = "No encuentro Client.txt. Elígelo desde el icono de la bandeja.";
       render();

@@ -13,7 +13,12 @@ guía (actos 1 a 4, las guías de `src/guides`).
 
 - La zona donde estás, en grande, y el texto entero de su paso en la guía.
 - **La recompensa para siempre** del paso («Para siempre: +10 % de hielo»)
-  con una casilla: pulsa **Fin** al cogerla, o haz clic en la casilla.
+  con una casilla que **se marca sola** cuando el juego escribe que la has
+  recibido. Las dos ascendencias no dejan mensaje: pulsa **Fin** o haz clic.
+- **El jefe de la zona**, cuando el registro deja saber que ha caído (14 de
+  los jefes de los actos 1-4): su casilla también se marca sola.
+- **«Zona hecha: puedes seguir»**, en verde, cuando todo lo que se puede
+  comprobar del paso está hecho.
 - **Las gemas fijas** de la zona (◆ «Gema de habilidad nv. 5: tras el
   verdugo») y **el jefe opcional** que te puedes saltar (○).
 - **Luego:** la zona siguiente y, si la tiene, su recompensa para siempre.
@@ -22,8 +27,8 @@ guía (actos 1 a 4, las guías de `src/guides`).
 - **Lo que te dejas:** al pasar de acto avisa de las zonas con algo para
   siempre que no pisaste («Te dejaste en el acto 1: Villafrey (+30 de
   espíritu)»). Se va solo tras tres zonas.
-- **Recompensas del acto** (Ctrl+Alt+R): ✓ cogida · ? estuviste en la zona ·
-  ○ te la dejaste · · más adelante.
+- **Recompensas del acto** (Ctrl+Alt+R): ✓ cogida · ? estuviste en la zona
+  pero no consta cogida · ○ te la dejaste · · más adelante.
 - **Ruta rápida** (icono de la bandeja): se salta Lodazal, la cámara fundida y
   Punta del botín, y dice qué jefes sin premio puedes saltarte.
 - Fuera de los actos 1-4 (guarida, mapas, interludios) se queda en una línea.
@@ -58,10 +63,13 @@ la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar»
 
 ## Qué hace y qué no
 
-- Solo **lee** `Client.txt` (carpeta `logs` del juego, Steam o independiente):
-  la línea de cambio de zona (`Generating level 48 area "G1_2"`, igual en
-  cualquier idioma) y la de subida de nivel («(Liche) es ahora nivel 51» o
-  «is now level»). El resto (chat, cuenta, nombres) se ignora.
+- Solo **lee** `Client.txt` (carpeta `logs` del juego, Steam o independiente).
+  Mira cuatro cosas: el cambio de zona (`Generating level 48 area "G1_2"`,
+  igual en cualquier idioma), la subida de nivel («(Liche) es ahora nivel 51»
+  o «is now level»), el mensaje de una recompensa recibida («ha recibido +10%
+  a la resistencia al hielo» o «You have received…») y unas pocas frases que
+  ciertos personajes del juego dicen solo al caer un jefe. El resto (chat,
+  cuenta, nombres) se descarta al leerlo.
 - No lee la memoria del juego, no le inyecta nada y no le manda teclas ni
   clics. No pide cuenta ni contraseña. Nada sale del equipo.
 - Guarda la partida en `%APPDATA%\exile-copilot-ventanita\estado.json`.
@@ -72,6 +80,13 @@ la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar»
   zonas pisadas se mezclan y el nivel es el de la última subida. Volver a la
   orilla del río desde un acto posterior cuenta como personaje nuevo.
 - «Pisaste la zona» no es «cogiste la recompensa»: por eso existe la casilla.
+- **Jefes:** el registro no dice «jefe muerto». Solo se marcan los que dicen
+  (ellos o alguien a su lado) una frase únicamente al caer, y solo con el
+  juego en español. Los que no hablan (el devorador, el rey del óxido, el
+  verdugo, Kabala, Tor Gul, la reina de la inmundicia, el prisionero…) no
+  tienen casilla: la ventanita no dice ni que sí ni que no.
+- Con dos libros de 2 puntos en el mismo acto, si usas los dos en el pueblo
+  puede marcar primero el otro; al usar el segundo quedan bien los dos.
 - Las islas del acto 4 se hacen en cualquier orden; el resumen las ordena
   como la guía.
 
@@ -79,8 +94,9 @@ la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar»
 
 `src/zones.ts` une cada paso de la guía con sus códigos de zona (sacados de
 un Client.txt real). `src/progress.ts` elige el paso; `src/run.ts` lleva la
-partida (zonas, recompensas, nivel, lo que te dejas); `src/place.ts` la
-mantiene dentro de la pantalla. Tests: `tests/unit/ventanita.test.ts`. Tipos:
+partida (zonas, recompensas, nivel, lo que te dejas); `src/objectives.ts`
+dice cómo se nota en el registro cada recompensa y cada jefe; `src/place.ts`
+la mantiene dentro de la pantalla. Tests: `tests/unit/ventanita.test.ts`. Tipos:
 `npx tsc -p overlay`.
 
 La ventana se coloca siempre con `setBounds` (posición y tamaño juntos): con

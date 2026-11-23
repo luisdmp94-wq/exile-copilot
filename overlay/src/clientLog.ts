@@ -1,10 +1,13 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { bossSignOf, rewardKindOf, type RewardKind } from "./objectives";
 
 /**
- * Lectura de Client.txt, el registro que escribe PoE2. Solo se miran dos
- * líneas: el cambio de zona y la subida de nivel. El resto (chat, nombre de
- * cuenta, nombres de personaje…) se descarta sin guardarlo. Nada sale del
+ * Lectura de Client.txt, el registro que escribe PoE2. Solo se miran cuatro
+ * cosas: el cambio de zona, la subida de nivel, el mensaje de una recompensa
+ * para siempre recibida y las frases que ciertos personajes del juego dicen
+ * al caer un jefe. El resto (chat, nombre de cuenta, nombres de personaje…)
+ * se descarta aquí mismo, sin guardarlo ni pasarlo a nadie. Nada sale del
  * equipo.
  */
 
@@ -12,14 +15,38 @@ const AREA_LINE = /Generating level (\d+) area "([^"]+)"/;
 // «Liche (Liche) es ahora nivel 51» en español; «… is now level 51» en inglés (las dos salen en el Client.txt real).
 const LEVEL_LINE = /\) (?:is now level|es ahora nivel) (\d+)/;
 
-export type LogEvent = { kind: "area"; code: string; level: number } | { kind: "level"; level: number };
+// El texto de una línea normal del juego, sin la fecha ni el número de proceso.
+const INFO_LINE = /\[INFO Client \d+\] (.+)$/;
+// «Exiliada ha recibido X», «Has recibido X», «You have received X».
+const REWARD_LINE = /^: (?:\S+ han? recibido|Has recibido|You have received|\S+ has received) (.+)$/;
+// «Quien habla: lo que dice». El chat de otros jugadores empieza por # @ % $ &.
+const SPEECH_LINE = /^([^#@%$&:[][^:]{0,60}): (.+)$/;
+
+export type LogEvent =
+  | { kind: "area"; code: string; level: number }
+  | { kind: "level"; level: number }
+  /** Recibiste una recompensa para siempre. */
+  | { kind: "reward"; reward: RewardKind }
+  /** Se dijo una frase que solo se oye con el jefe de ese paso ya vencido. */
+  | { kind: "boss"; act: number; zone: string };
 
 export function parseLine(line: string): LogEvent | null {
   const area = AREA_LINE.exec(line);
   if (area) return { kind: "area", level: Number(area[1]), code: area[2]! };
   const level = LEVEL_LINE.exec(line);
   if (level) return { kind: "level", level: Number(level[1]) };
-  return null;
+  const text = INFO_LINE.exec(line)?.[1];
+  if (!text) return null;
+  const reward = REWARD_LINE.exec(text);
+  if (reward) {
+    const kind = rewardKindOf(reward[1]!);
+    return kind ? { kind: "reward", reward: kind } : null;
+  }
+  const speech = SPEECH_LINE.exec(text);
+  if (!speech) return null;
+  // Solo cuenta si es una de las frases de la tabla; cualquier otra se olvida aquí.
+  const sign = bossSignOf(speech[1]!, speech[2]!);
+  return sign ? { kind: "boss", ...sign } : null;
 }
 
 const LOG_TAIL = join("logs", "Client.txt");

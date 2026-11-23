@@ -1,0 +1,204 @@
+/**
+ * Cómo se nota en Client.txt que un objetivo de la zona está hecho.
+ *
+ * Dos señales, las dos sacadas del Client.txt real de un jugador en español
+ * (23-11-2026, 0.5.5) y comprobadas visita a visita:
+ *
+ * 1. Recompensas para siempre: el juego escribe un mensaje al recibirlas
+ *    («Exiliada ha recibido +10% a la resistencia al [Resistances|hielo].»).
+ *    Sale igual de claro en inglés («You have received…»).
+ * 2. Jefes: el registro no dice «jefe muerto», pero algunos jefes (o alguien
+ *    a su lado) dicen una frase SOLO al caer. Aquí van únicamente las que
+ *    salen una vez por victoria y nunca antes. Los jefes que no hablan (o
+ *    que solo gritan durante el combate) no están: no se puede saber.
+ *    Las frases son las del juego en español; en otro idioma no se marcan.
+ *
+ * La clave es el texto `zone` del paso en la guía, como en `zones.ts`.
+ */
+
+export type RewardKind = "puntos" | "hielo" | "fuego" | "rayo" | "espiritu" | "vida" | "mana" | "otra";
+
+export interface RewardRule {
+  /** Tipos de mensaje que dan por cogida la recompensa del paso. */
+  kinds?: RewardKind[];
+  /** Zonas fuera del paso donde se suele recibir (el libro que te dan en el pueblo). */
+  where?: string[];
+  /** La recompensa se elige entre varias: vale cualquier mensaje recibido en estas zonas. */
+  anyIn?: string[];
+}
+
+export const REWARD_RULES: Record<number, Record<string, RewardRule>> = {
+  1: {
+    Sierraclara: { kinds: ["hielo"] },
+    "Terrenos de caza": { kinds: ["puntos"] },
+    Villafrey: { kinds: ["espiritu"] },
+    "Tierras de cultivo de Ogham": { kinds: ["puntos"], where: ["G1_town"] },
+    "Mansión de Ogham": { kinds: ["vida"] },
+  },
+  2: {
+    Keth: { kinds: ["puntos"] },
+    // El medallón deja elegir: un espacio para viales u otra mejora.
+    "Valle de los titanes": { anyIn: ["G2_6"] },
+    Deshar: { kinds: ["puntos"], where: ["G2_town"] },
+    "Las torres de Deshar": { kinds: ["rayo"] },
+  },
+  3: {
+    "Ruinas de la jungla": { kinds: ["puntos"] },
+    // Servi, en el pueblo, deja elegir la mejora.
+    "Las criptas venenosas": { anyIn: ["G3_town", "G3_3", "G3_4"] },
+    "Taller de máquinas de Jiquani": { kinds: ["fuego"] },
+    "El pantano de los azak": { kinds: ["espiritu"] },
+    "Aggorat (pasado)": { kinds: ["puntos"] },
+  },
+  4: {
+    "El final del viaje": { kinds: ["puntos"], where: ["G4_town"] },
+    // La lección de Kaom o la de Rakiata, con Kaimana.
+    "Isla Whakapanu": { anyIn: ["G4_town", "G4_3_1", "G4_11_1a", "G4_11_1b"] },
+    "El ojo de Hinekora": { kinds: ["mana"] },
+    // Tres tatuajes a elegir: lo normal son las tres resistencias.
+    "Salones de los muertos": { kinds: ["hielo", "fuego", "rayo"], anyIn: ["G4_4_2"] },
+    "La prueba de los ancestros": { kinds: ["puntos"] },
+  },
+};
+
+/** Clasifica el texto de un «… ha recibido X» / «You have received X». */
+export function rewardKindOf(message: string): RewardKind | null {
+  // Fuera de la campaña (atlas, árbol del génesis) no hay pasos que marcar.
+  if (/atlas|génesis|genesis/i.test(message)) return null;
+  if (/pasiva de set de armas|Weapon Set Passive/.test(message)) return "puntos";
+  // El juego escribe además la misma entrega como «puntos de habilidades pasivas»: no se cuenta dos veces.
+  if (/puntos de habilidades pasivas|^\d+ Passive Skill Points/.test(message)) return null;
+  if (/\[Resistances\|(?:hielo|Cold Resistance)\]/.test(message)) return "hielo";
+  if (/\[Resistances\|(?:fuego|Fire Resistance)\]/.test(message)) return "fuego";
+  if (/\[Resistances\|(?:rayo|Lightning Resistance)\]/.test(message)) return "rayo";
+  if (/\[Spirit\|/.test(message)) return "espiritu";
+  if (/a la vida máxima|to maximum Life/.test(message)) return "vida";
+  if (/Maná máximo aumentado|increased maximum Mana/.test(message)) return "mana";
+  return "otra";
+}
+
+export interface BossSign {
+  /** Cómo se llama el jefe en la ventanita. */
+  boss: string;
+  /** Quién lo dice y qué dice, tal cual sale en el registro (sin marcas). */
+  lines: Array<[who: string, text: string]>;
+}
+
+export const BOSS_SIGNS: Record<number, Record<string, BossSign>> = {
+  1: {
+    "La orilla del río": {
+      boss: "el molinero hinchado",
+      lines: [["Mortimer", "¡Bien hecho! Por favor, pasa."]],
+    },
+    "Cementerio de los eternos": {
+      boss: "Lachlann del lamento eterno",
+      lines: [["Lachlann del lamento eterno", "Juntos… al fin…"]],
+    },
+    Villafrey: {
+      boss: "el rey de las nieblas",
+      lines: [["El rey de las nieblas", "Nos volveremos a encontrar..."]],
+    },
+    "Mansión de Ogham": {
+      boss: "el conde Geonor",
+      lines: [
+        ["Geonor, el Lobo pútrido", "Sí… encuéntrala. Mátala… Pero primero, por favor ponle fin a la locura."],
+        ["El encapuchado", "Debemos apresurarnos. Regresemos a Sierraclara para prepararnos."],
+      ],
+    },
+  },
+  2: {
+    "Cantera y mina Mawdun": {
+      boss: "Rudja, Ingeniera del terror",
+      // Risu solo pide que rompas el candado, y da las gracias, con Rudja ya muerta.
+      lines: [
+        ["Risu, Desertora faridun", "¡Rápido, rompe el candado!"],
+        ["Risu, Desertora faridun", "¡Que el viento te bendiga!"],
+      ],
+    },
+    "Las puertas de Halani": {
+      boss: "Jamanra, el Rey ascendido",
+      lines: [["Jamanra, el Rey ascendido", "Acabaremos con esto, pero no hoy."]],
+    },
+    "La ciudad perdida y Santuarios enterrados": {
+      boss: "Azarian, el Hijo abandonado",
+      lines: [["Azarian, el Hijo abandonado", "Ella no… me quería…"]],
+    },
+    "El Acorazado": {
+      boss: "Jamanra, la Abominación",
+      lines: [
+        ["Jamanra, la Abominación", "No has logrado nada… Oriana prevalecerá… y los faridun gobernarán el Vastiri."],
+        ["Sekhema Asala", "Se ha terminado."],
+      ],
+    },
+  },
+  3: {
+    "Las cámaras negras (pasado)": {
+      boss: "Doryani, Taumaturgo real",
+      lines: [
+        ["Doryani", "¿Cómo pudo haber pasado esto? Todo lo que he hecho. Todo lo que he sacrificado…"],
+        ["Doryani", "Mmm… El legado de los vaal debe ser protegido... Conozco un modo de contener a la Bestia."],
+      ],
+    },
+  },
+  4: {
+    "Bahía de las anclas y El final del viaje": {
+      boss: "el capitán Hartlin",
+      lines: [["Capitán Hartlin", "No... creas sus mentiras..."]],
+    },
+    "Isla Whakapanu y Cavernas melodiosas": {
+      boss: "Diamora, Canción de muerte",
+      lines: [["Diamora, la Canción de la muerte", "Podríamos haber sido... mucho más."]],
+    },
+    "Salones de los muertos": {
+      boss: "Yama, el Blanco",
+      lines: [
+        ["Yama el Blanco", "¡Ahhh! Bien, bien. Yama puede verte. Eres digno."],
+        ["Yama el Blanco", "¡Ahhh! Bien, bien. Yama puede verte. Eres digna."],
+      ],
+    },
+    "La excavación": {
+      boss: "Benedictus, Primer heraldo de Utopía",
+      // Tras vencerlo, Makoru y Tavakai ajustan cuentas con Kanu.
+      lines: [
+        ["Makoru", "La traición no tiene perdón."],
+        ["Tavakai", "Que los ancestros lo juzguen."],
+      ],
+    },
+    "Ngakanu y El corazón de la tribu": {
+      boss: "Tavakai, el Jefe de guerra",
+      lines: [
+        ["El encapuchado", "Se ha terminado, Tavakai."],
+        ["Tavakai", "Haz lo que debas hacer..."],
+      ],
+    },
+  },
+};
+
+/**
+ * Quita las marcas del juego de una frase del registro:
+ * «<<set:F>>…», «<if:MS>{él}<elif:FS>{ella}» (se queda con la primera) y «<i>{cursiva}».
+ */
+export function cleanSpeech(text: string): string {
+  return text
+    .replace(/<<[^>]*>>/g, "")
+    .replace(/<if:[^>]*>\{([^}]*)\}(?:<el(?:if:[^>]*|se)>\{[^}]*\})*/g, "$1")
+    .replace(/<[^>]*>\{([^}]*)\}/g, "$1")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Los puntos suspensivos salen de las dos formas en el registro. */
+const fold = (text: string) => text.replace(/…/g, "...").toLowerCase();
+
+const SIGN_INDEX = new Map<string, { act: number; zone: string }>();
+for (const [act, table] of Object.entries(BOSS_SIGNS)) {
+  for (const [zone, sign] of Object.entries(table)) {
+    for (const [who, text] of sign.lines) SIGN_INDEX.set(`${fold(who)}|${fold(text)}`, { act: Number(act), zone });
+  }
+}
+
+/** ¿Esta frase es de las que solo se dicen con un jefe ya vencido? Dice de qué paso. */
+export function bossSignOf(who: string, text: string): { act: number; zone: string } | null {
+  return SIGN_INDEX.get(`${fold(who.trim())}|${fold(cleanSpeech(text))}`) ?? null;
+}
