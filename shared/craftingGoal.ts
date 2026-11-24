@@ -170,7 +170,7 @@ export function evaluateCraftingGoalSignal(
 
   return {
     status: "no-direct-signal",
-    title: en ? "No direct signal for the goal" : "No aparece una señal directa del objetivo",
+    title: en ? "No direct signal for the goal" : "Lo nuevo no es de lo que buscas",
     summary: en
       ? "The tags seen point to another category. There may be an indirect link with the build; the app doesn't rule it out."
       : "Las etiquetas observadas apuntan a otra categoría. Puede existir una interacción indirecta con la build; la app no la descarta.",

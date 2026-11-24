@@ -121,10 +121,10 @@ export function decideCraftingNextStep(input: {
       title: en ? "Stop point reached" : "Punto de parada alcanzado",
       summary: en
         ? "The result meets the visible conditions you picked before spending."
-        : "El resultado cumple las condiciones observables que elegiste antes de gastar.",
+        : "El resultado cumple lo que pusiste en «Paro cuando» antes de gastar.",
       nextAction: en
         ? "Keep this result and check the item on your character before starting another goal."
-        : "Conserva este resultado y reevalúa la pieza en el personaje antes de iniciar otro objetivo.",
+        : "Guarda la pieza y pruébala en tu personaje antes de buscar otra cosa.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -137,10 +137,10 @@ export function decideCraftingNextStep(input: {
       title: en ? "You can keep going, one at a time" : "Puedes continuar, de uno en uno",
       summary: en
         ? "The change points at your goal and the item still has room. This doesn't prove the modifier value is good enough."
-        : "El cambio apunta al objetivo y la estructura observada aún conserva espacio. Esto no demuestra que el valor del afijo sea suficiente.",
+        : "Lo que ha salido es de lo que buscas y a la pieza aún le caben más. Eso no dice si el número que salió es bueno.",
       nextAction: en
         ? "Save this result and go back to the bench to check the next allowed action."
-        : "Guarda este resultado y vuelve al banco para ver el siguiente paso.",
+        : "Guarda este resultado y te digo el siguiente paso.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -153,10 +153,10 @@ export function decideCraftingNextStep(input: {
       title: en ? "Stop and keep this result" : "Para y conserva este resultado",
       summary: en
         ? "The change points at your goal and the item is full. Going on would need a replacing operation that risks what's already there."
-        : "El cambio apunta al objetivo y la pieza está llena. Seguir exigiría una operación de reemplazo con riesgo para lo que ya existe.",
+        : "Lo que ha salido es de lo que buscas y la pieza está llena. Seguir obligaría a quitar una línea que ya tiene.",
       nextAction: en
         ? "Try it on your character before considering a verified Essence or Alloy."
-        : "Pruébala en el personaje antes de considerar una Essence o un Alloy verificados.",
+        : "Pruébala en tu personaje antes de pensar en una Essence o un Alloy.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -169,10 +169,10 @@ export function decideCraftingNextStep(input: {
       title: en ? "Don't spend another orb yet" : "No gastes otra moneda todavía",
       summary: en
         ? "The item still shows signs of your goal, but the new change doesn't add a direct one. The app can't call it progress based on size or interactions."
-        : "La pieza conserva señales de tu objetivo, pero el cambio nuevo no aporta una señal directa. La app no puede declarar progreso por su magnitud o interacción.",
+        : "La pieza ya tenía líneas de lo que buscas, pero lo nuevo no es una de ellas. No sé decirte si aun así te ayuda.",
       nextAction: en
         ? "Decide whether the new modifier helps you in game before keeping or dropping this route."
-        : "Decide si el nuevo afijo te sirve en juego antes de aceptar o abandonar esta ruta.",
+        : "Mira en el juego si la línea nueva te sirve antes de seguir o dejarlo.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -185,10 +185,10 @@ export function decideCraftingNextStep(input: {
       title: en ? "Rethink this route" : "Replantea esta ruta",
       summary: en
         ? "The item is full and its explicit tags show no direct link to the goal you picked."
-        : "La pieza está llena y sus etiquetas explícitas no muestran una relación directa con el objetivo elegido.",
+        : "La pieza está llena y nada de lo que tiene es de lo que buscas.",
       nextAction: en
         ? "Don't destroy anything on autopilot: compare another base or a replacing tool whose tooltip you've checked."
-        : "No destruyas nada automáticamente: compara otra base o una herramienta de reemplazo cuyo tooltip hayas verificado.",
+        : "No rompas nada por inercia: compara con otra pieza, o mira una Essence o un Alloy leyendo antes lo que hacen.",
       observedOpenSlots,
       resultGoalSignal,
     };
@@ -200,10 +200,10 @@ export function decideCraftingNextStep(input: {
     title: en ? "Don't spend another orb yet" : "No gastes otra moneda todavía",
     summary: en
       ? "The new change shows no direct link to your goal. Having free room doesn't prove it's worth going on."
-      : "El cambio nuevo no muestra una relación directa con el objetivo. Tener hueco libre no demuestra que continuar compense.",
+      : "Lo que ha salido no ayuda a lo que buscas. Que quede hueco no significa que compense seguir.",
     nextAction: en
       ? "Try the result or rethink your goal before picking another orb."
-      : "Prueba el resultado o redefine el objetivo antes de elegir otra moneda.",
+      : "Prueba la pieza en el juego o cambia lo que buscas antes de gastar otra moneda.",
     observedOpenSlots,
     resultGoalSignal,
   };

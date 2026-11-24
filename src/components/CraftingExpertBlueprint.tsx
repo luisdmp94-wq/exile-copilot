@@ -62,7 +62,7 @@ const TEXT = texts(
     nothingNowTitle: "Ahora mismo no hay nada que hacerle a esta pieza",
     nothingNowDetail: "Lo único que podría cambiarla está en revisión para este parche. Mejor guárdala como está.",
     lastSaidStop: (title: string) =>
-      `En tu último intento te recomendé parar («${title}»). Si aun así sigues, este es el paso.`,
+      `Tras tu último intento te recomendé no seguir sin pensarlo («${title}»). Si aun así sigues, este es el paso.`,
     moreDetails: "Más detalles",
     notApplicable: "Monedas que esta pieza no admite ahora",
     insideGame: "Dentro de PoE2:",
@@ -106,7 +106,7 @@ const TEXT = texts(
     nothingNowTitle: "Right now there's nothing to do to this item",
     nothingNowDetail: "The only things that could change it are under review for this patch. Better keep it as it is.",
     lastSaidStop: (title: string) =>
-      `On your last attempt I advised you to stop (“${title}”). If you go on anyway, this is the step.`,
+      `After your last attempt I advised you not to go on without thinking (“${title}”). If you go on anyway, this is the step.`,
     moreDetails: "More details",
     notApplicable: "Currencies this item doesn't take right now",
     insideGame: "In PoE2:",
@@ -237,7 +237,7 @@ export function CraftingExpertBlueprint({
   // diciendo cuál sería el paso, pero no lo presenta como si nada.
   const lastAttempt = attempts.at(-1) ?? null;
   const lastSaidStop =
-    answer !== null && lastAttempt !== null && lastAttempt.decisionKind === "stop";
+    answer !== null && lastAttempt !== null && lastAttempt.decisionKind !== "continue";
   // Si todo lo que queda está pendiente de revisar para el parche, no hay
   // nada que elegir: se dice así en vez de ofrecer opciones apagadas.
   const allBlocked =

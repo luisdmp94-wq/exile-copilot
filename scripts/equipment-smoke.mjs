@@ -379,7 +379,7 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
     );
     const resultCheck = session.getByTestId("crafting-result-check");
     await resultCheck.getByLabel("Objeto actual copiado desde PoE2").fill(craftingText);
-    await click(resultCheck.getByRole("button", { name: "Comparar con el snapshot anterior" }));
+    await click(resultCheck.getByRole("button", { name: "Comparar con cómo estaba" }));
     await resultCheck
       .locator('[data-comparison-status="inconclusive"]')
       .waitFor({ timeout: 20000 });
@@ -1114,7 +1114,7 @@ async function runFlow(mode, port) {
     if (!vinculada) console.log("   sesión visible:", textoCasoCrafting);
     check(
       `[${mode}] la sesión distingue qué ocurre aquí y qué ocurre dentro de PoE2`,
-      textoCasoCrafting.includes("Exile Copilot no modifica el objeto") &&
+      textoCasoCrafting.includes("Exile Copilot no toca tu objeto") &&
         textoCasoCrafting.includes("1. Aquí: paso preparado") &&
         textoCasoCrafting.includes("2. En PoE2: ejecuta y copia") &&
         textoCasoCrafting.includes("3. Aquí: compara y guarda") &&
@@ -1149,7 +1149,7 @@ async function runFlow(mode, port) {
       `[${mode}] cancelar el descarte conserva el craft preparado`,
       (await comprobadorResultado.isVisible()) &&
         (await comprobadorResultado
-          .getByRole("button", { name: "Comparar con el snapshot anterior" })
+          .getByRole("button", { name: "Comparar con cómo estaba" })
           .isVisible()),
     );
     await page.getByTestId("crafting-mode-coach").click();
@@ -1191,14 +1191,14 @@ async function runFlow(mode, port) {
       (await comprobadorResultado.innerText()).includes("Núcleo de fénix") &&
         (await comprobadorResultado.innerText()).includes("Orbe exaltado superior") &&
         (await comprobadorResultado
-          .getByRole("button", { name: "Comparar con el snapshot anterior" })
+          .getByRole("button", { name: "Comparar con cómo estaba" })
           .isVisible()),
     );
     await comprobadorResultado
       .getByLabel("Objeto actual copiado desde PoE2")
       .fill(craftingText);
     await comprobadorResultado
-      .getByRole("button", { name: "Comparar con el snapshot anterior" })
+      .getByRole("button", { name: "Comparar con cómo estaba" })
       .click();
     await comprobadorResultado
       .locator('[data-comparison-status="inconclusive"]')
@@ -1242,7 +1242,7 @@ async function runFlow(mode, port) {
       .getByLabel("Objeto actual copiado desde PoE2")
       .fill(partialCraftingResultText);
     await comprobadorResultado
-      .getByRole("button", { name: "Comparar con el snapshot anterior" })
+      .getByRole("button", { name: "Comparar con cómo estaba" })
       .click();
     await comprobadorResultado
       .locator('[data-comparison-status="inconclusive"]')
@@ -1266,7 +1266,7 @@ async function runFlow(mode, port) {
       .getByLabel("Objeto actual copiado desde PoE2")
       .fill(craftingResultText);
     await comprobadorResultado
-      .getByRole("button", { name: "Comparar con el snapshot anterior" })
+      .getByRole("button", { name: "Comparar con cómo estaba" })
       .click();
     await comprobadorResultado
       .locator('[data-comparison-status="confirmed"]')
@@ -1274,7 +1274,7 @@ async function runFlow(mode, port) {
     const textoComparacion = await comprobadorResultado.innerText();
     check(
       `[${mode}] detecta exactamente el modificador añadido`,
-      textoComparacion.includes("Cambio estructural confirmado") &&
+      textoComparacion.includes("Cambio confirmado") &&
         textoComparacion.includes("Modificador sintético de daño añadido por la prueba de navegador"),
     );
     const signalObjetivo = comprobadorResultado.getByTestId("crafting-goal-signal");
@@ -1291,7 +1291,7 @@ async function runFlow(mode, port) {
       `[${mode}] el asesor dice parar cuando se cumple la condición elegida`,
       (await siguienteDecision.getAttribute("data-next-decision")) === "stop" &&
         (await siguienteDecision.innerText()).includes("Punto de parada alcanzado") &&
-        (await siguienteDecision.innerText()).includes("Conserva este resultado") &&
+        (await siguienteDecision.innerText()).includes("Guarda la pieza y pruébala en tu personaje") &&
         (await comprobadorResultado.getByTestId("crafting-success-assessment").getAttribute("data-success-status")) === "fulfilled" &&
         !(await siguienteDecision.innerText()).match(/probabilidad de éxito|DPS|precio estimado/i),
     );
@@ -1301,7 +1301,7 @@ async function runFlow(mode, port) {
     });
     check(
       `[${mode}] la decisión recomendada gobierna el cierre del paso`,
-      textoComparacion.includes("Cierra este paso con la decisión delante") &&
+      textoComparacion.includes("¿Qué haces ahora?") &&
         (await comprobadorResultado.getByRole("button", { name: "Guardar y parar" }).isVisible()) &&
         (await comprobadorResultado
           .getByRole("button", { name: "Guardar para seguir más tarde" })
@@ -1329,7 +1329,7 @@ async function runFlow(mode, port) {
       ["active", "waiting_result", "reopening"].includes(journalTrasFallo.session?.status) &&
         journalTrasFallo.session?.evidence?.some(
           (entry) =>
-            entry.kind === "confirmed" && entry.text.includes("Cambio estructural confirmado"),
+            entry.kind === "confirmed" && entry.text.includes("Cambio confirmado"),
         ),
     );
     await page.unroute("**/api/character");
@@ -1349,7 +1349,7 @@ async function runFlow(mode, port) {
           journalState.session?.status === "completed" &&
           journalState.session?.evidence?.some(
             (entry) =>
-              entry.kind === "confirmed" && entry.text.includes("Cambio estructural confirmado"),
+              entry.kind === "confirmed" && entry.text.includes("Cambio confirmado"),
           ) &&
           journalState.session?.lastResult?.subjective === true &&
           journalState.session?.lastResult?.text?.includes("El jugador indica");
@@ -1372,11 +1372,11 @@ async function runFlow(mode, port) {
       journalFinal.session?.craftingExperiment?.successCriteria?.[0]?.minimumCount === 4 &&
       journalFinal.session?.evidence?.some(
         (entry) =>
-          entry.kind === "confirmed" && entry.text.includes("Cambio estructural confirmado"),
+          entry.kind === "confirmed" && entry.text.includes("Cambio confirmado"),
       ) &&
       journalFinal.session?.lastResult?.subjective === true &&
       journalFinal.session?.lastResult?.text?.includes("El jugador indica") &&
-      !journalFinal.session?.lastResult?.text?.includes("Cambio estructural confirmado") &&
+      !journalFinal.session?.lastResult?.text?.includes("Cambio confirmado") &&
       journalFinal.session?.lastResult?.outcome === "resolved";
     check(
       `[${mode}] la sesión persiste snapshot, comparación y valoración`,

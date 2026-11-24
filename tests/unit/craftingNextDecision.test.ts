@@ -92,7 +92,7 @@ describe("decisión siguiente tras observar un craft", () => {
 
     expect(decision.kind).toBe("continue");
     expect(decision.observedOpenSlots).toBe(1);
-    expect(decision.nextAction).toContain("ver el siguiente paso");
+    expect(decision.nextAction).toContain("te digo el siguiente paso");
   });
 
   it("para y conserva cuando el resultado útil ya ocupa los seis huecos", () => {
@@ -140,7 +140,7 @@ describe("decisión siguiente tras observar un craft", () => {
 
     expect(decision.kind).toBe("restart");
     expect(decision.title).toContain("Replantea");
-    expect(decision.nextAction).toContain("No destruyas nada");
+    expect(decision.nextAction).toContain("No rompas nada por inercia");
   });
 
   it("un bloqueo del personaje siempre frena aunque el afijo coincida", () => {

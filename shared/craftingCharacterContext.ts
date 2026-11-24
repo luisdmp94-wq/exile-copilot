@@ -158,7 +158,7 @@ function requirementCheck(
     );
     return {
       requirementStatus: "unknown",
-      requirementLabel: en ? "Requirements to confirm" : "Requisitos por confirmar",
+      requirementLabel: en ? "Requirements to confirm" : "No sé si cumples los requisitos",
       facts,
       limitations,
     };
@@ -282,7 +282,7 @@ export function evaluateCraftingCharacterContext(input: {
         ? "Protecciones intactas"
         : comparison.protectionStatus === "unverifiable"
           ? "Protección no verificable"
-          : "Sin protección declarada";
+          : "No protegiste ninguna línea";
 
   if (comparison.protectionStatus === "lost") {
     return {
@@ -347,10 +347,10 @@ export function evaluateCraftingCharacterContext(input: {
   );
   return {
     verdict: "review",
-    title: en ? "Not enough to judge it yet" : "Aún no hay base para juzgarlo",
+    title: en ? "Not enough to judge it yet" : "No sé si esto le sirve a tu personaje",
     summary: en
       ? "The change is confirmed, but your character's data doesn't show it solves your goal. Decide by trying it in game."
-      : "El cambio está confirmado, pero el personaje no demuestra que resuelva tu objetivo. Decide con la prueba en juego.",
+      : "El cambio está hecho, pero con lo que sé de tu personaje no puedo decir que le arregle algo. Pruébala en el juego.",
     requirementStatus: requirements.requirementStatus,
     requirementLabel: requirements.requirementLabel,
     protectionLabel,

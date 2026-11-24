@@ -336,7 +336,7 @@ export function compareCraftingResult(
           : "Structural change confirmed"
         : protectedLost
           ? "Cambio confirmado, pero se perdió algo protegido"
-          : "Cambio estructural confirmado",
+          : "Cambio confirmado",
       summary: en
         ? protectedLost
           ? `The currency gave the expected structure, but this disappeared: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}.`
@@ -346,8 +346,8 @@ export function compareCraftingResult(
         : protectedLost
           ? `La moneda produjo la estructura esperada, pero desapareció: ${lostProtectedModifiers.map((modifier) => modifier.text).join(" | ")}.`
           : expectedRemovedModifierCount === 1
-            ? `El texto resultante es compatible: desaparece 1 modificador explícito y aparece 1 nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`
-            : `El texto resultante es compatible con el snapshot anterior y aparece 1 modificador explícito nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`,
+            ? `El resultado encaja: desaparece 1 modificador y aparece 1 nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`
+            : `El resultado encaja con cómo estaba la pieza y aparece 1 modificador nuevo: ${addedExplicit[0]?.text ?? "texto no disponible"}.`,
       identityMatches,
       itemLevelMatches,
       rarityMatches,
