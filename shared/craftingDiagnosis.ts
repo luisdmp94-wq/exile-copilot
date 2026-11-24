@@ -299,7 +299,7 @@ export function diagnoseCraftingItem(
     state,
     label:
       state === "complete"
-        ? t("Estructura lista", "Structure ready")
+        ? t("Lectura completa", "Fully read")
         : state === "partial"
           ? t("Lectura parcial", "Partial reading")
           : t("Diagnóstico bloqueado", "Diagnosis blocked"),

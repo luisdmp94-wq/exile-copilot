@@ -65,7 +65,7 @@ describe("buildCraftingTargetEvidence", () => {
     expect(result.status).toBe("target-observed-locally");
     expect(result.fulfilledItemIds).toEqual(["referencia"]);
     expect(result.observations.some((entry) => entry.source === "peer")).toBe(true);
-    expect(result.limitations.join(" ")).toContain("no demuestra el pool completo");
+    expect(result.limitations.join(" ")).toContain("no dice cuántas veces sale");
   });
 
   it("no mezcla clases distintas aunque compartan ranura", () => {
@@ -97,7 +97,7 @@ describe("buildCraftingTargetEvidence", () => {
     expect(result.status).toBe("partial-local-evidence");
     expect(result.observations).toHaveLength(1);
     expect(result.observations[0]?.relation).toBe("category");
-    expect(result.limitations.join(" ")).toContain("pool disponible es parcial");
+    expect(result.limitations.join(" ")).toContain("Solo tengo parte de la lista de modificadores");
   });
 
   it("convierte líneas observadas en atajos literales sin duplicar objetivos", () => {

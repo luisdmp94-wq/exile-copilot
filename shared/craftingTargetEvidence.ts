@@ -210,20 +210,20 @@ export function buildCraftingTargetEvidence(input: {
     Pick<CraftingTargetEvidence, "headline" | "summary">
   > = {
     "target-on-current": {
-      headline: "El objetivo ya aparece en esta base",
-      summary: "La pieza actual cumple las condiciones observables del proyecto. Consérvala antes de plantear otro gasto.",
+      headline: "Esta pieza ya tiene lo que buscas",
+      summary: "Cumple lo que pusiste en «Paro cuando». Guárdala antes de pensar en otro gasto.",
     },
     "target-observed-locally": {
-      headline: "Tu evidencia local ya muestra este objetivo",
-      summary: "Otra pieza importada de la misma clase cumple el contrato. Sirve como referencia observable, no como receta para reproducirlo.",
+      headline: "Otra de tus piezas ya tiene lo que buscas",
+      summary: "Una pieza tuya de la misma clase cumple tu plan. Te sirve de referencia de que existe, no de receta para repetirlo.",
     },
     "partial-local-evidence": {
-      headline: "Hay señales, pero no el objetivo completo",
-      summary: "Tus objetos importados contienen líneas de la categoría elegida. Todavía no demuestran que el contrato completo sea alcanzable en esta base.",
+      headline: "Tienes líneas parecidas, pero no todo lo que buscas",
+      summary: "Tus piezas tienen líneas de lo que quieres mejorar. Eso aún no prueba que esta pieza pueda llegar a tu plan entero.",
     },
     unobserved: {
-      headline: "El objetivo todavía no está demostrado",
-      summary: "Ninguna pieza comparable importada aporta una coincidencia observable. El taller solo puede autorizar pruebas estructurales controladas.",
+      headline: "Todavía no he visto lo que buscas en tus piezas",
+      summary: "Ninguna de tus piezas de esta clase tiene esa línea. Puedes probar, pero vas a ciegas: no sé decirte cuánto cuesta que salga.",
     },
   };
 
@@ -245,15 +245,15 @@ export function buildCraftingTargetEvidence(input: {
             ? "Still checking the modifier pool coverage."
             : "No approved modifier pool is available to work out access or chances.",
     ] : [
-      "Una línea observada no demuestra el pool completo ni su peso de aparición.",
-      "El ilvl observado describe esa pieza; no se presenta como nivel mínimo del modificador.",
+      "Que una línea haya salido una vez no dice cuántas veces sale ni qué más puede salir.",
+      "El nivel de objeto es el de esa pieza, no el nivel mínimo que pide el modificador.",
       modPoolCoverage === "available-complete"
-        ? "La cobertura del pool es completa, pero esta lectura local no identifica candidatos por un nombre visible."
+        ? "Tengo la lista completa de modificadores, pero aquí solo comparo las líneas de tus piezas."
         : modPoolCoverage === "available-partial"
-          ? "El pool disponible es parcial y no permite normalizar probabilidades."
+          ? "Solo tengo parte de la lista de modificadores: no puedo calcular probabilidades."
           : modPoolCoverage === "unknown"
-            ? "La cobertura del pool todavía se está consultando."
-            : "No hay un pool autorizado disponible para calcular acceso ni probabilidades.",
+            ? "Todavía estoy consultando la lista de modificadores."
+            : "No tengo una lista fiable de modificadores para calcular probabilidades.",
     ],
   };
 }

@@ -56,6 +56,19 @@ export function loadCraftingWorkspaceMode(
   }
 }
 
+/** ¿Eligió ya este personaje un recorrido de Crafting alguna vez? */
+export function hasCraftingWorkspaceMode(
+  profileId: string | null,
+  storage: StorageLike | null = defaultStorage(),
+): boolean {
+  if (!storage) return false;
+  try {
+    return storage.getItem(storageKey(profileId)) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function saveCraftingWorkspaceMode(
   profileId: string | null,
   mode: CraftingWorkspaceMode,

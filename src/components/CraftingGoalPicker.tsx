@@ -8,12 +8,12 @@ import { texts, useLang, useText } from "@/i18n/lang";
 const TEXT = texts(
   {
     defaultHelper: "Ejemplo: “más daño sin perder velocidad ni +niveles”.",
-    question: "¿Qué quieres mejorar primero?",
+    question: "¿Qué quieres mejorar?",
     groupAria: "Tipo de mejora que buscas",
   },
   {
     defaultHelper: "Example: “more damage without losing speed or +levels”.",
-    question: "What do you want to improve first?",
+    question: "What do you want to improve?",
     groupAria: "Kind of upgrade you're after",
   },
 );
@@ -27,6 +27,10 @@ interface CraftingGoalPickerProps {
   label: string;
   placeholder: string;
   helperText?: string;
+  /** Aún no se ha elegido nada: ninguna opción aparece marcada. */
+  noneSelected?: boolean;
+  /** Enseña la casilla de texto libre. Por defecto, siempre. */
+  showOutcome?: boolean;
 }
 
 const GOAL_OPTIONS = Object.entries(CRAFTING_GOAL_LABELS) as Array<
@@ -49,6 +53,8 @@ export function CraftingGoalPicker({
   label,
   placeholder,
   helperText,
+  noneSelected = false,
+  showOutcome = true,
 }: CraftingGoalPickerProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
@@ -63,7 +69,7 @@ export function CraftingGoalPicker({
           aria-label={t.groupAria}
         >
           {goalOptions.map(([value, optionLabel]) => {
-            const selected = category === value;
+            const selected = !noneSelected && category === value;
             return (
               <button
                 key={value}
@@ -83,7 +89,7 @@ export function CraftingGoalPicker({
           })}
         </div>
       </fieldset>
-      <div className="space-y-1">
+      {showOutcome && <div className="space-y-1">
         <label htmlFor={`${idPrefix}-outcome`} className="text-xs font-medium text-foreground">
           {label}
         </label>
@@ -95,10 +101,12 @@ export function CraftingGoalPicker({
           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:border-primary/60"
           placeholder={placeholder}
         />
-        <p className="text-[11px] text-muted-foreground">
-          {helperText ?? t.defaultHelper}
-        </p>
-      </div>
+        {(helperText ?? t.defaultHelper) && (
+          <p className="text-[11px] text-muted-foreground">
+            {helperText ?? t.defaultHelper}
+          </p>
+        )}
+      </div>}
     </div>
   );
 }

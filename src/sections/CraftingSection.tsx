@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -31,6 +31,7 @@ import {
   saveCraftingSelection,
 } from "@/lib/craftingSelection";
 import {
+  hasCraftingWorkspaceMode,
   loadCraftingWorkspaceMode,
   saveCraftingWorkspaceMode,
   type CraftingWorkspaceMode,
@@ -54,7 +55,7 @@ const TEXT = texts(
     coachDetail: "Te digo qué hacer dentro de PoE2; tú ejecutas cada paso.",
     laboratoryTitle: "Taller avanzado",
     laboratoryCompact: "Avanzado",
-    laboratoryDetail: "Planifica aquí un proyecto para ejecutarlo dentro de PoE2.",
+    laboratoryDetail: "Como Ayuda en vivo, pero tú decides qué proteger y cuándo parar.",
     chooserLabel: "Cómo quieres usar Crafting",
     advancedTools: "Herramientas avanzadas",
     activeCraftBelow: "Tienes un craft en marcha aquí abajo.",
@@ -65,12 +66,12 @@ const TEXT = texts(
     patchNeedsReview: (patchId: string) => `El parche ${patchId} necesita revisión`,
     patchNoAdvice: "No recomendaré monedas ni rutas hasta contrastar de nuevo las mecánicas y los datos de esta versión.",
     patchKeepImporting: "Puedes seguir importando tu personaje y tus objetos; lo que queda pausado es el consejo dependiente del parche.",
-    laboratoryLocked: "Flujo avanzado bloqueado",
-    needRealItem: "Primero necesito una pieza real",
-    needRealItemDetail: "Pega el texto de una pieza para leer su estructura real y planear con precisión.",
+    laboratoryLocked: "Para empezar",
+    needRealItem: "Enséñame la pieza",
+    needRealItemDetail: "En PoE2, pasa el ratón por el objeto y pulsa Ctrl+Alt+C; luego pégalo aquí.",
     pasteGameItem: "Pegar un objeto del juego",
     craftingBench: "Banco de crafting",
-    laboratoryFlow: "Planifica aquí · ejecuta en PoE2 · registra lo que ocurrió.",
+    laboratoryFlow: "Te digo la moneda · la usas en PoE2 · pegas lo que salió.",
     benchFlow: "Prepara aquí · ejecuta en PoE2 · vuelve y compara.",
     itemCount: (count: number) => `${count} pieza(s)`,
     otherDecisionTitle: "Ya hay otra decisión en curso",
@@ -96,7 +97,7 @@ const TEXT = texts(
     coachDetail: "I tell you what to do in PoE2; you do each step.",
     laboratoryTitle: "Advanced workshop",
     laboratoryCompact: "Advanced",
-    laboratoryDetail: "Plan a project here, then carry it out in PoE2.",
+    laboratoryDetail: "Like Live help, but you decide what to protect and when to stop.",
     chooserLabel: "How you want to use Crafting",
     advancedTools: "Advanced tools",
     activeCraftBelow: "You have a craft in progress below.",
@@ -107,12 +108,12 @@ const TEXT = texts(
     patchNeedsReview: (patchId: string) => `Patch ${patchId} needs a review`,
     patchNoAdvice: "I won't recommend currency or routes until the mechanics and data for this version are checked again.",
     patchKeepImporting: "You can keep importing your character and items; only the patch-dependent advice is paused.",
-    laboratoryLocked: "Advanced flow locked",
-    needRealItem: "First I need a real item",
-    needRealItemDetail: "Paste an item's text so I can read how it really is and plan precisely.",
+    laboratoryLocked: "To get started",
+    needRealItem: "Show me the item",
+    needRealItemDetail: "In PoE2, hover the item and press Ctrl+Alt+C; then paste it here.",
     pasteGameItem: "Paste an item from the game",
     craftingBench: "Crafting bench",
-    laboratoryFlow: "Plan here · do it in PoE2 · record what happened.",
+    laboratoryFlow: "I name the currency · you use it in PoE2 · you paste what came out.",
     benchFlow: "Prepare here · do it in PoE2 · come back and compare.",
     itemCount: (count: number) => `${count} ${count === 1 ? "item" : "items"}`,
     otherDecisionTitle: "Another decision is already in progress",
@@ -332,9 +333,19 @@ export function CraftingSection({
     profileId: craftingScope,
     mode: loadCraftingWorkspaceMode(craftingScope),
   }));
-  const mode = modeSelection.profileId === craftingScope
+  // Pegar la primera pieza crea el personaje provisional. Quien estaba en el
+  // Taller sin personaje sigue en el Taller con su pieza: no se le manda a
+  // Ayuda en vivo solo porque el personaje acaba de nacer.
+  const carriedFromNoCharacter =
+    modeSelection.profileId === null &&
+    craftingScope !== null &&
+    !hasCraftingWorkspaceMode(craftingScope);
+  const mode = modeSelection.profileId === craftingScope || carriedFromNoCharacter
     ? modeSelection.mode
     : loadCraftingWorkspaceMode(craftingScope);
+  useEffect(() => {
+    if (carriedFromNoCharacter) saveCraftingWorkspaceMode(craftingScope, modeSelection.mode);
+  }, [carriedFromNoCharacter, craftingScope, modeSelection.mode]);
   /** Objetivo escrito en Ayuda en vivo que inicia un proyecto avanzado nuevo. */
   const [laboratoryDraftObjective, setLaboratoryDraftObjective] = useState("");
   /** El banco técnico existe, pero no compite con la recomendación principal. */

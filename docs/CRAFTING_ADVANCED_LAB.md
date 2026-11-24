@@ -2,13 +2,26 @@
 
 ## Qué resuelve este primer corte
 
-El tercer recorrido de la pestaña Crafting está pensado para una pieza real y un jugador que ya conoce las monedas básicas. Convierte el banco técnico existente en cinco decisiones visibles:
+El tercer recorrido de la pestaña Crafting está pensado para una pieza real y un jugador que ya conoce las monedas básicas.
 
-1. **Pieza**: prioriza una pieza cuya estructura avanzada pueda leerse completa.
-2. **Objetivo**: categoría observable y descripción libre del resultado buscado.
-3. **Intocables**: modificadores actuales que no se acepta perder.
-4. **Parada**: hasta tres condiciones comprobables, incluidas varias líneas exactas con `grado X o mejor`.
-5. **Ruta**: acciones legales desde el estado actual y herramientas de reemplazo que requieren copiar su tooltip real.
+Desde el 24-11-2026 es **una sola vista**, no cinco pasos. Luis lo probó y no se entendía qué había que hacer: preguntaba cuatro cosas antes de decir nada y hablaba en jerga («contrato», «intocables», «pool»). Ahora:
+
+1. **Una pregunta**: «¿Qué quieres mejorar?». Ninguna opción llega marcada.
+2. **La respuesta, en la misma pantalla**: la siguiente moneda, «Dentro de PoE2: usa un … sobre «pieza»», el aviso si cambia la rareza y un único botón («Empezar») tras marcar que aún no se ha usado.
+3. **Lo que se puede ajustar, plegado debajo**:
+   - **No quiero perder…**: modificadores actuales que no se acepta perder.
+   - **Paro cuando…**: hasta tres condiciones comprobables, incluidas líneas exactas con `grado X o mejor`. Viene puesta la recomendada (un afijo más de lo que buscas) para que la respuesta salga con un clic.
+   - **Comparar con otra pieza parecida**: las demás piezas pegadas de la misma clase.
+
+Reglas de esa vista:
+
+- La pieza se explica con la misma frase que en Ayuda en vivo («Es mágico: tiene 1 prefijo y 1 sufijo…»), no con contadores.
+- Con la pieza mal copiada no se pregunta nada: el aviso de arriba dice cómo arreglarlo.
+- Si el último intento aconsejó parar, la tarjeta lo dice («Si decides seguir») en vez de presentar el paso como si nada.
+- Si lo único que queda está en revisión para el parche (Essence y Alloy), dice que por ahora no hay nada que hacerle, sin enseñar opciones apagadas.
+- Pegar la primera pieza desde el Taller deja al jugador en el Taller.
+
+La prueba de navegador (`scripts/coach-smoke.mjs`) comprueba la vista única y que su texto no vuelva a la jerga de auditoría.
 
 El laboratorio reutiliza el mismo expediente, sesiones persistentes, comparación antes/después y registro de resultados del banco. No mantiene una segunda verdad paralela.
 

@@ -25,7 +25,6 @@ import {
   craftingGoalLabel,
   evaluateCraftingGoalSignal,
 } from "../../shared/craftingGoal.js";
-import { craftingLaboratoryRouteLabel } from "../../shared/craftingProjectRoute.js";
 import { evaluateCraftingProtection } from "../../shared/craftingProtection.js";
 import { buildCraftingRoute } from "../../shared/craftingRoute.js";
 import {
@@ -381,18 +380,6 @@ describe("Taller avanzado en inglés", () => {
       focuses: ["fire", "maximum-life"],
       suggestedCategories: ["damage", "defence"],
     }, "en")).toBe("fire damage · maximum life");
-    expect(craftingLaboratoryRouteLabel({
-      diagnosisState: "complete",
-      objectiveReady: true,
-      successCriteriaReady: true,
-      stopAlreadyReached: false,
-    }, "en")).toBe("Ready");
-    expect(craftingLaboratoryRouteLabel({
-      diagnosisState: "partial",
-      objectiveReady: true,
-      successCriteriaReady: true,
-      stopAlreadyReached: false,
-    }, "en")).toBe("Blocked");
 
     for (const goal of ["damage", "defence", "other"] as const) {
       for (const current of [magic, fullRare]) {

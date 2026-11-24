@@ -114,12 +114,12 @@ function legalCurrencyCandidates(
     const preserves =
       action.id === "transmutation"
         ? t(
-            "La base no tiene líneas explícitas que proteger.",
-            "The base has no explicit lines to protect.",
+            "La pieza todavía no tiene líneas que perder.",
+            "The item has no lines to lose yet.",
           )
         : t(
-            "La acción observada añade una línea; no declara reemplazar las actuales.",
-            "This action adds a line; it doesn't say it replaces the current ones.",
+            "Añade una línea; las que ya tiene se quedan.",
+            "It adds a line; the ones already there stay.",
           );
 
     let consequence = t(
@@ -128,13 +128,13 @@ function legalCurrencyCandidates(
     );
     if (action.id === "transmutation") {
       consequence = t(
-        "La base pasa de normal a mágica y entra en la siguiente etapa del craft.",
-        "The base goes from normal to magic and enters the next stage of the craft.",
+        "La pieza pasa de normal a mágica.",
+        "The item goes from normal to magic.",
       );
     } else if (action.id === "augmentation") {
       consequence = t(
-        "Mantiene la pieza mágica y conserva Regio como decisión posterior.",
-        "Keeps the item magic and leaves the Regal Orb as a later decision.",
+        "La pieza sigue mágica; el Orbe regio lo decides después.",
+        "The item stays magic; you decide on the Regal Orb later.",
       );
     } else if (action.id === "regal") {
       consequence = t(
@@ -143,8 +143,8 @@ function legalCurrencyCandidates(
       );
     } else if (action.id === "exalted") {
       consequence = t(
-        "Ocupa uno de los huecos explícitos que todavía quedan en la pieza rara.",
-        "Fills one of the explicit slots still open on the rare item.",
+        "Ocupa uno de los huecos que le quedan a la pieza.",
+        "Fills one of the slots the item still has open.",
       );
     }
 
@@ -156,20 +156,20 @@ function legalCurrencyCandidates(
       preserves,
       consequence,
       uncertainty: t(
-        "El modificador nuevo es aleatorio; esta acción no garantiza tu condición de parada.",
-        "The new modifier is random; this action doesn't guarantee your stop condition.",
+        "El modificador nuevo sale al azar: esta moneda no garantiza lo que buscas.",
+        "The new modifier is random: this currency doesn't guarantee what you're after.",
       ),
       risk: stageChanges ? "stage-change" as const : "controlled" as const,
       recommended,
       recommendationReason: recommended
         ? augmentationBeforeRegal && action.id === "augmentation"
           ? t(
-              "Primero conserva la etapa mágica; Regio seguirá disponible después.",
-              "Stay at the magic stage first; the Regal Orb will still be there later.",
+              "Primero Aumento: la pieza sigue mágica y el Orbe regio seguirá disponible después.",
+              "Augmentation first: the item stays magic and the Regal Orb will still be there later.",
             )
           : t(
-              "Es la única acción básica legal demostrada desde este estado.",
-              "It's the only basic legal action proven from this state.",
+              "Es la única moneda básica que esta pieza admite ahora.",
+              "It's the only basic currency this item takes right now.",
             )
         : null,
     };
@@ -183,20 +183,20 @@ function replacementCandidates(route: CraftingRoute, lang: Lang): ExpertCrafting
     label: tool === "essence" ? "Essence" : "Alloy",
     availability: "needs-tooltip" as const,
     effect: t(
-      "Puede añadir una línea garantizada reemplazando otra línea de la pieza.",
-      "It can add a guaranteed line by replacing another line on the item.",
+      "Puede poner una línea garantizada, pero quitando otra de la pieza.",
+      "It can add a guaranteed line, but it removes another one from the item.",
     ),
     preserves: t(
-      "No se puede prometer que conserve tus líneas intocables hasta leer el tooltip real.",
-      "There's no promise it keeps your must-keep lines until the real tooltip is read.",
+      "No se puede prometer que respete las líneas que quieres conservar hasta leer su descripción en el juego.",
+      "There's no promise it keeps the lines you want until its in-game description is read.",
     ),
     consequence: t(
-      "La ruta implica reemplazo; el resultado anterior no se puede reconstruir desde la app.",
-      "This route replaces something; the app can't rebuild the previous result.",
+      "Reemplaza una línea: lo que se pierda no se puede recuperar.",
+      "It replaces a line: whatever is lost can't be brought back.",
     ),
     uncertainty: t(
-      "Faltan el efecto exacto, la compatibilidad y la línea que podría desaparecer.",
-      "The exact effect, compatibility and the line that could disappear are still missing.",
+      "Aún no sé qué línea pone, si vale para esta pieza ni cuál podría quitar.",
+      "I don't know yet which line it adds, whether it fits this item or which one it could remove.",
     ),
     risk: "replacement" as const,
     recommended: false,
@@ -261,91 +261,91 @@ export function buildExpertCraftingBlueprint(input: {
     input.diagnosis.state !== "complete"
       ? {
           kind: "hold",
-          label: t("No invertir todavía", "Don't invest yet"),
+          label: t("No gastes todavía", "Don't spend yet"),
           detail: input.diagnosis.nextAction,
         }
       : currentAssessment.status === "fulfilled"
         ? {
             kind: "stop",
-            label: t("Conservar esta pieza", "Keep this item"),
+            label: t("Quédate con esta pieza", "Keep this item"),
             detail: t(
-              "El contrato observable ya está cumplido; otra acción solo añadiría riesgo.",
-              "Your plan is already met; another action would only add risk.",
+              "Ya tiene lo que pediste; otra moneda solo añadiría riesgo.",
+              "It already has what you asked for; another currency would only add risk.",
             ),
           }
         : routes.length === 0
           ? {
               kind: "change-base",
-              label: t("Cambiar de base", "Change base"),
+              label: t("Mejor busca otra pieza", "Better look for another item"),
               detail: t(
-                "No existe una primera acción demostrada desde el estado actual.",
-                "There's no proven first action from the current state.",
+                "No hay ninguna moneda que pueda usar sobre esta tal como está.",
+                "There's no currency I can use on this one as it is.",
               ),
             }
           : input.route.state === "replacement-tools"
             ? {
                 kind: "recover",
-                label: t("Decidir si merece recuperación", "Decide if it's worth saving"),
+                label: t("La pieza está llena", "The item is full"),
                 detail: t(
-                  "La pieza está llena: continuar exige leer una herramienta de reemplazo y aceptar qué línea puede perderse.",
-                  "The item is full: going on means reading a replacement tool and accepting which line could be lost.",
+                  "Para cambiarla hay que reemplazar una línea con una Essence o un Alloy. Mira antes cuál podrías perder.",
+                  "To change it you have to replace a line with an Essence or an Alloy. Check first which one you could lose.",
                 ),
               }
             : {
                 kind: "continue",
-                label: t("La base puede continuar", "The base can go on"),
+                label: t("Puedes seguir con esta pieza", "You can go on with this item"),
                 detail: recommendedRoute
                   ? t(
-                      `Hay una primera acción conservadora demostrada: ${recommendedRoute.label}.`,
-                      `There's a proven safe first action: ${recommendedRoute.label}.`,
+                      `El siguiente paso seguro es ${recommendedRoute.label}.`,
+                      `The safe next step is ${recommendedRoute.label}.`,
                     )
                   : t(
-                      "Hay rutas legales, pero ninguna domina con la evidencia disponible.",
-                      "There are legal routes, but none clearly wins with the evidence you have.",
+                      "Hay varias opciones y ninguna es claramente mejor.",
+                      "There are several options and none is clearly better.",
                     ),
               };
   const branches: ExpertCraftingProjectBranch[] = [
     {
       id: "success",
-      label: t("Si sale bien", "If it works"),
+      label: t("Si sale lo que buscas", "If you get what you want"),
       trigger: stopConditions.length > 0
         ? t(
-            "El resultado cumple todas las condiciones de parada.",
-            "The result meets every stop condition.",
+            "La pieza cumple todo lo que pusiste en «Paro cuando».",
+            "The item meets everything you set under “I stop when”.",
           )
-        : t("El resultado alcanza el final que definas.", "The result reaches the finish you set."),
+        : t("La pieza llega al final que elijas.", "The item reaches the finish you choose."),
       response: t(
-        "Detener el gasto, conservar el resultado y compararlo con tu equipo antes de llamarlo mejora.",
-        "Stop spending, keep the result and compare it with your gear before calling it an upgrade.",
+        "Para. Guarda la pieza y compárala con la que llevas antes de ponértela.",
+        "Stop. Keep the item and compare it with the one you're wearing before equipping it.",
       ),
     },
     {
       id: "salvage",
-      label: t("Si es aprovechable", "If it's usable"),
+      label: t("Si sale algo útil, pero no eso", "If you get something useful, but not that"),
       trigger: t(
-        "Conserva lo intocable o mejora la dirección, pero todavía no cumple el contrato.",
-        "It keeps your must-keep lines or improves the direction, but doesn't meet the plan yet.",
+        "No pierdes nada de lo que querías conservar, pero aún no has llegado.",
+        "You lose nothing you wanted to keep, but you're not there yet.",
       ),
       response: t(
-        "Pegar el resultado y recalcular la fase. El proyecto mantiene objetivo, protecciones y parada.",
-        "Paste the result and work out the stage again. The project keeps its goal, protections and stop.",
+        "Pega el resultado aquí y te digo el siguiente paso. Tu plan se mantiene.",
+        "Paste the result here and I'll tell you the next step. Your plan stays.",
       ),
     },
     {
       id: "failure",
-      label: t("Si falla", "If it fails"),
+      label: t("Si sale mal", "If it goes wrong"),
       trigger: protectedLines.length > 0
         ? t(
-            "El resultado pegado ya no conserva una línea protegida, agota la ruta o deja de justificar la base.",
-            "The pasted result lost a protected line, used up the route or no longer justifies the base.",
+            "Has perdido una línea protegida, o ya no queda nada útil que hacerle a la pieza.",
+            "You've lost a protected line, or there's nothing useful left to do to the item.",
           )
         : t(
-            "Agota la ruta o el resultado deja de justificar la base.",
-            "It uses up the route or the result no longer justifies the base.",
+            "Ya no queda nada útil que hacerle a la pieza.",
+            "There's nothing useful left to do to the item.",
           ),
       response: t(
-        "Parar. Evaluar recuperación con el tooltip real o cambiar de base; nunca encadenar otra moneda por inercia.",
-        "Stop. Judge a rescue with the real tooltip or change base; never chain another currency out of habit.",
+        "Para. Mira si tiene arreglo o cambia de pieza; no gastes otra moneda por inercia.",
+        "Stop. See if it can be rescued or change item; don't spend another currency out of habit.",
       ),
     },
   ];
@@ -364,12 +364,12 @@ export function buildExpertCraftingBlueprint(input: {
       : null,
     limitations: [
       t(
-        "Sin un pool exhaustivo no se calculan probabilidades ni intentos esperados.",
-        "Without a full modifier pool, chances and expected attempts aren't worked out.",
+        "No calculo probabilidades ni cuántos intentos hacen falta: no tengo la lista completa de modificadores.",
+        "I don't work out chances or how many attempts it takes: I don't have the full modifier list.",
       ),
       t(
-        "El plan compara cambios estructurales; no estima DPS ni el valor de mercado de la pieza.",
-        "The plan compares structural changes; it doesn't estimate DPS or the item's market value.",
+        "No calculo el DPS ni cuánto vale la pieza en el mercado.",
+        "I don't work out DPS or what the item is worth on the market.",
       ),
     ],
   };
@@ -378,8 +378,8 @@ export function buildExpertCraftingBlueprint(input: {
     return {
       ...common,
       status: "needs-item-data",
-      eyebrow: t("Plan bloqueado", "Plan blocked"),
-      headline: t("Completa primero la lectura de la pieza", "First finish reading the item"),
+      eyebrow: t("Falta leer la pieza", "The item isn't read yet"),
+      headline: t("Antes necesito leer bien la pieza", "First I need to read the item properly"),
       nextAction: input.diagnosis.nextAction,
     };
   }
@@ -387,11 +387,11 @@ export function buildExpertCraftingBlueprint(input: {
     return {
       ...common,
       status: "needs-objective",
-      eyebrow: t("Falta el destino", "No goal yet"),
-      headline: t("Define qué resultado estás persiguiendo", "Decide what result you're after"),
+      eyebrow: t("Falta un dato", "One thing missing"),
+      headline: t("Dime qué quieres mejorar", "Tell me what you want to improve"),
       nextAction: t(
-        "Elige una categoría o describe el resultado final antes de comparar monedas.",
-        "Pick a category or describe the final result before comparing currencies.",
+        "Elige una opción arriba y te digo la siguiente moneda.",
+        "Pick an option above and I'll tell you the next currency.",
       ),
     };
   }
@@ -399,23 +399,28 @@ export function buildExpertCraftingBlueprint(input: {
     return {
       ...common,
       status: "needs-stop",
-      eyebrow: t("Falta la salida", "No exit yet"),
-      headline: t("Decide cuándo dejarás de gastar", "Decide when you'll stop spending"),
-      nextAction: t(
-        "Añade al menos una condición que puedas comprobar en el siguiente texto pegado.",
-        "Add at least one condition you can check in the next pasted text.",
-      ),
+      eyebrow: t("Falta un dato", "One thing missing"),
+      headline: t("Dime cuándo paras", "Tell me when you stop"),
+      nextAction: input.route.state === "replacement-tools"
+        ? t(
+            "La pieza está llena: solo puedes cambiar una línea por otra. Escribe en «Paro cuando» la línea que buscas.",
+            "The item is full: you can only swap one line for another. Write the line you're after under “I stop when”.",
+          )
+        : t(
+            "Abre «Paro cuando» aquí abajo y elige al menos una condición.",
+            "Open “I stop when” below and pick at least one condition.",
+          ),
     };
   }
   if (currentAssessment.status === "fulfilled") {
     return {
       ...common,
       status: "already-complete",
-      eyebrow: t("Craft terminado", "Craft finished"),
-      headline: t("La pieza ya cumple tu contrato de salida", "The item already meets your stop plan"),
+      eyebrow: t("Ya está", "Done"),
+      headline: t("La pieza ya cumple lo que pediste", "The item already meets what you asked for"),
       nextAction: t(
-        "No gastes otra moneda para perseguir estas mismas condiciones.",
-        "Don't spend another currency chasing these same conditions.",
+        "No gastes otra moneda buscando lo mismo. Si quieres más, cambia «Paro cuando».",
+        "Don't spend another currency chasing the same thing. If you want more, change “I stop when”.",
       ),
     };
   }
@@ -423,11 +428,11 @@ export function buildExpertCraftingBlueprint(input: {
     return {
       ...common,
       status: "needs-route-data",
-      eyebrow: t("Sin ruta demostrada", "No proven route"),
-      headline: t("No hay una primera acción confirmada", "No first action is confirmed"),
+      eyebrow: t("Sin siguiente paso", "No next step"),
+      headline: t("No hay ninguna moneda que pueda usar aquí", "There's no currency I can use here"),
       nextAction: t(
-        "Revisa los bloqueos o vuelve a pegar el objeto antes de gastar.",
-        "Check what's blocking you or paste the item again before spending.",
+        "Mira por qué en «Por qué no otras monedas» o vuelve a pegar la pieza.",
+        "See why under “Why not other currencies” or paste the item again.",
       ),
     };
   }
@@ -435,14 +440,14 @@ export function buildExpertCraftingBlueprint(input: {
     ...common,
     status: "ready",
     eyebrow: recommendedRoute
-      ? t("Primera acción conservadora", "Safe first action")
-      : t("Decisión manual necesaria", "Your call"),
-    headline: recommendedRoute?.label ?? t("Compara las rutas antes de elegir", "Compare the routes before choosing"),
+      ? t("Siguiente paso", "Next step")
+      : t("Tú decides", "Your call"),
+    headline: recommendedRoute?.label ?? t("Hay varias opciones: compáralas antes de elegir", "There are several options: compare them before choosing"),
     nextAction:
       recommendedRoute?.recommendationReason ??
       t(
-        "Ninguna ruta domina a las demás con la evidencia disponible; elige qué riesgo aceptar.",
-        "No route beats the others with the evidence you have; choose which risk to accept.",
+        "Ninguna es claramente mejor con lo que sé. Mira qué arriesga cada una.",
+        "None is clearly better with what I know. Look at what each one risks.",
       ),
   };
 }

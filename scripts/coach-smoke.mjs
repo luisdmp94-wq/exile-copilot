@@ -584,11 +584,6 @@ async function runFlow(mode, port) {
     await irA(page, "crafting");
     await page.getByTestId("crafting-mode-laboratory").click();
     await page.getByRole("radio", { name: /Defensa/i }).click();
-    await page.getByRole("button", { name: "Guardar objetivo y continuar" }).click();
-    await page.getByRole("button", { name: "Confirmar esta base" }).click();
-    await page.getByRole("button", { name: "Continuar sin marcar" }).click();
-    await page.getByTestId("crafting-success-goal-toggle").click();
-    await page.getByRole("button", { name: "Guardar parada y continuar" }).click();
     await page.getByTestId("crafting-example-simulation-gate").waitFor({ timeout: 10000 });
     const simulatedRoutes = page
       .getByTestId("crafting-expert-blueprint")
@@ -726,20 +721,22 @@ async function runFlow(mode, port) {
 
     // El tercer recorrido expone el motor experto como una secuencia guiada.
     await page.getByTestId("crafting-mode-laboratory").click();
-    await page.getByTestId("crafting-laboratory-status").waitFor({ timeout: 15000 });
+    await page.getByTestId("crafting-laboratory-hint").waitFor({ timeout: 15000 });
+    const laboratoryDiagnosis = page.getByTestId("crafting-diagnosis");
     check(
-      `[${mode}] el Taller avanzado empieza con una sola pregunta y cinco pasos`,
+      `[${mode}] el Taller avanzado empieza con una sola pregunta, sin pasos ni opciones marcadas`,
       (await page.getByTestId("crafting-workspace").innerText()).includes("Taller avanzado") &&
-        (await page.getByTestId("crafting-laboratory-status").locator("li").count()) === 5 &&
+        (await page.getByTestId("crafting-laboratory-tracker").count()) === 0 &&
         (await page.getByTestId("crafting-expert-blueprint").count()) === 0 &&
-        (await page.getByTestId("crafting-diagnosis").innerText()).includes("¿Qué quieres mejorar primero?"),
+        (await page.getByTestId("crafting-laboratory-settings").count()) === 0 &&
+        (await laboratoryDiagnosis.innerText()).includes("¿Qué quieres mejorar?") &&
+        (await laboratoryDiagnosis.locator('[role="radio"][aria-checked="true"]').count()) === 0,
     );
-    const laboratoryTracker = page.getByTestId("crafting-laboratory-tracker");
     check(
-      `[${mode}] el recorrido avanzado mantiene un único paso actual con estados explícitos`,
-      (await laboratoryTracker.locator('[aria-current="step"]').count()) === 1 &&
-        (await laboratoryTracker.locator('[data-step-state="current"]').count()) === 1 &&
-        (await laboratoryTracker.locator('[data-step-state="pending"]').count()) >= 1,
+      `[${mode}] la pieza se explica en una frase, sin contadores de huecos`,
+      /^Es (raro|mágico|una pieza normal)/.test(
+        await page.getByTestId("crafting-laboratory-reading").innerText(),
+      ) && !/huecos? total/i.test(await laboratoryDiagnosis.innerText()),
     );
     const buildIntent = page.getByTestId("crafting-build-intent");
     check(
@@ -757,7 +754,45 @@ async function runFlow(mode, port) {
           "encaje por revisar",
         ),
     );
-    await page.getByRole("button", { name: "Guardar objetivo y continuar" }).click();
+    const laboratoryAnswer = page.getByTestId("crafting-expert-blueprint");
+    await laboratoryAnswer.waitFor({ timeout: 10000 });
+    const laboratoryAnswerText = await page.getByTestId("crafting-answer").innerText();
+    const laboratoryAnswerEvidence = {
+      lista: (await laboratoryAnswer.getAttribute("data-status")) === "ready",
+      moneda: (await laboratoryAnswer.getAttribute("data-answer")) !== "",
+      instruccion: laboratoryAnswerText.includes("Dentro de PoE2:") &&
+        laboratoryAnswerText.includes("Núcleo de fénix"),
+      unSoloBoton:
+        (await laboratoryAnswer.locator('[data-testid^="crafting-preflight-"]').count()) === 1 &&
+        (await laboratoryAnswer.getByRole("button", { name: "Empezar", exact: true }).count()) === 1 &&
+        (await page.getByRole("button", { name: "Preparar este craft" }).count()) === 0,
+      empezarEsperaConfirmacion: await laboratoryAnswer
+        .getByRole("button", { name: "Empezar", exact: true })
+        .isDisabled(),
+      sinSegundoPanel: await page.getByTestId("crafting-tool-panel-currency").isHidden(),
+      paradaPuestaSola: (await page.getByTestId("crafting-stop-summary").innerText()).includes(
+        "afijo",
+      ),
+      tresSalidas:
+        (await page.getByTestId("crafting-project-branches").locator("article").count()) === 3,
+      ajustesPlegados:
+        (await page.getByTestId("crafting-protection-picker").isVisible()) === false &&
+        (await page.getByTestId("crafting-success-criteria").isVisible()) === false &&
+        (await page.getByTestId("crafting-base-workbench").isVisible()) === false,
+    };
+    const laboratoryAnswerOk = Object.values(laboratoryAnswerEvidence).every(Boolean);
+    if (!laboratoryAnswerOk) console.log("[detalle respuesta del Taller]", laboratoryAnswerEvidence);
+    check(
+      `[${mode}] elegir objetivo da la moneda y qué hacer en PoE2 en la misma pantalla, con un solo botón`,
+      laboratoryAnswerOk,
+    );
+    check(
+      `[${mode}] el Taller no habla en jerga de auditoría`,
+      !/contrato|intocable|pool|ruta verificable|acción conservadora|estructural|demostrad/i.test(
+        await laboratoryDiagnosis.innerText(),
+      ),
+    );
+    await page.getByTestId("crafting-compare-details").locator(":scope > summary").click();
     await page.getByTestId("crafting-base-workbench").waitFor({ timeout: 10000 });
     const baseWorkbenchText = await page.getByTestId("crafting-base-workbench").innerText();
     const baseComparableBy = await page
@@ -766,9 +801,9 @@ async function runFlow(mode, port) {
     const baseCandidateCount = await page.locator('[data-testid^="crafting-base-candidate-"]').count();
     check(
       `[${mode}] el proyecto compara bases sin inventar una mejor pieza`,
-      /Banco de bases/i.test(baseWorkbenchText) &&
+      /Comparar piezas/i.test(baseWorkbenchText) &&
         ["item-class", "slot"].includes(baseComparableBy) &&
-        baseWorkbenchText.includes("probabilidades") &&
+        baseWorkbenchText.includes("No recalcula tu build") &&
         baseCandidateCount >= 1,
     );
     const observedDelta = page.getByTestId("crafting-base-delta-taller-ballesta-alternativa");
@@ -777,12 +812,12 @@ async function runFlow(mode, port) {
     const observedDeltaEvidence = {
       dosBases: baseCandidateCount >= 2,
       visible: await observedDelta.isVisible(),
-      perdida: observedDeltaNormalized.includes("dejarías de ver") &&
+      perdida: observedDeltaNormalized.includes("no tiene (y la tuya sí)") &&
         observedDeltaNormalized.includes("velocidad de ataque aumentada"),
-      ganancia: observedDeltaNormalized.includes("aparece en esta base") &&
+      ganancia: observedDeltaNormalized.includes("tiene (y la tuya no)") &&
         observedDeltaNormalized.includes("+30(28-32) a la destreza"),
-      limite: baseWorkbenchText.includes("Confirma el cambio dentro del juego") &&
-        baseWorkbenchText.includes("no recalcula tu build"),
+      limite: baseWorkbenchText.includes("confírmalo dentro del juego") &&
+        baseWorkbenchText.includes("No recalcula tu build"),
     };
     const observedDeltaOk = Object.values(observedDeltaEvidence).every(Boolean);
     if (!observedDeltaOk) console.log("[detalle comparación de bases]", observedDeltaEvidence);
@@ -794,11 +829,12 @@ async function runFlow(mode, port) {
       `[${mode}] el objetivo se contrasta con evidencia local sin fingir un pool`,
       (await page.getByTestId("crafting-target-evidence").isVisible()) &&
         (await page.getByTestId("crafting-target-evidence").getAttribute("data-pool-coverage")) === "unavailable" &&
-        (await page.getByTestId("crafting-target-evidence").innerText()).includes("Pool no disponible") &&
+        (await page.getByTestId("crafting-target-evidence").innerText()).includes("Sin lista de modificadores") &&
         (await page.getByTestId("mentor-contextual-mensaje").innerText()).includes("sin pool autorizado"),
     );
-    await page.getByRole("button", { name: "Confirmar esta base" }).click();
-    await page.getByRole("button", { name: "Continuar sin marcar" }).click();
+    await page.getByTestId("crafting-stop-details").locator(":scope > summary").click();
+    // La parada recomendada viene puesta; este recorrido la cambia por una línea exacta.
+    await page.getByTestId("crafting-success-goal-toggle").click();
     await page.getByTestId("crafting-observed-targets").locator("summary").click();
     await page.getByTestId("crafting-use-observed-target-0").click();
     const exactTargets = page.getByTestId("crafting-exact-targets");
@@ -819,19 +855,25 @@ async function runFlow(mode, port) {
           "no debes gastar",
         ),
     );
-    await page.getByRole("button", { name: "Guardar parada y continuar" }).click();
-    await page.getByTestId("crafting-expert-blueprint").waitFor({ timeout: 10000 });
-    check(
-      `[${mode}] si la pieza ya cumple la parada, el laboratorio frena otra inversión`,
-      (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete" &&
-        (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("cumple tu contrato de salida") &&
-        (await page.getByTestId("crafting-route-comparison").getByRole("button").first().isEnabled()) === false,
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-testid="crafting-expert-blueprint"]')
+          ?.getAttribute("data-status") === "already-complete",
+      undefined,
+      { timeout: 10000 },
     );
     check(
-      `[${mode}] el proyecto experto muestra fase, presupuesto y las tres salidas`,
+      `[${mode}] si la pieza ya cumple la parada, el Taller frena otra inversión`,
+      (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-status")) === "already-complete" &&
+        (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("ya cumple lo que pediste") &&
+        (await page.locator('[data-testid^="crafting-preflight-"]').count()) === 0 &&
+        (await page.getByTestId("crafting-expert-blueprint").getByRole("button").count()) === 0,
+    );
+    check(
+      `[${mode}] el plan enseña el tope de gasto y avisa de que se guarda solo`,
       (await page.getByTestId("crafting-project-saved").isVisible()) &&
-        (await page.getByTestId("crafting-project-base-decision").getAttribute("data-decision")) === "stop" &&
-        (await page.getByTestId("crafting-project-branches").locator("article").count()) === 3 &&
+        (await page.getByTestId("crafting-expert-blueprint").getAttribute("data-decision")) === "stop" &&
         (await page.getByTestId("crafting-expert-blueprint").innerText()).includes("Tope · 50 exaltados"),
     );
     await page.evaluate((profileId) => {
@@ -1040,7 +1082,7 @@ async function runFlow(mode, port) {
     }, profile.id);
     await page.getByTestId("coach-unico-cambiar-rara").click();
     await page.getByTestId("coach-endgame-preparar").click();
-    await page.getByTestId("crafting-laboratory-status").waitFor({ timeout: 10000 });
+    await page.getByTestId("crafting-expert-blueprint").waitFor({ timeout: 10000 });
     await page.waitForFunction(
       ({ profileId, objective }) => {
         const prefix = `exile-copilot:crafting-project:v1:${profileId}:`;

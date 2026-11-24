@@ -70,7 +70,7 @@ describe("buildExpertCraftingBlueprint", () => {
     expect(result.status).toBe("ready");
     expect(result.recommendedRouteId).toBe("augmentation");
     expect(result.headline).toBe("Orbe de aumento");
-    expect(result.nextAction).toContain("Regio seguirá disponible");
+    expect(result.nextAction).toContain("Orbe regio seguirá disponible");
     expect(result.routes.map((route) => route.id)).toEqual(["augmentation", "regal"]);
     expect(result.routes.find((route) => route.id === "regal")?.consequence).toContain(
       "ya no podrás usar Aumento",
@@ -80,10 +80,10 @@ describe("buildExpertCraftingBlueprint", () => {
     expect(result.budgetLabel).toBe("50 exaltados");
     expect(result.branches.map((branch) => branch.id)).toEqual(["success", "salvage", "failure"]);
     expect(result.routes.find((route) => route.id === "augmentation")?.preserves).toContain(
-      "no declara reemplazar",
+      "las que ya tiene se quedan",
     );
     expect(result.branches.find((branch) => branch.id === "failure")?.trigger).toContain(
-      "El resultado pegado ya no conserva",
+      "Has perdido una línea protegida",
     );
   });
 

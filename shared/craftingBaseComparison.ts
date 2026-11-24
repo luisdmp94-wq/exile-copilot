@@ -101,9 +101,9 @@ function requirementReading(
 
 function structuralLabel(diagnosis: CraftingItemDiagnosis): string {
   if (diagnosis.state !== "complete") return diagnosis.label;
-  if (diagnosis.observedOpenSlots === null) return "Huecos no comprobables";
-  if (diagnosis.observedOpenSlots === 0) return "Sin huecos observados";
-  return `${diagnosis.observedOpenSlots} hueco${diagnosis.observedOpenSlots === 1 ? "" : "s"} observado${diagnosis.observedOpenSlots === 1 ? "" : "s"}`;
+  if (diagnosis.observedOpenSlots === null) return "No sé cuántos le quedan";
+  if (diagnosis.observedOpenSlots === 0) return "Está llena";
+  return `${diagnosis.observedOpenSlots} libre${diagnosis.observedOpenSlots === 1 ? "" : "s"}`;
 }
 
 function comparisonKey(modifier: Item["modifiers"][number]): string {
@@ -179,9 +179,9 @@ export function compareCraftingBases(input: {
       status,
       statusLabel:
         status === "ready"
-          ? "Candidata comparable"
+          ? "Se puede comparar"
           : status === "review"
-            ? "Exige reemplazo o cambio"
+            ? "Está llena"
             : diagnosis.state !== "complete"
               ? "Lectura pendiente"
               : "Requisitos no cumplidos",
