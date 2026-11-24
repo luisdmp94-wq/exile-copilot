@@ -300,7 +300,9 @@ function syncVisibility(): void {
     ownExecutable: process.execPath,
     extraGame: process.env.VENTANITA_JUEGO ?? null,
   };
-  const visible = shouldBeVisible(now);
+  // En una captura de prueba no se esconde nunca: una ventana escondida no se puede
+  // capturar, y la prueba se quedaba abierta para siempre esperando la imagen.
+  const visible = CAPTURE ? true : shouldBeVisible(now);
   // Los segundos de arranque se ve sobre lo que haya delante, pero sin teclas.
   setShortcuts(shouldBeVisible({ ...now, starting: false, dragging: false }));
   if (visible && !win.isVisible()) {
@@ -619,13 +621,19 @@ void takeOver().then((mine) => {
     if (process.env.VENTANITA_ACCIONES) void runTestActions(process.env.VENTANITA_ACCIONES);
     const capture = CAPTURE;
     if (capture) {
+      const after = Number(process.env.VENTANITA_CAPTURA_MS ?? 2500);
       setTimeout(async () => {
-        const image = await win!.webContents.capturePage();
-        writeFileSync(capture, image.toPNG());
-        // Junto a la imagen, dónde está y cuánto mide la ventana de verdad.
-        writeFileSync(`${capture}.json`, JSON.stringify({ bounds: win!.getBounds(), place, dragging: dragging !== null }));
-        app.quit();
-      }, Number(process.env.VENTANITA_CAPTURA_MS ?? 2500));
+        try {
+          const image = await win!.webContents.capturePage();
+          writeFileSync(capture, image.toPNG());
+          // Junto a la imagen, dónde está y cuánto mide la ventana de verdad.
+          writeFileSync(`${capture}.json`, JSON.stringify({ bounds: win!.getBounds(), place, dragging: dragging !== null }));
+        } finally {
+          app.quit();
+        }
+      }, after);
+      // Pase lo que pase, una prueba no se queda abierta en el equipo del jugador.
+      setTimeout(() => app.exit(0), after + 15_000).unref();
     }
   });
 
