@@ -84,6 +84,13 @@ function mergeRuns(mine: Run, strayed: Run): Run {
     ...strayed,
     visited: union(mine.visited, strayed.visited),
     checked: union(mine.checked, strayed.checked),
+    // Las entregas de una misma recompensa se suman: unas cayeron bajo un nombre y otras bajo el otro.
+    partial: Object.fromEntries(
+      union(Object.keys(mine.partial), Object.keys(strayed.partial)).map((key) => [
+        key,
+        (mine.partial[key] ?? 0) + (strayed.partial[key] ?? 0),
+      ]),
+    ),
     bosses: union(mine.bosses, strayed.bosses),
     charLevel: mine.charLevel,
     className: mine.className,

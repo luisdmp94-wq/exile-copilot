@@ -256,7 +256,7 @@ describe("ventanita: ruta rápida", () => {
 describe("ventanita: recompensas y lo que te dejas", () => {
   it("Fin marca y desmarca la recompensa del paso, solo si la tiene", () => {
     const clearfell = play(["G1_1", "G1_2"]);
-    expect(viewOf(clearfell, "completa").reward).toEqual({ text: "+10 % resistencia al hielo", checked: false, auto: true });
+    expect(viewOf(clearfell, "completa").reward).toEqual({ text: "+10 % resistencia al hielo", checked: false, auto: true, partial: null });
     const marked = onToggleReward(clearfell);
     expect(viewOf(marked, "completa").reward?.checked).toBe(true);
     expect(viewOf(onToggleReward(marked), "completa").reward?.checked).toBe(false);
@@ -613,9 +613,28 @@ describe("ventanita: objetivos que se marcan solos", () => {
     expect(onReward(titans, "otra").checked).toEqual(["2:8"]);
     // Los puntos nunca cuentan como «cualquiera»: son de un libro, y marcan el primer libro del acto.
     expect(onReward(titans, "puntos").checked).toEqual(["2:5"]);
-    // Los tres tatuajes de Salones de los muertos: el primero marca, los otros no repiten.
-    const halls = onReward(onReward(play(["G4_town", "G4_4_2"]), "hielo"), "fuego");
-    expect(halls.checked).toEqual(["4:8"]);
+  });
+
+  it("los tres tatuajes de Salones de los muertos: hasta el tercero no está cogida", () => {
+    // Caso real (24-11-2026): con el de rayo ya decía que estaban los tres.
+    const one = onReward(play(["G4_town", "G4_4_2"]), "rayo");
+    expect(one.checked).toEqual([]);
+    expect(viewOf(one, "completa").reward).toMatchObject({ checked: false, partial: "1 de 3" });
+    expect(viewOf(one, "completa").ready).toBe(false);
+    expect(rewardRows(one, 4).find((row) => row.zone === "Salones de los muertos")).toMatchObject({ state: "falta", partial: "1 de 3" });
+    const two = onReward(one, "hielo");
+    expect(two.checked).toEqual([]);
+    expect(viewOf(two, "completa").reward?.partial).toBe("2 de 3");
+    // Si se va del acto a medias, se dice cuántos lleva.
+    expect(missedRewards(two, 4).find((item) => item.zone === "Salones de los muertos")?.reward).toContain("llevas 2 de 3");
+    const three = onReward(two, "fuego");
+    expect(three.checked).toEqual(["4:8"]);
+    expect(viewOf(three, "completa").reward).toMatchObject({ checked: true, partial: null });
+    // Un tatuaje que no es de resistencia también cuenta: cada prueba deja elegir.
+    expect(onReward(onReward(onReward(play(["G4_town", "G4_4_2"]), "otra"), "rayo"), "otra").checked).toEqual(["4:8"]);
+    // Una partida guardada antes de este cambio no tiene la cuenta: empieza en cero sin romperse.
+    expect(sanitizeRun({ ...one, partial: undefined }).partial).toEqual({});
+    expect(sanitizeRun(JSON.parse(JSON.stringify(two))).partial).toEqual({ "4:8": 2 });
   });
 
   it("fuera de los actos 1-4 no marca nada", () => {

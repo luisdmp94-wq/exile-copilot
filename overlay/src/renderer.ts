@@ -96,7 +96,11 @@ function drawExtras(view: StepView, route: Settings["route"]): void {
 function drawSummary(view: StepView): void {
   byId("lista").replaceChildren(
     ...view.rewards.map((row) =>
-      rewardLine(row.state, row.reward, [row.zone, row.optional ? "opcional" : "", ROW_NOTE[row.state]].filter(Boolean).join(" · ")),
+      rewardLine(
+        row.state,
+        row.reward,
+        [row.zone, row.optional ? "opcional" : "", row.partial ? `llevas ${row.partial}` : ROW_NOTE[row.state]].filter(Boolean).join(" · "),
+      ),
     ),
   );
   byId("resumen-titulo").textContent = `Acto ${view.act}: lo que da algo para siempre`;
@@ -194,7 +198,13 @@ function draw(state: OverlayState): void {
   if (view.reward) {
     goal("recompensa", "casilla", view.reward.checked);
     byId("premio").textContent = view.reward.text;
-    byId("premio-nota").textContent = view.reward.checked ? "cogida" : view.reward.auto ? "se marca sola" : "pulsa Fin al cogerla";
+    byId("premio-nota").textContent = view.reward.checked
+      ? "cogida"
+      : view.reward.partial
+        ? `llevas ${view.reward.partial}`
+        : view.reward.auto
+          ? "se marca sola"
+          : "pulsa Fin al cogerla";
   }
   byId("jefe").hidden = !view.boss;
   if (view.boss) {

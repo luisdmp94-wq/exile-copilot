@@ -39,6 +39,8 @@ export interface Run {
   /** Recompensas marcadas como cogidas (por el registro o a mano): «acto:paso». */
   checked: string[];
   /** Pasos cuyo jefe ya cayó: «acto:paso». */
+  /** Entregas recibidas de las recompensas que llegan en varias (tres tatuajes): «acto:paso» → cuántas. */
+  partial: Record<string, number>;
   bosses: string[];
   /** Código de la zona donde está ahora, también fuera de las guías. */
   area: string | null;
@@ -83,13 +85,22 @@ function wouldBeKnown(run: Pick<Run, "hears">, act: number, zone: string): boole
  * Lo permanente de un acto que se quedó sin hacer: zonas clave que no pisaste
  * y, cuando se sabe, las que pisaste sin llevarte la recompensa.
  */
-export function missedRewards(run: Pick<Run, "visited" | "checked" | "hears">, act: number): LeftBehind["items"] {
+export function missedRewards(
+  run: Pick<Run, "visited" | "checked" | "hears"> & Partial<Pick<Run, "partial">>,
+  act: number,
+): LeftBehind["items"] {
   const visited = new Set(run.visited);
   return routeOf(act).flatMap((step, index) => {
     if (step.priority !== "clave" || !step.reward) return [];
     if (run.checked.includes(stepKey(act, index))) return [];
     const stepped = codesOfStep(act, index).some((code) => visited.has(code));
-    return stepped && !wouldBeKnown(run, act, step.zone) ? [] : [{ zone: step.zone, reward: step.reward }];
+  partial: {},
+    if (stepped && !wouldBeKnown(run, act, step.zone)) return [];
+    // A medias (dos tatuajes de tres) se dice cuántas lleva: no es lo mismo que no tener ninguna.
+    const got = run.partial?.[stepKey(act, index)] ?? 0;
+    const times = REWARD_RULES[act]?.[step.zone]?.times ?? 1;
+    const reward = times > 1 && got > 0 ? `${step.reward}: llevas ${Math.min(got, times)} de ${times}` : step.reward;
+    return [{ zone: step.zone, reward }];
   });
 }
 
@@ -138,7 +149,7 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
       : null
     : null;
   if (leftAct !== null) {
-    const items = missedRewards({ visited, checked: run.checked, hears: run.hears }, leftAct);
+    const items = missedRewards({ visited, checked: run.checked, hears: run.hears, partial: run.partial }, leftAct);
     leftBehind = items.length > 0 ? { act: leftAct, items, zonesLeft: LEFT_BEHIND_ZONES } : null;
   }
   // El nivel de un pueblo no dice nada de lo duro que es el acto.
@@ -169,7 +180,21 @@ export function onReward(run: Run, kind: RewardKind): Run {
     sameKind[0] ??
     (kind === "puntos" ? undefined : open.find((item) => item.rule.anyIn?.includes(area)));
   if (!pick) return run.hears ? run : { ...run, hears: true };
-  return { ...run, hears: true, checked: [...run.checked, stepKey(act, pick.index)] };
+  const key = stepKey(act, pick.index);
+  const times = pick.rule.times ?? 1;
+  if (times === 1) return { ...run, hears: true, checked: [...run.checked, key] };
+  // Llega en varias entregas (los tres tatuajes): se cuenta cada mensaje y
+  // solo el último la da por cogida. Caso real (24-11-2026): con el primer
+  // tatuaje la ventanita decía que ya estaban los tres.
+  const got = (run.partial[key] ?? 0) + 1;
+  const partial = { ...run.partial, [key]: got };
+  return { ...run, hears: true, partial, checked: got >= times ? [...run.checked, key] : run.checked };
+}
+
+/** Cuántas entregas lleva y cuántas son, si la recompensa del paso llega en varias. */
+export function rewardProgress(run: Pick<Run, "partial">, act: number, index: number): { got: number; of: number } | null {
+  const times = REWARD_RULES[act]?.[routeOf(act)[index]?.zone ?? ""]?.times ?? 1;
+  return times > 1 ? { got: Math.min(run.partial[stepKey(act, index)] ?? 0, times), of: times } : null;
 }
 
 /** Se oyó la frase que solo se dice con el jefe de ese paso vencido, y estás en su zona. */
@@ -290,9 +315,14 @@ export interface StepView {
   priority: GuideRoutePriority;
   optional: boolean;
   /** Fuera de la ruta rápida (estás en una zona que esa ruta no hace). */
+    partial: Object.fromEntries(
+      Object.entries(raw.partial && typeof raw.partial === "object" ? raw.partial : {}).filter(
+        (entry): entry is [string, number] => Number.isInteger(entry[1]) && (entry[1] as number) > 0,
+      ),
+    ),
   offRoute: boolean;
-  /** `auto`: el registro la marca sola al recibirla; si no, se marca a mano. */
-  reward: { text: string; checked: boolean; auto: boolean } | null;
+  /** `auto`: el registro la marca sola al recibirla; si no, se marca a mano. `partial`: «1 de 3». */
+  reward: { text: string; checked: boolean; auto: boolean; partial: string | null } | null;
   /** El jefe de la zona, solo si el registro deja saber cuándo cae. */
   boss: { name: string; dead: boolean } | null;
   /** Todo lo que se puede comprobar del paso está hecho: se puede seguir. Null si no hay nada que comprobar. */
@@ -328,6 +358,14 @@ export function actSeen(run: Pick<Run, "visited">, act: number): boolean {
   return routeOf(act).some((_, index) => codesOfStep(act, index).some((code) => visited.has(code)));
 }
 
+  /** «1 de 3» cuando llega en varias entregas y ya tiene alguna. */
+  partial: string | null;
+}
+
+/** «1 de 3», o null si no llega en varias entregas, no tiene ninguna o ya las tiene todas. */
+function partialText(run: Pick<Run, "partial">, act: number, index: number): string | null {
+  const progress = rewardProgress(run, act, index);
+  return progress && progress.got > 0 && progress.got < progress.of ? `${progress.got} de ${progress.of}` : null;
 /**
  * Dónde está el jugador cuando no está en los actos 1-4, dicho con sus
  * palabras. En un interludio se avisa de que la guía acaba en el acto 4: si
@@ -361,7 +399,8 @@ export function rewardRows(run: Run, act: number): RewardRow[] {
         : ahead(index)
           ? "pendiente"
           : "dejada";
-    return [{ zone: step.zone, reward: step.reward, state, optional: step.optional === true }];
+    const partial = state === "cogida" ? null : partialText(run, act, index);
+    return [{ zone: step.zone, reward: step.reward, state, optional: step.optional === true, partial }];
   });
 }
 
@@ -393,7 +432,12 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
   const key = stepKey(progress.act, progress.index);
   const earlierActs = Array.from({ length: progress.act - FIRST_ACT }, (_, offset) => FIRST_ACT + offset);
   const reward = step.reward
-    ? { text: step.reward, checked: run.checked.includes(key), auto: REWARD_RULES[progress.act]?.[step.zone] !== undefined }
+    ? {
+        text: step.reward,
+        checked: run.checked.includes(key),
+        auto: REWARD_RULES[progress.act]?.[step.zone] !== undefined,
+        partial: run.checked.includes(key) ? null : partialText(run, progress.act, progress.index),
+      }
     : null;
   const sign = BOSS_SIGNS[progress.act]?.[step.zone];
   const boss = sign ? { name: sign.boss, dead: run.bosses.includes(key) } : null;

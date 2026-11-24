@@ -36,6 +36,8 @@ export interface RewardRule {
   where?: string[];
   /** La recompensa se elige entre varias: vale cualquier mensaje recibido en estas zonas. */
   anyIn?: string[];
+  /** La recompensa llega en varias entregas, un mensaje por cada una: hasta la última no está cogida. */
+  times?: number;
 }
 
 export const REWARD_RULES: Record<number, Record<string, RewardRule>> = {
@@ -68,8 +70,9 @@ export const REWARD_RULES: Record<number, Record<string, RewardRule>> = {
     // La lección de Kaom o la de Rakiata, con Kaimana.
     "Isla Whakapanu": { anyIn: ["G4_town", "G4_3_1", "G4_11_1a"] },
     "El ojo de Hinekora": { kinds: ["mana"] },
-    // Tres tatuajes a elegir: lo normal son las tres resistencias.
-    "Salones de los muertos": { kinds: ["hielo", "fuego", "rayo"], anyIn: ["G4_4_2"] },
+    // Tres pruebas, un tatuaje a elegir en cada una (lo normal: las tres
+    // resistencias). El juego avisa de cada tatuaje por separado.
+    "Salones de los muertos": { kinds: ["hielo", "fuego", "rayo"], anyIn: ["G4_4_2"], times: 3 },
     "La prueba de los ancestros": { kinds: ["puntos"] },
   },
 };

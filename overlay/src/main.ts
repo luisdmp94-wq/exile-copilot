@@ -35,9 +35,10 @@ const KEYS =
 /**
  * Qué sabe sacar la ventanita del registro. Si sube, la partida guardada se
  * rehace repasando Client.txt entero una vez (2: recompensas y jefes; 3: una
- * partida por personaje; 4: clase y ascendencia).
+ * partida por personaje; 4: clase y ascendencia; 5: recompensas que llegan
+ * en varias entregas, como los tres tatuajes).
  */
-const LOG_FORMAT = 4;
+const LOG_FORMAT = 5;
 
 interface Saved {
   /** La partida del personaje con el que juegas. */
