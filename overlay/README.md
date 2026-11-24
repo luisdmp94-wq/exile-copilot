@@ -23,7 +23,10 @@ guía (actos 1 a 4, las guías de `src/guides`).
   comprobar del paso está hecho.
 - **Las gemas fijas** de la zona (◆ «Gema de habilidad nv. 5: tras el
   verdugo») y **el jefe opcional** que te puedes saltar (○).
-- **Luego:** la zona siguiente y, si la tiene, su recompensa para siempre.
+- **Luego:** la siguiente zona que aún tiene algo por hacer y, si la tiene,
+  su recompensa para siempre. Las que ya pisaste y no dejan nada se saltan.
+- Si una zona sale en dos pasos (El final del viaje, Isla Whakapanu) y el
+  primero ya está hecho, al volver enseña el segundo.
 - **Nivel de la zona y el tuyo** («zona nv 26 · Exiliada 20», con el nombre
   de tu personaje). En ámbar si vas 3 niveles por debajo; en rojo y con aviso
   si vas 6.
@@ -54,7 +57,7 @@ lo avisa.
 
 **Minimizar:** el botón **–**, junto al engranaje, la deja en una línea con la
 zona y el paso («Salones de los muertos · 9/15», con ✓ si la zona ya está
-hecha). **▢** la despliega. Minimizada solo enseña lo que te dejaste al
+hecha), tan ancha como ese texto. **▢** la despliega. Minimizada solo enseña lo que te dejaste al
 cambiar de acto.
 
 **Ajustes:** el engranaje ⚙ de la derecha de la cabecera abre los ajustes en
