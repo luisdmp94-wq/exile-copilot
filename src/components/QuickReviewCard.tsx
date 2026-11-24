@@ -17,6 +17,7 @@ import {
   fieldIsInvalid,
   quickReviewFormFor,
   toInput,
+  withReviewBase,
   type Form,
 } from "@/lib/quickReviewForm";
 
@@ -163,9 +164,10 @@ function readStored(profileId: string | null): Record<string, string> {
   }
 }
 
-function remember(profileId: string | null, form: Form): void {
+function remember(profile: CharacterProfile | null, form: Form): void {
   try {
-    writeQuickReviewForm(window.localStorage, profileId, { ...form });
+    // Con lo que dice la ficha ahora al lado: si la ficha cambia después, se nota.
+    writeQuickReviewForm(window.localStorage, profile?.id ?? null, withReviewBase({ ...form }, profile));
     // El Mentor y la mascota leen la revisión: que se enteren del cambio.
     window.dispatchEvent(new Event(QUICK_REVIEW_CHANGED_EVENT));
   } catch {
@@ -204,6 +206,14 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   // Cada personaje recuerda su propia revisión: lo de uno no aparece en otro.
   const profileId = profile?.id ?? null;
   const [form, setForm] = useState<Form>(() => quickReviewFormFor(profile, readStored(profileId)));
+  // Si la ficha cambia (otra arma, otro nivel, otro personaje), el formulario se
+  // rehace con ella: antes se quedaba con los números de cuando se abrió la
+  // tarjeta, y el siguiente cambio aquí los guardaba encima de los nuevos.
+  const [shownProfile, setShownProfile] = useState(profile);
+  if (shownProfile !== profile) {
+    setShownProfile(profile);
+    setForm(quickReviewFormFor(profile, readStored(profileId)));
+  }
   const [showRest, setShowRest] = useState(false);
   // Los datos opcionales empiezan plegados, salvo que ya haya alguno escrito.
   const [showOptional, setShowOptional] = useState(() => OPTIONAL_FIELDS.some((key) => form[key].trim() !== ""));
@@ -302,7 +312,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const set = (key: keyof Form) => (value: string) => {
     setForm((current) => {
       const next = { ...current, [key]: value };
-      remember(profileId, next);
+      remember(profile, next);
       return next;
     });
   };
@@ -310,7 +320,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   const setMany = (values: Partial<Form>) => {
     setForm((current) => {
       const next = { ...current, ...values };
-      remember(profileId, next);
+      remember(profile, next);
       return next;
     });
   };

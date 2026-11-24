@@ -13,8 +13,6 @@ import {
   mergeImportedProfile,
   type ProfileRead,
 } from "@/lib/profileFromReads";
-import { QUICK_REVIEW_CHANGED_EVENT } from "@/lib/quickReviewForm";
-import { patchQuickReviewForm } from "@/lib/quickReviewStorage";
 import { pastedImage, screenshotDataUrl } from "@/lib/screenshotImage";
 
 const TEXT = texts(
@@ -93,15 +91,12 @@ export function ProfileQuickRead({ profile, onApply }: ProfileQuickReadProps) {
   const [skills, setSkills] = useState<ScreenshotSkill[]>([]);
   const [pobCode, setPobCode] = useState("");
 
+  // Solo cambia el borrador del personaje. La revisión rápida lo ve por la ficha
+  // (si la ficha cambia un dato, manda la ficha). Antes se escribía además en el
+  // navegador en este momento: pegar el código de una guía y cerrar sin guardar
+  // dejaba la revisión con los datos de la otra build.
   const apply = (read: ProfileRead) => {
     onApply(read.profile);
-    // La revisión rápida manda sobre el perfil en el Mentor: se pone al día.
-    try {
-      patchQuickReviewForm(window.localStorage, profile.id, read.review);
-      window.dispatchEvent(new Event(QUICK_REVIEW_CHANGED_EVENT));
-    } catch {
-      // Sin almacenamiento, el perfil ya lleva los datos nuevos.
-    }
   };
 
   const readShot = async (file: File) => {
