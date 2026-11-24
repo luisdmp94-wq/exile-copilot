@@ -8,7 +8,7 @@ Cómo: cinco revisores independientes, uno por zona, que solo leyeron. Después
 comprobé cada hallazgo que he arreglado contra el código o los datos del
 juego. Lo que no comprobé yo lo digo en cada punto.
 
-Dónde están los arreglos: rama `revision-opus-5-5`, diecisiete commits de
+Dónde están los arreglos: rama `revision-opus-5-5`, dieciocho commits de
 arreglo, sin pasar a `main` y sin subir. Cada arreglo lleva su test.
 
 ## Lo esencial
