@@ -18,6 +18,7 @@ import {
   type Progress,
 } from "../../overlay/src/progress";
 import {
+  actSeen,
   NEW_RUN,
   levelState,
   missedRewards,
@@ -31,6 +32,7 @@ import {
   onToggleBoss,
   onToggleReward,
   sanitizeRun,
+  unseenSentence,
   viewOf,
   type Run,
 } from "../../overlay/src/run";
@@ -545,7 +547,28 @@ describe("ventanita: objetivos que se marcan solos", () => {
     const nextAct = play(["G2_1"], heard);
     expect(nextAct.leftBehind?.items.map((item) => item.zone)).toContain("Mansión de Ogham");
     expect(viewOf(nextAct, "completa").missedBefore).toContainEqual({ act: 1, zone: "Mansión de Ogham", reward: "+20 de vida" });
+    expect(viewOf(nextAct, "completa").unseenActs).toEqual([]);
     expect(viewOf(heard, "completa").missedBefore).toEqual([]);
+  });
+
+  it("de un acto que el registro no vio no afirma que falte nada", () => {
+    // La ventanita se estrena con el personaje ya en el acto 4 (o se borró
+    // Client.txt): de los actos 1 a 3 no hay ni una zona pisada.
+    const late = play(["G4_town", "G4_5_1"]);
+    const view = viewOf(late, "completa");
+    expect(view.act).toBe(4);
+    expect(view.missedBefore).toEqual([]);
+    expect(view.unseenActs).toEqual([1, 2, 3]);
+    expect(actSeen(late, 4)).toBe(true);
+    expect(actSeen(late, 1)).toBe(false);
+    // Con una sola zona del acto 3 pisada, de ese acto sí se puede hablar.
+    const partly = play(["G4_town"], play(["G3_town", "G3_8"]));
+    expect(viewOf(partly, "completa").unseenActs).toEqual([1, 2]);
+    expect(viewOf(partly, "completa").missedBefore.every((item) => item.act === 3)).toBe(true);
+
+    expect(unseenSentence([])).toBe("");
+    expect(unseenSentence([1])).toBe("Del acto 1 no vi nada en el registro: no sé qué te falta de ahí.");
+    expect(unseenSentence([1, 2, 3])).toBe("De los actos 1, 2 y 3 no vi nada en el registro: no sé qué te falta de ahí.");
   });
 
   it("la ascendencia nunca consta como que falta: solo se sabe si se le ve ascender", () => {

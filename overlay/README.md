@@ -38,7 +38,10 @@ guía (actos 1 a 4, las guías de `src/guides`).
 - **Recompensas del acto** (Ctrl+Alt+R): ✓ la tienes · ○ no la tienes
   (estuviste y el juego nunca escribió que la recibieras, o ni pisaste la
   zona) · ? estuviste y no se puede saber · · más adelante. Debajo, **lo que
-  te falta de los actos anteriores**.
+  te falta de los actos anteriores** (como mucho seis líneas y «y N más»). De
+  un acto del que el registro no tiene ni una zona (lo jugaste en otro equipo o
+  se borró Client.txt) no afirma nada: «De los actos 1, 2 y 3 no vi nada en el
+  registro: no sé qué te falta de ahí».
 - **Ruta rápida** (icono de la bandeja): se salta Lodazal, la cámara fundida y
   Punta del botín, y dice qué jefes sin premio puedes saltarte.
 - Fuera de los actos 1-4 (guarida, mapas, interludios) se queda en una línea.

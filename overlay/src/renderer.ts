@@ -1,4 +1,4 @@
-import type { RewardRow, StepView } from "./run";
+import { unseenSentence, type RewardRow, type StepView } from "./run";
 import type { Settings } from "./settings";
 
 interface OverlayState {
@@ -101,9 +101,20 @@ function drawSummary(view: StepView): void {
   );
   byId("resumen-titulo").textContent = `Acto ${view.act}: lo que da algo para siempre`;
   // Lo que quedó sin coger en los actos de antes: sigue ahí, se puede volver a por ello.
+  // La lista se corta para que la ventana no se salga de su alto: lo primero es lo más antiguo.
+  const shown = view.missedBefore.slice(0, MAX_MISSED_ROWS);
+  const hidden = view.missedBefore.length - shown.length;
   byId("antes-titulo").hidden = view.missedBefore.length === 0;
-  byId("antes").replaceChildren(...view.missedBefore.map((item) => rewardLine("dejada", item.reward, `${item.zone} · acto ${item.act}`)));
+  byId("antes").replaceChildren(
+    ...shown.map((item) => rewardLine("dejada", item.reward, `${item.zone} · acto ${item.act}`)),
+    ...(hidden > 0 ? [line("…", `y ${hidden} más`, "resto")] : []),
+  );
+  const unseen = byId("sin-ver");
+  unseen.hidden = view.unseenActs.length === 0;
+  unseen.textContent = unseenSentence(view.unseenActs);
 }
+
+const MAX_MISSED_ROWS = 6;
 
 /** Los ajustes: se marca lo elegido para que se vea de un vistazo. */
 function drawSettings(settings: Settings): void {

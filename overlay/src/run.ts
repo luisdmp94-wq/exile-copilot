@@ -312,6 +312,25 @@ export interface StepView {
   rewards: RewardRow[];
   /** Lo que se quedó sin coger en los actos anteriores. */
   missedBefore: Array<{ act: number; zone: string; reward: string }>;
+  /** Actos anteriores de los que el registro no dice nada: de esos no se afirma que falte algo. */
+  unseenActs: number[];
+}
+
+/**
+ * ¿Pisó este personaje alguna zona de ese acto, que se sepa? Si el registro no
+ * tiene nada de un acto (se jugó en otro equipo, se borró Client.txt), decir
+ * «te falta» de todas sus recompensas sería inventárselo.
+ */
+export function actSeen(run: Pick<Run, "visited">, act: number): boolean {
+  const visited = new Set(run.visited);
+  return routeOf(act).some((_, index) => codesOfStep(act, index).some((code) => visited.has(code)));
+}
+
+/** «Del acto 1 no vi nada…» / «De los actos 1, 2 y 3 no vi nada…». */
+export function unseenSentence(acts: number[]): string {
+  if (acts.length === 0) return "";
+  const list = acts.length === 1 ? `Del acto ${acts[0]}` : `De los actos ${acts.slice(0, -1).join(", ")} y ${acts.at(-1)}`;
+  return `${list} no vi nada en el registro: no sé qué te falta de ahí.`;
 }
 
 export function rewardRows(run: Run, act: number): RewardRow[] {
@@ -358,6 +377,7 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
   const nextStep = next ? routeOf(next.act)[next.index]! : null;
   const { number, total } = positionIn(progress, mode);
   const key = stepKey(progress.act, progress.index);
+  const earlierActs = Array.from({ length: progress.act - FIRST_ACT }, (_, offset) => FIRST_ACT + offset);
   const reward = step.reward
     ? { text: step.reward, checked: run.checked.includes(key), auto: REWARD_RULES[progress.act]?.[step.zone] !== undefined }
     : null;
@@ -384,8 +404,9 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     level: levelState(run.areaLevel, run.charLevel),
     leftBehind: run.leftBehind,
     rewards: rewardRows(run, progress.act),
-    missedBefore: Array.from({ length: progress.act - FIRST_ACT }, (_, offset) => FIRST_ACT + offset).flatMap((act) =>
-      missedRewards(run, act).map((item) => ({ act, ...item })),
-    ),
+    missedBefore: earlierActs
+      .filter((act) => actSeen(run, act))
+      .flatMap((act) => missedRewards(run, act).map((item) => ({ act, ...item }))),
+    unseenActs: earlierActs.filter((act) => !actSeen(run, act)),
   };
 }
