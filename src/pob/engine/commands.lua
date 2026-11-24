@@ -23,7 +23,11 @@ local RESISTS = { "Fire", "Cold", "Lightning", "Chaos" }
 --- Lo que se enseña de una salida de PoB2 (la principal o la de una prueba).
 local function summarise(output)
   local minion = output.Minion
-  local dps = number(output.FullDPS) > 0 and number(output.FullDPS) or number(output.CombinedDPS)
+  -- El daño de la habilidad elegida. FullDPS es la suma de las que el código
+  -- marca con «Include in Full DPS»: no cambia al elegir otra habilidad, y se
+  -- enseñaba como «Calculado para Contagio» el daño de otra. Solo se usa si la
+  -- elegida no hace daño por sí misma.
+  local dps = number(output.CombinedDPS) > 0 and number(output.CombinedDPS) or number(output.FullDPS)
   local summary = {
     dps = dps,
     hitDps = number(output.TotalDPS),

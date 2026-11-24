@@ -82,6 +82,26 @@ describe("Path of Building 2 en WebAssembly", () => {
     expect(analysis.main.resists.fire.value - endgame.resists.fire.value).toBe(40);
   });
 
+  it("el daño es el de la habilidad elegida, aunque el código marque otra para «Full DPS»", () => {
+    // Como llega un código de guía: Drenar esencia marcada con «Include in Full DPS», Contagio no.
+    const flagged = (mainSkill: string) => {
+      const xml = pobXmlForProfile(witch, data, { mainSkill }).xml;
+      const marked = xml.replace('includeInFullDPS="false"', 'includeInFullDPS="true"');
+      expect(marked).not.toBe(xml);
+      return engine.analyse({ xml: marked });
+    };
+    const drain = flagged("Drenar esencia");
+    const contagion = flagged("Contagio");
+    expect(drain.skill.name).toBe("Essence Drain");
+    expect(contagion.skill.name).toBe("Contagion");
+    expect(drain.main.dps).toBeGreaterThan(0);
+    // Antes las dos daban el mismo número: el de la marcada.
+    expect(contagion.main.dps).not.toBe(drain.main.dps);
+    // Y es el mismo que sin marcar nada.
+    const plain = engine.analyse({ xml: pobXmlForProfile(witch, data, { mainSkill: "Contagio" }).xml });
+    expect(contagion.main.dps).toBe(plain.main.dps);
+  });
+
   it("los objetos en español traducidos cuentan: la vida de la varita suma", () => {
     const withWand = engine.analyse({ xml: pobXmlForProfile(witch, data).xml }).main;
     const withoutWand = engine.analyse({ xml: pobXmlForProfile({ ...witch, items: [] }, data).xml }).main;
