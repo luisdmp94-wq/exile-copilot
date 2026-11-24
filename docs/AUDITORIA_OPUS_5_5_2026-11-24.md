@@ -8,8 +8,8 @@ Cómo: cinco revisores independientes, uno por zona, que solo leyeron. Después
 comprobé cada hallazgo que he arreglado contra el código o los datos del
 juego. Lo que no comprobé yo lo digo en cada punto.
 
-Dónde están los arreglos: rama `revision-opus-5-5`, diez commits de arreglo,
-sin pasar a `main` y sin subir. Cada arreglo lleva su test.
+Dónde están los arreglos: rama `revision-opus-5-5`, diecisiete commits de
+arreglo, sin pasar a `main` y sin subir. Cada arreglo lleva su test.
 
 ## Lo esencial
 
@@ -20,8 +20,8 @@ sin pasar a `main` y sin subir. Cada arreglo lleva su test.
 - Había **consejos falsos para el jugador** en la regla del arma, en el
   Mentor y en el árbol. Arreglados los que tenían arreglo claro.
 - Quedan **decisiones tuyas**: el texto de privacidad con las copias en R2,
-  la licencia de una pieza de PoB2, y varios comportamientos de la revisión
-  rápida. Están al final, por orden.
+  la licencia de una pieza de PoB2, y unas pocas dudas de producto y de
+  contenido. Están al final, por orden.
 
 ## Arreglado en la rama
 
@@ -116,6 +116,40 @@ sin pasar a `main` y sin subir. Cada arreglo lleva su test.
     dado una huella que Render no reconoce el día del lanzamiento. Mismo
     commit.
 
+### Segunda tanda (comportamientos que confundían)
+
+22. **La revisión rápida se quedaba con el arma vieja.**
+    `src/lib/quickReviewForm.ts:177-190`, `src/components/QuickReviewCard.tsx:166-173`.
+    Cualquier cambio en la tarjeta guardaba el formulario entero y congelaba
+    el nivel del arma, el de la gema y la lista de habilidades. Ahora cada
+    dato guardado lleva al lado lo que decía la ficha: si la ficha cambia
+    después, manda la ficha. Commit `bab41a1`.
+23. **«Rellénalo rápido» cambiaba la revisión antes de guardar.**
+    `src/components/ProfileQuickRead.tsx:96-105`,
+    `src/sections/CharacterSection.tsx:685-693`. Pegar el código de una guía y
+    cerrar sin guardar dejaba la revisión con la otra build. El editor ya no
+    escribe nada en el navegador: la revisión mira la ficha. Mismo commit.
+24. **El editor del árbol quitaba nodos sueltos que no tenían que ver.**
+    `shared/passiveTreeEdit.ts:57-90`. Commit `a85bb2f`.
+25. **Pasivas que el árbol no sabe leer** salían como «tienes 0 pasivas» y «no
+    veo ningún notable cerca». `shared/passiveTree.ts:174-185`,
+    `src/components/PassiveTreeCard.tsx:962-979`,
+    `server/mentor/treeQuestion.ts:52-56`. Ahora dice que no las ha leído y
+    cómo meterlas. La ascendencia de un `.build` oficial ya no cuenta como
+    nodo desconocido. Commit `c8fdfe8`.
+26. **Cálculo de PoB2 colgado para siempre**, y un fallo del motor salía como
+    «revisa tu conexión». `src/pob/pobClient.ts:123-148`. Ahora espera 90
+    segundos, deja reintentar y dice que el motor se paró. Commit `ac9596e`.
+27. **«Daño por segundo» ignoraba la habilidad elegida** con códigos que
+    marcan «Include in Full DPS». `src/pob/engine/commands.lua:26`. Probado
+    con el motor real; el test nuevo falla sin el arreglo. Commit `74d840f`.
+28. **Un apoyo añadido en la web a una habilidad del código no contaba.**
+    `shared/pobBuild.ts:597-608`. Ahora entra en el grupo de esa habilidad.
+    Lo que quitas en la web sigue sin quitarse del código. Commit `986f9ff`.
+29. **Etiquetas de recompensa que un jugador nuevo no entiende** («+5 % a las
+    tres», «+10 % de hielo»). Lo viste tú en la ventanita. `src/guides/act*.ts`.
+    Commit `9dd66a6`.
+
 ## Pendiente: lo decides tú
 
 Por orden de importancia. Ninguno está tocado.
@@ -135,39 +169,26 @@ Por orden de importancia. Ninguno está tocado.
   más allá de leer esos archivos. Arreglo probable: corregir el aviso y
   servir el texto de las licencias desde la web.
 
-### Comportamientos que confunden (según los revisores; no los reproduje yo)
+### Dudas de producto
 
-- **C. La revisión rápida se queda con el arma vieja** tras actualizar con un
-  código PoB2. `src/lib/profileFromReads.ts:151-206`,
-  `src/lib/quickReviewForm.ts:177-190`. Ejemplo medido: nivel 40 con varita
-  de nivel 38 y la web dice «tu arma va 30 niveles por detrás».
-- **D. «Rellénalo rápido» cambia la revisión antes de guardar.**
-  `src/components/ProfileQuickRead.tsx:96-105` (esto sí lo leí: escribe al
-  aplicar, no al guardar). Si pegas el código de una guía y cierras sin
-  guardar, tu revisión se queda con los datos de la otra build.
-- **E. Segunda arma de una mano va sola a la mano secundaria.**
+- **C. Segunda arma de una mano va sola a la mano secundaria.**
   `src/lib/importedItemPlacement.ts:23-28,55-66`. Pegar una varita nueva con
   otra puesta la manda a la otra mano en vez de preguntar. Depende de qué
   parejas deja llevar el juego: tú lo sabes mejor que yo.
-- **F. Cambios de gemas tras importar un código no cuentan** en «Tus
-  números». `shared/pobBuild.ts:597-608`. Añadir una asistencia a una
-  habilidad importada no mueve nada y no avisa.
-- **G. «Daño por segundo» ignora la habilidad elegida** si el código marca
-  «Include in Full DPS». `src/pob/engine/commands.lua:26`.
-- **H. Resistencias con la penalización del final del juego (−60 %)** al
+- **D. Resistencias con la penalización del final del juego (−60 %)** al
   pegar un código, aunque estés en el acto 2. `shared/pobBuild.ts:414-419`.
-  Coincide con PoB de escritorio, pero el panel no lo dice.
-- **I. El editor del árbol quita nodos sueltos** al quitar otro que no tiene
-  que ver. `shared/passiveTreeEdit.ts:57-90`.
-- **J. Sin límite de tiempo en el cálculo de PoB2**: si el motor se cuelga,
-  «Calculando…» para siempre; un fallo del motor sale como «revisa tu
-  conexión». `src/pob/pobClient.ts:123-148`.
-- **K. Pasivas que el árbol no sabe leer** dan mensajes falsos («tienes 0
-  pasivas»). `shared/passiveTree.ts:174-185`.
+  Coincide con PoB de escritorio, y eso lo comprobaste tú como punto fuerte.
+  Cambiarlo daría las resistencias reales del juego, pero ya no los mismos
+  números que tu PoB. Si se deja así, conviene al menos decirlo en el panel.
+- **E. Quitar una gema en la web no la quita del código importado** (lo de
+  añadir ya está arreglado, punto 28).
+- **F. Revisiones rápidas guardadas antes de este cambio** siguen como
+  estaban hasta que el jugador toque un dato: de esas no se sabe qué decía la
+  ficha cuando se escribieron.
 
 ### Datos del árbol en español
 
-- **L. Texto en español equivocado o con basura** en algunos nodos.
+- **G. Texto en español equivocado o con basura** en algunos nodos.
   `scripts/build-passive-tree.ts:323-341`. Dos notables con estadísticas que
   no son las suyas, tres con la línea «can see monster categories [1]», y 371
   nodos pequeños sin traducir (salen en inglés en la lista). Comprobé que la
@@ -177,33 +198,33 @@ Por orden de importancia. Ninguno está tocado.
 
 ### Guía del acto 4 (contenido)
 
-- **M.** El paso de Omnifobia (`actFour.ts:94`) dice «hay que volver con
+- **H.** El paso de Omnifobia (`actFour.ts:94`) dice «hay que volver con
   Dannig» y ningún paso dice dónde está. Quedó separado del paso que
   continuaba al mover Bahía de las anclas al principio.
-- **N.** «Se abre al rescatar a Matiki» (`actFour.ts:125`): la ruta no dice
+- **I.** «Se abre al rescatar a Matiki» (`actFour.ts:125`): la ruta no dice
   cuándo pasa eso.
-- **Ñ.** «El primer viaje es obligado» cita fuentes que, según el comentario
+- **J.** «El primer viaje es obligado» cita fuentes que, según el comentario
   del propio archivo (`actFour.ts:9-13`), dan el orden como sugerencia. La
   fuente real eres tú jugando el 22-11: falta en la lista.
-- **O.** La mejora de frascos de la Diosa de la justicia está en un paso de
+- **K.** La mejora de frascos de la Diosa de la justicia está en un paso de
   «historia» (`actFour.ts:103`), así que no sale en «Lo más importante, para
   siempre». Se puede cambiar, quizá por eso no es «clave»: decide tú.
-- **P.** Dos pasos del acto 4 llevan `optional` aunque la zona es obligada
+- **L.** Dos pasos del acto 4 llevan `optional` aunque la zona es obligada
   por la historia (`actFour.ts:92-95,114-116`). Hoy no se nota en la web.
 
 ### Operación y documentos
 
-- **Q.** Una copia nocturna que falla solo deja una línea en el registro, sin
+- **M.** Una copia nocturna que falla solo deja una línea en el registro, sin
   reintento. `server/backup/r2Backup.ts:253-256`. Puede estar muerta semanas
   sin que nadie lo vea.
-- **R.** La copia se hace en el mismo hilo que la web
+- **N.** La copia se hace en el mismo hilo que la web
   (`r2Backup.ts:127-152`): hoy es un instante; con una base de decenas de MB
   serían segundos de web parada.
-- **S.** `docs/ROADMAP.md` está al día solo en «Ideas apuntadas»: dice
+- **Ñ.** `docs/ROADMAP.md` está al día solo en «Ideas apuntadas»: dice
   «estado consolidado: 31 de agosto» (`:3`), que no hay alojamiento
   (`:16-32`) y que leer una captura está sin empezar (`:307-308`), y ya está
   hecho y publicado.
-- **T.** `docs/DIA-DE-LA-1.0.md:10` apunta a `docs/promo/` y
+- **O.** `docs/DIA-DE-LA-1.0.md:10` apunta a `docs/promo/` y
   `LANZAMIENTO.md`, que solo existen en este portátil.
 
 ### Tests que no prueban lo que dicen
@@ -216,16 +237,22 @@ añaden los suyos; estos otros siguen igual.
 
 ## Qué no se cubrió
 
-- Nada se probó en un navegador de verdad ni contra R2 real.
+- Nada se probó contra R2 real.
 - Los datos del juego de las guías no se contrastaron con las fuentes (sin
   red en la revisión).
-- El motor de PoB2 solo lo arrancó un revisor, dos veces.
+- Las pruebas de navegador son las del propio proyecto (Edge sin ventana); no
+  hay prueba a mano en un móvil.
 
 ## Comprobado en la rama
 
-- Batería completa: 156 archivos, 1544 tests, todos pasan (antes del último
-  ajuste del lector de PoB2; sus tests se repitieron después).
-- `eslint` limpio y `tsc -b` sin errores.
-- `npm run build` termina bien; la página generada del acto 4 dice «para los
-  interludios» y numera los Trozos de mapa 1, 2, 3 y 4.
+- Batería completa: 157 archivos, 1559 tests, todos pasan.
+- `eslint` limpio, `tsc -b` sin errores y `npm run build` termina bien. La
+  página generada del acto 4 dice «para los interludios» y numera los Trozos
+  de mapa 1, 2, 3 y 4.
+- Pruebas de navegador del proyecto, en producción y en desarrollo: la
+  principal (`browser-smoke`) pasa entera, con PoB2 calculando en el
+  navegador; `equipment-smoke` 216 de 216 y `mentor-smoke` 102 de 102.
+- La prueba principal sirvió: cazó un fallo de la segunda tanda (el aviso «no
+  he sabido leer tus pasivas» saltaba con un código que solo traía el inicio
+  de la clase y un nodo desconocido). Corregido antes de dar esto por bueno.
 - Al pasar a `main`, repetir batería y compilación por si `main` cambió.
