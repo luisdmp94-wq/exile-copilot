@@ -6,7 +6,7 @@ import {
   START,
   actOfCode,
   codesOfStep,
-  enterZone,
+  enterZoneKnowing,
   isNewCharacter,
   moveStep,
   nextShown,
@@ -94,6 +94,21 @@ export function missedRewards(run: Pick<Run, "visited" | "checked" | "hears">, a
 }
 
 /**
+ * ¿Está hecho todo lo que se puede comprobar de ese paso (recompensa cogida,
+ * jefe vencido)? Null si el paso no tiene nada que comprobar.
+ */
+export function stepReady(run: Pick<Run, "checked" | "bosses">, act: number, index: number): boolean | null {
+  const step = routeOf(act)[index];
+  if (!step) return null;
+  const key = stepKey(act, index);
+  const goals = [
+    ...(step.reward ? [run.checked.includes(key)] : []),
+    ...(BOSS_SIGNS[act]?.[step.zone] ? [run.bosses.includes(key)] : []),
+  ];
+  return goals.length > 0 ? goals.every(Boolean) : null;
+}
+
+/**
  * Entra en una zona (línea «Generating level N area "X"» de Client.txt).
  * `guessNew`: sin saber quién juega, volver a la orilla del río desde un acto
  * posterior se toma por un personaje nuevo. Con el personaje ya nombrado no
@@ -104,7 +119,7 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
     // El nivel se sabrá con su primera subida; hasta entonces, en blanco.
     return onArea(NEW_RUN, code, level);
   }
-  const progress = enterZone(run.progress, code);
+  const progress = enterZoneKnowing(run.progress, code, (stepAct, index) => stepReady(run, stepAct, index) === true);
   const act = actOfCode(code);
   const visited =
     act !== null && !run.visited.includes(normalizeCode(code)) ? [...run.visited, normalizeCode(code)] : run.visited;
@@ -317,11 +332,29 @@ export function rewardRows(run: Run, act: number): RewardRow[] {
   });
 }
 
+/**
+ * «Luego»: el siguiente paso de la ruta que aún tiene algo que hacer. Los que
+ * ya pisaste y no dejan nada pendiente se saltan: al volver por Sierraclara
+ * desde Lodazal, lo siguiente es El bosque singular, no otra vez Lodazal. Si
+ * no queda ninguno así, el siguiente de la lista sin más.
+ */
+function nextToDo(run: Run, mode: RouteMode): { act: number; index: number } | null {
+  const first = nextShown(run.progress, mode);
+  const visited = new Set(run.visited);
+  let at = first;
+  for (let guard = 0; at !== null && guard < 80; guard += 1) {
+    const stepped = codesOfStep(at.act, at.index).some((code) => visited.has(code));
+    if (!stepped || stepReady(run, at.act, at.index) === false) return at;
+    at = nextShown({ act: at.act, index: at.index, outside: false }, mode);
+  }
+  return first;
+}
+
 export function viewOf(run: Run, mode: RouteMode): StepView {
   const { progress } = run;
   const route = routeOf(progress.act);
   const step = route[progress.index] ?? route[0]!;
-  const next = nextShown(progress, mode);
+  const next = nextToDo(run, mode);
   const nextStep = next ? routeOf(next.act)[next.index]! : null;
   const { number, total } = positionIn(progress, mode);
   const key = stepKey(progress.act, progress.index);
@@ -330,7 +363,6 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     : null;
   const sign = BOSS_SIGNS[progress.act]?.[step.zone];
   const boss = sign ? { name: sign.boss, dead: run.bosses.includes(key) } : null;
-  const goals = [reward?.checked, boss?.dead].filter((goal): goal is boolean => goal !== undefined);
   return {
     act: progress.act,
     number,
@@ -342,7 +374,7 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     offRoute: mode === "rapida" && skippedInFastRoute(step),
     reward,
     boss,
-    ready: goals.length > 0 ? goals.every(Boolean) : null,
+    ready: stepReady(run, progress.act, progress.index),
     gems: step.gems ?? [],
     skip: step.skip ?? null,
     next: nextStep ? { zone: nextStep.zone, reward: nextStep.reward ?? null } : null,

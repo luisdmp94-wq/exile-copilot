@@ -75,14 +75,24 @@ export function codesOfStep(act: number, index: number): string[] {
  * al llegar al acto: volver a él más tarde no devuelve la guía al principio.
  */
 export function enterZone(progress: Progress, code: string): Progress {
+  return enterZoneKnowing(progress, code, () => false);
+}
+
+/**
+ * Lo mismo, sabiendo qué pasos tienen ya todo hecho. Si la zona sale en dos
+ * pasos y el primero está hecho, toca el segundo: volver a El final del viaje
+ * con Hartlin ya vencido es la misión de Omnifobia, no otra vez Hartlin.
+ */
+export function enterZoneKnowing(progress: Progress, code: string, isDone: (act: number, index: number) => boolean): Progress {
   const act = actOfCode(code);
   if (act === null) return { ...progress, outside: true };
   const matches = stepsForCode(act, code);
   if (act !== progress.act) return { act, index: matches[0] ?? 0, outside: false };
   if (matches.length === 0) return { ...progress, outside: false };
-  const ahead = matches.find((index) => index >= progress.index);
-  if (ahead === undefined && /_town$/i.test(code)) return { ...progress, outside: false };
-  return { act, index: ahead ?? matches[matches.length - 1]!, outside: false };
+  const ahead = matches.filter((index) => index >= progress.index);
+  if (ahead.length === 0 && /_town$/i.test(code)) return { ...progress, outside: false };
+  const pick = ahead.find((index) => !isDone(act, index)) ?? ahead[0] ?? matches[matches.length - 1]!;
+  return { act, index: pick, outside: false };
 }
 
 /** Volver a la orilla del río desde un acto posterior es un personaje nuevo. */

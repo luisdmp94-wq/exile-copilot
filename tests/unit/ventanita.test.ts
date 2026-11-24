@@ -228,6 +228,22 @@ describe("ventanita: ruta rápida", () => {
     expect(redVale).toMatchObject({ skip: null, gems: [] });
   });
 
+  it("«Luego» se salta lo que ya pisaste y no deja nada pendiente", () => {
+    // Fuiste a Lodazal y vuelves por Sierraclara (con el hielo cogido): lo siguiente es El bosque singular.
+    const back = play(["G1_2"], onReward(play(["G1_1", "G1_2", "G1_3"]), "hielo"));
+    expect(viewOf(play(["G1_2"], play(["G1_1", "G1_2", "G1_3"])), "completa")).toMatchObject({ zone: "Sierraclara", next: { zone: "El bosque singular" } });
+    expect(viewOf(back, "completa").next?.zone).toBe("El bosque singular");
+    // Lo que pisaste pero dejaste sin coger sigue saliendo: Villafrey sin el espíritu.
+    const skipped = play(["G1_1", "G1_2", "G1_4", "G1_5", "G1_6", "G1_7", "G1_11", "G1_12", "G1_11"]);
+    expect(viewOf(skipped, "completa")).toMatchObject({ zone: "Terrenos de caza", next: { zone: "Villafrey" } });
+    // Con el rey de las nieblas vencido y el espíritu cogido, ya no.
+    const done = play(["G1_11"], onReward(onBoss(play(["G1_1", "G1_11", "G1_12"]), 1, "Villafrey"), "espiritu"));
+    expect(viewOf(done, "completa").next?.zone).toBe("Tierras de cultivo de Ogham");
+    // En las islas del acto 4, lo siguiente es una que aún no has pisado.
+    const islands = play(["G4_town", "G4_2_1", "G4_2_2", "G4_7", "G4_town", "G4_2_1"]);
+    expect(viewOf(islands, "completa").next?.zone).toBe("Isla del clan y Madrigueras volcánicas");
+  });
+
   it("«Luego» dice la zona siguiente y su recompensa para siempre, si la tiene", () => {
     expect(viewOf(play(["G1_1"]), "completa").next).toEqual({ zone: "Sierraclara", reward: "+10 % resistencia al hielo" });
     expect(viewOf(play(["G1_1", "G1_2"]), "completa").next).toEqual({ zone: "Lodazal", reward: null });
@@ -581,6 +597,24 @@ describe("ventanita: objetivos que se marcan solos", () => {
     expect(viewOf(onReward(dead, "espiritu"), "completa").ready).toBe(true);
     const elsewhere = play(["G1_1", "G1_2"]);
     expect(onBoss(elsewhere, 1, "Villafrey")).toBe(elsewhere);
+  });
+
+  it("si la zona sale en dos pasos y el primero ya está hecho, al volver toca el segundo", () => {
+    const zoneOf = (run: Run) => routeOf(run.progress.act)[run.progress.index]!.zone;
+    // El final del viaje: primero Hartlin (historia); después, la misión de Omnifobia.
+    const fighting = play(["G4_town", "G4_2_1", "G4_2_2"]);
+    expect(zoneOf(fighting)).toBe("Bahía de las anclas y El final del viaje");
+    // Sin vencer a Hartlin, volver a entrar sigue siendo su paso.
+    expect(zoneOf(play(["G4_town", "G4_2_2"], fighting))).toBe("Bahía de las anclas y El final del viaje");
+    const won = onBoss(fighting, 4, "Bahía de las anclas y El final del viaje");
+    expect(zoneOf(play(["G4_town", "G4_2_2"], won))).toBe("El final del viaje");
+    // Isla Whakapanu: con Diamora vencida, la isla es ya la del gran blanco.
+    const island = play(["G4_town", "G4_3_1", "G4_3_2"]);
+    expect(zoneOf(play(["G4_town", "G4_3_1"], island))).toBe("Isla Whakapanu y Cavernas melodiosas");
+    const diamora = onBoss(island, 4, "Isla Whakapanu y Cavernas melodiosas");
+    expect(zoneOf(play(["G4_town", "G4_3_1"], diamora))).toBe("Isla Whakapanu");
+    // Y las cavernas, que solo salen en el primer paso, siguen siendo las suyas.
+    expect(zoneOf(play(["G4_3_2"], diamora))).toBe("Isla Whakapanu y Cavernas melodiosas");
   });
 
   it("una zona sin nada que comprobar no dice ni que sí ni que no", () => {
