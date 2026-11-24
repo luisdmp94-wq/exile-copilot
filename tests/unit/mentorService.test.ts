@@ -405,6 +405,44 @@ describe("Mentor v3 — conversación fundamentada", () => {
     expect(answer.answer).not.toMatch(/\brec(?::|-)/i);
     expect(answer.unverified.join(" ")).not.toMatch(/\brec(?::|-)/i);
   });
+
+  it("una duda que no sabe clasificar no se contesta pidiendo un dato de otra recomendación", async () => {
+    // Caso real (24-11-2026): a «¿y en atributos qué subo?», «¿pongo otra maldición?» y
+    // «¿hay algún esbirro de caos?» la IA contestó tres veces «¿cuál es el límite de tus
+    // resistencias?», un dato pendiente de una recomendación que no venía a cuento.
+    const selector = v3Selector((context) => ({
+      kind: "ask_missing_fact",
+      recommendationId: null,
+      missingFactId: context.missingFacts[0]!.id,
+      message: "Antes necesito saber una cosa.",
+      groundedMissingFactIds: [context.missingFacts[0]!.id],
+    }));
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "que es mejor el esbirro o la sucubo?", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(answer.intent).toBe("unsupported");
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(answer.fallbackReason).toContain("contestó a otra cosa");
+    expect(answer.answer).toContain("no me lo voy a inventar");
+    expect(answer.unverified).toEqual([]);
+  });
+
+  it("si la pregunta sí es de prioridades, la IA puede seguir pidiendo el dato que falta", async () => {
+    const selector = v3Selector((context) => ({
+      kind: "ask_missing_fact",
+      recommendationId: null,
+      missingFactId: context.missingFacts[0]!.id,
+    }));
+    const answer = await answerMentorQuery(
+      { ...BASE, question: "¿Qué mejoro ahora?", memory: emptyMemory() },
+      { priceService: offlinePriceService(), selector },
+    );
+
+    expect(answer.responseMode).toBe("ai");
+    expect(answer.answer).toContain("Antes de decidir necesito resolver este dato");
+  });
 });
 
 describe("mentor — intención explain_priority", () => {

@@ -171,7 +171,10 @@ export function answerSupportGemQuestion(
       build: profile?.archetype ? { archetype: profile.archetype.slice(0, 200) } : null,
     }).map((candidate) => candidate.support);
   // Sin saber el grado de su gema sin tallar, se enseña lo mejor que existe.
-  const candidates = candidatesUpTo(5);
+  // «Mi primera gema de asistencia» es de grado I: proponerle una de grado V
+  // sería enseñarle algo que todavía no puede tallar.
+  const firstGem = /\bprime\w*\b|\bfirst\b/.test(normalized);
+  const candidates = candidatesUpTo(firstGem ? 1 : 5);
 
   const wish = WISHES.find((entry) => entry.asks.test(normalized)) ?? null;
   const matchesWish = (support: GemSupport) =>

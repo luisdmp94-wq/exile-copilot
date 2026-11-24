@@ -103,7 +103,9 @@ describe("mentor IA supervisado", () => {
       return { kind: "ask_missing_fact", recommendationId: null, missingFactId: fact.id };
     });
     const answer = await answerMentorQuery(
-      { ...BASE, question: "¿Es seguro comprar ya?", memory: memory() },
+      // Una pregunta de prioridades: ante una duda sin clasificar la IA ya no puede
+      // contestar con un dato pendiente que no viene a cuento (24-11-2026).
+      { ...BASE, question: "¿Qué hago ahora? ¿Es seguro comprar ya?", memory: memory() },
       { priceService: prices(), selector: fake },
     );
 

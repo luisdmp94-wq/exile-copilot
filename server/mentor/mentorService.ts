@@ -34,6 +34,14 @@ import {
 } from "../engine/engine.js";
 import { ENGINE_VERSION } from "../engine/rules.js";
 import { answerSupportGemQuestion, type GemKnowledge } from "./gemQuestion.js";
+import {
+  answerAttributeQuestion,
+  answerCurseQuestion,
+  answerDamageQuestion,
+  answerMinionQuestion,
+  answerSkillChoiceQuestion,
+  answerSupportCompareQuestion,
+} from "./gameQuestions.js";
 import { answerPassiveTreeQuestion } from "./treeQuestion.js";
 import type { TreeKnowledge } from "../advice/passiveTreeAdvisor.js";
 import {
@@ -194,10 +202,14 @@ function unsupportedAnswer(
     normalizedQuestion,
     answer:
       langOf(options) === "en"
-        ? "I didn't understand that as a question I can answer with your data. " +
-          "Try one of the example questions."
-        : "No he entendido esa pregunta como una consulta que pueda responder con datos tuyos. " +
-          "Prueba con una de las preguntas de ejemplo.",
+        ? "I can't answer that with data yet, and I won't make it up. What I can tell you: what to " +
+          "improve first, why you die or lack damage, which support gem to use, which skill to engrave " +
+          "with an uncut gem, which curses and minion gems exist, what to raise in attributes and where " +
+          "to go next in the passive tree."
+        : "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué " +
+          "mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con " +
+          "una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde " +
+          "seguir en el árbol.",
     nextAction: null,
     usedRecommendationIds: [],
     relatedItemIds: [],
@@ -414,11 +426,19 @@ function focusNothingFoundAnswer(
   answerMetadata: AnswerMetadata,
   lang: AnswerLang = "es",
   focus: MentorQuestionFocus = "survival",
+  /** Con foco daño: lo más grave de aguante que sí se ve, para no callárselo. */
+  alsoSeen?: Recommendation,
 ): MentorAnswer {
+  const also =
+    focus === "damage" && alsoSeen
+      ? lang === "en"
+        ? `\n\nIt isn't damage, but I do see something else that gets you killed sooner: “${alsoSeen.title}”. ${alsoSeen.action}`
+        : `\n\nNo es de daño, pero sí veo otra cosa que te hace morir antes: «${alsoSeen.title}». ${alsoSeen.action}`
+      : "";
   return MentorAnswerSchema.parse({
     intent: "explain_priority",
     normalizedQuestion,
-    answer: focus === "damage" ? damageNothingFoundAnswer(lang) : lang === "en"
+    answer: focus === "damage" ? damageNothingFoundAnswer(lang) + also : lang === "en"
       ? "In what I can check (elemental resistances, chaos resistance, life and empty gear slots) " +
         "I don't find a clear cause for your deaths. It may be something I don't check yet, like " +
         "armour, evasion, energy shield or the exact mechanic that kills you. If you tell me what " +
@@ -429,9 +449,9 @@ function focusNothingFoundAnswer(
       "armadura, evasión, escudo de energía o la mecánica concreta que te mata. Si me dices qué te mata " +
       "(un jefe, un tipo de daño, un grupo de monstruos), lo tendré en cuenta en el diario.",
     nextAction: null,
-    usedRecommendationIds: [],
+    usedRecommendationIds: also ? [alsoSeen!.id] : [],
     relatedItemIds: [],
-    sources: [],
+    sources: also ? alsoSeen!.sources : [],
     confidence: null,
     unverified: [],
     memoryImpact: result.memoryImpact,
@@ -935,6 +955,14 @@ function validateDecision(
     return;
   }
   if (decision.kind === "ask_missing_fact") {
+    // Una pregunta que el Mentor no ha sabido clasificar no se contesta
+    // pidiendo un dato pendiente de otra recomendación: «¿y en atributos qué
+    // subo?» recibía «¿cuál es el límite de tus resistencias?» (24-11-2026).
+    if (heuristicIntent === "unsupported") {
+      throw new MentorAiError(
+        "La IA contestó a otra cosa con un dato pendiente; se usaron las reglas.",
+      );
+    }
     if (
       decision.missingFactId === null ||
       !missingById.has(decision.missingFactId) ||
@@ -1158,6 +1186,18 @@ async function buildAnswer(
     if (treeAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, treeAnswer);
   }
 
+  // Dudas del juego («¿qué hechizo tallo con una gema de nivel 7?», «¿Encadenamiento
+  // I o II?», maldiciones, esbirros, atributos): reglas y datos de gemas, sin IA.
+  if (deps.gems && options.intentHint === undefined) {
+    const gameAnswer =
+      answerSkillChoiceQuestion(deps.gems, options.question, options.profile, lang) ??
+      answerSupportCompareQuestion(deps.gems, options.question, options.profile, lang) ??
+      answerCurseQuestion(deps.gems, options.question, options.profile, lang) ??
+      answerMinionQuestion(deps.gems, options.question, options.profile, lang) ??
+      answerAttributeQuestion(deps.gems, options.question, options.profile, lang);
+    if (gameAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, gameAnswer);
+  }
+
   // La conversación social nunca se convierte en una recomendación por
   // ausencia de IA. Con IA sí recibe el contexto canónico para responder.
   if (intent === "conversation" && selector === null) {
@@ -1214,6 +1254,26 @@ async function buildAnswer(
     intent !== "conversation"
   ) {
     return recalledAnswer(options, normalizedQuestion, intent, result);
+  }
+
+  // «Me falta daño» y el motor no ve nada de daño: la IA no tiene de dónde
+  // sacarlo. Contesta la revisión rápida con lo que sabe del personaje y, si
+  // tampoco ve nada, se dice, señalando lo que sí se ve aunque sea de aguante.
+  if (
+    focus === "damage" &&
+    options.intentHint === undefined &&
+    !result.recommendations.some((candidate) => DAMAGE_RECOMMENDATION_IDS.has(candidate.id))
+  ) {
+    const reviewed = deps.gems ? answerDamageQuestion(deps.gems, options.profile, lang) : null;
+    if (reviewed !== null) return gemQuestionAnswer(options, normalizedQuestion, reviewed);
+    return focusNothingFoundAnswer(
+      normalizedQuestion,
+      result,
+      metadata(),
+      lang,
+      "damage",
+      result.recommendations.find((candidate) => SURVIVAL_RECOMMENDATION_IDS.has(candidate.id)),
+    );
   }
 
   const sanitizedEnvelope = sanitizeEnvelope(
