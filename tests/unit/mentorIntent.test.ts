@@ -191,6 +191,47 @@ describe("foco daño («me falta daño»)", () => {
     expect(classifyMentorQuestion("I take too much damage").focus).toBe("survival");
     expect(classifyMentorQuestion("¿por qué muero si tengo mucho daño?").focus).toBe("survival");
   });
+
+  it("quien recibe el daño manda: «el jefe me hace mucho daño» es aguante", () => {
+    for (const question of [
+      "el jefe me hace mucho daño",
+      "recibo demasiado daño",
+      "me hacen demasiado daño",
+      "me meten mucho daño los élites",
+      "¿qué resistencias necesito contra el daño de fuego?",
+      "I'm taking a lot of damage",
+      "I take way too much damage in act 3",
+      "bosses deal a lot of damage",
+      "I keep getting killed",
+    ]) {
+      expect(classifyMentorQuestion(question).focus, question).toBe("survival");
+    }
+  });
+
+  it("que el enemigo no muera es falta de daño, no «por qué muero»", () => {
+    for (const question of [
+      "el jefe no se muere",
+      "los enemigos no mueren",
+      "los jefes tardan en morir",
+      "the boss won't die",
+      "bosses take forever to die",
+    ]) {
+      expect(classifyMentorQuestion(question).focus, question).toBe("damage");
+    }
+    // Y lo de siempre sigue igual.
+    expect(classifyMentorQuestion("me falta daño").focus).toBe("damage");
+    expect(classifyMentorQuestion("¿por qué muero tanto?").focus).toBe("survival");
+    expect(classifyMentorQuestion("no me muero nunca pero no mato").focus).toBe("survival");
+  });
+
+  it("«mi mayor problema» se entiende, y «what's my main problem» no es pedir una cifra", () => {
+    expect(classifyMentorQuestion("¿cuál es mi mayor problema?").intent).toBe("explain_priority");
+    expect(classifyMentorQuestion("what is my biggest problem").intent).toBe("explain_priority");
+    expect(classifyMentorQuestion("What's my main problem? I do no damage")).toMatchObject({ intent: "explain_priority", focus: "damage" });
+    // Pedir la cifra sigue sin foco de daño.
+    expect(classifyMentorQuestion("what's my dps?").focus).toBeNull();
+    expect(classifyMentorQuestion("¿cuánto daño hago?").focus).toBeNull();
+  });
 });
 
 describe("preguntas en inglés", () => {

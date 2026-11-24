@@ -17,6 +17,7 @@ const TEXT = texts(
     starting: "Arrancando PoB2…",
     calculating: "Calculando…",
     failed: "No se pudo descargar o arrancar PoB2. Revisa tu conexión y prueba otra vez.",
+    stopped: "PoB2 se ha parado calculando tu personaje. No es tu conexión: prueba otra vez.",
     retry: "Reintentar",
     error: "PoB2 no ha podido calcular tu personaje.",
     dataError: "No se pudieron cargar los datos de PoB2. Revisa tu conexión y prueba otra vez.",
@@ -75,6 +76,7 @@ const TEXT = texts(
     starting: "Starting PoB2…",
     calculating: "Calculating…",
     failed: "PoB2 couldn't download or start. Check your connection and try again.",
+    stopped: "PoB2 stopped while calculating your character. It isn't your connection: try again.",
     retry: "Try again",
     error: "PoB2 couldn't calculate your character.",
     dataError: "PoB2's data couldn't load. Check your connection and try again.",
@@ -362,7 +364,7 @@ export function PobPanel(props: PobPanelProps) {
       {status.state === "failed" || props.error === "data" ? (
         <div className="mt-2 flex flex-col items-start gap-2">
           <p className="text-sm text-muted-foreground" role="status">
-            {props.error === "data" ? t.dataError : t.failed}
+            {props.error === "data" ? t.dataError : status.state === "failed" && status.reason !== "start" ? t.stopped : t.failed}
           </p>
           <Button type="button" variant="outline" size="sm" onClick={props.onRetry}>
             {t.retry}

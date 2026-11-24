@@ -70,5 +70,9 @@ export function orderStepsByGain<T extends OrderableStep>(
     for (const key of path) taken.add(key);
     return { ...step, path, points: path.length, onTheWay: onTheWayGroups(graph, path, lang) };
   });
+  // Si un notable queda de camino a otro que PoB2 pone antes, al llegar a él ya
+  // estaría cogido y saldría «+0 puntos», sin camino. El orden de las reglas
+  // (primero el que pilla de paso) es el que se puede seguir: se deja ese.
+  if (chained.some((step) => step.path.length === 0)) return { steps: [...steps], reordered: false };
   return { steps: chained, reordered: true };
 }

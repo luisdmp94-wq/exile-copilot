@@ -590,20 +590,43 @@ function patchImportedItems(xml: string, profile: CharacterProfile, data: PobBui
   return xml.replace(items.full, () => next);
 }
 
+const gemNamesIn = (xml: string) => [...xml.matchAll(/<Gem\b[^>]*\bnameSpec="([^"]*)"/g)].map((match) => plain(match[1]));
+
 /**
- * Gemas añadidas en la web: entran como grupos nuevos. Lo que ya estaba en el
- * código (niveles, calidades, soportes, grupos de objetos) no se toca.
+ * Gemas añadidas en la web. Una habilidad nueva entra como grupo nuevo; un
+ * apoyo nuevo en una habilidad que ya venía en el código entra en su grupo
+ * (antes se ignoraba: seguías el consejo de la web, marcabas el apoyo y «Tus
+ * números» no se movía). Lo que ya estaba en el código (niveles, calidades,
+ * sus apoyos, grupos de objetos) no se toca, y lo que se quita en la web
+ * tampoco se quita aquí.
  */
 function appendImportedSkills(xml: string, profile: CharacterProfile, data: PobBuildData, notes: PobXmlNotes): { xml: string; added: number } {
-  const present = new Set([...xml.matchAll(/<Gem\b[^>]*\bnameSpec="([^"]*)"/g)].map((match) => plain(match[1])));
-  const missing = skillGroupsXml(profile, data, notes).filter((group) => group.mainName && !present.has(plain(group.mainName)));
-  if (missing.length === 0) return { xml, added: 0 };
+  const wanted = skillGroupsXml(profile, data, notes);
+  let supports = 0;
+  for (const group of wanted) {
+    if (!group.mainName) continue;
+    const main = plain(group.mainName);
+    const existing = xmlElements(xml, "Skill").find((skill) => gemNamesIn(skill.full).includes(main));
+    if (!existing || !existing.full.endsWith("</Skill>")) continue;
+    const have = new Set(gemNamesIn(existing.full));
+    const extra = [...group.xml.matchAll(/<Gem\b[^>]*?\/>/g)]
+      .map((match) => match[0])
+      .filter((tag) => !have.has(gemNamesIn(tag)[0] ?? ""));
+    if (extra.length === 0) continue;
+    const patched = `${existing.full.slice(0, -"</Skill>".length)}${extra.join("")}</Skill>`;
+    xml = xml.replace(existing.full, () => patched);
+    supports += extra.length;
+  }
+  const present = new Set(gemNamesIn(xml));
+  const missing = wanted.filter((group) => group.mainName && !present.has(plain(group.mainName)));
+  if (missing.length === 0) return { xml, added: supports };
   const groups = missing.map((group) => group.xml).join("");
-  if (/<\/SkillSet>/.test(xml)) return { xml: xml.replace(/<\/SkillSet>/, () => `${groups}</SkillSet>`), added: missing.length };
-  if (/<\/Skills>/.test(xml)) return { xml: xml.replace(/<\/Skills>/, () => `${groups}</Skills>`), added: missing.length };
+  const added = supports + missing.length;
+  if (/<\/SkillSet>/.test(xml)) return { xml: xml.replace(/<\/SkillSet>/, () => `${groups}</SkillSet>`), added };
+  if (/<\/Skills>/.test(xml)) return { xml: xml.replace(/<\/Skills>/, () => `${groups}</Skills>`), added };
   return {
     xml: xml.replace(/<\/PathOfBuilding2>\s*$/, () => `<Skills activeSkillSet="1"><SkillSet id="1">${groups}</SkillSet></Skills>\n</PathOfBuilding2>`),
-    added: missing.length,
+    added,
   };
 }
 
@@ -639,8 +662,15 @@ function xmlFromImport(profile: CharacterProfile, data: PobBuildData, options: P
     notes.guessedGemLevels++;
     return setAttribute(next, "level", String(gem && !gem.support ? gemLevelFor(gem, level) : 1));
   });
+  // El nivel lo pone la web. Con el modo automático de PoB2 encendido (viene así
+  // en los códigos nuevos), el motor recalcula el nivel por los puntos gastados a
+  // mitad de cuenta: lo que da cada nodo salía medido con otro nivel que el resto.
   xml = xml.replace(/<Build\b[^>]*>/, (tag) =>
-    setAttribute(setAttribute(tag, "level", String(level)), "mainSocketGroup", String(mainGroup)),
+    setAttribute(
+      setAttribute(setAttribute(tag, "level", String(level)), "mainSocketGroup", String(mainGroup)),
+      "characterLevelAutoMode",
+      "false",
+    ),
   );
 
   // El árbol: el de la web (puede haberlo editado).

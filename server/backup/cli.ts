@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -17,9 +17,14 @@ import {
  *   npm run backup -- now     hace una copia ahora y la sube
  *   npm run backup -- list    lista las copias del bucket
  *   npm run backup -- check   descarga la última, la abre y cuenta lo que hay
+ *   npm run backup -- check --key <clave>   lo mismo con una copia anterior (clave de `list`)
  *   npm run backup -- check --save <ruta>   además la guarda para restaurarla
  *
  * En Render (Shell del servicio): `node dist-server/server/backup/cli.js now`.
+ *
+ * `now` fuera de producción pide `--desde-este-equipo`: con las claves de R2
+ * en un portátil subiría la base de pruebas al bucket de producción como la
+ * copia más nueva, y `check --save` restauraría esa.
  */
 
 const TABLES = ["characters", "journal_entries", "mentor_threads"] as const;
@@ -38,6 +43,15 @@ async function main(): Promise<void> {
 
   if (command === "now") {
     const databasePath = process.env.DATABASE_PATH ?? "./data/exile-copilot.db";
+    if (!existsSync(databasePath)) {
+      throw new Error(`No existe la base de datos en ${resolve(databasePath)}: no hay nada que copiar.`);
+    }
+    if (process.env.NODE_ENV !== "production" && !process.argv.includes("--desde-este-equipo")) {
+      throw new Error(
+        `Esto subiría la base de ESTE equipo (${resolve(databasePath)}) al bucket de copias, como la más nueva. ` +
+          "Si es lo que quieres, repite la orden con --desde-este-equipo. La copia de la web se hace en Render.",
+      );
+    }
     const result = await runR2Backup(config, databasePath);
     console.log(`Subida: ${result.key}`);
     console.log(`Tamaño: ${result.bytes} bytes comprimidos (${result.databaseBytes} de base)`);
@@ -55,8 +69,13 @@ async function main(): Promise<void> {
   }
 
   if (command === "check") {
-    const newest = backups[0];
-    if (!newest) throw new Error("No hay ninguna copia que comprobar.");
+    // Por defecto la más nueva; con --key, la que se pida (si la de anoche ya
+    // copió datos estropeados, hace falta poder volver a una anterior).
+    const wanted = argument("--key");
+    const newest = wanted ? backups.find((backup) => backup.key === wanted || backup.key.endsWith(`/${wanted}`)) : backups[0];
+    if (!newest) {
+      throw new Error(wanted ? `No hay ninguna copia con la clave ${wanted}. Mira las que hay con «list».` : "No hay ninguna copia que comprobar.");
+    }
     const database = await downloadR2Backup(config, newest.key);
     const dir = mkdtempSync(join(tmpdir(), "exile-copilot-backup-check-"));
     const path = join(dir, "restaurada.db");

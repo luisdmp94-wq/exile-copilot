@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { ACT_FOUR_GUIDE } from "../../src/guides/actFour.js";
+import { ACT_FOUR_GUIDE_EN } from "../../src/guides/actFourEn.js";
 import { GUIDES, findGuide, guideSlugFromPath } from "../../src/guides/index.js";
 
 describe("guías por acto", () => {
@@ -81,5 +83,18 @@ describe("guías: «opcional» es la zona entera, no su jefe", () => {
       expect(step, zone).toBeDefined();
       expect(step!.optional, zone).toBeFalsy();
     }
+  });
+});
+
+describe("guías: lo numerado va en el orden en que se encuentra", () => {
+  it.each([
+    ["acto-4 en español", ACT_FOUR_GUIDE, /\((\d) de 4\)/],
+    ["acto-4 en inglés", ACT_FOUR_GUIDE_EN, /\((\d) of 4\)/],
+  ] as const)("%s: los Trozos de mapa salen 1, 2, 3 y 4 siguiendo la ruta", (_name, guide, pattern) => {
+    const numbers = (guide.route ?? []).flatMap((step) => {
+      const match = pattern.exec(step.text);
+      return match ? [Number(match[1])] : [];
+    });
+    expect(numbers).toEqual([1, 2, 3, 4]);
   });
 });

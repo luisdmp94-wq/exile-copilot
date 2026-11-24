@@ -12,7 +12,7 @@ import {
 } from "../../shared/passiveTree.js";
 import { adviseTree, buildProfile, lineValue, type TreeAdviceContext, type TreeSkill } from "../../shared/passiveTreeAdvice.js";
 import { PassiveTreeAdviceResponseSchema, treeRequestFromProfile, weaponKindOf } from "../../shared/passiveTreeRequest.js";
-import { loadPassiveTree, advisePassiveTree } from "../../server/advice/passiveTreeAdvisor.js";
+import { loadPassiveTree, advisePassiveTree, graphCacheKey } from "../../server/advice/passiveTreeAdvisor.js";
 import { loadGemData } from "../../server/advice/supportGemAdvisor.js";
 import { loadEnglishGemLocale } from "../../server/advice/gemLocale.js";
 import { answerPassiveTreeQuestion, isPassiveTreeQuestion } from "../../server/mentor/treeQuestion.js";
@@ -136,6 +136,41 @@ describe("las reglas que valoran cada línea", () => {
     expect(lineValue("8% increased maximum Life", witchBuild).defence).toBeGreaterThan(0.5);
   });
 
+  it("el «Por qué» no dice lo contrario de lo que hace el nodo", () => {
+    const warrior = buildProfile(context([skill("Boneshatter", true)], { weapons: ["mace"], usesArmour: true }));
+    // Líneas tal cual están en el árbol del juego.
+    // Romper la armadura del enemigo no es «más armadura».
+    for (const line of ["Break 40% increased Armour", "25% increased Armour Break Duration"]) {
+      const value = lineValue(line, warrior);
+      expect(value.reasons, line).not.toContain("armour");
+      expect(value.defence, line).toBe(0);
+    }
+    expect(lineValue("25% reduced Armour Break taken", warrior).defence).toBeGreaterThan(0);
+    expect(lineValue("20% increased Armour", warrior).reasons).toContain("armour");
+    // Umbral sacado del escudo de energía no es «más escudo de energía».
+    const hallowed = lineValue("Gain additional Ailment Threshold equal to 20% of maximum Energy Shield", witchBuild);
+    expect(hallowed.reasons).toEqual([]);
+    expect(hallowed.defence).toBeGreaterThan(0);
+    // Maldiciones sobre ti no son «tus maldiciones pegan más fuerte».
+    expect(lineValue("30% increased Damage per Curse on you", witchBuild)).toMatchObject({ offence: 0, reasons: [] });
+    expect(lineValue("30% reduced effect of Curses on you", witchBuild).reasons).not.toContain("curse");
+    expect(lineValue("30% reduced effect of Curses on you", witchBuild).defence).toBeGreaterThan(0);
+    // La exposición baja las resistencias del enemigo.
+    expect(lineValue("Exposure you inflict lowers Resistances by an additional 5%", witchBuild).reasons).not.toContain("resist");
+    // Lo que te quita no suma: resistencia negativa y perder vida.
+    for (const line of ["-7% to Chaos Resistance", "-10% to all Elemental Resistances", "Lose 3% of maximum Life and Energy Shield when you use a Chaos Skill"]) {
+      const value = lineValue(line, witchBuild);
+      expect(value.defence, line).toBeLessThanOrEqual(0);
+      expect(value.reasons, line).toEqual([]);
+    }
+    // La vida que explota es la del enemigo.
+    const explode = lineValue("Burning Enemies you kill have a 5% chance to Explode, dealing a tenth of their maximum Life as Fire Damage", witchBuild);
+    expect(explode.reasons).not.toContain("life");
+    // Y lo normal sigue igual.
+    expect(lineValue("+10% to Fire Resistance", witchBuild).reasons).toContain("resist");
+    expect(lineValue("8% increased maximum Life", witchBuild).reasons).toContain("life");
+  });
+
   it("un daño con el tiempo apenas gana con críticos", () => {
     const crit = lineValue("16% increased Critical Hit Chance for Spells", witchBuild).offence;
     const chaos = lineValue("12% increased Chaos Damage", witchBuild).offence;
@@ -257,9 +292,47 @@ describe("el Mentor contesta «¿por dónde sigo en el árbol?»", () => {
     }
   });
 
+  it("«notable» y «passive» como palabras corrientes no son preguntas del árbol", () => {
+    for (const question of [
+      "¿Hay una diferencia notable entre estas dos armas?",
+      "no noto una mejora notable con el anillo nuevo",
+      "is a passive playstyle like minions good for a beginner?",
+      "¿qué hace la pasiva Entradas oscuras?",
+    ]) {
+      expect(isPassiveTreeQuestion(normalizeQuestion(question)), question).toBe(false);
+    }
+    for (const question of ["¿qué notable cojo ahora?", "cuál es la siguiente pasiva", "which notable next?", "where do I put my passive points", "qué keystone me conviene"]) {
+      expect(isPassiveTreeQuestion(normalizeQuestion(question)), question).toBe(true);
+    }
+  });
+
   it("sin árbol, explica cómo meterlo", () => {
     const answer = answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", profile({ passives: { allocated: [] } }), "es");
     expect(answer).toMatch(/código de Path of Building 2/);
+  });
+
+  it("con pasivas escritas a mano que no son nodos, dice que no las ha leído, no que no hay nada cerca", () => {
+    const typed = profile({ passives: { allocated: [{ ref: "Entradas oscuras", isOfficialId: false }, { ref: "vida +10", isOfficialId: false }] } });
+    const advice = advisePassiveTree(knowledge, treeRequestFromProfile(typed, "es"));
+    expect(advice.unknownCount).toBe(2);
+    expect(advice.allocated).toEqual([]);
+    // Un código con el inicio de la clase y un nodo que no existe sí se ha leído: no es este caso.
+    const partly = profile({ passives: { allocated: [{ ref: classStartFor(buildTreeGraph(tree), "Bruja")!, isOfficialId: false }, { ref: "999999999", isOfficialId: false }] } });
+    const read = advisePassiveTree(knowledge, treeRequestFromProfile(partly, "es"));
+    expect(read.unknownCount).toBe(1);
+    expect(read.allocated.length).toBeGreaterThan(0);
+    expect(answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", partly, "es")).not.toMatch(/No he sabido leer/);
+    const answer = answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", typed, "es")!;
+    expect(answer).toMatch(/No he sabido leer tus pasivas/);
+    expect(answer).not.toMatch(/No veo ningún notable/);
+    expect(answerPassiveTreeQuestion(knowledge, "which passives should I take next", typed, "en")).toMatch(/couldn't read your passives/);
+  });
+
+  it("la ascendencia de un .build oficial (por nombre) cuenta como ascendencia, no como nodo desconocido", () => {
+    const graph = buildTreeGraph(tree);
+    const read = readAllocated(graph, [keyByName("Dark Entries"), "AscendancyDruid1Notable1", "AscendancyWitch2Start"], "Bruja");
+    expect(read.ascendancyCount).toBe(2);
+    expect(read.unknown).toEqual([]);
   });
 
   it("con árbol, da los notables en orden con sus puntos", () => {
@@ -271,5 +344,21 @@ describe("el Mentor contesta «¿por dónde sigo en el árbol?»", () => {
 
   it("no contesta lo que no es del árbol", () => {
     expect(answerPassiveTreeQuestion(knowledge, "me falta daño", profile(), "es")).toBeNull();
+  });
+});
+
+describe("árbol de pasivas: la memoria no depende de lo que escriba un desconocido", () => {
+  it("guarda un grafo por clase reconocida, en español o en inglés", () => {
+    expect(graphCacheKey("Bruja")).toBe("Witch");
+    expect(graphCacheKey("  witch ")).toBe("Witch");
+    expect(graphCacheKey("Cazadora")).toBe("Huntress");
+  });
+
+  it("mil clases inventadas comparten el mismo grafo sin clase", () => {
+    // La petición es pública y la clase es texto libre de hasta 60 letras:
+    // cada texto distinto guardaba para siempre un grafo de 1 MB.
+    const keys = new Set(Array.from({ length: 1000 }, (_, index) => graphCacheKey(`clase-inventada-${index}`)));
+    expect([...keys]).toEqual([""]);
+    expect(graphCacheKey(null)).toBe("");
   });
 });

@@ -22,6 +22,8 @@ describe("versión HTML de las guías para buscadores", () => {
       expect(html).toContain(`<title>${act} de PoE2: guía de supervivencia · Exile Copilot</title>`);
       expect(html).toContain(`<meta name="description" content="${guide.description}" />`);
       expect(html).toContain(`<h1>${guide.title}</h1>`);
+      // «para el los interludios»: el artículo no se repite.
+      expect(html).not.toMatch(/para el (el|la|los|las) /);
       for (const step of guide.route ?? []) {
         expect(html).toContain(step.zone);
         expect(html).toContain(step.text.replace(/"/g, "&quot;"));

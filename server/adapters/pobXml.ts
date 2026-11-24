@@ -319,7 +319,9 @@ function extractActiveTreeSpec(xml: string): { attrs: Record<string, string>; bo
   if (!tree) return null;
   const activeId = tree.attrs.activeSpec ?? "1";
   const specs = extractElements(tree.body, "Spec");
-  return specs.find((spec) => spec.attrs.id === activeId) ?? specs[0] ?? null;
+  // PoB2 no pone `id` a sus <Spec>: `activeSpec` es su posición, empezando en 1.
+  // Sin esto, un código con dos árboles («Acto 1» y «Final») leía siempre el primero.
+  return specs.find((spec) => spec.attrs.id === activeId) ?? specs[Number(activeId) - 1] ?? specs[0] ?? null;
 }
 
 function extractActivePassives(xml: string): PassiveNode[] {
@@ -403,10 +405,55 @@ export function pobFailure(warning: string): PobDecodeResult {
   return { ok: false, partial: emptyPartial(), warnings: [warning] };
 }
 
+export const POB_MALFORMED_XML_WARNING =
+  "No verificado — el código PoB no trae un XML bien formado; rechazado por seguridad.";
+
+/** Más hondo que esto no llega ningún código de PoB2 (los suyos no pasan de seis niveles). */
+const POB_MAX_XML_DEPTH = 32;
+
+/**
+ * ¿El XML tiene forma de XML? Una pasada, sin expresiones regulares sobre el
+ * texto entero: cada etiqueta se cierra, se cierra en orden y no se anida sin
+ * fin. Hace falta porque el resto del lector busca con expresiones regulares,
+ * que con un texto hecho a mala fe (miles de `<Build` sin cerrar) tardan
+ * minutos y dejan parado el servidor para todos.
+ */
+export function isWellFormedPobXml(xml: string): boolean {
+  const open: string[] = [];
+  let at = 0;
+  for (;;) {
+    const start = xml.indexOf("<", at);
+    if (start < 0) break;
+    // Un «<» que no abre una etiqueta («<3» en las notas de una build) es texto.
+    if (!/[A-Za-z_/?!]/.test(xml.charAt(start + 1))) {
+      at = start + 1;
+      continue;
+    }
+    const end = xml.indexOf(">", start + 1);
+    if (end < 0) return false;
+    const inner = xml.slice(start + 1, end);
+    // Otra etiqueta que empieza dentro de esta: es la forma que atascaba las búsquedas.
+    if (/<[A-Za-z_/]/.test(inner)) return false;
+    at = end + 1;
+    if (inner.startsWith("?") || inner.startsWith("!")) continue;
+    const closing = inner.startsWith("/");
+    const name = /^[A-Za-z_]\w*(?=$|[\s/])/.exec(closing ? inner.slice(1) : inner)?.[0];
+    if (!name) return false;
+    if (closing) {
+      if (open.pop() !== name) return false;
+    } else if (!inner.endsWith("/")) {
+      open.push(name);
+      if (open.length > POB_MAX_XML_DEPTH) return false;
+    }
+  }
+  return open.length === 0;
+}
+
 /** Lee el XML ya descomprimido de un código PoB2. Nunca lanza. */
 export function readPobXml(xml: string): PobDecodeResult {
   const warnings: string[] = [];
   try {
+    if (!isWellFormedPobXml(xml)) return pobFailure(POB_MALFORMED_XML_WARNING);
     if (/<PathOfBuilding\b/i.test(xml) && !/<PathOfBuilding2\b/i.test(xml)) {
       warnings.push("Rechazado — el código pertenece a Path of Building para PoE1. Exile Copilot solo acepta PathOfBuilding2.");
       return { ok: false, xml, partial: emptyPartial(), warnings };

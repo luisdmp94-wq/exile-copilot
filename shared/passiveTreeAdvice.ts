@@ -327,7 +327,7 @@ export function lineValue(rawLine: string, build: BuildProfile): LineValue {
  * se usa para explicar el porqué. «Daño recibido reducido» sí suma.
  */
 function signed(line: string, value: LineValue): LineValue {
-  const harmful = /\b(reduced|less)\b/.test(line) && !/\bdamage taken\b|\breduced damage\b|\bless damage\b|\bcost|\breservation\b|\benem(y|ies)\b|\bagainst you\b|\bon you\b/.test(line);
+  const harmful = /\b(reduced|less)\b/.test(line) && !/\bdamage taken\b|\bbreak taken\b|\breduced damage\b|\bless damage\b|\bcost|\breservation\b|\benem(y|ies)\b|\bagainst you\b|\bon you\b/.test(line);
   if (!harmful) return value;
   return { offence: -0.5 * Math.abs(value.offence), defence: -0.5 * Math.abs(value.defence), reasons: [] };
 }
@@ -345,6 +345,26 @@ function lineValueCore(line: string, build: BuildProfile, requirement: number, m
   if (!minionLine && /\b(offerings?|totems?|companions?|allies|ally)\b/.test(line)) {
     return { offence: 0.2 * requirement, defence: 0, reasons: [] };
   }
+  // Antes de mirar palabras sueltas: de QUIÉN habla la línea. «Armadura»,
+  // «vida», «resistencias» o «maldición» también salen en líneas sobre el
+  // enemigo o que te quitan algo, y el «Por qué» decía lo contrario del nodo
+  // («Más armadura, que ya llevas» en uno que ROMPE la armadura del enemigo).
+  if (!minionLine) {
+    // Lo que te quita no es una ventaja: «-7% to Chaos Resistance», «Lose 3% of maximum Life…».
+    if (/^-\d/.test(line) || /^lose\b/.test(line)) return NONE;
+    // Romper la armadura del enemigo es ataque; aguantar mejor que te la rompan, un poco de defensa.
+    if (/\bbreak\b.*\barmour\b|\barmour break\b/.test(line)) {
+      return /\btaken\b/.test(line) ? { offence: 0, defence: 0.2, reasons: [] } : { offence: 0.2 * requirement, defence: 0, reasons: [] };
+    }
+    // La exposición baja las resistencias del enemigo, no sube las tuyas.
+    if (/\bexposure\b/.test(line)) return { offence: 0.2 * requirement, defence: 0, reasons: [] };
+    // Maldiciones que llevas TÚ encima: nada que ver con las que lanzas.
+    if (/\bcurses? on you\b/.test(line)) {
+      return /\breduced effect\b/.test(line) ? { offence: 0, defence: 0.15, reasons: [] } : NONE;
+    }
+    // Umbral de aturdimiento o de estados sacado de tu vida o de tu escudo: da umbral, no vida ni escudo.
+    if (/\bthreshold\b/.test(line)) return { offence: 0, defence: 0.35, reasons: [] };
+  }
   // Defensas (las de los esbirros cuentan como ayuda a los esbirros).
   if (!minionLine) {
     const defenceStyle = ctx.defence ?? "life";
@@ -352,7 +372,11 @@ function lineValueCore(line: string, build: BuildProfile, requirement: number, m
     if (/\bresistances?\b/.test(line) && !/\bpenetrat|\benem(y|ies)\b/.test(line)) {
       return { offence: 0, defence: /\bchaos\b/.test(line) ? 0.6 : 0.9, reasons: ["resist"] };
     }
-    if (/\bmaximum life\b|\blife regeneration\b|\blife recovery\b|\blife recoup|\blife leech|\blife on kill\b|\bto maximum life\b/.test(line)) {
+    // «…dealing a tenth of their maximum Life as Fire Damage»: la vida es la del enemigo que explota.
+    if (
+      /\bmaximum life\b|\blife regeneration\b|\blife recovery\b|\blife recoup|\blife leech|\blife on kill\b|\bto maximum life\b/.test(line) &&
+      !/\btheir maximum life\b/.test(line)
+    ) {
       const value = defenceStyle === "life" ? 1 * sure : defenceStyle === "hybrid" ? 0.6 : 0.15;
       return { offence: 0, defence: value, reasons: ["life"] };
     }

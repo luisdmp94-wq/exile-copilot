@@ -19,8 +19,6 @@ import {
   type SkillSetup,
 } from "@shared/domain.js";
 import { ProfileQuickRead } from "@/components/ProfileQuickRead";
-import { QUICK_REVIEW_CHANGED_EVENT } from "@/lib/quickReviewForm";
-import { patchQuickReviewForm } from "@/lib/quickReviewStorage";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -678,19 +676,9 @@ function ProfileEditor({
   const { lang } = useLang();
   const levelReading = readCharacterLevel(profile);
 
-  /**
-   * El nivel y las resistencias que el jugador corrige aquí también cambian en
-   * la revisión rápida: el Mentor usa la revisión por encima del perfil, y un
-   * número viejo escrito allí taparía la corrección.
-   */
-  const syncReview = (values: Record<string, string>) => {
-    try {
-      patchQuickReviewForm(window.localStorage, profile.id, values);
-      window.dispatchEvent(new Event(QUICK_REVIEW_CHANGED_EVENT));
-    } catch {
-      // Sin almacenamiento, el perfil ya lleva el dato.
-    }
-  };
+  // El nivel y las resistencias que se corrigen aquí llegan a la revisión
+  // rápida por la propia ficha: si la ficha cambia un dato, manda la ficha
+  // (ver `quickReviewFormFor`). Aquí ya no se escribe nada en el navegador.
 
   const addSkill = () => {
     const skill: SkillSetup = {
@@ -776,12 +764,10 @@ function ProfileEditor({
                 // Vaciar el campo no es evidencia de nivel: vuelve al mínimo
                 // técnico y Crafting sigue tratándolo como desconocido.
                 onUpdate({ level: PLACEHOLDER_CHARACTER_LEVEL, levelSource: "placeholder" });
-                syncReview({ level: "" });
                 return;
               }
               const level = Math.min(100, Math.max(1, parsed));
               onUpdate({ level, levelSource: "observed" });
-              syncReview({ level: String(level) });
             }}
           />
         </div>
@@ -892,7 +878,6 @@ function ProfileEditor({
                       [key]: value,
                     },
                   });
-                  if (key !== "chaos") syncReview({ [key]: value === null ? "" : String(value) });
                 }}
               />
             </div>
@@ -1084,7 +1069,9 @@ function ProfileEditor({
                   onChange={(e) =>
                     onMutate((p) => ({
                       ...p,
+                      // Con ...p.passives: sin él se perdían las elecciones de atributo del árbol.
                       passives: {
+                        ...p.passives,
                         allocated: p.passives.allocated.map((n, i) =>
                           i === index ? { ...n, ref: e.target.value } : n,
                         ),
@@ -1118,6 +1105,7 @@ function ProfileEditor({
                     onMutate((p) => ({
                       ...p,
                       passives: {
+                        ...p.passives,
                         allocated: p.passives.allocated.filter((_, i) => i !== index),
                       },
                     }))
@@ -1138,6 +1126,7 @@ function ProfileEditor({
               onMutate((p) => ({
                 ...p,
                 passives: {
+                  ...p.passives,
                   allocated: [
                     ...p.passives.allocated,
                     { ref: "", isOfficialId: false },

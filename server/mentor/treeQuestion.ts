@@ -13,11 +13,22 @@ import { advisePassiveTree, type TreeKnowledge } from "../advice/passiveTreeAdvi
 
 type Lang = "es" | "en";
 
-/** «árbol», «pasivas», «notable», «puntos de pasiva», «skill tree», «passive». */
+/**
+ * «árbol», «pasivas», «qué notable», «puntos de pasiva», «skill tree», «passives».
+ *
+ * «Notable» y «passive» también son palabras corrientes («una mejora notable»,
+ * «a passive playstyle»), y «la pasiva X» pregunta por un nodo, no por dónde
+ * seguir: solas no bastan para contestar con el árbol.
+ */
 export function isPassiveTreeQuestion(normalizedQuestion: string): boolean {
   const q = ` ${normalizedQuestion} `;
   if (/\b(gemas?|asistencias?|soportes?|support)\b/.test(q)) return false;
-  return /\barbol\b|\bpasivas?\b|\bnotables?\b|\bpuntos? de (pasiva|habilidad)|\bskill tree\b|\bpassive( tree| skills?| points?)?\b|\bpassives\b|\bnotables?\b|\bkeystones?\b|\bpuntos? del arbol\b/.test(q);
+  return (
+    /\barbol\b|\bpasivas\b|\bnotables\b|\bpuntos? de (pasiva|habilidad)|\bpuntos? del arbol\b/.test(q) ||
+    /\b(que|cual|cuales|siguiente|proxima|proximo|otra|otro) (pasiva|notable)\b/.test(q) ||
+    /\bskill tree\b|\bpassive (tree|skills?|points?|nodes?)\b|\bpassives\b|\bkeystones?\b/.test(q) ||
+    /\b(which|what|next) (passive|notable)\b/.test(q)
+  );
 }
 
 function list(items: string[]): string {
@@ -49,6 +60,14 @@ export function answerPassiveTreeQuestion(
       : "I have your tree, but I don't know which skill does your damage. Tell me in “Edit character” " +
           "(or in the quick review) and I'll tell you which notables help it.";
   }
+  // Ninguna pasiva es de este árbol (escritas a mano, por ejemplo): no es que no haya nada cerca.
+  if (advice.unknownCount > 0 && advice.allocated.length === 0) {
+    return es
+      ? "No he sabido leer tus pasivas: no son nodos de este árbol (pasa con las escritas a mano). Pega tu código de " +
+          "Path of Building 2 en «Editar personaje» → «Rellénalo rápido» y te digo por dónde seguir."
+      : "I couldn't read your passives: they aren't nodes on this tree (it happens with ones typed by hand). Paste your " +
+          "Path of Building 2 code in “Edit character” → “Fill it in fast” and I'll tell you where to go next.";
+  }
   if (advice.offence.length === 0 && advice.defence === null) {
     return es
       ? "No veo ningún notable cerca que ayude a lo que usas. Mira tu árbol dibujado en «Tu árbol de pasivas»."
@@ -66,8 +85,8 @@ export function answerPassiveTreeQuestion(
     const step = advice.defence;
     lines.push(
       es
-        ? `Si mueres mucho: ${step.name} (${step.points} puntos desde tu árbol de hoy): ${step.stats.join("; ")}.`
-        : `If you die a lot: ${step.name} (${step.points} points from your tree today): ${step.stats.join("; ")}.`,
+        ? `Si mueres mucho: ${step.name} (${step.points} ${step.points === 1 ? "punto" : "puntos"} desde tu árbol de hoy): ${step.stats.join("; ")}.`
+        : `If you die a lot: ${step.name} (${step.points} ${step.points === 1 ? "point" : "points"} from your tree today): ${step.stats.join("; ")}.`,
     );
   }
   const notes: string[] = [];

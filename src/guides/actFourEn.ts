@@ -45,13 +45,13 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Kedge Bay and Journey's End",
-      text: "Your first trip: the game sends you here before any other island. Captain Hartlin waits in Journey's End. Open the chest in the bay: it holds a Torn Map Piece (2 of 4).",
+      text: "Your first trip: the game sends you here before any other island. Captain Hartlin waits in Journey's End. Open the chest in the bay: it holds a Torn Map Piece (1 of 4).",
       priority: "historia",
       sourceIds: ["poe2db-acto4", "maxroll-jefes"],
     },
     {
       zone: "Isle of Kin and Volcanic Warrens",
-      text: "Krutog, Lord of Kin, hits with lightning. The Blind Beast is optional: it drops a rune Dannig swaps for another. On the shore, a sailor's body drops a Torn Map Piece (1 of 4).",
+      text: "Krutog, Lord of Kin, hits with lightning. The Blind Beast is optional: it drops a rune Dannig swaps for another. On the shore, a sailor's body drops a Torn Map Piece (2 of 4).",
       priority: "historia",
       skip: "The Blind Beast",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
@@ -123,7 +123,7 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Plunder's Point",
-      text: "Optional Expedition island (level 53). It only opens once you have all four Torn Map Pieces: Isle of Kin, Kedge Bay, Whakapanu Island and Shrike Island.",
+      text: "Optional Expedition island (level 53). It only opens once you have all four Torn Map Pieces: Kedge Bay, Isle of Kin, Whakapanu Island and Shrike Island.",
       optional: true,
       priority: "recomendable",
       sourceIds: ["poe2db-acto4", "wiki-acto4"],
@@ -207,7 +207,7 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
       ],
       tips: [
         {
-          lead: "The three Halls of the Dead tattoos are a free +15%.",
+          lead: "The three Halls of the Dead tattoos give +5% to each resistance, free.",
           text: "Aim for 30% in all three before the Interludes. Maxroll advises getting as close to 75% as you can.",
           sourceIds: ["wiki-salones", "maxroll-subida"],
         },

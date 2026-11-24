@@ -178,6 +178,9 @@ describe("la build de PoB2 desde un código importado", () => {
     expect(built.notes.base).toBe("import");
     expect(built.notes.rebuilt).toEqual([]);
     expect(built.xml).toContain('level="45"');
+    // El nivel lo fija la web: PoB2 no debe recalcularlo por su cuenta a mitad de cuenta.
+    expect(built.xml).toMatch(/<Build\b[^>]*characterLevelAutoMode="false"/);
+    expect(built.xml).not.toContain('characterLevelAutoMode="true"');
     expect(built.xml).toContain('mainSocketGroup="2"');
     expect(built.xml).toContain('nodes="54447,62797,14033"');
     // Lo demás, intacto: configuración, objetos y estadísticas guardadas.
@@ -194,6 +197,24 @@ describe("la build de PoB2 desde un código importado", () => {
     expect(built.notes.rebuilt).toEqual(["skills"]);
     expect(built.xml).toContain('nameSpec="Chaos Bolt"');
     expect(built.xml).toContain("Doom Song");
+  });
+
+  it("un apoyo añadido en la web a una habilidad del código entra en su grupo, sin tocar lo demás", () => {
+    const changed = {
+      ...imported,
+      skills: imported.skills.map((skill, index) => (index === 0 ? { ...skill, supports: [{ name: "Encadenamiento II", gemId: null }] } : skill)),
+    };
+    const built = pobXmlForProfile(changed, data);
+    expect(built.notes.rebuilt).toEqual(["skills"]);
+    const groups = [...built.xml.matchAll(/<Skill\b[^>]*>.*?<\/Skill>/gs)].map((match) => match[0]);
+    expect(groups).toHaveLength(2);
+    // El apoyo va dentro del grupo de Drenar esencia, que conserva su nivel 11 del código.
+    expect(groups[0]).toMatch(/nameSpec="Essence Drain" level="11"/);
+    expect(groups[0]).toMatch(/nameSpec="Chain II"/);
+    expect(groups[1]).not.toMatch(/Chain II/);
+    // Repetirlo no lo duplica.
+    const again = pobXmlForProfile({ ...changed, pobImport: { ...changed.pobImport!, xml: built.xml } }, data);
+    expect(again.xml.match(/nameSpec="Chain II"/g)).toHaveLength(1);
   });
 
   it("un código incompleto se completa: clase en el árbol, nivel y calidad de gemas, solo el árbol activo", () => {

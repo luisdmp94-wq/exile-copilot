@@ -176,7 +176,8 @@ export function readAllocated(
     if (!ref) continue;
     const key = ref in graph.data.nodes ? ref : graph.keyById.get(ref);
     if (key !== undefined) allocated.add(key);
-    else if (graph.ascendancy.has(ref)) ascendancyCount += 1;
+    // Los `.build` oficiales traen la ascendencia por nombre («AscendancyDruid1Notable1»), no por número.
+    else if (graph.ascendancy.has(ref) || /^ascendancy/i.test(ref)) ascendancyCount += 1;
     else unknown.push(ref);
   }
   const startFromTree = [...allocated].find((key) => graph.data.nodes[key]?.kind === "start") ?? null;

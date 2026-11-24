@@ -200,17 +200,25 @@ function joinList(parts: string[], lang: GuideCheckLang): string {
   return `${parts.slice(0, -1).join(", ")} ${lang === "en" ? "and" : "y"} ${parts.at(-1)}`;
 }
 
+/**
+ * «acto 2» → «el acto 2»; «los interludios» se queda igual. Lo que viene tras
+ * el acto 4 ya trae su artículo: sin esto salía «para el los interludios».
+ */
+export function withArticle(nextAct: string): string {
+  return /^(el|la|los|las)\s/i.test(nextAct) ? nextAct : `el ${nextAct}`;
+}
+
 const CHECK_WORDS = {
   es: {
     low: (element: string, value: number, nextAct: string, target: number) =>
-      `Resistencia al ${element}: ${value}%. Para el ${nextAct} conviene llegar al menos al ${target}%: te faltan ${target - value} puntos.`,
+      `Resistencia al ${element}: ${value}%. Para ${withArticle(nextAct)} conviene llegar al menos al ${target}%: te faltan ${target - value} puntos.`,
     notPasted: (slots: string) =>
       `No has pegado: ${slots}. Si llevas algo en esos huecos, pégalo también; si están vacíos, cualquier pieza es mejor que nada.`,
     empty: (slots: string) =>
       `Huecos vacíos: ${slots}. Cualquier pieza es mejor que nada, y puede traer la resistencia que te falta.`,
     unknown: (elements: string) =>
       `No sé tu resistencia al ${elements}: tu código no la trae. Mírala en la hoja del personaje del juego (tecla C).`,
-    allGood: (target: number, nextAct: string) => `Fuego, hielo y rayo al ${target}% o más: vas bien para el ${nextAct}.`,
+    allGood: (target: number, nextAct: string) => `Fuego, hielo y rayo al ${target}% o más: vas bien para ${withArticle(nextAct)}.`,
     someGood: (elements: string, target: number) => `${elements}: ya llegas al ${target}%.`,
     chaos: (value: number) =>
       `Resistencia al caos negativa (${value}%): recibes más daño de caos del normal. Apúntalo para más adelante.`,

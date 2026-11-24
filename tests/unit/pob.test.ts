@@ -10,6 +10,7 @@ import {
   POB_MAX_OUTPUT_BYTES,
 } from "../../server/adapters/pob.js";
 import { importBuild } from "../../server/importers/buildImporter.js";
+import { isWellFormedPobXml, POB_MALFORMED_XML_WARNING, readPobXml } from "../../server/adapters/pobXml.js";
 
 function makePobCode(xml: string): string {
   return deflateSync(Buffer.from(xml, "utf8"))
@@ -173,5 +174,65 @@ describe("pob adapter — robustez", () => {
     const result = decodePobCode("a".repeat(64));
     expect(result.ok).toBe(false);
     expect(result.warnings.length).toBeGreaterThan(0);
+  });
+});
+
+describe("pob adapter — XML hecho a mala fe", () => {
+  it("un XML normal de PoB2 pasa, con declaración, comentarios y etiquetas que se cierran solas", () => {
+    const xml = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<PathOfBuilding2><!-- nota --><Build level="70" className="Mercenary"><PlayerStat stat="Life" value="900"/></Build>`,
+      `<Tree activeSpec="1"><Spec nodes="1,2"><URL>https://ejemplo</URL></Spec></Tree>`,
+      `<Items><Item id="1">Rarity: RARE\nDoom Bite\nWithered Wand\n+10% > nada</Item></Items></PathOfBuilding2>`,
+    ].join("\n");
+    expect(isWellFormedPobXml(xml)).toBe(true);
+    expect(readPobXml(xml).ok).toBe(true);
+  });
+
+  it("un «<» suelto en las notas de una build no hace rechazar el código", () => {
+    const xml = `<PathOfBuilding2><Build level="70" className="Witch"/><Notes>Me encanta esta build <3 y con vida < 50% va sobrada</Notes></PathOfBuilding2>`;
+    expect(isWellFormedPobXml(xml)).toBe(true);
+    expect(readPobXml(xml).ok).toBe(true);
+  });
+
+  it("rechaza enseguida miles de etiquetas sin cerrar, en vez de tardar minutos", () => {
+    // Con estas formas las búsquedas del lector crecían al cuadrado: 160.000 letras eran 4 segundos
+    // de servidor parado, y el límite de entrada deja pasar trece veces más.
+    const floods = [
+      `<PathOfBuilding2>${"<Build ".repeat(250_000)}`,
+      `<PathOfBuilding2>${"<Build>".repeat(250_000)}</PathOfBuilding2>`,
+      `<PathOfBuilding2>${"<Build-x></Build-x>".repeat(100_000)}</PathOfBuilding2>`,
+      `<PathOfBuilding2>${"<Spec>".repeat(40)}${"</Spec>".repeat(40)}</PathOfBuilding2>`,
+    ];
+    const started = Date.now();
+    for (const xml of floods) {
+      expect(isWellFormedPobXml(xml)).toBe(false);
+      const result = readPobXml(xml);
+      expect(result.ok).toBe(false);
+      expect(result.warnings).toEqual([POB_MALFORMED_XML_WARNING]);
+    }
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
+  it("etiquetas mal cerradas o cruzadas no pasan", () => {
+    expect(isWellFormedPobXml("<PathOfBuilding2><Build></PathOfBuilding2>")).toBe(false);
+    expect(isWellFormedPobXml("<PathOfBuilding2><Build></Tree></PathOfBuilding2>")).toBe(false);
+    expect(isWellFormedPobXml("<PathOfBuilding2><Build")).toBe(false);
+  });
+});
+
+describe("pob adapter — varios árboles en un código", () => {
+  it("lee el árbol activo por su posición, como lo guarda PoB2 (sus <Spec> no llevan id)", () => {
+    const xml = [
+      "<PathOfBuilding2>",
+      `<Build level="60" className="Witch"/>`,
+      `<Tree activeSpec="2"><Spec title="Acto 1" nodes="54447"/><Spec title="Final" nodes="62797,14033"/></Tree>`,
+      "</PathOfBuilding2>",
+    ].join("\n");
+    const refs = (text: string) => readPobXml(text).partial.passives.map((node) => node.ref);
+    expect(refs(xml)).toEqual(["62797", "14033"]);
+    // Sin activeSpec, o con uno que no existe, el primero.
+    expect(refs(xml.replace(' activeSpec="2"', ""))).toEqual(["54447"]);
+    expect(refs(xml.replace('activeSpec="2"', 'activeSpec="9"'))).toEqual(["54447"]);
   });
 });

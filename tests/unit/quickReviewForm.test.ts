@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { reviewCharacter } from "../../shared/quickReview.js";
 import { CharacterProfileSchema, PLACEHOLDER_CHARACTER_LEVEL } from "../../shared/domain.js";
-import { EMPTY, quickReviewFormFor, toInput } from "../../src/lib/quickReviewForm";
+import { EMPTY, hasReviewBase, quickReviewFormFor, toInput, withReviewBase } from "../../src/lib/quickReviewForm";
 import { QUICK_REVIEW_STORAGE_KEY, peekQuickReviewForm, quickReviewKey } from "../../src/lib/quickReviewStorage";
 
 function profile(overrides: Record<string, unknown> = {}) {
@@ -100,5 +100,54 @@ describe("mirar la revisión guardada sin tocarla", () => {
       [QUICK_REVIEW_STORAGE_KEY]: JSON.stringify({ level: "3" }),
     };
     expect(peekQuickReviewForm(store(data), "bruja")).toEqual({ level: "45" });
+  });
+});
+
+describe("la revisión rápida cuando la ficha cambia después", () => {
+  const wand = (itemLevel: number) => ({ id: "arma", name: "Varita", baseType: "Varita marchita", slot: "weapon", rarity: "rare", itemLevel });
+  const early = profile({ level: 12, levelSource: "observed", items: [wand(10)] });
+  const later = profile({ level: 40, levelSource: "observed", items: [wand(38)] });
+
+  it("lo guardado lleva al lado lo que decía la ficha", () => {
+    const saved = withReviewBase({ ...quickReviewFormFor(early, {}), act: "2" }, early);
+    expect(saved).toMatchObject({ level: "12", weapon: "10", act: "2", "base:level": "12", "base:weapon": "10", "base:act": "" });
+    expect(hasReviewBase(saved)).toBe(true);
+    expect(hasReviewBase({ level: "12" })).toBe(false);
+  });
+
+  it("un cambio en la tarjeta ya no congela el arma vieja: con arma nueva, manda la ficha", () => {
+    // Nivel 12 con varita de nivel 10; el jugador toca un dato y se guarda el formulario entero.
+    const saved = withReviewBase({ ...quickReviewFormFor(early, {}), act: "1" }, early);
+    // Después pega un código de PoB2: nivel 40 y varita de nivel 38.
+    const form = quickReviewFormFor(later, saved);
+    expect(form).toMatchObject({ level: "40", weapon: "38", act: "1" });
+  });
+
+  it("lo que el jugador corrigió a mano sigue mandando mientras la ficha no cambie", () => {
+    // La ficha dice nivel 12; él escribe 15 en la tarjeta porque ha subido.
+    const saved = withReviewBase({ ...quickReviewFormFor(early, {}), level: "15" }, early);
+    expect(quickReviewFormFor(early, saved).level).toBe("15");
+    // Si luego la ficha pasa a 40, eso es más nuevo.
+    expect(quickReviewFormFor(later, saved).level).toBe("40");
+  });
+
+  it("un borrador sin guardar no deja rastro: al volver la ficha de antes, vuelve lo escrito", () => {
+    const saved = withReviewBase({ ...quickReviewFormFor(early, {}), level: "15" }, early);
+    // Mientras edita (sin guardar) el código de una guía, se ve la ficha del borrador…
+    expect(quickReviewFormFor(later, saved).level).toBe("40");
+    // …y si cierra sin guardar, la ficha vuelve a ser la suya y su 15 sigue ahí.
+    expect(quickReviewFormFor(early, saved).level).toBe("15");
+  });
+
+  it("el nivel de gema escrito no se aplica a otra habilidad principal", () => {
+    const drain = profile({ skills: [{ id: "1", label: "", mainSkill: "Drenar esencia", mainSkillGemId: null, supports: [] }] });
+    const saved = withReviewBase({ ...quickReviewFormFor(drain, {}), gemLevel: "9" }, drain);
+    expect(quickReviewFormFor(drain, saved)).toMatchObject({ mainSkill: "Drenar esencia", gemLevel: "9" });
+    const spark = profile({ skills: [{ id: "1", label: "", mainSkill: "Chispa", mainSkillGemId: null, supports: [] }] });
+    expect(quickReviewFormFor(spark, saved)).toMatchObject({ mainSkill: "Chispa", gemLevel: "" });
+  });
+
+  it("una revisión de antes, sin lo de la ficha al lado, se lee como siempre", () => {
+    expect(quickReviewFormFor(later, { level: "12", weapon: "10" })).toMatchObject({ level: "12", weapon: "10" });
   });
 });

@@ -170,18 +170,53 @@ export function profileWithQuickReview(profile: CharacterProfile, form: Form): C
   return next;
 }
 
+const FORM_KEYS = Object.keys(EMPTY) as Array<keyof Form>;
+/** Junto a cada dato escrito se guarda lo que decía la ficha en ese momento. */
+const BASE_PREFIX = "base:";
+
+/**
+ * Lo que se guarda al escribir en la revisión: los datos, y al lado lo que la
+ * ficha del personaje decía de cada uno entonces. Así, cuando la ficha cambia
+ * después (un código de PoB2 con otra arma, el nivel corregido en el editor),
+ * se nota y manda la ficha; sin eso, el número escrito un día tapaba para
+ * siempre lo nuevo («tu arma va 30 niveles por detrás» con el arma recién cambiada).
+ */
+export function withReviewBase(form: Readonly<Record<string, string>>, profile: CharacterProfile | null): Record<string, string> {
+  const known = fromProfile(profile) as Partial<Record<keyof Form, string>>;
+  const saved: Record<string, string> = {};
+  for (const key of FORM_KEYS) {
+    saved[key] = form[key] ?? "";
+    saved[BASE_PREFIX + key] = known[key] ?? "";
+  }
+  return saved;
+}
+
+/** ¿Lo guardado ya lleva al lado lo que decía la ficha? (Lo de antes de este cambio, no.) */
+export function hasReviewBase(stored: Readonly<Record<string, string>>): boolean {
+  return Object.keys(stored).some((key) => key.startsWith(BASE_PREFIX));
+}
+
 /**
  * El formulario tal como lo ve el jugador: lo que la web sabe del personaje,
- * y encima lo que él escribió (lo vacío no pisa nada).
+ * y encima lo que él escribió (lo vacío no pisa nada). Si la ficha cambió un
+ * dato después de que él lo escribiera, manda la ficha.
  */
 export function quickReviewFormFor(
   profile: CharacterProfile | null,
   stored: Readonly<Record<string, string>>,
 ): Form {
-  const written = Object.fromEntries(
-    Object.entries(stored).filter(([, value]) => typeof value === "string" && value.trim() !== ""),
-  ) as Partial<Form>;
-  const form = { ...EMPTY, ...fromProfile(profile), ...written };
+  const known = fromProfile(profile) as Partial<Record<keyof Form, string>>;
+  const form: Form = { ...EMPTY, ...known };
+  for (const key of FORM_KEYS) {
+    const typed = stored[key];
+    if (typeof typed !== "string" || typed.trim() === "") continue;
+    const base = stored[BASE_PREFIX + key];
+    if (typeof base === "string" && base !== (known[key] ?? "")) continue;
+    form[key] = typed;
+  }
+  // El nivel de gema escrito era el de la habilidad de entonces: si la principal ya es otra, no vale.
+  const typedSkill = stored.mainSkill;
+  if (typeof typedSkill === "string" && typedSkill.trim() !== "" && typedSkill !== form.mainSkill) form.gemLevel = "";
   // Un único no se juzga por su nivel de objeto: con uno equipado la casilla
   // va vacía, aunque en el navegador quedara un número de un arma anterior.
   const weapon = profile?.items.find((item) => item.slot === "weapon");

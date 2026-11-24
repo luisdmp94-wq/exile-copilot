@@ -7,6 +7,7 @@ import {
   resistancesFromItems,
   looksLikeItemText,
   splitPastedItems,
+  withArticle,
 } from "../../src/lib/guideCheck.js";
 import type { Item } from "../../shared/domain.js";
 
@@ -158,5 +159,35 @@ describe("checkForGuide", () => {
     );
     expect(lines.some((line) => line.id === "res-fire")).toBe(false);
     expect(lines.find((line) => line.id === "res-unknown")?.text).toContain("fuego");
+  });
+});
+
+describe("la frase del acto siguiente", () => {
+  const ready = {
+    source: "profile" as const,
+    resistances: { fire: 40, cold: 35, lightning: 30, chaos: 0 },
+    filledSlots: ["weapon", "helmet", "body", "gloves", "boots", "belt", "amulet", "ring1", "ring2"] as const,
+  };
+
+  it("pone el artículo a «acto 2» y respeta el que ya trae «los interludios»", () => {
+    expect(withArticle("acto 2")).toBe("el acto 2");
+    expect(withArticle("los interludios")).toBe("los interludios");
+  });
+
+  it("tras el acto 4 dice «para los interludios», no «para el los interludios»", () => {
+    const interludes = { elemental: 30, nextAct: "los interludios" };
+    const [line] = checkForGuide({ ...ready, filledSlots: [...ready.filledSlots] }, interludes);
+    expect(line?.text).toContain("vas bien para los interludios.");
+    const low = checkForGuide(
+      { ...ready, resistances: { ...ready.resistances, fire: 10 }, filledSlots: [...ready.filledSlots] },
+      interludes,
+    );
+    expect(low.map((item) => item.text).join(" ")).toContain("Para los interludios conviene");
+    expect(low.map((item) => item.text).join(" ")).not.toContain("el los");
+  });
+
+  it("las guías de los actos 1 a 3 siguen diciendo «para el acto N»", () => {
+    const [line] = checkForGuide({ ...ready, filledSlots: [...ready.filledSlots] }, TARGETS);
+    expect(line?.text).toContain("vas bien para el acto 2.");
   });
 });
