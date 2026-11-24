@@ -77,16 +77,25 @@ function connected(graph: TreeGraph, allocated: ReadonlySet<string>, start: stri
   return seen;
 }
 
-/** Quita `target` y lo que se quede suelto. */
+/**
+ * Quita `target` y lo que se quede suelto POR quitarlo. Lo que ya estaba
+ * suelto antes (un nodo que abre otra cosa y no tiene camino, una isla de un
+ * código de otra versión del árbol) no se toca: antes se iba todo con el
+ * primer nodo que quitabas, aunque no tuviera nada que ver, y esos nodos no se
+ * pueden volver a coger a mano.
+ */
 export function deallocateNode(graph: TreeGraph, allocated: ReadonlySet<string>, start: string, target: string): EditResult {
   if (target === start || graph.data.nodes[target]?.kind === "start") return { ok: false, reason: "start" };
   if (!allocated.has(target)) return { ok: true, allocated: new Set(allocated), added: [], removed: [] };
-  const remaining = new Set(allocated);
+  const before = new Set(allocated);
+  before.add(start);
+  const linkedBefore = connected(graph, before, start);
+  const remaining = new Set(before);
   remaining.delete(target);
-  remaining.add(start);
-  const kept = connected(graph, remaining, start);
-  const removed = [target, ...[...remaining].filter((key) => !kept.has(key))];
-  return { ok: true, allocated: kept, added: [], removed };
+  const linkedAfter = connected(graph, remaining, start);
+  const orphaned = [...remaining].filter((key) => linkedBefore.has(key) && !linkedAfter.has(key));
+  for (const key of orphaned) remaining.delete(key);
+  return { ok: true, allocated: remaining, added: [], removed: [target, ...orphaned] };
 }
 
 /** Puntos gastados: todo menos el inicio de la clase. */

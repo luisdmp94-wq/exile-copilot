@@ -91,7 +91,10 @@ const TEXT = texts(
     saving: "Guardando…",
     take: (points: number) => `Coger (${points === 1 ? "1 punto" : `${points} puntos`})`,
     remove: (count: number) => (count > 1 ? `Quitar ${count} nodos` : "Quitar"),
-    removeHelp: (count: number) => `Los ${count - 1} de detrás se quedan sin camino y se quitan también.`,
+    removeHelp: (count: number) =>
+      count - 1 === 1
+        ? "El de detrás se queda sin camino y se quita también."
+        : `Los ${count - 1} de detrás se quedan sin camino y se quitan también.`,
     attributeGroup: "Atributo que da este nodo",
     discard: "¿Tirar los cambios?",
     cantTake: "No se llega desde tu árbol.",
@@ -149,7 +152,8 @@ const TEXT = texts(
     saving: "Saving…",
     take: (points: number) => `Take (${points === 1 ? "1 point" : `${points} points`})`,
     remove: (count: number) => (count > 1 ? `Remove ${count} nodes` : "Remove"),
-    removeHelp: (count: number) => `The ${count - 1} behind it lose their path and go too.`,
+    removeHelp: (count: number) =>
+      count - 1 === 1 ? "The one behind it loses its path and goes too." : `The ${count - 1} behind it lose their path and go too.`,
     attributeGroup: "Attribute this node gives",
     discard: "Throw away the changes?",
     cantTake: "It can't be reached from your tree.",

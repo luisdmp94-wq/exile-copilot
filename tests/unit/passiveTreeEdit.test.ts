@@ -51,6 +51,30 @@ describe("marcar el árbol a mano", () => {
     expect(pointsSpent(graph, removed.allocated)).toBe(0);
   });
 
+  it("quitar un nodo no se lleva los que ya estaban sueltos y no tienen que ver", () => {
+    // Un nodo sin camino (lo abre otra cosa: no tiene aristas) que viene cogido en el código.
+    const loose = Object.keys(graph.data.nodes).find(
+      (key) => graph.data.nodes[key]?.locked === true && (graph.neighbours.get(key) ?? []).length === 0,
+    )!;
+    expect(loose).toBeDefined();
+    const taken = allocateNode(graph, new Set([start]), start, nearestNotable());
+    if (!taken.ok) throw new Error("no se pudo coger el notable");
+    const withLoose = new Set([...taken.allocated, loose]);
+    const leaf = taken.added.at(-1)!;
+    const result = deallocateNode(graph, withLoose, start, leaf);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.removed).toEqual([leaf]);
+    expect(result.allocated.has(loose)).toBe(true);
+    // Y lo que sí cuelga del nodo quitado se sigue yendo con él.
+    const middle = taken.added[0]!;
+    const cut = deallocateNode(graph, withLoose, start, middle);
+    if (!cut.ok) return;
+    expect(cut.removed).toEqual(expect.arrayContaining(taken.added));
+    expect(cut.removed).not.toContain(loose);
+    expect(cut.allocated.has(loose)).toBe(true);
+  });
+
   it("quitar el último nodo no toca el resto", () => {
     const target = nearestNotable();
     const taken = allocateNode(graph, new Set([start]), start, target);
