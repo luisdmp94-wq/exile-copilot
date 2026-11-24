@@ -62,10 +62,44 @@ export interface BuildTheme {
   elements: string[];
   /** La build se apoya en esbirros. */
   minions: boolean;
+  /** La build nombra el veneno o el sangrado: el jugador ya cuenta con ellos. */
+  ailments: string[];
   /** Textos core y descartados, normalizados. */
   core: string[];
   discarded: string[];
 }
+
+/**
+ * Veneno y sangrado: ninguna habilidad los aplica por pegar con caos o con
+ * físico; hace falta que ella misma lo diga o una asistencia que le dé la
+ * probabilidad. Todo sobre texto ya normalizado.
+ */
+interface Ailment {
+  id: "veneno" | "sangrado";
+  /** La habilidad (o la build) habla de él. */
+  theme: RegExp;
+  /** La asistencia da la probabilidad de aplicarlo. */
+  grants: RegExp;
+  /** La asistencia solo mejora el que la habilidad ya aplique. */
+  tunes: RegExp;
+}
+
+const AILMENTS: readonly Ailment[] = [
+  {
+    id: "veneno",
+    theme: /venen|poison/,
+    grants: /\d+% de probabilidad de envenenar|siempre envenena/,
+    tunes:
+      /venenos? (?:de|aplicados? por|que aplican?) las habilidades asistidas|duracion de veneno|magnitud del veneno|probabilidad base de envenenar|que pueden envenenar/,
+  },
+  {
+    id: "sangrado",
+    theme: /sangrado|bleed/,
+    grants: /\d+% de probabilidad de aplicar sangrado|aplican \d+ incision/,
+    tunes:
+      /sangrados? (?:de|aplicados? por|que aplican?) las habilidades asistidas|magnitud del sangrado|probabilidad base de (?:aplicar )?sangrado/,
+  },
+];
 
 const THEME_ELEMENTS: Array<[RegExp, string]> = [
   [/caos|chaos|veneno|poison/, "Caos"],
@@ -81,12 +115,23 @@ export function buildTheme(build: BuildContext | undefined | null): BuildTheme {
   return {
     elements: THEME_ELEMENTS.filter(([pattern]) => pattern.test(text)).map(([, tag]) => tag),
     minions: /esbirro|invoca|minion|summon|esqueleto|skelet/.test(text),
+    ailments: AILMENTS.filter((ailment) => ailment.theme.test(text)).map((ailment) => ailment.id),
     core,
     discarded: (build?.discarded ?? []).map(normalizeGemText),
   };
 }
 
-const NO_THEME: BuildTheme = { elements: [], minions: false, core: [], discarded: [] };
+const NO_THEME: BuildTheme = { elements: [], minions: false, ailments: [], core: [], discarded: [] };
+
+/**
+ * Hasta qué grado de asistencia enseñar cuando el jugador no dice el de su
+ * gema sin tallar. Al empezar solo hay gemas de grado I; más adelante casi
+ * todo el mundo tiene ya alguna de grado II. Los grados altos no se dan por
+ * supuestos: los datos del juego no dicen desde qué nivel cae cada uno.
+ */
+export function assumedMaxGrade(level: number | null): number {
+  return level !== null && level >= 15 ? 2 : 1;
+}
 
 function mentions(labels: readonly string[], name: string): boolean {
   const wanted = normalizeGemText(name);
@@ -369,7 +414,7 @@ const CANNOT_SUPPORT: Array<[RegExp, (skill: GemSkill, text: string) => boolean]
 ];
 
 /** Lo que la propia descripción de la asistencia exige a la habilidad. */
-function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
+function textRulesAllow(support: GemSupport, skill: GemSkill, socketedText = ""): boolean {
   const text = normalizeGemText(support.description);
   const first = text.split(".")[0] ?? text;
   const tags = skill.tags;
@@ -388,6 +433,16 @@ function textRulesAllow(support: GemSupport, skill: GemSkill): boolean {
   if (/no puedes perforar/.test(own) && /perfor/.test(everything)) return false;
   if (cannotChain(skill) && /encaden/.test(everything)) return false;
   if (neverHits(skill) && /impact/.test(first) && !/venen/.test(everything)) return false;
+
+  // «Veneno intensificado» (un veneno más a la vez) o «Cortes profundos» (un
+  // sangrado más fuerte) no dan nada a una habilidad que ni envenena ni hace
+  // sangrar. Caso real (24-11-2026): salían para Descarga de caos. Valen si la
+  // habilidad lo dice en su texto o si el personaje ya lleva la asistencia que
+  // da esa probabilidad.
+  const tuned = AILMENTS.filter((ailment) => ailment.tunes.test(everything));
+  if (tuned.length > 0 && !AILMENTS.some((ailment) => ailment.grants.test(everything))) {
+    if (!tuned.some((ailment) => ailment.theme.test(own) || ailment.grants.test(socketedText))) return false;
+  }
 
   // La asistencia le quita a la habilidad justo lo que da (cargas de frenesí).
   if (/no pueden generar cargas de frenesi/.test(everything) && saysInOneSentence(skill, /otorg\w*[^.]*cargas? de frenesi/)) {
@@ -518,7 +573,7 @@ function appliesToPersistentMeta(support: GemSupport, skill: GemSkill): boolean 
   return false;
 }
 
-function supportApplies(support: GemSupport, skill: GemSkill): boolean {
+function supportApplies(support: GemSupport, skill: GemSkill, socketedText = ""): boolean {
   if (support.lineage) return false;
   if (isPersistentMeta(skill)) return appliesToPersistentMeta(support, skill);
   // Los esbirros que reviven solo aceptan con seguridad asistencias de esbirros.
@@ -531,7 +586,7 @@ function supportApplies(support: GemSupport, skill: GemSkill): boolean {
     if (madeForMarks && tag !== "Señal") continue;
     if (!skill.tags.includes(tag)) return false;
   }
-  return textRulesAllow(support, skill);
+  return textRulesAllow(support, skill, socketedText);
 }
 
 /** ¿El daño de la habilidad es sobre todo «por segundo»? (Contagio, Drenar esencia…) */
@@ -556,6 +611,19 @@ const NOTE_NEEDS: Array<[RegExp, RegExp]> = [
   [/area|grupo|muchos enemigos|limpiar|\bpacks?\b|clear/, /area de efecto aumentada|proyectiles adicionales|se propaga/],
 ];
 
+/** La mejora depende de algo que no siempre está: un cadáver cerca, el maná lleno, estar quieto… */
+const CONDITIONAL = /cadaver|a menos que|mientras tengas|mientras estes|si has |vida baja|vida llena/;
+
+/**
+ * ¿La asistencia solo rinde a veces (con una condición o «con un 40% de
+ * probabilidad»)? Para la primera gema de un novato va antes lo que funciona
+ * siempre.
+ */
+export function worksOnlySometimes(support: GemSupport): boolean {
+  const text = normalizeGemText(`${support.description} ${support.effects.join(" ")}`);
+  return CONDITIONAL.test(text) || /d+% de probabilidad|despues de gastar/.test(text);
+}
+
 function noteBoost(text: string, note: string): number {
   return NOTE_NEEDS.some(([need, fix]) => need.test(note) && fix.test(text)) ? 4 : 0;
 }
@@ -578,7 +646,14 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   if (support.costMultiplier) score -= 1;
   // Una mejora que solo funciona a veces (hace falta un cadáver, el maná lleno,
   // estar quieto, que el enemigo tenga poca vida…) vale menos que una fija.
-  if (/cadaver|a menos que|mientras tengas|mientras estes|si has |vida baja|vida llena/.test(text)) score -= 2;
+  if (CONDITIONAL.test(text)) score -= 2;
+  // Dar veneno o sangrado «con un 40% de probabilidad» a una habilidad que no
+  // los usa es meterle una mecánica nueva: vale, pero no antes que lo que
+  // mejora lo que la habilidad ya hace. Si la build habla de ello, no baja.
+  const own = skillText(skill);
+  if (AILMENTS.some((ailment) => ailment.grants.test(text) && !ailment.theme.test(own) && !theme.ailments.includes(ailment.id))) {
+    score -= 2;
+  }
   // «Un 4% más de daño por cada tipo de carga o infusión que tengas» no da
   // nada a quien no lleva cargas ni infusiones encima, que es casi cualquier
   // novato, y la web no sabe si las lleva (caso real, 20-11-2026: «Inhibidor»
@@ -626,6 +701,9 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   // («no pueden aplicar electrocución», «no pueden quemar») son para montar
   // una combinación con otra habilidad: no lo primero que enseñar a quien empieza.
   if (/asistid[ao]s? no pueden (?:aplicar|acumular|quemar|generar|romper|infligir impactos criticos)/.test(text)) score -= 2;
+  // Lo mismo si lo que quita es el aturdimiento total («no puede llegar al
+  // 100%») o si te desorienta a ti cada vez que rinde.
+  if (/aturdimiento[^.|]*no puede llegar al 100%|\bestas desorientado\b/.test(text)) score -= 2;
   // Rinde solo cuando estás a punto de quedar aturdido: vale, pero abajo.
   if (/tu barra de aturdimiento|cuanto mas cerca estes de quedar/.test(text)) score -= 2;
   // Lo que apaga justo lo que la habilidad hace bien (congelar, electrocutar…).
@@ -637,7 +715,16 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
   // Lo que escala con la inteligencia rinde poco en una gema que no es de inteligencia.
   if (/por cada 100 de inteligencia|equivalente a tu inteligencia/.test(text) && skill.attribute !== null && skill.attribute !== "Int") score -= 3;
   // Daño elemental para una habilidad que solo hace caos (veneno): no le llega.
-  if (/mas de dano elemental/.test(text) && skill.tags.includes("Caos") && !skill.tags.some((tag) => tag === "Fuego" || tag === "Hielo" || tag === "Rayo")) {
+  // Y a un ataque sin elemento propio (un embate con mazo) solo le llega si el
+  // arma lo trae, cosa que aquí no se ve (caso real, 24-11-2026: «Armamento
+  // elemental» salía la primera para Embate rodante). Si la build habla de
+  // fuego, hielo o rayo, no baja.
+  const isElemental = (tag: string) => tag === "Fuego" || tag === "Hielo" || tag === "Rayo";
+  if (
+    /mas de dano elemental/.test(text) &&
+    !skill.tags.some(isElemental) &&
+    (skill.tags.includes("Caos") || !theme.elements.some(isElemental))
+  ) {
     score -= 3;
   }
   // Las hechas para la mecánica de esta habilidad (gasta cargas, tiene
@@ -661,14 +748,12 @@ function scoreSupport(support: GemSupport, skill: GemSkill, theme: BuildTheme, n
 export function supportCandidates(data: GemData, query: SupportQuery): SupportCandidate[] {
   const socketed = new Set((query.socketed ?? []).map(normalizeGemText));
   // Un personaje importado trae los nombres en inglés: también se comparan con el identificador.
-  const socketedFamilies = new Set(
-    data.supports
-      .filter(
-        (support) =>
-          socketed.has(normalizeGemText(support.name)) || socketed.has(normalizeGemText(support.slug.replace(/_/g, " "))),
-      )
-      .map(supportFamily),
+  const socketedSupports = data.supports.filter(
+    (support) =>
+      socketed.has(normalizeGemText(support.name)) || socketed.has(normalizeGemText(support.slug.replace(/_/g, " "))),
   );
+  const socketedFamilies = new Set(socketedSupports.map(supportFamily));
+  const socketedText = normalizeGemText(socketedSupports.flatMap((support) => support.effects).join(" | "));
   const theme = query.build ? buildTheme(query.build) : NO_THEME;
   const best = new Map<string, GemSupport>();
   for (const support of data.supports) {
@@ -678,7 +763,7 @@ export function supportCandidates(data: GemData, query: SupportQuery): SupportCa
     if (socketedFamilies.has(family)) continue;
     // Lo que el jugador descartó en su build no se vuelve a proponer.
     if (mentions(theme.discarded, support.name) || mentions(theme.discarded, family)) continue;
-    if (!supportApplies(support, query.skill)) continue;
+    if (!supportApplies(support, query.skill, socketedText)) continue;
     // De cada familia, solo la versión más alta que la gema permite tallar.
     const current = best.get(family);
     if (!current || (support.grade ?? 0) > (current.grade ?? 0)) best.set(family, support);

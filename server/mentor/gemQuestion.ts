@@ -9,8 +9,10 @@
 import type { CharacterProfile } from "../../shared/domain.js";
 import { normalizeQuestion } from "../../shared/mentorIntent.js";
 import {
+  assumedMaxGrade,
   supportCandidates,
   supportMainBenefit,
+  worksOnlySometimes,
   type AdviceLang,
   type GemAttribute,
   type GemData,
@@ -125,6 +127,20 @@ export function skillInQuestion(
 }
 
 const ROMAN = ["", "I", "II", "III", "IV", "V"];
+const ROMAN_VALUE: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5 };
+
+/**
+ * El grado de la gema sin tallar, si la pregunta lo dice («de grado 3», «tier
+ * II»). La gema lo llama «nivel»: solo cuenta así si habla de una sin tallar,
+ * para no tomar «soy nivel 5» por un grado.
+ */
+function gradeIn(q: string): number | null {
+  const uncut = /\bsin tallar\b|\buncut\b/.test(q);
+  const match =
+    /\b(?:grado|tier) ([1-5]|i{1,3}|iv|v)\b/.exec(q) ?? (uncut ? /\b(?:nivel|level|lvl) ([1-5])\b/.exec(q) : null);
+  if (!match) return null;
+  return ROMAN_VALUE[match[1]!] ?? Number(match[1]);
+}
 const ATTRIBUTE: Record<AdviceLang, Record<GemAttribute, string>> = {
   es: { Fue: "fuerza", Des: "destreza", Int: "inteligencia" },
   en: { Fue: "Strength", Des: "Dexterity", Int: "Intelligence" },
@@ -170,11 +186,22 @@ export function answerSupportGemQuestion(
       socketed,
       build: profile?.archetype ? { archetype: profile.archetype.slice(0, 200) } : null,
     }).map((candidate) => candidate.support);
-  // Sin saber el grado de su gema sin tallar, se enseña lo mejor que existe.
-  // «Mi primera gema de asistencia» es de grado I: proponerle una de grado V
-  // sería enseñarle algo que todavía no puede tallar.
+  // El grado manda: una asistencia de grado V no le sirve a quien solo puede
+  // tallar las de grado I (caso real, 24-11-2026: grados IV y V para un
+  // guerrero de nivel 14). Si la pregunta dice el grado, ese. «Mi primera gema
+  // de asistencia» es de grado I. Si no, el que se supone por su nivel, y la
+  // respuesta lo avisa.
   const firstGem = /\bprime\w*\b|\bfirst\b/.test(normalized);
-  const candidates = candidatesUpTo(firstGem ? 1 : 5);
+  const statedGrade = gradeIn(normalized);
+  const level = profile && profile.level > 0 ? profile.level : null;
+  const maxGrade = statedGrade ?? (firstGem ? 1 : assumedMaxGrade(level));
+  const assumed = statedGrade === null && !firstGem;
+  const ranked = candidatesUpTo(maxGrade);
+  // La primera gema de un novato: antes lo que funciona siempre que lo que
+  // pide un cadáver cerca o solo sale «con un 40% de probabilidad».
+  const candidates = firstGem
+    ? [...ranked.filter((support) => !worksOnlySometimes(support)), ...ranked.filter(worksOnlySometimes)]
+    : ranked;
 
   const wish = WISHES.find((entry) => entry.asks.test(normalized)) ?? null;
   const matchesWish = (support: GemSupport) =>
@@ -188,7 +215,8 @@ export function answerSupportGemQuestion(
   // Cuando pide algo concreto, importa cuál puede tallar antes. El consejero
   // solo enseña la versión más alta de cada familia, así que se miran los
   // cinco grados y, de cada asistencia, se queda la de grado más bajo que lo
-  // hace: primero las que lo hacen siempre, luego por grado.
+  // hace: primero las que ya puede tallar, luego las que lo hacen siempre,
+  // luego por grado.
   const granted: GemSupport[] = [];
   if (wish) {
     const seen = new Set<string>();
@@ -200,7 +228,10 @@ export function answerSupportGemQuestion(
         pool.push(support);
       }
     }
-    pool.sort((x, y) => Number(chancy(x)) - Number(chancy(y)) || (x.grade ?? 9) - (y.grade ?? 9));
+    const outOfReach = (support: GemSupport) => Number((support.grade ?? 9) > maxGrade);
+    pool.sort(
+      (x, y) => outOfReach(x) - outOfReach(y) || Number(chancy(x)) - Number(chancy(y)) || (x.grade ?? 9) - (y.grade ?? 9),
+    );
     const names = new Set<string>();
     for (const support of pool) {
       const base = support.name.replace(/\s+[IVX]+$/, "");
@@ -214,13 +245,17 @@ export function answerSupportGemQuestion(
   const lead =
     resolved.how === "named"
       ? ""
-      : resolved.how === "similar"
+      : firstGem && resolved.how === "main"
         ? en
-          ? `I take it you mean ${shownSkill}. `
-          : `Entiendo que hablas de ${shownSkill}. `
-        : en
-          ? `I can't tell which skill you mean, so I'm answering for your main one, ${shownSkill}. `
-          : `No sé de qué habilidad hablas, así que te contesto para tu principal, ${shownSkill}. `;
+          ? `Put it in your main skill, ${shownSkill}. `
+          : `Ponla en tu habilidad principal, ${shownSkill}. `
+        : resolved.how === "similar"
+          ? en
+            ? `I take it you mean ${shownSkill}. `
+            : `Entiendo que hablas de ${shownSkill}. `
+          : en
+            ? `I can't tell which skill you mean, so I'm answering for your main one, ${shownSkill}. `
+            : `No sé de qué habilidad hablas, así que te contesto para tu principal, ${shownSkill}. `;
 
   if (picked.length === 0) {
     return (
@@ -258,6 +293,21 @@ export function answerSupportGemQuestion(
           ? `For ${shownSkill}, the supports that fit it best are:`
           : `Para ${shownSkill}, las asistencias que mejor le van son:`;
 
+  // Si el grado se ha supuesto, se dice: el jugador puede tener una gema mejor.
+  const upTo = ROMAN[maxGrade] ?? String(maxGrade);
+  const sayGrade = en
+    ? "If your uncut gem is a higher tier, tell me in the question (“tier III”)."
+    : "Si tu gema sin tallar es de un grado más alto, dímelo en la pregunta («de grado III»).";
+  const gradeNote = !assumed
+    ? ""
+    : maxGrade === 1
+      ? en
+        ? `I'm only showing tier I${level ? `: at level ${level} those are the ones you can surely engrave` : ""}. ${sayGrade}\n\n`
+        : `Solo te enseño las de grado I${level ? `: a nivel ${level} son las que seguro puedes tallar` : ""}. ${sayGrade}\n\n`
+      : en
+        ? `I'm only showing up to tier ${upTo}. ${sayGrade}\n\n`
+        : `Solo te enseño hasta grado ${upTo}. ${sayGrade}\n\n`;
+
   const rules = en ? "This comes from the game's data and fixed rules, no AI." : "Sale de los datos del juego y de reglas fijas, sin IA.";
-  return `${lead}${intro}\n${picked.map(line).join("\n")}\n\n${rules} ${where}`;
+  return `${lead}${intro}\n${picked.map(line).join("\n")}\n\n${gradeNote}${rules} ${where}`;
 }

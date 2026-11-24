@@ -444,3 +444,30 @@ describe("supportCandidates — habilidades de dos atributos (ballesta, bastón,
     expect(names("Rastro de abrojos", { maxGrade: 5 })).not.toContain("Abrojos");
   });
 });
+
+describe("supportCandidates — casos de la medición del 24-11-2026", () => {
+  it("a una habilidad que no envenena ni hace sangrar no se le propone mejorar su veneno o su sangrado", () => {
+    const bolt = names("Descarga de caos", { maxGrade: 5 });
+    for (const wrong of ["Veneno intensificado", "Corrosion", "Veneno mortífero II", "Mixtura", "Padecimiento", "Plaga pustulosa"]) {
+      expect(bolt, wrong).not.toContain(wrong);
+    }
+    const slam = names("Embate rodante", { maxGrade: 5 });
+    for (const wrong of ["Cortes profundos II", "Elaboración de sustancias II", "Padecimiento"]) expect(slam, wrong).not.toContain(wrong);
+    // La que da la probabilidad sigue valiendo, pero no entre las primeras.
+    expect(names("Descarga de caos")).toContain("Veneno I");
+    expect(names("Descarga de caos").slice(0, 3)).not.toContain("Veneno I");
+  });
+
+  it("si ya lleva la asistencia que envenena, las que mejoran el veneno vuelven a valer", () => {
+    expect(names("Descarga de caos", { socketed: ["Veneno I"] })).toContain("Veneno intensificado");
+    expect(names("Descarga de caos", { socketed: ["Lanzamiento rápido I"] })).not.toContain("Veneno intensificado");
+  });
+
+  it("un embate con mazo no recibe primero daño elemental ni lo que le quita el aturdimiento", () => {
+    const top = names("Embate rodante").slice(0, 3);
+    expect(top).not.toContain("Armamento elemental I");
+    expect(top).not.toContain("Brío I");
+    // Siguen entre las que valen.
+    expect(names("Embate rodante")).toEqual(expect.arrayContaining(["Armamento elemental I", "Brío I"]));
+  });
+});

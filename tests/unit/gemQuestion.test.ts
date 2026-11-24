@@ -117,6 +117,71 @@ describe("la respuesta a una pregunta de gemas", () => {
   });
 });
 
+describe("no propone lo que el personaje no puede usar todavía", () => {
+  const grades = (answer: string | null) =>
+    [...(answer ?? "").matchAll(/\((?:grado|tier) ([IV]+),/g)].map((match) => match[1]);
+  const novice = (level: number, skills: string[], archetype?: string) =>
+    CharacterProfileSchema.parse({ ...witch(skills), level, ...(archetype ? { archetype } : { archetype: undefined }) });
+
+  it("el caso real: la primera gema para Descarga de caos no es de veneno ni pide un cadáver", () => {
+    const answer = ask("tengo mi primera gema de asistencia donde la pongo?")!;
+    expect(answer).toContain("Ponla en tu habilidad principal, Descarga de caos.");
+    expect(answer).not.toMatch(/veneno|cad[aá]ver/i);
+    expect(answer).toContain("Destrucción controlada");
+    expect(grades(answer)).toEqual(["I", "I", "I"]);
+    // El grado no se ha supuesto por el nivel: no hace falta avisar.
+    expect(answer).not.toContain("Solo te enseño");
+  });
+
+  it("el caso real: a nivel 14 solo asistencias de grado I, y lo dice", () => {
+    const warrior = novice(14, ["Embate rodante", "Terremoto"], "mazo a dos manos, golpes lentos y fuertes");
+    const answer = ask("que gema de asistencia le pongo a embate rodante?", warrior)!;
+    expect(grades(answer)).toEqual(["I", "I", "I"]);
+    expect(answer).toContain("Solo te enseño las de grado I: a nivel 14 son las que seguro puedes tallar.");
+    expect(answer).toContain("dímelo en la pregunta");
+    // Un mazo no hace daño elemental por sí solo, y Brío le quita el aturdimiento total.
+    expect(answer).not.toMatch(/Armamento elemental|Brío/);
+  });
+
+  it("desde nivel 15 enseña hasta grado II, nunca más sin que lo pida", () => {
+    const answer = ask("¿Qué gema de asistencia le pongo a Contagio?")!;
+    expect(grades(answer).every((grade) => grade === "I" || grade === "II")).toBe(true);
+    expect(answer).toContain("Solo te enseño hasta grado II.");
+  });
+
+  it("si dice el grado de su gema sin tallar, ese manda y no hay aviso", () => {
+    const warrior = novice(14, ["Embate rodante"]);
+    for (const question of [
+      "que gema de asistencia de grado 4 le pongo a embate rodante?",
+      "tengo una gema de asistencia sin tallar de nivel 4, cual le pongo a embate rodante?",
+      "which tier IV support gem for Rolling Slam?",
+    ]) {
+      const lang = question.startsWith("which") ? "en" : "es";
+      const answer = ask(question, warrior, lang)!;
+      expect(grades(answer), question).toContain("IV");
+      expect(answer, question).not.toMatch(/Solo te enseño|only showing/);
+    }
+    // «Soy nivel 5» no es un grado.
+    expect(ask("soy nivel 5, que gema de asistencia le pongo a embate rodante?", novice(5, ["Embate rodante"]))).toContain(
+      "Solo te enseño las de grado I",
+    );
+  });
+
+  it("si pide algo concreto, primero las que ya puede tallar", () => {
+    const archer = novice(22, ["Flecha de rayo"]);
+    const answer = ask("hay alguna gema de asistencia para que flecha de rayo dispare mas flechas?", archer)!;
+    const shown = grades(answer);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(["I", "II"]).toContain(shown[0]);
+  });
+
+  it("en inglés avisa en inglés", () => {
+    const answer = ask("which support gem for Rolling Slam?", novice(14, ["Embate rodante"]), "en")!;
+    expect(answer).toContain("I'm only showing tier I: at level 14 those are the ones you can surely engrave.");
+    expect(answer).not.toMatch(/asistencia|grado/);
+  });
+});
+
 describe("el Mentor completo contesta preguntas de gemas", () => {
   const memory = RecommendationMemorySchema.parse({
     revision: "journal-memory-v1:0000000000000000",
