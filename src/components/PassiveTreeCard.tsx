@@ -59,6 +59,8 @@ const TEXT = texts(
     noSkill: "Tengo tu árbol, pero no sé qué habilidad usas para hacer daño. Dímela y te digo qué notables le sirven.",
     setSkill: "Decir mi habilidad",
     nothing: "No veo ningún notable cerca que ayude a lo que usas. Mira el árbol: lo tienes dibujado abajo.",
+    unread: (count: number) =>
+      `No he sabido leer ${count === 1 ? "tu pasiva" : `tus ${count} pasivas`}: no ${count === 1 ? "es un nodo" : "son nodos"} de este árbol (pasa con las escritas a mano). Pega tu código de Path of Building 2 en «Editar personaje» y las leo.`,
     points: (points: number, first: boolean) => `${first ? "" : "+"}${points} ${points === 1 ? "punto" : "puntos"}`,
     gives: "Da",
     why: "Por qué",
@@ -120,6 +122,8 @@ const TEXT = texts(
     noSkill: "I have your tree, but I don't know which skill does your damage. Tell me and I'll show which notables help it.",
     setSkill: "Tell you my skill",
     nothing: "I don't see any nearby notable that helps what you use. Look at the tree below.",
+    unread: (count: number) =>
+      `I couldn't read ${count === 1 ? "your passive" : `your ${count} passives`}: ${count === 1 ? "it isn't a node" : "they aren't nodes"} on this tree (it happens with ones typed by hand). Paste your Path of Building 2 code in “Edit character” and I'll read them.`,
     points: (points: number, first: boolean) => `${first ? "" : "+"}${points} ${points === 1 ? "point" : "points"}`,
     gives: "Gives",
     why: "Why",
@@ -633,6 +637,8 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
 
   // «Si mueres mucho»: si PoB2 encuentra cerca algo que da bastante más aguante
   // por punto que lo que eligen las reglas, se propone eso (y se dice por qué).
+  /** Hay pasivas apuntadas pero ninguna es un nodo de este árbol: no se ha leído nada. */
+  const unreadTree = data !== null && data.unknownCount > 0 && data.allocated.filter((key) => key !== data.start).length === 0;
   const defence = useMemo((): { step: Suggestion | null; pob: StepPob | null } => {
     const rules = data?.defence ?? null;
     const rulesPob = rules ? (stepPob.get(rules.key) ?? null) : null;
@@ -964,8 +970,15 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
         <div className="mt-2 flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
             {/* El nodo de inicio de la clase viene en la lista (el mapa lo pinta), pero no es un punto gastado. */}
-            {t.summary(data.allocated.filter((key) => key !== data.start).length, data.tree.version)}{" "}
-            {data.unknownCount > 0 && data.versionMismatch === null ? t.unknown(data.unknownCount) : null}
+            {unreadTree ? (
+              // Ninguna pasiva es de este árbol: decir «tienes 0 pasivas» sería culpar al jugador de lo que no se ha leído.
+              t.unread(data.unknownCount)
+            ) : (
+              <>
+                {t.summary(data.allocated.filter((key) => key !== data.start).length, data.tree.version)}{" "}
+                {data.unknownCount > 0 && data.versionMismatch === null ? t.unknown(data.unknownCount) : null}
+              </>
+            )}
           </p>
           {data.versionMismatch && (
             <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-2.5 text-sm text-amber-100" data-testid="arbol-version">
@@ -980,7 +993,7 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
                 {t.setSkill}
               </Button>
             </div>
-          ) : data.offence.length === 0 && defence.step === null ? (
+          ) : unreadTree ? null : data.offence.length === 0 && defence.step === null ? (
             <p className="text-sm text-muted-foreground">{t.nothing}</p>
           ) : (
             <>

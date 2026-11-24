@@ -60,6 +60,14 @@ export function answerPassiveTreeQuestion(
       : "I have your tree, but I don't know which skill does your damage. Tell me in “Edit character” " +
           "(or in the quick review) and I'll tell you which notables help it.";
   }
+  // Ninguna pasiva es de este árbol (escritas a mano, por ejemplo): no es que no haya nada cerca.
+  if (advice.unknownCount > 0 && advice.allocated.filter((key) => key !== advice.start).length === 0) {
+    return es
+      ? "No he sabido leer tus pasivas: no son nodos de este árbol (pasa con las escritas a mano). Pega tu código de " +
+          "Path of Building 2 en «Editar personaje» → «Rellénalo rápido» y te digo por dónde seguir."
+      : "I couldn't read your passives: they aren't nodes on this tree (it happens with ones typed by hand). Paste your " +
+          "Path of Building 2 code in “Edit character” → “Fill it in fast” and I'll tell you where to go next.";
+  }
   if (advice.offence.length === 0 && advice.defence === null) {
     return es
       ? "No veo ningún notable cerca que ayude a lo que usas. Mira tu árbol dibujado en «Tu árbol de pasivas»."

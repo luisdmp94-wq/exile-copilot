@@ -311,6 +311,24 @@ describe("el Mentor contesta «¿por dónde sigo en el árbol?»", () => {
     expect(answer).toMatch(/código de Path of Building 2/);
   });
 
+  it("con pasivas escritas a mano que no son nodos, dice que no las ha leído, no que no hay nada cerca", () => {
+    const typed = profile({ passives: { allocated: [{ ref: "Entradas oscuras", isOfficialId: false }, { ref: "vida +10", isOfficialId: false }] } });
+    const advice = advisePassiveTree(knowledge, treeRequestFromProfile(typed, "es"));
+    expect(advice.unknownCount).toBe(2);
+    expect(advice.allocated.filter((key) => key !== advice.start)).toEqual([]);
+    const answer = answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", typed, "es")!;
+    expect(answer).toMatch(/No he sabido leer tus pasivas/);
+    expect(answer).not.toMatch(/No veo ningún notable/);
+    expect(answerPassiveTreeQuestion(knowledge, "which passives should I take next", typed, "en")).toMatch(/couldn't read your passives/);
+  });
+
+  it("la ascendencia de un .build oficial (por nombre) cuenta como ascendencia, no como nodo desconocido", () => {
+    const graph = buildTreeGraph(tree);
+    const read = readAllocated(graph, [keyByName("Dark Entries"), "AscendancyDruid1Notable1", "AscendancyWitch2Start"], "Bruja");
+    expect(read.ascendancyCount).toBe(2);
+    expect(read.unknown).toEqual([]);
+  });
+
   it("con árbol, da los notables en orden con sus puntos", () => {
     const answer = answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", profile(), "es")!;
     expect(answer).toMatch(/^Por dónde seguir en tu árbol \(para Drenar esencia/);
