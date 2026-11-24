@@ -15,6 +15,17 @@ Según el plan, el Mentor se queda donde está y sube al centro en enero.
 
 Lo bueno: en veinte respuestas no se inventó nada. Cuando no sabe, lo dice.
 
+## Después de la tarea 2 (24-11-2026)
+
+Repetida con `--sin-ia`: **6 bien, 2 a medias, 12 mal.** Solo cambia G2, que pasa
+a bien: propone tres asistencias de grado I (Furia I, Lucha, Puño de guerra I) y
+avisa de que solo enseña ese grado. Las otras diecinueve respuestas son iguales.
+De «Reglas que faltan», el punto 3 queda hecho.
+
+Poe2db no dice desde qué nivel cae cada grado de gema sin tallar. Por eso el
+Mentor no lo afirma: enseña grado I hasta nivel 14 y hasta grado II desde el 15
+(la misma regla que ya usaba la portada), y pide el grado si el jugador lo sabe.
+
 ## Cómo se midió
 
 - En local, con base de datos temporal. La web publicada y sus estadísticas no se tocaron.
@@ -87,6 +98,11 @@ Por orden de lo que más arregla con menos trabajo:
    El arma que pide cada habilidad no está en los datos de gemas: habría que traerla.
 5. Mandar a lo que la web ya tiene: resistencias por acto (G10), comparador (E6),
    marcar el árbol a mano (G4, E9).
+   Caso real de Luis en la web (24-11): «tengo un arma unica pero no se si esta
+   bien de daño me lo cambio por una varita amarilla?». Lleva «daño», así que el
+   Mentor la toma por «me falta daño» y contesta «no veo una causa clara» y las
+   resistencias. Es de comparar dos piezas: debe mandar al comparador. Y una
+   pregunta de «¿cambio A por B?» no debe caer en el foco daño.
 6. «Huecos para asistencias» no es «qué asistencia pongo» (E10).
 7. Fichas cortas de lo básico: espíritu, ascendencias, orbes, escudo o dos manos
    (G6, G8, G9, E7). Hay que escribirlas con fuente; no salen de los datos de gemas.

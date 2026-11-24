@@ -152,6 +152,7 @@ import {
 import { auditRuntimeReadiness } from "./runtimeReadiness.js";
 import { readStats, recordArea, recordUse, recordVisit } from "./analytics.js";
 import { listFeedback, recordFeedback } from "./feedback.js";
+import { listUnanswered, recordUnanswered, unansweredReason } from "./mentorUnanswered.js";
 import { FeedbackReportSchema } from "../shared/feedback.js";
 import { ScreenshotReadRequestSchema } from "../shared/screenshotRead.js";
 import { createScreenshotReader, type ScreenshotReader } from "./advice/screenshotReader.js";
@@ -717,6 +718,16 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
     try {
       requireOwnerToken(req);
       res.json({ reports: listFeedback(db, 50) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /mentor/unanswered — preguntas que el Mentor no supo contestar, solo con la clave del dueño.
+  app.get("/mentor/unanswered", (req, res, next) => {
+    try {
+      requireOwnerToken(req);
+      res.json({ questions: listUnanswered(db, 200) });
     } catch (err) {
       next(err);
     }
@@ -1798,6 +1809,20 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           provider: config.mentorAiProvider,
           reason: answer.fallbackReason,
         });
+      }
+
+      // Lo que el Mentor no supo contestar se apunta para saber qué regla falta:
+      // solo la pregunta escrita y el motivo. Un botón de la web no es una pregunta.
+      const unanswered =
+        body.intentHint === undefined
+          ? unansweredReason(answer, body.question, blockedFeature !== null)
+          : null;
+      if (unanswered !== null && !databaseClosed && !looksLikeBot(req.get("user-agent"))) {
+        try {
+          recordUnanswered(db, { question: body.question, reason: unanswered, lang: body.lang ?? "es" });
+        } catch {
+          // Apuntar la pregunta nunca debe romper la respuesta.
+        }
       }
 
       res.json({ answer });

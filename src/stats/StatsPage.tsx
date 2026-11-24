@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { OWNER_KEY_STORAGE, StatsResponseSchema, returningVisitors, type StatsDay } from "@shared/visitStats";
 import { FeedbackEntrySchema, type FeedbackEntry } from "@shared/feedback";
+import { UNANSWERED_REASON_LABELS, UnansweredResponseSchema, type UnansweredEntry } from "@shared/mentorUnanswered";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,6 +124,7 @@ export function StatsPage() {
   const [draft, setDraft] = useState("");
   const [days, setDays] = useState<StatsDay[] | null>(null);
   const [reports, setReports] = useState<FeedbackEntry[] | null>(null);
+  const [unanswered, setUnanswered] = useState<UnansweredEntry[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,6 +144,13 @@ export function StatsPage() {
         );
       } catch {
         setReports(null);
+      }
+      // Lo que el Mentor no supo contestar, con la misma clave.
+      try {
+        const pending = await fetch("/api/mentor/unanswered", { headers: { Authorization: `Bearer ${token}` }, credentials: "same-origin" });
+        setUnanswered(pending.ok ? UnansweredResponseSchema.parse(await pending.json()).questions : null);
+      } catch {
+        setUnanswered(null);
       }
     } catch (err) {
       setDays(null);
@@ -250,6 +259,35 @@ export function StatsPage() {
                       {report.area ? ` · ${report.area}` : ""}
                       {report.browser ? ` · ${report.browser}` : ""}
                       {report.viewport ? ` · ${report.viewport}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="mt-3 rounded-xl border border-border bg-card p-4" data-testid="estadisticas-sin-respuesta">
+            <h2 className="text-sm font-semibold">
+              Preguntas que el Mentor no supo contestar {unanswered ? `(${unanswered.length})` : ""}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Cada una es una regla que falta. Solo se guarda la pregunta y el motivo: ni quién la hizo ni su
+              personaje. Se borran si no se repiten en 90 días.
+            </p>
+            {unanswered === null || unanswered.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">Ninguna todavía.</p>
+            ) : (
+              <ul className="mt-2 space-y-3 text-sm">
+                {unanswered.map((entry) => (
+                  <li key={`${entry.reason}|${entry.lang}|${entry.question}`} className="border-l-2 border-primary/40 pl-3">
+                    <p className="text-foreground">
+                      {entry.question}
+                      {entry.count > 1 && (
+                        <span className="ml-2 font-semibold tabular-nums text-primary">×{entry.count}</span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {UNANSWERED_REASON_LABELS[entry.reason]} · {entry.lastDay} · {entry.lang.toUpperCase()}
                     </p>
                   </li>
                 ))}

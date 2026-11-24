@@ -18,10 +18,19 @@ la siguiente. Nada se sube sin su sí.
   → Hecho el 24-11: **5 bien, 3 a medias, 12 mal. No llega al umbral.** No inventó
   nada. Falla por no saber lo básico del juego y por no reconocer frases. Sin
   medir con IA: la clave local de Groq da 401.
-- [ ] **2. Arreglar la respuesta floja** de la «primera gema de asistencia»
+- [x] **2. Arreglar la respuesta floja** de la «primera gema de asistencia»
   (propone veneno para Descarga de caos).
-- [ ] **3. Guardar las preguntas que el Mentor no sabe contestar** (antes,
+  → Hecho el 24-11: la primera gema ya propone lo que funciona siempre
+  (Destrucción controlada, Lanzamiento rápido I, Rebote III) y dice dónde
+  ponerla. Sin decir el grado, enseña grado I hasta nivel 14 y hasta II desde
+  el 15, y lo avisa. Medición repetida: G2 pasa a bien, **6 de 20**.
+- [x] **3. Guardar las preguntas que el Mentor no sabe contestar** (antes,
   comprobar si ya se guardan). Sin texto personal: solo la pregunta y el motivo.
+  → Hecho el 24-11: no se guardaban (solo un contador sin texto). Ahora se apunta
+  la pregunta, el motivo, el idioma y cuántas veces llega; sin sesión, personaje
+  ni hora. Luis las lee en `/estadisticas`, con su clave, en «Preguntas que el
+  Mentor no supo contestar». Se borran a los 90 días sin repetirse. El aviso de
+  privacidad de la web lo dice.
 - [ ] **4. Escribir las reglas que falten** según la medición de la tarea 1
   (lista ordenada en `docs/MEDICION-MENTOR-2.md`, «Reglas que faltan»).
 - [ ] **5. Si la tarea 1 llega al umbral: el Mentor al centro de la portada**

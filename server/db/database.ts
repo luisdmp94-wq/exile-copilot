@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { applyAnalyticsSchema } from "../analytics.js";
 import { applyFeedbackSchema } from "../feedback.js";
+import { applyMentorUnansweredSchema } from "../mentorUnanswered.js";
 
 /**
  * Conexión SQLite con `node:sqlite` (DatabaseSync, integrado en Node 24).
@@ -151,6 +152,7 @@ export function applySchema(db: Database): void {
   applyBuildMemorySchema(db);
   applyAnalyticsSchema(db);
   applyFeedbackSchema(db);
+  applyMentorUnansweredSchema(db);
 }
 
 /**

@@ -43,7 +43,7 @@ const TEXT = texts(
     sessionText: "No creamos una cuenta. Una cookie privada enlaza este navegador con tu personaje y no puede leerla JavaScript.",
     storedTitle: "Qué se guarda",
     storedText:
-      "En el servidor: tus personajes, objetos, decisiones, sesiones y hasta ocho turnos completos del Mentor ligados a tu sesión anónima y a cada personaje. En este navegador: progreso de Academia y proyectos de Crafting. Otro visitante no puede abrir tus personajes ni sus conversaciones. Además, un contador anónimo suma cuántas visitas hay cada día, de qué sitio llegan (por ejemplo, Reddit) y qué herramientas se usan; no guarda tu IP, tu sesión ni nada que te identifique. Si usas «Avisar de un problema», guardamos tu mensaje y, si los dejas marcados, el navegador, el tamaño de pantalla y el área; se borran a los 90 días.",
+      "En el servidor: tus personajes, objetos, decisiones, sesiones y hasta ocho turnos completos del Mentor ligados a tu sesión anónima y a cada personaje. En este navegador: progreso de Academia y proyectos de Crafting. Otro visitante no puede abrir tus personajes ni sus conversaciones. Además, un contador anónimo suma cuántas visitas hay cada día, de qué sitio llegan (por ejemplo, Reddit) y qué herramientas se usan; no guarda tu IP, tu sesión ni nada que te identifique. Si usas «Avisar de un problema», guardamos tu mensaje y, si los dejas marcados, el navegador, el tamaño de pantalla y el área; se borran a los 90 días. Si el Mentor no sabe contestar una pregunta, guardamos el texto de esa pregunta y el motivo para enseñarle la respuesta; sin tu sesión, tu personaje ni nada que te identifique, y se borra a los 90 días.",
     mentorTitle: "Cómo responde el Mentor",
     recoveryTitle: "Recuperación actual",
     recoveryText:
@@ -81,7 +81,8 @@ const TEXT = texts(
       "In this browser: Academy progress and Crafting projects.\n" +
       "No other visitor can open your characters or conversations.\n" +
       "An anonymous counter adds up daily visits, the site they come from (for example, Reddit) and the tools used. It doesn't store your IP, your session or anything that identifies you.\n" +
-      "If you use “Report a problem”, we keep your message and, if you leave them ticked, your browser, screen size and area. They're deleted after 90 days.",
+      "If you use “Report a problem”, we keep your message and, if you leave them ticked, your browser, screen size and area. They're deleted after 90 days.\n" +
+      "If the Mentor can't answer a question, we keep the text of that question and the reason, so we can teach it the answer. No session, no character, nothing that identifies you, and it's deleted after 90 days.",
     mentorTitle: "How the Mentor answers",
     recoveryTitle: "Current recovery",
     recoveryText:
