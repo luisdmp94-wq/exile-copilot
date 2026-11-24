@@ -150,6 +150,17 @@ arreglo, sin pasar a `main` y sin subir. Cada arreglo lleva su test.
     tres», «+10 % de hielo»). Lo viste tú en la ventanita. `src/guides/act*.ts`.
     Commit `9dd66a6`.
 
+### Después de publicar (rama `arreglo-reparar-arma`)
+
+30. **Volver a pegar la misma arma de una mano la duplicaba.**
+    `src/lib/importedItemPlacement.ts:55-66`. Desde el cambio del 22-11
+    (`5398103`), un arma de una mano pegada con otra puesta iba sola a la mano
+    secundaria. Eso rompía «corregir esta pieza» en Crafting: la vieja se
+    quedaba en la mano principal y la corregida aparecía en la otra. Lo cazó la
+    prueba de navegador del Taller, que llevaba fallando desde ese cambio (2 de
+    232) y nadie había pasado. Ahora, si pegas la misma pieza que ya llevas,
+    pregunta por ella como antes. Taller: 254 de 254.
+
 ## Pendiente: lo decides tú
 
 Por orden de importancia. Ninguno está tocado.
@@ -252,6 +263,9 @@ añaden los suyos; estos otros siguen igual.
 - Pruebas de navegador del proyecto, en producción y en desarrollo: la
   principal (`browser-smoke`) pasa entera, con PoB2 calculando en el
   navegador; `equipment-smoke` 216 de 216 y `mentor-smoke` 102 de 102.
+  Las otras cinco se pasaron después de publicar: Academia 154 de 154, diario
+  58 de 58, sesión 60 de 60, memoria de build 20 de 20, y el Taller, que es
+  el que destapó el punto 30.
 - La prueba principal sirvió: cazó un fallo de la segunda tanda (el aviso «no
   he sabido leer tus pasivas» saltaba con un código que solo traía el inicio
   de la clase y un nodo desconocido). Corregido antes de dar esto por bueno.

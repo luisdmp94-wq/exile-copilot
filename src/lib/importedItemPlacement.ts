@@ -23,6 +23,8 @@ const HAND_SLOTS = ["weapon", "offhand"] as const;
 const ONE_HANDED_RE =
   /wand|varita|sceptre|cetro|dagger|daga|claw|garra|spear|lanza|flail|mangual|one hand|una mano/i;
 
+const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
 function isOneHandedWeapon(item: Item): boolean {
   return item.slot === "weapon" && ONE_HANDED_RE.test(item.itemClass?.trim() || item.baseType);
 }
@@ -49,6 +51,19 @@ export function planImportedItemPlacement(
     }
     return { kind: "collision", item: importedItem, candidates: occupiedRings };
   }
+
+  // Volver a pegar la misma arma (para corregir su texto desde Crafting, o
+  // porque le has puesto un modificador) es actualizarla, no llevar otra: se
+  // pregunta por ella. Sin esto se quedaba la vieja en la mano principal y la
+  // nueva aparecía duplicada en la secundaria.
+  const samePiece = currentItems.filter(
+    (candidate) =>
+      (candidate.slot === "weapon" || candidate.slot === "offhand") &&
+      importedItem.slot === "weapon" &&
+      sameText(candidate.name, importedItem.name) &&
+      sameText(candidate.baseType, importedItem.baseType),
+  );
+  if (samePiece.length > 0) return { kind: "collision", item: importedItem, candidates: samePiece };
 
   // Con un arma a dos manos (o que no sabemos si es de una) en la principal, la
   // secundaria no está libre de verdad: se pregunta como siempre.

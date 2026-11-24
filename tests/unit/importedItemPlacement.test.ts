@@ -77,6 +77,22 @@ describe("colocación segura de objetos importados", () => {
     });
   });
 
+  it("volver a pegar la misma arma de una mano la actualiza: no la duplica en la otra mano", () => {
+    // La maza que ya llevas, pegada otra vez para corregirla desde Crafting.
+    const mace = { ...item("maza", "weapon", "Maza de procesión de victoria"), baseType: "Maza de procesión", itemClass: "Mazas de una mano" };
+    const again = { ...mace, id: "maza-pegada-otra-vez" };
+    expect(planImportedItemPlacement([mace], again)).toEqual({ kind: "collision", item: again, candidates: [mace] });
+    // Aunque cambien mayúsculas o espacios al copiar.
+    expect(planImportedItemPlacement([mace], { ...again, name: "  maza de procesión de Victoria " }).kind).toBe("collision");
+    // Otra maza distinta sí puede ir a la mano libre.
+    const other = { ...mace, id: "otra", name: "Maza de guerra del oso" };
+    expect(planImportedItemPlacement([mace], other)).toEqual({ kind: "append", item: expect.objectContaining({ id: "otra", slot: "offhand" }) });
+    // Si la misma pieza estaba en la secundaria, se pregunta por esa.
+    const inOffhand = { ...mace, slot: "offhand" as const };
+    const wand = { ...item("varita", "weapon", "Varita"), itemClass: "Varitas" };
+    expect(planImportedItemPlacement([wand, inOffhand], again)).toEqual({ kind: "collision", item: again, candidates: [inOffhand] });
+  });
+
   it("con las dos manos ocupadas pregunta cuál sustituir", () => {
     const varita = { ...item("varita", "weapon"), itemClass: "Varitas" };
     const foco = { ...item("foco", "offhand"), itemClass: "Focos" };
