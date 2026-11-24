@@ -315,7 +315,13 @@ describe("el Mentor contesta «¿por dónde sigo en el árbol?»", () => {
     const typed = profile({ passives: { allocated: [{ ref: "Entradas oscuras", isOfficialId: false }, { ref: "vida +10", isOfficialId: false }] } });
     const advice = advisePassiveTree(knowledge, treeRequestFromProfile(typed, "es"));
     expect(advice.unknownCount).toBe(2);
-    expect(advice.allocated.filter((key) => key !== advice.start)).toEqual([]);
+    expect(advice.allocated).toEqual([]);
+    // Un código con el inicio de la clase y un nodo que no existe sí se ha leído: no es este caso.
+    const partly = profile({ passives: { allocated: [{ ref: classStartFor(buildTreeGraph(tree), "Bruja")!, isOfficialId: false }, { ref: "999999999", isOfficialId: false }] } });
+    const read = advisePassiveTree(knowledge, treeRequestFromProfile(partly, "es"));
+    expect(read.unknownCount).toBe(1);
+    expect(read.allocated.length).toBeGreaterThan(0);
+    expect(answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", partly, "es")).not.toMatch(/No he sabido leer/);
     const answer = answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", typed, "es")!;
     expect(answer).toMatch(/No he sabido leer tus pasivas/);
     expect(answer).not.toMatch(/No veo ningún notable/);

@@ -637,8 +637,12 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
 
   // «Si mueres mucho»: si PoB2 encuentra cerca algo que da bastante más aguante
   // por punto que lo que eligen las reglas, se propone eso (y se dice por qué).
-  /** Hay pasivas apuntadas pero ninguna es un nodo de este árbol: no se ha leído nada. */
-  const unreadTree = data !== null && data.unknownCount > 0 && data.allocated.filter((key) => key !== data.start).length === 0;
+  /**
+   * Hay pasivas apuntadas pero ninguna es un nodo de este árbol, ni siquiera el
+   * inicio de la clase: no se ha leído nada. (Un código con el inicio y algún
+   * nodo desconocido sí se ha leído: ahí vale el recuento normal.)
+   */
+  const unreadTree = data !== null && data.unknownCount > 0 && data.allocated.length === 0;
   const defence = useMemo((): { step: Suggestion | null; pob: StepPob | null } => {
     const rules = data?.defence ?? null;
     const rulesPob = rules ? (stepPob.get(rules.key) ?? null) : null;

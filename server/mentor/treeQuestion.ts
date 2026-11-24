@@ -61,7 +61,7 @@ export function answerPassiveTreeQuestion(
           "(or in the quick review) and I'll tell you which notables help it.";
   }
   // Ninguna pasiva es de este árbol (escritas a mano, por ejemplo): no es que no haya nada cerca.
-  if (advice.unknownCount > 0 && advice.allocated.filter((key) => key !== advice.start).length === 0) {
+  if (advice.unknownCount > 0 && advice.allocated.length === 0) {
     return es
       ? "No he sabido leer tus pasivas: no son nodos de este árbol (pasa con las escritas a mano). Pega tu código de " +
           "Path of Building 2 en «Editar personaje» → «Rellénalo rápido» y te digo por dónde seguir."
