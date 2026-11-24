@@ -136,8 +136,49 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
   return results;
 }
 
+/**
+ * La tabla «Skill Gems Gemcutting» del listado: en qué grupo («Maza», «Arco»,
+ * «Ocultismo»…) sale cada habilidad al tallar una gema sin tallar. Es la única
+ * pista que da poe2db del arma de cada habilidad.
+ */
+function parseGemcutting(page: string, groups: Map<string, string[]>): void {
+  const start = page.indexOf('id="SkillGemsGemcutting"');
+  const end = page.indexOf('id="TierLevel"');
+  if (start < 0) return;
+  const table = page.slice(start, end > start ? end : undefined);
+  for (const row of table.matchAll(/<tr><td><a href="[^"]*">(?:<img[^>]*>)?([^<]*)<\/a><\/td><td>\d+<\/td><td>([\s\S]*?)(?=<tr>|<\/tbody>)/g)) {
+    for (const gem of row[2].matchAll(new RegExp(`<figcaption><a class="[^"]*" data-hover="[^"]*" href="\\/${SITE}\\/([^"]+)">`, "g"))) {
+      addGroup(groups, gem[1], decode(row[1]).trim());
+    }
+  }
+}
+
+function addGroup(groups: Map<string, string[]>, slug: string, group: string): void {
+  const list = groups.get(slug) ?? [];
+  if (!list.includes(group)) list.push(group);
+  groups.set(slug, list);
+}
+
+/** El nivel de gema que la lista de gemas de espíritu da a cada una (Heraldo de hielo: 4, no el 1 del listado general). */
+const spiritGrades = new Map<string, number>();
+
+/** Grupos de tallado de cada habilidad: su arma (o escuela) y «Espíritu» para las gemas de espíritu. */
+async function cutGroupsBySlug(skillListing: string): Promise<Map<string, string[]>> {
+  const groups = new Map<string, string[]>();
+  parseGemcutting(skillListing, groups);
+  // La lista de gemas de espíritu: lo único que se talla con una gema de espíritu sin tallar.
+  for (const row of parseListing(await get(`${BASE}/${SITE}/Spirit_Gems`))) {
+    addGroup(groups, row.slug, "Espíritu");
+    if (row.grade !== null) spiritGrades.set(row.slug, row.grade);
+  }
+  return groups;
+}
+
 async function build(listing: string, kind: "skill" | "support") {
-  const listed = parseListing(await get(`${BASE}/${SITE}/${listing}`));
+  const page = await get(`${BASE}/${SITE}/${listing}`);
+  const listed = parseListing(page);
+  const cutGroups = kind === "skill" && !ENGLISH ? await cutGroupsBySlug(page) : new Map<string, string[]>();
+  if (kind === "skill" && !ENGLISH) console.log(`${listing}: ${cutGroups.size} habilidades con grupo de tallado`);
   // Fuera las gemas que el juego retiró y las entradas que no son gemas.
   // Una asistencia sin atributo no se puede filtrar por hueco: se avisa y se salta.
   const withoutAttribute = kind === "support" ? listed.filter((row) => row.attribute === null) : [];
@@ -166,8 +207,9 @@ async function build(listing: string, kind: "skill" | "support") {
       slug: row.slug,
       name: row.name,
       attribute: row.attribute,
-      grade: card.grade ?? row.grade,
+      grade: spiritGrades.get(row.slug) ?? card.grade ?? row.grade,
       tags,
+      ...(kind === "skill" ? { cutGroups: cutGroups.get(row.slug) ?? [] } : {}),
       ...(kind === "support" ? { category: card.category, lineage: tags.includes("Linaje"), costMultiplier: card.costMultiplier } : {}),
       reserve: card.reserve,
       description: card.description,

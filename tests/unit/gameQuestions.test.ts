@@ -103,8 +103,59 @@ describe("qué habilidad tallar con una gema sin tallar", () => {
     }
     // Lo suyo es el caos: lo primero que se le propone es de caos.
     expect(skillByName(names[0]!).tags).toContain("Caos");
-    expect(answer).toContain("subir a nivel 7 una que ya tienes, por ejemplo Descarga de caos");
+    // No sabe a qué nivel lleva sus gemas: lo ofrece solo «si está por debajo».
+    expect(answer).toContain("subir a nivel 7 una habilidad que ya tienes, si está por debajo");
     expect(answer).toContain("sin IA");
+  });
+
+  it("solo propone lo que sale al tallar, con el arma que ya usa (medición del 24-11-2026)", () => {
+    const warrior = witch(
+      [
+        { name: "Embate rodante", level: 5 },
+        { name: "Terremoto", level: 3 },
+        { name: "Rompearmaduras", level: 3 },
+        { name: "Grito infernal", level: 3 },
+      ],
+      {
+        characterClass: "Guerrero",
+        ascendancy: null,
+        items: [{ id: "arma", name: "Mazo de guerra pesado", baseType: "Mazo de guerra", slot: "weapon", rarity: "magic" }],
+      },
+    );
+    const answer = answerSkillChoiceQuestion(gems, "tengo una gema sin tallar de nivel 5, cual cojo?", warrior, "es");
+    const names = bullets(answer);
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) {
+      // Todas de maza: ni de lanza (Asalto rápido) ni de escudo (lleva un arma a dos manos).
+      expect(skillByName(name).cutGroups, name).toContain("Maza");
+    }
+    expect(names).not.toContain("Asalto rápido");
+    expect(names).not.toContain("Escudo resonante");
+    // Embate rodante ya está a nivel 5: no se propone subirla; las que van a 3, sí.
+    expect(answer).toContain("Terremoto (ahora nivel 3)");
+    expect(answer).not.toContain("Embate rodante (ahora");
+  });
+
+  it("«qué me pongo» con una gema de espíritu sin tallar: solo gemas de espíritu, las más bajas", () => {
+    const question = "tengo una gema de espiritu sin tallar, que me pongo?";
+    expect(isSkillChoiceQuestion(normalizeQuestion(question))).toBe(true);
+    const ranger = witch([{ name: "Flecha de rayo" }, { name: "Pararrayos" }, { name: "Heraldo de trueno" }], {
+      characterClass: "Exploradora",
+      ascendancy: null,
+    });
+    const answer = answerSkillChoiceQuestion(gems, question, ranger, "es");
+    const names = bullets(answer);
+    expect(names.length).toBeGreaterThan(0);
+    const lowest = Math.min(...gems.data.skills.filter((skill) => skill.cutGroups?.includes("Espíritu")).map((skill) => skill.grade ?? 99));
+    for (const name of names) {
+      expect(skillByName(name).cutGroups, name).toContain("Espíritu");
+      expect(skillByName(name).grade, name).toBe(lowest);
+      expect(name).not.toBe("Heraldo de trueno");
+    }
+    // Las gemas de espíritu empiezan en nivel 4 (Heraldo de hielo incluida): lo dice su lista en poe2db.
+    expect(lowest).toBe(4);
+    expect(names.length).toBeGreaterThanOrEqual(3);
+    expect(answer).toContain("No me dices de qué nivel es");
   });
 
   it("a quien no usa ataques no le propone ataques de arma, salvo que los pida", () => {
@@ -113,10 +164,11 @@ describe("qué habilidad tallar con una gema sin tallar", () => {
     }
   });
 
-  it("sin el nivel de la gema, lo pide", () => {
-    expect(answerSkillChoiceQuestion(gems, "tengo una gema sin tallar, qué hechizo escojo?", witch(), "es")).toContain(
-      "Dime de qué nivel es tu gema sin tallar",
-    );
+  it("sin el nivel de la gema, lo dice y enseña las más bajas en vez de callarse", () => {
+    const answer = answerSkillChoiceQuestion(gems, "tengo una gema sin tallar, qué hechizo escojo?", witch(), "es");
+    expect(answer).toContain("No me dices de qué nivel es tu gema de habilidad sin tallar");
+    expect(bullets(answer).length).toBeGreaterThan(0);
+    for (const name of bullets(answer)) expect(skillByName(name).grade, name).toBeLessThanOrEqual(3);
   });
 
   it("sin saber qué lleva, lo dice en vez de fingir que encaja", () => {
@@ -141,9 +193,43 @@ describe("la misma asistencia en dos grados", () => {
     expect(answer).toContain("se encadenan +2 veces");
     expect(answer).toContain("30% menos de daño");
     expect(answer).toContain("50% menos de daño");
-    // La penalización cambia de un grado a otro: se avisa.
-    expect(answer).toContain("su penalización también es mayor");
+    // La II hace más y penaliza más: se dice con sus propias líneas.
+    expect(answer).toContain("Encadenamiento II cambia el efecto");
+    expect(answer).toContain("pero penaliza más: «infligen un 50% menos de daño con impactos» en vez de «infligen un 30% menos de daño con impactos»");
     expect(answer).toContain("Ahora mismo llevas puesta Encadenamiento II");
+  });
+
+  it("el veredicto sale de los datos: Disparo múltiple II penaliza MENOS que la I (medición del 24-11-2026)", () => {
+    const answer = answerSupportCompareQuestion(gems, "que pongo, disparo multiple 1 o 2?", witch(), "es");
+    expect(bullets(answer)).toEqual(["Disparo múltiple I", "Disparo múltiple II"]);
+    expect(answer).toContain("Disparo múltiple II hace lo mismo y penaliza menos");
+    expect(answer).toContain("«infligen un 25% menos de daño» en vez de «infligen un 35% menos de daño»");
+    expect(answer).toContain("pon Disparo múltiple II");
+    expect(answer).not.toContain("penaliza más");
+    expect(answer).not.toContain("su penalización también es mayor");
+  });
+
+  it("nunca concluye lo contrario de lo que dicen las cifras, en ninguna asistencia con grados", () => {
+    const families = new Map<string, string[]>();
+    for (const support of gems.data.supports) {
+      const base = support.name.replace(/\s+[IVX]+$/, "");
+      if (base !== support.name) families.set(base, [...(families.get(base) ?? []), support.name]);
+    }
+    let checked = 0;
+    for (const [base, names] of families) {
+      if (names.length < 2 || normalizeQuestion(base).length < 5) continue;
+      const answer = answerSupportCompareQuestion(gems, `${base} 1 o 2?`, witch(), "es");
+      if (!answer) continue;
+      checked += 1;
+      // Si dice «penaliza menos», la línea citada de la más alta lleva una cifra menor; y al revés.
+      for (const match of answer.matchAll(/penaliza (menos|más): «([^»]+)» en vez de «([^»]+)»/g)) {
+        const total = (text: string) => [...text.matchAll(/\d+(?:[.,]\d+)?/g)].reduce((sum, hit) => sum + Number(hit[0].replace(",", ".")), 0);
+        const [, direction, after, before] = match;
+        if (direction === "menos") expect(total(after!), `${base}: ${match[0]}`).toBeLessThan(total(before!));
+        else expect(total(after!), `${base}: ${match[0]}`).toBeGreaterThan(total(before!));
+      }
+    }
+    expect(checked).toBeGreaterThan(20);
   });
 
   it("sin decir grados, enseña todos los de esa asistencia", () => {
@@ -154,7 +240,8 @@ describe("la misma asistencia en dos grados", () => {
   it("en inglés", () => {
     const answer = answerSupportCompareQuestion(gems, "chain 1 or 2?", witch(), "en");
     expect(bullets(answer)).toEqual(["Chain I", "Chain II"]);
-    expect(answer).toContain("its penalty is bigger too");
+    expect(answer).toContain("Chain II changes the effect");
+    expect(answer).toContain("but its penalty is bigger");
   });
 
   it("no se mete en preguntas que no nombran una asistencia", () => {

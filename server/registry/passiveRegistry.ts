@@ -115,6 +115,25 @@ export function getRegistrySource(
   };
 }
 
+/**
+ * Las ascendencias de una clase («Warrior») con sus nodos, tal como las
+ * publica el export oficial. Las que la fuente deja sin nombre no salen.
+ */
+export function ascendanciesOfClass(
+  className: string,
+  evidenceId: string = PASSIVE_REGISTRY_EVIDENCE_ID,
+): Array<{ name: string; nodeStats: string[] }> {
+  const { registry } = load(evidenceId);
+  return registry.ascendancies
+    .filter((ascendancy) => ascendancy.className === className && ascendancy.name !== null)
+    .map((ascendancy) => ({
+      name: ascendancy.name as string,
+      nodeStats: registry.nodes
+        .filter((node) => node.ascendancyId === ascendancy.id)
+        .map((node) => node.stats.join(" ")),
+    }));
+}
+
 /** Procedencia completa (auditoría). */
 export function getRegistryProvenance(
   evidenceId: string = PASSIVE_REGISTRY_EVIDENCE_ID,

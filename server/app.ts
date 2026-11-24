@@ -334,18 +334,40 @@ function assertKnownBuildMemoryItems(
   }
 }
 
-function mentorRequestedPatchFeature(
-  question: string,
-  contextEnvelope: MentorQueryRequest["contextEnvelope"],
-): PatchFeatureId | null {
-  const normalizedQuestion = question
+const CRAFTING_WORDS_RE =
+  /\b(?:essence|essences|esencia|esencias|alloy|alloys|aleacion|aleaciones|transmutation|transmutacion|augmentation|aumento|regal|regio|exalted|exaltado)\b/;
+
+const plainLower = (text: string) =>
+  text
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("es");
 
+/**
+ * Nombres de gema que llevan una palabra de crafteo (\u00abDrenar esencia\u00bb,
+ * \u00abEssence Drain\u00bb, \u00abTransmutaci\u00f3n explosiva\u00bb). Preguntar por esas gemas no es
+ * preguntar por Essences: caso real de Luis en la web (24-11-2026), \u00abque gemas
+ * pondrias en drenar esencia?\u00bb recibi\u00f3 \u00abel \u00e1rea Essences no est\u00e1 revisada\u00bb.
+ */
+export function gemNamesWithCraftingWords(names: readonly string[]): string[] {
+  return [...new Set(names.map(plainLower).filter((name) => CRAFTING_WORDS_RE.test(name)))].sort(
+    (a, b) => b.length - a.length,
+  );
+}
+
+export function mentorRequestedPatchFeature(
+  question: string,
+  contextEnvelope: MentorQueryRequest["contextEnvelope"],
+  gemNames: readonly string[] = [],
+): PatchFeatureId | null {
+  let normalizedQuestion = plainLower(question);
+  // El nombre de una gema no cuenta como palabra de crafteo.
+  for (const name of gemNames) normalizedQuestion = normalizedQuestion.split(name).join(" ");
+
   // La pregunta explícita manda sobre el estado de pantalla: así un cliente
   // antiguo tampoco puede preguntar por una Essence desde el modo básico.
   if (/\b(?:essence|essences|esencia|esencias|alloy|alloys|aleacion|aleaciones)\b/.test(normalizedQuestion)) {
+    // (los nombres de gema ya se han quitado arriba)
     return "advanced-crafting";
   }
 
@@ -385,6 +407,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const gemData = loadGemData();
   const gemLocale = loadEnglishGemLocale();
   const treeKnowledge: TreeKnowledge = { tree: loadPassiveTree(), gems: gemData, locale: gemLocale };
+  const craftingWordGems = gemNamesWithCraftingWords(
+    [...gemData.skills, ...gemData.supports].flatMap((gem) => [gem.name, gemLocale.entries.get(gem.slug)?.name ?? ""]),
+  );
   const patches = loadPatches();
   const releaseEvidenceCatalog = loadReleaseEvidenceCatalog();
   const patchCompatibility = gatePatchCompatibilityByEvidence(
@@ -1738,6 +1763,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       const requestedFeatureId = mentorRequestedPatchFeature(
         body.question,
         body.contextEnvelope,
+        craftingWordGems,
       );
       const blockedFeature =
         requestedFeatureId !== null &&

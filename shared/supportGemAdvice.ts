@@ -19,6 +19,13 @@ export const GemSkillSchema = z.object({
   attribute: GemAttributeSchema.nullable(),
   grade: z.number().int().nullable(),
   tags: z.array(z.string()),
+  /**
+   * En qué grupos sale la habilidad al tallar una gema sin tallar: la columna
+   * «Arma» de la tabla de tallado de poe2db («Maza», «Arco», «Lanza»,
+   * «Ocultismo»…; alguna sale en dos) y «Espíritu» para las de su lista de
+   * gemas de espíritu. Vacío: no se talla (la da un arma o una ascendencia).
+   */
+  cutGroups: z.array(z.string()).optional(),
   reserve: z.string().nullable(),
   description: z.string(),
   effects: z.array(z.string()),

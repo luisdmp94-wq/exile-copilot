@@ -113,6 +113,11 @@ const QUESTIONS = [
   ["E8", exploradora, "no puedo ponerme una gema, me sale en rojo"],
   ["E9", exploradora, "que pasivas cojo para hacer mas daño con el arco?"],
   ["E10", exploradora, "como consigo mas huecos para gemas de asistencia?"],
+  // Casos reales de jugadores, fuera de las veinte: no cuentan en la nota.
+  // R1: Luis en la web publicada (24-11-2026); recibió «no veo una causa clara».
+  ["R1", exploradora, "tengo un arma unica pero no se si esta bien de daño me lo cambio por una varita amarilla?"],
+  // R2: Luis en la web publicada (24-11-2026); recibió «el área Essences… no está revisada».
+  ["R2", exploradora, "que gemas pondrias en drenar esencia?"],
 ];
 
 const env = {

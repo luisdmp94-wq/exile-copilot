@@ -210,6 +210,32 @@ const ENEMY_SURVIVES_RES: readonly RegExp[] = [
   /\b(?:take|takes|taking) (?:forever|ages|so long|too long) to die\b/,
 ];
 
+/** Palabras que nombran una pieza de equipo (o su rareza: «única», «amarilla»). */
+const ITEM_WORD_RE =
+  /\b(armas?|arcos?|varitas?|mazos?|mazas?|baston(?:es)?|cetros?|espadas?|hachas?|dagas?|lanzas?|ballestas?|escudos?|cascos?|yelmos?|pecho|pechera|armaduras?|petos?|botas|guantes|anillos?|amuletos?|cinturon(?:es)?|carcaj|focos?|piezas?|objetos?|items?|unic[oa]s?|amarill[oa]s?|rar[oa]s?|weapons?|bows?|wands?|maces?|staffs?|staves|sceptres?|scepters?|swords?|axes?|daggers?|spears?|crossbows?|shields?|helmets?|helms?|chest|armou?rs?|boots|gloves|rings?|amulets?|belts?|quivers?|pieces?|uniques?|rares?|yellow)\b/;
+
+/** Formas de preguntar «¿cambio esta por aquella?» o «¿cuál de las dos es mejor?». */
+const ITEM_SWAP_RES: readonly RegExp[] = [
+  /\bcambi(?:o|ar|arlo|arla|aria|amos)\b.*\bpor\b/,
+  /\b(?:me )?(?:lo|la|los|las) cambio\b/,
+  /\bmejor que (?:el|la|lo|los|las) (?:que )?(?:llevo|tengo|uso|mio|mia)\b/,
+  /\bcual (?:es|de l[oa]s dos es|de est[oa]s es|de est[oa]s dos es) (?:el |la )?mejor\b/,
+  /\bcompar(?:o|ar|a|arlo|arla|arlos|arlas)\b/,
+  /\bme quedo con\b/,
+  /\bvale la pena cambiar\b/,
+  /\bswap\b|\breplace\b.*\bwith\b|\bbetter than (?:the one|mine|what i|my)\b|\bwhich (?:one )?is better\b|\bcompare\b|\bshould i (?:switch|change)\b/,
+];
+
+/**
+ * «¿Me cambio el arma única por una varita amarilla?», «¿cómo sé si un arco es
+ * mejor que el que llevo?»: es comparar dos piezas. No es «me falta daño»
+ * aunque la frase lleve «daño» (caso real de Luis, 24-11-2026).
+ */
+export function isItemSwapQuestion(question: string): boolean {
+  const normalized = normalizeQuestion(question);
+  return ITEM_WORD_RE.test(normalized) && ITEM_SWAP_RES.some((pattern) => pattern.test(normalized));
+}
+
 export type MentorQuestionFocus = "survival" | "damage" | null;
 
 /** Conversación social que no debe convertirse en una recomendación. */
@@ -287,8 +313,9 @@ export function classifyMentorQuestion(question: string): {
       : (SURVIVAL_PATTERNS.find((pattern) => normalized.includes(pattern)) ?? null);
   const asksForNumber =
     NUMBER_REQUEST_PATTERNS.some((pattern) => normalized.includes(pattern)) || NUMBER_REQUEST_RE.test(normalized);
+  // «¿Cambio A por B?» compara dos piezas: no lleva foco daño aunque diga «daño».
   const damagePattern =
-    survivalPattern || asksForNumber
+    survivalPattern || asksForNumber || isItemSwapQuestion(normalized)
       ? null
       : enemySurvives
         ? "el enemigo no muere"

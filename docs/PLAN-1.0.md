@@ -31,12 +31,19 @@ la siguiente. Nada se sube sin su sí.
   ni hora. Luis las lee en `/estadisticas`, con su clave, en «Preguntas que el
   Mentor no supo contestar». Se borran a los 90 días sin repetirse. El aviso de
   privacidad de la web lo dice.
-- [ ] **4. Escribir las reglas que falten** según la medición de la tarea 1
+- [x] **4. Escribir las reglas que falten** según la medición de la tarea 1
   (lista ordenada en `docs/MEDICION-MENTOR-2.md`, «Reglas que faltan»).
+  → Hecho el 24-11: los siete puntos de la lista. Medición repetida: **16 bien,
+  4 a medias, 0 mal.** La pregunta real de Luis (arma única o varita amarilla)
+  manda al comparador. Ojo: las reglas se escribieron mirando estas veinte
+  preguntas; con preguntas nuevas saldrá menos. A medias quedan el árbol sin
+  marcar (G4, E9), escudo o dos manos (G6) y qué ascendencia (G9): faltan datos.
 - [ ] **5. Si la tarea 1 llega al umbral: el Mentor al centro de la portada**
   (caja para preguntar arriba, con el personaje ya cargado). Si no llega, se
   queda donde está y sube en enero.
-  → La tarea 1 no llegó (5 de 20). Salvo que Luis diga otra cosa, queda para enero.
+  → La tarea 1 no llegó (5 de 20). Tras la tarea 4 la misma medición da 16 de 20,
+  justo el umbral, pero con preguntas ya conocidas. **Decide Luis** si sube ahora
+  o en enero.
 - [ ] **6. Botón de donación** discreto.
 - [ ] **7. Recorrer como novato las tres puertas** (guías, revisión rápida,
   árbol con PoB2) y arreglar cada atasco.

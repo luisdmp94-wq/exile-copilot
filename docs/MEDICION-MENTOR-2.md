@@ -26,6 +26,73 @@ Poe2db no dice desde qué nivel cae cada grado de gema sin tallar. Por eso el
 Mentor no lo afirma: enseña grado I hasta nivel 14 y hasta grado II desde el 15
 (la misma regla que ya usaba la portada), y pide el grado si el jugador lo sabe.
 
+## Después de la tarea 4 (24-11-2026)
+
+Repetida con `--sin-ia`, las mismas veinte preguntas: **16 bien, 4 a medias, 0 mal.**
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Guerrero, nivel 14 | 7 | 3 | 0 |
+| Exploradora, nivel 22 | 9 | 1 | 0 |
+| **Total** | **16** | **4** | **0** |
+
+**Ojo con esta cifra.** Las reglas se escribieron mirando estas veinte preguntas.
+Con preguntas nuevas saldrá menos. Las notas las puse yo. La medida de verdad
+son las preguntas reales que se guardan desde la tarea 3.
+
+| # | Antes | Ahora | Qué contesta ahora |
+|---|---|---|---|
+| G3 | A medias | Bien | Solo habilidades de maza (su arma), ninguna de escudo. Propone subir las que van a nivel 3, no la que ya está a 5. |
+| G4 | Mal | A medias | Dice que puede marcar el árbol a mano en «Tu árbol de pasivas», sin PoB2. Aún no le dice dónde poner los puntos. |
+| G6 | Mal | A medias | Ninguna de sus habilidades usa escudo; cuáles se abrirían con escudo. No sabe decir cuál de las dos opciones es mejor, y lo dice. |
+| G8 | Mal | Bien | El texto del juego, qué lo gasta, y dónde se consigue según las guías. |
+| G9 | Mal | A medias | Sus tres ascendencias, dónde se consigue y cuál nombra más lo que usa (Titán: embates). No elige por él, y lo dice. |
+| G10 | Mal | Bien | 30 % mientras sube, 75 % de tope, lo que quita cada acto y sus tres resistencias. |
+| E2 | Mal | Bien | Disparo múltiple I, que ya puede tallar, y dos de grado III avisando de que piden otra gema. |
+| E3 | A medias | Bien | «La II hace lo mismo y penaliza menos», con las dos líneas citadas. |
+| E4 | Mal | Bien | Cuatro gemas de espíritu de nivel 4 que encajan con un arco (heraldos). Avisa de que no sabe el nivel de su gema. |
+| E6 | Mal | Bien | Manda al comparador, con la ruta, y nombra el arco que lleva. |
+| E7 | Mal | Bien | El texto del juego, y que ahora no tiene ninguna pieza rara donde gastarlo. |
+| E8 | Mal | Bien | Qué significa el rojo, qué atributo pide cada color y cuál lleva más bajo. |
+| E9 | Mal | A medias | Igual que G4. |
+| E10 | Mal | Bien | Los tres orbes de joyero con el texto del juego. Ya no contesta otra cosa. |
+
+Las otras seis (G1, G2, G5, G7, E1, E5) ya estaban bien y no cambian.
+
+**La pregunta real de Luis** («tengo un arma unica pero no se si esta bien de daño
+me lo cambio por una varita amarilla?») ya no cae en «me falta daño». Manda al
+comparador con la ruta, nombra el arma que lleva y dice el límite: el comparador
+no calcula el daño por segundo. Está en el script como caso R1, fuera de las veinte.
+
+**Otra pregunta real de Luis** (web publicada, 24-11): «que gemas pondrias en drenar
+esencia?». Recibió «el área Essences, Alloys… no está revisada»: la palabra
+«esencia» del nombre de la gema se tomaba por crafteo con Essences. Arreglado: el
+nombre de una gema no cuenta como palabra de crafteo, y «qué gemas pondrías en
+‹habilidad›» se entiende como pregunta de asistencias. Es el caso R2 del script.
+
+### De dónde sale cada respuesta nueva
+
+- **Arma de cada habilidad:** tabla «Skill Gems Gemcutting» de poe2db (182 habilidades
+  en ocho grupos). Está en `gems.es.json` como `cutGroups`. Tres salen en dos grupos.
+- **Gemas de espíritu:** la lista «Spirit Gems» de poe2db (53). Corrige un dato:
+  Heraldo de hielo es de nivel 4, no 1.
+- **Espíritu, orbes de joyero, orbe exaltado:** el texto del juego, copiado de
+  poe2db en español y en inglés (`GAME_TEXTS` en `server/mentor/basicsQuestions.ts`).
+- **Resistencias, espíritu por acto, pruebas de ascendencia:** las guías de la web.
+  Una prueba comprueba que el Mentor dice lo mismo que las guías.
+- **Ascendencias de cada clase:** el árbol oficial que la web ya tenía.
+
+### Lo que sigue sin saberse
+
+- **Dónde poner las pasivas sin árbol (G4, E9).** Hace falta el árbol del jugador.
+  El Mentor ya dice cómo marcarlo a mano.
+- **Escudo o dos manos, qué ascendencia es mejor (G6, G9).** No hay datos para
+  comparar. El Mentor da lo que hay y dice que no decide.
+- **En qué zona cae cada orbe de joyero y con cuántos engarces empieza una gema.**
+  poe2db solo da el «nivel de caída» (25, 45, 65).
+- **Cuánto atributo pide cada gema a cada nivel.** No está en los datos de gemas.
+- **Daño por segundo de un arma.** El comparador de la web no lo calcula.
+
 ## Cómo se midió
 
 - En local, con base de datos temporal. La web publicada y sus estadísticas no se tocaron.

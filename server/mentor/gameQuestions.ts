@@ -105,8 +105,44 @@ export function isSkillChoiceQuestion(normalizedQuestion: string): boolean {
   const gem = /\bgemas?\b|\buncut\b|\bskill gems?\b|\bspirit gems?\b/.test(q);
   const which =
     /\b(que|cual) (hechizo|habilidad|skill|gema)\b|\b(hechizo|habilidad)\b.*\b(escojo|elijo|cojo|coger|elegir|escoger|pongo|tallo|tallar)\b|\b(escojo|elijo|cojo|tallo)\b/.test(q) ||
-    /\b(which|what) (spell|skill|gem)\b|\b(pick|choose|engrave|take)\b/.test(q);
+    /\b(which|what) (spell|skill|gem)\b|\b(pick|choose|engrave|take)\b/.test(q) ||
+    // «¿qué me pongo?», «¿cuál pongo?», «¿en qué la gasto?» (medición del 24-11-2026).
+    /\b(que|cual) (me |le )?(pongo|uso|tallo|cojo|elijo|escojo)\b|\ben que la (gasto|uso)\b|\bque hago con\b/.test(q) ||
+    /\bwhat (do|should) i (put|use|get|do)\b/.test(q);
   return gem && which && (uncutLevelIn(q) !== null || /\bsin tallar\b|\buncut\b/.test(q));
+}
+
+/**
+ * Grupos de la tabla de tallado que son un arma de verdad: sus habilidades
+ * solo valen con esa arma en la mano. «Ocultismo», «Elemental» y «Primalismo»
+ * son hechizos y no atan a un arma.
+ */
+const WEAPON_GROUPS = new Set(["Maza", "Arco", "Lanza", "Ballesta", "Bastón"]);
+const WEAPON_GROUP_EN: Record<string, string> = {
+  Maza: "Mace",
+  Arco: "Bow",
+  Lanza: "Spear",
+  Ballesta: "Crossbow",
+  Bastón: "Quarterstaff",
+};
+
+/** Grupo de las gemas que se tallan con una gema de espíritu sin tallar. */
+export const SPIRIT_GROUP = "Espíritu";
+
+/** Las armas con las que sale la habilidad al tallar («Maza», «Arco o Lanza»); vacío si no la ata un arma. */
+export const weaponOf = (skill: GemSkill): string[] => (skill.cutGroups ?? []).filter((group) => WEAPON_GROUPS.has(group));
+
+/** La descripción de la habilidad habla de «tu escudo»: sin escudo no se puede usar. */
+export const needsShield = (skill: GemSkill) =>
+  /\btu escudo\b|\bcon (el|tu|un) escudo\b/.test(normalizeQuestion(skill.description));
+
+/** ¿Lleva algo en la mano secundaria que la web conozca? Con un arma a dos manos, no. */
+function mayHaveShield(profile: CharacterProfile | null): boolean {
+  if (!profile || profile.items.length === 0) return true;
+  // Un carcaj o un foco ocupan esa mano: tampoco hay escudo.
+  return profile.items.some(
+    (item) => item.slot === "offhand" && !/\b(carcaj|quiver|foco|focus)\b/.test(normalizeQuestion(`${item.name} ${item.baseType}`)),
+  );
 }
 
 export function answerSkillChoiceQuestion(
@@ -118,15 +154,26 @@ export function answerSkillChoiceQuestion(
   const q = normalizeQuestion(question);
   if (!isSkillChoiceQuestion(q)) return null;
   const en = lang === "en";
+  // Sin nivel no se calla: se enseñan las que encajan, con el nivel que pide cada una.
   const level = uncutLevelIn(` ${q} `);
-  if (level === null) {
-    return en
-      ? "Tell me the level of your uncut gem (it's written on it) and I'll tell you which skills you can engrave with it."
-      : "Dime de qué nivel es tu gema sin tallar (lo pone en la propia gema) y te digo qué habilidades puedes tallar con ella.";
-  }
 
   const spirit = /\bespiritu\b|\bspirit\b/.test(q);
   const own = ownSkills(gems, profile);
+  // Las armas que ya usa, por sus habilidades: quien lleva embates de maza no puede usar uno de lanza.
+  const ownGroups = new Set(own.flatMap((skill) => (skill.cutGroups ?? []).filter((group) => group !== SPIRIT_GROUP)));
+  // Quien solo lleva habilidades de arma no quiere hechizos; quien ya lanza alguno, sí.
+  const usesSpellGroups = [...ownGroups].some((group) => !WEAPON_GROUPS.has(group));
+  // Con las tablas de tallado en los datos, solo se propone lo que de verdad sale al tallar.
+  const hasCutMenu = gems.data.skills.some((skill) => (skill.cutGroups ?? []).length > 0);
+  const shieldOk = mayHaveShield(profile);
+  /** ¿Sale este grupo de tallado para alguien que lleva lo que lleva este personaje? */
+  const groupFits = (group: string) => {
+    if (ownGroups.size === 0 || ownGroups.has(group)) return true;
+    // Caso real (24-11-2026): a un guerrero con mazo se le proponía una habilidad de lanza.
+    if (WEAPON_GROUPS.has(group)) return false;
+    // Las formas de la druida piden ir por ese camino: no se proponen de pasada.
+    return usesSpellGroups && group !== "Primalismo";
+  };
   const ownSlugs = new Set(own.map((skill) => skill.slug));
   // Cuántas de sus habilidades llevan cada etiqueta: caos en cinco pesa más que físico en una.
   const tagWeight = new Map<string, number>();
@@ -144,10 +191,31 @@ export function answerSkillChoiceQuestion(
     /\bhechizos?\b|\bspells?\b/.test(q) ? "Hechizo" : /\besbirros?\b|\bminions?\b/.test(q) ? "Esbirro" : /\bataques?\b|\battacks?\b/.test(q) ? "Ataque" : null;
 
   const pool = gems.data.skills.filter((skill) => {
-    // Sin atributo no es una gema que se talle: viene de una ascendencia o de un objeto.
-    if (skill.attribute === null || skill.grade === null || skill.grade > level) return false;
+    if (skill.grade === null || (level !== null && skill.grade > level)) return false;
     if (ownSlugs.has(skill.slug)) return false;
-    if (skill.tags.includes("Persistente") !== spirit) return false;
+    if (!hasCutMenu) {
+      // Datos antiguos, sin tablas de tallado: lo persistente es de espíritu y sin
+      // atributo no es una gema que se talle (viene de una ascendencia o de un objeto).
+      if (skill.tags.includes("Persistente") !== spirit || skill.attribute === null) return false;
+    } else {
+      // Lo que no sale en las tablas de tallado lo da un arma o una ascendencia, no una gema sin tallar.
+      const groups = skill.cutGroups ?? [];
+      if (spirit) {
+        if (!groups.includes(SPIRIT_GROUP)) return false;
+        // «Se recarga tu ballesta» no le sirve a quien dispara con arco.
+        const text = normalizeQuestion(skill.description);
+        const otherWeapon = [...WEAPON_GROUPS].some(
+          (group) => text.includes(` tu ${normalizeQuestion(group)} `) && !ownGroups.has(group),
+        );
+        if (ownGroups.size > 0 && otherWeapon) return false;
+        if (!shieldOk && needsShield(skill)) return false;
+      } else {
+        const cut = groups.filter((group) => group !== SPIRIT_GROUP);
+        if (cut.length === 0 || !cut.some(groupFits)) return false;
+        // Una que aporrea «tu escudo» no vale con un arma a dos manos.
+        if (!shieldOk && needsShield(skill)) return false;
+      }
+    }
     if (wanted && !skill.tags.includes(wanted)) return false;
     // A quien solo lanza hechizos o lleva esbirros no se le proponen ataques de arma.
     if (own.length > 0 && !usesAttacks && wanted !== "Ataque" && skill.tags.includes("Ataque")) return false;
@@ -159,39 +227,96 @@ export function answerSkillChoiceQuestion(
     skill.tags.reduce((total, tag) => total + (tagWeight.get(tag) ?? 0), 0) +
     (mainAttribute !== null && skill.attribute === mainAttribute ? 1 : 0) +
     (skill.grade ?? 0) / 20;
-  const picked = [...pool].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)).slice(0, 4);
+  // Sin saber el nivel de la gema solo se enseñan las del nivel más bajo que
+  // hay: son las que seguro puede tallar. De las más altas se avisa.
+  // «Más bajo» es el primer nivel con donde elegir (tres o más), no una gema suelta.
+  const gradesAscending = [...new Set(pool.map((skill) => skill.grade ?? 99))].sort((a, b) => a - b);
+  const lowestGrade =
+    gradesAscending.find((grade) => pool.filter((skill) => (skill.grade ?? 99) <= grade).length >= 3) ??
+    gradesAscending[gradesAscending.length - 1] ??
+    1;
+  const reachable = level === null ? pool.filter((skill) => (skill.grade ?? 99) <= lowestGrade) : pool;
+  const higherGrades = level === null ? [...new Set(pool.map((skill) => skill.grade ?? 0))].filter((grade) => grade > lowestGrade).sort((a, b) => a - b) : [];
+  const picked = [...reachable].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)).slice(0, 4);
 
   const gemWord = spirit ? (en ? "uncut spirit gem" : "gema de espíritu sin tallar") : en ? "uncut skill gem" : "gema de habilidad sin tallar";
   if (picked.length === 0) {
     return en
-      ? `I can't find a skill for a level ${level} ${gemWord} in the game data I have. ${sourceNote(lang)}`
-      : `No encuentro ninguna habilidad para una ${gemWord} de nivel ${level} en los datos del juego que tengo. ${sourceNote(lang)}`;
+      ? `I can't find a skill for ${level === null ? "an" : `a level ${level}`} ${gemWord} in the game data I have. ${sourceNote(lang)}`
+      : `No encuentro ninguna habilidad para una ${gemWord}${level === null ? "" : ` de nivel ${level}`} en los datos del juego que tengo. ${sourceNote(lang)}`;
   }
 
   const line = (skill: GemSkill) => {
     const shown = localizeSkill(skill, lang, gems.locale);
-    const attribute = skill.attribute ? ATTRIBUTE[lang][skill.attribute] : "";
-    return en
-      ? `• ${shown.name} (gem level ${skill.grade}, ${attribute}): ${firstSentence(shown.description)}`
-      : `• ${shown.name} (nivel de gema ${skill.grade}, ${attribute}): ${firstSentence(shown.description)}`;
+    const details = [
+      en ? `gem level ${skill.grade}` : `nivel de gema ${skill.grade}`,
+      skill.attribute ? ATTRIBUTE[lang][skill.attribute] : "",
+      weaponOf(skill).length > 0
+        ? en
+          ? `weapon: ${weaponOf(skill).map((group) => WEAPON_GROUP_EN[group] ?? group).join(" or ")}`
+          : `arma: ${weaponOf(skill).join(" o ").toLowerCase()}`
+        : "",
+      needsShield(skill) ? (en ? "needs a shield" : "pide escudo") : "",
+      skill.reserve ? (en ? `reserves ${skill.reserve.replace("Espíritu", "Spirit")}` : `reserva ${skill.reserve.toLowerCase()}`) : "",
+    ].filter(Boolean);
+    return `• ${shown.name} (${details.join(", ")}): ${firstSentence(shown.description)}`;
   };
   const fitsWith = [...ownTags]
     .filter((tag) => picked.some((skill) => skill.tags.includes(tag)))
     .sort((a, b) => (tagWeight.get(b) ?? 0) - (tagWeight.get(a) ?? 0))
     .slice(0, 3);
+  const higherNote =
+    higherGrades.length === 0
+      ? ""
+      : en
+        ? ` There are more at gem level ${higherGrades.join(", ")}: tell me your gem's level and I'll show those too.`
+        : ` Hay más de nivel de gema ${higherGrades.join(", ")}: dime el nivel de tu gema y te enseño también esas.`;
+  const canEngrave =
+    level === null
+      ? en
+        ? `You don't say your ${gemWord}'s level (it's written on the gem): you can engrave any skill of that gem level or lower. I'm showing the lowest ones, up to gem level ${lowestGrade}.${higherNote}`
+        : `No me dices de qué nivel es tu ${gemWord} (lo pone en la propia gema): puedes tallar cualquier habilidad de ese nivel de gema o menos. Te enseño las más bajas, hasta nivel de gema ${lowestGrade}.${higherNote}`
+      : en
+        ? `With a level ${level} ${gemWord} you can engrave any skill of gem level ${level} or lower.`
+        : `Con una ${gemWord} de nivel ${level} puedes tallar cualquier habilidad de nivel de gema ${level} o menos.`;
   const intro = en
-    ? `With a level ${level} ${gemWord} you can engrave any skill of gem level ${level} or lower.` +
-      (own.length > 0 ? " The ones that fit what you already use best:" : " Some you can pick:")
-    : `Con una ${gemWord} de nivel ${level} puedes tallar cualquier habilidad de nivel de gema ${level} o menos.` +
+    ? canEngrave + (own.length > 0 ? " The ones that fit what you already use best:" : " Some you can pick:")
+    : canEngrave +
       (own.length > 0
         ? ` Las que mejor encajan con lo que ya llevas${fitsWith.length > 0 ? ` (${fitsWith.join(", ").toLowerCase()})` : ""}:`
         : " Algunas que puedes coger:");
+  // Subir una que ya tiene solo vale si va por debajo del nivel de la gema
+  // (caso real, 24-11-2026: «sube Embate rodante a nivel 5» y ya estaba a 5).
+  const behind =
+    level === null || spirit
+      ? []
+      : (profile?.skills ?? []).flatMap((setup) => {
+          const skill = findSkillAnyLang(gems.data, gems.locale, setup.mainSkill || setup.label);
+          // Una gema de espíritu no sube con una gema de habilidad sin tallar.
+          const groups = skill?.cutGroups ?? [];
+          if (!skill || groups.includes(SPIRIT_GROUP) || (groups.length === 0 && skill.tags.includes("Persistente"))) return [];
+          if (typeof setup.level !== "number" || setup.level >= level) return [];
+          return [{ skill, now: setup.level }];
+        });
+  const levelsKnown = (profile?.skills ?? []).some((setup) => typeof setup.level === "number");
   const upgrade =
-    own.length > 0 && !spirit
-      ? en
-        ? `\n\nYou can also spend it on raising one you already have to level ${level}, for example ${localizeSkill(own[0]!, lang, gems.locale).name}: that is damage straight away.`
-        : `\n\nTambién puedes gastarla en subir a nivel ${level} una que ya tienes, por ejemplo ${own[0]!.name}: es daño inmediato.`
-      : "";
+    level === null || spirit || own.length === 0
+      ? ""
+      : behind.length > 0
+        ? en
+          ? `\n\nYou can also spend it on raising to level ${level} one you already have that is behind: ${behind
+              .slice(0, 3)
+              .map((entry) => `${localizeSkill(entry.skill, lang, gems.locale).name} (now level ${entry.now})`)
+              .join(", ")}. That is damage straight away.`
+          : `\n\nTambién puedes gastarla en subir a nivel ${level} una que ya tienes y va por debajo: ${behind
+              .slice(0, 3)
+              .map((entry) => `${entry.skill.name} (ahora nivel ${entry.now})`)
+              .join(", ")}. Es daño inmediato.`
+        : levelsKnown
+          ? ""
+          : en
+            ? `\n\nYou can also spend it on raising to level ${level} a skill you already have, if it's below that level: that is damage straight away.`
+            : `\n\nTambién puedes gastarla en subir a nivel ${level} una habilidad que ya tienes, si está por debajo: es daño inmediato.`;
   const unknown =
     own.length === 0
       ? en
@@ -255,6 +380,131 @@ function tiersAsked(q: string): number[] {
 
 const isCost = (effect: string) => /\d\s*%? menos de |\bless\b|\breduced\b|\bmenos\b/.test(normalizeQuestion(effect));
 
+/** La línea sin sus cifras: dos grados «hacen lo mismo» si solo cambian los números. */
+const effectShape = (effect: string) => normalizeQuestion(effect).replace(/\d+/g, "#");
+const effectTotal = (effect: string) =>
+  [...effect.matchAll(/\d+(?:[.,]\d+)?/g)].reduce((total, match) => total + Number(match[0].replace(",", ".")), 0);
+/** «Las habilidades asistidas infligen un 25% menos de daño» → «infligen un 25% menos de daño». */
+const shortEffect = (effect: string) =>
+  effect.replace(/^(Las habilidades asistidas|Los proyectiles de las habilidades asistidas|Supported Skills|Projectiles from Supported Skills)\s+/i, "");
+
+/**
+ * Qué cambia de un grado al siguiente, leído de sus líneas. Solo concluye
+ * cuál conviene cuando los datos lo dicen sin duda (mismo efecto y otra
+ * penalización, o lo mismo y una línea más); si no, enseña el cambio y calla.
+ */
+function compareTiers(lower: GemSupport, higher: GemSupport, lang: AdviceLang, gems: GemKnowledge): string {
+  const en = lang === "en";
+  const low = localizeSupport(lower, lang, gems.locale);
+  const high = localizeSupport(higher, lang, gems.locale);
+  const quote = (text: string) => (en ? `“${shortEffect(text)}”` : `«${shortEffect(text)}»`);
+  const grade = higher.grade ? (ROMAN[higher.grade] ?? String(higher.grade)) : "?";
+  const ifYouHave = en
+    ? `If you have an uncut support gem of tier ${grade}, use ${high.name}.`
+    : `Si tienes una gema de asistencia sin tallar de grado ${grade}, pon ${high.name}.`;
+
+  const lowByShape = new Map(low.effects.map((effect) => [effectShape(effect), effect] as const));
+  const highByShape = new Map(high.effects.map((effect) => [effectShape(effect), effect] as const));
+  const added = high.effects.filter((effect) => !lowByShape.has(effectShape(effect)));
+  const removed = low.effects.filter((effect) => !highByShape.has(effectShape(effect)));
+  const changed = high.effects.flatMap((effect) => {
+    const before = lowByShape.get(effectShape(effect));
+    return before !== undefined && before !== effect ? [{ before, after: effect }] : [];
+  });
+
+  // Cambian de efecto: no son «la misma con más número».
+  if (removed.length > 0) {
+    return en
+      ? `${low.name} and ${high.name} don't do the same thing: read both lines above and keep the one that fits what you need.`
+      : `${low.name} y ${high.name} no hacen lo mismo: lee las dos líneas de arriba y quédate con la que te sirva.`;
+  }
+
+  const costChanges = changed.filter((change) => isCost(change.after));
+  const goodChanges = changed.filter((change) => !isCost(change.after));
+  const costsDown = costChanges.length > 0 && costChanges.every((change) => effectTotal(change.after) < effectTotal(change.before));
+  const costsUp = costChanges.length > 0 && costChanges.every((change) => effectTotal(change.after) > effectTotal(change.before));
+  const costText = costChanges
+    .map((change) => (en ? `${quote(change.after)} instead of ${quote(change.before)}` : `${quote(change.after)} en vez de ${quote(change.before)}`))
+    .join(en ? "; " : "; ");
+  const goodText = goodChanges
+    .map((change) => (en ? `${quote(change.before)} becomes ${quote(change.after)}` : `${quote(change.before)} pasa a ${quote(change.after)}`))
+    .join("; ");
+  const addedGood = added.filter((effect) => !isCost(effect));
+  const addedCost = added.filter(isCost);
+  const addedText = added.map(quote).join(en ? " and " : " y ");
+
+  if (changed.length === 0 && added.length === 0) {
+    return en
+      ? `${low.name} and ${high.name} read the same in the game data I have.`
+      : `${low.name} y ${high.name} dicen lo mismo en los datos del juego que tengo.`;
+  }
+  // Lo mismo y otra penalización.
+  if (goodChanges.length === 0 && added.length === 0) {
+    if (costsDown) {
+      return en
+        ? `${high.name} does the same and its penalty is smaller: ${costText}. ${ifYouHave}`
+        : `${high.name} hace lo mismo y penaliza menos: ${costText}. ${ifYouHave}`;
+    }
+    if (costsUp) {
+      return en
+        ? `${high.name} does the same and its penalty is bigger: ${costText}. By these lines, ${low.name} is the better one.`
+        : `${high.name} hace lo mismo y penaliza más: ${costText}. Por estas líneas, conviene más ${low.name}.`;
+    }
+    return en ? `What changes in ${high.name}: ${costText}.` : `Lo que cambia en ${high.name}: ${costText}.`;
+  }
+  // Lo mismo y algo más, sin tocar la penalización.
+  if (costChanges.length === 0 && addedCost.length === 0) {
+    const what = [goodText, addedGood.length > 0 ? (en ? `it adds ${addedText}` : `añade ${addedText}`) : ""].filter(Boolean).join(en ? "; and " : "; y ");
+    return en
+      ? `What changes in ${high.name}: ${what}. No extra penalty. ${ifYouHave}`
+      : `Lo que cambia en ${high.name}: ${what}. Sin más penalización. ${ifYouHave}`;
+  }
+  // Misma parte buena, pero la penalización baja por un lado y sube por otro.
+  if (goodChanges.length === 0 && addedGood.length === 0) {
+    const costs = [costText, addedCost.length > 0 ? (en ? `new penalty ${addedCost.map(quote).join(" and ")}` : `penalización nueva ${addedCost.map(quote).join(" y ")}`) : ""]
+      .filter(Boolean)
+      .join("; ");
+    return en
+      ? `${high.name} does the same and its penalty changes: ${costs}. Which one pays off depends on which of those lines hurts you more.`
+      : `${high.name} hace lo mismo y cambia la penalización: ${costs}. Cuál compensa depende de cuál de esas líneas te duele más.`;
+  }
+  // Cambia el efecto y también lo que cuesta: se enseña y decide el jugador.
+  const effectPart = [goodText, addedGood.length > 0 ? (en ? `it adds ${addedGood.map(quote).join(" and ")}` : `añade ${addedGood.map(quote).join(" y ")}`) : ""]
+    .filter(Boolean)
+    .join("; ");
+  const costPart = [costText, addedCost.length > 0 ? (en ? `new penalty ${addedCost.map(quote).join(" and ")}` : `penalización nueva ${addedCost.map(quote).join(" y ")}`) : ""]
+    .filter(Boolean)
+    .join("; ");
+  // «Penaliza más» o «menos» solo cuando todas las líneas van en esa dirección
+  // (Fortaleza II baja una penalización y añade otra: ahí solo se enseña).
+  const direction =
+    costsDown && addedCost.length === 0
+      ? en
+        ? "and its penalty is smaller"
+        : "y además penaliza menos"
+      : (costsUp || costChanges.length === 0) && (costsUp || addedCost.length > 0)
+        ? en
+          ? "but its penalty is bigger"
+          : "pero penaliza más"
+        : en
+          ? "and its penalty changes"
+          : "y cambia la penalización";
+  const advice =
+    costsDown && addedCost.length === 0
+      ? ifYouHave
+      : en
+        ? "It only pays off if you need that extra effect more than the damage you lose."
+        : "Solo compensa si necesitas ese efecto extra más que el daño que pierdes.";
+  return en
+    ? `${high.name} changes the effect (${effectPart || "see above"}) ${direction}: ${costPart}. ${advice}`
+    : `${high.name} cambia el efecto (${effectPart || "mira arriba"}) ${direction}: ${costPart}. ${advice}`;
+}
+
+/** «Encadenamiento 1 o 2»: nombra una asistencia y pregunta por grados concretos. */
+export function isSupportTierQuestion(gems: GemKnowledge, normalizedQuestion: string): boolean {
+  return supportFamilyIn(gems, normalizedQuestion) !== null && tiersAsked(normalizedQuestion).length > 0;
+}
+
 export function answerSupportCompareQuestion(
   gems: GemKnowledge,
   question: string,
@@ -290,19 +540,14 @@ export function answerSupportCompareQuestion(
       : `• ${shown.name} (pide una gema de asistencia sin tallar de grado ${grade}): ${does}${tradeOff}`;
   };
 
-  const costsDiffer =
-    tiers.length > 1 &&
-    new Set(tiers.map((support) => support.effects.filter(isCost).join("|"))).size > 1;
-  const verdict =
-    tiers.length < 2
-      ? ""
-      : costsDiffer
-        ? en
-          ? "\n\nThe higher one does more, but its penalty is bigger too: it only pays off if you need that extra effect more than the damage you lose."
-          : "\n\nLa de número más alto hace más, pero su penalización también es mayor: solo compensa si necesitas ese efecto extra más que el daño que pierdes."
-        : en
-          ? "\n\nThe higher one does more of the same with no extra penalty: use it if you have the uncut gem for it."
-          : "\n\nLa de número más alto hace más de lo mismo sin más penalización: ponla si tienes la gema sin tallar que pide.";
+  // El veredicto sale de comparar las líneas de las dos, no de suponer que la
+  // de número más alto penaliza más (caso real, 24-11-2026: Disparo múltiple II
+  // penaliza MENOS que la I y la frase decía lo contrario).
+  const verdicts: string[] = [];
+  for (let index = 1; index < tiers.length; index += 1) {
+    verdicts.push(compareTiers(tiers[index - 1]!, tiers[index]!, lang, gems));
+  }
+  const verdict = verdicts.length > 0 ? `\n\n${verdicts.join("\n")}` : "";
 
   const socketed = socketedNames(gems, profile);
   const wearing = family.tiers.find((support) => socketed.has(normalizeQuestion(support.name)));

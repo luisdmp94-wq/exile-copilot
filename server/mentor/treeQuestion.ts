@@ -8,6 +8,7 @@
  */
 import type { CharacterProfile } from "../../shared/domain.js";
 import { normalizeQuestion } from "../../shared/mentorIntent.js";
+import { exportClassName } from "../../shared/passiveTree.js";
 import { treeRequestFromProfile } from "../../shared/passiveTreeRequest.js";
 import { advisePassiveTree, type TreeKnowledge } from "../advice/passiveTreeAdvisor.js";
 
@@ -45,11 +46,27 @@ export function answerPassiveTreeQuestion(
   const es = lang === "es";
 
   if (!profile || profile.passives.allocated.length === 0) {
+    // Un novato no tiene código de PoB2: la web deja marcar el árbol a mano y
+    // antes el Mentor no lo decía (medición del 24-11-2026).
+    const needsClass = !profile || exportClassName(profile.characterClass) === null;
+    const classFirst = needsClass
+      ? es
+        ? " Antes pon tu clase en «Editar personaje»: hace falta para marcarlo a mano."
+        : " First set your class in “Edit character”: marking it by hand needs it."
+      : "";
     return es
-      ? "Para decirte por dónde seguir necesito tu árbol. Pega tu código de Path of Building 2 en " +
-          "«Editar personaje» → «Rellénalo rápido» y te digo tus próximos notables, con el camino dibujado."
-      : "To tell you where to go next I need your tree. Paste your Path of Building 2 code in " +
-          "“Edit character” → “Fill it in fast” and I'll show your next notables, with the path drawn.";
+      ? "Para decirte dónde poner los puntos necesito ver tu árbol, y aún no lo tengo. No hace falta ningún programa: " +
+          "en la tarjeta «Tu árbol de pasivas» pulsa «Marcarlo yo en el árbol» y marca los nodos que ya tienes cogidos." +
+          classFirst +
+          " Si usas Path of Building 2, en la misma tarjeta está «Pegar mi código de PoB2».\n\n" +
+          "Con el árbol puesto, vuelve a preguntarme: te digo tus próximos notables para lo que usas, cuántos puntos " +
+          "cuesta llegar a cada uno y el camino dibujado."
+      : "To tell you where to put your points I need to see your tree, and I don't have it yet. You don't need any " +
+          "program: on the “Your passive tree” card press “Mark it myself on the tree” and mark the nodes you already have." +
+          classFirst +
+          " If you use Path of Building 2, the same card has “Paste my PoB2 code”.\n\n" +
+          "With the tree in, ask me again: I'll tell you your next notables for what you use, how many points each one " +
+          "costs to reach and the path drawn.";
   }
 
   const advice = advisePassiveTree(knowledge, treeRequestFromProfile(profile, lang));

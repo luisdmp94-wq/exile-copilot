@@ -41,8 +41,10 @@ import {
   answerMinionQuestion,
   answerSkillChoiceQuestion,
   answerSupportCompareQuestion,
+  isSupportTierQuestion,
 } from "./gameQuestions.js";
 import { answerPassiveTreeQuestion } from "./treeQuestion.js";
+import { answerBasicsQuestion, answerItemCompareQuestion } from "./basicsQuestions.js";
 import type { TreeKnowledge } from "../advice/passiveTreeAdvisor.js";
 import {
   MentorAiError,
@@ -1172,10 +1174,23 @@ async function buildAnswer(
     return conversationFallback(options, normalizedQuestion);
   }
 
+  // «¿Me cambio el arma única por una varita amarilla?» es comparar dos piezas:
+  // la web tiene un comparador y el Mentor manda allí. Va antes que nada para
+  // que un «daño» suelto en la frase no la lleve a «me falta daño».
+  if (options.intentHint === undefined) {
+    const compareAnswer = answerItemCompareQuestion(options.question, options.profile, lang);
+    if (compareAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, compareAnswer);
+  }
+
   // «¿Qué gema de asistencia le pongo a…?» se contesta con las reglas del
   // consejero de gemas: no depende del equipo, de la IA ni de la prioridad del
   // personaje. Un botón de la web (intentHint) nunca es una pregunta de gemas.
   if (deps.gems && options.intentHint === undefined) {
+    // «¿Qué asistencia pongo, Encadenamiento 1 o 2?» compara dos grados: no pide una lista.
+    if (isSupportTierQuestion(deps.gems, normalizedQuestion)) {
+      const tierAnswer = answerSupportCompareQuestion(deps.gems, options.question, options.profile, lang);
+      if (tierAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, tierAnswer);
+    }
     const gemAnswer = answerSupportGemQuestion(deps.gems, options.question, options.profile, lang);
     if (gemAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, gemAnswer);
   }
@@ -1196,6 +1211,14 @@ async function buildAnswer(
       answerMinionQuestion(deps.gems, options.question, options.profile, lang) ??
       answerAttributeQuestion(deps.gems, options.question, options.profile, lang);
     if (gameAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, gameAnswer);
+  }
+
+  // Lo básico de un novato (huecos de asistencia, gema en rojo, resistencias,
+  // espíritu, ascendencia, orbe exaltado, escudo o dos manos): datos del
+  // personaje, de las guías de la web y textos del propio juego. Sin IA.
+  if (options.intentHint === undefined) {
+    const basicsAnswer = answerBasicsQuestion(deps.gems ?? null, options.question, options.profile, lang);
+    if (basicsAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, basicsAnswer);
   }
 
   // La conversación social nunca se convierte en una recomendación por

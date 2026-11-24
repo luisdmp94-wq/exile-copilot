@@ -306,9 +306,14 @@ describe("el Mentor contesta «¿por dónde sigo en el árbol?»", () => {
     }
   });
 
-  it("sin árbol, explica cómo meterlo", () => {
+  it("sin árbol, explica cómo meterlo: a mano primero, que un novato no tiene PoB2", () => {
     const answer = answerPassiveTreeQuestion(knowledge, "¿por dónde sigo en el árbol?", profile({ passives: { allocated: [] } }), "es");
-    expect(answer).toMatch(/código de Path of Building 2/);
+    expect(answer).toContain("«Tu árbol de pasivas»");
+    expect(answer).toContain("«Marcarlo yo en el árbol»");
+    expect(answer).toContain("No hace falta ningún programa");
+    expect(answer).toContain("«Pegar mi código de PoB2»");
+    const english = answerPassiveTreeQuestion(knowledge, "where do I put my passive points", profile({ passives: { allocated: [] } }), "en");
+    expect(english).toContain("“Mark it myself on the tree”");
   });
 
   it("con pasivas escritas a mano que no son nodos, dice que no las ha leído, no que no hay nada cerca", () => {

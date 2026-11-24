@@ -32,10 +32,35 @@ export interface GemKnowledge {
   locale: GemLocale;
 }
 
-/** «gema(s)» junto a «asistencia / soporte», o «support gem». */
+/**
+ * «¿Cómo consigo más huecos para gemas de asistencia?» pregunta por los
+ * engarces, no por qué asistencia poner (caso de la medición del 24-11-2026:
+ * se contestaba con tres asistencias para Flecha de rayo).
+ */
+export function isSupportSocketQuestion(normalizedQuestion: string): boolean {
+  const q = ` ${normalizedQuestion} `;
+  const sockets = /\b(huecos?|engarces?|ranuras?|sockets?|slots?)\b/.test(q);
+  const supports = /\b(asistencias?|soportes?|apoyo|gemas?|supports?|gems?)\b/.test(q);
+  const more =
+    /\b(mas|consigo|conseguir|consiguen|saco|sacar|abro|abrir|anado|anadir|desbloqueo|desbloquear|aumento|aumentar|tercer|cuarto|quinto)\b/.test(q) ||
+    /\b(more|get|add|unlock|extra|another|third|fourth|fifth)\b/.test(q);
+  return sockets && supports && more;
+}
+
+/**
+ * «gema(s)» junto a «asistencia / soporte», «support gem», o «asistencia» a
+ * secas cuando se pregunta por ella («¿hay alguna asistencia para…?», «¿qué
+ * asistencia le pongo?»): un novato no escribe «gema de asistencia» cada vez
+ * (medición del 24-11-2026). «Necesito asistencia» no es una pregunta de gemas.
+ */
 export function isSupportGemQuestion(normalizedQuestion: string): boolean {
   const q = ` ${normalizedQuestion} `;
-  const spanish = /\bgemas?\b/.test(q) && /\b(asistencias?|soportes?|apoyo)\b/.test(q);
+  if (isSupportSocketQuestion(normalizedQuestion)) return false;
+  const bare =
+    /\b(que|cual|cuales|alguna|algunas|otra|otras|mejor|mejores|primera|las|mis|esta|esa) asistencias?\b/.test(q) ||
+    /\basistencias? (para|de grado|le|les|a mi|a la|al|que le|van|va)\b/.test(q) ||
+    /\b(pongo|poner|ponerle|uso|usar|engarzo|engarzar|cojo|coger|cambio|cambiar)\b.*\basistencias?\b/.test(q);
+  const spanish = (/\bgemas?\b/.test(q) && /\b(asistencias?|soportes?|apoyo)\b/.test(q)) || bare;
   const english = /\bsupport(s| gems?)?\b/.test(q) && /\b(gems?|supports?)\b/.test(q);
   return spanish || english;
 }
@@ -126,6 +151,21 @@ export function skillInQuestion(
   return own[0] ? { skill: own[0], how: "main" } : null;
 }
 
+/**
+ * «¿Qué gemas pondrías en Drenar esencia?»: no dice «asistencia», pero las
+ * gemas que se ponen EN una habilidad son sus asistencias (caso real de Luis
+ * en la web, 24-11-2026). Hace falta que nombre la habilidad tal cual; con una
+ * gema sin tallar es otra pregunta (qué habilidad tallar).
+ */
+export function asksGemsForNamedSkill(gems: GemKnowledge, normalizedQuestion: string): boolean {
+  const q = ` ${normalizedQuestion} `;
+  if (!/\bgemas?\b|\bgems?\b/.test(q) || /\bsin tallar\b|\buncut\b/.test(q)) return false;
+  const putting =
+    /\b(pongo|pondria|pondrias|poner|ponerle|meto|meteria|meterias|meter|meterle|engarzo|engarzar|llevo|llevar|uso|usar|van|va)\b/.test(q) ||
+    /\b(put|use|socket|link|go|goes|run)\b/.test(q);
+  return putting && skillInQuestion(gems, normalizedQuestion, null)?.how === "named";
+}
+
 const ROMAN = ["", "I", "II", "III", "IV", "V"];
 const ROMAN_VALUE: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5 };
 
@@ -160,7 +200,7 @@ export function answerSupportGemQuestion(
   lang: AdviceLang,
 ): string | null {
   const normalized = normalizeQuestion(question);
-  if (!isSupportGemQuestion(normalized)) return null;
+  if (!isSupportGemQuestion(normalized) && !asksGemsForNamedSkill(gems, normalized)) return null;
   const en = lang === "en";
   const where = en
     ? "To fine-tune it with your uncut gem's tier and your free slots: Guides → “Which support gem do I use?”."
@@ -298,9 +338,17 @@ export function answerSupportGemQuestion(
   const sayGrade = en
     ? "If your uncut gem is a higher tier, tell me in the question (“tier III”)."
     : "Si tu gema sin tallar es de un grado más alto, dímelo en la pregunta («de grado III»).";
+  // Cuando pide algo concreto se enseñan también las que lo hacen en un grado
+  // más alto: no se puede decir a la vez «solo te enseño hasta grado II».
+  const beyond = picked.filter((support) => (support.grade ?? 0) > maxGrade);
+  const within = picked.filter((support) => (support.grade ?? 0) <= maxGrade);
   const gradeNote = !assumed
     ? ""
-    : maxGrade === 1
+    : beyond.length > 0
+      ? en
+        ? `${within.length > 0 ? `You can engrave ${within.map((support) => localizeSupport(support, lang, gems.locale).name).join(", ")} now. ` : ""}The ones of tier ${[...new Set(beyond.map((support) => ROMAN[support.grade ?? 0] ?? support.grade))].join(", ")} need an uncut support gem of that tier: you may not have one yet.\n\n`
+        : `${within.length > 0 ? `${within.map((support) => support.name).join(", ")} ya la puedes tallar. ` : ""}Las de grado ${[...new Set(beyond.map((support) => ROMAN[support.grade ?? 0] ?? support.grade))].join(", ")} piden una gema de asistencia sin tallar de ese grado: puede que aún no la tengas.\n\n`
+      : maxGrade === 1
       ? en
         ? `I'm only showing tier I${level ? `: at level ${level} those are the ones you can surely engrave` : ""}. ${sayGrade}\n\n`
         : `Solo te enseño las de grado I${level ? `: a nivel ${level} son las que seguro puedes tallar` : ""}. ${sayGrade}\n\n`
