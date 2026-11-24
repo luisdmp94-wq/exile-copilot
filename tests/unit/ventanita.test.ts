@@ -31,6 +31,7 @@ import {
   onReward,
   onToggleBoss,
   onToggleReward,
+  resistanceNotice,
   sanitizeRun,
   outsideSentence,
   unseenSentence,
@@ -41,6 +42,7 @@ import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../o
 import { BOSS_SIGNS, REWARD_RULES, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
 import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
+import { sentencePieces, stepLines, stepSentences } from "../../overlay/src/stepText";
 import { ZONE_CODES } from "../../overlay/src/zones";
 
 // Líneas con el formato del Client.txt real (22-11-2026), sin datos de la cuenta.
@@ -298,6 +300,41 @@ describe("ventanita: recompensas y lo que te dejas", () => {
     const interlude = play(["P1_1"], actFour);
     const zones = interlude.leftBehind?.items.map((item) => item.zone);
     expect(zones).toEqual(["El ojo de Hinekora", "Salones de los muertos", "La prueba de los ancestros"]);
+  });
+
+  it("al pasar de acto avisa de cuánto bajan las resistencias, con la cifra de la guía", () => {
+    const actTwo = play([...ACT_ONE_STORY, "G2_town"]);
+    expect(actTwo.resistDrop).toEqual({ into: 2, zonesLeft: 3 });
+    expect(viewOf(actTwo, "completa").resistances).toBe(
+      "Acto 2: la penalización de resistencias es ya de −10 %. Mira tu hoja: apunta a un 30 % en fuego, hielo y rayo.",
+    );
+    // Las cifras son las tarjetas de «Resistencias» de la guía del acto 1, no otras.
+    const cards = GUIDES[0]!.blocks.find((block) => block.id === "resistencias")!.cards!;
+    expect(resistanceNotice({ into: 3, zonesLeft: 3 })).toContain(cards.find((card) => card.title === "Acto 3")!.text);
+    expect(resistanceNotice({ into: 4, zonesLeft: 3 })).toContain("−30 %");
+    expect(resistanceNotice({ into: "interludios", zonesLeft: 3 })).toBe(
+      "Interludios: la penalización de resistencias es ya de −40 % a −50 %. Mira tu hoja: apunta a un 30 % en fuego, hielo y rayo.",
+    );
+    // En el acto 1 no se pierde nada: no hay aviso.
+    expect(play(["G1_1", "G1_2"]).resistDrop ?? null).toBeNull();
+    expect(viewOf(play(["G1_1", "G1_2"]), "completa").resistances).toBeNull();
+    expect(resistanceNotice({ into: 1, zonesLeft: 3 })).toBeNull();
+  });
+
+  it("el aviso de resistencias se va solo tras tres zonas, o con el resumen, y no se guarda", () => {
+    const warned = play([...ACT_ONE_STORY, "G2_town"]);
+    expect(play(["G2_1", "G2_town"], warned).resistDrop?.zonesLeft).toBe(1);
+    expect(play(["G2_1", "G2_town", "G2_10_1"], warned).resistDrop).toBeNull();
+    expect(onDismissNotice(warned).resistDrop).toBeNull();
+    expect(sanitizeRun(JSON.parse(JSON.stringify(warned))).resistDrop).toBeNull();
+    // Volver al pueblo del mismo acto no lo vuelve a sacar.
+    const later = play(["G2_1", "G2_town", "G2_10_1", "G2_town"], warned);
+    expect(later.resistDrop).toBeNull();
+  });
+
+  it("al salir del acto 4 a los interludios también avisa", () => {
+    const actFour = play(["G4_town", "G4_2_1", "G4_2_2", "G4_1_1"]);
+    expect(play(["P1_1"], actFour).resistDrop).toEqual({ into: "interludios", zonesLeft: 3 });
   });
 
   it("el resumen del acto distingue cogida, pisada, dejada y pendiente", () => {
@@ -780,5 +817,57 @@ describe("ventanita: una partida por personaje", () => {
     expect(byLevel).toMatchObject({ current: "Ana", others: [nameId("Vecino")], runs: {} });
     expect(byLevel.run).toMatchObject({ charLevel: 17, checked: ["1:1"] });
     expect(byLevel.run.visited).toContain("G2_10_2");
+  });
+});
+
+describe("ventanita: el texto del paso, una frase por línea", () => {
+  const KRUTOG =
+    "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra. " +
+    "En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (2 de 4).";
+
+  it("parte por frases y no pierde ni una letra", () => {
+    const sentences = stepSentences(KRUTOG);
+    expect(sentences).toEqual([
+      "Krutog, Señor del clan, pega con rayo.",
+      "La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra.",
+      "En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (2 de 4).",
+    ]);
+    expect(sentences.join(" ")).toBe(KRUTOG);
+  });
+
+  it("«nv. 5» y los dos puntos no parten una frase", () => {
+    expect(stepSentences("Gema de habilidad nv. 5: tras el verdugo. Sigue al norte.")).toEqual([
+      "Gema de habilidad nv. 5: tras el verdugo.",
+      "Sigue al norte.",
+    ]);
+    expect(stepSentences("Una sola frase sin punto")).toEqual(["Una sola frase sin punto"]);
+  });
+
+  it("marca solo el daño que te pega, no cualquier «fuego»", () => {
+    expect(sentencePieces("Krutog, Señor del clan, pega con rayo.")).toEqual([
+      { text: "Krutog, Señor del clan, pega con " },
+      { text: "rayo", element: "rayo" },
+      { text: "." },
+    ]);
+    expect(sentencePieces("Pega con fuego y hielo: lleva las dos.").filter((piece) => piece.element).map((piece) => piece.element)).toEqual([
+      "fuego",
+      "hielo",
+    ]);
+    // «Quijada negra (+10 % de fuego para siempre)» es un premio, no un golpe.
+    expect(sentencePieces("Quijada negra da +10 % de fuego para siempre.").some((piece) => piece.element)).toBe(false);
+  });
+
+  it("ningún paso de las guías pierde texto al trocearlo", () => {
+    let steps = 0;
+    for (const act of [1, 2, 3, 4]) {
+      for (const step of routeOf(act)) {
+        steps += 1;
+        const rebuilt = stepLines(step.text)
+          .map((pieces) => pieces.map((piece) => piece.text).join(""))
+          .join(" ");
+        expect(rebuilt, `${act}: ${step.zone}`).toBe(step.text.trim().replace(/\s+/g, " "));
+      }
+    }
+    expect(steps).toBeGreaterThan(40);
   });
 });

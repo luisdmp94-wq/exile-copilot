@@ -35,6 +35,8 @@
       #zona { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--oro); margin-top: 4px; }
       .aviso { font-size: 11px; color: var(--oro); margin-top: 4px; line-height: 1.35; }
       .aviso.importante { color: #f5c4b3; background: rgba(153, 60, 29, 0.35); border-radius: 4px; padding: 3px 6px; }
+      /* Al cambiar de acto: cuánto baja la resistencia. Ámbar, para que no parezca un error. */
+      .aviso.resistencias { background: rgba(239, 159, 39, 0.16); border-radius: 4px; padding: 3px 6px; }
 
       /* Si la recompensa es larga («+10 % resistencia al hielo»), la nota baja a la línea siguiente. */
       .objetivo { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; margin-top: 5px; font-size: 12px; }
@@ -48,6 +50,16 @@
       #hecho { font-size: 12px; font-weight: 600; color: var(--verde); margin: 0 0 5px; }
 
       #ahora { font-size: 13px; line-height: 1.4; margin: 4px 0 5px; }
+      /* Varias frases: una por línea, con una raya fina que las separa a la vista. */
+      #ahora.frases .frase { padding-left: 9px; border-left: 2px solid var(--raya); }
+      #ahora.frases .frase + .frase { margin-top: 3px; }
+      #ahora.frases .frase:first-child { border-left-color: var(--borde); }
+      /* El tipo de daño que te pega, de su color: dice qué resistencia mirar. */
+      .dano { font-weight: 600; }
+      .dano.fuego { color: #f0997b; }
+      .dano.hielo { color: #9fd0f5; }
+      .dano.rayo { color: #f5dd7a; }
+      .dano.caos { color: #c9a0e8; }
       #extras { list-style: none; margin: -1px 0 5px; padding: 0; font-size: 11px; line-height: 1.35; color: var(--suave); }
       #extras li { display: flex; gap: 5px; padding: 1px 0; }
       #extras .marca { flex-shrink: 0; color: var(--verde); }
@@ -87,6 +99,8 @@
 
       body.compacta .objetivo, body.compacta .pie, body.compacta #extras { display: none; }
       body.compacta #ahora { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0; }
+      /* Compacta: las frases van seguidas, como antes, para que quepan en dos líneas. */
+      body.compacta #ahora.frases .frase { display: inline; padding-left: 0; border-left: 0; margin-top: 0; }
       /* Fuera de la campaña se queda en una línea para no estorbar en mapas y guarida. */
       body.fuera #zona, body.fuera .objetivo, body.fuera #ahora, body.fuera #extras, body.fuera #hecho, body.fuera .pie, body.fuera #tag, body.fuera #ruta { display: none; }
       body.fuera .caja { padding: 5px 12px; }
@@ -94,7 +108,7 @@
       /* Minimizada: una línea con la zona. Solo queda a la vista lo que te dejaste al cambiar de acto. */
       body.minimizada #zona, body.minimizada .objetivo, body.minimizada #ahora, body.minimizada #extras, body.minimizada #hecho,
       body.minimizada .pie, body.minimizada #tag, body.minimizada #ruta, body.minimizada #engranaje,
-      body.minimizada #resumen, body.minimizada #ajustes, body.minimizada .aviso:not(.importante) { display: none; }
+      body.minimizada #resumen, body.minimizada #ajustes, body.minimizada .aviso:not(.importante):not(.resistencias) { display: none; }
       /* Ocupa lo que ocupa su línea, hasta el ancho normal; la ventana se ajusta a eso. */
       body.minimizada .caja { padding: 5px 12px; width: max-content; max-width: 340px; box-sizing: border-box; }
       body.minimizada .cabecera { gap: 8px; }
@@ -115,6 +129,7 @@
       </div>
       <div id="zona"></div>
       <div id="aviso" class="aviso" hidden></div>
+      <div id="aviso-res" class="aviso resistencias" hidden></div>
       <div id="recompensa" class="objetivo" hidden>
         <span id="casilla" class="casilla" data-raton data-accion="recompensa"></span>
         <span class="etq">Para siempre:</span><span id="premio" class="que"></span><span id="premio-nota" class="nota"></span>

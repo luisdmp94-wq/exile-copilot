@@ -2,6 +2,7 @@ import type { GuideRoutePriority } from "../../src/guides/guide";
 import { BASE_CLASSES, BOSS_SIGNS, REWARD_RULES, type RewardKind } from "./objectives";
 import {
   FIRST_ACT,
+  GUIDES,
   LAST_ACT,
   START,
   actOfCode,
@@ -38,9 +39,9 @@ export interface Run {
   visited: string[];
   /** Recompensas marcadas como cogidas (por el registro o a mano): «acto:paso». */
   checked: string[];
-  /** Pasos cuyo jefe ya cayó: «acto:paso». */
   /** Entregas recibidas de las recompensas que llegan en varias (tres tatuajes): «acto:paso» → cuántas. */
   partial: Record<string, number>;
+  /** Pasos cuyo jefe ya cayó: «acto:paso». */
   bosses: string[];
   /** Código de la zona donde está ahora, también fuera de las guías. */
   area: string | null;
@@ -51,12 +52,46 @@ export interface Run {
   /** El registro ha dicho alguna recompensa de este personaje: si una no consta, es que no la tiene. */
   hears: boolean;
   leftBehind: LeftBehind | null;
+  /** Acaba de pasar de acto (o a los interludios): cuánto le baja la resistencia. Se va solo tras unas zonas. */
+  resistDrop?: ResistDrop | null;
+}
+
+/** El acto al que se llega, o «interludios», y cuántas zonas le quedan al aviso. */
+export interface ResistDrop {
+  into: number | "interludios";
+  zonesLeft: number;
+}
+
+/**
+ * Lo que la guía del acto 1 dice que quita cada acto («Acto 2» → «−10 %»).
+ * Sale de sus tarjetas de «Resistencias»: aquí no se escribe ninguna cifra.
+ */
+function resistancePenalty(into: ResistDrop["into"]): string | null {
+  const cards = GUIDES.flatMap((guide) => guide.blocks).find((block) => block.id === "resistencias")?.cards ?? [];
+  const title = into === "interludios" ? "Interludios" : `Acto ${into}`;
+  return cards.find((card) => card.title === title)?.text ?? null;
+}
+
+/**
+ * El aviso al cambiar de acto: «Acto 3: la penalización de resistencias es ya
+ * de −20 %. Mira tu hoja: apunta a un 30 % en fuego, hielo y rayo». Null si la
+ * guía no dice nada de ese acto.
+ */
+export function resistanceNotice(drop: ResistDrop | null | undefined): string | null {
+  if (!drop) return null;
+  const penalty = resistancePenalty(drop.into);
+  if (!penalty) return null;
+  const target = GUIDES[0]?.check.elemental;
+  const where = drop.into === "interludios" ? "Interludios" : `Acto ${drop.into}`;
+  const aim = typeof target === "number" ? ` Mira tu hoja: apunta a un ${target} % en fuego, hielo y rayo.` : " Mira tu hoja de personaje.";
+  return `${where}: la penalización de resistencias es ya de ${penalty}.${aim}`;
 }
 
 export const NEW_RUN: Run = {
   progress: START,
   visited: [],
   checked: [],
+  partial: {},
   bosses: [],
   area: null,
   areaLevel: null,
@@ -64,9 +99,12 @@ export const NEW_RUN: Run = {
   className: null,
   hears: false,
   leftBehind: null,
+  resistDrop: null,
 };
 
 const LEFT_BEHIND_ZONES = 3;
+/** El pueblo, la primera zona y la segunda: lo justo para verlo y mirar la hoja. */
+const RESIST_DROP_ZONES = 3;
 
 const stepKey = (act: number, index: number) => `${act}:${index}`;
 
@@ -94,7 +132,6 @@ export function missedRewards(
     if (step.priority !== "clave" || !step.reward) return [];
     if (run.checked.includes(stepKey(act, index))) return [];
     const stepped = codesOfStep(act, index).some((code) => visited.has(code));
-  partial: {},
     if (stepped && !wouldBeKnown(run, act, step.zone)) return [];
     // A medias (dos tatuajes de tres) se dice cuántas lleva: no es lo mismo que no tener ninguna.
     const got = run.partial?.[stepKey(act, index)] ?? 0;
@@ -152,9 +189,20 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
     const items = missedRewards({ visited, checked: run.checked, hears: run.hears, partial: run.partial }, leftAct);
     leftBehind = items.length > 0 ? { act: leftAct, items, zonesLeft: LEFT_BEHIND_ZONES } : null;
   }
+  // Y se avisa de cuánto baja la resistencia en el acto al que llega: es
+  // cuando un novato empieza a morir sin saber por qué. Dura unas zonas.
+  let resistDrop = run.resistDrop
+    ? run.resistDrop.zonesLeft > 1
+      ? { ...run.resistDrop, zonesLeft: run.resistDrop.zonesLeft - 1 }
+      : null
+    : null;
+  if (leftAct !== null) {
+    const into: ResistDrop["into"] = act ?? "interludios";
+    resistDrop = resistancePenalty(into) ? { into, zonesLeft: RESIST_DROP_ZONES } : null;
+  }
   // El nivel de un pueblo no dice nada de lo duro que es el acto.
   const areaLevel = /_town$/i.test(code) || act === null ? run.areaLevel : level;
-  return { ...run, progress, visited, area: normalizeCode(code), areaLevel, leftBehind };
+  return { ...run, progress, visited, area: normalizeCode(code), areaLevel, leftBehind, resistDrop };
 }
 
 /**
@@ -255,7 +303,7 @@ export function onToggleReward(run: Run): Run {
 }
 
 export function onDismissNotice(run: Run): Run {
-  return { ...run, leftBehind: null };
+  return { ...run, leftBehind: null, resistDrop: null };
 }
 
 /** Una partida guardada que ya no encaja vuelve a empezar sin romper nada. */
@@ -267,6 +315,11 @@ export function sanitizeRun(value: unknown): Run {
     progress: sanitize(raw.progress),
     visited: strings(raw.visited),
     checked: strings(raw.checked),
+    partial: Object.fromEntries(
+      Object.entries(raw.partial && typeof raw.partial === "object" ? raw.partial : {}).filter(
+        (entry): entry is [string, number] => Number.isInteger(entry[1]) && (entry[1] as number) > 0,
+      ),
+    ),
     bosses: strings(raw.bosses),
     area: typeof raw.area === "string" ? raw.area : null,
     areaLevel: level(raw.areaLevel),
@@ -274,6 +327,7 @@ export function sanitizeRun(value: unknown): Run {
     className: typeof raw.className === "string" ? raw.className : null,
     hears: raw.hears === true,
     leftBehind: null,
+    resistDrop: null,
   };
 }
 
@@ -304,6 +358,14 @@ export interface RewardRow {
    */
   state: "cogida" | "falta" | "pisada" | "dejada" | "pendiente";
   optional: boolean;
+  /** «1 de 3» cuando llega en varias entregas y ya tiene alguna. */
+  partial: string | null;
+}
+
+/** «1 de 3», o null si no llega en varias entregas, no tiene ninguna o ya las tiene todas. */
+function partialText(run: Pick<Run, "partial">, act: number, index: number): string | null {
+  const progress = rewardProgress(run, act, index);
+  return progress && progress.got > 0 && progress.got < progress.of ? `${progress.got} de ${progress.of}` : null;
 }
 
 export interface StepView {
@@ -315,11 +377,6 @@ export interface StepView {
   priority: GuideRoutePriority;
   optional: boolean;
   /** Fuera de la ruta rápida (estás en una zona que esa ruta no hace). */
-    partial: Object.fromEntries(
-      Object.entries(raw.partial && typeof raw.partial === "object" ? raw.partial : {}).filter(
-        (entry): entry is [string, number] => Number.isInteger(entry[1]) && (entry[1] as number) > 0,
-      ),
-    ),
   offRoute: boolean;
   /** `auto`: el registro la marca sola al recibirla; si no, se marca a mano. `partial`: «1 de 3». */
   reward: { text: string; checked: boolean; auto: boolean; partial: string | null } | null;
@@ -340,6 +397,8 @@ export interface StepView {
   charLevel: number | null;
   level: LevelState | null;
   leftBehind: LeftBehind | null;
+  /** «Acto 3: tus resistencias bajan a −20 %…», recién cambiado de acto; si no, null. */
+  resistances: string | null;
   /** Las recompensas para siempre del acto, para el resumen. */
   rewards: RewardRow[];
   /** Lo que se quedó sin coger en los actos anteriores. */
@@ -358,14 +417,6 @@ export function actSeen(run: Pick<Run, "visited">, act: number): boolean {
   return routeOf(act).some((_, index) => codesOfStep(act, index).some((code) => visited.has(code)));
 }
 
-  /** «1 de 3» cuando llega en varias entregas y ya tiene alguna. */
-  partial: string | null;
-}
-
-/** «1 de 3», o null si no llega en varias entregas, no tiene ninguna o ya las tiene todas. */
-function partialText(run: Pick<Run, "partial">, act: number, index: number): string | null {
-  const progress = rewardProgress(run, act, index);
-  return progress && progress.got > 0 && progress.got < progress.of ? `${progress.got} de ${progress.of}` : null;
 /**
  * Dónde está el jugador cuando no está en los actos 1-4, dicho con sus
  * palabras. En un interludio se avisa de que la guía acaba en el acto 4: si
@@ -462,6 +513,7 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     charLevel: run.charLevel,
     level: levelState(run.areaLevel, run.charLevel),
     leftBehind: run.leftBehind,
+    resistances: resistanceNotice(run.resistDrop),
     rewards: rewardRows(run, progress.act),
     missedBefore: earlierActs
       .filter((act) => actSeen(run, act))

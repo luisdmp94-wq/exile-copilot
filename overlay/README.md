@@ -11,7 +11,9 @@ guía (actos 1 a 4, las guías de `src/guides`).
 
 ## Qué enseña
 
-- La zona donde estás, en grande, y el texto entero de su paso en la guía.
+- La zona donde estás, en grande, y el texto entero de su paso en la guía,
+  **una frase por línea**. El tipo de daño del jefe («pega con rayo») va de su
+  color. En la vista compacta las frases van seguidas, en dos líneas.
 - **La recompensa para siempre** del paso («Para siempre: +10 % resistencia al hielo»)
   con una casilla que **se marca sola** cuando el juego escribe que la has
   recibido. Tu primera ascendencia también: se nota en que tu clase cambia
@@ -35,6 +37,12 @@ guía (actos 1 a 4, las guías de `src/guides`).
 - **Lo que te dejas:** al pasar de acto avisa de las zonas con algo para
   siempre que no pisaste («Te dejaste en el acto 1: Villafrey (+30 de
   espíritu)»). Se va solo tras tres zonas.
+- **Resistencias al cambiar de acto:** al entrar en el acto 2, 3 o 4, o en los
+  interludios, avisa en ámbar de cuánto bajan («Acto 3: la penalización de
+  resistencias es ya de −20 %. Mira tu hoja: apunta a un 30 % en fuego, hielo
+  y rayo»). Las cifras son las de la guía del acto 1. Se va solo tras tres
+  zonas, o al abrir las recompensas del acto. La ventanita no sabe cuánta
+  resistencia tienes: solo te recuerda que mires.
 - **Recompensas del acto** (Ctrl+Alt+R): ✓ la tienes · ○ no la tienes
   (estuviste y el juego nunca escribió que la recibieras, o ni pisaste la
   zona) · ? estuviste y no se puede saber · · más adelante. Debajo, **lo que

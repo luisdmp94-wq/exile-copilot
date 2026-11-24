@@ -1,5 +1,6 @@
 import { unseenSentence, type RewardRow, type StepView } from "./run";
 import type { Settings } from "./settings";
+import { stepLines } from "./stepText";
 
 interface OverlayState {
   view: StepView;
@@ -25,6 +26,36 @@ declare global {
 }
 
 const byId = (id: string) => document.getElementById(id)!;
+
+/**
+ * El texto del paso, una frase por línea: se lee de un vistazo en mitad de una
+ * pelea. El tipo de daño del jefe va de su color. Con una sola frase no hay
+ * nada que partir y se queda como siempre.
+ */
+function drawStepText(text: string): void {
+  const lines = stepLines(text);
+  const box = byId("ahora");
+  box.classList.toggle("frases", lines.length > 1);
+  box.replaceChildren(
+    ...lines.map((pieces) => {
+      const line = document.createElement("div");
+      line.className = "frase";
+      for (const piece of pieces) {
+        if (!piece.element) {
+          line.append(piece.text);
+          continue;
+        }
+        const mark = document.createElement("span");
+        mark.className = `dano ${piece.element}`;
+        mark.textContent = piece.text;
+        line.append(mark);
+      }
+      // Un espacio al final: en la vista compacta las frases van seguidas.
+      line.append(" ");
+      return line;
+    }),
+  );
+}
 
 function setText(id: string, text: string | null): void {
   const element = byId(id);
@@ -187,6 +218,8 @@ function draw(state: OverlayState): void {
           : null;
   setText("aviso", notice);
   byId("aviso").className = view.leftBehind && !state.problem && !state.waitingForGame ? "aviso importante" : "aviso";
+  // Recién cambiado de acto: cuánto baja la resistencia. Va aparte, para que no lo tape otro aviso.
+  setText("aviso-res", state.problem || state.waitingForGame ? null : view.resistances);
 
   // Los objetivos que el registro deja comprobar: la recompensa para siempre y el jefe.
   const goal = (row: string, box: string, done: boolean) => {
@@ -217,7 +250,7 @@ function draw(state: OverlayState): void {
     view.ready !== true ? null : view.boss ? "✓ Zona hecha: puedes seguir." : "✓ Ya tienes lo de esta zona: puedes seguir.",
   );
 
-  byId("ahora").textContent = view.text;
+  drawStepText(view.text);
   drawExtras(view, settings.route);
   byId("luego").textContent = view.next
     ? `Luego: ${view.next.zone}${view.next.reward ? ` (${view.next.reward})` : ""}`
