@@ -52,6 +52,11 @@ guía (actos 1 a 4, las guías de `src/guides`).
 sacar de la pantalla. Si otro programa ya usa una de las teclas, la ventanita
 lo avisa.
 
+**Minimizar:** el botón **–**, junto al engranaje, la deja en una línea con la
+zona y el paso («Salones de los muertos · 9/15», con ✓ si la zona ya está
+hecha). **▢** la despliega. Minimizada solo enseña lo que te dejaste al
+cambiar de acto.
+
 **Ajustes:** el engranaje ⚙ de la derecha de la cabecera abre los ajustes en
 la propia ventanita: ruta completa o rápida, tamaño, fondo, compacta, solo con
 PoE2 delante, recompensas del acto, volver a su sitio, elegir Client.txt,

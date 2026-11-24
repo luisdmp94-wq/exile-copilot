@@ -381,6 +381,13 @@ describe("ventanita: solo con PoE2 delante", () => {
     expect(shouldBeVisible({ ...base, foreground: undefined })).toBe(true);
   });
 
+  it("minimizada viene apagada y se recuerda", () => {
+    expect(DEFAULT_SETTINGS.minimized).toBe(false);
+    expect(sanitizeSettings({ minimized: true }).minimized).toBe(true);
+    expect(sanitizeSettings({ minimized: "sí" }).minimized).toBe(false);
+    expect(sanitizeSettings({}).minimized).toBe(false);
+  });
+
   it("el ajuste viene activado y se puede quitar", () => {
     expect(DEFAULT_SETTINGS.onlyWithGame).toBe(true);
     expect(sanitizeSettings({ onlyWithGame: false }).onlyWithGame).toBe(false);

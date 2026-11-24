@@ -137,11 +137,22 @@ function draw(state: OverlayState): void {
     outside ? "fuera" : "",
     state.showSummary ? "con-resumen" : "",
     state.showSettings ? "con-ajustes" : "",
+    settings.minimized ? "minimizada" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  byId("pos").textContent = outside ? "Fuera de la campaña (guarida, mapas…)" : `Acto ${view.act} · paso ${view.number} de ${view.total}`;
+  // Minimizada: lo justo para saber dónde estás (y si la zona ya está hecha).
+  const pos = byId("pos");
+  pos.textContent = outside
+    ? "Fuera de la campaña (guarida, mapas…)"
+    : settings.minimized
+      ? `${view.ready ? "✓ " : ""}${view.zone} · ${view.number}/${view.total}`
+      : `Acto ${view.act} · paso ${view.number} de ${view.total}`;
+  pos.className = settings.minimized && !outside && view.ready ? "listo" : "";
+  const minimize = byId("minimizar");
+  minimize.textContent = settings.minimized ? "▢" : "–";
+  minimize.title = settings.minimized ? "Desplegar" : "Minimizar";
   byId("zona").textContent = view.zone;
   const tag = byId("tag");
   const tagName = view.offRoute ? "fuera de la ruta rápida" : view.optional ? "opcional" : view.priority;

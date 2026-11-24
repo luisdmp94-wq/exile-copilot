@@ -9,6 +9,8 @@ export interface Settings {
   opacity: "clara" | "normal" | "opaca";
   /** Solo se ve con PoE2 delante; al cambiar de ventana se esconde. */
   onlyWithGame: boolean;
+  /** Minimizada: una sola línea con la zona, para que no tape el juego. */
+  minimized: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -17,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   compact: false,
   opacity: "normal",
   onlyWithGame: true,
+  minimized: false,
 };
 
 export const SIZE_SCALE: Record<Settings["size"], number> = { pequena: 0.9, normal: 1, grande: 1.15 };
@@ -31,5 +34,6 @@ export function sanitizeSettings(value: unknown): Settings {
     compact: raw.compact === true,
     opacity: pick(raw.opacity, ["clara", "normal", "opaca"] as const, DEFAULT_SETTINGS.opacity),
     onlyWithGame: raw.onlyWithGame !== false,
+    minimized: raw.minimized === true,
   };
 }

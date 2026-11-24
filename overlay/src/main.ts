@@ -341,11 +341,19 @@ function setUserHidden(hidden: boolean): void {
 function togglePanel(which: "resumen" | "ajustes"): void {
   panel = panel === which ? null : which;
   if (panel === "resumen") saved = { ...saved, run: onDismissNotice(saved.run) };
+  // Abrir un panel con la ventanita minimizada la despliega: si no, no se vería.
+  if (panel !== null && saved.settings.minimized) saved = { ...saved, settings: { ...saved.settings, minimized: false } };
   render();
   buildTrayMenu();
 }
 
 const toggleSummary = () => togglePanel("resumen");
+
+/** Minimizar: se queda en una línea con la zona. Los paneles se cierran. */
+function toggleMinimized(): void {
+  if (!saved.settings.minimized) panel = null;
+  updateSettings({ minimized: !saved.settings.minimized });
+}
 
 /** Un círculo ámbar de 16 px para la bandeja, sin archivos de imagen. */
 function trayIcon(): Electron.NativeImage {
@@ -392,6 +400,7 @@ function buildTrayMenu(): void {
           { label: "Fondo opaco", type: "radio", checked: s.opacity === "opaca", click: () => updateSettings({ opacity: "opaca" }) },
         ],
       },
+      { label: s.minimized ? "Desplegar" : "Minimizar (una línea)", click: toggleMinimized },
       { label: userHidden ? "Mostrar" : "Ocultar", click: () => setUserHidden(!userHidden) },
       { type: "separator" },
       { label: "Re Pág / Av Pág: paso anterior / siguiente", enabled: false },
@@ -495,6 +504,8 @@ ipcMain.on("accion", (_event, name: unknown, value: unknown) => {
       return updateSettings(sanitizeSettings({ ...s, opacity: value }));
     case "compacta":
       return updateSettings({ compact: !s.compact });
+    case "minimizar":
+      return toggleMinimized();
     case "solo-juego":
       return updateSettings({ onlyWithGame: !s.onlyWithGame });
     case "sitio":
@@ -536,6 +547,7 @@ async function runTestActions(list: string): Promise<void> {
     if (action === "resumen") toggleSummary();
     if (action === "rapida") updateSettings({ route: "rapida" });
     if (action === "compacta") updateSettings({ compact: true });
+    if (action === "minimizada") updateSettings({ minimized: true });
     if (action === "grande") updateSettings({ size: "grande" });
     if (action.startsWith("clic:")) await mouseForTest(action.slice(5), ["mouseDown", "mouseUp"]);
     if (action.startsWith("pulsa:")) await mouseForTest(action.slice(6), ["mouseDown"]);

@@ -18,11 +18,12 @@
 
       /* Cabecera: asa, por dónde vas, tipo de zona y engranaje. */
       .cabecera { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--suave); }
-      #asa, #engranaje { flex-shrink: 0; padding: 2px 4px; font-size: 13px; line-height: 1; color: #888780; border-radius: 4px; }
+      #asa, #engranaje, #minimizar { flex-shrink: 0; padding: 2px 4px; font-size: 13px; line-height: 1; color: #888780; border-radius: 4px; }
       #asa { margin: -4px 0 -4px -6px; cursor: grab; }
       #asa:active { cursor: grabbing; }
       #engranaje { margin: -4px -6px -4px 0; cursor: pointer; }
-      #asa:hover, #engranaje:hover, body.con-ajustes #engranaje { color: var(--oro); background: rgba(239, 159, 39, 0.15); }
+      #minimizar { margin: -4px -2px -4px 0; cursor: pointer; font-weight: 700; }
+      #asa:hover, #engranaje:hover, #minimizar:hover, body.con-ajustes #engranaje { color: var(--oro); background: rgba(239, 159, 39, 0.15); }
       #pos { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #ruta { flex-shrink: 0; font-size: 10px; color: var(--verde); border: 1px solid rgba(159, 225, 203, 0.4); border-radius: 4px; padding: 0 4px; }
       .tag { margin-left: auto; flex-shrink: 0; font-size: 11px; padding: 0 6px; border-radius: 4px; white-space: nowrap; }
@@ -88,7 +89,15 @@
       /* Fuera de la campaña se queda en una línea para no estorbar en mapas y guarida. */
       body.fuera #zona, body.fuera .objetivo, body.fuera #ahora, body.fuera #extras, body.fuera #hecho, body.fuera .pie, body.fuera #tag, body.fuera #ruta { display: none; }
       body.fuera .caja { padding: 5px 12px; }
-      body.fuera #engranaje { margin-left: auto; }
+      body.fuera #minimizar { margin-left: auto; }
+      /* Minimizada: una línea con la zona. Solo queda a la vista lo que te dejaste al cambiar de acto. */
+      body.minimizada #zona, body.minimizada .objetivo, body.minimizada #ahora, body.minimizada #extras, body.minimizada #hecho,
+      body.minimizada .pie, body.minimizada #tag, body.minimizada #ruta, body.minimizada #engranaje,
+      body.minimizada #resumen, body.minimizada #ajustes, body.minimizada .aviso:not(.importante) { display: none; }
+      body.minimizada .caja { padding: 5px 12px; }
+      body.minimizada #pos { color: var(--oro); font-size: 12px; }
+      body.minimizada #minimizar { margin-left: auto; margin-right: -6px; }
+      body.minimizada #pos.listo { color: var(--verde); }
     </style>
   </head>
   <body>
@@ -98,6 +107,7 @@
         <span id="pos">Acto 1</span>
         <span id="ruta" hidden>rápida</span>
         <span id="tag" class="tag"></span>
+        <span id="minimizar" data-raton data-accion="minimizar" title="Minimizar">–</span>
         <span id="engranaje" data-raton data-accion="ajustes" title="Ajustes">⚙</span>
       </div>
       <div id="zona"></div>
