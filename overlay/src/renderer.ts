@@ -156,7 +156,7 @@ function draw(state: OverlayState): void {
   // Minimizada: lo justo para saber dónde estás (y si la zona ya está hecha).
   const pos = byId("pos");
   pos.textContent = outside
-    ? "Fuera de la campaña (guarida, mapas…)"
+    ? view.outsideText
     : settings.minimized
       ? `${view.ready ? "✓ " : ""}${view.zone} · ${view.number}/${view.total}`
       : `Acto ${view.act} · paso ${view.number} de ${view.total}`;

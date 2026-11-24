@@ -304,6 +304,8 @@ export interface StepView {
   /** El paso siguiente: la zona y, si la tiene, su recompensa para siempre. */
   next: { zone: string; reward: string | null } | null;
   outside: boolean;
+  /** Qué decir en esa única línea de «fuera»: interludio, guarida, mapas… */
+  outsideText: string;
   areaLevel: number | null;
   charLevel: number | null;
   level: LevelState | null;
@@ -324,6 +326,18 @@ export interface StepView {
 export function actSeen(run: Pick<Run, "visited">, act: number): boolean {
   const visited = new Set(run.visited);
   return routeOf(act).some((_, index) => codesOfStep(act, index).some((code) => visited.has(code)));
+}
+
+/**
+ * Dónde está el jugador cuando no está en los actos 1-4, dicho con sus
+ * palabras. En un interludio se avisa de que la guía acaba en el acto 4: si
+ * no, parece que la ventanita se ha quedado muda sin motivo.
+ */
+export function outsideSentence(code: string | null): string {
+  if (code && /^P\d+_/i.test(code)) return "Interludio: la guía llega hasta el acto 4";
+  if (code && /^Hideout/i.test(code)) return "En tu guarida";
+  if (code && /^Map/i.test(code)) return "En mapas";
+  return "Fuera de la campaña";
 }
 
 /** «Del acto 1 no vi nada…» / «De los actos 1, 2 y 3 no vi nada…». */
@@ -399,6 +413,7 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     skip: step.skip ?? null,
     next: nextStep ? { zone: nextStep.zone, reward: nextStep.reward ?? null } : null,
     outside: progress.outside,
+    outsideText: outsideSentence(run.area),
     areaLevel: run.areaLevel,
     charLevel: run.charLevel,
     level: levelState(run.areaLevel, run.charLevel),

@@ -32,6 +32,7 @@ import {
   onToggleBoss,
   onToggleReward,
   sanitizeRun,
+  outsideSentence,
   unseenSentence,
   viewOf,
   type Run,
@@ -549,6 +550,18 @@ describe("ventanita: objetivos que se marcan solos", () => {
     expect(viewOf(nextAct, "completa").missedBefore).toContainEqual({ act: 1, zone: "Mansión de Ogham", reward: "+20 de vida" });
     expect(viewOf(nextAct, "completa").unseenActs).toEqual([]);
     expect(viewOf(heard, "completa").missedBefore).toEqual([]);
+  });
+
+  it("fuera de los actos 1-4 dice dónde estás, y en un interludio que la guía acaba en el acto 4", () => {
+    expect(outsideSentence("P1_3")).toBe("Interludio: la guía llega hasta el acto 4");
+    expect(outsideSentence("P2_Town")).toBe("Interludio: la guía llega hasta el acto 4");
+    expect(outsideSentence("HideoutShoreline")).toBe("En tu guarida");
+    expect(outsideSentence("MapRiverhold")).toBe("En mapas");
+    expect(outsideSentence("Sanctum_1")).toBe("Fuera de la campaña");
+    expect(outsideSentence(null)).toBe("Fuera de la campaña");
+    const interlude = play(["G4_town", "P1_Town"]);
+    expect(viewOf(interlude, "completa").outside).toBe(true);
+    expect(viewOf(interlude, "completa").outsideText).toBe("Interludio: la guía llega hasta el acto 4");
   });
 
   it("de un acto que el registro no vio no afirma que falte nada", () => {

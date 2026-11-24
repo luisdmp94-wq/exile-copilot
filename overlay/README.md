@@ -44,7 +44,9 @@ guía (actos 1 a 4, las guías de `src/guides`).
   registro: no sé qué te falta de ahí».
 - **Ruta rápida** (icono de la bandeja): se salta Lodazal, la cámara fundida y
   Punta del botín, y dice qué jefes sin premio puedes saltarte.
-- Fuera de los actos 1-4 (guarida, mapas, interludios) se queda en una línea.
+- Fuera de los actos 1-4 se queda en una línea que dice dónde estás:
+  «Interludio: la guía llega hasta el acto 4», «En tu guarida», «En mapas» o
+  «Fuera de la campaña».
 
 ## Teclas
 
