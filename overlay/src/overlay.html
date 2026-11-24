@@ -94,7 +94,9 @@
       body.minimizada #zona, body.minimizada .objetivo, body.minimizada #ahora, body.minimizada #extras, body.minimizada #hecho,
       body.minimizada .pie, body.minimizada #tag, body.minimizada #ruta, body.minimizada #engranaje,
       body.minimizada #resumen, body.minimizada #ajustes, body.minimizada .aviso:not(.importante) { display: none; }
-      body.minimizada .caja { padding: 5px 12px; }
+      /* Ocupa lo que ocupa su línea, hasta el ancho normal; la ventana se ajusta a eso. */
+      body.minimizada .caja { padding: 5px 12px; width: max-content; max-width: 340px; box-sizing: border-box; }
+      body.minimizada .cabecera { gap: 8px; }
       body.minimizada #pos { color: var(--oro); font-size: 12px; }
       body.minimizada #minimizar { margin-left: auto; margin-right: -6px; }
       body.minimizada #pos.listo { color: var(--verde); }

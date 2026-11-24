@@ -96,6 +96,8 @@ let dragging: { timer: NodeJS.Timeout } | null = null;
 let place = { x: 0, y: 0 };
 /** Lo que mide el contenido, en píxeles de la página (sin el tamaño elegido). */
 let contentHeight = 110;
+/** Y su ancho, que solo se usa minimizada (la línea ocupa lo justo). */
+let contentWidth = BASE_WIDTH;
 /** Capturas de prueba: se pinta fuera de la pantalla y no coge las teclas del jugador. */
 const CAPTURE = process.env.VENTANITA_CAPTURA;
 let userHidden = false;
@@ -147,7 +149,8 @@ function persist(): void {
 const scale = () => SIZE_SCALE[saved.settings.size];
 
 const boxSize = () => ({
-  width: Math.round(BASE_WIDTH * scale()),
+  // Minimizada mide lo que su línea; desplegada, el ancho de siempre.
+  width: Math.round((saved.settings.minimized ? Math.min(BASE_WIDTH, Math.max(120, Math.ceil(contentWidth))) : BASE_WIDTH) * scale()),
   height: Math.min(600, Math.max(24, Math.ceil(contentHeight * scale()))),
 });
 
@@ -480,9 +483,10 @@ ipcMain.on("arrastre", (_event, phase: unknown) => {
   }
 });
 
-ipcMain.on("altura", (_event, height: unknown) => {
+ipcMain.on("altura", (_event, height: unknown, width: unknown) => {
   if (!win || typeof height !== "number" || !Number.isFinite(height)) return;
   contentHeight = height;
+  if (typeof width === "number" && Number.isFinite(width)) contentWidth = width;
   applyBounds();
 });
 

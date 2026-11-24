@@ -16,7 +16,7 @@ declare global {
   interface Window {
     ventanita: {
       onState: (callback: (state: OverlayState) => void) => void;
-      reportHeight: (height: number) => void;
+      reportSize: (height: number, width: number) => void;
       grip: (over: boolean) => void;
       drag: (phase: "inicio" | "fin") => void;
       action: (name: string, value?: string) => void;
@@ -284,6 +284,9 @@ document.addEventListener("click", (event) => {
 });
 
 // La ventana mide lo que mide la caja, también cuando el texto termina de colocarse.
-new ResizeObserver(() => window.ventanita.reportHeight(document.querySelector(".caja")!.getBoundingClientRect().height + 1)).observe(
-  document.querySelector(".caja")!,
-);
+// El ancho solo cuenta minimizada: ahí la caja ocupa lo que ocupa su línea.
+const box = document.querySelector(".caja")!;
+new ResizeObserver(() => {
+  const size = box.getBoundingClientRect();
+  window.ventanita.reportSize(size.height + 1, size.width + 1);
+}).observe(box);
