@@ -55,7 +55,7 @@ export function buildCraftingMentorReading(
       verdictLabel: en ? "Set the goal" : "Define el objetivo",
       verdictDetail: en
         ? "Without a goal I can't tell progress from noise."
-        : "Sin objetivo no puedo separar progreso de ruido.",
+        : "Sin saber qué buscas no puedo decir si la pieza va bien.",
       matchingModifiers,
       unmatchedModifiers,
       protectCandidates,
@@ -73,7 +73,7 @@ export function buildCraftingMentorReading(
           : "To go on you would have to replace, not add."
         : protectCandidates.length > 0
           ? `${protectCandidates.length} afijo${protectCandidates.length === 1 ? "" : "s"} de grado 1–2 puede${protectCandidates.length === 1 ? "" : "n"} quedar en riesgo.`
-          : "Para continuar habría que reemplazar, no añadir.",
+          : "Ya no cabe nada: para seguir habría que cambiar una línea por otra.",
       matchingModifiers,
       unmatchedModifiers,
       protectCandidates,
@@ -96,7 +96,7 @@ export function buildCraftingMentorReading(
     verdictLabel: en ? "Check first" : "Revisa primero",
     verdictDetail: en
       ? "Nothing matches your goal directly."
-      : "No hay una coincidencia literal con tu objetivo.",
+      : "Ninguna línea es de lo que buscas.",
     matchingModifiers,
     unmatchedModifiers,
     protectCandidates,

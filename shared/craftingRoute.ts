@@ -60,7 +60,7 @@ export function buildCraftingRoute(
       headline: action.label,
       summary: en
         ? "It's the only basic currency that fits the item as it is. You still need to decide if it fits your goal and accept that the result is random."
-        : "Es la única moneda básica compatible con la estructura observada. Aún debes decidir si encaja con tu objetivo y aceptar su incertidumbre.",
+        : "Es la única moneda básica que esta pieza admite ahora. Tú decides si encaja con lo que buscas: el resultado sale al azar.",
       currencyActions: [action],
       toolSuggestions: [],
     };
@@ -73,7 +73,7 @@ export function buildCraftingRoute(
       headline: en ? "There is more than one legal path" : "Hay más de un camino legal",
       summary: en
         ? "The app doesn't rank them as better or worse: choose whether to keep the current rarity or move to the next stage."
-        : "La app no los ordena como mejor o peor: elige si quieres mantener la rareza actual o avanzar de etapa.",
+        : "La app no los ordena como mejor o peor: elige si quieres mantener la rareza actual o subirla.",
       currencyActions: compatible,
       toolSuggestions: [],
     };
@@ -86,7 +86,7 @@ export function buildCraftingRoute(
       headline: en ? "To go on you need to replace, not add" : "Para seguir necesitas reemplazar, no añadir",
       summary: en
         ? "Check a real Essence or Alloy. The app will ask for its tooltip before calling the step compatible; it doesn't guess the effect from the name."
-        : "Revisa una Essence o un Alloy reales. La app pedirá su tooltip antes de declarar la operación compatible; no asume el efecto por el nombre.",
+        : "Mira una Essence o un Alloy que tengas. Antes te pediré lo que dice su descripción en el juego: no doy por hecho su efecto por el nombre.",
       currencyActions: [],
       toolSuggestions: ["essence", "alloy"],
     };
@@ -98,7 +98,7 @@ export function buildCraftingRoute(
     headline: en ? "No basic action is confirmed" : "No hay una acción básica confirmada",
     summary: en
       ? "Open the actions that don't apply to see which data or condition is blocking you."
-      : "Abre las acciones no aplicables para ver qué dato o condición impide continuar.",
+      : "Abre «Ver las que no se pueden usar» para ver qué falta o qué lo impide.",
     currencyActions: [],
     toolSuggestions: [],
   };

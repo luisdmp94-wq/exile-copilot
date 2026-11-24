@@ -73,9 +73,11 @@ export function craftingActionEvidence(
   action: Pick<ObservedCraftingAction, "evidence">,
   lang: Lang = "es",
 ): string {
-  return lang === "en"
-    ? action.evidence.replace(/^Tooltip observado:/, "Observed tooltip:")
-    : action.evidence;
+  if (lang === "en") return action.evidence.replace(/^Tooltip observado:/, "Observed tooltip:");
+  // El registro guarda el nombre de la captura que lo demuestra; al jugador le
+  // basta saber que se comprobó en el juego y cuándo.
+  const checked = /^Tooltip observado: .*\((\d{2}\/\d{2}\/\d{4})\)\.?$/.exec(action.evidence);
+  return checked ? `Comprobado en el juego el ${checked[1]}.` : action.evidence;
 }
 
 export interface CraftingBaseCandidateText {

@@ -535,7 +535,7 @@ export function queryModCandidates(
     reasons:
       reasons.length > 0
         ? reasons
-        : ["No hay ningún snapshot con candidatos para este alcance."],
+        : ["No tengo ninguna lista de modificadores para este tipo de pieza."],
     limitations: unavailable?.limitations ?? [],
   };
 }

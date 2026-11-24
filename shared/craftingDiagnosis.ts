@@ -322,7 +322,7 @@ export function diagnoseCraftingItem(
         : [
             "Un hueco libre no garantiza que una moneda concreta pueda o deba usarse.",
             "No se muestran probabilidades, pesos ni costes porque todavía no están verificados.",
-            "Los límites totales y las transiciones proceden de evidencia local observada el 22/08/2026 y pueden cambiar con un parche.",
+            "Cuántas líneas caben y qué moneda cambia la rareza lo comprobé en el juego el 22/08/2026; un parche puede cambiarlo.",
           ],
     nextAction,
   };

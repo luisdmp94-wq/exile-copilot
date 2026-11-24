@@ -327,7 +327,7 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
         .getByRole("button", { name: "Preparar Orbe exaltado" }),
     );
     const preflight = workspace.getByTestId("crafting-preflight-exalted");
-    await checkBox(preflight.getByLabel(/El objeto sigue igual/));
+    await checkBox(preflight.getByLabel(/La pieza sigue igual/));
 
     const persistedStandaloneId = await page.evaluate(() =>
       localStorage.getItem("exile-copilot:characterId"),
@@ -352,7 +352,7 @@ async function exerciseImplicitCraftingSaveRetry(browser, base, mode) {
       timeout: 15000,
     });
 
-    const confirmationsPreserved = [await preflight.getByLabel(/El objeto sigue igual/).isChecked()];
+    const confirmationsPreserved = [await preflight.getByLabel(/La pieza sigue igual/).isChecked()];
     check(
       `[${mode}] un fallo al crear la decisión conserva objeto, objetivo y confirmaciones`,
       (await workspace.getByText("Núcleo de fénix").first().isVisible()) &&
@@ -553,7 +553,7 @@ async function runFlow(mode, port) {
       `[${mode}] el detalle lleva al banco sin duplicar el planificador`,
       textoDialogo.includes("Analizar y trabajar esta pieza") &&
         !textoDialogo.includes("Monedas disponibles") &&
-        !textoDialogo.includes("Ver evidencia y límites"),
+        !textoDialogo.includes("Ver en qué me baso"),
     );
     check(
       `[${mode}] el detalle compacto no convierte datos parciales en ceros`,
@@ -1016,7 +1016,7 @@ async function runFlow(mode, port) {
     await intencionCrafting.getByTestId("crafting-success-goal-toggle").click();
     check(
       `[${mode}] la intención combina objetivo y restricciones elegidas por clic`,
-      (await intencionCrafting.innerText()).includes("Daño · 1 intocable") &&
+      (await intencionCrafting.innerText()).includes("Daño · 1 protegida") &&
         (await intencionCrafting.innerText()).includes("1/3 condiciones") &&
         (await rutaCrafting.getByRole("button", { name: "Preparar Orbe exaltado" }).isVisible()) &&
         (await tituloMentorContextual.innerText()) === "Al menos 4 afijos de daño",
@@ -1043,7 +1043,7 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la acción compatible aparece antes que las no aplicables`,
       await accionExaltada.isVisible() &&
-        (await craftingWorkspace.getByRole("button", { name: /Ver acciones no aplicables \(3\)/ }).isVisible()),
+        (await craftingWorkspace.getByRole("button", { name: /Ver las que no se pueden usar \(3\)/ }).isVisible()),
     );
     check(
       `[${mode}] una moneda que solo añade no pide proteger modificadores`,
@@ -1071,8 +1071,8 @@ async function runFlow(mode, port) {
       `[${mode}] la lectura separa el núcleo de daño de las etiquetas genéricas de ataque`,
       (await lecturaAfijos.getAttribute("data-aligned-count")) === "3" &&
         textoLecturaAfijos.includes("3 afijos apuntan a daño") &&
-        textoLecturaAfijos.includes("3/5 alineados") &&
-        !textoLecturaAfijos.includes("5/5 alineados"),
+        textoLecturaAfijos.includes("3 de 5 a favor") &&
+        !textoLecturaAfijos.includes("5 de 5 a favor"),
     );
     check(
       `[${mode}] el detalle afijo por afijo empieza plegado y sin métricas inventadas`,
@@ -1083,7 +1083,7 @@ async function runFlow(mode, port) {
       path: join(SHOT_DIR, `crafting-affixes-${mode}.png`),
       fullPage: true,
     });
-    await preflight.getByLabel(/El objeto sigue igual/).check();
+    await preflight.getByLabel(/La pieza sigue igual/).check();
     check(`[${mode}] la confirmación compacta habilita la decisión`, !(await crearDecision.isDisabled()));
     await crearDecision.click();
     const casoCrafting = craftingWorkspace.locator("#seccion-decision-crafting");

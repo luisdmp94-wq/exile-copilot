@@ -86,9 +86,9 @@ describe("lectura observable de afijos", () => {
 
     expect(dexterity).toMatchObject({
       kind: "review-fit",
-      label: "Revisa su encaje",
+      label: "Mira si te sirve",
     });
-    expect(dexterity?.reason).toContain("no coinciden directamente");
+    expect(dexterity?.reason).toContain("no es de lo que buscas");
   });
 
   it("declara la falta de objetivo y conserva todos los afijos como contexto", () => {

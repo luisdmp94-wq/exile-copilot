@@ -314,7 +314,9 @@ describe("Taller avanzado en inglés", () => {
     expect(craftingVariantLabel(greater, "en")).toBe("Greater");
     expect(craftingCurrencyLabelFor(augmentation!, greater, "en")).toBe("Greater Orb of Augmentation");
     expect(craftingActionEvidence(augmentation!, "en")).toMatch(/^Observed tooltip: /);
-    expect(craftingActionEvidence(augmentation!)).toBe(augmentation!.evidence);
+    // En español no se enseña el nombre del archivo de la captura.
+    expect(craftingActionEvidence(augmentation!)).toBe("Comprobado en el juego el 22/08/2026.");
+    expect(craftingActionEvidence({ evidence: "Nota libre." })).toBe("Nota libre.");
   });
 
   it("compara bases en inglés con los mismos estados", () => {

@@ -237,7 +237,7 @@ export function evaluateObservedCraftingActions(
         "compatible",
         en
           ? "The rarity fits and the imported text has no known block for this action."
-          : "La rareza encaja y el texto importado no contiene un bloqueo conocido para esta acción observada.",
+          : "La rareza encaja y no veo nada en la pieza que lo impida.",
       );
     }
 
@@ -271,7 +271,7 @@ export function evaluateObservedCraftingActions(
       "compatible",
       en
         ? "The rarity and total room fit; the imported text has no known block."
-        : "La rareza y el hueco total encajan; el texto importado no contiene un bloqueo conocido.",
+        : "La rareza encaja, cabe una línea más y no veo nada en la pieza que lo impida.",
     );
   });
 }
