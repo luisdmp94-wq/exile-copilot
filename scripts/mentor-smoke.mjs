@@ -317,7 +317,8 @@ async function runFlow(mode, port) {
     check(
       `[${mode}] la consulta contextual es soportada y declara respuesta del motor`,
       /respuesta del motor/i.test(contextualMode) &&
-        !contextualText.includes("No he entendido esa pregunta"),
+        !contextualText.includes("No he entendido esa pregunta") &&
+        !contextualText.includes("no me lo voy a inventar"),
     );
     await page
       .waitForFunction(
