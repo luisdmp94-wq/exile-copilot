@@ -120,6 +120,31 @@ la siguiente. Nada se sube sin su sí.
   Falta comprobar que la clave de Groq de Render funciona: preguntar en la web
   algo dicho raro; si la respuesta empieza por «Entiendo que…», funciona.
 
+- [ ] **13. El Mentor conversa: la IA contesta con los datos de las reglas**
+  (queja de Luis el 25-11 al probarlo: «responde la web antes que la IA y
+  sigue diciendo lo mismo sin ayudarme»). Reproducido en local con una bruja
+  de nivel 49 y siete frases seguidas:
+  - «¿y por qué esa?» tras una respuesta de gemas → habla de los huecos de
+    equipo vacíos. No sabe de qué se estaba hablando.
+  - «esa no la tengo, ¿qué otra me vale?» → repite la misma lista, letra a letra.
+  - «mis esbirros se mueren enseguida» → lista de gemas de esbirro (ve la
+    palabra «esbirros» y nada más).
+  - «¿cómo mato al jefe del acto 3?» → «no sé», y la web tiene la guía del acto 3.
+  - «ya, pero ¿qué hago exactamente?» → la frase genérica de siempre.
+  Causa: las reglas contestan por palabras sueltas, con textos fijos y sin
+  mirar la charla; la IA solo entra cuando ninguna regla reconoce la frase, y
+  solo para decir el tema. Es el paso 2 de la tarea 12, hecho de verdad:
+  - Las reglas siguen poniendo los datos (gemas candidatas, problemas del
+    personaje, textos de las guías). La IA escribe la respuesta con ellos,
+    mirando la pregunta y los turnos anteriores.
+  - El filtro de siempre: ni un nombre ni una cifra que no venga de los datos.
+    Si la IA falla, tarda o no hay cupo, sale el texto de las reglas, como hoy.
+  - Las guías por acto entran como datos (jefes, zonas, recompensas).
+  - Medir con **charlas** (pregunta y dos repreguntas), no con preguntas
+    sueltas: las mediciones anteriores no veían este fallo.
+  - Coste: 1 o 2 s por respuesta y el cupo gratis de Groq (200.000 tokens al
+    día, unas cien respuestas). Antes del 8-12, que se congela.
+
 ### Del 8 al 10 de diciembre
 
 - [ ] **11. Congelar:** batería completa y ningún cambio de última hora.
