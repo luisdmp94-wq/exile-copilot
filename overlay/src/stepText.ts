@@ -28,6 +28,19 @@ export function stepSentences(text: string): string[] {
     .filter(Boolean);
 }
 
+const plain = (text: string) => text.trim().replace(/[.!…]+$/u, "").toLowerCase();
+
+/**
+ * El texto sin la frase que solo nombra al jefe («Benedictus, Primer heraldo de
+ * Utopía.»): con la línea «Jefe:» encima, repetirlo es una línea de más. Si no
+ * quedara nada más que decir, se deja como estaba.
+ */
+export function withoutBossName(text: string, boss: string): string {
+  const sentences = stepSentences(text);
+  const rest = sentences.filter((sentence) => plain(sentence) !== plain(boss));
+  return rest.length > 0 && rest.length < sentences.length ? rest.join(" ") : text;
+}
+
 /** Una frase en trozos: texto corriente y, aparte, cada tipo de daño que te pega. */
 export function sentencePieces(sentence: string): StepPiece[] {
   const pieces: StepPiece[] = [];

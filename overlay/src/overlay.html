@@ -51,6 +51,10 @@
       .objetivo .nota { margin-left: auto; flex-shrink: 0; font-size: 10px; color: var(--suave); }
       .objetivo.hecho .nota { color: var(--verde); }
       #hecho { font-size: 12px; font-weight: 600; color: var(--verde); margin: 0 0 5px; }
+      /* Zona hecha: adónde vas, tan grande como el nombre de la zona. Lo ya hecho se apaga. */
+      #sigue { display: flex; align-items: baseline; gap: 6px; font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--oro); margin: -2px 0 6px; }
+      #sigue .premio { font-size: 11px; font-weight: 400; color: var(--suave); }
+      body.hecha #ahora { font-size: 12px; color: var(--suave); }
 
       #ahora { font-size: 13px; line-height: 1.4; margin: 4px 0 5px; }
       /* Varias frases: una por línea, con una raya fina que las separa a la vista. */
@@ -106,12 +110,12 @@
       /* Compacta: las frases van seguidas, como antes, para que quepan en dos líneas. */
       body.compacta #ahora.frases .frase { display: inline; padding-left: 0; border-left: 0; margin-top: 0; }
       /* Fuera de la campaña se queda en una línea para no estorbar en mapas y guarida. */
-      body.fuera #zona, body.fuera .objetivo, body.fuera #ahora, body.fuera #extras, body.fuera #hecho, body.fuera .pie, body.fuera #tag, body.fuera #ruta { display: none; }
+      body.fuera #zona, body.fuera .objetivo, body.fuera #ahora, body.fuera #extras, body.fuera #hecho, body.fuera #sigue, body.fuera .pie, body.fuera #tag, body.fuera #ruta { display: none; }
       body.fuera .caja { padding: 5px 12px; }
       body.fuera #minimizar { margin-left: auto; }
       /* Minimizada: una línea con la zona. Solo queda a la vista lo que te dejaste al cambiar de acto. */
       body.minimizada #zona, body.minimizada .objetivo, body.minimizada #ahora, body.minimizada #extras, body.minimizada #hecho,
-      body.minimizada .pie, body.minimizada #tag, body.minimizada #ruta, body.minimizada #engranaje,
+      body.minimizada #sigue, body.minimizada .pie, body.minimizada #tag, body.minimizada #ruta, body.minimizada #engranaje,
       body.minimizada #resumen, body.minimizada #ajustes, body.minimizada .aviso:not(.importante):not(.resistencias) { display: none; }
       /* Ocupa lo que ocupa su línea, hasta el ancho normal; la ventana se ajusta a eso. */
       body.minimizada .caja { padding: 5px 12px; width: max-content; max-width: 340px; box-sizing: border-box; }
@@ -119,6 +123,10 @@
       body.minimizada #pos { color: var(--oro); font-size: 12px; }
       body.minimizada #minimizar { margin-left: auto; margin-right: -6px; }
       body.minimizada #pos.listo { color: var(--verde); }
+      /* Zona hecha: «✓ zona → la siguiente». Si no cabe, encoge la hecha y la siguiente se lee entera. */
+      body.minimizada #pos.con-luego { display: flex; gap: 6px; }
+      #pos .ya { flex: 0 1000 auto; min-width: 2.5em; overflow: hidden; text-overflow: ellipsis; }
+      #pos .va { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--oro); }
     </style>
   </head>
   <body>
@@ -155,6 +163,10 @@
       <div id="ahora">Buscando tu zona en Client.txt…</div>
       <ul id="extras"></ul>
       <div id="hecho" hidden></div>
+      <div id="sigue" hidden>
+        <span>→</span>
+        <span><span id="sigue-zona"></span> <span id="sigue-premio" class="premio"></span></span>
+      </div>
       <div class="pie">
         <span id="luego"></span>
         <span id="nivel" class="nivel" hidden></span>

@@ -1,6 +1,6 @@
 import { unseenSentence, type RewardRow, type StepView } from "./run";
 import type { Settings } from "./settings";
-import { stepLines } from "./stepText";
+import { stepLines, withoutBossName } from "./stepText";
 
 interface OverlayState {
   view: StepView;
@@ -177,6 +177,8 @@ function levelText(view: StepView, character: string | null): string | null {
 function draw(state: OverlayState): void {
   const { view, settings } = state;
   const outside = view.outside && !state.showSummary;
+  /** Todo lo comprobable de la zona está hecho: lo que importa ya es adónde vas. */
+  const done = !outside && view.ready === true;
   const body = document.body;
   body.className = [
     settings.compact ? "compacta" : "",
@@ -185,18 +187,31 @@ function draw(state: OverlayState): void {
     state.showSummary ? "con-resumen" : "",
     state.showSettings ? "con-ajustes" : "",
     settings.minimized ? "minimizada" : "",
+    done ? "hecha" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  // Minimizada: lo justo para saber dónde estás (y si la zona ya está hecha).
+  // Minimizada: lo justo para saber dónde estás. Con la zona hecha, adónde vas:
+  // «✓ La excavación → Ngakanu». Si no cabe, se recorta la zona hecha, no la siguiente.
   const pos = byId("pos");
-  pos.textContent = outside
-    ? view.outsideText
-    : settings.minimized
-      ? `${view.ready ? "✓ " : ""}${view.zone} · ${view.number}/${view.total}`
-      : `Acto ${view.act} · paso ${view.number} de ${view.total}`;
-  pos.className = settings.minimized && !outside && view.ready ? "listo" : "";
+  const goingTo = settings.minimized && done ? view.next : null;
+  if (goingTo) {
+    const here = document.createElement("span");
+    here.className = "ya";
+    here.textContent = `✓ ${view.zone}`;
+    const there = document.createElement("span");
+    there.className = "va";
+    there.textContent = `→ ${goingTo.zone}`;
+    pos.replaceChildren(here, there);
+  } else {
+    pos.textContent = outside
+      ? view.outsideText
+      : settings.minimized
+        ? `${view.ready ? "✓ " : ""}${view.zone} · ${view.number}/${view.total}`
+        : `Acto ${view.act} · paso ${view.number} de ${view.total}`;
+  }
+  pos.className = goingTo ? "listo con-luego" : settings.minimized && done ? "listo" : "";
   const minimize = byId("minimizar");
   minimize.textContent = settings.minimized ? "▢" : "–";
   minimize.title = settings.minimized ? "Desplegar" : "Minimizar";
@@ -263,8 +278,16 @@ function draw(state: OverlayState): void {
     view.ready !== true ? null : view.boss ? "✓ Zona hecha: puedes seguir." : "✓ Ya tienes lo de esta zona: puedes seguir.",
   );
 
-  drawStepText(view.text);
+  // Con la línea «Jefe:» a la vista, la frase que solo repite su nombre sobra.
+  // En la vista compacta esa línea no sale: ahí el texto va entero.
+  drawStepText(view.boss && !settings.compact ? withoutBossName(view.text, view.boss.name) : view.text);
   drawExtras(view, settings.route);
+  // Zona hecha: la siguiente pasa de la letra pequeña del pie a una línea grande.
+  const nextBig = done ? view.next : null;
+  byId("sigue").hidden = !nextBig;
+  byId("sigue-zona").textContent = nextBig?.zone ?? "";
+  byId("sigue-premio").textContent = nextBig?.reward ? `(${nextBig.reward})` : "";
+  byId("luego").hidden = Boolean(nextBig);
   byId("luego").textContent = view.next
     ? `Luego: ${view.next.zone}${view.next.reward ? ` (${view.next.reward})` : ""}`
     : "Fin de las guías (actos 1-4)";

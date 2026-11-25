@@ -22,7 +22,10 @@ guía (actos 1 a 4, las guías de `src/guides`).
 - **El jefe de la zona**, cuando el registro deja saber que ha caído (15 de
   los jefes de los actos 1-4): su casilla también se marca sola.
 - **«Zona hecha: puedes seguir»**, en verde, cuando todo lo que se puede
-  comprobar del paso está hecho.
+  comprobar del paso está hecho. Debajo, en grande, **adónde vas**
+  («→ Ngakanu y El corazón de la tribu»), y el texto de lo ya hecho se apaga.
+- Si el texto del paso empieza solo con el nombre del jefe y ya sale en su
+  línea «Jefe:», esa frase no se repite.
 - **Las gemas fijas** de la zona (◆ «Gema de habilidad nv. 5: tras el
   verdugo») y **el jefe opcional** que te puedes saltar (○).
 - **Luego:** la siguiente zona que aún tiene algo por hacer y, si la tiene,
@@ -69,8 +72,9 @@ sacar de la pantalla. Si otro programa ya usa una de las teclas, la ventanita
 lo avisa.
 
 **Minimizar:** el botón **–**, junto al engranaje, la deja en una línea con la
-zona y el paso («Salones de los muertos · 9/15», con ✓ si la zona ya está
-hecha), tan ancha como ese texto. **▢** la despliega. Minimizada solo enseña lo que te dejaste al
+zona y el paso («Salones de los muertos · 9/15»), tan ancha como ese texto.
+Con la zona hecha enseña adónde vas: «✓ La excavación → Ngakanu y El corazón
+de la tribu». **▢** la despliega. Minimizada solo enseña lo que te dejaste al
 cambiar de acto.
 
 **Ajustes:** el engranaje ⚙ de la derecha de la cabecera abre los ajustes en

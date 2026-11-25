@@ -45,7 +45,7 @@ import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../o
 import { BOSS_SIGNS, PICKUPS, REWARD_RULES, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
 import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
-import { sentencePieces, stepLines, stepSentences } from "../../overlay/src/stepText";
+import { sentencePieces, stepLines, stepSentences, withoutBossName } from "../../overlay/src/stepText";
 import { ZONE_CODES } from "../../overlay/src/zones";
 
 // Líneas con el formato del Client.txt real (22-11-2026), sin datos de la cuenta.
@@ -929,6 +929,35 @@ describe("ventanita: el texto del paso, una frase por línea", () => {
     ]);
     // «Quijada negra (+10 % de fuego para siempre)» es un premio, no un golpe.
     expect(sentencePieces("Quijada negra da +10 % de fuego para siempre.").some((piece) => piece.element)).toBe(false);
+  });
+
+  it("con la línea «Jefe:» encima, quita la frase que solo repite su nombre", () => {
+    const boss = "Benedictus, Primer heraldo de Utopía";
+    expect(withoutBossName(`${boss}. Busca el hueco seguro en los anillos de explosiones.`, boss)).toBe(
+      "Busca el hueco seguro en los anillos de explosiones.",
+    );
+    // Si la frase dice algo más que el nombre, se queda.
+    expect(withoutBossName("Tavakai, el Jefe de guerra, el jefe final.", "Tavakai, el Jefe de guerra")).toBe(
+      "Tavakai, el Jefe de guerra, el jefe final.",
+    );
+    // Y si el nombre es todo lo que hay, también: la ventanita no se queda sin texto.
+    expect(withoutBossName(`${boss}.`, boss)).toBe(`${boss}.`);
+  });
+
+  it("solo dos pasos de las guías repetían el nombre del jefe, y a ninguno le quita nada más", () => {
+    const cut: string[] = [];
+    for (const act of [1, 2, 3, 4]) {
+      for (const step of routeOf(act)) {
+        const sign = BOSS_SIGNS[act]?.[step.zone];
+        if (!sign) continue;
+        const shown = withoutBossName(step.text, sign.boss);
+        if (shown === step.text) continue;
+        cut.push(step.zone);
+        expect(step.text.endsWith(shown), step.zone).toBe(true);
+        expect(shown.length).toBeGreaterThan(10);
+      }
+    }
+    expect(cut).toEqual(["Templo de Kopec", "La excavación"]);
   });
 
   it("ningún paso de las guías pierde texto al trocearlo", () => {
