@@ -72,9 +72,21 @@ const GAP_ORDER: QuickReviewGap[] = ["level", "res", "act", "gem", "weapon", "as
  */
 const KEY_GAPS: readonly QuickReviewGap[] = ["level", "res", "act", "gem"];
 
-/** Los dos datos clave que más conviene pedir primero; vacío si no falta ninguno. */
+/**
+ * Los datos clave que faltan, todos a la vez; vacío si no falta ninguno.
+ *
+ * Antes se pedían de dos en dos: el jugador ponía nivel y resistencias, pulsaba
+ * «Listo» y entonces se le pedían el acto y la gema. Rellenar dos veces el
+ * mismo formulario es peor que leer cuatro cosas de una vez (25-11-2026).
+ */
 export function firstGapsToAsk(result: Pick<QuickReviewResult, "missingKeys">): QuickReviewGap[] {
-  return result.missingKeys.filter((gap) => KEY_GAPS.includes(gap)).slice(0, 2);
+  return result.missingKeys.filter((gap) => KEY_GAPS.includes(gap));
+}
+
+/** «a», «a y b», «a, b y c». */
+export function joinGapList(parts: string[], and: string): string {
+  if (parts.length <= 1) return parts.join("");
+  return `${parts.slice(0, -1).join(", ")} ${and} ${parts[parts.length - 1]}`;
 }
 
 /**
@@ -310,7 +322,9 @@ export function reviewCharacter(input: QuickReviewInput, lang: QuickReviewLang =
       // La Prueba de Caos se abre en el acto 3 (tras Xyclucian): aviso suave.
       findings.push({ id: "asc-second", severity: actNumber >= 4 ? 60 : 45, title: w.ascSecondTitle, action: w.ascSecondAction });
     }
-  } else if (input.ascendancyPoints === null) {
+  } else if (input.ascendancyPoints === null && input.act !== 1) {
+    // En el acto 1 aún no hay ascendencia (la primera prueba es la del acto 2):
+    // decir «no he podido revisar tus puntos de ascendencia» solo confunde.
     gaps.add("asc");
   }
 

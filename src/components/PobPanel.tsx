@@ -35,7 +35,11 @@ const TEXT = texts(
     resists: "Resistencias",
     resist: { fire: "Fuego", cold: "Hielo", lightning: "Rayo", chaos: "Caos" } as Record<string, string>,
     capped: "al tope",
-    missing: (points: number) => `te faltan ${points} %`,
+    missing: (cap: number) => `tope ${cap} %`,
+    noSkill: (name: string | null) =>
+      name
+        ? `PoB2 no reconoce «${name}»: no puedo calcular tu daño. Escribe tu habilidad como sale en el juego (en «Lo que te frena», «Cambiar datos»).`
+        : "No sé qué habilidad usas: no puedo calcular tu daño. Dímela en «Lo que te frena», «Cambiar datos».",
     withChanges: "Con tus cambios",
     picksTitle: "Lo mejor cerca, según PoB2",
     picksLead: "Probando cada notable a pocos puntos de tu árbol:",
@@ -57,6 +61,7 @@ const TEXT = texts(
     noteUnsupported: (count: number) => `PoB2 no entiende ${count} ${count === 1 ? "línea" : "líneas"} de tu equipo.`,
     noteGems: (names: string) => `PoB2 no reconoce: ${names}.`,
     noteLevels: "Niveles de gema según tu nivel de personaje.",
+    noteNoDamage: "El daño sale a 0 porque no veo tu arma: pégala en «Equipo» (Ctrl+C sobre ella en el juego) y vuelve a calcular.",
     noteProfile: "Sin tu código de PoB2 faltan joyas y ascendencia: números aproximados.",
     noteNoClass: "No sé tu clase: sin ella PoB2 no puede leer tu árbol.",
     footer: (version: string) =>
@@ -94,7 +99,11 @@ const TEXT = texts(
     resists: "Resistances",
     resist: { fire: "Fire", cold: "Cold", lightning: "Lightning", chaos: "Chaos" } as Record<string, string>,
     capped: "capped",
-    missing: (points: number) => `${points}% missing`,
+    missing: (cap: number) => `cap ${cap}%`,
+    noSkill: (name: string | null) =>
+      name
+        ? `PoB2 doesn't recognise “${name}”: I can't work out your damage. Spell your skill as the game does (under “What's holding you back”, “Edit details”).`
+        : "I don't know which skill you use: I can't work out your damage. Tell me under “What's holding you back”, “Edit details”.",
     withChanges: "With your changes",
     picksTitle: "Best nearby, according to PoB2",
     picksLead: "Trying every notable a few points from your tree:",
@@ -116,6 +125,7 @@ const TEXT = texts(
     noteUnsupported: (count: number) => `PoB2 doesn't understand ${count} ${count === 1 ? "line" : "lines"} of your gear.`,
     noteGems: (names: string) => `PoB2 doesn't recognise: ${names}.`,
     noteLevels: "Gem levels from your character level.",
+    noteNoDamage: "Damage shows 0 because I can't see your weapon: paste it under “Gear” (Ctrl+C on it in the game) and calculate again.",
     noteProfile: "Without your PoB2 code, jewels and ascendancy are missing: approximate numbers.",
     noteNoClass: "I don't know your class: without it PoB2 can't read your tree.",
     footer: (version: string) =>
@@ -346,6 +356,15 @@ export function PobPanel(props: PobPanelProps) {
   if (notes && notes.unknownBases > 0) noteLines.push(t.noteUnknownBases(notes.unknownBases));
   const unsupported = analysis?.unsupported ?? [];
   if (notes && notes.unknownGems.length > 0) noteLines.push(t.noteGems([...new Set(notes.unknownGems)].slice(0, 4).join(", ")));
+  // PoB2 no tiene ninguna habilidad del jugador que calcular (ninguna dicha, o
+  // ninguna reconocida): calcula un golpe sin arma. Ese daño no es el suyo, y
+  // un «+45 % de daño» sobre él tampoco dice nada: no se enseña.
+  const unknownGems = new Set(notes?.unknownGems ?? []);
+  const noRealSkill = notes !== null && (props.skills.length === 0 || props.skills.every((name) => unknownGems.has(name)));
+  const unknownSkillName = props.skills.find((name) => unknownGems.has(name)) ?? null;
+  const shownPicks = noRealSkill ? props.picks.filter((pick) => pick.kind !== "damage") : props.picks;
+  // Habilidad reconocida y aun así daño 0: casi siempre es que la web no ha visto el arma.
+  if (main && !noRealSkill && damageOf(main) === 0) noteLines.unshift(t.noteNoDamage);
   if (notes && notes.guessedGemLevels > 0) noteLines.push(t.noteLevels);
   if (notes?.base === "profile") noteLines.push(t.noteProfile, t.noteResists);
 
@@ -403,23 +422,35 @@ export function PobPanel(props: PobPanelProps) {
         </div>
       )}
 
-      {main && props.computedSkill && (
-        <p className="mt-1.5 text-xs text-muted-foreground" data-testid="pob-habilidad">
-          {t.computedFor(props.computedSkill.name, props.computedSkill.level)}
+      {main && noRealSkill ? (
+        <p className="mt-1.5 rounded-md border border-amber-400/40 bg-amber-400/10 p-2 text-xs leading-relaxed text-amber-100" data-testid="pob-sin-habilidad">
+          {t.noSkill(unknownSkillName)}
         </p>
+      ) : (
+        main &&
+        props.computedSkill && (
+          <p className="mt-1.5 text-xs text-muted-foreground" data-testid="pob-habilidad">
+            {t.computedFor(props.computedSkill.name, props.computedSkill.level)}
+          </p>
+        )
       )}
 
       {main && (
         <div className={cn("mt-2 flex flex-col gap-2 transition-opacity", (props.busy || props.stale) && "opacity-60")} data-testid="pob-numeros">
           {editing && base && <p className="text-xs font-semibold text-emerald-200">{t.withChanges}</p>}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Stat
-              label={main.dps > 0 || main.minionDps === 0 ? t.dps : t.minionDps}
-              value={format.whole(damageOf(main))}
-              before={base ? damageOf(base) : undefined}
-              after={damageOf(main)}
-              percent
-            />
+            {/* Sin habilidad reconocida PoB2 calcula un puñetazo: ese «1» no es el daño del jugador. */}
+            {noRealSkill ? (
+              <Stat label={t.dps} value="—" />
+            ) : (
+              <Stat
+                label={main.dps > 0 || main.minionDps === 0 ? t.dps : t.minionDps}
+                value={format.whole(damageOf(main))}
+                before={base ? damageOf(base) : undefined}
+                after={damageOf(main)}
+                percent
+              />
+            )}
             <Stat label={t.life} value={format.whole(main.life)} before={base?.life} after={main.life} />
             {main.energyShield > 0 && (
               <Stat label={t.energyShield} value={format.whole(main.energyShield)} before={base?.energyShield} after={main.energyShield} />
@@ -445,7 +476,7 @@ export function PobPanel(props: PobPanelProps) {
                     {base && <Delta before={base.resists[element].value} after={resist.value} />}
                     {elemental && (
                       <span className="block text-[11px] text-muted-foreground">
-                        {missing === 0 ? t.capped : t.missing(Math.round(missing))}
+                        {missing === 0 ? t.capped : t.missing(Math.round(resist.max))}
                       </span>
                     )}
                   </li>
@@ -459,13 +490,13 @@ export function PobPanel(props: PobPanelProps) {
       {main && (
         <div className="mt-3" data-testid="pob-mejores">
           <p className="text-sm font-semibold text-foreground">{t.picksTitle}</p>
-          {props.picks.length === 0 ? (
+          {shownPicks.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t.noPicks}</p>
           ) : (
             <>
               <p className="text-xs text-muted-foreground">{t.picksLead}</p>
               <ul className="mt-1.5 flex flex-col gap-1.5">
-                {props.picks.map((pick) => (
+                {shownPicks.map((pick) => (
                   <li key={`${pick.kind}-${pick.key}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                     <span className="font-medium text-foreground">{pick.name}</span>
                     <span className={cn("text-xs tabular-nums", pick.kind === "damage" ? "text-emerald-300" : "text-sky-300")}>

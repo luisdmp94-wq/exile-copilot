@@ -130,6 +130,15 @@ interface ItemImportOptions {
 }
 
 const STORAGE_KEY = "exile-copilot:characterId";
+
+/** ¿Este navegador recuerda un personaje? Se sabe al instante, sin esperar al servidor. */
+export function hasRememberedCharacter(): boolean {
+  try {
+    return (window.localStorage.getItem(STORAGE_KEY) ?? "") !== "";
+  } catch {
+    return false;
+  }
+}
 const PREVIOUS_STORAGE_KEY = "exile-copilot:previousCharacter";
 const AUTO_RESTORE_SUPPRESSED_KEY = "exile-copilot:characterAutoRestoreSuppressed";
 

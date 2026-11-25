@@ -1155,7 +1155,8 @@ async function runFlow(mode, port) {
     await page.getByTestId("arbol-editor").getByRole("button", { name: "Cancelar" }).click();
     check(
       `[${mode}] «Editar mi árbol» cuenta los puntos y se cancela sin tocar nada`,
-      /\d+ puntos de unos \d+/.test(pointsText) && (await page.getByTestId("arbol-editor").count()) === 0,
+      /\d+ puntos? puestos? · a nivel \d+ tienes \d+ por nivel/.test(pointsText) &&
+        (await page.getByTestId("arbol-editor").count()) === 0,
     );
     const partialAnalysis = page.getByTestId("profile-partial-analysis");
     await partialAnalysis.waitFor({ state: "visible", timeout: 15000 });
@@ -1164,9 +1165,9 @@ async function runFlow(mode, port) {
     const normalizedOpenCaseText = openCaseText.toLocaleLowerCase("es");
     check(
       `[${mode}] dos piezas habilitan orientación parcial, no un falso análisis amplio`,
-      normalizedOpenCaseText.includes("análisis parcial disponible") &&
+      normalizedOpenCaseText.includes("veo parte de tu equipo") &&
         !normalizedOpenCaseText.includes("listo para analizar") &&
-        partialAnalysisText.includes("Añade más piezas"),
+        partialAnalysisText.includes("Pega más piezas"),
     );
     check(
       `[${mode}] los objetos importados conservan su identidad visible`,

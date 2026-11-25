@@ -45,8 +45,27 @@ la siguiente. Nada se sube sin su sí.
   justo el umbral, pero con preguntas ya conocidas. **Decide Luis** si sube ahora
   o en enero.
 - [ ] **6. Botón de donación** discreto.
-- [ ] **7. Recorrer como novato las tres puertas** (guías, revisión rápida,
+  → Hecho el 25-11 salvo un dato: enlace de Ko-fi en el pie («¿Te ha servido?
+  Invítame a un café»), junto a «Privacidad» y «Avisar de un problema». Los
+  clics se cuentan en `/estadisticas` y el aviso de privacidad lo dice. **Falta
+  el enlace de Ko-fi de Luis:** se pone en `shared/donation.ts`; mientras esté
+  vacío, el enlace no se ve. Sin commit ni subida todavía.
+- [x] **7. Recorrer como novato las tres puertas** (guías, revisión rápida,
   árbol con PoB2) y arreglar cada atasco.
+  → Hecho el 25-11: recorrido en local como visitante nuevo; 17 atascos en la
+  lista: 16 arreglados y 1 falsa alarma (tocar el nombre de la zona ya marcaba
+  la casilla). Lo gordo: el Mentor ya entiende «estoy atascado» y «ayúdame»; la
+  revisión rápida pide todos los datos de una vez y no se cierra si falta
+  alguno; «Crear mi personaje» pide el nivel y ya no acaba en «Faltan datos»;
+  sin personaje, la portada sale aunque vinieras de una guía; el menú de la
+  izquierda lleva nombre en portátil; la mascota se aparta al escribir; la
+  habilidad se elige de una lista y avisa si no existe; PoB2 no da ranking de
+  daño si no reconoce la habilidad. Sin pasar: la batería completa, las pruebas
+  de humo y `npm run build` (Luis jugaba): **pasarlos antes de subir**.
+  Pendiente aparte: el motor de recomendaciones apunta al 75 % de resistencias
+  y la revisión rápida y las guías al 30 % en el acto 1; no se ha tocado.
+  En la rama `ventanita-guia` (no en main): casilla con clic para cada trozo de
+  mapa del acto 4, y aviso en Punta del botín si falta alguno.
 
 ### Semana 2 (1 al 7 de diciembre)
 

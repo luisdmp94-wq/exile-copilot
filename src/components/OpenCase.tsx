@@ -12,18 +12,22 @@ import { texts, useText } from "@/i18n/lang";
 
 const TEXT = texts(
   {
-    partialAvailable: "Análisis parcial disponible",
+    partialAvailable: "Veo parte de tu equipo",
     readyToAnalyse: "Listo para analizar",
     incompleteFile: "Faltan datos",
     whatCanICheck: "¿Qué puedo comprobar ya?",
     whatToImprove: "¿Qué mejoro ahora?",
     completeCharacter: "Completa tu personaje",
     partialIntro: (count: number) =>
-      `Solo vemos ${count} ${count === 1 ? "pieza" : "piezas"}. El Mentor puede usar las estadísticas y habilidades importadas, pero no tratará el equipo ausente como analizado.`,
+      `Solo veo ${count} ${count === 1 ? "pieza tuya" : "piezas tuyas"}. Te aconsejo con tus habilidades y tus números; de las piezas que no veo no digo nada.`,
     readyIntro: "El mentor revisará tu personaje y elegirá una sola prioridad.",
     needDataIntro: "Con lo que tengo aún no puedo recomendarte una mejora sin inventar. Abajo te digo qué falta.",
+    gearOnlyEyebrow: "Tu siguiente paso",
+    gearOnlyTitle: "Mira qué te frena",
+    gearOnlyIntro:
+      "Contesta la revisión rápida, aquí abajo, y te digo qué arreglar primero. Si además pegas una pieza de tu equipo, te digo cuál cambiar.",
     addMoreItems:
-      "Añade más piezas para ampliar el análisis del equipo. La orientación actual seguirá marcada como parcial.",
+      "Pega más piezas y el consejo sobre tu equipo será más completo.",
     nextStepPartial: (count: number) =>
       `Tu siguiente paso · diagnóstico parcial, ${count} ${count === 1 ? "pieza observada" : "piezas observadas"}`,
     nextStep: "Tu siguiente paso",
@@ -40,18 +44,22 @@ const TEXT = texts(
     advancedHint: "Comprobar una decisión, historial y otras posibilidades",
   },
   {
-    partialAvailable: "Partial analysis available",
+    partialAvailable: "I can see part of your gear",
     readyToAnalyse: "Ready to analyse",
     incompleteFile: "Missing details",
     whatCanICheck: "What can I check already?",
     whatToImprove: "What should I improve now?",
     completeCharacter: "Complete your character",
     partialIntro: (count: number) =>
-      `We only see ${count} ${count === 1 ? "item" : "items"}. The Mentor can use your imported stats and skills, but it won't treat the missing gear as analysed.`,
+      `I can only see ${count} of your ${count === 1 ? "item" : "items"}. I'll advise you from your skills and numbers; I say nothing about the gear I can't see.`,
     readyIntro: "The mentor will review your character and pick a single priority.",
     needDataIntro: "With what I have I can't suggest an upgrade without guessing. Below I tell you what's missing.",
+    gearOnlyEyebrow: "Your next step",
+    gearOnlyTitle: "See what's holding you back",
+    gearOnlyIntro:
+      "Answer the quick review below and I'll tell you what to fix first. Paste one of your items too and I'll tell you which to replace.",
     addMoreItems:
-      "Add more items to widen the gear analysis. The current advice will stay marked as partial.",
+      "Paste more items and the advice on your gear will be more complete.",
     nextStepPartial: (count: number) =>
       `Your next step · partial diagnosis, ${count} ${count === 1 ? "item seen" : "items seen"}`,
     nextStep: "Your next step",
@@ -109,6 +117,9 @@ export function OpenCase({
   const isWaitingForDiagnosis = selection.kind === "generate";
   const profileReady = profileReadiness.ready;
   const partialAnalysis = profileReadiness.analysisScope === "partial";
+  // Solo falta pegar equipo: no es «faltan datos», la revisión rápida ya puede contestar.
+  const gearOnly =
+    !profileReady && profileReadiness.issues.length === 1 && profileReadiness.issues[0]?.id === "equipment";
   const dominant =
     selection.kind === "session"
       ? sessionSlot
@@ -158,7 +169,9 @@ export function OpenCase({
                   ? t.partialAvailable
                   : profileReady
                     ? t.readyToAnalyse
-                    : t.incompleteFile}
+                    : gearOnly
+                      ? t.gearOnlyEyebrow
+                      : t.incompleteFile}
               </p>
               <h2
                 id="caso-abierto-titulo"
@@ -168,14 +181,18 @@ export function OpenCase({
                   ? t.whatCanICheck
                   : profileReady
                     ? t.whatToImprove
-                    : t.completeCharacter}
+                    : gearOnly
+                      ? t.gearOnlyTitle
+                      : t.completeCharacter}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {partialAnalysis
                   ? t.partialIntro(profileReadiness.equippedItemCount)
                   : profileReady
                   ? t.readyIntro
-                  : t.needDataIntro}
+                  : gearOnly
+                    ? t.gearOnlyIntro
+                    : t.needDataIntro}
               </p>
               {partialAnalysis && (
                 <p

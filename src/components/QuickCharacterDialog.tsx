@@ -58,12 +58,13 @@ const TEXT = texts(
     completeLead: "Solo falta esto. El equipo y lo demás que ya tenías se quedan como están.",
     newLead: "Con esto te hago una revisión rápida de lo que más te frena. El equipo lo añades cuando quieras.",
     pickClass: "Elige la clase de tu personaje.",
-    badLevel: "El nivel va de 1 a 100. Si no lo sabes, déjalo en blanco.",
+    needLevel: "Pon tu nivel: sin él no puedo decirte qué te frena.",
+    badLevel: "El nivel va de 1 a 100.",
     defaultName: (className: string) => `Mi ${className.toLocaleLowerCase("es")}`,
     myCharacter: "Mi personaje",
     classLegend: "1. Clase",
     classGroup: "Clase del personaje",
-    buildLabel: "2. Tu build en una frase",
+    buildLabel: "Tu build en una frase (opcional)",
     buildPlaceholder: "Brujo de caos con esbirros",
     buildHelp: "Di con qué haces daño (caos, fuego, hielo, rayo o físico) y si llevas esbirros. Es lo que más me ayuda.",
     skillsLabel: "3. Tus habilidades",
@@ -74,7 +75,8 @@ const TEXT = texts(
       `No reconozco ${names}. Mira que esté escrita como en el juego. Puedes guardarla igual.`,
     remove: (name: string) => `Quitar ${name}`,
     name: "Nombre (opcional)",
-    level: "Nivel (opcional)",
+    level: "2. Tu nivel",
+    levelHelp: "Lo ves en el juego, en la hoja del personaje (tecla C).",
     fullForm: "Prefiero el formulario completo",
     save: "Guardar",
     saveCharacter: "Guardar personaje",
@@ -85,12 +87,13 @@ const TEXT = texts(
     completeLead: "Just this is missing. Your gear and everything else you had stay as they are.",
     newLead: "With this I'll do a quick review of what's holding you back most. You can add your gear whenever you like.",
     pickClass: "Pick your character's class.",
-    badLevel: "Level goes from 1 to 100. If you don't know it, leave it blank.",
+    needLevel: "Enter your level: without it I can't tell what's holding you back.",
+    badLevel: "Level goes from 1 to 100.",
     defaultName: (className: string) => `My ${className}`,
     myCharacter: "My character",
     classLegend: "1. Class",
     classGroup: "Character class",
-    buildLabel: "2. Your build in one sentence",
+    buildLabel: "Your build in one sentence (optional)",
     buildPlaceholder: "Chaos warlock with minions",
     buildHelp: "Say what you deal damage with (chaos, fire, cold, lightning or physical) and whether you use minions. That helps me most.",
     skillsLabel: "3. Your skills",
@@ -101,7 +104,8 @@ const TEXT = texts(
       `I don't recognise ${names}. Check it's written as in the game. You can still save it.`,
     remove: (name: string) => `Remove ${name}`,
     name: "Name (optional)",
-    level: "Level (optional)",
+    level: "2. Your level",
+    levelHelp: "You can see it in the game, on the character sheet (C key).",
     fullForm: "I'd rather use the full form",
     save: "Save",
     saveCharacter: "Save character",
@@ -281,11 +285,14 @@ function QuickCharacterForm({
       setError(t.pickClass);
       return;
     }
-    const parsedLevel = level.trim() === "" ? null : Number(level);
-    if (
-      parsedLevel !== null &&
-      (!Number.isInteger(parsedLevel) || parsedLevel < 1 || parsedLevel > 100)
-    ) {
+    // El nivel es obligatorio: sin él la web guardaba el personaje y acto seguido
+    // decía «faltan datos» (25-11-2026).
+    if (level.trim() === "") {
+      setError(t.needLevel);
+      return;
+    }
+    const parsedLevel = Number(level);
+    if (!Number.isInteger(parsedLevel) || parsedLevel < 1 || parsedLevel > 100) {
       setError(t.badLevel);
       return;
     }
@@ -345,24 +352,23 @@ function QuickCharacterForm({
       </fieldset>
 
       <div>
-        <Label
-          htmlFor="alta-build"
-          className="text-sm font-medium text-foreground"
-        >
-          {t.buildLabel}
+        <Label htmlFor="alta-nivel" className="text-sm font-medium text-foreground">
+          {t.level}
         </Label>
         <Input
-          id="alta-build"
-          value={archetype}
-          maxLength={200}
-          onChange={(event) => setArchetype(event.target.value)}
-          placeholder={t.buildPlaceholder}
-          className="mt-2"
-          data-testid="alta-build"
+          id="alta-nivel"
+          value={level}
+          inputMode="numeric"
+          maxLength={3}
+          onChange={(event) => {
+            setLevel(event.target.value.replace(/[^\d]/g, ""));
+            setError(null);
+          }}
+          placeholder="9"
+          className="mt-2 w-24"
+          data-testid="alta-nivel"
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          {t.buildHelp}
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{t.levelHelp}</p>
       </div>
 
       <div>
@@ -456,20 +462,17 @@ function QuickCharacterForm({
           />
         </div>
         <div>
-          <Label htmlFor="alta-nivel" className="text-xs text-muted-foreground">
-            {t.level}
+          <Label htmlFor="alta-build" className="text-xs text-muted-foreground">
+            {t.buildLabel}
           </Label>
           <Input
-            id="alta-nivel"
-            value={level}
-            inputMode="numeric"
-            maxLength={3}
-            onChange={(event) =>
-              setLevel(event.target.value.replace(/[^\d]/g, ""))
-            }
-            placeholder="9"
+            id="alta-build"
+            value={archetype}
+            maxLength={200}
+            onChange={(event) => setArchetype(event.target.value)}
+            placeholder={t.buildPlaceholder}
             className="mt-1"
-            data-testid="alta-nivel"
+            data-testid="alta-build"
           />
         </div>
       </div>

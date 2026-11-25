@@ -56,8 +56,8 @@ export function renderGuideArticle(guide: ActGuide): string {
         .join("")}</ol>`,
     );
   }
-  guide.blocks.forEach((block, index) => {
-    parts.push(`<section><h2>${index + 1}. ${escapeHtml(block.title)}</h2>`);
+  guide.blocks.forEach((block) => {
+    parts.push(`<section><h2>${escapeHtml(block.title)}</h2>`);
     parts.push(`<p>${escapeHtml(block.intro)}</p>`);
     if (block.cards?.length) {
       parts.push(

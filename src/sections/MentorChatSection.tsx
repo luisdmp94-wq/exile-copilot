@@ -17,10 +17,10 @@ import { CONFIDENCE_BADGE_CLASSES, formatDateTime, displaySourceLabel } from "@/
 import { useFormatLabels } from "@/lib/formatLabels";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
-import { firstGapsToAsk, reviewCharacter } from "@shared/quickReview.js";
+import { firstGapsToAsk, joinGapList, reviewCharacter } from "@shared/quickReview.js";
 import { mentorReviewAnswer } from "@/lib/mentorReviewAnswer";
 import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
-import { toInput } from "@/lib/quickReviewForm";
+import { profileWithQuickReview, toInput } from "@/lib/quickReviewForm";
 import { texts, useLang, useText } from "@/i18n/lang";
 import {
   allowsPatchGuidance,
@@ -254,6 +254,10 @@ export function MentorChatSection({
   const patchBlocked =
     patchCompatibility !== null && !allowsPatchGuidance(patchCompatibility);
   const readiness = assessMentorReadiness(profile);
+  // Solo para decir qué falta: lo que el jugador ya escribió en la revisión
+  // rápida (su nivel, por ejemplo) no se le vuelve a pedir aquí. Quién
+  // responde (la revisión o el motor) no cambia por esto.
+  const stillMissing = assessMentorReadiness(profile ? profileWithQuickReview(profile, reviewForm) : null).issues;
   const canAsk =
     profile !== null &&
     readiness.ready &&
@@ -402,9 +406,10 @@ export function MentorChatSection({
                 ) : reviewGaps.length > 0 ? (
                   <p>
                     {t.reviewAskBody(
-                      reviewGaps
-                        .map((gap) => review.missing[review.missingKeys.indexOf(gap)] ?? "")
-                        .join(` ${t.reviewAnd} `),
+                      joinGapList(
+                        reviewGaps.map((gap) => review.missing[review.missingKeys.indexOf(gap)] ?? ""),
+                        t.reviewAnd,
+                      ),
                     )}
                   </p>
                 ) : (
@@ -420,9 +425,9 @@ export function MentorChatSection({
                     {t.readinessButton}
                   </Button>
                 </div>
-                <p className="text-xs" data-testid="mentor-falta-a-fondo">
+                <p className="text-xs" data-testid="mentor-falta-a-fondo" hidden={stillMissing.length === 0}>
                   {t.deepMissing(
-                    readiness.issues
+                    stillMissing
                       .map((issue) => (lang === "en" ? issue.labelEn : issue.label).toLowerCase())
                       .join(", "),
                   )}
@@ -656,7 +661,6 @@ function MentorAnswerDetail({
         <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-200">
           <AlertTitle>{t.unsupportedTitle}</AlertTitle>
           <AlertDescription className="flex flex-col gap-1">
-            <span>{answer.unsupported.reason}</span>
             <span className="text-xs">{t.tryWith}</span>
             <ul className="list-inside list-disc text-xs">
               {answer.unsupported.examples.map((ejemplo) => (

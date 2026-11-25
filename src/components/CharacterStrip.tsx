@@ -4,7 +4,8 @@ import { readCharacterLevel, type CharacterProfile, type ResistanceKind } from "
 const UNKNOWN_CLASS = new Set(["", "desconocida", "desconocido", "unknown"]);
 import { displayProfileValue, formatCharacterLevel, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { texts, useText } from "@/i18n/lang";
+import { texts, useLang, useText } from "@/i18n/lang";
+import { ascendancyInSpanish, classInSpanish } from "@shared/classNames.js";
 
 const TEXT = texts(
   {
@@ -93,14 +94,23 @@ interface CharacterStripProps {
    * que ya contestó.
    */
   reviewResistances?: Partial<Record<"fire" | "cold" | "lightning", number | null>>;
+  /** El nivel escrito en la revisión rápida, por si la ficha aún no lo tiene. */
+  reviewLevel?: number | null;
 }
 
 /**
  * Franja fija del personaje: quién es y lo primero que le mata, visible en
  * las tres áreas. Es solo lectura; editar sigue en «Editar expediente».
  */
-export function CharacterStrip({ profile, persisted, reviewResistances }: CharacterStripProps) {
+export function CharacterStrip({ profile: savedProfile, persisted, reviewResistances, reviewLevel = null }: CharacterStripProps) {
   const t = useText(TEXT);
+  const { lang } = useLang();
+  // El nivel que el jugador escribió en la revisión rápida también cuenta: sin
+  // esto la franja decía «nivel desconocido» justo después de que lo dijera.
+  const profile: CharacterProfile =
+    reviewLevel !== null && !readCharacterLevel(savedProfile).known
+      ? { ...savedProfile, level: reviewLevel, levelSource: "observed" }
+      : savedProfile;
   // «Analizar un objeto» crea un borrador sin clase ni nivel: se dice tal cual
   // en vez de «Desconocida · nivel desconocido».
   const classKnown = !UNKNOWN_CLASS.has(profile.characterClass.trim().toLocaleLowerCase("es"));
@@ -108,8 +118,9 @@ export function CharacterStrip({ profile, persisted, reviewResistances }: Charac
   const subtitle = draft
     ? t.draft
     : [
-        displayProfileValue(profile.characterClass),
-        profile.ascendancy,
+        // Un código de PoB2 trae «Witch · Lich»: en español se dice como en el juego.
+        lang === "es" ? classInSpanish(displayProfileValue(profile.characterClass)) : displayProfileValue(profile.characterClass),
+        profile.ascendancy && lang === "es" ? ascendancyInSpanish(profile.ascendancy) : profile.ascendancy,
         t.level(formatCharacterLevel(profile)),
       ]
         .filter((part) => part !== null && part !== undefined && part !== "")

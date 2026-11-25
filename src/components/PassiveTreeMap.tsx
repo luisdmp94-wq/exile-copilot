@@ -158,6 +158,16 @@ const FRAMES: Record<TreeNodeData["kind"], Record<State, string> | null> = {
 };
 
 /** Tamaño del marco en unidades del árbol: el de la hoja oficial, que ya viene a escala. */
+/** Cómo se llama cada tipo de nodo en español, para los que el juego no nombra en español. */
+const KIND_NAMES_ES: Record<TreeNodeData["kind"], string> = {
+  small: "Nodo pequeño",
+  attribute: "Atributo",
+  notable: "Notable",
+  keystone: "Clave",
+  jewel: "Ranura de joya",
+  start: "Inicio de clase",
+};
+
 const FRAME_UNITS: Record<TreeNodeData["kind"], number> = {
   small: 78,
   attribute: 78,
@@ -336,7 +346,9 @@ function draw(
     if (!node) continue;
     const x = toX(node.x);
     const y = toY(node.y) - Math.max(16, (FRAME_UNITS[node.kind] * view.scale) / 2 + 12);
-    const text = `${suggestion.label} · ${nodeName(node, lang)}`;
+    // Los nodos pequeños no tienen nombre en español: mejor «Nodo pequeño» que «Melee Damage».
+    const shownName = lang === "es" && !node.nameEs ? KIND_NAMES_ES[node.kind] : nodeName(node, lang);
+    const text = `${suggestion.label} · ${shownName}`;
     const width = ctx.measureText(text).width + 14;
     ctx.fillStyle = COLORS.label;
     ctx.beginPath();
@@ -718,7 +730,11 @@ export default function PassiveTreeMap({
               ? nodeName(selectedNode, lang)
               : t.kinds[selectedNode.kind]}
             <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {t.kinds[selectedNode.kind]} · {stateLabels?.[selectedState] ?? (selectedState === "taken" ? t.taken : selectedState === "planned" ? t.planned : t.free)}
+              {/* Si el título ya es el tipo de nodo («Nodo pequeño»), no se repite. */}
+              {selectedNode.kind === "notable" || selectedNode.kind === "keystone" || selectedNode.kind === "attribute"
+                ? `${t.kinds[selectedNode.kind]} · `
+                : ""}
+              {stateLabels?.[selectedState] ?? (selectedState === "taken" ? t.taken : selectedState === "planned" ? t.planned : t.free)}
             </span>
           </p>
           {selectedStats.length > 0 && (

@@ -309,15 +309,20 @@ export function RecommendationsSection({
             className={compactGenerate ? "border-0 bg-transparent p-0" : "border-amber-500/45 bg-amber-500/8"}
             data-testid="recommendations-readiness"
           >
-            <AlertTitle>
-              {versionIssue
-                ? t.versionIssueTitle
-                : t.incompleteTitle(readiness.issues.length)}
-            </AlertTitle>
+            {/* Solo falta el equipo y la tarjeta de arriba ya lo explica: aquí, solo los botones. */}
+            {!(gearOnly && compactGenerate) && (
+              <AlertTitle>
+                {versionIssue
+                  ? t.versionIssueTitle
+                  : t.incompleteTitle(readiness.issues.length)}
+              </AlertTitle>
+            )}
             <AlertDescription className="space-y-3">
-              <p>
-                {versionIssue ? t.versionIssueBody : gearOnly ? t.gearOnlyBody : t.incompleteBody}
-              </p>
+              {!(gearOnly && compactGenerate) && (
+                <p>
+                  {versionIssue ? t.versionIssueBody : gearOnly ? t.gearOnlyBody : t.incompleteBody}
+                </p>
+              )}
               {/* Si solo falta el equipo, el párrafo de arriba ya lo dice todo. */}
               <ul className={gearOnly && onAddGear ? "hidden" : "space-y-1 text-sm"}>
                 {readiness.issues.map((issue) => (
@@ -328,16 +333,10 @@ export function RecommendationsSection({
                 ))}
               </ul>
               <div className="flex flex-wrap gap-2">
-                {gearOnly && onAddGear && (
-                  <Button type="button" onClick={onAddGear} data-testid="recommendations-add-gear">
-                    <Plus className="size-4" aria-hidden="true" />
-                    {t.addGear}
-                  </Button>
-                )}
+                {/* La revisión rápida va primero: es lo que contesta sin pegar nada. */}
                 {gearOnly && (
                   <Button
                     type="button"
-                    variant={onAddGear ? "secondary" : "default"}
                     onClick={() => {
                       window.dispatchEvent(new Event(OPEN_REVIEW_EVENT));
                       document.getElementById("revision-rapida")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -346,6 +345,12 @@ export function RecommendationsSection({
                   >
                     <ClipboardCheck className="size-4" aria-hidden="true" />
                     {t.openReview}
+                  </Button>
+                )}
+                {gearOnly && onAddGear && (
+                  <Button type="button" variant="secondary" onClick={onAddGear} data-testid="recommendations-add-gear">
+                    <Plus className="size-4" aria-hidden="true" />
+                    {t.addGear}
                   </Button>
                 )}
                 {!(gearOnly && onAddGear) && (

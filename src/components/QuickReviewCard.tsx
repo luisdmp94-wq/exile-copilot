@@ -3,11 +3,12 @@ import { Camera, ClipboardCheck, Loader2, MessageCircleMore, PencilLine } from "
 import type { ScreenshotReadResponse } from "@shared/screenshotRead.js";
 import { api, getErrorMessage } from "@/lib/api";
 import type { CharacterProfile } from "@shared/domain.js";
-import { firstGapsToAsk, reviewCharacter, type QuickReviewGap } from "@shared/quickReview.js";
+import { firstGapsToAsk, joinGapList, reviewCharacter, type QuickReviewGap } from "@shared/quickReview.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { texts, useLang, useText } from "@/i18n/lang";
 import { loadGemNamePairs, sameGem } from "@/lib/gemNamePairs";
+import { canonicalSkillName, isKnownSkillName } from "@/lib/skillNames";
 import { readQuickReviewForm, writeQuickReviewForm } from "@/lib/quickReviewStorage";
 import { pastedImage, screenshotDataUrl } from "@/lib/screenshotImage";
 import {
@@ -36,6 +37,7 @@ const TEXT = texts(
     acts: { 1: "Acto 1", 2: "Acto 2", 3: "Acto 3", 4: "Acto 4", maps: "Mapas" } as Record<string, string>,
     mainSkill: "Tu habilidad principal",
     mainSkillHint: "La que hace el daño",
+    unknownSkill: (name: string) => `No reconozco «${name}». Elígela de la lista para escribirla como en el juego.`,
     gemLevel: "Nivel de esa gema",
     gemLevelHint: "Sale en la ventana de habilidades",
     weapon: "Nivel de objeto de tu arma",
@@ -45,9 +47,9 @@ const TEXT = texts(
     cold: "Hielo",
     lightning: "Rayo",
     ascPoints: "Puntos de ascendencia",
-    ascendancy: "Ascendencia",
-    lich: "Liche",
-    other: "Otra o ninguna",
+    ascendancy: "¿Tu ascendencia es Liche?",
+    lich: "Sí",
+    other: "No (otra o ninguna)",
     curse: "¿Llevas una maldición?",
     yes: "Sí",
     no: "No",
@@ -59,6 +61,7 @@ const TEXT = texts(
     nothing: "Con estos datos no veo nada grave.",
     nothingAsk: " Si aun así te cuesta, pregúntale al Mentor.",
     needMore: (list: string) => `Aún no puedo decirte qué te frena. Dime primero ${list}.`,
+    stillMissing: (list: string) => `Aún me falta: ${list}. Rellénalo aquí arriba y te lo digo.`,
     fillNow: "Rellenarlo ahora",
     and: "y",
     moreData: "Más datos (opcional)",
@@ -100,6 +103,7 @@ const TEXT = texts(
     acts: { 1: "Act 1", 2: "Act 2", 3: "Act 3", 4: "Act 4", maps: "Maps" } as Record<string, string>,
     mainSkill: "Your main skill",
     mainSkillHint: "The one dealing the damage",
+    unknownSkill: (name: string) => `I don't recognise “${name}”. Pick it from the list so it's spelled as in the game.`,
     gemLevel: "That gem's level",
     gemLevelHint: "Shown in the skills window",
     weapon: "Your weapon's item level",
@@ -109,9 +113,9 @@ const TEXT = texts(
     cold: "Cold",
     lightning: "Lightning",
     ascPoints: "Ascendancy points",
-    ascendancy: "Ascendancy",
-    lich: "Lich",
-    other: "Other or none",
+    ascendancy: "Is your ascendancy Lich?",
+    lich: "Yes",
+    other: "No (another or none)",
     curse: "Do you use a curse?",
     yes: "Yes",
     no: "No",
@@ -123,6 +127,7 @@ const TEXT = texts(
     nothing: "With this data I don't see anything serious.",
     nothingAsk: " If it still feels hard, ask the Mentor.",
     needMore: (list: string) => `I can't tell what's holding you back yet. First tell me ${list}.`,
+    stillMissing: (list: string) => `I'm still missing ${list}. Fill it in above and I'll tell you.`,
     fillNow: "Fill it in now",
     and: "and",
     moreData: "More details (optional)",
@@ -226,6 +231,30 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
     window.addEventListener(OPEN_REVIEW_EVENT, open);
     return () => window.removeEventListener(OPEN_REVIEW_EVENT, open);
   }, []);
+  // Los nombres de las habilidades del juego, para sugerirlos al escribir. Una
+  // habilidad mal escrita («Golpe rodante» por «Embate rodante») dejaba al
+  // árbol y a PoB2 sin saber de qué habilidad se hablaba, y nadie avisaba.
+  const [skillNames, setSkillNames] = useState<string[]>([]);
+  const [otherLangNames, setOtherLangNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!expanded) return;
+    let cancelled = false;
+    api
+      .gemSkills(lang)
+      .then((response) => {
+        if (!cancelled) setSkillNames(response.skills.map((item) => item.name).sort((a, b) => a.localeCompare(b, lang)));
+      })
+      .catch(() => undefined);
+    api
+      .gemSkills(lang === "en" ? "es" : "en")
+      .then((response) => {
+        if (!cancelled) setOtherLangNames(response.skills.map((item) => item.name));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, lang]);
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
@@ -289,6 +318,17 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
   /** Sin los datos clave, «nada grave» sería mentira: se piden los dos que más pesan. */
   const gapsToAsk = firstGapsToAsk(result);
   const gapLabel = (gap: QuickReviewGap) => result.missing[result.missingKeys.indexOf(gap)] ?? "";
+  /** Sin respuesta y con datos clave por rellenar: «Listo» no cierra, dice qué falta. */
+  const blockedByGaps = result.top.length === 0 && gapsToAsk.length > 0;
+  const gapList = joinGapList(gapsToAsk.map(gapLabel), t.and);
+  const [triedDone, setTriedDone] = useState(false);
+  /** Campos que se marcan tras pulsar «Listo» con datos clave vacíos. */
+  const wantedFields = new Set<keyof Form>(
+    triedDone && blockedByGaps
+      ? gapsToAsk.flatMap((gap): Array<keyof Form> => (gap === "res" ? ["fire", "cold", "lightning"] : [FIELD_FOR_GAP[gap]]))
+      : [],
+  );
+  const wantedClass = (key: keyof Form) => (wantedFields.has(key) && form[key].trim() === "" ? "border-amber-400/80" : "");
   /** Lleva al campo del primer dato que falta; si está plegado, lo despliega antes. */
   const goToGap = (gap: QuickReviewGap) => {
     const field = FIELD_FOR_GAP[gap];
@@ -442,7 +482,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         step={1}
         value={form[key]}
         onChange={(event) => set(key)(event.target.value)}
-        className={`h-9 ${fieldIsInvalid(form, key) ? "border-rose-400/70" : ""}`}
+        className={`h-9 ${fieldIsInvalid(form, key) ? "border-rose-400/70" : wantedClass(key)}`}
         aria-invalid={fieldIsInvalid(form, key) ? true : undefined}
         data-testid={`revision-${key}`}
       />
@@ -460,7 +500,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
       <select
         value={form[key]}
         onChange={(event) => set(key)(event.target.value)}
-        className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+        className={`h-9 rounded-md border bg-background px-2 text-sm text-foreground ${wantedClass(key) || "border-input"}`}
         data-testid={`revision-${key}`}
       >
         <option value="">{t.unknown}</option>
@@ -523,7 +563,7 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
           )}
           {result.top.length === 0 && gapsToAsk.length > 0 ? (
             <div data-testid="revision-pocos-datos">
-              <p className="text-sm text-foreground">{t.needMore(gapsToAsk.map(gapLabel).join(` ${t.and} `))}</p>
+              <p className="text-sm text-foreground">{t.needMore(gapList)}</p>
               <Button type="button" size="sm" variant="secondary" className="mt-2" onClick={() => goToGap(gapsToAsk[0])} data-testid="revision-rellenar">
                 {t.fillNow}
               </Button>
@@ -730,7 +770,34 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
           ["6", "6"],
           ["8", "8"],
         ])}
-        {textField("mainSkill", t.mainSkill, t.mainSkillHint)}
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/90">{t.mainSkill}</span>
+          <Input
+            list="revision-habilidades"
+            value={form.mainSkill}
+            onChange={(event) => set("mainSkill")(event.target.value)}
+            onBlur={() => {
+              // «embate rodante» se guarda como lo escribe el juego: «Embate rodante».
+              const asInGame = canonicalSkillName(form.mainSkill, skillNames, otherLangNames);
+              if (asInGame !== form.mainSkill) set("mainSkill")(asInGame);
+            }}
+            autoComplete="off"
+            className="h-9"
+            data-testid="revision-mainSkill"
+          />
+          <datalist id="revision-habilidades">
+            {skillNames.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+          {form.mainSkill.trim() !== "" && !isKnownSkillName(form.mainSkill, skillNames, otherLangNames) ? (
+            <span className="text-amber-200/90" data-testid="revision-habilidad-desconocida">
+              {t.unknownSkill(form.mainSkill.trim())}
+            </span>
+          ) : (
+            <span>{t.mainSkillHint}</span>
+          )}
+        </label>
         {numberField("gemLevel", t.gemLevel, t.gemLevelHint)}
       </div>
 
@@ -766,7 +833,27 @@ export function QuickReviewCard({ profile, onAskMentor }: QuickReviewCardProps) 
         <div className="col-span-2 sm:col-span-1">{textField("otherSkills", t.otherSkills, t.otherSkillsHint)}</div>
       </div>
 
-      <Button type="button" variant="secondary" className="mt-4" onClick={() => setExpanded(false)} data-testid="revision-revisar">
+      {triedDone && blockedByGaps && (
+        <p className="mt-3 text-sm text-amber-200" role="status" data-testid="revision-falta-clave">
+          {t.stillMissing(gapList)}
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="secondary"
+        className="mt-4"
+        onClick={() => {
+          // Con datos clave vacíos no se cierra: se dice cuáles son y se lleva al primero.
+          if (blockedByGaps) {
+            setTriedDone(true);
+            goToGap(gapsToAsk[0]);
+            return;
+          }
+          setTriedDone(false);
+          setExpanded(false);
+        }}
+        data-testid="revision-revisar"
+      >
         <ClipboardCheck className="size-4" aria-hidden="true" />
         {t.done}
       </Button>

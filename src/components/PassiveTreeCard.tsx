@@ -58,6 +58,9 @@ const TEXT = texts(
     forSkills: (skills: string) => `Lo que más ayuda a ${skills}, en el orden en que se coge:`,
     noSkill: "Tengo tu árbol, pero no sé qué habilidad usas para hacer daño. Dímela y te digo qué notables le sirven.",
     setSkill: "Decir mi habilidad",
+    unknownSkill: (name: string) =>
+      `Tengo tu árbol, pero no reconozco «${name}» como habilidad del juego. Escríbela como sale en el juego y te digo qué notables le sirven.`,
+    fixSkill: "Corregir mi habilidad",
     nothing: "No veo ningún notable cerca que ayude a lo que usas. Mira el árbol: lo tienes dibujado abajo.",
     unread: (count: number) =>
       `No he sabido leer ${count === 1 ? "tu pasiva" : `tus ${count} pasivas`}: no ${count === 1 ? "es un nodo" : "son nodos"} de este árbol (pasa con las escritas a mano). Pega tu código de Path of Building 2 en «Editar personaje» y las leo.`,
@@ -85,7 +88,8 @@ const TEXT = texts(
     edit: "Editar mi árbol",
     editingTitle: "Editando tu árbol",
     editingHelp: "Toca un nodo para ver lo que da, y coge o quita desde su ficha. Coger un nodo coge el camino hasta él.",
-    pointsUsed: (used: number, max: number, level: number) => `${used} puntos de unos ${max} que puedes tener a nivel ${level}`,
+    pointsUsed: (used: number, byLevel: number, level: number) =>
+      `${used} ${used === 1 ? "punto puesto" : "puntos puestos"} · a nivel ${level} tienes ${byLevel} por nivel, más los que dan las misiones`,
     pointsOver: "Te pasas de los puntos que se pueden tener a tu nivel: revisa si sobra algo.",
     undo: "Deshacer",
     cancel: "Cancelar",
@@ -121,6 +125,9 @@ const TEXT = texts(
     forSkills: (skills: string) => `What helps ${skills} most, in the order you take it:`,
     noSkill: "I have your tree, but I don't know which skill does your damage. Tell me and I'll show which notables help it.",
     setSkill: "Tell you my skill",
+    unknownSkill: (name: string) =>
+      `I have your tree, but I don't recognise “${name}” as a skill in the game. Spell it as the game does and I'll show which notables help it.`,
+    fixSkill: "Fix my skill",
     nothing: "I don't see any nearby notable that helps what you use. Look at the tree below.",
     unread: (count: number) =>
       `I couldn't read ${count === 1 ? "your passive" : `your ${count} passives`}: ${count === 1 ? "it isn't a node" : "they aren't nodes"} on this tree (it happens with ones typed by hand). Paste your Path of Building 2 code in “Edit character” and I'll read them.`,
@@ -148,7 +155,8 @@ const TEXT = texts(
     edit: "Edit my tree",
     editingTitle: "Editing your tree",
     editingHelp: "Tap a node to see what it gives, then take or remove it from its card. Taking a node takes the path to it.",
-    pointsUsed: (used: number, max: number, level: number) => `${used} points of about ${max} you can have at level ${level}`,
+    pointsUsed: (used: number, byLevel: number, level: number) =>
+      `${used} ${used === 1 ? "point" : "points"} spent · at level ${level} you have ${byLevel} from levels, plus the ones quests give`,
     pointsOver: "That's more points than you can have at your level: check if something is extra.",
     undo: "Undo",
     cancel: "Cancel",
@@ -877,7 +885,9 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
       >
         <div className="min-w-0 flex-1">
           <p className="text-sm tabular-nums text-foreground" data-testid="arbol-puntos">
-            {t.pointsUsed(used, maxPoints, level)}
+            {/* Antes decía «de unos 35 a nivel 12»: sumaba los 24 puntos de misiones
+                de toda la campaña, que un personaje del acto 1 aún no tiene. */}
+            {t.pointsUsed(used, Math.max(0, Math.min(100, level) - 1), level)}
           </p>
           {used > maxPoints && <p className="text-xs text-amber-200">{t.pointsOver}</p>}
         </div>
@@ -992,9 +1002,12 @@ export function PassiveTreeCard({ profile, onPasteCode, onSetSkill, onSavePassiv
 
           {data.skills.length === 0 ? (
             <div className="flex flex-col items-start gap-2">
-              <p className="text-sm text-muted-foreground">{t.noSkill}</p>
+              {/* Si el jugador ya dijo una habilidad y no se reconoce, se dice eso: «no sé qué habilidad usas» mentía. */}
+              <p className="text-sm text-muted-foreground" data-testid="arbol-sin-habilidad">
+                {declaredMain.trim() !== "" ? t.unknownSkill(declaredMain.trim()) : t.noSkill}
+              </p>
               <Button type="button" variant="outline" size="sm" onClick={onSetSkill}>
-                {t.setSkill}
+                {declaredMain.trim() !== "" ? t.fixSkill : t.setSkill}
               </Button>
             </div>
           ) : unreadTree ? null : data.offence.length === 0 && defence.step === null ? (

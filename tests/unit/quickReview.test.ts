@@ -149,11 +149,26 @@ describe("revisión rápida — qué pedir cuando faltan datos", () => {
     expect(result.missing).toHaveLength(result.missingKeys.length);
   });
 
-  it("con solo nivel y habilidad pide resistencias y acto, no cinco cosas", async () => {
+  it("con solo nivel y habilidad pide de una vez todo lo clave que falta, y nada más", async () => {
     const { reviewCharacter, firstGapsToAsk } = await import("../../shared/quickReview.js");
     const result = reviewCharacter({ ...empty, level: 22, mainSkill: "Arrebato de tempestad" });
     expect(result.top).toEqual([]);
-    expect(firstGapsToAsk(result)).toEqual(["res", "act"]);
+    // Antes pedía solo dos y, al rellenarlos, otros dos: el formulario se abría dos veces.
+    expect(firstGapsToAsk(result)).toEqual(["res", "act", "gem"]);
+  });
+
+  it("en el acto 1 no echa en falta los puntos de ascendencia: aún no existen", async () => {
+    const { reviewCharacter } = await import("../../shared/quickReview.js");
+    const base = { ...empty, level: 12, mainSkillGemLevel: 4, resistances: { fire: 30, cold: 30, lightning: 30 } };
+    expect(reviewCharacter({ ...base, act: 1 }).missingKeys).toEqual(["weapon"]);
+    expect(reviewCharacter({ ...base, act: 2 }).missingKeys).toEqual(["weapon", "asc"]);
+  });
+
+  it("la lista de lo que falta se lee como una frase", async () => {
+    const { joinGapList } = await import("../../shared/quickReview.js");
+    expect(joinGapList(["tu nivel"], "y")).toBe("tu nivel");
+    expect(joinGapList(["tu nivel", "el acto"], "y")).toBe("tu nivel y el acto");
+    expect(joinGapList(["tu nivel", "tus resistencias", "el acto"], "y")).toBe("tu nivel, tus resistencias y el acto");
   });
 
   it("con lo clave rellenado ya no pide nada, aunque falten el arma y la ascendencia", async () => {

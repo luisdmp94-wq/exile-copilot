@@ -66,6 +66,35 @@ describe("intención explain_priority", () => {
   });
 });
 
+describe("pedir ayuda sin más es pedir el siguiente paso", () => {
+  it("entiende «estoy atascado» y las formas normales de pedir ayuda", () => {
+    for (const pregunta of [
+      // La pregunta real de Luis en la web publicada (25-11-2026).
+      "estoy atascado con mi personaje puedes ayudarme , no se como podria mejorarlo",
+      "estoy atascado",
+      "Estoy atascada en el acto 2",
+      "ayúdame con mi personaje",
+      "¿me ayudas?",
+      "necesito ayuda",
+      "¿cómo mejoro mi personaje?",
+      "cómo puedo mejorar",
+      "estoy perdido",
+      "no sé cómo seguir",
+      "I'm stuck, can you help me?",
+      "how do I improve my character",
+      "I need help",
+      "I'm lost",
+    ]) {
+      expect(classifyMentorQuestion(pregunta).intent, pregunta).toBe("next_improvement");
+    }
+  });
+
+  it("si además dice que muere o que le falta daño, conserva ese foco", () => {
+    expect(classifyMentorQuestion("estoy atascado, me matan todo el rato")).toMatchObject({ focus: "survival" });
+    expect(classifyMentorQuestion("ayúdame, no hago daño")).toMatchObject({ focus: "damage" });
+  });
+});
+
 describe("intención unsupported", () => {
   it("no adivina preguntas fuera del alcance", () => {
     for (const pregunta of [

@@ -530,6 +530,21 @@
     filter: drop-shadow(0 0.75rem 1.5rem hsl(228 38% 2% / 0.45));
   }
 
+  /* Mientras se escribe en un cuadro de la página, la mascota plegada se aparta:
+     tapaba el botón «Preguntar» del Mentor. Vuelve con un respiro, para que el
+     clic en ese botón no caiga sobre ella. */
+  .mentor-floating-shell[data-collapsed="true"] {
+    transition: transform 220ms ease 700ms, opacity 220ms ease 700ms;
+  }
+
+  body:has(:is(input:not([type="checkbox"], [type="radio"], [type="file"]), textarea):focus)
+    .mentor-floating-shell[data-collapsed="true"]:not(:focus-within) {
+    transform: translateY(calc(100% + 2rem));
+    opacity: 0;
+    pointer-events: none;
+    transition-delay: 0ms;
+  }
+
   /* Tamaño aprobado del Copiloto plegado; el móvil usa el compacto de abajo. */
   .mentor-floating-shell[data-collapsed="true"] {
     width: 7.4rem;

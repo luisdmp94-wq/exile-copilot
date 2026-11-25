@@ -315,7 +315,7 @@ function TipList({ guide, tips }: { guide: ActGuide; tips: GuideTip[] }) {
   );
 }
 
-function Block({ guide, block, number, t }: { guide: ActGuide; block: GuideBlock; number: number; t: GuidesText }) {
+function Block({ guide, block, t }: { guide: ActGuide; block: GuideBlock; t: GuidesText }) {
   const Icon = BLOCK_ICON[block.id] ?? BookOpen;
   return (
     <section
@@ -325,7 +325,8 @@ function Block({ guide, block, number, t }: { guide: ActGuide; block: GuideBlock
     >
       <h2 id={`guia-${block.id}`} className="flex items-center gap-2 text-lg font-semibold text-foreground">
         <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        {number}. {block.title}
+        {/* Sin número: la ruta de arriba ya va del 1 al 12 y un segundo «1.» despistaba. */}
+        {block.title}
       </h2>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{block.intro}</p>
       {block.cards && (
@@ -557,8 +558,8 @@ export function GuidesSection({
 
       {guide.route && guide.route.length > 0 && <Route key={`${guide.slug}-${lang}`} guide={guide} t={t} />}
 
-      {guide.blocks.map((block, index) => (
-        <Block key={block.id} guide={guide} block={block} number={index + 1} t={t} />
+      {guide.blocks.map((block) => (
+        <Block key={block.id} guide={guide} block={block} t={t} />
       ))}
 
       <section aria-labelledby="guia-fuentes" className="px-1 pt-2" data-testid="guia-fuentes">

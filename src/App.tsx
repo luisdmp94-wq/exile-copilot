@@ -83,7 +83,7 @@ import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
 import { cn } from "@/lib/utils";
 import { profileWithQuickReview, toInput as quickReviewInput } from "@/lib/quickReviewForm";
 import type { TargetDraft } from "@/sections/TargetSection";
-import { useCharacter } from "@/hooks/useCharacter";
+import { hasRememberedCharacter, useCharacter } from "@/hooks/useCharacter";
 import { useEditorDrafts } from "@/hooks/useEditorDrafts";
 import { useMarket } from "@/hooks/useMarket";
 import { useFeaturedBuilds } from "@/hooks/useFeaturedBuilds";
@@ -470,10 +470,16 @@ export default function App() {
       (typeof window === "undefined" ? null : guideSlugFromPath(window.location.pathname)) ??
       DEFAULT_GUIDE_SLUG,
   );
+  // El área en la que se quedó la última visita. Quien solo leyó una guía y
+  // aún no tiene personaje vuelve a la portada al abrir la dirección principal:
+  // si no, no llegaba a ver nunca «Empieza con tu personaje» (25-11-2026). La
+  // guía sigue a un clic, en «Sigues por aquí».
+  const [initialWorkspace] = useState<WorkspaceTab>(() => {
+    const stored = initialPlanningWorkspace?.activeWorkspace ?? "expediente";
+    return stored === "guias" && !hasRememberedCharacter() ? "expediente" : stored;
+  });
   const [tab, setTab] = useState<WorkspaceTab>(() =>
-    openedFromGuideUrl() || REQUESTED_TOOL !== null
-      ? "guias"
-      : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
+    openedFromGuideUrl() || REQUESTED_TOOL !== null ? "guias" : initialWorkspace,
   );
   // Contador anónimo: qué áreas abre cada visita (una vez cada una), en la web publicada.
   useEffect(() => {
@@ -485,14 +491,11 @@ export default function App() {
     () =>
       new Set([
         "expediente",
-        openedFromGuideUrl() ? "guias" : (initialPlanningWorkspace?.activeWorkspace ?? "expediente"),
+        openedFromGuideUrl() ? "guias" : initialWorkspace,
       ]),
   );
   const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceTab[]>(
-    initialPlanningWorkspace?.activeWorkspace &&
-      initialPlanningWorkspace.activeWorkspace !== "expediente"
-      ? ["expediente"]
-      : [],
+    initialWorkspace !== "expediente" ? ["expediente"] : [],
   );
   const [craftingRequestedItemId, setCraftingRequestedItemId] = useState<string | null>(null);
   // Panel lateral con el editor completo del personaje.
@@ -924,9 +927,11 @@ export default function App() {
     [hasProfile, characterJournal, resultRecommendations],
   );
   const savedNextAction = characterJournal?.primaryEntry ?? null;
+  // Con lo que el jugador ya contestó en la revisión rápida (`engineProfile`):
+  // si escribió allí su nivel, la tarjeta no dice «falta el nivel».
   const profileReadiness = useMemo(
-    () => assessCharacterReadiness(character.profile),
-    [character.profile],
+    () => assessCharacterReadiness(engineProfile ?? character.profile),
+    [engineProfile, character.profile],
   );
   const mentorReadiness = useMemo(
     () => assessMentorReadiness(character.profile),
@@ -1829,10 +1834,11 @@ export default function App() {
             const workspace = value as WorkspaceTab;
             navigateWorkspace(workspace);
           }}
-          className="gap-0 xl:grid xl:grid-cols-[4rem_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[13rem_minmax(0,1fr)] xl:gap-x-6 xl:pt-6"
+          className="gap-0 xl:grid xl:grid-cols-[5.5rem_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[13rem_minmax(0,1fr)] xl:gap-x-6 xl:pt-6"
         >
           {/* Por debajo de xl las áreas son pestañas fijas arriba. En xl pasan a
-              un carril lateral de iconos (deja anchura al expediente y al caso)
+              un carril lateral estrecho, con el nombre bajo cada icono (sin
+              nombre nadie sabía qué era cada uno), 
               y desde 2xl a una barra con una línea que explica cada área.
               La nueva distribución vive en el mismo TabsList para no duplicar
               estado ni foco. Música sigue en la cabecera principal. */}
@@ -1846,11 +1852,11 @@ export default function App() {
                 value="expediente"
                 data-testid="tab-expediente"
                 title={t.dossier}
-                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-auto xl:w-full xl:flex-none xl:flex-col xl:justify-center xl:gap-1 xl:px-0.5 xl:py-2.5 xl:text-[11px] xl:leading-tight 2xl:text-sm 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <FolderOpen className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate lg:hidden">{t.dossierShort}</span>
-                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">{t.dossier}</span>
+                <span className="truncate lg:hidden xl:inline 2xl:hidden">{t.dossierShort}</span>
+                <span className="hidden truncate lg:inline xl:hidden 2xl:inline">{t.dossier}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
                   {t.dossierHint}
                 </span>
@@ -1859,11 +1865,11 @@ export default function App() {
                 value="plan"
                 data-testid="tab-plan"
                 title={t.plan}
-                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-auto xl:w-full xl:flex-none xl:flex-col xl:justify-center xl:gap-1 xl:px-0.5 xl:py-2.5 xl:text-[11px] xl:leading-tight 2xl:text-sm 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <Compass className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate lg:hidden">{t.planShort}</span>
-                <span className="hidden truncate lg:inline xl:sr-only 2xl:not-sr-only">{t.plan}</span>
+                <span className="truncate lg:hidden xl:inline 2xl:hidden">{t.planShort}</span>
+                <span className="hidden truncate lg:inline xl:hidden 2xl:inline">{t.plan}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
                   {t.planHint}
                 </span>
@@ -1872,10 +1878,10 @@ export default function App() {
                 value="crafting"
                 data-testid="tab-crafting"
                 title={t.crafting}
-                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-auto xl:w-full xl:flex-none xl:flex-col xl:justify-center xl:gap-1 xl:px-0.5 xl:py-2.5 xl:text-[11px] xl:leading-tight 2xl:text-sm 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <Hammer className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate xl:sr-only 2xl:not-sr-only">{t.crafting}</span>
+                <span className="truncate">{t.crafting}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
                   {t.craftingHint}
                 </span>
@@ -1884,10 +1890,10 @@ export default function App() {
                 value="guias"
                 data-testid="tab-guias"
                 title={t.guidesTitle}
-                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-11 xl:w-full xl:flex-none xl:justify-center xl:px-0 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
+                className="min-w-0 flex-col gap-1 rounded-lg border-0 px-1.5 py-2 text-xs font-medium sm:flex-row text-muted-foreground shadow-none transition-colors hover:text-foreground sm:gap-2 sm:px-4 sm:text-sm lg:flex-none xl:h-auto xl:w-full xl:flex-none xl:flex-col xl:justify-center xl:gap-1 xl:px-0.5 xl:py-2.5 xl:text-[11px] xl:leading-tight 2xl:text-sm 2xl:grid 2xl:h-auto 2xl:grid-cols-[auto_minmax(0,1fr)] 2xl:gap-x-3 2xl:gap-y-0.5 2xl:px-3 2xl:py-2.5 2xl:text-left data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-none [&[data-state=active]>svg]:text-primary"
               >
                 <BookOpen className="size-4 shrink-0 2xl:row-span-2 2xl:mt-0.5" aria-hidden="true" />
-                <span className="truncate xl:sr-only 2xl:not-sr-only">{t.guides}</span>
+                <span className="truncate">{t.guides}</span>
                 <span className="hidden whitespace-normal text-xs font-normal leading-snug text-muted-foreground 2xl:col-start-2 2xl:block">
                   {t.guidesHint}
                 </span>
@@ -1902,6 +1908,7 @@ export default function App() {
                 profile={character.profile}
                 persisted={character.persisted}
                 reviewResistances={quickReviewInput({ ...quickReviewForm }).resistances}
+                reviewLevel={quickReviewInput({ ...quickReviewForm }).level}
               />
             </div>
           )}
