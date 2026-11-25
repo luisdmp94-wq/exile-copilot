@@ -60,8 +60,9 @@ la siguiente. Nada se sube sin su sí.
   sin personaje, la portada sale aunque vinieras de una guía; el menú de la
   izquierda lleva nombre en portátil; la mascota se aparta al escribir; la
   habilidad se elige de una lista y avisa si no existe; PoB2 no da ranking de
-  daño si no reconoce la habilidad. Sin pasar: la batería completa, las pruebas
-  de humo y `npm run build` (Luis jugaba): **pasarlos antes de subir**.
+  daño si no reconoce la habilidad. Pasados el 25-11: `npm run build`, la batería
+  completa (1652 pruebas) y las ocho pruebas de humo. Una comprobación de humo
+  buscaba la frase vieja del panel de PoB2: corregida la prueba, no la web.
   Pendiente aparte: el motor de recomendaciones apunta al 75 % de resistencias
   y la revisión rápida y las guías al 30 % en el acto 1; no se ha tocado.
   En la rama `ventanita-guia` (no en main): casilla con clic para cada trozo de
@@ -71,8 +72,14 @@ la siguiente. Nada se sube sin su sí.
 
 - [ ] **8. Dos o tres personas reales** que no conozcan la web la usan y Luis
   mira sin ayudar. Arreglar donde se atasquen.
-- [ ] **9. Textos del lanzamiento escritos:** guía de Steam actualizada,
+- [x] **9. Textos del lanzamiento escritos:** guía de Steam actualizada,
   Discusiones de Steam, Discord, Reddit y el directo.
+  → Hecho el 25-11: todos en `docs/promo/lanzamiento-1.0.md` y la guía en
+  `docs/promo/guia-steam-acto-1.md` (cambian título, descripción y secciones
+  2, 3 y 7). Steam y Discord van en inglés y en español; Reddit, en inglés con
+  las normas 9 y 11. Escritos con los datos de la 0.5.5: **no pegar hasta que
+  la web tenga los datos de la 1.0** y se haya mirado el acto 1, si los actos
+  3 y 4 siguen en borrador y si hay actos nuevos.
 - [ ] **10. Ensayo del día del parche** con `docs/DIA-DE-LA-1.0.md`.
 
 ### Del 8 al 10 de diciembre

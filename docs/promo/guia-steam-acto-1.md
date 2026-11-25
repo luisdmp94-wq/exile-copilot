@@ -1,7 +1,12 @@
 # Guía de Steam · Acto 1 (para pegar)
 
-Texto sacado de la guía del acto 1 de la web (`src/guides/actOne.ts`, revisada
-para la 0.5.5). Repasar el 11-12-2026, cuando salga la 1.0.
+Texto sacado de la guía del acto 1 de la web (`src/guides/actOne.ts`).
+
+**Versión para la 1.0, escrita el 25-11-2026 con los datos de la 0.5.5.** No
+pegarla hasta comprobar el acto 1 en la 1.0 (paso 5 de `docs/DIA-DE-LA-1.0.md`):
+si cambia un jefe, una recompensa o los interludios, se corrige aquí primero.
+Cambian respecto a lo publicado el 19-11: título, descripción y secciones 2, 3
+y 7. En la sección 7 hay que poner la fecha de la comprobación.
 
 Imagen cuadrada: `docs/promo/guia-steam-512.jpg`.
 
@@ -15,7 +20,7 @@ de Steam: déjalos tal cual.
 **Título**
 
 ```text
-Acto 1 sin morir: guía corta para novatos (0.5.5)
+Acto 1 sin morir: guía corta para novatos (1.0)
 ```
 
 **Idioma:** Español de España
@@ -23,7 +28,7 @@ Acto 1 sin morir: guía corta para novatos (0.5.5)
 **Descripción**
 
 ```text
-Lo justo para llegar vivo al acto 2: qué recompensas no debes saltarte, qué resistencia llevar contra el conde Geonor y mejoras baratas. Se lee en 3 minutos. Comprobada para la 0.5.5.
+Lo justo para llegar vivo al acto 2: qué recompensas no debes saltarte, qué resistencia llevar contra el conde Geonor y mejoras baratas. Se lee en 3 minutos. Comprobada para la 1.0.
 ```
 
 ---
@@ -62,13 +67,13 @@ Lo que no debes saltarte
 **Contenido**
 
 ```text
-Estas cinco recompensas son para siempre. Tres son opcionales y es fácil pasarlas de largo.
+Estas cinco recompensas son para siempre. Es fácil pasarlas de largo: mira esta lista antes de entrar en la Mansión de Ogham.
 
 [list]
 [*] [b]Sierraclara[/b] — Beira, de la manada putrefacta: +10 % de resistencia al hielo.
-[*] [b]Terrenos de caza[/b] (opcional) — El cuervo repicador: un libro con 2 puntos de pasiva de set de arma.
-[*] [b]Villafrey[/b] (opcional) — El rey de las nieblas: +30 de espíritu.
-[*] [b]Tierras de cultivo de Ogham[/b] (opcional) — Misión «El laúd perdido». El laúd está en La cabaña de Una. Da otro libro con 2 puntos.
+[*] [b]Terrenos de caza[/b] — El cuervo repicador: un libro con 2 puntos de pasiva de set de arma.
+[*] [b]Villafrey[/b] (zona opcional) — El rey de las nieblas: +30 de espíritu.
+[*] [b]Tierras de cultivo de Ogham[/b] — Misión «El laúd perdido». El laúd está en La cabaña de Una. Da otro libro con 2 puntos.
 [*] [b]Mansión de Ogham[/b] — Cirio, el Ritual viviente: +20 de vida.
 [/list]
 
@@ -94,9 +99,9 @@ La ruta, zona por zona
 [*] [b]El valle rojo[/b] — Jefe: el rey del óxido. La misión «En busca de la forja» te deja reciclar objetos con Renly.
 [*] [b]El enredo sombrío[/b] — Es el camino al cementerio. Ervig, el Druida putrefacto, te lo puedes saltar.
 [*] [b]Cementerio de los eternos[/b] — Para llegar a Lachlann pasa antes por el Mausoleo del pretor y la Tumba de la consorte. Da una gema de asistencia.
-[*] [b]Terrenos de caza[/b] (opcional) — El cuervo repicador: 2 puntos de pasiva.
+[*] [b]Terrenos de caza[/b] — El cuervo repicador: 2 puntos de pasiva.
 [*] [b]Villafrey[/b] (opcional) — El rey de las nieblas: +30 de espíritu.
-[*] [b]Tierras de cultivo de Ogham[/b] (opcional) — «El laúd perdido»: 2 puntos de pasiva.
+[*] [b]Tierras de cultivo de Ogham[/b] — «El laúd perdido»: 2 puntos de pasiva.
 [*] [b]Pueblo de Ogham[/b] — El verdugo. Apártate de la ráfaga de viento que marca su guillotina. Da una gema de habilidad de nivel 5.
 [*] [b]Mansión de Ogham[/b] — Cirio (+20 de vida) y, al final, el conde Geonor.
 [/list]
@@ -203,15 +208,21 @@ Fuentes y una herramienta gratis
 
 [list]
 [*] PoE2 Wiki: Act 1, Count Geonor, Resistance, The Crowbell, Book of Specialisation.
-[*] Maxroll: guía de subida de nivel, actualizada para la 0.5.5.
+[*] Maxroll: guía de subida de nivel.
 [*] PoE2DB en español: nombres de jefes y zonas.
 [/list]
 
-Comprobada para la 0.5.5. La repasaré cuando salga la 1.0. Si ves algo mal, dímelo en los comentarios y lo corrijo.
+Comprobada para la 1.0 el FECHA. Si ves algo mal, dímelo en los comentarios y lo corrijo.
 
 [b]¿Quieres saber si tu personaje está listo para el acto 2?[/b]
 
-He hecho una web gratis para eso. Pegas tu equipo con Ctrl+C y te dice qué resistencias te faltan y qué recompensa te has saltado. Sin registro y sin anuncios. No está afiliada a GGG.
+He hecho una web gratis para eso. Sin registro y sin anuncios. No está afiliada a GGG.
+
+[list]
+[*] [b]¿Me he saltado algo?[/b] Pegas tu equipo con Ctrl+C y te dice qué resistencias te faltan y qué recompensa te has dejado.
+[*] [b]Revisión rápida:[/b] unas pocas cosas que ves en el juego, y te dice las 3 que más te frenan, en orden.
+[*] [b]Guías de los actos 1 al 4[/b], igual de cortas que esta.
+[/list]
 
 [url=https://exilecopilot.com/guias/acto-1?ref=steam]exilecopilot.com · guía y comprobación del acto 1[/url]
 ```
