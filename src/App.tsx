@@ -65,6 +65,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { ContextualMentor } from "@/components/ContextualMentor";
 import { DataPrivacyDialog } from "@/components/DataPrivacyDialog";
 import { ReportProblemDialog, ReportProblemLink } from "@/components/ReportProblemDialog";
+import { DonationLink } from "@/components/DonationLink";
 import { QuickCharacterDialog } from "@/components/QuickCharacterDialog";
 import { WelcomePanel } from "@/components/WelcomePanel";
 import { MentorBriefing, OpenCase, OpenCaseSecondary } from "@/components/OpenCase";
@@ -2653,6 +2654,7 @@ export default function App() {
           <p className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             <DataPrivacyDialog health={health} />
             <ReportProblemLink onOpen={() => setReportOpen(true)} />
+            <DonationLink />
           </p>
         </footer>
         <ReportProblemDialog open={reportOpen} onOpenChange={setReportOpen} area={tab} />

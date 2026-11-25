@@ -76,12 +76,13 @@ describe("contador de visitas por la API", () => {
       ((await (await fetch(`${base}/stats`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json()) as {
         days: Array<{ uses: Record<string, number>; bySource: Record<string, { uses: Record<string, number> }> }>;
       }).days[0];
-    for (const event of ["codigo-pob", "calculo-pob", "exportar-pob"]) {
+    // «donar» es el clic en el enlace de donación del pie: sale a otra web.
+    for (const event of ["codigo-pob", "calculo-pob", "exportar-pob", "donar"]) {
       expect((await post(base, "/visit/use", { event, source: "steam" })).status).toBe(204);
     }
     const today = await usesNow();
-    expect(today.uses).toMatchObject({ "codigo-pob": 1, "calculo-pob": 1, "exportar-pob": 1 });
-    expect(today.bySource.steam?.uses).toMatchObject({ "codigo-pob": 1, "calculo-pob": 1, "exportar-pob": 1 });
+    expect(today.uses).toMatchObject({ "codigo-pob": 1, "calculo-pob": 1, "exportar-pob": 1, donar: 1 });
+    expect(today.bySource.steam?.uses).toMatchObject({ "codigo-pob": 1, "calculo-pob": 1, "exportar-pob": 1, donar: 1 });
 
     // Solo la lista cerrada del navegador: lo que cuenta el servidor no se puede inflar por aquí.
     expect((await post(base, "/visit/use", { event: "mentor", source: "steam" })).status).toBe(400);

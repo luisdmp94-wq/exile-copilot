@@ -108,15 +108,18 @@ export const USAGE_EVENTS = [
   // PoB2 dentro del navegador: no pasan por el servidor y los avisa la web.
   "calculo-pob",
   "exportar-pob",
+  // Desde el 25-11-2026. Clics en el enlace de donación del pie.
+  "donar",
 ] as const;
 export type UsageEvent = (typeof USAGE_EVENTS)[number];
 
 /**
  * Usos que ocurren solo en el navegador (el código PoB2 se lee y se calcula
- * allí, sin servidor), así que la web los avisa con una baliza. Lista cerrada:
- * lo demás lo cuenta el servidor al responder bien.
+ * allí, sin servidor; el enlace de donación sale a otra web), así que la web
+ * los avisa con una baliza. Lista cerrada: lo demás lo cuenta el servidor al
+ * responder bien.
  */
-export const BROWSER_USAGE_EVENTS = ["codigo-pob", "calculo-pob", "exportar-pob"] as const;
+export const BROWSER_USAGE_EVENTS = ["codigo-pob", "calculo-pob", "exportar-pob", "donar"] as const;
 export type BrowserUsageEvent = (typeof BROWSER_USAGE_EVENTS)[number];
 
 export const UseBeaconSchema = z

@@ -35,6 +35,7 @@ const USE_LABELS: Record<string, string> = {
   recomendaciones: "Recomendaciones del Mentor",
   "calculo-pob": "Cálculos con PoB2",
   "exportar-pob": "Exportados a PoB2",
+  donar: "Clics en «Invítame a un café»",
 };
 
 const AREA_LABELS: Record<string, string> = {
