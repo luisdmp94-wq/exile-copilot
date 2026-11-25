@@ -8,6 +8,9 @@ describe("configuración del mentor IA", () => {
     expect(config.mentorAiProvider).toBe("groq");
     expect(config.mentorAiApiKey).toBeNull();
     expect(config.mentorAiModel).toBe("openai/gpt-oss-120b");
+    expect(config.mentorAiFallbackModels).toEqual(["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]);
+    expect(loadConfig({ MENTOR_AI_FALLBACK_MODELS: "" }).mentorAiFallbackModels).toEqual([]);
+    expect(loadConfig({ MENTOR_AI_MODEL: "openai/gpt-oss-20b" }).mentorAiFallbackModels).toEqual(["qwen/qwen3.8-27b"]);
     expect(config.requestBodyLimitBytes).toBe(4 * 1024 * 1024);
     expect(config.writeRateLimitPerMinute).toBe(60);
   });

@@ -176,6 +176,40 @@ describe("ResponsesMentorSelector", () => {
     }
   });
 
+  it("sin cupo en el modelo principal, la misma petición va al de reserva", async () => {
+    const asked: string[] = [];
+    const fetchImpl = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      const model = String((JSON.parse(String(init?.body)) as { model: string }).model);
+      asked.push(model);
+      if (model === "openai/gpt-oss-120b") {
+        return new Response(JSON.stringify({ error: { code: "rate_limit_exceeded" } }), { status: 429 });
+      }
+      return new Response(
+        JSON.stringify({
+          status: "completed",
+          output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ topic: "spirit", skill: null, support: null, wish: null }) }] }],
+        }),
+        { status: 200 },
+      );
+    });
+    const selector = createMentorDecisionSelector(config(), fetchImpl)!;
+    const decision = await selector.route!(
+      { question: "para que vale el espiritu ese", lang: "es", characterClass: "Guerrero", level: 14, skills: [], conversation: [] },
+      "semilla",
+    );
+    expect(decision.topic).toBe("spirit");
+    expect(asked).toEqual(["openai/gpt-oss-120b", "openai/gpt-oss-20b"]);
+  });
+
+  it("sin modelos de reserva, un 429 vuelve a las reglas como siempre", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ error: { code: "rate_limit_exceeded" } }), { status: 429 }));
+    const selector = createMentorDecisionSelector({ ...config(), mentorAiFallbackModels: [] }, fetchImpl)!;
+    await expect(
+      selector.route!({ question: "hola", lang: "es", characterClass: "Guerrero", level: 14, skills: [], conversation: [] }, "semilla"),
+    ).rejects.toThrow("429");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("conserva los campos de seguridad al usar OpenAI", async () => {
     let endpoint = "";
     let requestBody: Record<string, unknown> = {};

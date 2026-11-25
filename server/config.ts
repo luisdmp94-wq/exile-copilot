@@ -38,6 +38,11 @@ export interface ServerConfig {
   /** Solo se lee en el servidor y nunca se expone a la interfaz. */
   mentorAiApiKey: string | null;
   mentorAiModel: string;
+  /**
+   * Modelos de reserva, por orden. Groq cuenta el cupo gratis por modelo: si
+   * el principal contesta 429 (sin cupo), la misma petición va al siguiente.
+   */
+  mentorAiFallbackModels: string[];
   /** Modelo que lee imágenes (capturas del juego). Groq cambia sus modelos: se puede fijar por entorno. */
   mentorAiVisionModel: string;
   mentorAiReasoningEffort: "none" | "low" | "medium" | "high";
@@ -92,6 +97,27 @@ function reasoningEffort(
     : "low";
 }
 
+/**
+ * Modelos de reserva: los de MENTOR_AI_FALLBACK_MODELS (separados por comas;
+ * vacío = ninguno). Sin la variable, con Groq, los otros dos modelos de texto
+ * de la cuenta gratis: cada uno tiene sus 200.000 tokens al día (tabla de
+ * límites de Groq, 25-11-2026) y los dos aceptan la misma salida estructurada.
+ * El segundo es también el que lee las capturas: solo se toca al final.
+ */
+function fallbackModels(
+  value: string | undefined,
+  provider: ServerConfig["mentorAiProvider"],
+  primary: string,
+): string[] {
+  const listed =
+    value !== undefined
+      ? value.split(",").map((model) => model.trim()).filter((model) => model.length > 0)
+      : provider === "groq"
+        ? ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+        : [];
+  return [...new Set(listed)].filter((model) => model !== primary).slice(0, 3);
+}
+
 function mentorAiProvider(value: string | undefined): ServerConfig["mentorAiProvider"] {
   return value?.trim().toLowerCase() === "openai" ? "openai" : "groq";
 }
@@ -144,6 +170,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     mentorAiModel:
       env.MENTOR_AI_MODEL?.trim() ||
       (provider === "groq" ? "openai/gpt-oss-120b" : "gpt-5.4-mini"),
+    mentorAiFallbackModels: fallbackModels(
+      env.MENTOR_AI_FALLBACK_MODELS,
+      provider,
+      env.MENTOR_AI_MODEL?.trim() || (provider === "groq" ? "openai/gpt-oss-120b" : "gpt-5.4-mini"),
+    ),
     mentorAiVisionModel:
       env.MENTOR_AI_VISION_MODEL?.trim() ||
       (provider === "groq" ? "qwen/qwen3.8-27b" : "gpt-5.4-mini"),
