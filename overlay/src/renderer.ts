@@ -265,7 +265,7 @@ function draw(state: OverlayState): void {
   if (view.boss) {
     goal("jefe", "jefe-casilla", view.boss.dead);
     byId("jefe-nombre").textContent = view.boss.name;
-    byId("jefe-nota").textContent = view.boss.dead ? "muerto" : "se marca solo";
+    byId("jefe-nota").textContent = view.boss.dead ? "muerto" : view.boss.auto ? "se marca solo" : "pulsa Fin al matarlo";
   }
   byId("objeto").hidden = !view.pickup;
   if (view.pickup) {

@@ -10,7 +10,8 @@
  * 2. Jefes: el registro no dice «jefe muerto», pero algunos jefes (o alguien
  *    a su lado) dicen una frase SOLO al caer. Aquí van únicamente las que
  *    salen una vez por victoria y nunca antes. Los jefes que no hablan (o
- *    que solo gritan durante el combate) no están: no se puede saber.
+ *    que solo gritan durante el combate) no están: no se puede saber. Esos
+ *    van en `SILENT_BOSSES` y se marcan a mano.
  *    Las frases son las del juego en español; en otro idioma no se marcan.
  *
  * La clave es el texto `zone` del paso en la guía, como en `zones.ts`.
@@ -222,6 +223,57 @@ export const BOSS_SIGNS: Record<number, Record<string, BossSign>> = {
     },
   },
 };
+
+/**
+ * Jefes que no dicen nada al caer: el registro no deja saber si han muerto.
+ * Tienen casilla igual, pero se marca a mano (clic o tecla Fin). Sin eso, sus
+ * zonas nunca decían «Zona hecha».
+ *
+ * Solo van los jefes de la zona que el paso nombra. No están los opcionales
+ * (el Horror de espinas, la bestia ciega…) ni los que sueltan la recompensa
+ * para siempre del paso (Beira, el cuervo repicador, Kabala, Quijada negra…):
+ * de esos ya avisa la recompensa al recibirla.
+ *
+ * El nombre es el del texto del paso; la clave, su `zone`, como arriba.
+ */
+export const SILENT_BOSSES: Record<number, Record<string, string>> = {
+  1: {
+    Lodazal: "el devorador",
+    "El valle rojo": "el rey del óxido",
+    "Pueblo de Ogham": "el verdugo",
+  },
+  2: {
+    "Alrededores del Vastiri": "Matajefes",
+    "El pasaje de la traidora": "Balbala, la Traidora",
+    "Páramo de los mastodontes y La llanura de huesos": "Ekbab, Montura ancestral",
+    "La gruta del titán": "Zalmarath, el Coloso",
+    "Las torres de Deshar": "Tor Gul, el Profanador",
+  },
+  3: {
+    "Yermo infestado y Humedales de las quimerinas": "Xyclucian, la Quimera",
+    "Santuario de Jiquani": "Zicoatl, Guardián del núcleo",
+    "La cámara fundida": "Mektul, el Maestro de la forja",
+    "Ápice de la inmundicia": "la reina de la inmundicia",
+    "Utzaal (pasado)": "Napuatzi la Víbora",
+  },
+  4: {
+    "Isla del clan y Madrigueras volcánicas": "Krutog, Señor del clan",
+    "Prisión abandonada y Confinamiento solitario": "el prisionero",
+    "Isla de los alcaudones": "el azote de los cielos",
+    Arastas: "Torvian, la Mano del Salvador",
+  },
+};
+
+/**
+ * El jefe de un paso, si tiene casilla. `auto`: el registro lo marca solo al
+ * oír su frase; si no, se marca a mano.
+ */
+export function bossOf(act: number, zone: string): { name: string; auto: boolean } | null {
+  const sign = BOSS_SIGNS[act]?.[zone];
+  if (sign) return { name: sign.boss, auto: true };
+  const silent = SILENT_BOSSES[act]?.[zone];
+  return silent ? { name: silent, auto: false } : null;
+}
 
 /**
  * Quita las marcas del juego de una frase del registro:

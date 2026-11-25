@@ -29,6 +29,7 @@ import {
   onDismissResistNotice,
   onLevel,
   onBoss,
+  onMarkStep,
   onMove,
   onReward,
   onToggleBoss,
@@ -36,13 +37,14 @@ import {
   onToggleReward,
   resistanceNotice,
   sanitizeRun,
+  stepReady,
   outsideSentence,
   unseenSentence,
   viewOf,
   type Run,
 } from "../../overlay/src/run";
 import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../overlay/src/foreground";
-import { BOSS_SIGNS, PICKUPS, REWARD_RULES, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
+import { BOSS_SIGNS, PICKUPS, REWARD_RULES, SILENT_BOSSES, bossOf, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
 import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { sentencePieces, stepLines, stepSentences, withoutBossName } from "../../overlay/src/stepText";
@@ -309,7 +311,10 @@ describe("ventanita: trozos de mapa del acto 4", () => {
   it("con el trozo sin coger no dice «puedes seguir»", () => {
     const shrike = play([["G4_7", 52]]);
     expect(viewOf(shrike, "completa").ready).toBe(false);
-    expect(viewOf(onTogglePickup(shrike), "completa").ready).toBe(true);
+    // En esta isla hay además un jefe que no habla: hacen falta las dos casillas.
+    expect(viewOf(onTogglePickup(shrike), "completa").ready).toBe(false);
+    expect(viewOf(onToggleBoss(shrike), "completa").ready).toBe(false);
+    expect(viewOf(onToggleBoss(onTogglePickup(shrike)), "completa").ready).toBe(true);
   });
 
   it("Punta del botín avisa de los trozos que faltan, y calla con los cuatro", () => {
@@ -784,16 +789,70 @@ describe("ventanita: objetivos que se marcan solos", () => {
   });
 
   it("una zona sin nada que comprobar no dice ni que sí ni que no", () => {
-    expect(viewOf(play(["G1_1", "G1_2", "G1_4", "G1_5"]), "completa")).toMatchObject({ reward: null, boss: null, ready: null });
+    // El bosque singular: sin recompensa y con un jefe opcional, que no tiene casilla.
+    expect(viewOf(play(["G1_1", "G1_2", "G1_4"]), "completa")).toMatchObject({ reward: null, boss: null, ready: null });
   });
 
   it("el jefe también se puede marcar a mano, solo donde hay jefe que marcar", () => {
     const riverbank = play(["G1_1"]);
     const byHand = onToggleBoss(riverbank);
-    expect(viewOf(byHand, "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+    expect(viewOf(byHand, "completa")).toMatchObject({ boss: { dead: true, auto: true }, ready: true });
     expect(onToggleBoss(byHand).bosses).toEqual([]);
+    const forest = play(["G1_1", "G1_2", "G1_4"]);
+    expect(onToggleBoss(forest)).toBe(forest);
+  });
+
+  it("los jefes que no hablan tienen casilla a mano, y con ella la zona dice «hecha»", () => {
     const redVale = play(["G1_1", "G1_2", "G1_4", "G1_5"]);
-    expect(onToggleBoss(redVale)).toBe(redVale);
+    expect(viewOf(redVale, "completa")).toMatchObject({
+      reward: null,
+      boss: { name: "el rey del óxido", dead: false, auto: false },
+      ready: false,
+    });
+    const dead = onToggleBoss(redVale);
+    expect(viewOf(dead, "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+    expect(viewOf(onToggleBoss(dead), "completa").ready).toBe(false);
+    // Se guarda con la partida.
+    expect(sanitizeRun(JSON.parse(JSON.stringify(dead))).bosses).toEqual(["1:4"]);
+  });
+
+  it("la tecla Fin marca al jefe que no habla; donde no lo hay, la recompensa", () => {
+    const redVale = play(["G1_1", "G1_2", "G1_4", "G1_5"]);
+    expect(onMarkStep(redVale).bosses).toEqual(["1:4"]);
+    expect(onMarkStep(onMarkStep(redVale)).bosses).toEqual([]);
+    // Las torres de Deshar: la resistencia se marca sola en el santuario; Fin es para Tor Gul.
+    const spires = play(["G2_1", "G2_9_2"]);
+    expect(viewOf(spires, "completa")).toMatchObject({ boss: { name: "Tor Gul, el Profanador", auto: false }, ready: false });
+    const torGul = onMarkStep(spires);
+    expect(torGul).toMatchObject({ bosses: ["2:11"], checked: [] });
+    expect(viewOf(torGul, "completa").ready).toBe(false);
+    expect(viewOf(onReward(torGul, "rayo"), "completa").ready).toBe(true);
+    // Un jefe que habla no cambia: Fin sigue siendo la recompensa.
+    const freythorn = play(["G1_1", "G1_12"]);
+    expect(onMarkStep(freythorn)).toMatchObject({ checked: ["1:8"], bosses: [] });
+  });
+
+  it("un jefe a mano sin marcar no mueve la guía: «Luego» no vuelve a su zona", () => {
+    // Pasó por El valle rojo sin marcar al rey del óxido y sigue adelante.
+    const onward = play(["G1_1", "G1_2", "G1_4", "G1_5", "G1_6"]);
+    expect(stepReady(onward, 1, 4)).toBeNull();
+    // De vuelta en Sierraclara, lo siguiente no es otra vez el valle.
+    const back = play(["G1_2"], onward);
+    expect(viewOf(back, "completa").next?.zone).not.toBe("El valle rojo");
+  });
+
+  it("cada jefe que no habla está en un paso de la guía que lo nombra, y no repite a uno que habla", () => {
+    let count = 0;
+    for (const [act, table] of Object.entries(SILENT_BOSSES)) {
+      for (const [zone, boss] of Object.entries(table)) {
+        const step = routeOf(Number(act)).find((item) => item.zone === zone);
+        expect(step, zone).toBeDefined();
+        expect(step!.text.toLowerCase(), zone).toContain(boss.toLowerCase());
+        expect(BOSS_SIGNS[Number(act)]?.[zone], zone).toBeUndefined();
+        count += 1;
+      }
+    }
+    expect(count).toBe(17);
   });
 
   it("un personaje nuevo empieza sin nada marcado", () => {
@@ -944,20 +1003,36 @@ describe("ventanita: el texto del paso, una frase por línea", () => {
     expect(withoutBossName(`${boss}.`, boss)).toBe(`${boss}.`);
   });
 
-  it("solo dos pasos de las guías repetían el nombre del jefe, y a ninguno le quita nada más", () => {
+  it("también quita «Jefe: …», que con la línea «Jefe:» encima se leía dos veces", () => {
+    expect(withoutBossName("Jefe: el rey del óxido. La misión te deja reciclar objetos con Renly.", "el rey del óxido")).toBe(
+      "La misión te deja reciclar objetos con Renly.",
+    );
+  });
+
+  it("solo estos pasos de las guías repetían el nombre del jefe, y a ninguno le quita nada más", () => {
     const cut: string[] = [];
     for (const act of [1, 2, 3, 4]) {
       for (const step of routeOf(act)) {
-        const sign = BOSS_SIGNS[act]?.[step.zone];
-        if (!sign) continue;
-        const shown = withoutBossName(step.text, sign.boss);
+        const boss = bossOf(act, step.zone);
+        if (!boss) continue;
+        const shown = withoutBossName(step.text, boss.name);
         if (shown === step.text) continue;
         cut.push(step.zone);
         expect(step.text.endsWith(shown), step.zone).toBe(true);
         expect(shown.length).toBeGreaterThan(10);
       }
     }
-    expect(cut).toEqual(["Templo de Kopec", "La excavación"]);
+    expect(cut).toEqual([
+      "El valle rojo",
+      "El pasaje de la traidora",
+      "Páramo de los mastodontes y La llanura de huesos",
+      "Yermo infestado y Humedales de las quimerinas",
+      "Santuario de Jiquani",
+      "Ápice de la inmundicia",
+      "Templo de Kopec",
+      "Arastas",
+      "La excavación",
+    ]);
   });
 
   it("ningún paso de las guías pierde texto al trocearlo", () => {

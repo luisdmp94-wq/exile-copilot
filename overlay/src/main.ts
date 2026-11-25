@@ -11,6 +11,7 @@ import {
   onDismissNotice,
   onDismissResistNotice,
   onMove,
+  onMarkStep,
   onToggleBoss,
   onTogglePickup,
   onToggleReward,
@@ -286,7 +287,7 @@ function setShortcuts(on: boolean): void {
   const shortcuts: Array<[string, () => void]> = [
     [KEYS.prev, () => update(onMove(saved.run, -1, saved.settings.route))],
     [KEYS.next, () => update(onMove(saved.run, 1, saved.settings.route))],
-    [KEYS.reward, () => update(onToggleReward(saved.run))],
+    [KEYS.reward, () => update(onMarkStep(saved.run))],
     [KEYS.summary, toggleSummary],
   ];
   const taken = shortcuts.filter(([key, action]) => !globalShortcut.register(key, action)).map(([key]) => key);
@@ -414,7 +415,7 @@ function buildTrayMenu(): void {
       { label: userHidden ? "Mostrar" : "Ocultar", click: () => setUserHidden(!userHidden) },
       { type: "separator" },
       { label: "Re Pág / Av Pág: paso anterior / siguiente", enabled: false },
-      { label: "Fin: marcar la recompensa como cogida", enabled: false },
+      { label: "Fin: marcar la recompensa, o el jefe que no habla", enabled: false },
       { label: "Para moverla: arrastra el asa ⠿ de la izquierda", enabled: false },
       { type: "separator" },
       { label: "Empezar de cero (personaje nuevo)", click: () => update(NEW_RUN) },
@@ -561,6 +562,8 @@ async function runTestActions(list: string): Promise<void> {
     if (action === "siguiente") update(onMove(saved.run, 1, saved.settings.route));
     if (action === "anterior") update(onMove(saved.run, -1, saved.settings.route));
     if (action === "recompensa") update(onToggleReward(saved.run));
+    // Lo mismo que hace la tecla Fin.
+    if (action === "fin") update(onMarkStep(saved.run));
     if (action === "resumen") toggleSummary();
     if (action === "rapida") updateSettings({ route: "rapida" });
     if (action === "compacta") updateSettings({ compact: true });

@@ -21,6 +21,10 @@ guía (actos 1 a 4, las guías de `src/guides`).
   Prueba de Caos se marcan a mano (**Fin** o clic).
 - **El jefe de la zona**, cuando el registro deja saber que ha caído (15 de
   los jefes de los actos 1-4): su casilla también se marca sola.
+- **Los jefes que no hablan** (otros 17: el rey del óxido, el verdugo, Tor Gul,
+  la reina de la inmundicia, el prisionero…) tienen casilla a mano: **Fin** o
+  clic al matarlos, y la zona ya dice «Zona hecha». Fin funciona también con
+  la ventanita minimizada.
 - **«Zona hecha: puedes seguir»**, en verde, cuando todo lo que se puede
   comprobar del paso está hecho. Debajo, en grande, **adónde vas**
   («→ Ngakanu y El corazón de la tribu»), y el texto de lo ya hecho se apaga.
@@ -64,7 +68,7 @@ guía (actos 1 a 4, las guías de `src/guides`).
 | Tecla | Qué hace |
 | --- | --- |
 | Re Pág / Av Pág | Paso anterior / siguiente |
-| Fin | Marcar la recompensa del paso como cogida |
+| Fin | Marcar al jefe del paso si no habla; si no, su recompensa |
 | Ctrl+Alt+R | Ver o cerrar las recompensas del acto |
 
 **Moverla:** arrastra el asa ⠿ de la izquierda de la cabecera. No se puede
@@ -124,8 +128,12 @@ la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar»
 - **Jefes:** el registro no dice «jefe muerto». Solo se marcan los que dicen
   (ellos o alguien a su lado) una frase únicamente al caer, y solo con el
   juego en español. Los que no hablan (el devorador, el rey del óxido, el
-  verdugo, Kabala, Tor Gul, la reina de la inmundicia, el prisionero…) no
-  tienen casilla: la ventanita no dice ni que sí ni que no.
+  verdugo, Tor Gul, la reina de la inmundicia, el prisionero…) se marcan a
+  mano. Si se te olvida marcar uno, la guía sigue igual: solo esa zona se
+  queda sin su «Zona hecha».
+- Los jefes que sueltan la recompensa para siempre del paso (Beira, Kabala,
+  Quijada negra…) y los opcionales no tienen casilla: de los primeros avisa
+  la recompensa al recibirla.
 - Con dos libros de 2 puntos en el mismo acto, si usas los dos en el pueblo
   puede marcar primero el otro; al usar el segundo quedan bien los dos.
 - Las islas del acto 4 se hacen en cualquier orden; el resumen las ordena

@@ -1,5 +1,5 @@
 import type { GuideRoutePriority } from "../../src/guides/guide";
-import { BASE_CLASSES, BOSS_SIGNS, NEEDS_PICKUPS, PICKUPS, REWARD_RULES, type RewardKind } from "./objectives";
+import { BASE_CLASSES, BOSS_SIGNS, NEEDS_PICKUPS, PICKUPS, REWARD_RULES, SILENT_BOSSES, bossOf, type RewardKind } from "./objectives";
 import {
   FIRST_ACT,
   GUIDES,
@@ -146,7 +146,8 @@ export function missedRewards(
 
 /**
  * ¿Está hecho todo lo que se puede comprobar de ese paso (recompensa cogida,
- * jefe vencido)? Null si el paso no tiene nada que comprobar.
+ * jefe vencido)? Null si el paso no tiene nada que comprobar. Los jefes que no
+ * hablan no cuentan aquí: una casilla a mano que se olvida no debe mover la guía.
  */
 export function stepReady(run: Pick<Run, "checked" | "bosses">, act: number, index: number): boolean | null {
   const step = routeOf(act)[index];
@@ -256,13 +257,26 @@ export function onBoss(run: Run, act: number, zone: string): Run {
   return run.bosses.includes(key) ? run : { ...run, bosses: [...run.bosses, key] };
 }
 
-/** Marca o desmarca a mano el jefe del paso que se ve (por si el registro no lo dijo). */
+/**
+ * Marca o desmarca a mano el jefe del paso que se ve: el que no habla (no hay
+ * otra forma de saberlo) o el que sí, por si el registro no lo dijo.
+ */
 export function onToggleBoss(run: Run): Run {
   const { act, index } = run.progress;
-  if (!BOSS_SIGNS[act]?.[routeOf(act)[index]?.zone ?? ""]) return run;
+  if (!bossOf(act, routeOf(act)[index]?.zone ?? "")) return run;
   const key = stepKey(act, index);
   const bosses = run.bosses.includes(key) ? run.bosses.filter((item) => item !== key) : [...run.bosses, key];
   return { ...run, bosses };
+}
+
+/**
+ * La tecla Fin: marca lo que el paso deja marcar a mano. Si su jefe no habla,
+ * el jefe (su recompensa, si la tiene, ya se marca sola); si no, la recompensa.
+ * Así se marca sin ratón, también con la ventanita minimizada.
+ */
+export function onMarkStep(run: Run): Run {
+  const { act, index } = run.progress;
+  return SILENT_BOSSES[act]?.[routeOf(act)[index]?.zone ?? ""] ? onToggleBoss(run) : onToggleReward(run);
 }
 
 /** Marca o desmarca a mano el objeto que se recoge en el paso que se ve (un trozo de mapa). */
@@ -410,8 +424,8 @@ export interface StepView {
   offRoute: boolean;
   /** `auto`: el registro la marca sola al recibirla; si no, se marca a mano. `partial`: «1 de 3». */
   reward: { text: string; checked: boolean; auto: boolean; partial: string | null } | null;
-  /** El jefe de la zona, solo si el registro deja saber cuándo cae. */
-  boss: { name: string; dead: boolean } | null;
+  /** El jefe de la zona. `auto`: el registro deja saber cuándo cae; si no, se marca a mano. */
+  boss: { name: string; dead: boolean; auto: boolean } | null;
   /** Lo que se recoge aquí y hace falta más adelante (un trozo de mapa); se marca a mano. `count`: «2 de 4». */
   pickup: { text: string; got: boolean; count: string } | null;
   /** Este paso pide objetos de otros pasos y aún faltan: la frase que lo dice. Si no, null. */
@@ -524,8 +538,8 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
         partial: run.checked.includes(key) ? null : partialText(run, progress.act, progress.index),
       }
     : null;
-  const sign = BOSS_SIGNS[progress.act]?.[step.zone];
-  const boss = sign ? { name: sign.boss, dead: run.bosses.includes(key) } : null;
+  const known = bossOf(progress.act, step.zone);
+  const boss = known ? { ...known, dead: run.bosses.includes(key) } : null;
   const toPick = PICKUPS[progress.act]?.[step.zone];
   const picked = toPick ? pickupCount(run, progress.act, toPick.group) : null;
   const pickup = toPick && picked
@@ -538,9 +552,11 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
       ? `Esta isla solo se abre con los ${needed.of} trozos de mapa: llevas ${needed.got} marcado${needed.got === 1 ? "" : "s"}.`
       : null;
   // Lo que se marca a mano no frena la guía (volver a una zona sigue eligiendo
-  // bien el paso), pero «puedes seguir» no se dice con el trozo sin coger.
+  // bien el paso), pero «puedes seguir» no se dice con el trozo sin coger ni
+  // con el jefe que no habla sin marcar.
   const checkable = stepReady(run, progress.act, progress.index);
-  const ready = pickup ? (checkable ?? true) && pickup.got : checkable;
+  const byHand = [...(pickup ? [pickup.got] : []), ...(boss && !boss.auto ? [boss.dead] : [])];
+  const ready = byHand.length > 0 ? (checkable ?? true) && byHand.every(Boolean) : checkable;
   return {
     act: progress.act,
     number,

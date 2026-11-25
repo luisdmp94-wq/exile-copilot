@@ -28,12 +28,12 @@ export function stepSentences(text: string): string[] {
     .filter(Boolean);
 }
 
-const plain = (text: string) => text.trim().replace(/[.!…]+$/u, "").toLowerCase();
+const plain = (text: string) => text.trim().replace(/[.!…]+$/u, "").replace(/^jefe:\s*/iu, "").toLowerCase();
 
 /**
  * El texto sin la frase que solo nombra al jefe («Benedictus, Primer heraldo de
- * Utopía.»): con la línea «Jefe:» encima, repetirlo es una línea de más. Si no
- * quedara nada más que decir, se deja como estaba.
+ * Utopía.» o «Jefe: el rey del óxido.»): con la línea «Jefe:» encima, repetirlo
+ * es una línea de más. Si no quedara nada más que decir, se deja como estaba.
  */
 export function withoutBossName(text: string, boss: string): string {
   const sentences = stepSentences(text);
