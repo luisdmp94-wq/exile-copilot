@@ -31,6 +31,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compareEntries, describeChanges, readPrevious } from "./lib/dataDiff.js";
 
 const REPOSITORY = "grindinggear/poe2-skilltree-export";
 /** Commit fijado: árbol 0.5 publicado por GGG (el mismo que usan las rutas de pasivas). */
@@ -498,6 +499,19 @@ async function main(): Promise<void> {
     ascendancyNodes,
     overrides,
   };
+
+  // Qué ha cambiado frente al árbol que había: el archivo es una sola línea y
+  // el `git diff` no se lee. Se comparan nombre y efectos, no la posición.
+  type SavedNode = { nameEn: string; nameEs: string | null; statsEn?: string[] | null; statsEs?: string[] | null };
+  const previous = readPrevious<{ nodes?: Record<string, SavedNode> }>(OUT_TREE);
+  if (previous?.nodes) {
+    const text = (node: SavedNode) => JSON.stringify([node.nameEn, node.nameEs, node.statsEn ?? [], node.statsEs ?? []]);
+    const table = (list: Record<string, SavedNode>) => new Map(Object.entries(list).map(([key, node]) => [key, text(node)]));
+    const savedNodes: Record<string, SavedNode> = nodes;
+    const changes = compareEntries(table(previous.nodes), table(savedNodes));
+    const name = (key: string) => (savedNodes[key] ?? previous.nodes?.[key])?.nameEn ?? key;
+    for (const line of describeChanges("nodos", changes, name)) console.log(`[build-passive-tree] ${line}`);
+  }
 
   mkdirSync(dirname(OUT_TREE), { recursive: true });
   writeFileSync(OUT_TREE, JSON.stringify(output));

@@ -215,6 +215,13 @@ describe("los próximos notables", () => {
   });
 });
 
+/**
+ * La versión del árbol que lleva el código de PoB2 de la bruja de prueba: la
+ * misma que tiene la web («0.5.5» → «0_5»). Así estas pruebas no saltan el día
+ * que `npm run data:tree` traiga el árbol de un parche nuevo.
+ */
+const CODE_TREE_VERSION = (treeVersionFamily(tree.source.commitMessage) ?? "0.5").replace(".", "_");
+
 function profile(overrides: Partial<CharacterProfile> = {}): CharacterProfile {
   return CharacterProfileSchema.parse({
     id: "bruja-arbol",
@@ -237,7 +244,7 @@ function profile(overrides: Partial<CharacterProfile> = {}): CharacterProfile {
     life: 833,
     energyShield: 318,
     passives: { allocated: [{ ref: classStartFor(buildTreeGraph(tree), "Bruja")! }] },
-    pobImport: { passiveTreeVersion: "0_5" },
+    pobImport: { passiveTreeVersion: CODE_TREE_VERSION },
     ...overrides,
   });
 }
@@ -249,7 +256,7 @@ describe("la petición sale del personaje", () => {
     expect(request.defence).toBe("life");
     expect(request.skills[0]).toBe("Essence Drain");
     expect(request.passives.length).toBe(1);
-    expect(request.treeVersion).toBe("0_5");
+    expect(request.treeVersion).toBe(CODE_TREE_VERSION);
     expect(treeRequestFromProfile(profile({ life: 300, energyShield: 900 }), "es").defence).toBe("energyShield");
   });
 

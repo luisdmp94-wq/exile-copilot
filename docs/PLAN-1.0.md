@@ -80,7 +80,16 @@ la siguiente. Nada se sube sin su sí.
   las normas 9 y 11. Escritos con los datos de la 0.5.5: **no pegar hasta que
   la web tenga los datos de la 1.0** y se haya mirado el acto 1, si los actos
   3 y 4 siguen en borrador y si hay actos nuevos.
-- [ ] **10. Ensayo del día del parche** con `docs/DIA-DE-LA-1.0.md`.
+- [x] **10. Ensayo del día del parche** con `docs/DIA-DE-LA-1.0.md`.
+  → Hecho el 25-11: los scripts son unos 6 minutos; lo largo es esperar a las
+  fuentes y los pasos a mano (guías, parche y liga). Nueve atascos arreglados:
+  los scripts de datos ya dicen qué ha cambiado (antes se perdían traducciones
+  sin aviso), `data:status` ya no da por buenas las gemas leídas antes del
+  parche, dos pruebas del árbol que habrían fallado sin motivo el día 11, y el
+  documento (orden gemas → PoB2, comando del paso 8, rutas viejas). **Sin
+  ensayar, porque Luis jugaba:** la descarga de PoB2 (`npm run data:pob`, un día
+  que no juegue) y `verify:release` (va en la tarea 11). Lista entera en el
+  documento, «Ensayo del 25-11-2026».
 - [x] **12. El Mentor usa la IA para entender y redactar** (pedido por Luis el
   25-11: era su idea original). La IA entiende la pregunta y la redacta; las
   reglas ponen los datos del juego. Nunca al revés: en noviembre, cuando la IA

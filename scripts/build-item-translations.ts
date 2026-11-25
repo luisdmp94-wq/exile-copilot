@@ -16,11 +16,15 @@
  * fila a fila y solo se acepta una pareja si lleva los mismos números. Las
  * bases y los únicos se emparejan por su enlace, que es igual en los dos
  * idiomas. Lo que no se pueda traducir se queda en español y la web lo cuenta.
+ *
+ * Lee 63 páginas en los dos idiomas; tarda unos 2 minutos (medido el
+ * 25-11-2026). Al acabar dice qué traducciones son nuevas y cuáles se pierden.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { itemTemplate } from "../shared/itemTranslation.js";
+import { compareEntries, describeChanges, readPrevious } from "./lib/dataDiff.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const OUT = join(ROOT, "server/data/pob/item-translations.json");
@@ -204,6 +208,19 @@ async function main(): Promise<void> {
     bases: sortedObject(bases),
     uniques: sortedObject(uniques),
   };
+  // Qué ha cambiado: el archivo es una sola línea y el `git diff` no se lee.
+  // Lo que «ya no está» son traducciones que se pierden: mirarlas antes de subir.
+  const previous = readPrevious<Partial<Record<"mods" | "bases" | "uniques", Record<string, string>>>>(OUT);
+  if (previous) {
+    for (const [label, key] of [
+      ["Modificadores", "mods"],
+      ["Bases", "bases"],
+      ["Únicos", "uniques"],
+    ] as const) {
+      const changes = compareEntries(new Map(Object.entries(previous[key] ?? {})), new Map(Object.entries(output[key])));
+      for (const line of describeChanges(label, changes)) console.log(`[items-en] ${line}`);
+    }
+  }
   mkdirSync(dirname(OUT), { recursive: true });
   writeFileSync(OUT, `${JSON.stringify(output)}\n`);
   console.log(

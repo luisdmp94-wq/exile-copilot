@@ -48,6 +48,18 @@ async function main(): Promise<void> {
   const targetFamily = family(target);
   lines.push(`Datos de Exile Copilot frente al parche ${target}\n`);
 
+  // Lo que se lee de poe2db no dice de qué parche es: solo cuándo se leyó.
+  // Si el parche tiene fecha de salida, lo leído antes de ese día es del anterior.
+  const patchList = read("server/data/patches.json") as Array<{ id: string; status?: string; releaseDate?: string }>;
+  const entry = patchList.find((patch) => patch.id === target);
+  const releaseDate = entry?.releaseDate ?? null;
+  const readAfterRelease = (date: string): { ok: boolean; note: string } => {
+    const age = daysSince(date);
+    const ago = age !== null ? ` (hace ${age} días)` : "";
+    if (releaseDate && date < releaseDate) return { ok: false, note: `${ago} · de antes del parche (${releaseDate})` };
+    return { ok: age !== null && age <= 30, note: ago };
+  };
+
   // Árbol de pasivas (tarjeta «Tu árbol de pasivas» y el Mentor).
   const tree = read("server/data/passives/tree.json") as {
     source: { commit: string; commitMessage: string; commitDate: string; generatedAt: string };
@@ -57,7 +69,7 @@ async function main(): Promise<void> {
     treeOk,
     "Árbol de pasivas",
     `${tree.source.commitMessage} (GGG ${tree.source.commit.slice(0, 8)}, ${tree.source.commitDate.slice(0, 10)})`,
-    "npm run data:tree -- --latest (cuando GGG publique el árbol del parche)",
+    "npm run data:tree -- --latest (paso 2, cuando GGG publique el árbol del parche)",
   );
   if (process.argv.includes("--online")) {
     try {
@@ -85,7 +97,7 @@ async function main(): Promise<void> {
     pobOk,
     "Motor de PoB2",
     `PoB2 ${pob.pobVersion}, árbol ${pob.treeVersion} (${pob.commit.slice(0, 8)}, ${pob.commitDate.slice(0, 10)})`,
-    "npm run data:pob -- --latest y npm run data:items-en (cuando PoB2 publique su versión del parche)",
+    "npm run data:pob -- --latest y npm run data:items-en (paso 4, cuando PoB2 publique su versión del parche)",
   );
   if (process.argv.includes("--online")) {
     try {
@@ -97,10 +109,25 @@ async function main(): Promise<void> {
         latest.sha === pob.commit,
         "  último de PoB2",
         `${latest.commit.message.split("\n")[0].slice(0, 60)} (${latest.sha.slice(0, 8)}, ${latest.commit.committer.date.slice(0, 10)})`,
-        "Hay cambios en PoB2: npm run data:pob -- --latest (si traen el parche nuevo)",
+        "Hay cambios en la rama dev de PoB2 (pasa casi cada día): solo importa si la versión publicada o el árbol son nuevos",
       );
     } catch (error) {
       row(false, "  último de PoB2", `no se pudo mirar (${error instanceof Error ? error.message : String(error)})`);
+    }
+    // La señal buena: PoB2 publica una versión con número cuando da un parche por bueno.
+    try {
+      const response = await fetch("https://api.github.com/repos/PathOfBuildingCommunity/PathOfBuilding-PoE2/releases/latest", {
+        headers: { "User-Agent": "exile-copilot-data" },
+      });
+      const release = (await response.json()) as { tag_name: string; published_at: string };
+      row(
+        release.tag_name.replace(/^v/, "") === pob.pobVersion,
+        "  versión publicada",
+        `${release.tag_name} (${release.published_at.slice(0, 10)})`,
+        "PoB2 ha publicado una versión nueva: npm run data:pob -- --latest y npm run data:items-en (paso 4)",
+      );
+    } catch (error) {
+      row(false, "  versión publicada", `no se pudo mirar (${error instanceof Error ? error.message : String(error)})`);
     }
   }
 
@@ -110,9 +137,19 @@ async function main(): Promise<void> {
     ["server/data/gems.en.json", "Gemas (inglés)"],
   ] as const) {
     const gems = read(file) as { fetchedAt: string };
-    const age = daysSince(gems.fetchedAt);
-    row(age !== null && age <= 30, label, `poe2db del ${gems.fetchedAt}${age !== null ? ` (hace ${age} días)` : ""}`, file.includes(".en.") ? "npm run data:gems -- --en" : "npm run data:gems");
+    const fresh = readAfterRelease(gems.fetchedAt);
+    row(
+      fresh.ok,
+      label,
+      `poe2db del ${gems.fetchedAt}${fresh.note}`,
+      `${file.includes(".en.") ? "npm run data:gems -- --en" : "npm run data:gems"} (paso 3; si su resumen dice «sin cambios», poe2db aún no tiene el parche)`,
+    );
   }
+
+  // Traducción de objetos del español al inglés de PoB2 («Tus números con PoB2»).
+  const items = read("server/data/pob/item-translations.json") as { generatedAt: string };
+  const itemsFresh = readAfterRelease(items.generatedAt);
+  row(itemsFresh.ok, "Objetos es→en", `poe2db del ${items.generatedAt}${itemsFresh.note}`, "npm run data:items-en (paso 4)");
 
   // Guías por acto.
   for (const guide of [...guidesFor("es")].sort((a, b) => a.act - b.act)) {
@@ -120,7 +157,7 @@ async function main(): Promise<void> {
       family(guide.checkedPatch) === targetFamily,
       `Guía ${guide.actLabel}`,
       `comprobada para ${guide.checkedPatch} el ${guide.checkedOn}`,
-      `revisar zonas, jefes y recompensas con el juego y cambiar checkedPatch/checkedOn en src/guides (${guide.slug}, en español y en inglés)`,
+      `paso 5: revisar zonas, jefes y recompensas con el juego y repasar los dos textos de ${guide.slug} en src/guides; checkedPatch/checkedOn se cambian solo en el archivo en español (el inglés los hereda)`,
     );
   }
 
@@ -130,7 +167,7 @@ async function main(): Promise<void> {
       family(route.checkedPatch) === targetFamily,
       `Ruta «${route.id}»`,
       `árbol ${route.checkedPatch} (oculta en la web)`,
-      "npx tsx scripts/compute-passive-route.ts --download tras actualizar sourceCommit; o dejarla oculta",
+      "no se ve en la web: puede esperar a después del lanzamiento (npx tsx scripts/compute-passive-route.ts --download tras actualizar sourceCommit)",
     );
   }
 
@@ -142,12 +179,10 @@ async function main(): Promise<void> {
     patches.every((patch) => family(patch) === targetFamily),
     "Builds destacadas",
     `${builds.length} builds de ${patches.join(", ")}`,
-    "las de otro parche se apartan solas; buscar builds nuevas del parche con autor y fuente",
+    "paso 7: las de otro parche se apartan solas; buscar builds nuevas del parche con autor y fuente",
   );
 
   // Parches y liga.
-  const patchList = read("server/data/patches.json") as Array<{ id: string; status?: string; releaseDate?: string }>;
-  const entry = patchList.find((patch) => patch.id === target);
   row(
     entry !== undefined && entry.status !== "announced",
     "Ficha del parche",
@@ -173,7 +208,7 @@ async function main(): Promise<void> {
       ? `${coverage.status}${coverage.reviewedAt ? ` · revisada ${coverage.reviewedAt}` : " · sin revisar"}` +
           (stopped.length > 0 ? ` · detenido: ${stopped.map((feature) => feature.id).join(", ")}` : "")
       : `no hay ficha de compatibilidad de ${target}`,
-    `npm run readiness:${target} y docs/POE2-1.0-READINESS.md`,
+    `paso 6: npm run readiness:${target} y docs/POE2-1.0-READINESS.md`,
   );
   if (process.env.DEFAULT_PATCH) {
     row(

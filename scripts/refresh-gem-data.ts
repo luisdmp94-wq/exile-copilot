@@ -13,11 +13,14 @@
  *   npm run data:gems
  *   npm run data:gems -- --en
  *
- * Lee unas 730 fichas de 3 KB, de seis en seis, y tarda alrededor de un minuto.
+ * Lee unas 930 fichas de 3 KB, de seis en seis. Medido el 25-11-2026: 2 min
+ * 40 s en español y 1 min en inglés. Al acabar dice qué gemas son nuevas, cuáles
+ * ya no están y cuáles cambian de texto frente al archivo que había.
  */
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { isRealGem } from "../shared/gemCatalog";
+import { compareEntries, describeChanges, readPrevious } from "./lib/dataDiff";
 
 const BASE = "https://poe2db.tw";
 const HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; exile-copilot-data)" };
@@ -225,6 +228,28 @@ const supports = await build("Support_Gems", "support");
 if (skills.length < 100 || supports.length < 200) {
   throw new Error("Demasiadas pocas gemas: poe2db ha cambiado de formato. No se sobrescribe el archivo.");
 }
+
+// Qué ha cambiado desde la última vez: el archivo tiene cientos de líneas largas
+// y el `git diff` no se lee. Sin cambios el día de un parche = poe2db aún no lo tiene.
+type Saved = { fetchedAt?: string; skills?: Array<{ slug: string; name: string }>; supports?: Array<{ slug: string; name: string }> };
+const previous = readPrevious<Saved>(OUT);
+if (previous) {
+  let total = 0;
+  for (const [label, before, after] of [
+    ["Habilidades", previous.skills ?? [], skills],
+    ["Asistencias", previous.supports ?? [], supports],
+  ] as const) {
+    const names = new Map([...before, ...after].map((gem) => [gem.slug, gem.name]));
+    const table = (gems: ReadonlyArray<{ slug: string }>) => new Map(gems.map((gem) => [gem.slug, JSON.stringify(gem)]));
+    const changes = compareEntries(table(before), table(after));
+    total += changes.added.length + changes.removed.length + changes.changed.length;
+    for (const line of describeChanges(label, changes, (slug) => names.get(slug) ?? slug)) console.log(line);
+  }
+  if (total === 0) {
+    console.log(`poe2db no ha cambiado ninguna gema desde el ${previous.fetchedAt ?? "último archivo"}: si esperabas un parche nuevo, aún no lo tiene.`);
+  }
+}
+
 const data = {
   source: `https://poe2db.tw/${SITE}/`,
   fetchedAt: new Date().toISOString().slice(0, 10),

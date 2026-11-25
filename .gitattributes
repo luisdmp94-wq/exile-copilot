@@ -3,6 +3,10 @@
 # debe restaurar LF también en Windows para que regenerar deje git limpio.
 server/data/passives/*.json text eol=lf
 
+# Gemas de poe2db (npm run data:gems): el script escribe LF. Sin esta línea,
+# Git avisa «LF will be replaced by CRLF» cada vez que se regeneran.
+server/data/gems.*.json text eol=lf
+
 # Motor de Path of Building 2 (npm run data:pob) y traducción de objetos
 # (npm run data:items-en): el paquete es binario; los JSON, LF como arriba.
 server/data/pob/*.gz binary
