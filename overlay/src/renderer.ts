@@ -1,3 +1,4 @@
+import { stageName } from "./progress";
 import { unseenSentence, type RewardRow, type StepView } from "./run";
 import type { Settings } from "./settings";
 import { stepLines, withoutBossName } from "./stepText";
@@ -136,14 +137,14 @@ function drawSummary(view: StepView): void {
       ),
     ),
   );
-  byId("resumen-titulo").textContent = `Acto ${view.act}: lo que da algo para siempre`;
+  byId("resumen-titulo").textContent = `${stageName(view.act)}: lo que da algo para siempre`;
   // Lo que quedó sin coger en los actos de antes: sigue ahí, se puede volver a por ello.
   // La lista se corta para que la ventana no se salga de su alto: lo primero es lo más antiguo.
   const shown = view.missedBefore.slice(0, MAX_MISSED_ROWS);
   const hidden = view.missedBefore.length - shown.length;
   byId("antes-titulo").hidden = view.missedBefore.length === 0;
   byId("antes").replaceChildren(
-    ...shown.map((item) => rewardLine("dejada", item.reward, `${item.zone} · acto ${item.act}`)),
+    ...shown.map((item) => rewardLine("dejada", item.reward, `${item.zone} · ${stageName(item.act).toLowerCase()}`)),
     ...(hidden > 0 ? [line("…", `y ${hidden} más`, "resto")] : []),
   );
   const unseen = byId("sin-ver");
@@ -210,7 +211,7 @@ function draw(state: OverlayState): void {
       ? view.outsideText
       : settings.minimized
         ? `${view.ready ? "✓ " : ""}${view.zone} · ${view.number}/${view.total}`
-        : `Acto ${view.act} · paso ${view.number} de ${view.total}`;
+        : `${stageName(view.act)} · paso ${view.number} de ${view.total}`;
   }
   pos.className = goingTo ? "listo con-luego" : settings.minimized && done ? "listo" : "";
   const minimize = byId("minimizar");
@@ -229,7 +230,7 @@ function draw(state: OverlayState): void {
     : state.waitingForGame
       ? "Lista. Saldrá cuando tengas PoE2 delante."
       : view.leftBehind
-        ? `Te dejaste en el acto ${view.leftBehind.act}: ${view.leftBehind.items.map((item) => `${item.zone} (${item.reward})`).join(", ")}.`
+        ? `Te dejaste en el ${stageName(view.leftBehind.act).toLowerCase()}: ${view.leftBehind.items.map((item) => `${item.zone} (${item.reward})`).join(", ")}.`
         : !outside && view.level === "muy-bajo" && view.areaLevel !== null && view.charLevel !== null
           ? `Vas ${view.areaLevel - view.charLevel} niveles por debajo de la zona: sube alguno antes del jefe.`
           : null;
@@ -299,7 +300,7 @@ function draw(state: OverlayState): void {
   byId("luego").hidden = Boolean(nextBig);
   byId("luego").textContent = view.next
     ? `Luego: ${view.next.zone}${view.next.reward ? ` (${view.next.reward})` : ""}`
-    : "Fin de las guías (actos 1-4)";
+    : "Fin de la guía (actos e interludios)";
 
   const level = byId("nivel");
   const levelLabel = levelText(view, state.character);

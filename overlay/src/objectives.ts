@@ -76,6 +76,28 @@ export const REWARD_RULES: Record<number, Record<string, RewardRule>> = {
     "Salones de los muertos": { kinds: ["hielo", "fuego", "rayo"], anyIn: ["G4_4_2"], times: 3 },
     "La prueba de los ancestros": { kinds: ["puntos"] },
   },
+  // Los interludios (por dentro, actos 5, 6 y 7). Dónde cae cada mensaje está
+  // comprobado en el Client.txt de Luis (25-11-2026), con varios personajes.
+  5: {
+    // El Registro del carcelero se usa en el propio fuerte (P1_5).
+    "Fuerte de los lobos": { kinds: ["puntos"] },
+  },
+  6: {
+    // «Vida máxima aumentada un 5%.», en el cruce (P2_1).
+    "El cruce de Khari": { kinds: ["vida"] },
+    // Los puntos los da Risu en el pueblo.
+    "El cruce de Khari (Akthi y Anundr)": { kinds: ["puntos"], where: ["P2_Town"] },
+    // El texto cambia según el pilar elegido: vale cualquier mensaje recibido en Qimah.
+    Qimah: { anyIn: ["P2_6"] },
+  },
+  7: {
+    "Aldea de Kriar": { kinds: ["espiritu"] },
+    // Los puntos los da Hilda en el pueblo.
+    "Cavernas aulladoras": { kinds: ["puntos"], where: ["P3_Town"] },
+    // Los da El Encapuchado en Marca del rey, que es del acto 4: `onReward` mira
+    // los pasos de otros actos que se entregan en la zona donde estás.
+    "La cámara Cuachic": { kinds: ["puntos"], where: ["G4_town"] },
+  },
 };
 
 /**
@@ -134,7 +156,8 @@ export function rewardKindOf(message: string): RewardKind | null {
   if (/\[Resistances\|(?:fuego|Fire Resistance)\]/.test(message)) return "fuego";
   if (/\[Resistances\|(?:rayo|Lightning Resistance)\]/.test(message)) return "rayo";
   if (/\[Spirit\|/.test(message)) return "espiritu";
-  if (/a la vida máxima|to maximum Life/.test(message)) return "vida";
+  // «+20 a la vida máxima» (acto 1) y «Vida máxima aumentada un 5%» (interludio 2).
+  if (/a la vida máxima|Vida máxima aumentada|to maximum Life|increased maximum Life/.test(message)) return "vida";
   if (/Maná máximo aumentado|increased maximum Mana/.test(message)) return "mana";
   return "otra";
 }
@@ -292,6 +315,24 @@ export const SILENT_BOSSES: Record<number, Record<string, string>> = {
     "Prisión abandonada y Confinamiento solitario": "el prisionero",
     "Isla de los alcaudones": "el azote de los cielos",
     Arastas: "Torvian, la Mano del Salvador",
+  },
+  // Interludios: nueve zonas con jefe de la historia. Todos a mano: no se han
+  // buscado todavía frases que solo se digan al caer. Oswin (Fuerte de los
+  // lobos) y Lythara (Aldea de Kriar) no están: sueltan la recompensa del paso.
+  5: {
+    "Tierras de cultivo calcinadas": "Isolde y Heldra",
+    "Las piedras de Serle": "Siora, la Cuchilla de las nieblas",
+    "Finca de Holten": "Wulfric y Elswyth",
+  },
+  6: {
+    "Santuario de Sel Khari": "Elzarah, el Señor de las cobras",
+    "Las puertas de Galai": "Vornas, la Llama caída",
+    "Reservorio de Qimah": "Azmadi, el Príncipe faridun",
+  },
+  7: {
+    "Lago glacial": "Rakkar, la Garra helada",
+    "Desfiladero erosionado": "Crúor de la tormenta",
+    "La cámara Cuachic": "Zelina y Zolin",
   },
 };
 

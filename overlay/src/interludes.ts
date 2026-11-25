@@ -2,9 +2,9 @@ import type { GuideRouteStep, GuideSource } from "../../src/guides/guide";
 
 /**
  * Ruta de los tres interludios (entre el acto 4 y el final del juego).
- * PARTE 1: solo los datos. La ventanita todavía NO los enseña: en un
- * interludio sigue diciendo «la guía llega hasta el acto 4». Conectarlos
- * (qué paso enseñar, casillas, recompensas del acto) es la parte 2.
+ * La ventanita los enseña como tres actos más (por dentro 5, 6 y 7; el
+ * jugador ve «Interludio 1»): `progress.ts` los une a las guías de los actos,
+ * y `objectives.ts` dice cómo se marcan sus recompensas y sus jefes.
  *
  * Vive solo aquí, en `overlay/`: la web no tiene guía de los interludios.
  *
@@ -27,8 +27,9 @@ import type { GuideRouteStep, GuideSource } from "../../src/guides/guide";
  *  - Akthi y Anundr: poe2db no dice si la pelea es obligatoria. Su premio (2
  *    puntos de set de arma, vía Risu) es el de la misión «Despejar el
  *    camino», que poe2db marca como opcional: se cuenta como opcional.
- *  - Fuerte de los lobos: ninguna fuente dice si Oswin es obligatorio. No se
- *    marca como opcional. Luis hizo Finca de Holten antes que el fuerte.
+ *  - Fuerte de los lobos: ninguna fuente dice si Oswin es obligatorio, pero en
+ *    el registro de Luis dos personajes acabaron el interludio 1 sin entrar:
+ *    va como opcional (y sigue «clave» por los 2 puntos).
  *  - El barquero: poe2db da «unos 2000 de oro» por runa; Maxroll dice que
  *    solo se compra una vez y que hacen falta 20 000. Se cuentan las dos.
  *  - Las dos baryas de Sel Khari: poe2db dice «2 premios de 3»; Maxroll, «una
@@ -121,6 +122,7 @@ export const INTERLUDE_ROUTES: InterludeRoute[] = [
       {
         zone: "Fuerte de los lobos",
         text: "Oswin, el Guardián de temor, pega con físico y hielo. Suelta el Registro del carcelero: úsalo y te da 2 puntos de pasiva de set de arma.",
+        optional: true,
         priority: "clave",
         reward: "2 puntos de pasiva",
         proof: { kind: "weaponSetPoints", amount: 2 },
@@ -145,6 +147,9 @@ export const INTERLUDE_ROUTES: InterludeRoute[] = [
         text: "Zona muy grande, con varias salidas. Empieza por el norte: entra en la zona lateral (Skullmaw Stairway en inglés), límpiala y usa El regalo del Fundido en el Santuario fundido: +5 % de vida máxima para siempre.",
         priority: "clave",
         reward: "+5 % de vida",
+        // `proof` es lo que se ve en la hoja del personaje, y un +5 % de vida no se ve ahí:
+        // sigue «manual». En la ventanita se marca sola: el juego escribe «Vida máxima
+        // aumentada un 5%.» en P2_1 (`REWARD_RULES` en objectives.ts).
         proof: { kind: "manual", question: "¿Usaste El regalo del Fundido en el Santuario fundido?" },
         sourceIds: ["poe2db-i2", "maxroll-subida", "registro-luis"],
       },

@@ -6,14 +6,19 @@ import { EMPTY_ROSTER, nameId, onLog, type Roster } from "../../overlay/src/char
 import { ClientLogTail, parseLine, type LogEvent } from "../../overlay/src/clientLog";
 import {
   GUIDES,
+  LAST_ACT,
+  LAST_STORY_ACT,
   START,
   actOfCode,
+  codesOfStep,
   enterZone,
+  interludeOf,
   moveStep,
   positionIn,
   routeOf,
   sanitize,
   skippedInFastRoute,
+  stageName,
   stepsForCode,
   type Progress,
 } from "../../overlay/src/progress";
@@ -123,7 +128,7 @@ describe("ventanita: leer Client.txt", () => {
   });
 });
 
-describe("ventanita: ruta de los interludios (solo datos)", () => {
+describe("ventanita: ruta de los interludios (datos)", () => {
   const steps = INTERLUDE_ROUTES.flatMap((part) => part.route.map((step) => ({ part, step })));
 
   it("son tres interludios y 19 zonas, cada una con un solo código de su interludio", () => {
@@ -162,8 +167,216 @@ describe("ventanita: ruta de los interludios (solo datos)", () => {
     }
   });
 
-  it("todavía no se enseña: en un interludio la ventanita sigue fuera de la guía", () => {
-    expect(actOfCode("P1_5")).toBeNull();
+  it("por dentro son los actos 5, 6 y 7, y el jugador ve «Interludio N»", () => {
+    expect(LAST_STORY_ACT).toBe(4);
+    expect(LAST_ACT).toBe(7);
+    expect(actOfCode("P1_5")).toBe(5);
+    expect(actOfCode("P2_Town")).toBe(6);
+    expect(actOfCode("P3_7")).toBe(7);
+    expect(actOfCode("P4_1")).toBeNull();
+    expect(actOfCode("G_Endgame_Town")).toBeNull();
+    expect([4, 5, 6, 7].map(stageName)).toEqual(["Acto 4", "Interludio 1", "Interludio 2", "Interludio 3"]);
+    expect(interludeOf(4)).toBeNull();
+    expect(routeOf(5).map((step) => step.zone)).toEqual(INTERLUDE_ROUTES[0]!.route.map((step) => step.zone));
+    for (const part of INTERLUDE_ROUTES) {
+      part.route.forEach((step, index) => {
+        expect(codesOfStep(4 + part.interlude, index), step.zone).toEqual(INTERLUDE_ZONE_CODES[part.interlude][step.zone]);
+      });
+    }
+  });
+});
+
+describe("ventanita: los interludios en marcha", () => {
+  const ACT_FOUR = ["G4_town", "G4_2_1", "G4_2_2", "G4_1_1", "G4_5_1", "G4_3_1", "G4_7", "G4_8a", "G4_10", "G4_11_1b", "G4_11_2"];
+  const zoneOf = (run: Run) => viewOf(run, "completa").zone;
+  const lastOfFour = routeOf(4).length - 1;
+
+  it("al entrar en una zona P enseña su paso, con «n de total» del interludio", () => {
+    const holten = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_2", "P1_3", "P1_4"]);
+    expect(viewOf(holten, "completa")).toMatchObject({ act: 5, zone: "Holten", number: 4, total: 6, outside: false });
+    expect(viewOf(holten, "completa").next).toEqual({ zone: "Fuerte de los lobos", reward: "2 puntos de pasiva" });
+    expect(viewOf(play(["P2_5"], holten), "completa")).toMatchObject({ act: 6, zone: "Las puertas de Galai", number: 5, total: 7 });
+    expect(viewOf(play(["P3_7"], holten), "completa")).toMatchObject({ act: 7, zone: "La cámara Cuachic", number: 7, total: 7, next: null });
+  });
+
+  it("los pueblos de los interludios no mueven la guía", () => {
+    const end = play(ACT_FOUR);
+    // Llegar a El refugio deja a la vista el final del acto 4, con el interludio como «Luego».
+    const refuge = play(["P1_Town"], end);
+    expect(refuge.progress).toEqual({ act: 4, index: lastOfFour, outside: false });
+    expect(viewOf(refuge, "completa").next?.zone).toBe("Tierras de cultivo calcinadas");
+    const serle = play(["P1_1", "P1_2"], refuge);
+    expect(zoneOf(play(["P1_Town"], serle))).toBe("Las piedras de Serle");
+    // Orden real: de un pueblo al siguiente, sin pasar por Marca del rey.
+    expect(zoneOf(play(["P1_Town", "P2_Town"], serle))).toBe("Las piedras de Serle");
+    expect(zoneOf(play(["P1_Town", "P2_Town", "P2_1"], serle))).toBe("El cruce de Khari");
+    // Volver al pueblo de un interludio anterior tampoco.
+    expect(zoneOf(play(["P2_Town", "P2_1", "P2_2", "P1_Town"], serle))).toBe("Estanques de Khatal");
+    // Y un pueblo no cuenta como estar fuera de la guía.
+    expect(viewOf(play(["P3_Town"], serle), "completa").outside).toBe(false);
+  });
+
+  it("volver a Marca del rey desde un interludio no devuelve al acto 4", () => {
+    const galai = play([...ACT_FOUR, "P1_Town", "P1_1", "P2_Town", "P2_5"]);
+    expect(zoneOf(play(["G4_town"], galai))).toBe("Las puertas de Galai");
+    expect(play(["G4_town"], galai).progress.act).toBe(6);
+    // Una zona del acto 4 que no es el pueblo sí enseña su paso, y al volver sigue el interludio.
+    expect(zoneOf(play(["G4_town", "G4_4_1"], galai))).toBe("El ojo de Hinekora");
+    expect(zoneOf(play(["G4_town", "G4_4_1", "P2_Town", "P2_6"], galai))).toBe("Qimah");
+  });
+
+  it("con el registro cortado, el pueblo de un interludio coloca la guía en su primer paso", () => {
+    expect(play(["P2_Town"]).progress).toEqual({ act: 6, index: 0, outside: false });
+    // Pero no si la guía ya iba por algún sitio: de vuelta de la Prueba de Caos (acto 3), el pueblo no la mueve.
+    const trial = play([...ACT_FOUR, "P1_Town", "P1_1", "G3_10"]);
+    expect(play(["P1_Town"], trial).progress).toEqual(trial.progress);
+  });
+
+  it("Re Pág y Av Pág siguen de largo del acto 4 al interludio 1 y hasta el final del 3", () => {
+    const lastFour = { act: 4, index: lastOfFour, outside: false };
+    expect(moveStep(lastFour, 1)).toEqual({ act: 5, index: 0, outside: false });
+    expect(moveStep({ act: 5, index: 0, outside: false }, -1)).toEqual(lastFour);
+    expect(moveStep({ act: 5, index: routeOf(5).length - 1, outside: false }, 1)).toEqual({ act: 6, index: 0, outside: false });
+    const veryLast = { act: 7, index: routeOf(7).length - 1, outside: false };
+    expect(moveStep(veryLast, 1)).toEqual(veryLast);
+    // La ruta rápida no se salta nada de los interludios: lo opcional da algo para siempre.
+    for (const act of [5, 6, 7]) expect(routeOf(act).filter(skippedInFastRoute)).toEqual([]);
+  });
+
+  it("el cruce de Khari sale en dos pasos: primero la vida, luego Akthi y Anundr", () => {
+    const khari = play([...ACT_FOUR, "P1_Town", "P1_1", "P2_Town", "P2_1"]);
+    expect(zoneOf(khari)).toBe("El cruce de Khari");
+    const life = onReward(khari, rewardKindOf("Vida máxima aumentada un 5%.")!);
+    expect(life.checked).toContain("6:0");
+    expect(viewOf(life, "completa")).toMatchObject({ ready: true, next: { zone: "El cruce de Khari (Akthi y Anundr)" } });
+    const back = play(["P2_Town", "P2_1"], life);
+    expect(zoneOf(back)).toBe("El cruce de Khari (Akthi y Anundr)");
+    // Los puntos los da Risu en el pueblo.
+    const risu = onReward(play(["P2_Town"], back), "puntos");
+    expect(risu.checked).toContain("6:1");
+    expect(viewOf(risu, "completa").next?.zone).toBe("Estanques de Khatal");
+  });
+
+  it("las siete recompensas se marcan solas, cada una donde cae su mensaje", () => {
+    const points = rewardKindOf("2 puntos de habilidad pasiva de set de armas.")!;
+    expect(points).toBe("puntos");
+    // La segunda línea del juego no cuenta.
+    expect(rewardKindOf("2 puntos de habilidades pasivas.")).toBeNull();
+    expect(rewardKindOf("Vida máxima aumentada un 5%.")).toBe("vida");
+    expect(rewardKindOf("+20 a la vida máxima.")).toBe("vida");
+    let run = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_4", "P1_5"]);
+    run = onReward(run, points); // Oswin, en el propio fuerte
+    run = onReward(play(["P1_Town", "P2_Town", "P2_1"], run), "vida");
+    run = onReward(play(["P2_Town"], run), points); // Risu
+    run = onReward(play(["P2_6"], run), rewardKindOf("+5% a todas las resistencias [ElementalDamage|elementales].")!);
+    run = onReward(play(["P2_Town", "P3_Town", "P3_2"], run), rewardKindOf("+40 al [Spirit|espíritu].")!);
+    run = onReward(play(["P3_3", "P3_4", "P3_Town"], run), points); // Hilda
+    expect(run.checked).toEqual(["5:4", "6:0", "6:1", "6:5", "7:1", "7:3"]);
+    // El final lo da El Encapuchado en Marca del rey, que es del acto 4.
+    const ending = onReward(play(["P3_7", "G4_town"], run), points);
+    expect(ending.checked.at(-1)).toBe("7:6");
+    expect(zoneOf(ending)).toBe("La cámara Cuachic");
+    // Cambiar de pilar más tarde no marca nada más.
+    expect(onReward(play(["P2_6"], ending), "otra").checked).toEqual(ending.checked);
+    for (const act of [5, 6, 7]) {
+      for (const row of rewardRows(ending, act)) expect(row.state, row.zone).toBe("cogida");
+      for (const step of routeOf(act)) if (step.reward) expect(REWARD_RULES[act]?.[step.zone], step.zone).toBeDefined();
+    }
+  });
+
+  it("en Marca del rey, sin haber pisado La cámara Cuachic, los puntos son del acto 4", () => {
+    const town = play(["G4_town", "G4_2_1", "G4_2_2", "G4_town"]);
+    expect(onReward(town, "puntos").checked).toEqual(["4:3"]);
+    // Y con la cámara pisada pero su premio ya cogido, vuelven a ser del acto 4.
+    const after = onReward(play([...ACT_FOUR, "P1_Town", "P3_7", "G4_town"]), "puntos");
+    expect(after.checked).toEqual(["7:6"]);
+    expect(onReward(after, "puntos").checked).toEqual(["7:6", "4:3"]);
+  });
+
+  it("los nueve jefes de la historia se marcan a mano con Fin, y La cámara Cuachic pide jefe y premio", () => {
+    const zones = [5, 6, 7].flatMap((act) => Object.keys(SILENT_BOSSES[act] ?? {}));
+    expect(zones).toHaveLength(9);
+    const serle = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_2"]);
+    expect(viewOf(serle, "completa").boss).toEqual({ name: "Siora, la Cuchilla de las nieblas", dead: false, auto: false, label: "Jefe" });
+    expect(viewOf(onMarkStep(serle), "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+    // Fuerte de los lobos y Aldea de Kriar no tienen casilla de jefe: avisa la recompensa.
+    expect(bossOf(5, "Fuerte de los lobos")).toBeNull();
+    expect(bossOf(7, "Aldea de Kriar")).toBeNull();
+    const chamber = play(["P3_7"], serle);
+    expect(viewOf(chamber, "completa")).toMatchObject({ ready: false, reward: { auto: true, checked: false }, boss: { auto: false } });
+    const killed = onMarkStep(chamber);
+    expect(killed.bosses).toContain("7:6");
+    expect(viewOf(killed, "completa").ready).toBe(false);
+    expect(viewOf(onReward(play(["G4_town"], killed), "puntos"), "completa").ready).toBe(true);
+  });
+
+  it("Fuerte de los lobos es opcional pero sigue siendo clave", () => {
+    const fort = routeOf(5).find((step) => step.zone === "Fuerte de los lobos")!;
+    expect(fort).toMatchObject({ optional: true, priority: "clave", reward: "2 puntos de pasiva" });
+    expect(skippedInFastRoute(fort)).toBe(false);
+  });
+
+  it("el aviso de resistencias sale una sola vez, al llegar al interludio 1", () => {
+    const refuge = play([...ACT_FOUR, "P1_Town"]);
+    expect(refuge.resistDrop).toEqual({ into: 5, zonesLeft: 3 });
+    expect(viewOf(refuge, "completa").resistances).toBe(
+      "Interludios: la penalización de resistencias es ya de −40 % a −50 %. Mira tu hoja: apunta a un 30 % en fuego, hielo y rayo.",
+    );
+    // Entrar en la primera zona no lo vuelve a sacar: solo le quita una vida.
+    expect(play(["P1_1"], refuge).resistDrop).toEqual({ into: 5, zonesLeft: 2 });
+    const done = play(["P1_1", "P1_2", "P1_3", "P1_4", "P1_6", "P1_Town"], refuge);
+    expect(done.resistDrop).toBeNull();
+    expect(play(["P2_Town"], done).resistDrop).toBeNull();
+    expect(play(["P2_Town", "P2_1", "P2_7", "P3_Town", "P3_1"], done).resistDrop).toBeNull();
+    expect(resistanceNotice({ into: 6, zonesLeft: 3 })).toBeNull();
+    expect(resistanceNotice({ into: 7, zonesLeft: 3 })).toBeNull();
+  });
+
+  it("«te dejaste…» sale al llegar a cada interludio, una vez, con lo del tramo anterior", () => {
+    const heard = onReward(play(["G1_1", "G1_2"]), "hielo");
+    const refuge = play([...ACT_FOUR, "P1_Town"], heard);
+    expect(refuge.leftBehind?.act).toBe(4);
+    // Acaba el interludio 1 sin entrar en el fuerte.
+    const two = play(["P1_1", "P1_2", "P1_3", "P1_4", "P1_6", "P1_Town", "P2_Town"], refuge);
+    expect(two.leftBehind).toEqual({ act: 5, items: [{ zone: "Fuerte de los lobos", reward: "2 puntos de pasiva" }], zonesLeft: 3 });
+    // Volver al pueblo 2 más tarde no lo repite.
+    expect(play(["P2_1", "P2_2", "P2_3", "P2_Town"], two).leftBehind).toBeNull();
+    // Del 2 al 3: pisó el cruce y Qimah sin que el juego dijera nada, y no fue a por Akthi.
+    const three = play(["P2_1", "P2_2", "P2_3", "P2_5", "P2_6", "P2_7", "P2_Town", "P3_Town"], two);
+    expect(three.leftBehind?.act).toBe(6);
+    expect(three.leftBehind?.items.map((item) => item.zone)).toEqual(["El cruce de Khari", "El cruce de Khari (Akthi y Anundr)", "Qimah"]);
+    // Con todo cogido no hay aviso.
+    const clean = onReward(play(["P1_5"], refuge), "puntos");
+    expect(play(["P1_6", "P1_Town", "P2_Town"], clean).leftBehind).toBeNull();
+  });
+
+  it("las recompensas: la lista del interludio donde estás y, debajo, lo que falta de antes", () => {
+    const heard = onReward(play(["G1_1", "G1_2"]), "hielo");
+    const khari = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_6", "P2_Town", "P2_1"], heard);
+    const view = viewOf(khari, "completa");
+    expect(view.act).toBe(6);
+    expect(view.rewards.map((row) => [row.zone, row.state, row.optional])).toEqual([
+      ["El cruce de Khari", "falta", false],
+      ["El cruce de Khari (Akthi y Anundr)", "falta", true],
+      ["Qimah", "pendiente", false],
+    ]);
+    expect(view.missedBefore.filter((item) => item.act === 5)).toEqual([
+      { act: 5, zone: "Fuerte de los lobos", reward: "2 puntos de pasiva" },
+    ]);
+    expect(view.missedBefore.some((item) => item.act === 4)).toBe(true);
+    expect(view.unseenActs).toEqual([2, 3]);
+    expect(unseenSentence([2, 3])).toBe("De los actos 2 y 3 no vi nada en el registro: no sé qué te falta de ahí.");
+    expect(unseenSentence([5])).toBe("Del interludio 1 no vi nada en el registro: no sé qué te falta de ahí.");
+    expect(unseenSentence([3, 4, 5, 6])).toBe(
+      "De los actos 3 y 4 y de los interludios 1 y 2 no vi nada en el registro: no sé qué te falta de ahí.",
+    );
+  });
+
+  it("una partida guardada en un interludio se recupera tal cual", () => {
+    const galai = play([...ACT_FOUR, "P1_Town", "P1_1", "P2_Town", "P2_5"]);
+    expect(sanitizeRun(JSON.parse(JSON.stringify(galai))).progress).toEqual({ act: 6, index: 4, outside: false });
+    expect(sanitize({ act: 7, index: 6 })).toEqual({ act: 7, index: 6, outside: false });
+    expect(sanitize({ act: 7, index: 7 })).toEqual(START);
   });
 });
 
@@ -235,10 +448,10 @@ describe("ventanita: qué paso enseñar", () => {
     expect(routeOf(4)[walk(["G4_1_1"], prison).index]!.zone).toBe("Isla del clan y Madrigueras volcánicas");
   });
 
-  it("fuera de los actos 1-4 avisa sin perder el paso", () => {
+  it("fuera de la campaña (mapas, guarida) avisa sin perder el paso", () => {
     const before = walk(["G4_10"]);
-    expect(walk(["P1_3"], before)).toEqual({ ...before, outside: true });
-    expect(walk(["G4_town"], walk(["P1_3"], before)).outside).toBe(false);
+    expect(walk(["MapRiverhold"], before)).toEqual({ ...before, outside: true });
+    expect(walk(["G4_town"], walk(["HideoutShoreline"], before)).outside).toBe(false);
   });
 
   it("Re Pág y Av Pág pasan de paso y de acto", () => {
@@ -246,8 +459,9 @@ describe("ventanita: qué paso enseñar", () => {
     const lastOfOne = { act: 1, index: routeOf(1).length - 1, outside: false };
     expect(moveStep(lastOfOne, 1)).toEqual({ act: 2, index: 0, outside: false });
     expect(moveStep({ act: 2, index: 0, outside: false }, -1)).toEqual(lastOfOne);
-    const lastOfFour = { act: 4, index: routeOf(4).length - 1, outside: false };
-    expect(moveStep(lastOfFour, 1)).toEqual(lastOfFour);
+    // Tras el acto 4 siguen los interludios; el tope es el final del tercero.
+    const veryLast = { act: LAST_ACT, index: routeOf(LAST_ACT).length - 1, outside: false };
+    expect(moveStep(veryLast, 1)).toEqual(veryLast);
   });
 
   it("un estado guardado raro vuelve al principio", () => {
@@ -500,7 +714,7 @@ describe("ventanita: recompensas y lo que te dejas", () => {
     const cards = GUIDES[0]!.blocks.find((block) => block.id === "resistencias")!.cards!;
     expect(resistanceNotice({ into: 3, zonesLeft: 3 })).toContain(cards.find((card) => card.title === "Acto 3")!.text);
     expect(resistanceNotice({ into: 4, zonesLeft: 3 })).toContain("−30 %");
-    expect(resistanceNotice({ into: "interludios", zonesLeft: 3 })).toBe(
+    expect(resistanceNotice({ into: 5, zonesLeft: 3 })).toBe(
       "Interludios: la penalización de resistencias es ya de −40 % a −50 %. Mira tu hoja: apunta a un 30 % en fuego, hielo y rayo.",
     );
     // En el acto 1 no se pierde nada: no hay aviso.
@@ -522,7 +736,7 @@ describe("ventanita: recompensas y lo que te dejas", () => {
 
   it("al salir del acto 4 a los interludios también avisa", () => {
     const actFour = play(["G4_town", "G4_2_1", "G4_2_2", "G4_1_1"]);
-    expect(play(["P1_1"], actFour).resistDrop).toEqual({ into: "interludios", zonesLeft: 3 });
+    expect(play(["P1_1"], actFour).resistDrop).toEqual({ into: 5, zonesLeft: 3 });
   });
 
   it("el resumen del acto distingue cogida, pisada, dejada y pendiente", () => {
@@ -777,16 +991,15 @@ describe("ventanita: objetivos que se marcan solos", () => {
     expect(viewOf(heard, "completa").missedBefore).toEqual([]);
   });
 
-  it("fuera de los actos 1-4 dice dónde estás, y en un interludio que la guía acaba en el acto 4", () => {
-    expect(outsideSentence("P1_3")).toBe("Interludio: la guía llega hasta el acto 4");
-    expect(outsideSentence("P2_Town")).toBe("Interludio: la guía llega hasta el acto 4");
+  it("fuera de la campaña dice dónde estás; un interludio ya no es estar fuera", () => {
     expect(outsideSentence("HideoutShoreline")).toBe("En tu guarida");
     expect(outsideSentence("MapRiverhold")).toBe("En mapas");
     expect(outsideSentence("Sanctum_1")).toBe("Fuera de la campaña");
+    expect(outsideSentence("G_Endgame_Town")).toBe("Fuera de la campaña");
     expect(outsideSentence(null)).toBe("Fuera de la campaña");
-    const interlude = play(["G4_town", "P1_Town"]);
-    expect(viewOf(interlude, "completa").outside).toBe(true);
-    expect(viewOf(interlude, "completa").outsideText).toBe("Interludio: la guía llega hasta el acto 4");
+    expect(viewOf(play(["G4_town", "P1_Town"]), "completa").outside).toBe(false);
+    expect(viewOf(play(["G4_town", "P1_Town", "P1_3"]), "completa").outside).toBe(false);
+    expect(viewOf(play(["G4_town", "P1_3", "MapRiverhold"]), "completa")).toMatchObject({ outside: true, outsideText: "En mapas" });
   });
 
   it("de un acto que el registro no vio no afirma que falte nada", () => {
@@ -862,9 +1075,9 @@ describe("ventanita: objetivos que se marcan solos", () => {
     expect(sanitizeRun(JSON.parse(JSON.stringify(two))).partial).toEqual({ "4:8": 2 });
   });
 
-  it("fuera de los actos 1-4 no marca nada", () => {
-    const interlude = play(["G4_10", "P3_2"]);
-    expect(onReward(interlude, "espiritu")).toBe(interlude);
+  it("fuera de la campaña no marca nada", () => {
+    const maps = play(["G4_10", "MapRiverhold"]);
+    expect(onReward(maps, "espiritu")).toBe(maps);
     expect(onReward(NEW_RUN, "hielo")).toBe(NEW_RUN);
   });
 
@@ -956,12 +1169,15 @@ describe("ventanita: objetivos que se marcan solos", () => {
       for (const [zone, boss] of Object.entries(table)) {
         const step = routeOf(Number(act)).find((item) => item.zone === zone);
         expect(step, zone).toBeDefined();
-        expect(step!.text.toLowerCase(), zone).toContain(boss.toLowerCase());
+        // Dos jefes a la vez («Isolde y Heldra»): el paso nombra a los dos, cada uno por su lado.
+        const names = /^\S+ y \S+$/.test(boss) ? boss.split(" y ") : [boss];
+        for (const name of names) expect(step!.text.toLowerCase(), zone).toContain(name.toLowerCase());
         expect(BOSS_SIGNS[Number(act)]?.[zone], zone).toBeUndefined();
         count += 1;
       }
     }
-    expect(count).toBe(17);
+    // 17 de los actos 1-4 y 9 de los interludios.
+    expect(count).toBe(26);
   });
 
   it("un personaje nuevo empieza sin nada marcado", () => {

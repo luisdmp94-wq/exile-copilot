@@ -14,10 +14,12 @@ import {
   FIRST_ACT,
   GUIDES,
   LAST_ACT,
+  LAST_STORY_ACT,
   START,
   actOfCode,
   codesOfStep,
   enterZoneKnowing,
+  interludeOf,
   isNewCharacter,
   moveStep,
   nextShown,
@@ -46,7 +48,7 @@ export interface LeftBehind {
 
 export interface Run {
   progress: Progress;
-  /** Códigos de zona de los actos 1-4 que ha pisado este personaje. */
+  /** Códigos de zona de la campaña (actos e interludios, pueblos incluidos) que ha pisado este personaje. */
   visited: string[];
   /** Recompensas marcadas como cogidas (por el registro o a mano): «acto:paso». */
   checked: string[];
@@ -65,24 +67,35 @@ export interface Run {
   /** El registro ha dicho alguna recompensa de este personaje: si una no consta, es que no la tiene. */
   hears: boolean;
   leftBehind: LeftBehind | null;
-  /** Acaba de pasar de acto (o a los interludios): cuánto le baja la resistencia. Se va solo tras unas zonas. */
+  /** Acaba de pasar de acto (o al interludio 1): cuánto le baja la resistencia. Se va solo tras unas zonas. */
   resistDrop?: ResistDrop | null;
 }
 
-/** El acto al que se llega, o «interludios», y cuántas zonas le quedan al aviso. */
+/** El acto al que se llega (5 = el interludio 1) y cuántas zonas le quedan al aviso. */
 export interface ResistDrop {
-  into: number | "interludios";
+  into: number;
   zonesLeft: number;
+}
+
+/**
+ * Cómo se llama en la guía la tarjeta de ese acto. Los tres interludios
+ * comparten una («Interludios») y solo se avisa al entrar en el primero: en
+ * el 2 y el 3 no hay tarjeta, luego no hay aviso.
+ */
+function resistanceCard(into: number): string | null {
+  const interlude = interludeOf(into);
+  if (interlude === null) return `Acto ${into}`;
+  return interlude === 1 ? "Interludios" : null;
 }
 
 /**
  * Lo que la guía del acto 1 dice que quita cada acto («Acto 2» → «−10 %»).
  * Sale de sus tarjetas de «Resistencias»: aquí no se escribe ninguna cifra.
  */
-function resistancePenalty(into: ResistDrop["into"]): string | null {
+function resistancePenalty(into: number): string | null {
   const cards = GUIDES.flatMap((guide) => guide.blocks).find((block) => block.id === "resistencias")?.cards ?? [];
-  const title = into === "interludios" ? "Interludios" : `Acto ${into}`;
-  return cards.find((card) => card.title === title)?.text ?? null;
+  const title = resistanceCard(into);
+  return title === null ? null : (cards.find((card) => card.title === title)?.text ?? null);
 }
 
 /**
@@ -95,7 +108,7 @@ export function resistanceNotice(drop: ResistDrop | null | undefined): string | 
   const penalty = resistancePenalty(drop.into);
   if (!penalty) return null;
   const target = GUIDES[0]?.check.elemental;
-  const where = drop.into === "interludios" ? "Interludios" : `Acto ${drop.into}`;
+  const where = resistanceCard(drop.into);
   const aim = typeof target === "number" ? ` Mira tu hoja: apunta a un ${target} % en fuego, hielo y rayo.` : " Mira tu hoja de personaje.";
   return `${where}: la penalización de resistencias es ya de ${penalty}.${aim}`;
 }
@@ -203,21 +216,30 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
   const visited =
     act !== null && !run.visited.includes(normalizeCode(code)) ? [...run.visited, normalizeCode(code)] : run.visited;
 
-  // Al dejar un acto (pasar al siguiente, o a los interludios tras el último),
-  // se mira qué recompensa para siempre se quedó atrás.
+  // Al dejar un acto (pasar al siguiente, o de un interludio al otro), se mira
+  // qué recompensa para siempre se quedó atrás.
+  // En los actos, «llegar» es que la guía cambie de acto. En los interludios el
+  // pueblo no mueve la guía, así que «llegar» es pisar por primera vez
+  // cualquier zona suya (el pueblo, casi siempre): se avisa una vez y de lo
+  // que quedó en el tramo de justo antes.
+  const firstOfItsAct = act !== null && !run.visited.some((seen) => actOfCode(seen) === act);
   const leftAct =
-    act !== null && act > run.progress.act
-      ? run.progress.act
-      : act === null && /^P\d/.test(code) && run.progress.act === LAST_ACT && !run.progress.outside
-        ? LAST_ACT
-        : null;
+    act === null || act <= run.progress.act
+      ? null
+      : act <= LAST_STORY_ACT
+        ? run.progress.act
+        : firstOfItsAct
+          ? act - 1
+          : null;
   let leftBehind = run.leftBehind
     ? run.leftBehind.zonesLeft > 1
       ? { ...run.leftBehind, zonesLeft: run.leftBehind.zonesLeft - 1 }
       : null
     : null;
   if (leftAct !== null) {
-    const items = missedRewards({ visited, checked: run.checked, hears: run.hears, partial: run.partial }, leftAct);
+    // De un tramo que el registro no vio (se cortó, otro equipo) no se afirma nada.
+    const known = leftAct < LAST_STORY_ACT || actSeen({ visited }, leftAct);
+    const items = known ? missedRewards({ visited, checked: run.checked, hears: run.hears, partial: run.partial }, leftAct) : [];
     leftBehind = items.length > 0 ? { act: leftAct, items, zonesLeft: LEFT_BEHIND_ZONES } : null;
   }
   // Y se avisa de cuánto baja la resistencia en el acto al que llega: es
@@ -227,9 +249,8 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
       ? { ...run.resistDrop, zonesLeft: run.resistDrop.zonesLeft - 1 }
       : null
     : null;
-  if (leftAct !== null) {
-    const into: ResistDrop["into"] = act ?? "interludios";
-    resistDrop = resistancePenalty(into) ? { into, zonesLeft: RESIST_DROP_ZONES } : null;
+  if (leftAct !== null && act !== null) {
+    resistDrop = resistancePenalty(act) ? { into: act, zonesLeft: RESIST_DROP_ZONES } : null;
   }
   // El nivel de un pueblo no dice nada de lo duro que es el acto.
   const areaLevel = /_town$/i.test(code) || act === null ? run.areaLevel : level;
@@ -245,22 +266,34 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
  */
 export function onReward(run: Run, kind: RewardKind): Run {
   const area = run.area;
-  const act = area ? actOfCode(area) : null;
-  if (!area || act === null) return run;
+  const areaAct = area ? actOfCode(area) : null;
+  if (!area || areaAct === null) return run;
   const visited = new Set(run.visited);
-  const open = routeOf(act).flatMap((step, index) => {
-    const rule = REWARD_RULES[act]?.[step.zone];
-    if (!rule || !step.reward || run.checked.includes(stepKey(act, index))) return [];
-    return [{ index, rule, codes: codesOfStep(act, index) }];
-  });
+  const openIn = (act: number) =>
+    routeOf(act).flatMap((step, index) => {
+      const rule = REWARD_RULES[act]?.[step.zone];
+      if (!rule || !step.reward || run.checked.includes(stepKey(act, index))) return [];
+      return [{ act, index, rule, codes: codesOfStep(act, index) }];
+    });
+  // Lo que se entrega en el pueblo de otro acto: los 2 puntos del final de los
+  // interludios los da El Encapuchado en Marca del rey. Solo si ya pisaste la
+  // zona de ese paso; si no, el mensaje es de un paso del acto donde estás.
+  const elsewhere = Array.from({ length: LAST_ACT - FIRST_ACT + 1 }, (_, offset) => FIRST_ACT + offset)
+    .filter((act) => act !== areaAct)
+    .flatMap(openIn)
+    .find(
+      (item) => item.rule.kinds?.includes(kind) && item.rule.where?.includes(area) && item.codes.some((code) => visited.has(code)),
+    );
+  const open = elsewhere ? [] : openIn(areaAct);
   const sameKind = open.filter((item) => item.rule.kinds?.includes(kind));
   const pick =
+    elsewhere ??
     sameKind.find((item) => item.codes.includes(area) || item.rule.where?.includes(area)) ??
     sameKind.find((item) => item.codes.some((code) => visited.has(code))) ??
     sameKind[0] ??
     (kind === "puntos" ? undefined : open.find((item) => item.rule.anyIn?.includes(area)));
   if (!pick) return run.hears ? run : { ...run, hears: true };
-  const key = stepKey(act, pick.index);
+  const key = stepKey(pick.act, pick.index);
   const times = pick.rule.times ?? 1;
   if (times === 1) return { ...run, hears: true, checked: [...run.checked, key] };
   // Llega en varias entregas (los tres tatuajes): se cuenta cada mensaje y
@@ -502,22 +535,33 @@ export function actSeen(run: Pick<Run, "visited">, act: number): boolean {
 }
 
 /**
- * Dónde está el jugador cuando no está en los actos 1-4, dicho con sus
- * palabras. En un interludio se avisa de que la guía acaba en el acto 4: si
- * no, parece que la ventanita se ha quedado muda sin motivo.
+ * Dónde está el jugador cuando no está en la campaña (actos e interludios),
+ * dicho con sus palabras.
  */
 export function outsideSentence(code: string | null): string {
-  if (code && /^P\d+_/i.test(code)) return "Interludio: la guía llega hasta el acto 4";
   if (code && /^Hideout/i.test(code)) return "En tu guarida";
   if (code && /^Map/i.test(code)) return "En mapas";
   return "Fuera de la campaña";
 }
 
-/** «Del acto 1 no vi nada…» / «De los actos 1, 2 y 3 no vi nada…». */
+/** «1», «1 y 2», «1, 2 y 3». */
+const numberList = (numbers: number[]) =>
+  numbers.length <= 1 ? numbers.join("") : `${numbers.slice(0, -1).join(", ")} y ${numbers.at(-1)}`;
+
+/**
+ * «Del acto 1 no vi nada…» / «De los actos 1, 2 y 3 no vi nada…» / «De los
+ * actos 3 y 4 y del interludio 1 no vi nada…».
+ */
 export function unseenSentence(acts: number[]): string {
   if (acts.length === 0) return "";
-  const list = acts.length === 1 ? `Del acto ${acts[0]}` : `De los actos ${acts.slice(0, -1).join(", ")} y ${acts.at(-1)}`;
-  return `${list} no vi nada en el registro: no sé qué te falta de ahí.`;
+  const story = acts.filter((act) => interludeOf(act) === null);
+  const interludes = acts.flatMap((act) => interludeOf(act) ?? []);
+  const parts = [
+    story.length === 0 ? "" : `de${story.length === 1 ? "l acto" : " los actos"} ${numberList(story)}`,
+    interludes.length === 0 ? "" : `de${interludes.length === 1 ? "l interludio" : " los interludios"} ${numberList(interludes)}`,
+  ].filter(Boolean);
+  const list = parts.join(" y ");
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)} no vi nada en el registro: no sé qué te falta de ahí.`;
 }
 
 export function rewardRows(run: Run, act: number): RewardRow[] {

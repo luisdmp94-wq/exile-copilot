@@ -3,6 +3,7 @@ import { ACT_ONE_GUIDE } from "../../src/guides/actOne";
 import { ACT_THREE_GUIDE } from "../../src/guides/actThree";
 import { ACT_TWO_GUIDE } from "../../src/guides/actTwo";
 import type { ActGuide, GuideRouteStep } from "../../src/guides/guide";
+import { INTERLUDE_ROUTES, INTERLUDE_ZONE_CODES } from "./interludes";
 import { ZONE_CODES } from "./zones";
 
 /**
@@ -12,21 +13,47 @@ import { ZONE_CODES } from "./zones";
 
 export const GUIDES: ActGuide[] = [ACT_ONE_GUIDE, ACT_TWO_GUIDE, ACT_THREE_GUIDE, ACT_FOUR_GUIDE];
 export const FIRST_ACT = 1;
-export const LAST_ACT = GUIDES.length;
+/** El último acto de la historia (los que tienen guía en la web). */
+export const LAST_STORY_ACT = GUIDES.length;
+/**
+ * Por dentro, los tres interludios son tres actos más: 5, 6 y 7. El jugador
+ * nunca ve «Acto 5»: ve «Interludio 1» (`stageName`).
+ */
+export const LAST_ACT = LAST_STORY_ACT + INTERLUDE_ROUTES.length;
+
+/** Qué interludio es ese acto (5 → 1); null si es un acto de la historia. */
+export function interludeOf(act: number): number | null {
+  return act > LAST_STORY_ACT && act <= LAST_ACT ? act - LAST_STORY_ACT : null;
+}
+
+/** Cómo se llama ese tramo para el jugador: «Acto 3», «Interludio 1». */
+export function stageName(act: number): string {
+  const interlude = interludeOf(act);
+  return interlude === null ? `Acto ${act}` : `Interludio ${interlude}`;
+}
 
 export type RouteMode = "completa" | "rapida";
 
 export interface Progress {
   act: number;
   index: number;
-  /** La última zona no está en las guías (interludios, mapas, guarida). */
+  /** La última zona no está en las guías (mapas, guarida). */
   outside: boolean;
 }
 
 export const START: Progress = { act: FIRST_ACT, index: 0, outside: false };
 
 export function routeOf(act: number): GuideRouteStep[] {
+  const interlude = interludeOf(act);
+  if (interlude !== null) return INTERLUDE_ROUTES.find((part) => part.interlude === interlude)?.route ?? [];
   return GUIDES.find((guide) => guide.act === act)?.route ?? [];
+}
+
+/** Los códigos de zona de cada paso de ese acto o interludio, por el texto `zone` del paso. */
+function codeTable(act: number): Record<string, string[]> {
+  const interlude = interludeOf(act);
+  if (interlude !== null) return INTERLUDE_ZONE_CODES[interlude as 1 | 2 | 3] ?? {};
+  return ZONE_CODES[act] ?? {};
 }
 
 /**
@@ -46,25 +73,36 @@ export function normalizeCode(code: string): string {
   return code.replace(/^C_/, "");
 }
 
-/** El acto de un código («G3_6_1» → 3); null si no es de los actos 1-4. */
+/**
+ * El acto de un código («G3_6_1» → 3). Los interludios («P2_5», «P2_Town»)
+ * son los actos 5, 6 y 7. Null si no es de la campaña (mapas, guarida).
+ */
 export function actOfCode(code: string): number | null {
-  const match = /^G(\d+)_/.exec(normalizeCode(code));
-  if (!match) return null;
-  const act = Number(match[1]);
-  return act >= FIRST_ACT && act <= LAST_ACT ? act : null;
+  const normalized = normalizeCode(code);
+  const story = /^G(\d+)_/.exec(normalized);
+  if (story) {
+    const act = Number(story[1]);
+    return act >= FIRST_ACT && act <= LAST_STORY_ACT ? act : null;
+  }
+  const interlude = /^P(\d+)_/.exec(normalized);
+  if (!interlude) return null;
+  const act = LAST_STORY_ACT + Number(interlude[1]);
+  return act > LAST_STORY_ACT && act <= LAST_ACT ? act : null;
 }
+
+const isTown = (code: string) => /_town$/i.test(code);
 
 /** Los pasos del acto que pasan por esa zona, en orden. */
 export function stepsForCode(act: number, code: string): number[] {
   const wanted = normalizeCode(code);
-  const table = ZONE_CODES[act] ?? {};
+  const table = codeTable(act);
   return routeOf(act).flatMap((step, index) => ((table[step.zone] ?? []).includes(wanted) ? [index] : []));
 }
 
 /** Los códigos de zona de un paso. */
 export function codesOfStep(act: number, index: number): string[] {
   const step = routeOf(act)[index];
-  return step ? (ZONE_CODES[act]?.[step.zone] ?? []) : [];
+  return step ? (codeTable(act)[step.zone] ?? []) : [];
 }
 
 /**
@@ -73,6 +111,11 @@ export function codesOfStep(act: number, index: number): string[] {
  * paso (el pueblo, una cueva de paso) deja la guía donde estaba. Una zona de
  * otro acto cambia de acto. Un pueblo que es paso (Marca del rey) solo cuenta
  * al llegar al acto: volver a él más tarde no devuelve la guía al principio.
+ *
+ * En los interludios los pueblos no mueven la guía: se pasa por ellos a cada
+ * rato y de uno a otro sin orden fijo. Y volver desde un interludio a un
+ * pueblo de los actos (Marca del rey, donde acaba todo) tampoco la devuelve
+ * al acto 4.
  */
 export function enterZone(progress: Progress, code: string): Progress {
   return enterZoneKnowing(progress, code, () => false);
@@ -86,11 +129,19 @@ export function enterZone(progress: Progress, code: string): Progress {
 export function enterZoneKnowing(progress: Progress, code: string, isDone: (act: number, index: number) => boolean): Progress {
   const act = actOfCode(code);
   if (act === null) return { ...progress, outside: true };
+  if (isTown(code)) {
+    // El pueblo de un interludio: la guía se queda donde estaba. Solo si aún no
+    // sabía nada (un registro cortado que empieza ahí) se coloca al principio de
+    // ese interludio, en vez de decir «Acto 1 · paso 1».
+    const knowsNothing = progress.act === START.act && progress.index === START.index;
+    if (act > LAST_STORY_ACT && !knowsNothing) return { ...progress, outside: false };
+    if (act <= LAST_STORY_ACT && progress.act > LAST_STORY_ACT) return { ...progress, outside: false };
+  }
   const matches = stepsForCode(act, code);
   if (act !== progress.act) return { act, index: matches[0] ?? 0, outside: false };
   if (matches.length === 0) return { ...progress, outside: false };
   const ahead = matches.filter((index) => index >= progress.index);
-  if (ahead.length === 0 && /_town$/i.test(code)) return { ...progress, outside: false };
+  if (ahead.length === 0 && isTown(code)) return { ...progress, outside: false };
   const pick = ahead.find((index) => !isDone(act, index)) ?? ahead[0] ?? matches[matches.length - 1]!;
   return { act, index: pick, outside: false };
 }

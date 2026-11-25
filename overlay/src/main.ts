@@ -41,9 +41,10 @@ const KEYS =
  * rehace repasando Client.txt entero una vez (2: recompensas y jefes; 3: una
  * partida por personaje; 4: clase y ascendencia; 5: recompensas que llegan
  * en varias entregas, como los tres tatuajes; 6: Punta del botín se marca
- * sola con la frase de Farrow y entrar en ella da por cogidos los trozos).
+ * sola con la frase de Farrow y entrar en ella da por cogidos los trozos;
+ * 7: los interludios son tres actos más, con sus zonas P y sus recompensas).
  */
-const LOG_FORMAT = 6;
+const LOG_FORMAT = 7;
 
 interface Saved {
   /** La partida del personaje con el que juegas. */

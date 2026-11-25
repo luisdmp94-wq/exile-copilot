@@ -2,7 +2,8 @@
 
 Una ventana pequeña encima de Path of Exile 2, al estilo de las guías de
 leveo de WoW (Polestar): sigue la zona donde estás y te dice el paso de la
-guía (actos 1 a 4, las guías de `src/guides`).
+guía (actos 1 a 4, las guías de `src/guides`, y los tres interludios, que
+solo están aquí).
 
 - **Arrancar:** doble clic en `ventanita.cmd`. La primera vez repasa tu
   Client.txt entero (unos segundos); después, solo lo nuevo. Si ya estaba
@@ -25,6 +26,20 @@ guía (actos 1 a 4, las guías de `src/guides`).
   la reina de la inmundicia, el prisionero…) tienen casilla a mano: **Fin** o
   clic al matarlos, y la zona ya dice «Zona hecha». Fin funciona también con
   la ventanita minimizada.
+- **Los tres interludios**, tras el acto 4, siguen igual que un acto: arriba
+  dice «Interludio 1 · paso 3 de 6» y, minimizada, «Holten · 4/6». Re Pág y
+  Av Pág pasan de largo del acto 4 al interludio 1 y hasta el final del 3.
+  - Sus siete recompensas para siempre se marcan solas (los 2 puntos de Oswin,
+    el +5 % de vida, los 2 puntos de Risu, el Pilar de Orbala, el +40 de
+    espíritu, los 2 puntos de Hilda y los 2 del final, que da El Encapuchado
+    en Marca del rey).
+  - Sus nueve jefes de la historia van a mano: **Fin** al matarlos.
+  - Los pueblos (El refugio, El bazar de Khari, El claro) no mueven la guía, y
+    volver a Marca del rey tampoco te devuelve al acto 4.
+  - El cruce de Khari sale en dos pasos: primero la vida, luego Akthi y Anundr.
+  - La ruta está en `src/interludes.ts`, con sus fuentes y sus dudas (si Akthi
+    y Anundr son obligatorios, el precio del barquero de Holten, algún nombre
+    en español sin comprobar).
 - **Punta del botín** no tiene jefe: su casilla dice «Objetivo: el tesoro
   enterrado (Farrow)» y se marca sola con la última frase de Farrow en la isla
   («…Lo llevaré a Marca del rey»). Con el juego en otro idioma, **Fin**.
@@ -51,25 +66,28 @@ guía (actos 1 a 4, las guías de `src/guides`).
   la suya (zonas, recompensas, jefes) y guarda la del anterior.
 - **Lo que te dejas:** al pasar de acto avisa de las zonas con algo para
   siempre que no pisaste («Te dejaste en el acto 1: Villafrey (+30 de
-  espíritu)»). Se va solo tras tres zonas.
-- **Resistencias al cambiar de acto:** al entrar en el acto 2, 3 o 4, o en los
-  interludios, avisa en ámbar de cuánto bajan («Acto 3: la penalización de
+  espíritu)»). Se va solo tras tres zonas. También al llegar a cada interludio
+  («Te dejaste en el interludio 1: Fuerte de los lobos (2 puntos de pasiva)»),
+  una vez, al pisar su pueblo por primera vez.
+- **Resistencias al cambiar de acto:** al entrar en el acto 2, 3 o 4, o en el
+  interludio 1, avisa en ámbar de cuánto bajan («Acto 3: la penalización de
   resistencias es ya de −20 %. Mira tu hoja: apunta a un 30 % en fuego, hielo
-  y rayo»). Las cifras son las de la guía del acto 1. Se va solo tras tres
+  y rayo»). En los interludios sale una sola vez (−40 % a −50 %), no en el 2
+  ni en el 3. Las cifras son las de la guía del acto 1. Se va solo tras tres
   zonas, o al abrir las recompensas del acto. La ventanita no sabe cuánta
   resistencia tienes: solo te recuerda que mires.
 - **Recompensas del acto** (Ctrl+Alt+R): ✓ la tienes · ○ no la tienes
   (estuviste y el juego nunca escribió que la recibieras, o ni pisaste la
-  zona) · ? estuviste y no se puede saber · · más adelante. Debajo, **lo que
-  te falta de los actos anteriores** (como mucho seis líneas y «y N más»). De
+  zona) · ? estuviste y no se puede saber · · más adelante. En un interludio,
+  la lista es la de ese interludio. Debajo, **lo que te falta de los actos e
+  interludios anteriores** (como mucho seis líneas y «y N más»). De
   un acto del que el registro no tiene ni una zona (lo jugaste en otro equipo o
   se borró Client.txt) no afirma nada: «De los actos 1, 2 y 3 no vi nada en el
   registro: no sé qué te falta de ahí».
 - **Ruta rápida** (icono de la bandeja): se salta Lodazal, la cámara fundida y
   Punta del botín, y dice qué jefes sin premio puedes saltarte.
-- Fuera de los actos 1-4 se queda en una línea que dice dónde estás:
-  «Interludio: la guía llega hasta el acto 4», «En tu guarida», «En mapas» o
-  «Fuera de la campaña».
+- Fuera de la campaña (actos e interludios) se queda en una línea que dice
+  dónde estás: «En tu guarida», «En mapas» o «Fuera de la campaña».
 
 ## Teclas
 
@@ -140,7 +158,14 @@ la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar»
   juego en español. Los que no hablan (el devorador, el rey del óxido, el
   verdugo, Tor Gul, la reina de la inmundicia, el prisionero…) se marcan a
   mano. Si se te olvida marcar uno, la guía sigue igual: solo esa zona se
-  queda sin su «Zona hecha».
+  queda sin su «Zona hecha». Los nueve de los interludios, todos a mano:
+  todavía no se han buscado sus frases.
+- **Después de los interludios** la ventanita no tiene más guía. Si vuelves a
+  una prueba de ascendencia (acto 2 o 3) enseña ese paso, y al pasar luego por
+  Marca del rey cree que llegas al acto 4 y repite su aviso de resistencias.
+- Una sesión entera sin subir de nivel ni recibir una recompensa no nombra al
+  personaje: si después vuelves a la pantalla de entrada, las zonas de esa
+  sesión no quedan apuntadas (pasa más en los interludios, donde se sube poco).
 - Los jefes que sueltan la recompensa para siempre del paso (Beira, Kabala,
   Quijada negra…) y los opcionales no tienen casilla: de los primeros avisa
   la recompensa al recibirla.
@@ -157,8 +182,10 @@ partida (zonas, recompensas, nivel, lo que te dejas); `src/characters.ts`
 reparte los eventos entre tus personajes; `src/objectives.ts`
 dice cómo se nota en el registro cada recompensa y cada jefe; `src/place.ts`
 la mantiene dentro de la pantalla. `src/interludes.ts` guarda la ruta de los
-tres interludios (19 zonas, con fuentes y sus códigos `P1_1`…`P3_7`): son solo
-datos, la ventanita todavía no los enseña. Tests: `tests/unit/ventanita.test.ts`. Tipos:
+tres interludios (19 zonas, con fuentes y sus códigos `P1_1`…`P3_7`). Por
+dentro son tres actos más (5, 6 y 7): `progress.ts` los une a las guías
+(`routeOf`, `actOfCode`, `stageName` da el nombre que ve el jugador) y
+`objectives.ts` lleva sus recompensas y sus jefes. Tests: `tests/unit/ventanita.test.ts`. Tipos:
 `npx tsc -p overlay`.
 
 La ventana se coloca siempre con `setBounds` (posición y tamaño juntos): con
