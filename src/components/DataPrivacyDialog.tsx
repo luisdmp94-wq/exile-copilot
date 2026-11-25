@@ -35,7 +35,7 @@ const TEXT = texts(
     mentorUnknown: "No se pudo comprobar ahora mismo si la asistencia externa está activa.",
     mentorRules: "Ahora usa solo las reglas verificables de Exile Copilot. Tus consultas no se envían a un proveedor de IA externo.",
     mentorAi: (provider: string) =>
-      `Al preguntar se envían a ${provider} tu pregunta, hasta ocho turnos y un resumen de clase, defensas, objetivo, presupuesto, equipo y decisión activa. No se envían tu nombre de personaje, cookie, id de personaje, tooltips completos ni resultados libres del diario. Si falla, responden las reglas. Si pegas una captura en la revisión rápida, la imagen se envía a ${provider} solo para leer los números; no la guardamos (ten en cuenta que en ella puede verse tu nombre de personaje).`,
+      `Al preguntar se envían a ${provider} tu pregunta, hasta ocho turnos y un resumen de clase, nivel, habilidades, defensas, objetivo, presupuesto, equipo y decisión activa. No se envían tu nombre de personaje, cookie, id de personaje, tooltips completos ni resultados libres del diario. Si falla, responden las reglas. Si pegas una captura en la revisión rápida, la imagen se envía a ${provider} solo para leer los números; no la guardamos (ten en cuenta que en ella puede verse tu nombre de personaje).`,
     open: "Privacidad y datos",
     title: "Tus datos, sin letra pequeña",
     intro: "Esto es lo que hace hoy Exile Copilot. No presupone una cuenta ni una sincronización que todavía no existen.",
@@ -66,7 +66,7 @@ const TEXT = texts(
     mentorUnknown: "We couldn't check right now whether outside AI help is active.",
     mentorRules: "Right now it only uses Exile Copilot's verifiable rules. Your questions are not sent to any outside AI provider.",
     mentorAi: (provider: string) =>
-      `When you ask, ${provider} receives your question, up to eight turns and a summary of your class, defences, goal, budget, gear and active decision.\n` +
+      `When you ask, ${provider} receives your question, up to eight turns and a summary of your class, level, skills, defences, goal, budget, gear and active decision.\n` +
       `Not sent: your character name, cookie, character id, full tooltips or free-text journal notes.\n` +
       `If ${provider} fails, the rules answer instead.\n` +
       `A screenshot pasted into the quick review goes to ${provider} only to read the numbers. We don't keep it, but your character name may be visible in it.`,

@@ -89,7 +89,7 @@ function mostCommon<T>(values: readonly T[]): T | null {
 // ---------------------------------------------------------------------------
 
 /** El nivel de la gema sin tallar que dice la pregunta, o null. */
-function uncutLevelIn(q: string): number | null {
+export function uncutLevelIn(q: string): number | null {
   const match =
     /\bnivel (\d{1,2})\b/.exec(q) ??
     /\bsin tallar (?:de|del) (\d{1,2})\b/.exec(q) ??
@@ -332,13 +332,13 @@ export function answerSkillChoiceQuestion(
 
 const baseName = (name: string) => name.replace(/\s+[IVX]+$/, "");
 
-interface SupportFamily {
+export interface SupportFamily {
   /** Nombre sin el número romano, en español. */
   base: string;
   tiers: GemSupport[];
 }
 
-function supportFamilyIn(gems: GemKnowledge, q: string): SupportFamily | null {
+export function supportFamilyIn(gems: GemKnowledge, q: string): SupportFamily | null {
   const padded = ` ${q} `;
   const families = new Map<string, GemSupport[]>();
   for (const support of gems.data.supports) {
@@ -363,7 +363,7 @@ function supportFamilyIn(gems: GemKnowledge, q: string): SupportFamily | null {
 }
 
 /** Los números que siguen al nombre («1 o 2», «II», «i o iii»), como posición dentro de la familia. */
-function tiersAsked(q: string): number[] {
+export function tiersAsked(q: string): number[] {
   const asked = new Set<number>();
   for (const token of q.split(" ")) {
     if (/^[1-5]$/.test(token)) asked.add(Number(token));
@@ -642,7 +642,7 @@ export function answerCurseQuestion(
 // «¿Hay algún esbirro que ataque con caos?»
 // ---------------------------------------------------------------------------
 
-const ELEMENTS: ReadonlyArray<{ tag: string; asks: RegExp; es: string; en: string }> = [
+export const ELEMENTS: ReadonlyArray<{ tag: string; asks: RegExp; es: string; en: string }> = [
   { tag: "Caos", asks: /\bcaos\b|\bchaos\b/, es: "caos", en: "chaos" },
   { tag: "Fuego", asks: /\bfuego\b|\bfire\b/, es: "fuego", en: "fire" },
   { tag: "Hielo", asks: /\bhielo\b|\bfrio\b|\bcold\b/, es: "hielo", en: "cold" },

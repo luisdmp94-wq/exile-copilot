@@ -5,6 +5,8 @@
  *   node scripts/mentor-medicion.mjs --sin-ia   → solo reglas (unos segundos)
  *   node scripts/mentor-medicion.mjs            → con la IA del .env (20 s entre preguntas)
  *   --con-mods añade dos modificadores a cada pieza.
+ *   --nuevas pregunta las veinte «preguntas nuevas» en vez de las veinte de siempre.
+ *   --control pregunta las veinte de control (escritas con las instrucciones de la IA ya fijas).
  *
  * Servidor local aislado: puerto propio y base SQLite temporal. No toca la web
  * publicada, sus estadísticas ni la base real. Las respuestas se escriben en un
@@ -20,6 +22,10 @@ const REPO = fileURLToPath(new URL("..", import.meta.url));
 const PORT = Number(process.env.MEDIR_PORT ?? 7191);
 const BASE = `http://localhost:${PORT}`;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Groq gratis: 8.000 tokens por minuto. Entender una pregunta gasta unos 1.000.
+// MEDIR_SOLO=C1,C7 pregunta solo esas.
+const SOLO = process.env.MEDIR_SOLO ? process.env.MEDIR_SOLO.split(",") : null;
+const ESPERA_IA_MS = Number(process.env.MEDIR_ESPERA_MS ?? 20000);
 const tempRoot = mkdtempSync(join(tmpdir(), "exile-copilot-medicion-"));
 const OUT = join(tempRoot, "respuestas.json");
 
@@ -120,6 +126,64 @@ const QUESTIONS = [
   ["R2", exploradora, "que gemas pondrias en drenar esencia?"],
 ];
 
+/**
+ * Preguntas nuevas (tarea 12, 25-11-2026): las mismas dudas dichas de otra
+ * forma, como las escribe un novato. Se escribieron antes de ver ninguna
+ * respuesta y ninguna regla se ha tocado mirándolas. Las dos últimas no tienen
+ * regla: lo correcto es «no lo sé».
+ */
+const NUEVAS = [
+  ["P1", guerrero, "no aguanto nada, me revientan en dos toques"],
+  ["P2", guerrero, "que le meto a terremoto para que pegue mas fuerte?"],
+  ["P3", guerrero, "me ha caido una piedra de esas de habilidad de nivel 5, en que la gasto?"],
+  ["P4", guerrero, "que es mejor subir, la roja o la verde?"],
+  ["P5", guerrero, "para que vale lo del espiritu ese?"],
+  ["P6", guerrero, "cuando puedo elegir subclase?"],
+  ["P7", guerrero, "que resis tengo que llevar en el acto 2?"],
+  ["P8", guerrero, "no me deja equipar la gema, pone que no cumplo los requisitos"],
+  ["P9", guerrero, "en que me gasto los puntos del arbol?"],
+  ["P10", guerrero, "como le meto mas gemas de apoyo a una habilidad?"],
+  ["P11", exploradora, "mi flecha de rayo se queda corta, como la subo?"],
+  ["P12", exploradora, "me ha salido un arco nuevo, como se si me lo pongo?"],
+  ["P13", exploradora, "tengo 3 exaltados, que hago con ellos?"],
+  ["P14", exploradora, "que heraldos o auras me puedo poner?"],
+  ["P15", exploradora, "hay alguna maldicion que me venga bien?"],
+  ["P16", exploradora, "quiero ir con bichos que peleen por mi, cuales hay?"],
+  ["P17", exploradora, "aceleracion de proyectiles, la 1 o la 2?"],
+  ["P18", exploradora, "los jefes me duran una eternidad"],
+  ["P19", exploradora, "donde farmeo oro rapido?"],
+  ["P20", exploradora, "merece la pena el modo hardcore?"],
+];
+/**
+ * Preguntas de control (tarea 12, 25-11-2026): escritas DESPUÉS de dejar fijas
+ * las instrucciones de la IA, que no se han tocado desde entonces. Las nuevas
+ * de arriba no valen de prueba limpia: las instrucciones se escribieron
+ * conociéndolas. Las tres últimas no tienen regla: lo correcto es «no lo sé».
+ */
+const CONTROL = [
+  ["C1", guerrero, "con que complemento embate rodante?"],
+  ["C2", guerrero, "se puede poner una cuarta gemita en la habilidad?"],
+  ["C3", guerrero, "tengo puntos sin gastar del arbolito ese, donde van?"],
+  ["C4", guerrero, "me conviene mas fue o des?"],
+  ["C5", guerrero, "el boss del acto 1 me funde"],
+  ["C6", guerrero, "que es eso de reservar que pone en los heraldos?"],
+  ["C7", guerrero, "titan o herrero?"],
+  ["C8", guerrero, "el casco nuevo pone letras rojas y no me deja"],
+  ["C9", guerrero, "que orbe uso para meterle otra propiedad a mi maza amarilla?"],
+  ["C10", guerrero, "me pongo un escudo o sigo con el mazo grande?"],
+  ["C11", exploradora, "pararrayos no hace nada de daño, que le hago?"],
+  ["C12", exploradora, "este carcaj es mejor o peor que el mio?"],
+  ["C13", exploradora, "hay algo para que los enemigos reciban mas daño de rayo?"],
+  ["C14", exploradora, "puedo llevar un lobo o algo que me acompañe?"],
+  ["C15", exploradora, "tengo 20 de frio, es poco?"],
+  ["C16", exploradora, "me ha tocado una gema de apoyo sin tallar, cual saco?"],
+  ["C17", exploradora, "tengo una sin tallar del 9, que saco para el arco?"],
+  ["C18", exploradora, "para que sirve el orbe de caos?"],
+  ["C19", exploradora, "que clase es la mas facil para empezar?"],
+  ["C20", exploradora, "como vendo cosas a otros jugadores?"],
+];
+const ASKED = process.argv.includes("--control") ? CONTROL : process.argv.includes("--nuevas") ? NUEVAS : QUESTIONS;
+
 const env = {
   ...process.env,
   PORT: String(PORT),
@@ -152,7 +216,9 @@ try {
   const health = await (await fetch(`${BASE}/api/health`)).json();
   console.log("mentor:", JSON.stringify(health.services?.mentor ?? null));
 
-  for (const [id, profile, question] of QUESTIONS) {
+  for (const [id, profile, question] of ASKED) {
+    if (SOLO && !SOLO.includes(id)) continue;
+    const started = Date.now();
     const res = await fetch(`${BASE}/api/mentor/query`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -162,16 +228,17 @@ try {
       }),
     });
     const body = await res.json();
+    const ms = Date.now() - started;
     const a = body.answer;
     results.push({
-      id, personaje: profile.name, question, status: res.status,
+      id, personaje: profile.name, question, status: res.status, ms,
       intent: a?.intent ?? null, responseMode: a?.responseMode ?? null,
       model: a?.model ?? null, fallbackReason: a?.fallbackReason ?? null,
       answer: a?.answer ?? JSON.stringify(body),
       nextAction: a?.nextAction?.text ?? null,
     });
-    console.log(`${id} ${res.status} ${a?.intent} ${a?.responseMode} ${a?.fallbackReason ?? ""}`);
-    await wait(a?.model ? 20000 : 500);
+    console.log(`${id} ${res.status} ${a?.intent} ${a?.responseMode} ${a?.fallbackReason ?? ""} ${ms} ms`);
+    await wait(a?.model ? ESPERA_IA_MS : 500);
   }
 } catch (err) {
   console.error("ERROR:", err.message);

@@ -49,7 +49,7 @@ la siguiente. Nada se sube sin su sí.
   Invítame a un café»), junto a «Privacidad» y «Avisar de un problema». Los
   clics se cuentan en `/estadisticas` y el aviso de privacidad lo dice. **Falta
   el enlace de Ko-fi de Luis:** se pone en `shared/donation.ts`; mientras esté
-  vacío, el enlace no se ve. Sin commit ni subida todavía.
+  vacío, el enlace no se ve. Subido así el 25-11.
 - [x] **7. Recorrer como novato las tres puertas** (guías, revisión rápida,
   árbol con PoB2) y arreglar cada atasco.
   → Hecho el 25-11: recorrido en local como visitante nuevo; 17 atascos en la
@@ -81,7 +81,7 @@ la siguiente. Nada se sube sin su sí.
   la web tenga los datos de la 1.0** y se haya mirado el acto 1, si los actos
   3 y 4 siguen en borrador y si hay actos nuevos.
 - [ ] **10. Ensayo del día del parche** con `docs/DIA-DE-LA-1.0.md`.
-- [ ] **12. El Mentor usa la IA para entender y redactar** (pedido por Luis el
+- [x] **12. El Mentor usa la IA para entender y redactar** (pedido por Luis el
   25-11: era su idea original). La IA entiende la pregunta y la redacta; las
   reglas ponen los datos del juego. Nunca al revés: en noviembre, cuando la IA
   elegía sola, se inventó dos cosas.
@@ -99,6 +99,17 @@ la siguiente. Nada se sube sin su sí.
     solo es que hay clave puesta; falta comprobar que la clave funciona. En
     local da 401.
   - Antes del 8-12, que se congela.
+  → El 25-11, **paso 1 hecho, medido en local y subido**: la IA
+  dice el tema, de una lista cerrada de veinte, y contesta la regla de ese tema.
+  Prueba limpia con veinte preguntas de control: **de 4 bien, 2 a medias y 14 mal
+  a 14 bien, 4 a medias y 2 mal.** No inventó nada; entendió otra cosa en una
+  (C6, espíritu). Las veinte de siempre siguen en 16 bien. Tarda de 0,7 a 1,8 s
+  cuando hace falta la IA. Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 12».
+  Preguntas reales guardadas en local: ninguna (están en la web publicada).
+  **Paso 2 sin hacer: decide Luis.** Recomendación: después de la 1.0 (solo
+  cambia el tono, y la redacción con IA que ya había falló dos veces al medir).
+  Falta comprobar que la clave de Groq de Render funciona: preguntar en la web
+  algo dicho raro; si la respuesta empieza por «Entiendo que…», funciona.
 
 ### Del 8 al 10 de diciembre
 

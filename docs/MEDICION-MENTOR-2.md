@@ -93,6 +93,147 @@ nombre de una gema no cuenta como palabra de crafteo, y «qué gemas pondrías e
 - **Cuánto atributo pide cada gema a cada nivel.** No está en los datos de gemas.
 - **Daño por segundo de un arma.** El comparador de la web no lo calcula.
 
+## Tarea 12 · la IA entiende la pregunta (25-11-2026)
+
+**Medido antes y después, en local, con la IA de verdad (Groq, `openai/gpt-oss-120b`).**
+
+| Veinte preguntas | Antes (bien / a medias / mal) | Después |
+|---|---|---|
+| De control (la prueba limpia) | 4 / 2 / 14 | **14 / 4 / 2** |
+| Nuevas | 9 / 1 / 10 | 17 / 2 / 1 |
+| Las de siempre | 16 / 4 / 0 | 16 / 4 / 0 |
+
+No se inventó nada. La IA entendió otra cosa en una de 26 (C6). Las cinco sin regla
+siguen en «no lo sé». Las notas las puse yo.
+
+### Qué cambia (paso 1)
+
+Si ninguna regla reconoce la frase, la IA dice solo de qué tema es, de una lista
+cerrada de veinte. Con ese tema contesta la regla de siempre, con sus datos.
+La respuesta empieza con una línea fija: «Entiendo que preguntas por…». Así, si
+la IA entendió otra cosa, se ve.
+
+Lo que la IA no puede hacer:
+
+- No escribe nada que llegue al jugador.
+- No pone cifras: el nivel de la gema y los grados se leen de la pregunta.
+- La habilidad o la asistencia que nombre tiene que existir en los datos del
+  juego y estar en la pregunta o en el personaje. Si no, se descarta.
+- Si dice «ninguno», o la IA falla, o no hay clave ni cupo: «no lo sé», como hoy.
+
+A la IA le llegan la pregunta, hasta cuatro turnos, la clase, el nivel y los
+nombres de las habilidades. Nada más.
+
+Cambia una cosa de antes: con IA, una frase sin regla iba al motor y la IA elegía
+entre sus recomendaciones. Ahí salieron las respuestas a otra cosa («¿cuál es el
+límite de tus resistencias?»). Ahora esa frase pasa por la lista de temas.
+
+### El antes (solo reglas, en local)
+
+- **Las veinte de siempre: 16 bien, 4 a medias, 0 mal.** Igual que tras la tarea 4.
+  Aquí la IA no puede mejorar nada: las reglas ya reconocen las veinte frases.
+- **Preguntas reales guardadas: no hay ninguna en local.** Están en la web
+  publicada, en `/estadisticas`, con la clave de Luis.
+- **Veinte preguntas nuevas** (`--nuevas` en el script): las mismas dudas dichas
+  de otra forma, escritas antes de ver ninguna respuesta. Dieciocho tienen regla y
+  dos no (lo correcto en esas es «no lo sé»).
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Las 18 con regla | 7 | 1 | 10 |
+| Las 2 sin regla | 2 | 0 | 0 |
+| **Total** | **9** | **1** | **10** |
+
+| # | Pregunta | Antes |
+|---|---|---|
+| P1 | no aguanto nada, me revientan en dos toques | Bien |
+| P2 | que le meto a terremoto para que pegue mas fuerte? | Bien |
+| P3 | me ha caido una piedra de esas de habilidad de nivel 5, en que la gasto? | Mal: no lo sé |
+| P4 | que es mejor subir, la roja o la verde? | Mal: no lo sé |
+| P5 | para que vale lo del espiritu ese? | Bien |
+| P6 | cuando puedo elegir subclase? | Mal: no lo sé |
+| P7 | que resis tengo que llevar en el acto 2? | Mal: no lo sé |
+| P8 | no me deja equipar la gema, pone que no cumplo los requisitos | Bien |
+| P9 | en que me gasto los puntos del arbol? | A medias (como G4) |
+| P10 | como le meto mas gemas de apoyo a una habilidad? | Mal: contesta qué asistencias poner |
+| P11 | mi flecha de rayo se queda corta, como la subo? | Mal: no lo sé |
+| P12 | me ha salido un arco nuevo, como se si me lo pongo? | Mal: no lo sé |
+| P13 | tengo 3 exaltados, que hago con ellos? | Bien |
+| P14 | que heraldos o auras me puedo poner? | Mal: no lo sé |
+| P15 | hay alguna maldicion que me venga bien? | Bien |
+| P16 | quiero ir con bichos que peleen por mi, cuales hay? | Mal: no lo sé |
+| P17 | aceleracion de proyectiles, la 1 o la 2? | Bien |
+| P18 | los jefes me duran una eternidad | Mal: no lo sé |
+| P19 | donde farmeo oro rapido? | Bien: no lo sé |
+| P20 | merece la pena el modo hardcore? | Bien: no lo sé |
+
+Nueve de las diez «mal» son frases que ninguna regla reconoce: es lo que el paso 1
+puede arreglar. P10 no: una regla la reconoce mal, y a la IA no se le pregunta.
+
+### El después
+
+**Las veinte nuevas: 17 bien, 2 a medias, 1 mal.** Las nueve «no lo sé» pasan a
+contestar con la regla correcta. A medias quedan P9 (árbol sin marcar) y P14: pregunta
+qué heraldos ponerse y la regla le habla de «tu gema de espíritu sin tallar», que no
+ha dicho tener; la lista de heraldos sí le vale. P10 sigue mal.
+
+**Ojo: esta cifra no es limpia.** Las instrucciones de la IA se escribieron
+conociendo estas veinte preguntas («subclase», «resis», «bichos» están en ellas).
+
+### La prueba limpia: veinte de control
+
+Escritas después de dejar fijas las instrucciones de la IA, que no se han tocado
+desde entonces (`--control` en el script). Diecisiete tienen regla y tres no.
+
+| # | Pregunta | Antes | Después |
+|---|---|---|---|
+| C1 | con que complemento embate rodante? | Mal: no lo sé | Bien: asistencias para Embate rodante |
+| C2 | se puede poner una cuarta gemita en la habilidad? | Mal: no lo sé | Bien: orbes de joyero |
+| C3 | tengo puntos sin gastar del arbolito ese, donde van? | Mal: no lo sé | A medias (como G4) |
+| C4 | me conviene mas fue o des? | Mal: no lo sé | Bien: fuerza |
+| C5 | el boss del acto 1 me funde | Mal: no lo sé | Bien: huecos de equipo vacíos |
+| C6 | que es eso de reservar que pone en los heraldos? | Mal: no lo sé | **Mal: la IA entendió «qué gema de espíritu ponerte»; era «qué es el espíritu»** |
+| C7 | titan o herrero? | Mal: no lo sé | A medias (como G9: no elige) |
+| C8 | el casco nuevo pone letras rojas y no me deja | Mal: no lo sé | Bien |
+| C9 | que orbe uso para meterle otra propiedad a mi maza amarilla? | Mal: no lo sé | Bien: orbe exaltado |
+| C10 | me pongo un escudo o sigo con el mazo grande? | A medias | A medias (igual) |
+| C11 | pararrayos no hace nada de daño, que le hago? | A medias | A medias: habla del arma y de Flecha de rayo, no de Pararrayos |
+| C12 | este carcaj es mejor o peor que el mio? | Mal: no lo sé | Bien: comparador, con su carcaj |
+| C13 | hay algo para que los enemigos reciban mas daño de rayo? | Mal: «mejora el arma» | Mal (igual) |
+| C14 | puedo llevar un lobo o algo que me acompañe? | Mal: no lo sé | Bien: gemas de esbirro |
+| C15 | tengo 20 de frio, es poco? | Mal: no lo sé | Bien: 30 % mientras sube. Enseña el hielo guardado (5 %), no el 20 que dice |
+| C16 | me ha tocado una gema de apoyo sin tallar, cual saco? | Bien | Bien (igual) |
+| C17 | tengo una sin tallar del 9, que saco para el arco? | Mal: no lo sé | Bien: habilidades de arco hasta nivel 9 |
+| C18 | para que sirve el orbe de caos? | Bien: no lo sé | Bien: no lo sé |
+| C19 | que clase es la mas facil para empezar? | Bien: no lo sé | Bien: no lo sé |
+| C20 | como vendo cosas a otros jugadores? | Bien: no lo sé | Bien: no lo sé |
+
+**De 4 bien, 2 a medias y 14 mal, a 14 bien, 4 a medias y 2 mal.**
+
+- La IA entendió 13 frases que las reglas no reconocían. Acertó el tema en 12.
+- El fallo (C6) se ve: la respuesta empieza por «Entiendo que preguntas qué gema
+  de espíritu ponerte». No se ha corregido para no tocar la prueba.
+- C11 y C13 no pasan por el paso 1: las reglas las toman por «me falta daño».
+- En C13 la IA de redactar (la que ya había) dio «respuesta incompleta» y
+  contestaron las reglas. No es del paso 1.
+
+### Las veinte de siempre, con la IA encendida
+
+16 bien, 4 a medias, 0 mal: igual. Dieciséis respuestas son idénticas letra a
+letra. En G1, G7, E1 y E5 cambia la redacción (la IA que ya había), no el consejo.
+
+### Tiempo y gasto
+
+- Cuando la regla reconoce la frase: al instante (unos 10 ms), sin IA.
+- Cuando la IA tiene que entenderla: entre 0,7 y 1,8 segundos (tres medidas).
+- Groq gratis da 8.000 tokens por minuto y 1.000 peticiones al día. Entender
+  una pregunta gasta alrededor de mil tokens. Sin cupo, contesta como sin IA.
+
+### Para repetirla
+
+`node scripts/mentor-medicion.mjs --control`, `--nuevas` o sin nada (las de
+siempre). Añade `--sin-ia` para el antes. Unos cuatro minutos cada una con IA.
+
 ## Cómo se midió
 
 - En local, con base de datos temporal. La web publicada y sus estadísticas no se tocaron.

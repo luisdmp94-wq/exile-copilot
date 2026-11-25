@@ -182,7 +182,7 @@ function ownSkills(gems: GemKnowledge | null, profile: CharacterProfile | null):
 // «¿Me cambio el arma única por una varita amarilla?»
 // ---------------------------------------------------------------------------
 
-const SLOT_WORDS: ReadonlyArray<{ slots: readonly string[]; asks: RegExp; es: string; en: string }> = [
+export const SLOT_WORDS: ReadonlyArray<{ slots: readonly string[]; asks: RegExp; es: string; en: string }> = [
   {
     slots: ["weapon"],
     asks: /\b(armas?|arcos?|varitas?|mazos?|mazas?|baston(es)?|cetros?|espadas?|hachas?|dagas?|lanzas?|ballestas?|weapons?|bows?|wands?|maces?|staffs?|staves|sceptres?|scepters?|swords?|axes?|daggers?|spears?|crossbows?)\b/,

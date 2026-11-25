@@ -45,6 +45,7 @@ import {
 } from "./gameQuestions.js";
 import { answerPassiveTreeQuestion } from "./treeQuestion.js";
 import { answerBasicsQuestion, answerItemCompareQuestion } from "./basicsQuestions.js";
+import { routeInputFor, routedQuestion, understoodLine } from "./questionRouter.js";
 import type { TreeKnowledge } from "../advice/passiveTreeAdvisor.js";
 import {
   MentorAiError,
@@ -1180,9 +1181,63 @@ export function answerMentorQuery(
   return buildAnswer(options, deps);
 }
 
+/**
+ * Ninguna regla reconoce la frase: la IA dice de qué tema es y contesta la
+ * regla de ese tema, con sus datos. La IA no redacta ni elige nada más. Si
+ * dice que no es de ningún tema, o lo que dice no se sostiene, «no lo sé».
+ */
+async function answerByUnderstanding(
+  options: MentorQueryOptions,
+  deps: MentorQueryDependencies,
+  selector: MentorDecisionSelector & { route: NonNullable<MentorDecisionSelector["route"]> },
+  normalizedQuestion: string,
+): Promise<MentorAnswer> {
+  const lang = langOf(options);
+  let routed: ReturnType<typeof routedQuestion>;
+  try {
+    const decision = await selector.route(
+      routeInputFor(options.question, options.profile, lang, options.conversation ?? []),
+      safetyIdentifier(options.safetyIdentifierSeed),
+    );
+    routed = routedQuestion(decision, {
+      gems: deps.gems ?? null,
+      profile: options.profile,
+      question: options.question,
+    });
+  } catch (error) {
+    // Sin clave, sin cupo o sin red: como sin IA.
+    const reason =
+      error instanceof MentorAiError
+        ? error.safeReason
+        : "La IA no pudo entender la pregunta con seguridad; se usaron las reglas.";
+    return unsupportedAnswer(options, normalizedQuestion, { model: selector.name, reason });
+  }
+
+  const understoodNothing = (): MentorAnswer => ({
+    ...unsupportedAnswer(options, normalizedQuestion),
+    ...metadata("ai", selector.name),
+  });
+  if (routed === null) return understoodNothing();
+
+  const answer = await buildAnswer({ ...options, question: routed.question }, deps, true);
+  // La regla del tema tampoco la reconoció (faltan los datos de gemas, por ejemplo).
+  if (answer.intent === "unsupported") return understoodNothing();
+  return {
+    ...answer,
+    normalizedQuestion,
+    answer: `${understoodLine(routed.topic, lang)}
+
+${answer.answer}`,
+    // Si la respuesta ya cuenta un fallo de la IA al redactar, se deja como está.
+    ...(answer.responseMode === "rules_fallback" ? {} : metadata("ai", selector.name)),
+  };
+}
+
 async function buildAnswer(
   options: MentorQueryOptions,
   deps: MentorQueryDependencies,
+  /** La pregunta ya viene de `answerByUnderstanding`: no se vuelve a preguntar a la IA qué es. */
+  alreadyUnderstood = false,
 ): Promise<MentorAnswer> {
   const classified = classifyMentorQuestion(options.question);
   const intent = options.intentHint ?? classified.intent;
@@ -1260,6 +1315,24 @@ async function buildAnswer(
   if (options.intentHint === undefined) {
     const basicsAnswer = answerBasicsQuestion(deps.gems ?? null, options.question, options.profile, lang);
     if (basicsAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, basicsAnswer);
+  }
+
+  // Ninguna regla la reconoce: si hay IA, dice de qué tema es y contesta la
+  // regla de ese tema. Un área en revisión para este parche se respeta antes.
+  if (
+    intent === "unsupported" &&
+    options.intentHint === undefined &&
+    options.patchFeatureBlock === undefined &&
+    !alreadyUnderstood &&
+    selector !== null &&
+    selector.route !== undefined
+  ) {
+    return answerByUnderstanding(
+      options,
+      deps,
+      selector as MentorDecisionSelector & { route: NonNullable<MentorDecisionSelector["route"]> },
+      normalizedQuestion,
+    );
   }
 
   // Sin equipo, la web pregunta solo por lo que es del juego, y eso ya está
