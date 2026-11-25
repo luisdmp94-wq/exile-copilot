@@ -106,6 +106,23 @@ export const NEEDS_PICKUPS: Record<number, Record<string, string>> = {
   4: { "Punta del botín": "mapa" },
 };
 
+/**
+ * Cosas fijas de una zona que el texto de la guía no cuenta. Solo las enseña
+ * la ventanita: la guía de la web no se toca. Una frase por línea, corta.
+ *
+ * Ngakanu atacada (G4_11_1b) trae siempre una fosa de Profundidades abisales:
+ * lo vio Luis jugando (25-11-2026) y poe2db lo lleva como propiedad fija de la
+ * zona («contains abyss depths with no boss», https://poe2db.tw/sp/Ngakanu).
+ * La versión en paz (G4_11_1a) no la tiene.
+ */
+export const ZONE_NOTES: Record<number, Record<string, string[]>> = {
+  4: {
+    "Ngakanu y El corazón de la tribu": [
+      "Opcional: en Ngakanu hay siempre una fosa de Profundidades abisales. No tiene jefe y el botín cambia.",
+    ],
+  },
+};
+
 /** Clasifica el texto de un «… ha recibido X» / «You have received X». */
 export function rewardKindOf(message: string): RewardKind | null {
   // Fuera de la campaña (atlas, árbol del génesis) no hay pasos que marcar.

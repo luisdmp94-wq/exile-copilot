@@ -37,6 +37,9 @@ guía (actos 1 a 4, las guías de `src/guides`).
   línea «Jefe:», esa frase no se repite.
 - **Las gemas fijas** de la zona (◆ «Gema de habilidad nv. 5: tras el
   verdugo») y **el jefe opcional** que te puedes saltar (○).
+- **Lo fijo de la zona que la guía no cuenta** (○ «en Ngakanu hay siempre una
+  fosa de Profundidades abisales»). Solo sale en la ventanita: está en
+  `ZONE_NOTES` (`src/objectives.ts`), la guía de la web no se toca.
 - **Luego:** la siguiente zona que aún tiene algo por hacer y, si la tiene,
   su recompensa para siempre. Las que ya pisaste y no dejan nada se saltan.
 - Si una zona sale en dos pasos (El final del viaje, Isla Whakapanu) y el

@@ -1,5 +1,15 @@
 import type { GuideRoutePriority } from "../../src/guides/guide";
-import { BASE_CLASSES, BOSS_SIGNS, NEEDS_PICKUPS, PICKUPS, REWARD_RULES, SILENT_BOSSES, bossOf, type RewardKind } from "./objectives";
+import {
+  BASE_CLASSES,
+  BOSS_SIGNS,
+  NEEDS_PICKUPS,
+  PICKUPS,
+  REWARD_RULES,
+  SILENT_BOSSES,
+  ZONE_NOTES,
+  bossOf,
+  type RewardKind,
+} from "./objectives";
 import {
   FIRST_ACT,
   GUIDES,
@@ -460,6 +470,8 @@ export interface StepView {
   gems: string[];
   /** Jefe u objetivo opcional de la zona: no da nada para siempre. */
   skip: string | null;
+  /** Cosas fijas de la zona que la guía no cuenta (una fosa abisal que siempre está), una frase por línea. */
+  notes: string[];
   /** El paso siguiente: la zona y, si la tiene, su recompensa para siempre. */
   next: { zone: string; reward: string | null } | null;
   outside: boolean;
@@ -597,6 +609,7 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     ready,
     gems: step.gems ?? [],
     skip: step.skip ?? null,
+    notes: ZONE_NOTES[progress.act]?.[step.zone] ?? [],
     next: nextStep ? { zone: nextStep.zone, reward: nextStep.reward ?? null } : null,
     outside: progress.outside,
     outsideText: outsideSentence(run.area),

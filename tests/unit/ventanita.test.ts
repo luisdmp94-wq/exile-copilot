@@ -45,7 +45,7 @@ import {
   type Run,
 } from "../../overlay/src/run";
 import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../overlay/src/foreground";
-import { BOSS_SIGNS, PICKUPS, REWARD_RULES, SILENT_BOSSES, bossOf, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
+import { BOSS_SIGNS, PICKUPS, REWARD_RULES, SILENT_BOSSES, ZONE_NOTES, bossOf, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
 import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { sentencePieces, stepLines, stepSentences, withoutBossName } from "../../overlay/src/stepText";
@@ -334,6 +334,23 @@ describe("ventanita: quitar un aviso con su ✕", () => {
 });
 
 describe("ventanita: trozos de mapa del acto 4", () => {
+  it("Ngakanu atacada avisa de su fosa abisal fija; la versión en paz y las demás zonas, no", () => {
+    // Lo vio Luis jugando (25-11-2026): la fosa está siempre y la ventanita no lo decía.
+    const attacked = viewOf(play([["G4_town", 53], ["G4_10", 52], ["G4_11_1b", 53]]), "completa");
+    expect(attacked.zone).toBe("Ngakanu y El corazón de la tribu");
+    expect(attacked.notes).toHaveLength(1);
+    expect(attacked.notes[0]).toContain("Profundidades abisales");
+    expect(viewOf(play([["G4_town", 53], ["G4_3_1", 51], ["G4_3_2", 51], ["G4_town", 53], ["G4_11_1a", 53]]), "completa").notes).toEqual([]);
+    expect(viewOf(play(["G1_1"]), "completa").notes).toEqual([]);
+    // Cada nota está en un paso que existe, y es corta: se lee de un vistazo.
+    for (const [act, table] of Object.entries(ZONE_NOTES)) {
+      for (const [zone, notes] of Object.entries(table)) {
+        expect(routeOf(Number(act)).some((step) => step.zone === zone), zone).toBe(true);
+        for (const note of notes) expect(note.length, note).toBeLessThanOrEqual(110);
+      }
+    }
+  });
+
   it("cada trozo de mapa está en un paso que existe en la guía", () => {
     const zones = new Set(GUIDES.find((guide) => guide.act === 4)!.route!.map((step) => step.zone));
     expect(Object.keys(PICKUPS[4]!)).toHaveLength(4);

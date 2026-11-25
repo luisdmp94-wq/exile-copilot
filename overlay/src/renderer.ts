@@ -122,7 +122,8 @@ function drawExtras(view: StepView, route: Settings["route"]): void {
         ? []
         : [line("○", `Opcional: ${view.skip}.`)];
   const needs = view.needs ? [line("!", view.needs, "falta")] : [];
-  byId("extras").replaceChildren(...needs, ...gems, ...skip);
+  const notes = view.notes.map((note) => line("○", note));
+  byId("extras").replaceChildren(...needs, ...gems, ...skip, ...notes);
 }
 
 function drawSummary(view: StepView): void {
