@@ -33,7 +33,7 @@ import {
   type PriceLookup,
 } from "../engine/engine.js";
 import { ENGINE_VERSION } from "../engine/rules.js";
-import { answerSupportGemQuestion, type GemKnowledge } from "./gemQuestion.js";
+import { answerImproveSkillQuestion, answerSupportGemQuestion, type GemKnowledge } from "./gemQuestion.js";
 import {
   answerAttributeQuestion,
   answerCurseQuestion,
@@ -1199,6 +1199,14 @@ async function buildAnswer(
   if (deps.tree && options.intentHint === undefined) {
     const treeAnswer = answerPassiveTreeQuestion(deps.tree, options.question, options.profile, lang);
     if (treeAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, treeAnswer);
+  }
+
+  // «Necesito ayuda para mejorar Drenar esencia»: el nivel de su gema, el árbol
+  // y sus asistencias. Va después de las dos anteriores: si la pregunta habla de
+  // asistencias o del árbol, ya está contestada.
+  if (deps.gems && options.intentHint === undefined) {
+    const improveAnswer = answerImproveSkillQuestion(deps.gems, options.question, options.profile, lang);
+    if (improveAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, improveAnswer);
   }
 
   // Dudas del juego («¿qué hechizo tallo con una gema de nivel 7?», «¿Encadenamiento

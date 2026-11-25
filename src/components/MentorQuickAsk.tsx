@@ -62,6 +62,9 @@ export function MentorQuickAsk({ onAsk }: { onAsk: (question: string) => void })
           value={question}
           maxLength={MAX_MENTOR_QUESTION_LENGTH}
           placeholder={t.placeholder}
+          // Sin esto el navegador despliega aquí las preguntas antiguas y tapa
+          // los ejemplos de debajo (captura de Luis, 25-11-2026).
+          autoComplete="off"
           className="h-10 min-w-0 flex-1"
           onChange={(event) => setQuestion(event.target.value)}
         />

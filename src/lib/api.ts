@@ -293,7 +293,7 @@ export const api = {
   meta: (): Promise<MetaResponse> => request("/api/meta", MetaResponseSchema, undefined, STARTUP),
 
   importBuild: (payload: ImportBuildRequest): Promise<ImportBuildResponse> =>
-    request("/api/import/build", ImportBuildResponseSchema, jsonInit(payload)),
+    request("/api/import/build", ImportBuildResponseSchema, jsonInit({ ...payload, ...pageLangField() })),
 
   readScreenshot: (image: string): Promise<ScreenshotReadResponse> =>
     request("/api/quick-review/screenshot", ScreenshotReadResponseSchema, jsonInit({ image })),

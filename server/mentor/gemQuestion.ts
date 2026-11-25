@@ -8,6 +8,7 @@
  */
 import type { CharacterProfile } from "../../shared/domain.js";
 import { normalizeQuestion } from "../../shared/mentorIntent.js";
+import { maxGemLevelFor } from "../../shared/quickReview.js";
 import {
   assumedMaxGrade,
   supportCandidates,
@@ -198,9 +199,11 @@ export function answerSupportGemQuestion(
   question: string,
   profile: CharacterProfile | null,
   lang: AdviceLang,
+  /** La pregunta no habla de asistencias, pero quien llama ya sabe que hacen falta. */
+  ungated = false,
 ): string | null {
   const normalized = normalizeQuestion(question);
-  if (!isSupportGemQuestion(normalized) && !asksGemsForNamedSkill(gems, normalized)) return null;
+  if (!ungated && !isSupportGemQuestion(normalized) && !asksGemsForNamedSkill(gems, normalized)) return null;
   const en = lang === "en";
   const where = en
     ? "To fine-tune it with your uncut gem's tier and your free slots: Guides → “Which support gem do I use?”."
@@ -358,4 +361,76 @@ export function answerSupportGemQuestion(
 
   const rules = en ? "This comes from the game's data and fixed rules, no AI." : "Sale de los datos del juego y de reglas fijas, sin IA.";
   return `${lead}${intro}\n${picked.map(line).join("\n")}\n\n${gradeNote}${rules} ${where}`;
+}
+
+// ---------------------------------------------------------------------------
+// «Necesito ayuda para mejorar Drenar esencia»
+// ---------------------------------------------------------------------------
+
+/**
+ * Nombra una habilidad y pide que vaya mejor («necesito ayuda para mejorar
+ * drenar esencia», pregunta real de Luis en la web el 25-11-2026: se quedaba
+ * en «todavía no sé responder eso»). «¿Qué es mejor, A o B?» no es esto.
+ */
+export function asksToImproveNamedSkill(gems: GemKnowledge, normalizedQuestion: string): boolean {
+  const q = ` ${normalizedQuestion} `;
+  const improve =
+    /\b(mejor(ar|arla|arlo|o|a|e|as|aria|arias)|potenci\w+|optimiz\w+|reforz\w+)\b/.test(q) ||
+    /\bmas (fuerte|potente)\b|\bsacar(le)? (mas )?partido\b|\bsubir(le)? (el )?dano\b/.test(q) ||
+    /\b(improve|improving|boost|buff|stronger|optimi[sz]e)\b|\bmake .* better\b/.test(q);
+  return improve && skillInQuestion(gems, normalizedQuestion, null)?.how === "named";
+}
+
+/**
+ * Lo que hace pegar más a UNA habilidad: el nivel de su gema, el árbol y sus
+ * asistencias. Todo sale de los datos del juego y del personaje guardado; lo
+ * que la web no sabe (a qué nivel lleva la gema) lo dice.
+ */
+export function answerImproveSkillQuestion(
+  gems: GemKnowledge,
+  question: string,
+  profile: CharacterProfile | null,
+  lang: AdviceLang,
+): string | null {
+  const normalized = normalizeQuestion(question);
+  if (!asksToImproveNamedSkill(gems, normalized)) return null;
+  const en = lang === "en";
+  const skill = skillInQuestion(gems, normalized, null)!.skill;
+  const shown = localizeSkill(skill, lang, gems.locale).name;
+  const setup =
+    (profile?.skills ?? []).find(
+      (candidate) => findSkillAnyLang(gems.data, gems.locale, candidate.mainSkill || candidate.label)?.name === skill.name,
+    ) ?? null;
+  const level = profile && profile.level > 0 && profile.levelSource !== "placeholder" ? profile.level : null;
+  const max = level === null ? null : maxGemLevelFor(level);
+  const gemLevel = setup?.level && setup.level > 0 ? setup.level : null;
+  const arrow = en ? "press the ↑ arrow next to the skill" : "pulsa la flecha ↑ junto a la habilidad";
+
+  const gemLine =
+    gemLevel !== null && max !== null
+      ? gemLevel < max
+        ? en
+          ? `Your gem is level ${gemLevel} and at character level ${level} you can take it to ${max}. Level it up with an Uncut Skill Gem of level ${max} or higher: ${arrow}.`
+          : `La llevas a nivel ${gemLevel} y a tu nivel (${level}) puedes tenerla a ${max}. Súbela con una gema sin tallar de nivel ${max} o más: ${arrow}.`
+        : en
+          ? `Your gem is level ${gemLevel}, the highest your character level (${level}) allows. Nothing to do here for now.`
+          : `La llevas a nivel ${gemLevel}, lo máximo que te deja tu nivel (${level}). Aquí no hay nada que hacer por ahora.`
+      : max !== null
+        ? en
+          ? `At character level ${level} you can have it at level ${max}. I don't know what level yours is: if it's lower, level it up with an Uncut Skill Gem of level ${max} or higher (${arrow}).`
+          : `A tu nivel (${level}) puedes tenerla a nivel ${max}. No sé a qué nivel la llevas: si va por debajo, súbela con una gema sin tallar de nivel ${max} o más (${arrow}).`
+        : en
+          ? `Keep its gem as high as your level allows: you level it up with a higher Uncut Skill Gem (${arrow}). Tell me your level and I'll tell you the number.`
+          : `Lleva su gema al nivel más alto que te deje tu nivel: se sube con una gema sin tallar más alta (${arrow}). Dime tu nivel y te digo el número.`;
+
+  const treeLine = en
+    ? "The “Your passive tree” card sorts the notables by what they add to your main skills. Or ask me “where do I go next on the tree?”."
+    : "La tarjeta «Tu árbol de pasivas» ordena los notables por lo que dan a tus habilidades principales. O pregúntame «¿por dónde sigo en el árbol?».";
+
+  const supports = answerSupportGemQuestion(gems, question, profile, lang, true) ?? "";
+  const intro = en ? `${shown} gets better in three places:` : `${shown} mejora por tres sitios:`;
+  const gemTitle = en ? "1. Its gem level." : "1. El nivel de su gema.";
+  const treeTitle = en ? "2. The passive tree." : "2. El árbol de pasivas.";
+  const supportTitle = en ? "3. Its support gems." : "3. Sus asistencias.";
+  return `${intro}\n\n${gemTitle} ${gemLine}\n\n${treeTitle} ${treeLine}\n\n${supportTitle} ${supports}`;
 }

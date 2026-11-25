@@ -7,6 +7,8 @@ import { MentorAnswerSchema } from "../../shared/mentorQuery.js";
 import { answerMentorQuery } from "../../server/mentor/mentorService.js";
 import { loadGemData } from "../../server/advice/supportGemAdvisor.js";
 import {
+  answerImproveSkillQuestion,
+  asksToImproveNamedSkill,
   answerSupportGemQuestion,
   isSupportGemQuestion,
   skillInQuestion,
@@ -222,5 +224,58 @@ describe("el Mentor completo contesta preguntas de gemas", () => {
   it("un botón de la web (intención fijada) nunca se toma por una pregunta de gemas", async () => {
     const answer = await answerMentorQuery(query("gema de asistencia para Contagio", "next_improvement"), { gems });
     expect(answer.answer).not.toContain("las asistencias que mejor le van");
+  });
+});
+
+describe("el Mentor contesta «ayúdame a mejorar <habilidad>»", () => {
+  const improve = (question: string, profile = witch(), lang: "es" | "en" = "es") =>
+    answerImproveSkillQuestion(gems, question, profile, lang);
+
+  it("la pregunta real de Luis: nivel de la gema, árbol y asistencias", () => {
+    const answer = improve("necesito ayuda para mejorar drenar esencia")!;
+    expect(answer).toContain("Drenar esencia mejora por tres sitios:");
+    // Nivel 44 de personaje: la tabla del juego deja la gema a nivel 11.
+    expect(answer).toContain("A tu nivel (44) puedes tenerla a nivel 11");
+    expect(answer).toContain("«Tu árbol de pasivas»");
+    expect(answer).toContain("Para Drenar esencia, las asistencias que mejor le van son:");
+    expect(answer).toContain("sin IA");
+  });
+
+  it("si sabe el nivel de la gema, dice cuánto le falta o que ya está al día", () => {
+    const withGem = (level: number) =>
+      CharacterProfileSchema.parse({
+        ...witch(["Drenar esencia"]),
+        skills: [{ id: "s0", label: "Drenar esencia", mainSkill: "Drenar esencia", level }],
+      });
+    expect(improve("como mejoro drenar esencia", withGem(8))).toContain("La llevas a nivel 8 y a tu nivel (44) puedes tenerla a 11");
+    expect(improve("como mejoro drenar esencia", withGem(11))).toContain("lo máximo que te deja tu nivel (44)");
+  });
+
+  it("en inglés, y solo cuando nombra una habilidad y pide mejorarla", () => {
+    expect(improve("how do I improve Essence Drain?", witch(), "en")).toContain("Essence Drain gets better in three places:");
+    expect(improve("¿qué mejoro ahora?")).toBeNull();
+    expect(improve("¿qué es mejor, drenar esencia o contagio?")).toBeNull();
+    expect(asksToImproveNamedSkill(gems, normalizeQuestion("quiero potenciar contagio"))).toBe(true);
+  });
+
+  it("llega hasta el jugador por el Mentor, sin «todavía no sé responder eso»", async () => {
+    const answer = await answerMentorQuery(
+      {
+        question: "necesito ayuda para mejorar drenar esencia",
+        profile: witch(),
+        budget: { amount: 50, currency: "chaos" as const },
+        goal: { kind: "survival" as const },
+        league: "Forbidden Rites",
+        patch: "0.5.5",
+        memory: RecommendationMemorySchema.parse({
+          revision: "journal-memory-v1:0000000000000000",
+          primaryEntry: null,
+          recentCompleted: [],
+        }),
+      },
+      { gems },
+    );
+    expect(answer.unsupported).toBeNull();
+    expect(answer.answer).toContain("Drenar esencia mejora por tres sitios:");
   });
 });

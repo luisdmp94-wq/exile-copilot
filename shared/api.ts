@@ -124,6 +124,12 @@ export const ImportBuildRequestSchema = z.object({
   patch: z.string().min(1),
   /** Destino explícito: nunca se deduce silenciosamente del formato. */
   intent: z.enum(["character", "target"]).default("target"),
+  /**
+   * Idioma de la página. Un código de PoB2 trae los objetos en inglés: en
+   * español se guardan con la base y los modificadores traducidos. Ausente =
+   * español, como en el resto de la API.
+   */
+  lang: z.enum(["es", "en"]).optional(),
 });
 export const ImportBuildResponseSchema = z.object({
   warnings: z.array(z.string()),

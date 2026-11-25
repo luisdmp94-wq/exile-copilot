@@ -148,3 +148,94 @@ export function itemToEnglish(
   if (item.craftingState?.corrupted) lines.push("Corrupted");
   return { text: lines.join("\n"), untranslated, unknownBase: base === null };
 }
+
+// ---------------------------------------------------------------------------
+// Inglés → español: lo que trae un código de Path of Building 2
+// ---------------------------------------------------------------------------
+
+interface ReverseTables {
+  mods: Map<string, string>;
+  bases: Map<string, string>;
+  uniques: Map<string, string>;
+}
+
+const REVERSE = new WeakMap<ItemTranslations, ReverseTables>();
+
+/** Las mismas tablas, al revés. Si dos textos en español dan el mismo inglés, vale el primero. */
+function reverseOf(translations: ItemTranslations): ReverseTables {
+  const cached = REVERSE.get(translations);
+  if (cached) return cached;
+  const flip = (table: Record<string, string>, key: (english: string) => string) => {
+    const map = new Map<string, string>();
+    for (const [spanish, english] of Object.entries(table)) {
+      if (!map.has(key(english))) map.set(key(english), spanish);
+    }
+    return map;
+  };
+  const tables: ReverseTables = {
+    mods: flip(translations.mods, (english) => english.toLowerCase()),
+    bases: flip(translations.bases, (english) => english.toLowerCase()),
+    uniques: flip(translations.uniques, (english) => english.toLowerCase()),
+  };
+  REVERSE.set(translations, tables);
+  return tables;
+}
+
+/** Solo si la línea empieza por letra: «+25% a la resistencia…» va en minúscula, como en el juego. */
+const capitalised = (text: string) => text.replace(/^\p{L}/u, (letter) => letter.toLocaleUpperCase("es"));
+
+/** Una línea de modificador en inglés → español, o null si no hay plantilla. */
+export function spanishModLine(line: string, translations: ItemTranslations): string | null {
+  const values: string[] = [];
+  const key = line
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(NUMBER, (match) => {
+      values.push(match);
+      return "#";
+    })
+    .toLowerCase();
+  const spanish = reverseOf(translations).mods.get(key);
+  // Las plantillas se guardan en minúsculas: la frase empieza con mayúscula.
+  return spanish === undefined ? null : capitalised(fill(spanish, values));
+}
+
+/**
+ * Un objeto leído de un código de PoB2 (siempre en inglés) con la base, el
+ * nombre del único y los modificadores en español, como los enseña el cliente
+ * en español. Lo que no está en las tablas se queda como venía; el nombre de
+ * un objeto raro («Horror Visage») no está en ninguna. `rawText` no se toca:
+ * es lo que PoB2 vuelve a leer para calcular.
+ */
+export function itemToSpanish(
+  item: Item,
+  translations: ItemTranslations,
+  /** Gemas en inglés (minúsculas) → español, para «Grants Skill». */
+  gems: Record<string, string> = {},
+): Item {
+  const tables = reverseOf(translations);
+  const base = tables.bases.get(item.baseType.trim().toLowerCase()) ?? null;
+  const name =
+    item.rarity === "unique"
+      ? (tables.uniques.get(item.name.trim().toLowerCase()) ?? item.name)
+      : base !== null && item.name.trim().toLowerCase() === item.baseType.trim().toLowerCase()
+        ? base
+        : item.name;
+  const line = (text: string): string => {
+    const granted = /^Grants Skill\s*:\s*Level\s+(\d+)\s+(.+)$/i.exec(text.trim());
+    if (granted) {
+      const spanish = gems[granted[2]!.trim().toLowerCase()];
+      return spanish ? `Otorga la habilidad: Nivel ${granted[1]} ${spanish}` : text;
+    }
+    return spanishModLine(text, translations) ?? text;
+  };
+  return {
+    ...item,
+    name,
+    baseType: base ?? item.baseType,
+    modifiers: item.modifiers.map((modifier) => ({
+      ...modifier,
+      text: modifier.text.split("\n").map(line).join("\n"),
+    })),
+  };
+}

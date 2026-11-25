@@ -537,6 +537,7 @@ export function MentorChatSection({
                   rows={1}
                   maxLength={MAX_MENTOR_QUESTION_LENGTH}
                   placeholder={t.questionPlaceholder}
+                  autoComplete="off"
                   className="min-h-10 resize-none"
                   disabled={loading}
                   onChange={(event) => setQuestion(event.target.value)}

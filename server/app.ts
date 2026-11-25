@@ -2,6 +2,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { itemToSpanish, type ItemTranslations } from "../shared/itemTranslation.js";
 import { ZodError } from "zod";
 import {
   ExportBuildRequestSchema,
@@ -407,6 +408,23 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   const gemData = loadGemData();
   const gemLocale = loadEnglishGemLocale();
   const treeKnowledge: TreeKnowledge = { tree: loadPassiveTree(), gems: gemData, locale: gemLocale };
+  // Tablas de poe2db para enseñar en español los objetos de un código de PoB2.
+  // Pesan: se leen la primera vez que alguien importa uno, no al arrancar.
+  let itemTablesCache: { translations: ItemTranslations; gems: Record<string, string> } | null = null;
+  const itemTables = () => {
+    if (itemTablesCache === null) {
+      const translations = JSON.parse(
+        readFileSync(fileURLToPath(new URL("./data/pob/item-translations.json", import.meta.url)), "utf8"),
+      ) as ItemTranslations;
+      const gems: Record<string, string> = {};
+      for (const skill of gemData.skills) {
+        const english = gemLocale.entries.get(skill.slug)?.name;
+        if (english) gems[english.toLowerCase()] = skill.name;
+      }
+      itemTablesCache = { translations, gems };
+    }
+    return itemTablesCache;
+  };
   const craftingWordGems = gemNamesWithCraftingWords(
     [...gemData.skills, ...gemData.supports].flatMap((gem) => [gem.name, gemLocale.entries.get(gem.slug)?.name ?? ""]),
   );
@@ -781,8 +799,15 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
   // POST /import/build — detecta .build oficial (GGG Build Planner v1) o código PoB
   app.post("/import/build", (req, res, next) => {
     try {
-      const { content, patch, intent } = ImportBuildRequestSchema.parse(req.body);
+      const { content, patch, intent, lang } = ImportBuildRequestSchema.parse(req.body);
       const result = importBuild(content, importDefaults, intent);
+      // PoB2 siempre exporta en inglés. Con la web en español, la base, el
+      // nombre del único y los modificadores se guardan en español, como los
+      // objetos pegados desde el juego. `rawText` sigue en inglés para PoB2.
+      if (lang !== "en" && result.profile !== undefined) {
+        const tables = itemTables();
+        result.profile.items = result.profile.items.map((item) => itemToSpanish(item, tables.translations, tables.gems));
+      }
       // Un plan oficial viaja con la resolución de sus ids contra el registro
       // de GGG. La resolución es PARALELA: el `.build` crudo no se toca.
       if (result.plan !== undefined) {

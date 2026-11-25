@@ -913,6 +913,22 @@ describe("api (integración, app Express con db :memory:)", () => {
     expect(body.profile.passives.allocated).toHaveLength(2);
     expect(body.warnings.join(" ")).not.toContain("adaptador PoB básico");
   });
+
+  it("POST /import/build guarda en español los objetos de PoB2, salvo con la web en inglés", async () => {
+    const send = async (lang?: "en") =>
+      (await jsonOf(
+        await postJson("/import/build", { content: richPobCode, patch: "0.5.4f", intent: "character", ...(lang ? { lang } : {}) }),
+      )).profile.items as Array<{ name: string; baseType: string; rawText: string; modifiers: Array<{ text: string }> }>;
+    const spanish = await send();
+    const gloves = spanish.find((item) => item.name === "Oblivion Paw")!;
+    // El nombre de un raro no tiene traducción; la base y los modificadores sí.
+    expect(gloves.baseType).toBe("Vendajes vaal forjados con runas");
+    expect(gloves.modifiers.map((modifier) => modifier.text)).toContain("+18% a la resistencia al fuego");
+    // PoB2 vuelve a leer el texto original para calcular: sigue en inglés.
+    expect(gloves.rawText).toContain("Runeforged Vaal Wraps");
+    const english = await send("en");
+    expect(english.find((item) => item.name === "Oblivion Paw")!.baseType).toBe("Runeforged Vaal Wraps");
+  });
   it("POST /import/build conserva el plan pero no usa pasivas antiguas en 1.0", async () => {
     const res = await postJson("/import/build", { content: titanBuildContent, patch: "1.0" });
     expect(res.status).toBe(200);
