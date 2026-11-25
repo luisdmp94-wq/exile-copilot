@@ -51,9 +51,9 @@ export const ACT_FOUR_GUIDE_EN: ActGuide = {
     },
     {
       zone: "Isle of Kin and Volcanic Warrens",
-      text: "Krutog, Lord of Kin, hits with lightning. The Blind Beast is optional: it drops a rune Dannig swaps for another. On the shore, a sailor's body drops a Torn Map Piece (2 of 4).",
+      text: "Krutog, Lord of Kin, hits with lightning. The Blind Beast is optional: it drops a rune Dannig swaps for another. The Magma Twins (two rock golems that come as a pair, in the Warrens) are optional too: no set reward. On the shore, a sailor's body drops a Torn Map Piece (2 of 4).",
       priority: "historia",
-      skip: "The Blind Beast",
+      skip: "The Blind Beast and the Magma Twins",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
     },
     {
