@@ -439,29 +439,37 @@ ${JSON.stringify(context)}`,
         }
 
         let response: Response | null = null;
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-          response = await this.fetchImpl(provider.endpoint, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            signal: controller.signal,
-            body: JSON.stringify(requestBody),
-          });
+        // Sin cupo (429) en un modelo, la misma petición va al de reserva: el
+        // cupo gratis se cuenta por modelo.
+        const models = [this.config.mentorAiModel, ...(this.config.mentorAiFallbackModels ?? [])];
+        tryModels: for (let index = 0; index < models.length; index += 1) {
+          requestBody.model = models[index];
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            response = await this.fetchImpl(provider.endpoint, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              signal: controller.signal,
+              body: JSON.stringify(requestBody),
+            });
 
-          if (response.ok) break;
-          const code = await providerErrorCode(response);
-          const retryStructuredOutput = code === "json_validate_failed" && attempt === 0;
-          console.warn(
-            `[mentor-ai] proveedor=${this.config.mentorAiProvider} estado=${response.status} codigo=${code ?? "desconocido"} reintento=${retryStructuredOutput ? "si" : "no"}`,
-          );
-          if (retryStructuredOutput) continue;
-          throw new MentorAiError(
-            code === "json_validate_failed"
-              ? "La IA no pudo devolver una decisión estructurada; se usaron las reglas."
-              : `El servicio de IA respondió con estado ${response.status}; se usaron las reglas.`,
-          );
+            if (response.ok) break tryModels;
+            const code = await providerErrorCode(response);
+            const retryStructuredOutput = code === "json_validate_failed" && attempt === 0;
+            const useReserve = response.status === 429 && index < models.length - 1;
+            console.warn(
+              `[mentor-ai] proveedor=${this.config.mentorAiProvider} modelo=${models[index]} estado=${response.status} codigo=${code ?? "desconocido"} reintento=${retryStructuredOutput ? "si" : "no"} reserva=${useReserve ? "si" : "no"}`,
+            );
+            if (retryStructuredOutput) continue;
+            if (useReserve) continue tryModels;
+            throw new MentorAiError(
+              code === "json_validate_failed"
+                ? "La IA no pudo devolver una decisión estructurada; se usaron las reglas."
+                : `El servicio de IA respondió con estado ${response.status}; se usaron las reglas.`,
+            );
+          }
         }
 
         if (response === null || !response.ok) {

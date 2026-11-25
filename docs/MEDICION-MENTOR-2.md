@@ -396,6 +396,16 @@ tokens. Con el cupo gratis salen unas 60 respuestas al día para todos los
 visitantes juntos; después contestan las reglas. Para gastar menos, la IA ve
 como mucho 6.000 caracteres de fichas y los cuatro últimos turnos.
 
+**Modelo de reserva (25-11-2026, tarde).** Pagar en Groq no se puede: su
+consola dice que el plan de pago está cerrado «por alta demanda». El 429 de
+Groq nombra el modelo («Rate limit reached for model openai/gpt-oss-120b… on
+tokens per day»): el cupo es por modelo. Ahora, si el modelo principal contesta
+429, la misma petición va a `openai/gpt-oss-20b`
+(`MENTOR_AI_FALLBACK_MODELS`). Probado con una charla de la bruja contestada
+solo por el de reserva: sigue el hilo, elige bien los datos y tarda 0,7 s; la
+entrada es algo más floja. **Sin comprobar:** que el cupo diario del de
+reserva sea aparte (se ve en console.groq.com → Limits).
+
 **Sin IA también mejora:** «¿cómo mato al jefe del acto 3?» ya contesta con la
 guía (regla nueva, `server/mentor/guideKnowledge.ts`). Las guías se leen de
 `server/data/guideKnowledge.json`: tras tocar una guía, `npm run data:guides`
