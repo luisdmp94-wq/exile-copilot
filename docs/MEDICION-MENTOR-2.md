@@ -340,3 +340,63 @@ Para comprobarlo: poner la clave nueva en el `.env` local y repetir (unos 7 minu
   cuántos novatos pegan todo el equipo.
 - Las veinte preguntas las escribí yo imitando a un novato. No son de jugadores
   reales. Las de verdad llegarán con la tarea 3 (guardar lo que no sabe contestar).
+
+## Tarea 13 · el Mentor conversa (25-11-2026)
+
+Se mide con **charlas** (una pregunta y dos repreguntas seguidas), no con
+preguntas sueltas: `node scripts/mentor-charla.mjs` (la bruja de nivel 49) y
+`--control` (cuatro charlas nuevas con el guerrero y la exploradora).
+
+**Qué cambia.** Las reglas siguen poniendo los datos. El servidor los parte en
+frases sueltas («fichas»): la respuesta de las reglas a la pregunta, la de las
+dos preguntas anteriores del jugador (recalculadas en el servidor), las ocho
+asistencias que mejor le van a la habilidad de la que se habla, las que hacen
+aguantar a los esbirros y la guía del acto que se nombre. La IA lee la charla,
+elige de una a cuatro fichas y escribe una entrada corta y una pregunta de
+cierre. Las fichas se enseñan copiadas tal cual.
+
+**Por qué no redacta entera.** Primera prueba, redactando libre: siguió el hilo,
+pero escribió «evita los círculos de descarga estática» (la guía dice que hay
+que meterse dentro) y «lanzar más rápido sin perder daño» de una gema que quita
+velocidad. Un filtro de nombres y cifras no ve eso. Copiando la frase no pasa.
+
+**Filtro.** La entrada y el cierre no pueden traer una cifra, un grado, una gema
+ni un nombre propio que no esté en las fichas, en el personaje o en lo que
+escribió el jugador. El cierre solo se enseña si es una pregunta. Si algo
+falla, tarda o no hay cupo, sale el texto de las reglas.
+
+**Charla de la bruja (nueve turnos).** Con ella se escribieron las
+instrucciones de la IA: no es una prueba limpia.
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Antes | 2 | 1 | 6 |
+| Después | 7 | 2 | 0 |
+
+Antes: repite la misma lista letra a letra, contesta «rellena los huecos de
+equipo» a «¿y por qué esa?», lista todas las gemas de esbirro a «se me mueren»
+y dice «no lo sé» al jefe del acto 3. Después: las nueve redactadas por la IA,
+ninguna cae a reglas y ningún dato inventado. A medias: «ya, pero ¿qué hago
+exactamente?» repite las dos asistencias (no hay datos de cómo se ponen) y el
+último turno mezcla el consejo de equipo con el del jefe. Tarda de 0,9 a 2,1 s.
+
+**Charlas de control (doce turnos, escritas con las instrucciones ya fijas).**
+
+- Antes: 4 bien, 2 a medias, 6 mal.
+- Después: **sin medir.** Los tres primeros turnos salieron bien; desde el
+  cuarto Groq cortó con un 429: se había gastado el cupo gratis del día
+  (200.000 tokens; usados 199.861). Hay que repetirla otro día.
+
+**Lo que costó la medición.** Cada respuesta redactada gasta de 2.500 a 4.000
+tokens. Con el cupo gratis salen unas 60 respuestas al día para todos los
+visitantes juntos; después contestan las reglas. Para gastar menos, la IA ve
+como mucho 6.000 caracteres de fichas y los cuatro últimos turnos.
+
+**Sin IA también mejora:** «¿cómo mato al jefe del acto 3?» ya contesta con la
+guía (regla nueva, `server/mentor/guideKnowledge.ts`). Las guías se leen de
+`server/data/guideKnowledge.json`: tras tocar una guía, `npm run data:guides`
+(una prueba falla si se queda atrás).
+
+**Fallos conocidos.** La entrada puede decir mal un nombre que sí está en los
+datos («Lucha I» por «Lucha»). El cierre a veces ofrece explicar algo que el
+Mentor no sabe («¿quieres saber cómo enlazarlas?»).

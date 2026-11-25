@@ -106,6 +106,7 @@ import {
   SaveMentorThreadResponseSchema,
 } from "../shared/mentorThreadPersistence.js";
 import { answerMentorQuery } from "./mentor/mentorService.js";
+import { loadGuideKnowledge } from "./mentor/guideKnowledge.js";
 import {
   adviseSupportGem,
   adviseSupportPlan,
@@ -407,6 +408,9 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       : createSupportPlanExplainer(config);
   const gemData = loadGemData();
   const gemLocale = loadEnglishGemLocale();
+  const guideKnowledge = loadGuideKnowledge();
+  // Un solo objeto para todas las consultas: el vocabulario del Mentor se calcula una vez.
+  const mentorGems = { data: gemData, locale: gemLocale };
   const treeKnowledge: TreeKnowledge = { tree: loadPassiveTree(), gems: gemData, locale: gemLocale };
   // Tablas de poe2db para enseñar en español los objetos de un código de PoB2.
   // Pesan: se leen la primera vez que alguien importa uno, no al arrancar.
@@ -1839,7 +1843,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
               }
             : {}),
         },
-        { priceService, selector: mentorSelector, gems: { data: gemData, locale: gemLocale }, tree: treeKnowledge },
+        { priceService, selector: mentorSelector, gems: mentorGems, tree: treeKnowledge, guides: guideKnowledge },
       );
 
       // Segunda lectura tras la espera asíncrona: si otra pestaña creó o cerró

@@ -144,6 +144,19 @@ la siguiente. Nada se sube sin su sí.
     sueltas: las mediciones anteriores no veían este fallo.
   - Coste: 1 o 2 s por respuesta y el cupo gratis de Groq (200.000 tokens al
     día, unas cien respuestas). Antes del 8-12, que se congela.
+  → El 25-11, **hecho en local, sin subir: falta medir el control.** La IA lee
+  la charla, elige los datos que contestan y escribe la entrada; los datos
+  salen copiados tal cual (redactando libre llegó a decir lo contrario de la
+  guía). Charla de la bruja: **de 2 bien, 1 a medias y 6 mal a 7 bien, 2 a
+  medias y 0 mal**; ningún dato inventado. Las guías por acto ya son datos, y
+  sin IA el jefe del acto 3 también se contesta. Control nuevo (12 turnos):
+  antes 4 bien, 2 a medias, 6 mal; **después, sin medir: las mediciones
+  gastaron el cupo gratis de Groq del día.** Coste real: de 2.500 a 4.000
+  tokens por respuesta, unas 60 al día con el cupo gratis. Pasadas: 17 pruebas
+  nuevas y las 269 del Mentor y las guías; la batería completa, sin pasar
+  (Luis jugaba). Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 13».
+  **Siguiente:** `node scripts/mentor-charla.mjs --control` y la de la bruja
+  otra vez; si el control mejora, batería completa y decide Luis si se sube.
 
 ### Del 8 al 10 de diciembre
 
