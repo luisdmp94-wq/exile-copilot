@@ -125,6 +125,11 @@ export function rewardKindOf(message: string): RewardKind | null {
 export interface BossSign {
   /** Cómo se llama el jefe en la ventanita. */
   boss: string;
+  /**
+   * Cuando lo que se acaba no es un jefe (el tesoro de una isla de Expedición),
+   * cómo se llama su línea: «Objetivo». Sin esto, «Jefe».
+   */
+  label?: string;
   /** Quién lo dice y qué dice, tal cual sale en el registro (sin marcas). */
   lines: Array<[who: string, text: string]>;
 }
@@ -206,6 +211,15 @@ export const BOSS_SIGNS: Record<number, Record<string, BossSign>> = {
         ["Yama el Blanco", "¡Ahhh! Bien, bien. Yama puede verte. Eres digna."],
       ],
     },
+    // No hay jefe: Dannig detona, salen criaturas y Farrow se lleva lo que
+    // aparece. Esta frase es la última de la isla. En el registro de Luis
+    // (25-11-2026): 15 entradas a la isla, la frase sale 2 veces, una por isla
+    // terminada, y nunca en otra zona.
+    "Punta del botín": {
+      boss: "el tesoro enterrado (Farrow)",
+      label: "Objetivo",
+      lines: [["Farrow", "No tengo dudas de que podremos usar esto. Lo llevaré a Marca del rey."]],
+    },
     "La excavación": {
       boss: "Benedictus, Primer heraldo de Utopía",
       // Tras vencerlo, Makoru y Tavakai ajustan cuentas con Kanu.
@@ -268,11 +282,11 @@ export const SILENT_BOSSES: Record<number, Record<string, string>> = {
  * El jefe de un paso, si tiene casilla. `auto`: el registro lo marca solo al
  * oír su frase; si no, se marca a mano.
  */
-export function bossOf(act: number, zone: string): { name: string; auto: boolean } | null {
+export function bossOf(act: number, zone: string): { name: string; auto: boolean; label: string } | null {
   const sign = BOSS_SIGNS[act]?.[zone];
-  if (sign) return { name: sign.boss, auto: true };
+  if (sign) return { name: sign.boss, auto: true, label: sign.label ?? "Jefe" };
   const silent = SILENT_BOSSES[act]?.[zone];
-  return silent ? { name: silent, auto: false } : null;
+  return silent ? { name: silent, auto: false, label: "Jefe" } : null;
 }
 
 /**

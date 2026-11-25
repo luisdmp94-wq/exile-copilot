@@ -40,9 +40,10 @@ const KEYS =
  * Qué sabe sacar la ventanita del registro. Si sube, la partida guardada se
  * rehace repasando Client.txt entero una vez (2: recompensas y jefes; 3: una
  * partida por personaje; 4: clase y ascendencia; 5: recompensas que llegan
- * en varias entregas, como los tres tatuajes).
+ * en varias entregas, como los tres tatuajes; 6: Punta del botín se marca
+ * sola con la frase de Farrow y entrar en ella da por cogidos los trozos).
  */
-const LOG_FORMAT = 5;
+const LOG_FORMAT = 6;
 
 interface Saved {
   /** La partida del personaje con el que juegas. */

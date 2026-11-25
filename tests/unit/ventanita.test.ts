@@ -35,6 +35,7 @@ import {
   onToggleBoss,
   onTogglePickup,
   onToggleReward,
+  pickupCount,
   resistanceNotice,
   sanitizeRun,
   stepReady,
@@ -362,13 +363,59 @@ describe("ventanita: trozos de mapa del acto 4", () => {
     expect(viewOf(onToggleBoss(onTogglePickup(shrike)), "completa").ready).toBe(true);
   });
 
+  /** Llega al paso de Punta del botín con Av Pág, sin pisar la isla. */
+  const atPlunder = (run: Run) => {
+    const index = routeOf(4).findIndex((step) => step.zone === "Punta del botín");
+    return { ...run, progress: { act: 4, index, outside: false } };
+  };
+
   it("Punta del botín avisa de los trozos que faltan, y calla con los cuatro", () => {
     let run = onTogglePickup(play([["G4_1_1", 51]]));
-    expect(viewOf(play([["G4_13", 53]], run), "completa").needs).toBe(
-      "Esta isla solo se abre con los 4 trozos de mapa: llevas 1 marcado.",
-    );
+    expect(viewOf(atPlunder(run), "completa").needs).toBe("Esta isla solo se abre con los 4 trozos de mapa: llevas 1 marcado.");
     for (const code of ["G4_2_1", "G4_3_1", "G4_7"]) run = onTogglePickup(play([[code, 51]], run));
-    expect(viewOf(play([["G4_13", 53]], run), "completa").needs).toBeNull();
+    expect(viewOf(atPlunder(run), "completa").needs).toBeNull();
+  });
+
+  it("entrar en Punta del botín da por cogidos los cuatro trozos: sin ellos no se abre", () => {
+    // Caso real (25-11-2026): un trozo marcado a mano, la isla ya hecha, y seguía diciendo «llevas 1 marcado».
+    const oneMarked = onTogglePickup(play([["G4_1_1", 51]]));
+    const inside = play([["G4_13", 53]], oneMarked);
+    expect(viewOf(inside, "completa")).toMatchObject({ zone: "Punta del botín", needs: null });
+    expect(pickupCount(inside, 4, "mapa")).toEqual({ got: 4, of: 4 });
+    // Los trozos quedan cogidos también en sus islas, y otra zona no los toca.
+    expect(viewOf(play([["G4_7", 52]], inside), "completa").pickup).toMatchObject({ got: true, count: "4 de 4" });
+    expect(play([["G4_10", 52]], oneMarked).pickups).toEqual(oneMarked.pickups);
+  });
+
+  it("Punta del botín se marca sola con la última frase de Farrow, y entonces dice adónde vas", () => {
+    const farrow = "No tengo dudas de que podremos usar esto. Lo llevaré a Marca del rey.";
+    expect(parseLine(`2026/11/25 19:35:03 1 2caa22f9 [INFO Client 1] Farrow: <<set:F>><<set:S>><<set:FS>>${farrow}`)).toEqual({
+      kind: "boss",
+      act: 4,
+      zone: "Punta del botín",
+    });
+    // No es un jefe: su línea dice «Objetivo».
+    // Como en la partida real: la isla se hizo después de vencer a Benedictus en La excavación.
+    const dig = onBoss(play([["G4_town", 53], ["G4_8b", 52], ["G4_10", 52]]), 4, "La excavación");
+    const island = play([["G4_town", 53], ["G4_13", 53]], dig);
+    expect(viewOf(island, "completa")).toMatchObject({
+      boss: { name: "el tesoro enterrado (Farrow)", label: "Objetivo", dead: false, auto: true },
+      ready: false,
+    });
+    // Lo que dice antes (al detonar) no la marca; fuera de la isla, tampoco.
+    expect(bossSignOf("Farrow", "Así que todo esto... ¿explota?")).toBeNull();
+    expect(onBoss(play([["G4_town", 53]], island), 4, "Punta del botín").bosses).toEqual(dig.bosses);
+    // De vuelta en el pueblo con la isla hecha: zona hecha y lo siguiente, no otra vez la isla.
+    const done = play([["G4_town", 53]], onBoss(island, 4, "Punta del botín"));
+    expect(viewOf(done, "completa")).toMatchObject({
+      zone: "Punta del botín",
+      boss: { dead: true },
+      ready: true,
+      needs: null,
+      next: { zone: "Ngakanu y El corazón de la tribu" },
+    });
+    // Con Fin también: por si el registro no lo dijo.
+    expect(viewOf(onMarkStep(island), "completa")).toMatchObject({ boss: { dead: true }, ready: true });
   });
 
   it("los trozos marcados se guardan y una partida vieja sin ellos no se rompe", () => {

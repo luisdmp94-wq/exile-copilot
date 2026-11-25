@@ -25,6 +25,11 @@ guía (actos 1 a 4, las guías de `src/guides`).
   la reina de la inmundicia, el prisionero…) tienen casilla a mano: **Fin** o
   clic al matarlos, y la zona ya dice «Zona hecha». Fin funciona también con
   la ventanita minimizada.
+- **Punta del botín** no tiene jefe: su casilla dice «Objetivo: el tesoro
+  enterrado (Farrow)» y se marca sola con la última frase de Farrow en la isla
+  («…Lo llevaré a Marca del rey»). Con el juego en otro idioma, **Fin**.
+- **Los trozos de mapa** del acto 4 se marcan a mano, con su casilla. Al entrar
+  en Punta del botín se dan los cuatro por cogidos: sin ellos la isla no se abre.
 - **«Zona hecha: puedes seguir»**, en verde, cuando todo lo que se puede
   comprobar del paso está hecho. Debajo, en grande, **adónde vas**
   («→ Ngakanu y El corazón de la tribu»), y el texto de lo ya hecho se apaga.
@@ -68,7 +73,7 @@ guía (actos 1 a 4, las guías de `src/guides`).
 | Tecla | Qué hace |
 | --- | --- |
 | Re Pág / Av Pág | Paso anterior / siguiente |
-| Fin | Marcar al jefe del paso si no habla; si no, su recompensa |
+| Fin | Marcar al jefe del paso si no habla; si no, su recompensa; y si el paso no tiene recompensa, su jefe u objetivo |
 | Ctrl+Alt+R | Ver o cerrar las recompensas del acto |
 
 **Moverla:** arrastra el asa ⠿ de la izquierda de la cabecera. No se puede

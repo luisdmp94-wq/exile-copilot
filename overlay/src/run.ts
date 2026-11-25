@@ -16,6 +16,7 @@ import {
   routeOf,
   sanitize,
   skippedInFastRoute,
+  stepsForCode,
   type Progress,
   type RouteMode,
 } from "./progress";
@@ -161,6 +162,22 @@ export function stepReady(run: Pick<Run, "checked" | "bosses">, act: number, ind
 }
 
 /**
+ * Entrar en una zona que solo se abre con todos los objetos de un grupo los da
+ * por cogidos: nadie pisa Punta del botín sin los cuatro trozos de mapa. Caso
+ * real (25-11-2026): con la isla ya hecha seguía diciendo «llevas 1 marcado».
+ */
+function provenPickups(had: string[], act: number | null, code: string): string[] {
+  if (act === null) return had;
+  const groups = stepsForCode(act, code).flatMap((index) => NEEDS_PICKUPS[act]?.[routeOf(act)[index]!.zone] ?? []);
+  if (groups.length === 0) return had;
+  const missing = routeOf(act).flatMap((step, index) => {
+    const group = PICKUPS[act]?.[step.zone]?.group;
+    return group !== undefined && groups.includes(group) && !had.includes(stepKey(act, index)) ? [stepKey(act, index)] : [];
+  });
+  return missing.length > 0 ? [...had, ...missing] : had;
+}
+
+/**
  * Entra en una zona (línea «Generating level N area "X"» de Client.txt).
  * `guessNew`: sin saber quién juega, volver a la orilla del río desde un acto
  * posterior se toma por un personaje nuevo. Con el personaje ya nombrado no
@@ -206,7 +223,8 @@ export function onArea(run: Run, code: string, level: number, guessNew = true): 
   }
   // El nivel de un pueblo no dice nada de lo duro que es el acto.
   const areaLevel = /_town$/i.test(code) || act === null ? run.areaLevel : level;
-  return { ...run, progress, visited, area: normalizeCode(code), areaLevel, leftBehind, resistDrop };
+  const pickups = provenPickups(run.pickups ?? [], act, code);
+  return { ...run, progress, visited, pickups, area: normalizeCode(code), areaLevel, leftBehind, resistDrop };
 }
 
 /**
@@ -272,11 +290,14 @@ export function onToggleBoss(run: Run): Run {
 /**
  * La tecla Fin: marca lo que el paso deja marcar a mano. Si su jefe no habla,
  * el jefe (su recompensa, si la tiene, ya se marca sola); si no, la recompensa.
+ * Y si el paso no tiene recompensa, su jefe u objetivo aunque se marque solo:
+ * por si el registro no lo dijo (Punta del botín con el juego en inglés).
  * Así se marca sin ratón, también con la ventanita minimizada.
  */
 export function onMarkStep(run: Run): Run {
   const { act, index } = run.progress;
-  return SILENT_BOSSES[act]?.[routeOf(act)[index]?.zone ?? ""] ? onToggleBoss(run) : onToggleReward(run);
+  const step = routeOf(act)[index];
+  return SILENT_BOSSES[act]?.[step?.zone ?? ""] || !step?.reward ? onToggleBoss(run) : onToggleReward(run);
 }
 
 /** Marca o desmarca a mano el objeto que se recoge en el paso que se ve (un trozo de mapa). */
@@ -424,8 +445,11 @@ export interface StepView {
   offRoute: boolean;
   /** `auto`: el registro la marca sola al recibirla; si no, se marca a mano. `partial`: «1 de 3». */
   reward: { text: string; checked: boolean; auto: boolean; partial: string | null } | null;
-  /** El jefe de la zona. `auto`: el registro deja saber cuándo cae; si no, se marca a mano. */
-  boss: { name: string; dead: boolean; auto: boolean } | null;
+  /**
+   * El jefe de la zona. `auto`: el registro deja saber cuándo cae; si no, se marca a mano.
+   * `label`: «Jefe», u «Objetivo» cuando lo que se acaba no es un jefe.
+   */
+  boss: { name: string; dead: boolean; auto: boolean; label: string } | null;
   /** Lo que se recoge aquí y hace falta más adelante (un trozo de mapa); se marca a mano. `count`: «2 de 4». */
   pickup: { text: string; got: boolean; count: string } | null;
   /** Este paso pide objetos de otros pasos y aún faltan: la frase que lo dice. Si no, null. */
