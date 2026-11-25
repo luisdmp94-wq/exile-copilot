@@ -29,6 +29,9 @@ import type { ActGuide } from "./guide";
  *    de Bahía de las anclas (un cofre); de Isla Whakapanu e Isla de los
  *    alcaudones solo dice que hay uno. Así se cuenta. Añadido el 22-11-2026
  *    porque Luis los echó en falta jugando.
+ *  - Gemelos de magma (Madrigueras volcánicas): poe2db los da como objetivo
+ *    de la zona sin ninguna recompensa. Luis los mató jugando el 25-11-2026 y
+ *    tampoco vio nada: se cuentan como opcionales.
  * Nombres en español según poe2db.tw/sp (zonas, jefes y objetos comprobados
  * el 21-11-2026). Revisar entera al salir la 1.0.
  */
@@ -83,9 +86,9 @@ export const ACT_FOUR_GUIDE: ActGuide = {
     },
     {
       zone: "Isla del clan y Madrigueras volcánicas",
-      text: "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra. En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (2 de 4).",
+      text: "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra. Los Gemelos de magma (dos gólems de roca que salen juntos, en las Madrigueras) también son opcionales: no tienen recompensa fija. En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (2 de 4).",
       priority: "historia",
-      skip: "La bestia ciega",
+      skip: "La bestia ciega y los Gemelos de magma",
       sourceIds: ["poe2db-acto4", "maxroll-jefes", "wiki-acto4"],
     },
     {
