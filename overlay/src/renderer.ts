@@ -217,10 +217,16 @@ function draw(state: OverlayState): void {
         : !outside && view.level === "muy-bajo" && view.areaLevel !== null && view.charLevel !== null
           ? `Vas ${view.areaLevel - view.charLevel} niveles por debajo de la zona: sube alguno antes del jefe.`
           : null;
-  setText("aviso", notice);
-  byId("aviso").className = view.leftBehind && !state.problem && !state.waitingForGame ? "aviso importante" : "aviso";
+  const leftBehindShown = Boolean(view.leftBehind) && !state.problem && !state.waitingForGame;
+  byId("aviso-texto").textContent = notice ?? "";
+  byId("aviso").hidden = !notice;
+  byId("aviso").className = leftBehindShown ? "aviso importante" : "aviso";
+  // Solo «te dejaste…» se puede quitar a mano: los demás se van solos al arreglarse.
+  byId("aviso-cerrar").hidden = !leftBehindShown;
   // Recién cambiado de acto: cuánto baja la resistencia. Va aparte, para que no lo tape otro aviso.
-  setText("aviso-res", state.problem || state.waitingForGame ? null : view.resistances);
+  const resistNotice = state.problem || state.waitingForGame ? null : view.resistances;
+  byId("aviso-res-texto").textContent = resistNotice ?? "";
+  byId("aviso-res").hidden = !resistNotice;
 
   // Los objetivos que el registro deja comprobar: la recompensa para siempre y el jefe.
   const goal = (row: string, box: string, done: boolean) => {

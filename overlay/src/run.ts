@@ -321,6 +321,16 @@ export function onToggleReward(run: Run): Run {
   return { ...run, checked };
 }
 
+/** La ✕ del aviso de resistencias: ya lo ha leído. */
+export function onDismissResistNotice(run: Run): Run {
+  return run.resistDrop ? { ...run, resistDrop: null } : run;
+}
+
+/** La ✕ del aviso «te dejaste…»: ya lo ha leído (las recompensas siguen en el resumen del acto). */
+export function onDismissLeftBehind(run: Run): Run {
+  return run.leftBehind ? { ...run, leftBehind: null } : run;
+}
+
 export function onDismissNotice(run: Run): Run {
   return { ...run, leftBehind: null, resistDrop: null };
 }

@@ -24,7 +24,9 @@ import {
   missedRewards,
   rewardRows,
   onArea,
+  onDismissLeftBehind,
   onDismissNotice,
+  onDismissResistNotice,
   onLevel,
   onBoss,
   onMove,
@@ -253,6 +255,33 @@ describe("ventanita: ruta rápida", () => {
   it("«Luego» dice la zona siguiente y su recompensa para siempre, si la tiene", () => {
     expect(viewOf(play(["G1_1"]), "completa").next).toEqual({ zone: "Sierraclara", reward: "+10 % resistencia al hielo" });
     expect(viewOf(play(["G1_1", "G1_2"]), "completa").next).toEqual({ zone: "Lodazal", reward: null });
+  });
+});
+
+describe("ventanita: quitar un aviso con su ✕", () => {
+  // Acto 1 por el camino obligatorio, sin Villafrey: al llegar al acto 2 salen los dos avisos.
+  const arrived = play(["G1_1", "G1_2", "G1_4", "G1_5", "G1_6", "G1_7", "G1_8", "G1_9", "G1_11", "G1_13_1", "G1_13_2", "G1_14", "G1_15", ["G2_1", 16]]);
+
+  it("la ✕ de resistencias quita solo ese aviso, y no vuelve en la misma zona", () => {
+    expect(viewOf(arrived, "completa").resistances).not.toBeNull();
+    expect(viewOf(arrived, "completa").leftBehind).not.toBeNull();
+    const closed = onDismissResistNotice(arrived);
+    expect(viewOf(closed, "completa").resistances).toBeNull();
+    expect(viewOf(closed, "completa").leftBehind).not.toBeNull();
+    // Entrar en otra zona del mismo acto no lo resucita.
+    expect(viewOf(play([["G2_2", 17]], closed), "completa").resistances).toBeNull();
+  });
+
+  it("la ✕ de «te dejaste» quita solo ese aviso", () => {
+    const closed = onDismissLeftBehind(arrived);
+    expect(viewOf(closed, "completa").leftBehind).toBeNull();
+    expect(viewOf(closed, "completa").resistances).not.toBeNull();
+  });
+
+  it("sin aviso que quitar no cambia nada", () => {
+    const calm = play(["G1_1"]);
+    expect(onDismissResistNotice(calm)).toBe(calm);
+    expect(onDismissLeftBehind(calm)).toBe(calm);
   });
 });
 

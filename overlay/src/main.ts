@@ -7,7 +7,9 @@ import { createForegroundReader, isGameExecutable, shouldBeVisible } from "./for
 import { keepInside } from "./place";
 import {
   NEW_RUN,
+  onDismissLeftBehind,
   onDismissNotice,
+  onDismissResistNotice,
   onMove,
   onToggleBoss,
   onTogglePickup,
@@ -507,6 +509,10 @@ ipcMain.on("accion", (_event, name: unknown, value: unknown) => {
       return update(onToggleBoss(saved.run));
     case "objeto":
       return update(onTogglePickup(saved.run));
+    case "cerrar-resistencias":
+      return update(onDismissResistNotice(saved.run));
+    case "cerrar-dejado":
+      return update(onDismissLeftBehind(saved.run));
     case "ruta":
       return updateSettings(sanitizeSettings({ ...s, route: value }));
     case "tamano":
