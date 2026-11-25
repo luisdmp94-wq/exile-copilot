@@ -49,6 +49,7 @@ import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { sentencePieces, stepLines, stepSentences, withoutBossName } from "../../overlay/src/stepText";
 import { ZONE_CODES } from "../../overlay/src/zones";
+import { INTERLUDE_ROUTES, INTERLUDE_SOURCES, INTERLUDE_ZONE_CODES } from "../../overlay/src/interludes";
 
 // Líneas con el formato del Client.txt real (22-11-2026), sin datos de la cuenta.
 const AREA_LINE = '2026/11/22 20:37:15 35998734 2caa22f9 [DEBUG Client 23036] Generating level 48 area "G4_5_1" with seed 1783999174';
@@ -118,6 +119,50 @@ describe("ventanita: leer Client.txt", () => {
     second.start(first.offset);
     second.stop();
     expect(seen).toEqual([{ kind: "area", level: 5, code: "G1_3" }]);
+  });
+});
+
+describe("ventanita: ruta de los interludios (solo datos)", () => {
+  const steps = INTERLUDE_ROUTES.flatMap((part) => part.route.map((step) => ({ part, step })));
+
+  it("son tres interludios y 19 zonas, cada una con un solo código de su interludio", () => {
+    expect(INTERLUDE_ROUTES.map((part) => part.interlude)).toEqual([1, 2, 3]);
+    const codes = new Set<string>();
+    for (const part of INTERLUDE_ROUTES) {
+      const table = INTERLUDE_ZONE_CODES[part.interlude];
+      expect(Object.keys(table).sort()).toEqual(part.route.map((step) => step.zone).sort());
+      expect(part.townCode).toBe(`P${part.interlude}_Town`);
+      for (const code of Object.values(table).flat()) {
+        expect(code).toMatch(new RegExp(`^P${part.interlude}_\\d+$`));
+        codes.add(code);
+      }
+    }
+    expect(codes.size).toBe(19);
+  });
+
+  it("cada paso cita fuentes que existen, y nunca solo el registro", () => {
+    const known = new Set(INTERLUDE_SOURCES.map((source) => source.id));
+    for (const { step } of steps) {
+      expect(step.sourceIds.length, step.zone).toBeGreaterThan(0);
+      for (const id of step.sourceIds) expect(known.has(id), `${step.zone}: ${id}`).toBe(true);
+      expect(step.sourceIds.some((id) => id !== "registro-luis"), step.zone).toBe(true);
+    }
+    for (const source of INTERLUDE_SOURCES) if (source.id !== "registro-luis") expect(source.url).toMatch(/^https:\/\//);
+  });
+
+  it("cada paso clave dice qué da y cómo se nota, y los demás no prometen nada", () => {
+    for (const { step } of steps) {
+      if (step.priority === "clave") {
+        expect(step.reward, step.zone).toBeTruthy();
+        expect(step.proof, step.zone).toBeTruthy();
+      } else {
+        expect(step.reward, step.zone).toBeUndefined();
+      }
+    }
+  });
+
+  it("todavía no se enseña: en un interludio la ventanita sigue fuera de la guía", () => {
+    expect(actOfCode("P1_5")).toBeNull();
   });
 });
 

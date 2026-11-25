@@ -148,7 +148,9 @@ un Client.txt real). `src/progress.ts` elige el paso; `src/run.ts` lleva la
 partida (zonas, recompensas, nivel, lo que te dejas); `src/characters.ts`
 reparte los eventos entre tus personajes; `src/objectives.ts`
 dice cómo se nota en el registro cada recompensa y cada jefe; `src/place.ts`
-la mantiene dentro de la pantalla. Tests: `tests/unit/ventanita.test.ts`. Tipos:
+la mantiene dentro de la pantalla. `src/interludes.ts` guarda la ruta de los
+tres interludios (19 zonas, con fuentes y sus códigos `P1_1`…`P3_7`): son solo
+datos, la ventanita todavía no los enseña. Tests: `tests/unit/ventanita.test.ts`. Tipos:
 `npx tsc -p overlay`.
 
 La ventana se coloca siempre con `setBounds` (posición y tamaño juntos): con
