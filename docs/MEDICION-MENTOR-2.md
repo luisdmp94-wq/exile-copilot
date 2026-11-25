@@ -403,8 +403,12 @@ tokens per day»): el cupo es por modelo. Ahora, si el modelo principal contesta
 429, la misma petición va a `openai/gpt-oss-20b`
 (`MENTOR_AI_FALLBACK_MODELS`). Probado con una charla de la bruja contestada
 solo por el de reserva: sigue el hilo, elige bien los datos y tarda 0,7 s; la
-entrada es algo más floja. **Sin comprobar:** que el cupo diario del de
-reserva sea aparte (se ve en console.groq.com → Limits).
+entrada es algo más floja. La tabla de límites de Groq (console.groq.com →
+Limits, leída por Luis el 25-11) da 200.000 tokens al día a cada modelo:
+gpt-oss-120b, gpt-oss-20b y qwen3.8-27b. Los tres quedan en cadena: unos
+600.000 tokens al día, unas 180 respuestas redactadas. Qwen, probado con otra
+charla de la bruja, dice lo que ya llevas puesto y no repite; es también el
+modelo que lee las capturas, así que va el último.
 
 **Sin IA también mejora:** «¿cómo mato al jefe del acto 3?» ya contesta con la
 guía (regla nueva, `server/mentor/guideKnowledge.ts`). Las guías se leen de

@@ -99,8 +99,10 @@ function reasoningEffort(
 
 /**
  * Modelos de reserva: los de MENTOR_AI_FALLBACK_MODELS (separados por comas;
- * vacío = ninguno). Sin la variable, con Groq, el hermano pequeño del modelo
- * de serie, que acepta la misma salida estructurada (comprobado el 25-11-2026).
+ * vacío = ninguno). Sin la variable, con Groq, los otros dos modelos de texto
+ * de la cuenta gratis: cada uno tiene sus 200.000 tokens al día (tabla de
+ * límites de Groq, 25-11-2026) y los dos aceptan la misma salida estructurada.
+ * El segundo es también el que lee las capturas: solo se toca al final.
  */
 function fallbackModels(
   value: string | undefined,
@@ -111,7 +113,7 @@ function fallbackModels(
     value !== undefined
       ? value.split(",").map((model) => model.trim()).filter((model) => model.length > 0)
       : provider === "groq"
-        ? ["openai/gpt-oss-20b"]
+        ? ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
         : [];
   return [...new Set(listed)].filter((model) => model !== primary).slice(0, 3);
 }

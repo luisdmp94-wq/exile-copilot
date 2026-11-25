@@ -156,7 +156,8 @@ la siguiente. Nada se sube sin su sí.
   nuevas y las 269 del Mentor y las guías; la batería completa, sin pasar
   (Luis jugaba). Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 13».
   Pagar en Groq está cerrado; para no depender de un solo cupo, si el modelo
-  principal se queda sin él la petición va a uno de reserva (gpt-oss-20b).
+  principal se queda sin él la petición va a dos de reserva (gpt-oss-20b y
+  qwen3.8-27b): tres cupos de 200.000 tokens al día en vez de uno.
   **Siguiente:** `node scripts/mentor-charla.mjs --control` y la de la bruja
   otra vez; si el control mejora, batería completa y decide Luis si se sube.
 
