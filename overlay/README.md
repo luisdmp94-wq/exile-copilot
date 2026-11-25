@@ -86,6 +86,8 @@ la propia ventanita: ruta completa o rápida, tamaño, fondo, compacta, solo con
 PoE2 delante, recompensas del acto, volver a su sitio, elegir Client.txt,
 empezar de cero (pide un segundo clic) y cerrarla. Solo el asa, el engranaje,
 la casilla y los ajustes cogen el ratón; el resto deja pasar los clics al juego.
+Las letras llevan una sombra fina: con el fondo «Claro» sobre nieve o arena la
+caja se queda gris, y sin sombra no se leían.
 
 **Solo con PoE2 delante:** al cambiar de ventana (Alt+Tab) se esconde y vuelve
 con el juego. Se mira qué programa está delante preguntando a Windows, no al
