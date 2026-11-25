@@ -943,7 +943,7 @@ async function runFlow(mode, port) {
       (await page.locator("#panel-importacion").locator("visible=true").count()) === 1 &&
         focoImportador === "panel-importacion" &&
         (await page.getByTestId("importador-personaje").innerText()).includes("Path of Building 2") &&
-        (await page.getByTestId("importador-personaje").innerText()).includes("archivo .build de PoE2 solo crea un borrador parcial") &&
+        (await page.getByTestId("importador-personaje").innerText()).includes("Trae tu personaje entero") &&
         !(await page.getByTestId("importador-personaje").innerText()).includes("Archivo .build oficial"),
     );
     const pob2Help = page.getByTestId("ayuda-codigo-pob2");
