@@ -44,3 +44,22 @@ export function mentorReviewAnswer(
   if (intent === "explain_priority") return { mode: "main", findings: all.slice(0, 1) };
   return { mode: "list", findings: review.top };
 }
+
+/**
+ * Sin equipo, la pregunta llega igual al servidor: lo que es del juego (gemas,
+ * árbol, resistencias…) lo contesta sin personaje. Si lo que pide es elegir
+ * una mejora, el servidor responde «necesito completar tu personaje» sin
+ * acción ni recomendaciones: esa es la señal para que conteste la revisión
+ * rápida. Solo tiene sentido mirarlo mientras el personaje está incompleto.
+ */
+export function answerNeedsCharacter(answer: {
+  intent: string;
+  nextAction: unknown;
+  usedRecommendationIds: readonly string[];
+}): boolean {
+  return (
+    (answer.intent === "next_improvement" || answer.intent === "explain_priority") &&
+    answer.nextAction === null &&
+    answer.usedRecommendationIds.length === 0
+  );
+}

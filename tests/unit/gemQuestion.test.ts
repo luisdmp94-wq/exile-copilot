@@ -4,6 +4,7 @@ import { normalizeQuestion } from "../../shared/mentorIntent.js";
 import { loadEnglishGemLocale } from "../../server/advice/gemLocale.js";
 import { RecommendationMemorySchema } from "../../shared/domain.js";
 import { MentorAnswerSchema } from "../../shared/mentorQuery.js";
+import { answerNeedsCharacter } from "../../src/lib/mentorReviewAnswer.js";
 import { answerMentorQuery } from "../../server/mentor/mentorService.js";
 import { loadGemData } from "../../server/advice/supportGemAdvisor.js";
 import {
@@ -277,5 +278,53 @@ describe("el Mentor contesta «ayúdame a mejorar <habilidad>»", () => {
     );
     expect(answer.unsupported).toBeNull();
     expect(answer.answer).toContain("Drenar esencia mejora por tres sitios:");
+  });
+});
+
+describe("sin equipo, el Mentor contesta solo lo que es del juego (gameOnly)", () => {
+  const ask = (question: string, extra: Record<string, unknown> = {}) =>
+    answerMentorQuery(
+      {
+        question,
+        profile: witch(),
+        budget: { amount: 50, currency: "chaos" as const },
+        goal: { kind: "survival" as const },
+        league: "Forbidden Rites",
+        patch: "0.5.5",
+        memory: RecommendationMemorySchema.parse({
+          revision: "journal-memory-v1:0000000000000000",
+          primaryEntry: null,
+          recentCompleted: [],
+        }),
+        gameOnly: true,
+        ...extra,
+      },
+      { gems },
+    );
+
+  it("una pregunta de gemas se contesta igual que con equipo", async () => {
+    const answer = await ask("¿qué gema de asistencia le pongo a Contagio?");
+    expect(answer.unsupported).toBeNull();
+    expect(answer.answer).toContain("Para Contagio, las asistencias que mejor le van son:");
+    expect(answerNeedsCharacter(answer)).toBe(false);
+  });
+
+  it("elegir una mejora no pasa por el motor: la web contesta con la revisión rápida", async () => {
+    for (const question of ["¿Qué mejoro ahora?", "¿Por qué muero tanto?", "me falta daño"]) {
+      const answer = await ask(question);
+      expect(answer.nextAction).toBeNull();
+      expect(answer.usedRecommendationIds).toEqual([]);
+      expect(answer.responseMode).toBe("rules");
+      expect(answer.answer).toContain("revisión rápida");
+      // Es la señal que usa el chat para enseñar la revisión rápida en su lugar.
+      expect(answerNeedsCharacter(answer)).toBe(true);
+    }
+  });
+
+  it("lo que no sabe lo dice, y un saludo sigue siendo un saludo", async () => {
+    const unknown = await ask("¿cuánto cuesta un espejo de Kalandra?");
+    expect(unknown.unsupported).not.toBeNull();
+    expect(answerNeedsCharacter(unknown)).toBe(false);
+    expect((await ask("hola")).intent).toBe("conversation");
   });
 });

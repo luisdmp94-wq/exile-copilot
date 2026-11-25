@@ -151,6 +151,12 @@ export const MentorQueryRequestSchema = z.object({
   conversation: z.array(MentorConversationTurnSchema).max(8).optional(),
   /** Idioma en el que redacta la IA. Las reglas deciden igual en los dos. */
   lang: z.enum(["es", "en"]).optional(),
+  /**
+   * El personaje aún no tiene equipo: solo se contesta lo que es del juego
+   * (gemas, árbol, resistencias…), con reglas. Elegir una mejora lo hace en la
+   * web la revisión rápida; aquí no corre el motor ni la IA.
+   */
+  gameOnly: z.boolean().optional(),
 });
 export type MentorQueryRequest = z.infer<typeof MentorQueryRequestSchema>;
 

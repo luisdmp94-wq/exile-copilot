@@ -18,7 +18,7 @@ import { useFormatLabels } from "@/lib/formatLabels";
 import { MAX_MENTOR_QUESTION_LENGTH } from "@shared/mentorQuery.js";
 import { cn } from "@/lib/utils";
 import { firstGapsToAsk, joinGapList, reviewCharacter } from "@shared/quickReview.js";
-import { mentorReviewAnswer } from "@/lib/mentorReviewAnswer";
+import { answerNeedsCharacter, mentorReviewAnswer } from "@/lib/mentorReviewAnswer";
 import { useQuickReviewForm } from "@/hooks/useQuickReviewForm";
 import { profileWithQuickReview, toInput } from "@/lib/quickReviewForm";
 import { texts, useLang, useText } from "@/i18n/lang";
@@ -258,12 +258,34 @@ export function MentorChatSection({
   // rápida (su nivel, por ejemplo) no se le vuelve a pedir aquí. Quién
   // responde (la revisión o el motor) no cambia por esto.
   const stillMissing = assessMentorReadiness(profile ? profileWithQuickReview(profile, reviewForm) : null).issues;
+  // Sin equipo también se puede preguntar: lo que es del juego (gemas, árbol,
+  // resistencias…) el servidor lo contesta sin personaje. Antes la pregunta ni
+  // salía de aquí y un novato sin piezas pegadas no recibía ni eso.
   const canAsk =
     profile !== null &&
-    readiness.ready &&
     !patchBlocked &&
     question.trim().length > 0 &&
     !loading;
+  // Si lo que pide es elegir una mejora, el servidor dice que le falta el
+  // personaje: entonces contesta la revisión rápida y la pregunta queda en
+  // espera. Solo cuenta si es lo último del hilo.
+  const lastTurn = turns[turns.length - 1] ?? null;
+  const askedBefore = turns[turns.length - 2] ?? null;
+  const heldQuestion =
+    !readiness.ready &&
+    lastTurn !== null &&
+    lastTurn.role === "mentor" &&
+    lastTurn.answer !== null &&
+    answerNeedsCharacter(lastTurn.answer) &&
+    askedBefore?.role === "player"
+      ? askedBefore.text
+      : null;
+  // Esa respuesta («necesito completar tu personaje») no se enseña mientras
+  // falten datos: en su sitio va la revisión rápida.
+  const visibleTurns = readiness.ready
+    ? turns
+    : turns.filter((turn) => !(turn.role === "mentor" && turn.answer !== null && answerNeedsCharacter(turn.answer)));
+  const showGate = !readiness.ready && !loading && (turns.length === 0 || heldQuestion !== null);
   // Antes de la primera pregunta, los ejemplos van en «Tu siguiente paso»
   // (MentorQuickAsk): repetirlos aquí debajo sobraba. Tras una respuesta, las
   // de seguimiento sí ayudan.
@@ -289,7 +311,6 @@ export function MentorChatSection({
     const texto = value.trim();
     if (
       profile === null ||
-      !readiness.ready ||
       patchBlocked ||
       texto.length === 0 ||
       loading
@@ -303,7 +324,7 @@ export function MentorChatSection({
   // durante el render para que el jugador no lo pierda.
   const pendingText = pendingQuestion?.text.trim() ?? "";
   const pendingAllowed =
-    profile !== null && readiness.ready && !patchBlocked && pendingText.length > 0 && !loading;
+    profile !== null && !patchBlocked && pendingText.length > 0 && !loading;
   const [seenPendingSeq, setSeenPendingSeq] = useState<number | null>(null);
   if (pendingQuestion !== null && pendingQuestion.seq !== seenPendingSeq) {
     setSeenPendingSeq(pendingQuestion.seq);
@@ -324,12 +345,20 @@ export function MentorChatSection({
     setClearedPendingSeq(pendingQuestion.seq);
     if (question.trim() === pendingText) setQuestion("");
   }
-  // Mientras falten datos, la pregunta llegada se copia al campo (arriba) y
-  // espera ahí: es la que se enseña como «guardada».
-  const waitingQuestion =
-    !pendingAllowed && pendingText.length > 0 && question.trim() === pendingText
-      ? pendingText
-      : null;
+  // La pregunta que espera al personaje completo es la que se enseña como
+  // «guardada»: en cuanto se completa, se vuelve a preguntar sola.
+  const waitingQuestion = heldQuestion;
+  const heldForLater = useRef<string | null>(null);
+  useEffect(() => {
+    if (!readiness.ready) {
+      heldForLater.current = heldQuestion;
+      return;
+    }
+    if (patchBlocked || loading || heldForLater.current === null) return;
+    const text = heldForLater.current;
+    heldForLater.current = null;
+    onAsk(text);
+  }, [readiness.ready, heldQuestion, patchBlocked, loading, onAsk]);
   // Sin equipo, la revisión rápida contesta según lo que se ha preguntado.
   const reviewAnswer = mentorReviewAnswer(review, waitingQuestion);
   const reviewTitle =
@@ -341,43 +370,11 @@ export function MentorChatSection({
           ? t.reviewMainTitle
           : t.reviewFoundTitle;
 
-  return (
-    /* El título («Habla con tu Mentor») lo pone la sección que envuelve a este
-       componente. Aquí solo queda la procedencia de la respuesta, que sí cambia
-       con cada turno y no es un rótulo decorativo. */
-    <Card id="seccion-mentor-chat" data-testid="mentor-chat-principal" className="gap-0 border-0 bg-transparent py-0 shadow-none">
-      <CardContent className="flex flex-col gap-3 px-0">
-        <Badge
-          variant="outline"
-          className={cn(
-            "w-fit",
-            latestAnswer?.responseMode === "ai"
-              ? "border-primary/45 bg-primary/10 text-primary"
-              : "text-muted-foreground",
-          )}
-          data-testid="mentor-modo"
-        >
-          {modeLabel}
-        </Badge>
-        {profile === null ? (
-          <Alert>
-            <AlertTitle>{t.noProfileTitle}</AlertTitle>
-            <AlertDescription>{t.noProfileBody}</AlertDescription>
-          </Alert>
-        ) : !readiness.ready ? (
+  // Lo que se enseña cuando hace falta el personaje: la revisión rápida, o qué
+  // datos faltan si esta pantalla no tiene revisión.
+  const gate = (
           onOpenQuickReview ? (
             <>
-            {/* La pregunta del jugador se ve como en la conversación: si no,
-                parecía que el Mentor no la había escuchado. */}
-            {waitingQuestion !== null && (
-              <div
-                className="max-w-full self-end rounded-md border border-primary/40 bg-primary/10 p-3 text-sm"
-                data-testid="mentor-pregunta-burbuja"
-              >
-                <p className="mb-1 text-xs font-medium text-muted-foreground">{t.you}</p>
-                <p className="whitespace-pre-wrap break-words text-foreground">{waitingQuestion}</p>
-              </div>
-            )}
             <Alert
               data-testid="mentor-profile-readiness-gate"
               data-review={reviewAnswer.findings.length > 0 ? "found" : reviewGaps.length > 0 ? "ask" : "clear"}
@@ -463,7 +460,32 @@ export function MentorChatSection({
             </AlertDescription>
           </Alert>
           )
-        ) : patchBlocked ? (
+  );
+
+  return (
+    /* El título («Habla con tu Mentor») lo pone la sección que envuelve a este
+       componente. Aquí solo queda la procedencia de la respuesta, que sí cambia
+       con cada turno y no es un rótulo decorativo. */
+    <Card id="seccion-mentor-chat" data-testid="mentor-chat-principal" className="gap-0 border-0 bg-transparent py-0 shadow-none">
+      <CardContent className="flex flex-col gap-3 px-0">
+        <Badge
+          variant="outline"
+          className={cn(
+            "w-fit",
+            latestAnswer?.responseMode === "ai"
+              ? "border-primary/45 bg-primary/10 text-primary"
+              : "text-muted-foreground",
+          )}
+          data-testid="mentor-modo"
+        >
+          {modeLabel}
+        </Badge>
+        {profile === null ? (
+          <Alert>
+            <AlertTitle>{t.noProfileTitle}</AlertTitle>
+            <AlertDescription>{t.noProfileBody}</AlertDescription>
+          </Alert>
+        ) : patchBlocked && readiness.ready ? (
           <Alert data-testid="mentor-chat-patch-review-gate">
             <AlertTitle>{t.patchTitle(patchCompatibility.patchId)}</AlertTitle>
             <AlertDescription>{t.patchBody(patchCompatibility.summary)}</AlertDescription>
@@ -494,7 +516,7 @@ export function MentorChatSection({
               data-testid="mentor-hilo"
               aria-live="polite"
             >
-              {turns.map((turn) => (
+              {visibleTurns.map((turn) => (
                 <MentorTurnView key={turn.id} turn={turn} onFocusItem={onFocusItem} />
               ))}
               {loading && (
@@ -507,6 +529,8 @@ export function MentorChatSection({
                 </p>
               )}
             </div>
+
+            {showGate && gate}
 
             {/* Guardar la acción del ÚLTIMO turno del mentor, si procede. */}
             <LastActionActions
@@ -522,6 +546,7 @@ export function MentorChatSection({
               </Alert>
             )}
 
+            {!patchBlocked && (
             <form
               className="flex flex-col gap-2 sm:flex-row sm:items-end"
               onSubmit={(event) => {
@@ -564,6 +589,7 @@ export function MentorChatSection({
                 </Button>
               </div>
             </form>
+            )}
           </>
         )}
       </CardContent>

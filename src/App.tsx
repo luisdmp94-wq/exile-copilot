@@ -1598,8 +1598,10 @@ export default function App() {
       lastAction: characterJournal?.primaryEntry?.nextAction ?? null,
     };
 
-    const outcome = await mentor.ask(
-      buildMentorRequest(
+    // Sin equipo, el servidor contesta solo lo que es del juego; elegir una
+    // mejora lo hace la revisión rápida. Un botón de la web (intentHint) no cambia.
+    const gameOnly = !mentorReadiness.ready && intentHint === undefined;
+    const request = buildMentorRequest(
         question,
         engineProfile ?? character.profile,
         targetDraft,
@@ -1614,9 +1616,10 @@ export default function App() {
           role: turn.role,
           text: turn.text.slice(0, 800),
         })),
-      ),
-      { persist: character.persisted },
     );
+    const outcome = await mentor.ask(gameOnly ? { ...request, gameOnly: true } : request, {
+      persist: character.persisted,
+    });
     if (outcome.status === "journal-stale") void journal.reload();
     return outcome;
   };

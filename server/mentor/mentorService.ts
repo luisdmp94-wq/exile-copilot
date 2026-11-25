@@ -79,6 +79,8 @@ export interface MentorQueryOptions {
   question: string;
   /** Intención explícita de un control semántico de la interfaz. */
   intentHint?: Exclude<MentorIntent, "unsupported">;
+  /** Sin equipo: solo preguntas del juego, sin motor ni IA. */
+  gameOnly?: boolean;
   profile: CharacterProfile;
   target?: BuildTarget;
   budget: Budget | null;
@@ -521,6 +523,37 @@ function incompleteProfileAnswer(
     sources: [],
     confidence: null,
     unverified: readiness.issues.map((issue) => (en ? issue.detailEn : issue.detail)),
+    memoryImpact: memoryImpactWithoutEngine(options.memory),
+    inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
+    unsupported: null,
+    generatedAt: new Date().toISOString(),
+    engineVersion: ENGINE_VERSION,
+    ...metadata(),
+  });
+}
+
+/**
+ * «¿Qué mejoro ahora?» sin equipo: la web contesta con la revisión rápida y
+ * no enseña este texto mientras falten datos; queda en el hilo como registro.
+ */
+function quickReviewFirstAnswer(
+  options: MentorQueryOptions,
+  normalizedQuestion: string,
+  intent: "next_improvement" | "explain_priority",
+): MentorAnswer {
+  return MentorAnswerSchema.parse({
+    intent,
+    normalizedQuestion,
+    answer:
+      langOf(options) === "en"
+        ? "To pick an improvement in depth I need your gear. Until then, the quick review answers with what it already knows about your character."
+        : "Para elegir una mejora a fondo necesito tu equipo. Mientras tanto te contesta la revisión rápida, con lo que ya sabe de tu personaje.",
+    nextAction: null,
+    usedRecommendationIds: [],
+    relatedItemIds: [],
+    sources: [],
+    confidence: null,
+    unverified: [],
     memoryImpact: memoryImpactWithoutEngine(options.memory),
     inputFingerprint: computeInputFingerprint(fingerprintInput(options)),
     unsupported: null,
@@ -1227,6 +1260,15 @@ async function buildAnswer(
   if (options.intentHint === undefined) {
     const basicsAnswer = answerBasicsQuestion(deps.gems ?? null, options.question, options.profile, lang);
     if (basicsAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, basicsAnswer);
+  }
+
+  // Sin equipo, la web pregunta solo por lo que es del juego, y eso ya está
+  // contestado arriba. Elegir una mejora lo hace allí la revisión rápida: aquí
+  // no corre el motor (que apunta al 75 % de resistencias) ni se gasta IA.
+  if (options.gameOnly && options.intentHint === undefined) {
+    if (intent === "conversation") return conversationFallback(options, normalizedQuestion);
+    if (intent === "unsupported") return unsupportedAnswer(options, normalizedQuestion);
+    return quickReviewFirstAnswer(options, normalizedQuestion, intent);
   }
 
   // La conversación social nunca se convierte en una recomendación por
