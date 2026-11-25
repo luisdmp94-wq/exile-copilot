@@ -30,6 +30,7 @@ import {
   onMove,
   onReward,
   onToggleBoss,
+  onTogglePickup,
   onToggleReward,
   resistanceNotice,
   sanitizeRun,
@@ -39,7 +40,7 @@ import {
   type Run,
 } from "../../overlay/src/run";
 import { isGameExecutable, shouldBeVisible, type VisibilityInput } from "../../overlay/src/foreground";
-import { BOSS_SIGNS, REWARD_RULES, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
+import { BOSS_SIGNS, PICKUPS, REWARD_RULES, bossSignOf, cleanSpeech, rewardKindOf } from "../../overlay/src/objectives";
 import { keepInside } from "../../overlay/src/place";
 import { DEFAULT_SETTINGS, sanitizeSettings } from "../../overlay/src/settings";
 import { sentencePieces, stepLines, stepSentences } from "../../overlay/src/stepText";
@@ -252,6 +253,50 @@ describe("ventanita: ruta rápida", () => {
   it("«Luego» dice la zona siguiente y su recompensa para siempre, si la tiene", () => {
     expect(viewOf(play(["G1_1"]), "completa").next).toEqual({ zone: "Sierraclara", reward: "+10 % resistencia al hielo" });
     expect(viewOf(play(["G1_1", "G1_2"]), "completa").next).toEqual({ zone: "Lodazal", reward: null });
+  });
+});
+
+describe("ventanita: trozos de mapa del acto 4", () => {
+  it("cada trozo de mapa está en un paso que existe en la guía", () => {
+    const zones = new Set(GUIDES.find((guide) => guide.act === 4)!.route!.map((step) => step.zone));
+    expect(Object.keys(PICKUPS[4]!)).toHaveLength(4);
+    for (const zone of Object.keys(PICKUPS[4]!)) expect(zones.has(zone)).toBe(true);
+  });
+
+  it("la casilla marca y desmarca el trozo del paso, y cuenta cuántos llevas", () => {
+    const clan = play([["G4_1_1", 51]]);
+    expect(viewOf(clan, "completa").pickup).toEqual({ text: "Trozo de mapa (2 de 4)", got: false, count: "0 de 4" });
+    const marked = onTogglePickup(clan);
+    expect(viewOf(marked, "completa").pickup).toEqual({ text: "Trozo de mapa (2 de 4)", got: true, count: "1 de 4" });
+    expect(viewOf(onTogglePickup(marked), "completa").pickup?.got).toBe(false);
+  });
+
+  it("un paso sin nada que recoger no tiene casilla ni cambia al pulsar", () => {
+    const riverbank = play(["G1_1"]);
+    expect(viewOf(riverbank, "completa").pickup).toBeNull();
+    expect(onTogglePickup(riverbank)).toBe(riverbank);
+  });
+
+  it("con el trozo sin coger no dice «puedes seguir»", () => {
+    const shrike = play([["G4_7", 52]]);
+    expect(viewOf(shrike, "completa").ready).toBe(false);
+    expect(viewOf(onTogglePickup(shrike), "completa").ready).toBe(true);
+  });
+
+  it("Punta del botín avisa de los trozos que faltan, y calla con los cuatro", () => {
+    let run = onTogglePickup(play([["G4_1_1", 51]]));
+    expect(viewOf(play([["G4_13", 53]], run), "completa").needs).toBe(
+      "Esta isla solo se abre con los 4 trozos de mapa: llevas 1 marcado.",
+    );
+    for (const code of ["G4_2_1", "G4_3_1", "G4_7"]) run = onTogglePickup(play([[code, 51]], run));
+    expect(viewOf(play([["G4_13", 53]], run), "completa").needs).toBeNull();
+  });
+
+  it("los trozos marcados se guardan y una partida vieja sin ellos no se rompe", () => {
+    const marked = onTogglePickup(play([["G4_1_1", 51]]));
+    expect(sanitizeRun(JSON.parse(JSON.stringify(marked))).pickups).toEqual(marked.pickups);
+    const { pickups: _old, ...older } = marked;
+    expect(sanitizeRun(older).pickups).toEqual([]);
   });
 });
 

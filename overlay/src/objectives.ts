@@ -77,6 +77,34 @@ export const REWARD_RULES: Record<number, Record<string, RewardRule>> = {
   },
 };
 
+/**
+ * Objetos que se recogen en un paso y hacen falta más adelante. El registro no
+ * dice cuándo se cogen: se marcan a mano, con su casilla.
+ *
+ * Los cuatro Trozos de mapa rasgado del acto 4 abren Punta del botín: si falta
+ * uno, la isla no aparece. La clave es el texto `zone` del paso en la guía.
+ */
+export interface Pickup {
+  /** Lo que se coge, en pocas palabras. */
+  text: string;
+  /** Los pasos con el mismo grupo se cuentan juntos («llevas 2 de 4»). */
+  group: string;
+}
+
+export const PICKUPS: Record<number, Record<string, Pickup>> = {
+  4: {
+    "Bahía de las anclas y El final del viaje": { text: "Trozo de mapa (1 de 4)", group: "mapa" },
+    "Isla del clan y Madrigueras volcánicas": { text: "Trozo de mapa (2 de 4)", group: "mapa" },
+    "Isla Whakapanu y Cavernas melodiosas": { text: "Trozo de mapa (3 de 4)", group: "mapa" },
+    "Isla de los alcaudones": { text: "Trozo de mapa (4 de 4)", group: "mapa" },
+  },
+};
+
+/** Pasos que piden tener ya todos los objetos de un grupo (la isla que abren los cuatro trozos). */
+export const NEEDS_PICKUPS: Record<number, Record<string, string>> = {
+  4: { "Punta del botín": "mapa" },
+};
+
 /** Clasifica el texto de un «… ha recibido X» / «You have received X». */
 export function rewardKindOf(message: string): RewardKind | null {
   // Fuera de la campaña (atlas, árbol del génesis) no hay pasos que marcar.

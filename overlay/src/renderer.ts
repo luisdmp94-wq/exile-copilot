@@ -121,7 +121,8 @@ function drawExtras(view: StepView, route: Settings["route"]): void {
       : view.optional
         ? []
         : [line("○", `Opcional: ${view.skip}.`)];
-  byId("extras").replaceChildren(...gems, ...skip);
+  const needs = view.needs ? [line("!", view.needs, "falta")] : [];
+  byId("extras").replaceChildren(...needs, ...gems, ...skip);
 }
 
 function drawSummary(view: StepView): void {
@@ -244,6 +245,12 @@ function draw(state: OverlayState): void {
     goal("jefe", "jefe-casilla", view.boss.dead);
     byId("jefe-nombre").textContent = view.boss.name;
     byId("jefe-nota").textContent = view.boss.dead ? "muerto" : "se marca solo";
+  }
+  byId("objeto").hidden = !view.pickup;
+  if (view.pickup) {
+    goal("objeto", "objeto-casilla", view.pickup.got);
+    byId("objeto-nombre").textContent = view.pickup.text;
+    byId("objeto-nota").textContent = view.pickup.got ? `cogido · llevas ${view.pickup.count}` : "pulsa la casilla al cogerlo";
   }
   setText(
     "hecho",

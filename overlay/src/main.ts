@@ -10,6 +10,7 @@ import {
   onDismissNotice,
   onMove,
   onToggleBoss,
+  onTogglePickup,
   onToggleReward,
   sanitizeRun,
   viewOf,
@@ -216,7 +217,7 @@ function startTail(path: string, from: number | null): void {
   currentLog = path;
   // Repasar desde el principio es reconstruir la partida desde cero;
   // lo que el jugador marcó a mano se conserva.
-  const byHand = { checked: saved.run.checked, bosses: saved.run.bosses };
+  const byHand = { checked: saved.run.checked, bosses: saved.run.bosses, pickups: saved.run.pickups ?? [] };
   let replayed = from === null ? EMPTY_ROSTER : roster();
   tail = new ClientLogTail(path, (event, replaying) => {
     if (replaying) {
@@ -235,6 +236,7 @@ function startTail(path: string, from: number | null): void {
         ...run,
         checked: [...new Set([...run.checked, ...byHand.checked])],
         bosses: [...new Set([...run.bosses, ...byHand.bosses])],
+        pickups: [...new Set([...(run.pickups ?? []), ...byHand.pickups])],
       };
     }
     // Lo repasado al arrancar no avisa de nada: ya pasó.
@@ -503,6 +505,8 @@ ipcMain.on("accion", (_event, name: unknown, value: unknown) => {
       return update(onToggleReward(saved.run));
     case "jefe":
       return update(onToggleBoss(saved.run));
+    case "objeto":
+      return update(onTogglePickup(saved.run));
     case "ruta":
       return updateSettings(sanitizeSettings({ ...s, route: value }));
     case "tamano":

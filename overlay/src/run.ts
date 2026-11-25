@@ -1,5 +1,5 @@
 import type { GuideRoutePriority } from "../../src/guides/guide";
-import { BASE_CLASSES, BOSS_SIGNS, REWARD_RULES, type RewardKind } from "./objectives";
+import { BASE_CLASSES, BOSS_SIGNS, NEEDS_PICKUPS, PICKUPS, REWARD_RULES, type RewardKind } from "./objectives";
 import {
   FIRST_ACT,
   GUIDES,
@@ -43,6 +43,8 @@ export interface Run {
   partial: Record<string, number>;
   /** Pasos cuyo jefe ya cayó: «acto:paso». */
   bosses: string[];
+  /** Objetos recogidos que hacen falta más adelante (trozos de mapa), marcados a mano: «acto:paso». */
+  pickups?: string[];
   /** Código de la zona donde está ahora, también fuera de las guías. */
   area: string | null;
   areaLevel: number | null;
@@ -93,6 +95,7 @@ export const NEW_RUN: Run = {
   checked: [],
   partial: {},
   bosses: [],
+  pickups: [],
   area: null,
   areaLevel: null,
   charLevel: null,
@@ -262,6 +265,22 @@ export function onToggleBoss(run: Run): Run {
   return { ...run, bosses };
 }
 
+/** Marca o desmarca a mano el objeto que se recoge en el paso que se ve (un trozo de mapa). */
+export function onTogglePickup(run: Run): Run {
+  const { act, index } = run.progress;
+  if (!PICKUPS[act]?.[routeOf(act)[index]?.zone ?? ""]) return run;
+  const key = stepKey(act, index);
+  const had = run.pickups ?? [];
+  return { ...run, pickups: had.includes(key) ? had.filter((item) => item !== key) : [...had, key] };
+}
+
+/** Cuántos objetos de ese grupo lleva marcados y cuántos son («2 de 4» trozos de mapa). */
+export function pickupCount(run: Pick<Run, "pickups">, act: number, group: string): { got: number; of: number } {
+  const had = new Set(run.pickups ?? []);
+  const steps = routeOf(act).flatMap((step, index) => (PICKUPS[act]?.[step.zone]?.group === group ? [stepKey(act, index)] : []));
+  return { got: steps.filter((key) => had.has(key)).length, of: steps.length };
+}
+
 /** El primer paso de ascendencia sin marcar, en cualquier acto. */
 function ascendancyStep(run: Run): string | null {
   for (let act = FIRST_ACT; act <= LAST_ACT; act += 1) {
@@ -321,6 +340,7 @@ export function sanitizeRun(value: unknown): Run {
       ),
     ),
     bosses: strings(raw.bosses),
+    pickups: strings(raw.pickups),
     area: typeof raw.area === "string" ? raw.area : null,
     areaLevel: level(raw.areaLevel),
     charLevel: level(raw.charLevel),
@@ -382,6 +402,10 @@ export interface StepView {
   reward: { text: string; checked: boolean; auto: boolean; partial: string | null } | null;
   /** El jefe de la zona, solo si el registro deja saber cuándo cae. */
   boss: { name: string; dead: boolean } | null;
+  /** Lo que se recoge aquí y hace falta más adelante (un trozo de mapa); se marca a mano. `count`: «2 de 4». */
+  pickup: { text: string; got: boolean; count: string } | null;
+  /** Este paso pide objetos de otros pasos y aún faltan: la frase que lo dice. Si no, null. */
+  needs: string | null;
   /** Todo lo que se puede comprobar del paso está hecho: se puede seguir. Null si no hay nada que comprobar. */
   ready: boolean | null;
   /** Gemas sin tallar que la zona da siempre, una frase por gema. */
@@ -492,6 +516,21 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     : null;
   const sign = BOSS_SIGNS[progress.act]?.[step.zone];
   const boss = sign ? { name: sign.boss, dead: run.bosses.includes(key) } : null;
+  const toPick = PICKUPS[progress.act]?.[step.zone];
+  const picked = toPick ? pickupCount(run, progress.act, toPick.group) : null;
+  const pickup = toPick && picked
+    ? { text: toPick.text, got: (run.pickups ?? []).includes(key), count: `${picked.got} de ${picked.of}` }
+    : null;
+  const neededGroup = NEEDS_PICKUPS[progress.act]?.[step.zone];
+  const needed = neededGroup ? pickupCount(run, progress.act, neededGroup) : null;
+  const needs =
+    needed && needed.got < needed.of
+      ? `Esta isla solo se abre con los ${needed.of} trozos de mapa: llevas ${needed.got} marcado${needed.got === 1 ? "" : "s"}.`
+      : null;
+  // Lo que se marca a mano no frena la guía (volver a una zona sigue eligiendo
+  // bien el paso), pero «puedes seguir» no se dice con el trozo sin coger.
+  const checkable = stepReady(run, progress.act, progress.index);
+  const ready = pickup ? (checkable ?? true) && pickup.got : checkable;
   return {
     act: progress.act,
     number,
@@ -503,7 +542,9 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     offRoute: mode === "rapida" && skippedInFastRoute(step),
     reward,
     boss,
-    ready: stepReady(run, progress.act, progress.index),
+    pickup,
+    needs,
+    ready,
     gems: step.gems ?? [],
     skip: step.skip ?? null,
     next: nextStep ? { zone: nextStep.zone, reward: nextStep.reward ?? null } : null,
