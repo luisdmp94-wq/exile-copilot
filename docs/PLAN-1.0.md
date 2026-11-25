@@ -81,6 +81,24 @@ la siguiente. Nada se sube sin su sí.
   la web tenga los datos de la 1.0** y se haya mirado el acto 1, si los actos
   3 y 4 siguen en borrador y si hay actos nuevos.
 - [ ] **10. Ensayo del día del parche** con `docs/DIA-DE-LA-1.0.md`.
+- [ ] **12. El Mentor usa la IA para entender y redactar** (pedido por Luis el
+  25-11: era su idea original). La IA entiende la pregunta y la redacta; las
+  reglas ponen los datos del juego. Nunca al revés: en noviembre, cuando la IA
+  elegía sola, se inventó dos cosas.
+  - Paso 1: la IA decide qué se está preguntando (gemas, árbol, resistencias,
+    mejorar una habilidad…) cuando las reglas no reconocen la frase, y después
+    contestan las reglas de siempre. Si ninguna encaja, sigue el «no lo sé».
+  - Paso 2: la IA redacta la respuesta de las reglas con sus palabras, sin
+    poder añadir cifras ni nombres que no vengan de ellas (el filtro ya existe).
+  - Medir antes y después con las veinte preguntas de
+    `docs/MEDICION-MENTOR-2.md` y con las preguntas reales guardadas en
+    `/estadisticas`. Si no mejora, no se sube.
+  - Sin clave o sin cupo (Groq gratis: 200.000 tokens al día), contesta por
+    reglas como hoy.
+  - Dato del 25-11: la web publicada dice `ai-assisted` con Groq, pero eso
+    solo es que hay clave puesta; falta comprobar que la clave funciona. En
+    local da 401.
+  - Antes del 8-12, que se congela.
 
 ### Del 8 al 10 de diciembre
 
