@@ -387,6 +387,10 @@ exactamente?» repite las dos asistencias (no hay datos de cómo se ponen) y el
   cuarto Groq cortó con un 429: se había gastado el cupo gratis del día
   (200.000 tokens; usados 199.861). Hay que repetirla otro día.
 
+Las respuestas, tal cual, están en `docs/mediciones/tarea-13/` (bruja antes y
+después, control antes). El «antes» del control se midió con el código de main:
+no hace falta repetirlo.
+
 **Lo que costó la medición.** Cada respuesta redactada gasta de 2.500 a 4.000
 tokens. Con el cupo gratis salen unas 60 respuestas al día para todos los
 visitantes juntos; después contestan las reglas. Para gastar menos, la IA ve
