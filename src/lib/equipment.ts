@@ -1,4 +1,10 @@
-import type { Item, ItemRarity, ItemSlot, ModifierKind } from "@shared/domain.js";
+import {
+  isEquippedItem,
+  type Item,
+  type ItemRarity,
+  type ItemSlot,
+  type ModifierKind,
+} from "@shared/domain.js";
 
 /**
  * Helpers puros del panel de equipamiento (Hito 4B).
@@ -64,13 +70,18 @@ export interface EquipmentLayout {
 export function buildEquipmentLayout(items: readonly Item[]): EquipmentLayout {
   const used = new Set<string>();
   const cells: EquipmentCell[] = EQUIPMENT_SLOTS.map((slot) => {
-    const item = items.find((candidate) => candidate.slot === slot && !used.has(candidate.id));
+    // Solo ocupa un hueco lo que el jugador lleva puesto.
+    const item = items.find(
+      (candidate) => candidate.slot === slot && isEquippedItem(candidate) && !used.has(candidate.id),
+    );
     if (item) used.add(item.id);
     return { slot, item: item ?? null };
   });
 
   // Frascos y viales (charms) van juntos: no ocupan un hueco del muñeco.
-  const flaskItems = items.filter((item) => item.slot === "flask" || item.slot === "charm");
+  const flaskItems = items.filter(
+    (item) => isEquippedItem(item) && (item.slot === "flask" || item.slot === "charm"),
+  );
   for (const flask of flaskItems) used.add(flask.id);
 
   const extraItems = items.filter((item) => !used.has(item.id));

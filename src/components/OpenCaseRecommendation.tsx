@@ -44,7 +44,7 @@ const TEXT = texts(
     gateNote:
       "El mentor frena este paso hasta resolver el conflicto o la evidencia. Continúa en «Comprobar una decisión», más abajo.",
     dataActionNote: "Acción de datos: no modifica el juego ni se incluye en el archivo .build.",
-    appliedLabel: "Ya la apliqué — incluir al exportar el .build",
+    appliedLabel: "Ya la apliqué",
     data: "Datos",
     cost: (cost: string) => `Coste ${cost}`,
     risk: (risk: string) => `Riesgo ${risk}`,
@@ -52,7 +52,7 @@ const TEXT = texts(
     impact: (impact: string) => `Impacto ${impact}`,
     partialMetric: ". Métrica parcial: no es una estimación de DPS completa.",
     noSources: "Sin fuentes declaradas",
-    origin: (kinds: string) => `Procedencia: ${kinds}`,
+    origin: (kinds: string) => `Sale de: ${kinds}`,
   },
   {
     priority: (priority: number) => `Priority ${priority}`,
@@ -73,7 +73,7 @@ const TEXT = texts(
     gateNote:
       "The mentor holds this step until the conflict or the evidence is sorted out. Carry on in “Check a decision”, further down.",
     dataActionNote: "Data action: it doesn't change the game and isn't included in the .build file.",
-    appliedLabel: "I've done it — include it when exporting the .build",
+    appliedLabel: "I've done it",
     data: "Data",
     cost: (cost: string) => `Cost ${cost}`,
     risk: (risk: string) => `Risk ${risk}`,
@@ -81,7 +81,7 @@ const TEXT = texts(
     impact: (impact: string) => `Impact ${impact}`,
     partialMetric: ". Partial metric: not a full DPS estimate.",
     noSources: "No sources given",
-    origin: (kinds: string) => `Source: ${kinds}`,
+    origin: (kinds: string) => `Based on: ${kinds}`,
   },
 );
 

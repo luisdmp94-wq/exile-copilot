@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, CircleHelp, ListChecks, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDashed, CircleHelp, ListChecks, XCircle } from "lucide-react";
 import type { Item } from "@shared/domain.js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ const TEXT = texts(
   {
     element: { fire: "fuego", cold: "hielo", lightning: "rayo" },
     status: { ok: "Lo tienes", missing: "Te falta", unsure: "No puedo asegurarlo", ask: "Dímelo tú" },
+    pending: "Falta tu dato",
     title: (act: string) => `¿Me he saltado algo del ${act}?`,
     lead: "No veo tu partida, pero cada recompensa deja huella en un número del juego. Dime esos números y hago la resta.",
     yourGear: "Tu equipo: ",
@@ -41,6 +42,7 @@ const TEXT = texts(
   {
     element: { fire: "fire", cold: "cold", lightning: "lightning" },
     status: { ok: "You have it", missing: "Missing", unsure: "Can't be sure", ask: "Tell me" },
+    pending: "Waiting for your number",
     title: (act: string) => `Did I skip anything in ${act}?`,
     lead: "I can't see your game, but every reward leaves a trace in a number the game shows. Tell me those numbers and I'll do the subtraction.",
     yourGear: "Your gear: ",
@@ -109,6 +111,8 @@ const STATUS: Record<RewardStatus, { icon: typeof CheckCircle2; className: strin
   ask: { icon: CircleHelp, className: "text-sky-300" },
 };
 
+const PENDING_STATUS = { icon: CircleDashed, className: "text-muted-foreground" };
+
 interface RewardCheckCardProps {
   guide: ActGuide;
   /** Guías de los actos anteriores: la cuenta de puntos es acumulada. */
@@ -143,6 +147,12 @@ export function RewardCheckCard({ guide, earlier, items }: RewardCheckCardProps)
   }, [guide.slug, currentAct, resistance, spirit, points, answers]);
 
   const pieces = items.filter((item) => GUIDE_SLOTS.some(({ slot }) => slot === item.slot));
+  const untouched =
+    pieces.length === 0 &&
+    currentAct === null &&
+    toNumber(spirit) === null &&
+    toNumber(points) === null &&
+    Object.values(resistance).every((value) => toNumber(value ?? "") === null);
   const lines = useMemo(
     () =>
       checkRewards(guide, earlier, {
@@ -277,7 +287,11 @@ export function RewardCheckCard({ guide, earlier, items }: RewardCheckCardProps)
 
       <ul className="mt-4 space-y-3 border-t border-border pt-4" data-testid="saltado-resultado" aria-live="polite">
         {lines.map((line) => {
-          const status = STATUS[line.status];
+          // Antes de escribir nada, cuatro avisos amarillos parecían un error.
+          // Sin datos todavía, la fila espera en gris; el aviso llega cuando
+          // el jugador ya ha dado algo y aun así no se puede asegurar.
+          const waiting = untouched && line.status === "unsure";
+          const status = waiting ? PENDING_STATUS : STATUS[line.status];
           const Icon = status.icon;
           return (
             <li key={line.zone} className="flex gap-2.5" data-testid="saltado-linea" data-status={line.status}>
@@ -285,7 +299,9 @@ export function RewardCheckCard({ guide, earlier, items }: RewardCheckCardProps)
               <div className="min-w-0 text-sm leading-relaxed">
                 <p className="font-semibold text-foreground">
                   {line.reward} <span className="font-normal text-muted-foreground">· {line.zone}</span>{" "}
-                  <span className={cn("text-xs font-normal", status.className)}>· {t.status[line.status]}</span>
+                  <span className={cn("text-xs font-normal", status.className)}>
+                    · {waiting ? t.pending : t.status[line.status]}
+                  </span>
                 </p>
                 {line.question ? (
                   <div className="mt-1 flex flex-wrap items-center gap-2">

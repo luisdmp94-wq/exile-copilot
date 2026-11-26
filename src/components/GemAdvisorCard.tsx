@@ -52,7 +52,7 @@ const TEXT = texts(
     coreCount: (count: number) => `${count} cosa(s) marcadas como core.`,
     discardedCount: (count: number) => `${count} descartada(s) que no te propondré.`,
     unknownBuild:
-      "Aún no sé qué build es. Escribe el arquetipo en tu personaje (por ejemplo «brujo de caos con esbirros») o marca lo esencial en «Identidad de la build», y afinaré mucho más.",
+      "Aún no sé qué build es. Escribe el arquetipo en tu personaje (por ejemplo «brujo de caos con esbirros») o marca lo esencial en «Tu build», y afinaré mucho más.",
     whatToKnow: "Qué quieres saber",
     oneSkill: "Para una habilidad",
     manyGems: "Tengo varias gemas",
@@ -151,7 +151,7 @@ const TEXT = texts(
     coreCount: (count: number) => `${count} ${count === 1 ? "thing" : "things"} marked as core.`,
     discardedCount: (count: number) => `${count} discarded that I won't suggest.`,
     unknownBuild:
-      "I don't know your build yet. Add the archetype to your character (for example “chaos warlock with minions”) or mark the essentials in “Build identity”, and I'll be much sharper.",
+      "I don't know your build yet. Add the archetype to your character (for example “chaos warlock with minions”) or mark the essentials in “Your build”, and I'll be much sharper.",
     whatToKnow: "What do you want to know",
     oneSkill: "For one skill",
     manyGems: "I have several gems",

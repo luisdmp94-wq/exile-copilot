@@ -1356,7 +1356,7 @@ async function runFlow(mode, port) {
     // Cambiar objetivo y pegar otra pieza son acciones distintas: la primera
     // reinicia el contrato; solo la segunda abre el importador.
     await page.getByTestId("coach-otra-pieza").click();
-    const changeItemDialog = page.getByRole("dialog", { name: "Evaluar un objeto" });
+    const changeItemDialog = page.getByRole("dialog", { name: "Pegar un objeto del juego" });
     await changeItemDialog.waitFor({ state: "visible", timeout: 10000 });
     const changeItemInput = changeItemDialog.locator("#item-text");
     await changeItemInput.waitFor({ state: "visible", timeout: 10000 });

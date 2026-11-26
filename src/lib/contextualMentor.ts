@@ -40,7 +40,7 @@ export interface ContextualMentorCue {
   /** Consulta contextual lista para el mentor supervisado. */
   ask: ContextualMentorAsk | null;
   /**
-   * `false` cuando el Copiloto NO debe anunciarse solo con este aviso porque la
+   * `false` cuando el Mentor NO debe anunciarse solo con este aviso porque la
    * pantalla ya lo dice entera. Ausente equivale a `true`.
    */
   announce?: boolean;
@@ -152,7 +152,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         id: "welcome",
         source: "guide",
         eyebrow: "Primer paso",
-        title: "Hola, soy tu Copiloto",
+        title: "Hola, soy tu Mentor",
         message: "Te digo qué mejorar primero en tu personaje. Lo que no sé, no me lo invento.",
         ask: null,
       };
@@ -308,7 +308,7 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
         id: `crafting-coach:${event.itemName}:${event.playerGoal}:${event.nextStepTitle}:${event.budgetStatus ?? "sin-presupuesto"}`,
         // Con la lectura bloqueada, el bloqueo ES la pantalla: titular, aviso y
         // acciones hablan solo de eso. El bocadillo repetía el mismo hecho con
-        // unas terceras palabras. El Copiloto sigue disponible al pulsarlo.
+        // unas terceras palabras. El Mentor sigue disponible al pulsarlo.
         announce: event.baseStatus !== "needs-data",
         source:
           event.budgetStatus === "over-budget"

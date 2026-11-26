@@ -329,7 +329,7 @@ describe("mentor contextual", () => {
   it("usa una bienvenida honesta cuando todavía no existe personaje", () => {
     const cue = contextualMentorCue({ type: "welcome" });
 
-    expect(cue.title).toBe("Hola, soy tu Copiloto");
+    expect(cue.title).toBe("Hola, soy tu Mentor");
     // Sigue sin dar por hecho nada del personaje.
     expect(cue.message).toContain("no me lo invento");
     expect(cue.message).not.toContain("tu equipo");

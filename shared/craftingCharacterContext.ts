@@ -3,6 +3,7 @@ import type { CraftingGoalCategory, CraftingGoalSignal } from "./craftingGoal.js
 import {
   RESISTANCE_LABELS,
   RESISTANCE_LABELS_EN,
+  isEquippedItem,
   readCharacterLevel,
   type CharacterProfile,
   type GoalKind,
@@ -221,7 +222,10 @@ export function evaluateCraftingCharacterContext(input: {
   const limitations = [...requirements.limitations];
   const equipped =
     originalItem.slot !== "other" &&
-    profile.items.some((item) => item.id === originalItem.id && item.slot === originalItem.slot);
+    profile.items.some(
+      (item) =>
+        item.id === originalItem.id && item.slot === originalItem.slot && isEquippedItem(item),
+    );
 
   if (equipped) {
     facts.push(

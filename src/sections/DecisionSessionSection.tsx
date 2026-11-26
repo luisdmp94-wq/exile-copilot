@@ -107,7 +107,7 @@ const TEXT = texts(
     methodPlaceholder:
       "Ej.: compara el objeto antes y después; o anota cuántos golpes sobrevives al mismo ataque.",
     methodHint:
-      "Describe una observación que responda a esta decisión. El Copiloto no asumirá que siempre debes jugar un mapa.",
+      "Describe una observación que responda a esta decisión. El Mentor no asumirá que siempre debes jugar un mapa.",
     unknownLabel: "Dato que aún no tenemos (opcional)",
     unknownPlaceholder: "Tooltip exacto de una herramienta, un mod, un coste…",
     coreLabel: "Pieza o habilidad intocable (opcional)",
@@ -261,7 +261,7 @@ const TEXT = texts(
     methodPlaceholder:
       "E.g. compare the item before and after; or count how many hits of the same attack you survive.",
     methodHint:
-      "Describe something you can observe that answers this decision. The Copilot won't assume you always have to run a map.",
+      "Describe something you can observe that answers this decision. The Mentor won't assume you always have to run a map.",
     unknownLabel: "Something we don't know yet (optional)",
     unknownPlaceholder: "The exact tooltip of a currency item, a modifier, a cost…",
     coreLabel: "Item or skill you won't touch (optional)",

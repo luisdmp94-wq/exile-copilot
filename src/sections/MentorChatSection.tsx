@@ -576,7 +576,7 @@ export function MentorChatSection({
                 />
               </div>
               {/* Alineado a la izquierda, con el campo. Antes vivía en la esquina
-                  inferior derecha, justo donde flota el Copiloto: la mascota
+                  inferior derecha, justo donde flota el Mentor: la mascota
                   tapaba el único botón de envío del Mentor. */}
               <div className="flex justify-start sm:shrink-0">
                 <Button type="submit" disabled={!canAsk} data-testid="mentor-preguntar">

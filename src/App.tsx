@@ -36,8 +36,10 @@ import type {
   Item,
   Recommendation,
 } from "@shared/domain.js";
-import { readCharacterLevel } from "@shared/domain.js";
+import { isEquippedItem, readCharacterLevel } from "@shared/domain.js";
+import { reviewCharacter } from "@shared/quickReview.js";
 import {
+  MIN_BROAD_ANALYSIS_EQUIPMENT,
   assessCharacterReadiness,
   assessMentorReadiness,
 } from "@shared/characterReadiness.js";
@@ -323,18 +325,21 @@ const APP_TEXT = texts(
     planLoading: "Preparando el plan y el mercado…",
     guidesLoading: "Abriendo las guías…",
     planTitle: "Decide el rumbo antes de gastar",
+    moreQuestions: "Otras dudas de cada partida",
+    askGem: "¿Qué gema de asistencia pongo?",
+    askCompare: "¿Cuál de estas dos piezas es mejor?",
     savedStep: "Siguiente paso guardado",
     openFollowUp: "Abrir seguimiento",
     unknownPatch: "Desconocido",
     sheetMemoryTitle: "Guardar y continuar",
-    sheetItemTitle: "Evaluar un objeto",
+    sheetItemTitle: "Pegar un objeto del juego",
     sheetGearTitle: "Añadir equipo",
     sheetGearText: "En el juego, pon el ratón sobre una pieza y pulsa Ctrl+Alt+C. Pégala aquí: se guarda sola y puedes pegar otra. Si la ranura ya está ocupada, te pregunto cuál sustituir.",
     sheetNewTitle: "Crear personaje",
     sheetImportTitle: "Añadir tu personaje",
     sheetEditTitle: "Editar personaje",
     sheetMemoryText: "Guarda este personaje para que el mentor pueda recordar próximos pasos y sesiones.",
-    sheetItemText: "Pega el texto del objeto copiado en PoE2. Al analizarlo pasarás directamente al banco de Crafting.",
+    sheetItemText: "Pega la pieza copiada en PoE2. Al analizarla pasas a Crafting con ella.",
     sheetNewText: "Completa únicamente lo que sabes. Los datos desconocidos pueden quedarse vacíos.",
     sheetImportText: "Trae tu personaje actual desde Path of Building 2. Los archivos .build de objetivo se importan en Plan y mercado.",
     sheetEditText: "Corrige o completa los datos de tu personaje. Los cambios se guardan con «Guardar correcciones».",
@@ -387,18 +392,21 @@ const APP_TEXT = texts(
     planLoading: "Getting the plan and market ready…",
     guidesLoading: "Opening the guides…",
     planTitle: "Pick your direction before spending",
+    moreQuestions: "Other questions every run has",
+    askGem: "Which support gem should I use?",
+    askCompare: "Which of these two items is better?",
     savedStep: "Saved next step",
     openFollowUp: "Open follow-up",
     unknownPatch: "Unknown",
     sheetMemoryTitle: "Save and continue",
-    sheetItemTitle: "Check an item",
+    sheetItemTitle: "Paste an item from the game",
     sheetGearTitle: "Add gear",
     sheetGearText: "In game, hover an item and press Ctrl+Alt+C. Paste it here: it saves by itself and you can paste another. If the slot is taken, I'll ask which one to replace.",
     sheetNewTitle: "Create a character",
     sheetImportTitle: "Add your character",
     sheetEditTitle: "Edit your character",
     sheetMemoryText: "Save this character so the mentor can remember your next steps and sessions.",
-    sheetItemText: "Paste the item text you copied in PoE2. Once it's analysed you'll go straight to the Crafting bench.",
+    sheetItemText: "Paste the item you copied in PoE2. Once it's read you go to Crafting with it.",
     sheetNewText: "Fill in only what you know. Anything you don't know can stay empty.",
     sheetImportText: "Bring your current character over from Path of Building 2. Target .build files are imported in Plan & market.",
     sheetEditText: "Correct or complete your character's details. Changes are saved with “Save changes”.",
@@ -611,6 +619,16 @@ export default function App() {
     () => (character.profile ? profileWithQuickReview(character.profile, quickReviewForm) : null),
     [character.profile, quickReviewForm],
   );
+  // Lo que más frena según la revisión rápida: sube a la cabecera de Personaje.
+  const quickTopFinding = useMemo(
+    () =>
+      character.profile
+        ? reviewCharacter(quickReviewInput({ ...quickReviewForm }), lang).top[0] ?? null
+        : null,
+    [character.profile, quickReviewForm, lang],
+  );
+  // Solo cuenta como equipo lo que lleva puesto, no la pieza que está mirando.
+  const wornItemCount = character.profile?.items.filter(isEquippedItem).length ?? 0;
   const characterJournal =
     character.profile && journal.journal?.characterId === character.profile.id
       ? journal.journal
@@ -1184,6 +1202,13 @@ export default function App() {
     scrollToWhenPainted('[data-testid="asistencia"]');
   };
 
+  /** Abre «¿Cuál de estas dos es mejor?», que vive junto al consejero de gemas. */
+  const openItemCompare = () => {
+    setGuideViewRequest((current) => ({ view: "herramientas", seq: (current?.seq ?? 0) + 1 }));
+    navigateWorkspace("guias");
+    scrollToWhenPainted('[data-testid="comparar"]');
+  };
+
   const startManualJourney = (intent: "new" | "item") => {
     // Pegar un objeto no crea antes un «Nuevo personaje» vacío: al analizarlo
     // nace su expediente provisional, igual que desde Crafting. Antes quedaba
@@ -1645,7 +1670,7 @@ export default function App() {
   // «Tu siguiente paso» de la mascota: una regla sobre lo que ya se sabe del personaje.
   const mascotStepKind = mascotNextStep({
     hasProfile: character.profile !== null,
-    itemCount: character.profile?.items.length ?? 0,
+    itemCount: wornItemCount,
     reviewKnowsBasics: character.profile !== null && reviewKnowsBasics({ ...quickReviewForm }),
   });
 
@@ -2102,6 +2127,11 @@ export default function App() {
                       />
                     }
                     evidenceSlot={evidenceSlot}
+                    quickAnswer={
+                      quickTopFinding
+                        ? { title: quickTopFinding.title, action: quickTopFinding.action }
+                        : null
+                    }
                     mentorAskSlot={
                       <MentorQuickAsk
                         onAsk={(text) => {
@@ -2121,7 +2151,7 @@ export default function App() {
                     que una cuadrícula de ranuras vacías. */}
                 <div
                   className={cn(
-                    character.profile && character.profile.items.length === 0 ? "order-3" : "order-2",
+                    character.profile && wornItemCount === 0 ? "order-3" : "order-2",
                     "lg:order-3 lg:col-start-1",
                   )}
                 >
@@ -2154,7 +2184,7 @@ export default function App() {
                     darle con lo que ha escrito. */}
                 <div
                   className={cn(
-                    character.profile && character.profile.items.length === 0 ? "order-2" : "order-3",
+                    character.profile && wornItemCount === 0 ? "order-2" : "order-3",
                     "flex flex-col gap-6 lg:order-4 lg:col-start-2",
                   )}
                 >
@@ -2163,8 +2193,23 @@ export default function App() {
                     profile={character.profile}
                     onAskMentor={askMentorQuickQuestion}
                   />
-                  {character.profile && character.profile.items.length === 0 && (
+                  {character.profile && wornItemCount < MIN_BROAD_ANALYSIS_EQUIPMENT && (
                     <SkillGemTeaser profile={character.profile} onOpenAdvisor={openGemAdvisor} />
+                  )}
+                  {/* Las dos herramientas de decisión vivían solo en Guías → Acto 1
+                      → «Gemas y piezas»: desde Personaje no se encontraban. */}
+                  {character.profile && (
+                    <section className="superficie-panel p-4 sm:p-5" data-testid="personaje-mas-dudas">
+                      <h3 className="text-sm font-semibold text-foreground">{t.moreQuestions}</h3>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={openGemAdvisor}>
+                          {t.askGem}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={openItemCompare}>
+                          {t.askCompare}
+                        </Button>
+                      </div>
+                    </section>
                   )}
                   {engineProfile && (
                     <PassiveTreeCard
@@ -2334,6 +2379,11 @@ export default function App() {
                     error={featuredBuilds.error}
                     onReload={featuredBuilds.reload}
                     onUseAsTarget={useFeaturedBuildAsTarget}
+                    characterClass={character.profile?.characterClass ?? null}
+                    activeTargetName={targetDraft.name}
+                    onOpenCharacter={
+                      character.profile ? () => navigateWorkspace("expediente") : undefined
+                    }
                   />
                 </div>
                 <div className="grid grid-cols-1 items-start gap-7 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
@@ -2391,6 +2441,26 @@ export default function App() {
                   </section>
                 }
               >
+                {/* El mismo encabezado que Plan: sin él cada pestaña parecía
+                    una herramienta distinta. */}
+                <header
+                  className="mb-6 flex items-center gap-3 border-b border-border/70 pb-4"
+                  aria-labelledby="crafting-area-titulo"
+                  data-testid="crafting-cabecera"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-primary/40 bg-primary/10 text-primary">
+                    <Hammer className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="rotulo-seccion text-primary/70">{t.crafting}</p>
+                    <h2
+                      id="crafting-area-titulo"
+                      className="dossier-title text-2xl font-semibold text-foreground"
+                    >
+                      {t.craftingHint}
+                    </h2>
+                  </div>
+                </header>
                 <CraftingSection
                   profile={character.profile}
                   patchCompatibility={activePatchCompatibility}
@@ -2569,6 +2639,7 @@ export default function App() {
                   meta={meta}
                   activePatch={activePatchId || "Desconocido"}
                   drafts={editorDrafts}
+                  askIfWorn={editorPrompt === "item"}
                   editorMode={
                     editorPrompt === "item" || editorPrompt === "gear"
                       ? "item"

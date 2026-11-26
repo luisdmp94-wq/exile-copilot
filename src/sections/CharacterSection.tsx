@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Loader2,
   Plus,
@@ -74,6 +74,11 @@ interface CharacterSectionProps {
    */
   hideEmptyState: boolean;
   editorMode?: "full" | "import" | "new" | "item" | "memory";
+  /**
+   * La pieza se pega para ANALIZARLA (Crafting, portada), no desde el panel de
+   * equipo: se pregunta si el jugador la lleva puesta en vez de darlo por hecho.
+   */
+  askIfWorn?: boolean;
   initialFocus?: "import" | "character" | "item" | "pob" | null;
   /** Notifica una persistencia real para actualizar el mentor contextual. */
   onProfileSaved?: (profile: CharacterProfile) => void;
@@ -118,6 +123,9 @@ const TEXT = texts(
     itemTextLabel: "Analizar objeto copiado del juego (Ctrl+Alt+C sobre el objeto en PoE2)",
     itemTextPlaceholder: "Clase de objeto: Ballestas\nRareza: Raro\nNúcleo de fénix\nBallesta barnizada\n…",
     analyzeItem: "Analizar objeto",
+    wornQuestion: "¿La llevas puesta?",
+    wornNo: "No, solo la miro",
+    wornYes: "Sí, la llevo puesta",
     saveCorrections: "Guardar correcciones",
     slotTakenTitle: "Ese hueco ya está ocupado",
     slotTakenLead: "no se añadirá ni sustituirá nada hasta que elijas qué hacer.",
@@ -197,6 +205,9 @@ const TEXT = texts(
     itemTextLabel: "Analyse an item copied from the game (Ctrl+Alt+C over the item in PoE2)",
     itemTextPlaceholder: "Item Class: Crossbows\nRarity: Rare\nPhoenix Core\nVarnished Crossbow\n…",
     analyzeItem: "Analyze item",
+    wornQuestion: "Are you wearing it?",
+    wornNo: "No, just looking",
+    wornYes: "Yes, I'm wearing it",
     saveCorrections: "Save changes",
     slotTakenTitle: "That slot is already taken",
     slotTakenLead: "won't be added and won't replace anything until you choose what to do.",
@@ -292,6 +303,7 @@ export function CharacterSection({
   drafts,
   hideEmptyState,
   editorMode = "full",
+  askIfWorn = false,
   initialFocus = null,
   onProfileSaved,
   onItemImported,
@@ -303,6 +315,10 @@ export function CharacterSection({
   const t = useText(TEXT);
   const { profile, warnings, origin, busy, restoring, dirty } = character;
   const { itemText, setItemText } = drafts;
+  // Por defecto NO: analizar una pieza no es llevarla. Equivocarse hacia «sí»
+  // falsea los consejos; hacia «no», la pieza simplemente no ocupa un hueco.
+  const [wearingIt, setWearingIt] = useState(false);
+  const asksIfWorn = askIfWorn && character.profile !== null;
 
   const originBadge = { label: t.origin[origin], className: ORIGIN_BADGE_CLASSES[origin] };
 
@@ -544,6 +560,24 @@ export function CharacterSection({
               placeholder={t.itemTextPlaceholder}
               className="font-mono text-xs"
             />
+            {asksIfWorn && (
+              <fieldset className="flex flex-wrap items-center gap-2" data-testid="item-worn-question">
+                <legend className="mb-1.5 text-sm font-medium text-foreground">{t.wornQuestion}</legend>
+                {([false, true] as const).map((value) => (
+                  <Button
+                    key={String(value)}
+                    type="button"
+                    size="sm"
+                    variant={wearingIt === value ? "default" : "outline"}
+                    aria-pressed={wearingIt === value}
+                    onClick={() => setWearingIt(value)}
+                    data-testid={value ? "item-worn-yes" : "item-worn-no"}
+                  >
+                    {value ? t.wornYes : t.wornNo}
+                  </Button>
+                ))}
+              </fieldset>
+            )}
             <div>
               <Button
                 type="button"
@@ -552,6 +586,7 @@ export function CharacterSection({
                 onClick={() => {
                   void character.importItemText(itemText, activePatch, {
                     persistImmediately: editorMode === "item",
+                    ...(asksIfWorn ? { equipped: wearingIt } : {}),
                   }).then((item) => {
                     if (item === null) return;
                     setItemText("");

@@ -74,20 +74,20 @@ const TEXT = texts(
     thinking: "Pensando",
     aiReady: "IA lista",
     attention: "Atención",
-    copilot: "Copiloto",
+    copilot: "Mentor",
     news: "Novedad",
     region: "Mentor contextual",
-    openExplanation: (title: string) => `Abrir explicación del Copiloto: ${title}`,
+    openExplanation: (title: string) => `Abrir explicación del Mentor: ${title}`,
     seeExplanation: "Ver explicación",
-    closeMessage: "Cerrar mensaje del Copiloto",
+    closeMessage: "Cerrar mensaje del Mentor",
     openContextual: "Abrir mentor contextual",
     closeContextual: "Cerrar mentor contextual",
     titleOpen: (title: string) => `${title}. Abrir explicación`,
     openMentor: "Abrir mentor",
     closeMentor: "Cerrar mentor",
-    openChat: "Abrir conversación con tu Copiloto",
-    talk: "Hablar con tu Copiloto",
-    yourCopilot: "Tu Copiloto",
+    openChat: "Abrir conversación con tu Mentor",
+    talk: "Hablar con tu Mentor",
+    yourCopilot: "Tu Mentor",
     expand: "Desplegar mentor contextual",
     collapse: "Plegar mentor contextual",
     thinkingDots: "Pensando…",
@@ -123,20 +123,20 @@ const TEXT = texts(
     thinking: "Thinking",
     aiReady: "AI ready",
     attention: "Heads up",
-    copilot: "Copilot",
+    copilot: "Mentor",
     news: "New",
     region: "Contextual mentor",
-    openExplanation: (title: string) => `Open the Copilot's explanation: ${title}`,
+    openExplanation: (title: string) => `Open the Mentor's explanation: ${title}`,
     seeExplanation: "See explanation",
-    closeMessage: "Close the Copilot's message",
+    closeMessage: "Close the Mentor's message",
     openContextual: "Open the contextual mentor",
     closeContextual: "Close the contextual mentor",
     titleOpen: (title: string) => `${title}. Open explanation`,
     openMentor: "Open mentor",
     closeMentor: "Close mentor",
-    openChat: "Open the conversation with your Copilot",
-    talk: "Talk to your Copilot",
-    yourCopilot: "Your Copilot",
+    openChat: "Open the conversation with your Mentor",
+    talk: "Talk to your Mentor",
+    yourCopilot: "Your Mentor",
     expand: "Expand the contextual mentor",
     collapse: "Collapse the contextual mentor",
     thinkingDots: "Thinking…",
@@ -392,7 +392,7 @@ function MentorChristmasHat() {
 }
 
 /**
- * Los ojos del Copiloto, dibujados sobre el visor vacío de la ilustración.
+ * Los ojos del Mentor, dibujados sobre el visor vacío de la ilustración.
  * El viewBox es el de la ilustración original (1176 × 1337): con
  * `xMidYMid meet` se colocan igual que la imagen con `object-fit: contain`.
  * Cada estado (lista, pensando, hablando, aviso, error) cambia los ojos solo
@@ -457,7 +457,7 @@ function shouldSpeakAutomatically(
 ): boolean {
   // `recommendations:` NO habla sola: la prioridad recién generada ya es el
   // contenido dominante de la pantalla y el bocadillo repetía palabra por
-  // palabra lo que el jugador acaba de leer. El Copiloto solo interrumpe cuando
+  // palabra lo que el jugador acaba de leer. El Mentor solo interrumpe cuando
   // trae algo que NO está ya delante: un resultado, un freno o un aviso.
   // Un aviso puede declararse «no anunciable»: la pantalla ya lo cuenta entera.
   if (cue.announce === false) return false;
@@ -625,7 +625,7 @@ export function ContextualMentor({
   }, [placement, contentCollapsed, speechVisible]);
 
   /*
-   * El Copiloto habla solo en momentos que cambian una decisión: resultados,
+   * El Mentor habla solo en momentos que cambian una decisión: resultados,
    * bloqueos y advertencias. El bocadillo usa el resultado canónico que ya
    * existe en pantalla; no dispara una petición de IA por cada interacción.
    */

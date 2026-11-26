@@ -9,7 +9,7 @@ const TEXT = texts(
     open: "Abrir el reproductor",
     minimize: "Minimizar el reproductor",
     playing: "sonando",
-    trial: "prueba",
+    trial: "beta",
     panel: "Radio experimental del exiliado",
     radio: "Radio del exiliado",
     trialYoutube: "Prueba temporal mediante YouTube",

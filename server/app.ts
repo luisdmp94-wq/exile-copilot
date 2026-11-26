@@ -37,6 +37,7 @@ import {
   BuildMemoryEntrySchema,
   JournalEntrySchema,
   PatchVersionSchema,
+  isEquippedItem,
   readCharacterLevel,
   type JournalEntry,
   type BuildMemoryEntry,
@@ -1818,7 +1819,15 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
         {
           question: body.question,
           ...(body.intentHint !== undefined ? { intentHint: body.intentHint } : {}),
-          profile: body.profile,
+          // El Mentor aconseja sobre lo que el jugador lleva puesto. La pieza
+          // que solo está mirando se conserva únicamente si pregunta por ella.
+          profile: {
+            ...body.profile,
+            items: body.profile.items.filter(
+              (item) =>
+                isEquippedItem(item) || item.id === body.contextEnvelope?.selectedItem?.id,
+            ),
+          },
           budget: body.budget,
           goal: body.goal,
           league: body.league,

@@ -1,4 +1,4 @@
-import type { Item } from "@shared/domain.js";
+import { isEquippedItem, type Item } from "@shared/domain.js";
 
 /**
  * Decisión previa a incorporar un tooltip al expediente.
@@ -30,9 +30,11 @@ function isOneHandedWeapon(item: Item): boolean {
 }
 
 export function planImportedItemPlacement(
-  currentItems: readonly Item[],
+  allItems: readonly Item[],
   importedItem: Item,
 ): ImportedItemPlacement {
+  // Una pieza que el jugador solo está mirando no ocupa hueco: no choca.
+  const currentItems = allItems.filter(isEquippedItem);
   if (importedItem.slot === "flask" || importedItem.slot === "charm" || importedItem.slot === "other") {
     return { kind: "append", item: importedItem };
   }

@@ -8,6 +8,7 @@ import {
   type ResistanceKind,
   type SourceEvidence,
 } from "../../shared/domain.js";
+import { MIN_BROAD_ANALYSIS_EQUIPMENT } from "../../shared/characterReadiness.js";
 import { skillSupportsUnknown } from "../../shared/quickReview.js";
 import { resistancesFromItems } from "../../shared/itemResistances.js";
 
@@ -954,10 +955,19 @@ const REQUIRED_SLOTS: Array<{ slot: CharacterProfile["items"][number]["slot"]; l
   { slot: "ring2", label: "Anillo 2", labelEn: "Ring 2" },
 ];
 
+const EMPTY_SLOT_KEYS = [...REQUIRED_SLOTS.map(({ slot }) => slot), "offhand"] as const;
+
 export const emptySlotsRule: Rule = ({ profile, lang }) => {
   const t = tr(lang);
   // Un perfil sin ningún objeto es un expediente sin equipo, no nueve huecos vacíos.
   if (profile.items.length === 0) return [];
+  // Tampoco lo son los huecos que la web todavía no ha visto: quien ha pegado
+  // dos piezas lleva las otras siete puestas en el juego. Solo se afirma que un
+  // hueco está vacío con el equipo entero delante (PoB) o casi entero.
+  const gearSeen = profile.items.filter(
+    (item) => (EMPTY_SLOT_KEYS as readonly string[]).includes(item.slot),
+  ).length;
+  if (profile.pobImport === undefined && gearSeen < MIN_BROAD_ANALYSIS_EQUIPMENT) return [];
   const occupied = new Set(profile.items.map((item) => item.slot));
   const empty = REQUIRED_SLOTS.filter(({ slot }) => !occupied.has(slot));
   if (empty.length === 0) return [];

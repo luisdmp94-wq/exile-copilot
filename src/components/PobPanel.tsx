@@ -61,7 +61,7 @@ const TEXT = texts(
     noteUnsupported: (count: number) => `PoB2 no entiende ${count} ${count === 1 ? "línea" : "líneas"} de tu equipo.`,
     noteGems: (names: string) => `PoB2 no reconoce: ${names}.`,
     noteLevels: "Niveles de gema según tu nivel de personaje.",
-    noteNoDamage: "El daño sale a 0 porque no veo tu arma: pégala en «Equipo» (Ctrl+C sobre ella en el juego) y vuelve a calcular.",
+    noteNoDamage: "El daño sale a 0 porque no veo tu arma: pégala en «Equipo» (Ctrl+Alt+C sobre ella en el juego) y vuelve a calcular.",
     noteProfile: "Sin tu código de PoB2 faltan joyas y ascendencia: números aproximados.",
     noteNoClass: "No sé tu clase: sin ella PoB2 no puede leer tu árbol.",
     footer: (version: string) =>
@@ -125,7 +125,7 @@ const TEXT = texts(
     noteUnsupported: (count: number) => `PoB2 doesn't understand ${count} ${count === 1 ? "line" : "lines"} of your gear.`,
     noteGems: (names: string) => `PoB2 doesn't recognise: ${names}.`,
     noteLevels: "Gem levels from your character level.",
-    noteNoDamage: "Damage shows 0 because I can't see your weapon: paste it under “Gear” (Ctrl+C on it in the game) and calculate again.",
+    noteNoDamage: "Damage shows 0 because I can't see your weapon: paste it under “Gear” (Ctrl+Alt+C on it in the game) and calculate again.",
     noteProfile: "Without your PoB2 code, jewels and ascendancy are missing: approximate numbers.",
     noteNoClass: "I don't know your class: without it PoB2 can't read your tree.",
     footer: (version: string) =>

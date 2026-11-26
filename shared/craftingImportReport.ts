@@ -141,10 +141,10 @@ export function assessCraftingImportIssue(
     return {
       kind: "copy-incomplete",
       label: en ? "Incomplete copy" : "Copia incompleta",
-      title: en ? "Advanced tooltip data is missing" : "Faltan datos del tooltip avanzado",
+      title: en ? "I need the full copy of this item" : "Necesito la copia completa de la pieza",
       summary: en
-        ? "The copy doesn't have the full structure. Press Ctrl+Alt+C on the item again before spending more currency."
-        : "La copia no contiene toda la estructura necesaria. Repite Ctrl+Alt+C sobre la pieza antes de gastar otra moneda.",
+        ? "This copy is missing details. In PoE2, press Ctrl+Alt+C on the item (not just Ctrl+C) and paste it again."
+        : "A esta copia le faltan datos. En PoE2 pulsa Ctrl+Alt+C sobre la pieza (no solo Ctrl+C) y pégala otra vez.",
       retryCopy: true,
     };
   }
@@ -165,6 +165,13 @@ export function assessCraftingImportIssue(
  * recomendar un craft». Solo enumera campos presentes; no consulta una tabla
  * externa ni completa el tooltip por el nombre del objeto.
  */
+const RARITY_NAMES_ES: Partial<Record<Item["rarity"], string>> = {
+  normal: "normal",
+  magic: "mágico",
+  rare: "raro",
+  unique: "único",
+};
+
 export function summarizeCraftingImportEvidence(
   item: Item,
   diagnosis: CraftingItemDiagnosis = diagnoseCraftingItem(item),
@@ -183,7 +190,11 @@ export function summarizeCraftingImportEvidence(
   if (item.itemClass) recognized.push(en ? `Class: ${item.itemClass}` : `Clase: ${item.itemClass}`);
   else missing.push(en ? "Item class" : "Clase de objeto");
 
-  recognized.push(en ? `Rarity read: ${item.rarity}` : `Rareza leída: ${item.rarity}`);
+  recognized.push(
+    en
+      ? `Rarity: ${item.rarity}`
+      : `Rareza: ${RARITY_NAMES_ES[item.rarity] ?? item.rarity}`,
+  );
 
   if (item.itemLevel !== undefined) {
     recognized.push(en ? `Item level: ${item.itemLevel}` : `Nivel de objeto: ${item.itemLevel}`);
@@ -191,19 +202,19 @@ export function summarizeCraftingImportEvidence(
 
   if (item.craftingState !== undefined) {
     recognized.push(en ? "Special states checked" : "Estados especiales comprobados");
-  } else missing.push(en ? "Tooltip special states" : "Estados especiales del tooltip");
+  } else missing.push(en ? "Whether it's corrupted or locked" : "Si está corrupta o bloqueada");
 
   if (diagnosis.unclassifiedExplicitCount > 0) {
     missing.push(
       en
-        ? `Position of ${diagnosis.unclassifiedExplicitCount} modifier${diagnosis.unclassifiedExplicitCount === 1 ? "" : "s"}`
-        : `Posición de ${diagnosis.unclassifiedExplicitCount} modificador(es)`,
+        ? `Which lines are prefixes and which are suffixes (${diagnosis.unclassifiedExplicitCount} unsorted)`
+        : `Qué líneas son prefijo y cuáles sufijo (${diagnosis.unclassifiedExplicitCount} sin clasificar)`,
     );
   } else if (item.modifiers.some((modifier) => modifier.kind === "explicit")) {
     recognized.push(
       en
         ? `Classified modifiers: ${diagnosis.prefixCount} ${diagnosis.prefixCount === 1 ? "prefix" : "prefixes"} · ${diagnosis.suffixCount} ${diagnosis.suffixCount === 1 ? "suffix" : "suffixes"}`
-        : `Afijos clasificados: ${diagnosis.prefixCount} prefijo(s) · ${diagnosis.suffixCount} sufijo(s)`,
+        : `Líneas clasificadas: ${diagnosis.prefixCount} ${diagnosis.prefixCount === 1 ? "prefijo" : "prefijos"} · ${diagnosis.suffixCount} ${diagnosis.suffixCount === 1 ? "sufijo" : "sufijos"}`,
     );
   }
 

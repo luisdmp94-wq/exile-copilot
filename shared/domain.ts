@@ -182,8 +182,26 @@ export const ItemSchema = z.object({
   craftingState: CraftingItemStateSchema.optional(),
   rawText: z.string().optional(),
   sources: z.array(SourceEvidenceSchema).default([]),
+  /**
+   * `false` = el jugador la está mirando (la pegó para analizarla) pero NO la
+   * lleva puesta. Ausente = equipada, como todos los objetos anteriores a este
+   * campo y los que llegan de PoB. Una pieza que solo se mira no ocupa hueco
+   * ni cuenta para los consejos del personaje.
+   */
+  equipped: z.boolean().optional(),
 });
 export type Item = z.infer<typeof ItemSchema>;
+
+/** ¿La lleva puesta? Solo es falso cuando el jugador dijo que solo la miraba. */
+export function isEquippedItem(item: Pick<Item, "equipped">): boolean {
+  return item.equipped !== false;
+}
+
+/** El mismo personaje con solo las piezas que lleva puestas. */
+export function withEquippedItemsOnly<T extends { items: Item[] }>(profile: T): T {
+  if (profile.items.every(isEquippedItem)) return profile;
+  return { ...profile, items: profile.items.filter(isEquippedItem) };
+}
 
 // ---------------------------------------------------------------------------
 // Skills y pasivas

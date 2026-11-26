@@ -14,14 +14,16 @@ const TEXT = texts(
   {
     howToFix: "Cómo corregirlo",
     whatItMeans: "Qué significa",
-    recognized: "Sí he leído",
-    stillNeed: "Todavía necesito",
+    recognized: "Lo que sí veo",
+    stillNeed: "Lo que falta",
+    pasteFull: "Pegar la copia completa",
+    details: "Ver detalle",
     reviewBlocked: "Revisar por qué el diagnóstico sigue bloqueado.",
     stepHover: "Pasa el ratón por la pieza dentro de PoE2.",
     stepPress: "Pulsa",
     stepPaste: "Vuelve y pega el texto completo.",
-    observedReason: "Motivo observado:",
-    pasteFixed: "Pegar la pieza corregida",
+    observedReason: "Por qué:",
+    pasteFixed: "Pegar la copia completa",
     pasteOther: "Pegar otra pieza",
     copyReport: "Copiar informe",
     hideReport: "Ocultar informe",
@@ -34,14 +36,16 @@ const TEXT = texts(
   {
     howToFix: "How to fix it",
     whatItMeans: "What it means",
-    recognized: "What I could read",
-    stillNeed: "What I still need",
+    recognized: "What I can see",
+    stillNeed: "What's missing",
+    pasteFull: "Paste the full copy",
+    details: "See details",
     reviewBlocked: "Check why the diagnosis is still blocked.",
     stepHover: "Hover over the item in PoE2.",
     stepPress: "Press",
     stepPaste: "Come back and paste the full text.",
-    observedReason: "Reason found:",
-    pasteFixed: "Paste the fixed item",
+    observedReason: "Why:",
+    pasteFixed: "Paste the full copy",
     pasteOther: "Paste another item",
     copyReport: "Copy report",
     hideReport: "Hide report",
@@ -113,21 +117,36 @@ export function CraftingRepairBanner({
           >
             {issue.label}
           </p>
+          {/* Qué hacer, a la vista: antes había que abrir «Cómo corregirlo». */}
+          {issue.kind === "copy-incomplete" && (
+            <p className="mt-1.5 text-sm text-amber-100/90" data-testid="crafting-repair-summary">
+              {issue.summary}
+            </p>
+          )}
         </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => setOpen((value) => !value)}
-          aria-expanded={open}
-          data-testid="crafting-repair-toggle"
-        >
-          {issue.retryCopy ? t.howToFix : t.whatItMeans}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {issue.kind === "copy-incomplete" && onRepaste && (
+            <Button type="button" size="sm" onClick={onRepaste} data-testid="crafting-repair-repaste-now">
+              <ClipboardPaste className="size-4" aria-hidden="true" />
+              {t.pasteFull}
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant={issue.kind === "copy-incomplete" && onRepaste ? "outline" : "default"}
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            data-testid="crafting-repair-toggle"
+          >
+            {issue.kind === "copy-incomplete" ? t.details : issue.retryCopy ? t.howToFix : t.whatItMeans}
+          </Button>
+        </div>
       </div>
 
       {open && (
         <div className="mt-3 border-t border-amber-500/25 pt-3 text-sm" data-testid="crafting-repair-instructions">
-          <p className="text-amber-100/85">{issue.summary}</p>
+          {issue.kind !== "copy-incomplete" && <p className="text-amber-100/85">{issue.summary}</p>}
           <div
             className="mt-3 grid gap-2 sm:grid-cols-2"
             data-testid="crafting-repair-evidence-summary"

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PLACEHOLDER_CHARACTER_LEVEL, type CharacterProfile, type Item } from "@shared/domain.js";
+import {
+  PLACEHOLDER_CHARACTER_LEVEL,
+  isEquippedItem,
+  type CharacterProfile,
+  type Item,
+} from "@shared/domain.js";
 import { assessCharacterReadiness } from "@shared/characterReadiness.js";
 import {
   diagnoseCraftingItem,
@@ -47,6 +52,7 @@ const TEXT = texts(
     itemWarnings: (name: string) => `Objeto analizado con avisos: ${name}`,
     itemAddedSaved: (name: string) => `Objeto añadido y guardado: ${name}`,
     itemAdded: (name: string) => `Objeto añadido: ${name}`,
+    itemLooking: (name: string) => `Pieza lista: ${name}. No la he puesto en tu equipo.`,
     itemError: "No se pudo analizar el objeto",
     replacedGone: "La pieza que querías sustituir ya no está en el personaje",
     replacedSaved: (name: string) => `Pieza sustituida y guardada: ${name}`,
@@ -90,6 +96,7 @@ const TEXT = texts(
     itemWarnings: (name: string) => `Item read with warnings: ${name}`,
     itemAddedSaved: (name: string) => `Item added and saved: ${name}`,
     itemAdded: (name: string) => `Item added: ${name}`,
+    itemLooking: (name: string) => `Item ready: ${name}. I haven't added it to your gear.`,
     itemError: "Couldn't read the item",
     replacedGone: "The item you wanted to replace is no longer on your character",
     replacedSaved: (name: string) => `Item replaced and saved: ${name}`,
@@ -127,7 +134,14 @@ export interface PendingItemImport {
 
 interface ItemImportOptions {
   persistImmediately?: boolean;
+  /**
+   * `false` = el jugador solo la está mirando (la pega para analizarla): se
+   * guarda para trabajar con ella, pero no ocupa un hueco de su equipo.
+   */
+  equipped?: boolean;
 }
+
+const sameItemText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 const STORAGE_KEY = "exile-copilot:characterId";
 
@@ -798,7 +812,25 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
         const res = await api.importItemText({ text, patch });
         const item: Item = res.item;
         if (profile && !importingStandaloneItem) {
-          const placement = planImportedItemPlacement(profile.items, item);
+          // Pegar una pieza para analizarla no es ponérsela. Si el jugador no
+          // dijo que la lleva puesta, se guarda aparte: sin esto una bruja de
+          // nivel 9 acababa «equipada» con la maza de nivel 54 que solo miraba
+          // y los consejos salían falsos. Volver a pegar una pieza que YA
+          // conocemos la actualiza donde estuviera (puesta o no).
+          const known = profile.items.find(
+            (candidate) =>
+              sameItemText(candidate.name, item.name) &&
+              sameItemText(candidate.baseType, item.baseType),
+          );
+          const looking =
+            importOptions?.equipped === false && (known === undefined || !isEquippedItem(known));
+          const placement = looking
+            ? ({
+                kind: "append",
+                item: { ...item, equipped: false, ...(known ? { id: known.id } : {}) },
+              } as const)
+            : planImportedItemPlacement(profile.items, item);
+          const addedToast = looking ? tx().itemLooking : null;
           if (placement.kind === "collision") {
             setPendingItemImport({
               item: placement.item,
@@ -811,7 +843,15 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
             });
             return null;
           }
-          const nextProfile = { ...profile, items: [...profile.items, placement.item] };
+          const nextProfile = {
+            ...profile,
+            items:
+              looking && known
+                ? profile.items.map((candidate) =>
+                    candidate.id === known.id ? placement.item : candidate,
+                  )
+                : [...profile.items, placement.item],
+          };
           if (persisted && importOptions?.persistImmediately === true) {
             let saved: CharacterProfile;
             try {
@@ -837,7 +877,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
                 description: res.warnings[0],
               });
             } else {
-              toast.success(tx().itemAddedSaved(placement.item.name));
+              toast.success((addedToast ?? tx().itemAddedSaved)(placement.item.name));
             }
             return placement.item;
           }
@@ -867,7 +907,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
                 description: res.warnings[0],
               });
             } else {
-              toast.success(tx().itemAdded(placement.item.name));
+              toast.success((addedToast ?? tx().itemAdded)(placement.item.name));
             }
             return placement.item;
           }
@@ -880,7 +920,7 @@ export function useCharacter(options?: UseCharacterOptions): CharacterState {
               description: res.warnings[0],
             });
           } else {
-            toast.success(tx().itemAdded(placement.item.name));
+            toast.success((addedToast ?? tx().itemAdded)(placement.item.name));
           }
           return placement.item;
         }

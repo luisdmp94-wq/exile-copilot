@@ -1,4 +1,5 @@
 import {
+  isEquippedItem,
   readCharacterLevel,
   type CharacterProfile,
   type Item,
@@ -106,7 +107,8 @@ export function assessCharacterReadiness(
   }
 
   const equippedItemCount = profile.items.filter(
-    (item) => item.slot !== "other" && !NON_EQUIPMENT_RARITIES.has(item.rarity),
+    (item) =>
+      isEquippedItem(item) && item.slot !== "other" && !NON_EQUIPMENT_RARITIES.has(item.rarity),
   ).length;
   if (equippedItemCount === 0) {
     issues.push({

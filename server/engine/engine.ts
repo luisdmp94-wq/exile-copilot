@@ -14,7 +14,7 @@ import type {
   RecommendationMemoryImpact,
   SourceEvidence,
 } from "../../shared/domain.js";
-import { compactJournalTitle } from "../../shared/domain.js";
+import { compactJournalTitle, withEquippedItemsOnly } from "../../shared/domain.js";
 import type { MarketRates } from "../../shared/api.js";
 import {
   tr,
@@ -339,7 +339,9 @@ export async function generateRecommendations(
     };
   }
   const ctx = {
-    profile,
+    // Una pieza que el jugador solo está mirando no es su equipo: las reglas
+    // aconsejan sobre lo que lleva puesto.
+    profile: withEquippedItemsOnly(profile),
     league: options.league,
     patch: options.patch,
     ...(options.target !== undefined ? { target: options.target } : {}),

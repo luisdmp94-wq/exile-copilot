@@ -143,14 +143,14 @@ const TEXT = texts(
     goalPlaceholderArmour: "p. ej. Quiero más vida o resistencias en esta pieza",
     goalPlaceholderJewel: "p. ej. Quiero más resistencias en esta joya",
     tellNextStep: "Dime el siguiente paso",
-    repairFirst: "Repara primero la lectura de la pieza.",
+    repairFirst: "Antes necesito la copia completa de la pieza (Ctrl+Alt+C).",
     pickExactGoal: "Elige un objetivo exacto.",
     quickOption: "O elige una forma rápida",
     moreDamage: "Más daño",
     hitHarder: "Pegar más fuerte",
     improveDamageGoal: "Quiero mejorar el daño",
     damageNote:
-      "El daño puede ser físico, elemental, crítico o velocidad. Elige qué debe aportar el siguiente afijo.",
+      "El daño puede ser físico, elemental, crítico o velocidad. Elige qué quieres que gane la pieza.",
     moreDefence: "Más defensa",
     surviveMore: "Aguantar más",
     improveDefenceGoal: "Quiero mejorar la defensa",
@@ -187,8 +187,8 @@ const TEXT = texts(
     characterFit: (name: string) =>
       `A tu personaje le falta algo, pero eso no demuestra que ${name} sea la pieza adecuada para cubrirlo.`,
     lookForFocus: (label: string) => `Buscar ${label} en esta pieza`,
-    damageFocusNote: "Elige qué tipo de daño debe aportar el siguiente afijo.",
-    defenceFocusNote: "Elige qué defensa debe aportar el siguiente afijo.",
+    damageFocusNote: "Elige qué tipo de daño quieres que gane.",
+    defenceFocusNote: "Elige qué defensa quieres que gane.",
     chooseDamage: "Elegir daño",
     chooseDefence: "Elegir defensa",
     damageType: "Tipo de daño",
@@ -197,19 +197,19 @@ const TEXT = texts(
     goalLabel: "Objetivo ·",
     noDirection: "sin dirección",
     change: "Cambiar",
-    characterLabel: "Personaje:",
+    characterLabel: "Lo miro para:",
     activeCharacter: "activo",
     planName: (name: string) => ` · plan ${name}`,
-    noBudget: " · presupuesto sin declarar.",
+    noBudget: ".",
     budgetLimit: (amount: number, currency: string) => ` · límite ${amount} ${currency}.`,
     noCharacterLabel: "Sin personaje cargado:",
     noCharacterBody: "me guío solo por tu objetivo, sin mirar tu build.",
     seeAnalysis: "Ver análisis",
     character: "Personaje",
     base: "Base",
-    planHasPriority: (label: string) => `Esta prioridad aparece en tu plan: ${label}.`,
+    planHasPriority: (label: string) => `Tu plan también pide esto: ${label}.`,
     planLacksPriority:
-      "Esta prioridad no aparece entre los mods deseados del plan. Puedes trabajarla, pero no la trataré como objetivo de la build.",
+      "Tu plan no pide esto. Puedes hacerlo igual.",
     stopLabel: "Meta:",
     stopSummary: (focus: string, roll: string, steps: number): string =>
       `${focus}, ${roll}. Máximo ${steps} ${steps === 1 ? "paso" : "pasos"}.`,
@@ -340,7 +340,7 @@ const TEXT = texts(
     goalPlaceholderArmour: "e.g. I want more life or resistances on this item",
     goalPlaceholderJewel: "e.g. I want more resistances on this jewellery",
     tellNextStep: "Tell me the next step",
-    repairFirst: "Fix the item reading first.",
+    repairFirst: "First I need the full copy of the item (Ctrl+Alt+C).",
     pickExactGoal: "Pick an exact goal.",
     quickOption: "Or pick a quick option",
     moreDamage: "More damage",
@@ -394,19 +394,19 @@ const TEXT = texts(
     goalLabel: "Goal ·",
     noDirection: "no direction",
     change: "Change",
-    characterLabel: "Character:",
+    characterLabel: "Checked for:",
     activeCharacter: "character loaded",
     planName: (name: string) => ` · plan ${name}`,
-    noBudget: " · no budget set.",
+    noBudget: ".",
     budgetLimit: (amount: number, currency: string) => ` · limit ${amount} ${currency}.`,
     noCharacterLabel: "No character loaded:",
     noCharacterBody: "I'll use your goal without checking it against a build.",
     seeAnalysis: "See analysis",
     character: "Character",
     base: "Base",
-    planHasPriority: (label: string) => `This priority is in your plan: ${label}.`,
+    planHasPriority: (label: string) => `Your plan asks for this too: ${label}.`,
     planLacksPriority:
-      "This priority isn't among your plan's wanted modifiers. You can work on it, but I won't treat it as a build goal.",
+      "Your plan doesn't ask for this. You can still do it.",
     stopLabel: "Target:",
     stopSummary: (focus: string, roll: string, steps: number) =>
       `${focus}, ${roll}. At most ${steps} ${steps === 1 ? "step" : "steps"}.`,
@@ -1869,6 +1869,11 @@ export function CraftingCoach({
                   {activeNeedsRepair ? t.repairFirst : t.pickExactGoal}
                 </span>
               )}
+              {/* Con una copia incompleta estos atajos llevaban a un callejón:
+                  dejaban elegir dos cosas y luego decían que no. Se ocultan
+                  hasta que la pieza se pueda leer entera. */}
+              {!activeNeedsRepair && (
+              <>
               <p className="mt-4 text-xs font-semibold text-muted-foreground">
                 {t.quickOption}
               </p>
@@ -1935,6 +1940,8 @@ export function CraftingCoach({
                   }}
                 />
               </div>
+              </>
+              )}
               {characterQuestion !== null && (
                 <div
                   className="mt-3 rounded-md border border-sky-500/40 bg-sky-500/[0.07] p-3"
@@ -2238,7 +2245,7 @@ export function CraftingCoach({
 
           {directionChosen && (
             <div
-              className={`rounded-md border px-3 py-1.5 text-xs ${
+              className={`order-1 rounded-md border px-3 py-1.5 text-xs ${
                 hasCraftingCharacterContext(profile)
                   ? "border-cyan-400/30 bg-cyan-500/[0.06] text-cyan-50"
                   : "border-amber-500/35 bg-amber-500/[0.07] text-amber-50"
@@ -2248,7 +2255,7 @@ export function CraftingCoach({
             >
               {hasCraftingCharacterContext(profile) ? (
                 <p>
-                  <span className="font-semibold">{t.characterLabel}</span> {profile ? displayProfileValue(profile.name) : null} · {t.activeCharacter}
+                  <span className="font-semibold">{t.characterLabel}</span> {profile ? displayProfileValue(profile.name) : null}
                   {target ? t.planName(target.name) : ""}
                   {budget === null
                     ? t.noBudget
@@ -2319,7 +2326,7 @@ export function CraftingCoach({
 
           {directionChosen && focus !== null && targetFocuses.length > 0 && (
             <p
-              className={`rounded-md border px-3 py-2 text-xs ${
+              className={`order-1 rounded-md border px-3 py-2 text-xs ${
                 targetFocuses.includes(focus)
                   ? "border-emerald-400/30 bg-emerald-500/[0.06] text-emerald-100"
                   : "border-amber-500/35 bg-amber-500/[0.07] text-amber-100"
@@ -2338,7 +2345,7 @@ export function CraftingCoach({
             simulationMode === null &&
             step.kind === "use-currency" && (
             <div
-              className="rounded-md border border-primary/30 bg-primary/[0.05] px-3 py-2.5 text-xs leading-relaxed"
+              className="order-1 rounded-md border border-primary/30 bg-primary/[0.05] px-3 py-2.5 text-xs leading-relaxed"
               data-testid="coach-condicion-parada"
             >
               <p>
@@ -2396,7 +2403,7 @@ export function CraftingCoach({
 
           {directionChosen && (protectedModifiers.length > 0 || unresolvedProtections.length > 0) && (
             <div
-              className="rounded-md border border-border/70 bg-muted/[0.05] px-3 py-2 text-xs"
+              className="order-1 rounded-md border border-border/70 bg-muted/[0.05] px-3 py-2 text-xs"
               data-testid="coach-protecciones"
             >
               {protectedModifiers.length > 0 && (

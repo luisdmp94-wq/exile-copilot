@@ -45,6 +45,7 @@ import {
 } from "./craftingWeaponPerformance.js";
 import {
   RESISTANCE_LABELS,
+  isEquippedItem,
   type BuildTarget,
   type CharacterProfile,
   type GoalKind,
@@ -1360,7 +1361,10 @@ export function assessPurposefulCraftBase(input: {
     hasCharacter &&
       profile &&
       item.slot !== "other" &&
-      profile.items.some((candidate) => candidate.id === item.id && candidate.slot === item.slot),
+      profile.items.some(
+        (candidate) =>
+          candidate.id === item.id && candidate.slot === item.slot && isEquippedItem(candidate),
+      ),
   );
   const characterContext: CoachBaseAssessment["characterContext"] = linked
     ? "linked"

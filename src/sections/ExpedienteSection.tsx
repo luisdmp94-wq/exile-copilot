@@ -13,7 +13,7 @@ const TEXT = texts(
   {
     equipment: "Equipo",
     unverified: (count: number) =>
-      `${count} dato(s) sin verificar — ver «Evidencia y limitaciones»`,
+      `${count} ${count === 1 ? "dato" : "datos"} sin comprobar — mira «Qué sé y qué no»`,
     editProfile: "Editar personaje",
     editHint: "Nivel, resistencias y habilidades: rellénalo rápido con una captura o un código de PoB2.",
     restoring: "Restaurando tu último personaje…",
@@ -21,7 +21,7 @@ const TEXT = texts(
   {
     equipment: "Equipment",
     unverified: (count: number) =>
-      `${count} unverified ${count === 1 ? "detail" : "details"} — see “Evidence and limits”`,
+      `${count} unverified ${count === 1 ? "detail" : "details"} — see “What I know and what I don't”`,
     editProfile: "Edit character",
     editHint: "Level, resistances and skills: fill them in fast with a screenshot or a PoB2 code.",
     restoring: "Restoring your last character…",

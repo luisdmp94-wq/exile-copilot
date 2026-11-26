@@ -23,8 +23,10 @@ const TEXT = texts(
     title: "La build que quieres alcanzar",
     referenceBadge: "Referencia, no verificada",
     planBadge: "Plan .build oficial importado",
-    openHint: "Abrir importación y objetivo opcional",
-    engineDataSummary: "Qué información usa el Copiloto",
+    openHint: "Opcional. Elige una de las 10 de arriba o ábrelo para pegar la tuya.",
+    chosenTitle: (name: string) => `Tu objetivo: ${name}`,
+    chosenHint: "Ábrelo para cambiarlo o quitarlo.",
+    engineDataSummary: "Qué información usa el Mentor",
     engineDataBody:
       "El nombre, el resultado buscado y los mods deseados sí se envían al motor y pueden cambiar las recomendaciones. El enlace solo se guarda como referencia: no se descarga ni se verifica su contenido.",
     planTitle: "Plan importado desde un archivo .build oficial",
@@ -45,8 +47,10 @@ const TEXT = texts(
     title: "The build you want to reach",
     referenceBadge: "Reference, not verified",
     planBadge: "Official .build plan imported",
-    openHint: "Open import and optional target",
-    engineDataSummary: "What the Copilot uses",
+    openHint: "Optional. Pick one of the 10 above or open this to paste your own.",
+    chosenTitle: (name: string) => `Your target: ${name}`,
+    chosenHint: "Open it to change or remove it.",
+    engineDataSummary: "What the Mentor uses",
     engineDataBody:
       "The name, the goal and the wanted modifiers are sent to the engine and can change the recommendations. The link is only kept as a reference: we don't download or check what's on it.",
     planTitle: "Plan imported from an official .build file",
@@ -148,7 +152,9 @@ export function TargetSection({
           {t.kicker}
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="dossier-title text-xl font-semibold text-foreground">{t.title}</span>
+          <span className="dossier-title text-xl font-semibold text-foreground" data-testid="target-title">
+            {draft.name.trim() ? t.chosenTitle(draft.name.trim()) : t.title}
+          </span>
           <Badge
             variant="outline"
             className="border-amber-500/40 bg-amber-500/10 text-amber-300"
@@ -166,7 +172,7 @@ export function TargetSection({
           )}
         </div>
         <span className="mt-1.5 block text-xs text-muted-foreground">
-          {t.openHint}
+          {draft.name.trim() ? t.chosenHint : t.openHint}
         </span>
       </summary>
       <div className="flex flex-col gap-6 border-t border-border/70 px-6 py-6">

@@ -14,7 +14,7 @@ import {
   Sword,
   type LucideIcon,
 } from "lucide-react";
-import type { Item } from "@shared/domain.js";
+import { isEquippedItem, type Item } from "@shared/domain.js";
 import { Button } from "@/components/ui/button";
 import { useFormatLabels } from "@/lib/formatLabels";
 import { texts, useLang, useText } from "@/i18n/lang";
@@ -22,20 +22,24 @@ import { texts, useLang, useText } from "@/i18n/lang";
 const TEXT = texts(
   {
     title: "Equipo de tu personaje",
-    counts: (equipped: number, empty: number) => `${equipped} equipado(s) · ${empty} vacío(s)`,
+    // «Vacío» era falso: lo que falta es lo que el jugador aún no ha pegado.
+    counts: (equipped: number, empty: number) =>
+      `${equipped} ${equipped === 1 ? "pieza" : "piezas"} · ${empty} ${empty === 1 ? "hueco" : "huecos"} sin pegar`,
     flasks: (count: number) => `Frascos y viales (${count})`,
     noFlasks: "Sin información de frascos.",
-    diagnosis: "Diagnóstico",
+    diagnosis: "Detalle",
     diagnosisSummary: (items: number, empty: number, unverified: number) =>
-      ` · ${items} objetos · ${empty} huecos · ${unverified} mods sin verificar`,
+      ` · ${items} ${items === 1 ? "objeto" : "objetos"} · ${empty} sin pegar · ${unverified} mods sin verificar`,
     registered: "Objetos registrados",
-    emptySlots: "Ranuras vacías",
+    emptySlots: "Huecos sin pegar",
     byYou: "Objetos indicados por ti",
     noSource: "Objetos sin fuente",
     unverifiedMods: "Modificadores sin verificar",
     highlighted: "Señalados por recomendaciones",
     scope: "Solo tu equipo real; sin puntuaciones, comparación con el meta ni objetos de una build objetivo.",
     others: (count: number) => `Otros objetos (${count})`,
+    notWorn: (count: number) => `Piezas que solo estás mirando (${count})`,
+    notWornHint: "No las llevas puestas: no cuentan para los consejos.",
     emptySlot: "Ranura vacía",
     addPiece: "Añadir pieza",
     pasteHere: "Pegar pieza",
@@ -44,20 +48,23 @@ const TEXT = texts(
   },
   {
     title: "Your character's gear",
-    counts: (equipped: number, empty: number) => `${equipped} equipped · ${empty} empty`,
+    counts: (equipped: number, empty: number) =>
+      `${equipped} ${equipped === 1 ? "item" : "items"} · ${empty} ${empty === 1 ? "slot" : "slots"} not pasted yet`,
     flasks: (count: number) => `Flasks and charms (${count})`,
     noFlasks: "No flask information.",
-    diagnosis: "Diagnosis",
+    diagnosis: "Details",
     diagnosisSummary: (items: number, empty: number, unverified: number) =>
-      ` · ${items} items · ${empty} empty slots · ${unverified} unverified modifiers`,
+      ` · ${items} ${items === 1 ? "item" : "items"} · ${empty} not pasted · ${unverified} unverified modifiers`,
     registered: "Recorded items",
-    emptySlots: "Empty slots",
+    emptySlots: "Slots not pasted yet",
     byYou: "Items you entered",
     noSource: "Items without a source",
     unverifiedMods: "Unverified modifiers",
     highlighted: "Pointed out by recommendations",
     scope: "Only your real gear; no scores, no meta comparison and no items from a target build.",
     others: (count: number) => `Other items (${count})`,
+    notWorn: (count: number) => `Items you're only looking at (${count})`,
+    notWornHint: "You're not wearing them: they don't count towards the advice.",
     emptySlot: "Empty slot",
     addPiece: "Add an item",
     pasteHere: "Paste an item",
@@ -177,7 +184,7 @@ export function EquipmentPanel({
           {t.title}
         </h3>
         <span className="text-xs text-muted-foreground" data-testid="equipo-recuento">
-          {t.counts(diagnostics.equipped, diagnostics.emptySlots)}
+          {t.counts(layout.filledCount, diagnostics.emptySlots)}
         </span>
       </div>
       {/* La paperdoll manda: ocupa todo el ancho y empieza cuanto antes, para
@@ -288,8 +295,13 @@ export function EquipmentPanel({
       {layout.extraItems.length > 0 && (
         <div className="flex flex-col gap-2">
           <h4 className="rotulo-seccion text-muted-foreground">
-            {t.others(layout.extraItems.length)}
+            {layout.extraItems.every((item) => !isEquippedItem(item))
+              ? t.notWorn(layout.extraItems.length)
+              : t.others(layout.extraItems.length)}
           </h4>
+          {layout.extraItems.some((item) => !isEquippedItem(item)) && (
+            <p className="text-[11px] text-muted-foreground">{t.notWornHint}</p>
+          )}
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {layout.extraItems.map((item) => (
               <li key={item.id}>

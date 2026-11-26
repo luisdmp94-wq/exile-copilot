@@ -29,11 +29,12 @@ const TEXT = texts(
     addMoreItems:
       "Pega más piezas y el consejo sobre tu equipo será más completo.",
     nextStepPartial: (count: number) =>
-      `Tu siguiente paso · diagnóstico parcial, ${count} ${count === 1 ? "pieza observada" : "piezas observadas"}`,
+      `Tu siguiente paso · con ${count === 1 ? "la pieza que he visto" : `las ${count} piezas que he visto`}`,
     nextStep: "Tu siguiente paso",
     nextStepSr: "Una sola decisión cada vez; lo que hagas queda en tu diario.",
-    evidence: "Evidencia y limitaciones",
-    yourCopilot: "Tu copiloto",
+    evidence: "Qué sé y qué no",
+    firstFix: "Lo primero que arreglaría",
+    seeFullReview: "Ver la revisión completa",
     talkToMentor: "Habla con tu Mentor",
     openChat: "Abrir conversación",
     close: "Cerrar",
@@ -61,11 +62,12 @@ const TEXT = texts(
     addMoreItems:
       "Paste more items and the advice on your gear will be more complete.",
     nextStepPartial: (count: number) =>
-      `Your next step · partial diagnosis, ${count} ${count === 1 ? "item seen" : "items seen"}`,
+      `Your next step · from the ${count === 1 ? "item" : `${count} items`} I've seen`,
     nextStep: "Your next step",
     nextStepSr: "One decision at a time; whatever you do is saved in your journal.",
-    evidence: "Evidence and limits",
-    yourCopilot: "Your copilot",
+    evidence: "What I know and what I don't",
+    firstFix: "What I'd fix first",
+    seeFullReview: "See the full review",
     talkToMentor: "Talk to your Mentor",
     openChat: "Open chat",
     close: "Close",
@@ -90,6 +92,13 @@ interface OpenCaseProps {
   evidenceSlot: ReactNode | null;
   /** Pregunta rápida al Mentor, al pie de la tarjeta y fuera del caso medido. */
   mentorAskSlot?: ReactNode;
+  /**
+   * Lo que más frena según la revisión rápida, si ya se sabe. Respuesta
+   * primero: antes la cabecera mandaba a «contestar la revisión, aquí abajo»
+   * cuando la respuesta ya estaba calculada dos pantallas más abajo.
+   */
+  quickAnswer?: { title: string; action: string } | null;
+  onSeeQuickReview?: () => void;
 }
 
 /**
@@ -112,6 +121,8 @@ export function OpenCase({
   generateSlot,
   evidenceSlot,
   mentorAskSlot,
+  quickAnswer = null,
+  onSeeQuickReview,
 }: OpenCaseProps) {
   const t = useText(TEXT);
   const isWaitingForDiagnosis = selection.kind === "generate";
@@ -120,6 +131,8 @@ export function OpenCase({
   // Solo falta pegar equipo: no es «faltan datos», la revisión rápida ya puede contestar.
   const gearOnly =
     !profileReady && profileReadiness.issues.length === 1 && profileReadiness.issues[0]?.id === "equipment";
+  // Sin diagnóstico del motor, la revisión rápida ya tiene algo que decir.
+  const answerFirst = quickAnswer !== null && (gearOnly || partialAnalysis);
   const dominant =
     selection.kind === "session"
       ? sessionSlot
@@ -165,7 +178,9 @@ export function OpenCase({
               </span>
               <div className="min-w-0 max-w-prose">
               <p className="rotulo-seccion text-primary/70">
-                {partialAnalysis
+                {answerFirst
+                  ? t.firstFix
+                  : partialAnalysis
                   ? t.partialAvailable
                   : profileReady
                     ? t.readyToAnalyse
@@ -177,7 +192,9 @@ export function OpenCase({
                 id="caso-abierto-titulo"
                 className="dossier-title mt-1.5 text-2xl font-semibold leading-tight text-primary"
               >
-                {partialAnalysis
+                {answerFirst && quickAnswer
+                  ? quickAnswer.title
+                  : partialAnalysis
                   ? t.whatCanICheck
                   : profileReady
                     ? t.whatToImprove
@@ -185,8 +202,13 @@ export function OpenCase({
                       ? t.gearOnlyTitle
                       : t.completeCharacter}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {partialAnalysis
+              <p
+                className={`mt-2 text-sm leading-relaxed ${answerFirst ? "text-foreground" : "text-muted-foreground"}`}
+                data-testid={answerFirst ? "caso-respuesta-rapida" : undefined}
+              >
+                {answerFirst && quickAnswer
+                  ? quickAnswer.action
+                  : partialAnalysis
                   ? t.partialIntro(profileReadiness.equippedItemCount)
                   : profileReady
                   ? t.readyIntro
@@ -194,6 +216,16 @@ export function OpenCase({
                     ? t.gearOnlyIntro
                     : t.needDataIntro}
               </p>
+              {answerFirst && onSeeQuickReview && (
+                <button
+                  type="button"
+                  className="mt-2 text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+                  onClick={onSeeQuickReview}
+                  data-testid="caso-ver-revision"
+                >
+                  {t.seeFullReview}
+                </button>
+              )}
               {partialAnalysis && (
                 <p
                   data-testid="profile-partial-analysis"
@@ -270,10 +302,9 @@ export function MentorBriefing({
         data-testid="mentor-briefing-toggle"
       >
         <span>
-          <span className="rotulo-seccion block text-primary/70">{t.yourCopilot}</span>
           <span
             id="mentor-briefing-titulo"
-            className="dossier-title mt-0.5 block text-lg font-semibold text-foreground"
+            className="dossier-title block text-lg font-semibold text-foreground"
           >
             {t.talkToMentor}
           </span>

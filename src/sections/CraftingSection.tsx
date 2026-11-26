@@ -57,10 +57,10 @@ const TEXT = texts(
     laboratoryCompact: "Avanzado",
     laboratoryDetail: "Como Ayuda en vivo, pero tú decides qué proteger y cuándo parar.",
     chooserLabel: "Cómo quieres usar Crafting",
-    advancedTools: "Herramientas avanzadas",
+    advancedTools: "Banco manual",
     activeCraftBelow: "Tienes un craft en marcha aquí abajo.",
     pausedCraftBelow: "Tienes un craft guardado aquí abajo.",
-    advancedToolsDetail: "Lo mismo, pero eligiendo tú cada moneda y qué proteger.",
+    advancedToolsDetail: "Para elegir tú cada moneda. No hace falta para seguir la ayuda de arriba.",
     patchCoverageLoading: "La cobertura del parche todavía no se ha cargado.",
     patchStopped: "Crafting detenido por seguridad",
     patchNeedsReview: (patchId: string) => `El parche ${patchId} necesita revisión`,
@@ -69,6 +69,7 @@ const TEXT = texts(
     laboratoryLocked: "Para empezar",
     needRealItem: "Enséñame la pieza",
     needRealItemDetail: "En PoE2, pasa el ratón por el objeto y pulsa Ctrl+Alt+C; luego pégalo aquí.",
+    laboratoryDifference: "Aquí decides tú qué líneas proteger y cuándo parar. Si es tu primera vez, empieza por «Ayuda en vivo».",
     pasteGameItem: "Pegar un objeto del juego",
     craftingBench: "Banco de crafting",
     laboratoryFlow: "Te digo la moneda · la usas en PoE2 · pegas lo que salió.",
@@ -99,10 +100,10 @@ const TEXT = texts(
     laboratoryCompact: "Advanced",
     laboratoryDetail: "Like Live help, but you decide what to protect and when to stop.",
     chooserLabel: "How you want to use Crafting",
-    advancedTools: "Advanced tools",
+    advancedTools: "Manual bench",
     activeCraftBelow: "You have a craft in progress below.",
     pausedCraftBelow: "You have a saved craft below.",
-    advancedToolsDetail: "Manual control of goals, protections and currency.",
+    advancedToolsDetail: "To pick every currency yourself. You don't need it to follow the help above.",
     patchCoverageLoading: "Patch coverage hasn't loaded yet.",
     patchStopped: "Crafting paused for safety",
     patchNeedsReview: (patchId: string) => `Patch ${patchId} needs a review`,
@@ -111,6 +112,7 @@ const TEXT = texts(
     laboratoryLocked: "To get started",
     needRealItem: "Show me the item",
     needRealItemDetail: "In PoE2, hover the item and press Ctrl+Alt+C; then paste it here.",
+    laboratoryDifference: "Here you decide which lines to protect and when to stop. If it's your first time, start with “Live help”.",
     pasteGameItem: "Paste an item from the game",
     craftingBench: "Crafting bench",
     laboratoryFlow: "I name the currency · you use it in PoE2 · you paste what came out.",
@@ -526,6 +528,7 @@ export function CraftingSection({
               {t.laboratoryLocked}
             </p>
             <h2 className="dossier-title text-2xl font-semibold">{t.needRealItem}</h2>
+            <p className="mt-2 text-sm text-foreground">{t.laboratoryDifference}</p>
             <p className="mt-2 text-sm text-muted-foreground">
               {t.needRealItemDetail}
             </p>

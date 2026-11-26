@@ -1,5 +1,7 @@
+import { useState } from "react";
 import {
   BookOpenCheck,
+  Check,
   ExternalLink,
   RefreshCw,
   ShieldCheck,
@@ -23,7 +25,7 @@ const TEXT = texts(
     categories: {
       starter: "Para empezar",
       mapping: "Mapeo",
-      bossing: "Bosses",
+      bossing: "Jefes",
       survival: "Supervivencia",
       budget: "Calidad/precio",
       ssf: "SSF",
@@ -50,6 +52,13 @@ const TEXT = texts(
     verified: "Verificada",
     limit: "Límite:",
     useAsTarget: "Usar como objetivo",
+    isTarget: "Es tu objetivo",
+    yourClass: "Tu clase",
+    classFirst: (name: string) => `Primero, las de tu clase (${name}).`,
+    targetSaved: (name: string) => `Objetivo guardado: ${name}.`,
+    targetUse: "Lo tengo en cuenta al aconsejarte en Personaje y en Crafting. Tu personaje no cambia.",
+    goToCharacter: "Ver qué mejorar ahora",
+    showAll: (count: number) => `Ver las ${count} builds`,
     openSourceAria: (label: string, author: string, host: string) => `Abrir ${label} de ${author} en ${host}`,
     source: "Fuente",
     reviewedOn: (date: string) =>
@@ -86,6 +95,13 @@ const TEXT = texts(
     verified: "Verified",
     limit: "Limit:",
     useAsTarget: "Use as target",
+    isTarget: "It's your target",
+    yourClass: "Your class",
+    classFirst: (name: string) => `Your class first (${name}).`,
+    targetSaved: (name: string) => `Target saved: ${name}.`,
+    targetUse: "I keep it in mind when I advise you in Character and in Crafting. Your character doesn't change.",
+    goToCharacter: "See what to improve now",
+    showAll: (count: number) => `Show all ${count} builds`,
     openSourceAria: (label: string, author: string, host: string) => `Open ${label} by ${author} on ${host}`,
     source: "Source",
     reviewedOn: (date: string) =>
@@ -107,7 +123,18 @@ interface FeaturedBuildsSectionProps {
   error: string | null;
   onReload: () => void;
   onUseAsTarget: (build: FeaturedBuild) => void;
+  /** Clase del personaje cargado: sus builds salen primero. */
+  characterClass?: string | null;
+  /** Nombre de la build objetivo actual, para que elegir una deje huella. */
+  activeTargetName?: string | null;
+  onOpenCharacter?: () => void;
 }
+
+/** En móvil, diez fichas son diez pantallas: se enseñan estas y un botón. */
+const MOBILE_VISIBLE_BUILDS = 4;
+
+const plain = (value: string | null | undefined) =>
+  (value ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
 
 export function FeaturedBuildsSection({
   result,
@@ -115,9 +142,35 @@ export function FeaturedBuildsSection({
   error,
   onReload,
   onUseAsTarget,
+  characterClass = null,
+  activeTargetName = null,
+  onOpenCharacter,
 }: FeaturedBuildsSectionProps) {
   const t = useText(TEXT);
   const { lang } = useLang();
+  const [showAll, setShowAll] = useState(false);
+  const myClass = plain(characterClass);
+  // El número (#3) es el puesto en la selección y no cambia; lo que cambia es
+  // el orden en pantalla: primero las de la clase que ya juegas.
+  const ranked = (result?.builds ?? []).map((entry, index) => ({
+    entry,
+    rank: index + 1,
+    mine:
+      myClass !== "" &&
+      (plain(entry.characterClass) === myClass ||
+        plain(localizeFeaturedBuild(entry, "en").characterClass) === myClass),
+  }));
+  const ordered = [...ranked.filter((build) => build.mine), ...ranked.filter((build) => !build.mine)];
+  const hasMine = ordered.some((build) => build.mine);
+  const targetName = plain(activeTargetName);
+  const targetBuild =
+    targetName === ""
+      ? null
+      : (result?.builds ?? []).find(
+          (entry) =>
+            plain(entry.title) === targetName ||
+            plain(localizeFeaturedBuild(entry, "en").title) === targetName,
+        ) ?? null;
   const methodology = (lang === "en" ? result?.methodologyEn : undefined) ?? result?.methodology ?? [];
   if (!loading && !error && result && result.builds.length === 0) {
     return (
@@ -213,21 +266,56 @@ export function FeaturedBuildsSection({
           </Alert>
         )}
 
+        {/* Elegir una build deja huella: antes solo salía un aviso de tres segundos. */}
+        {!loading && !error && targetBuild && (
+          <div
+            className="flex flex-col gap-3 rounded-md border border-primary/40 bg-primary/[0.06] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+            data-testid="featured-builds-target"
+          >
+            <p className="min-w-0 text-sm">
+              <span className="font-semibold text-foreground">
+                {t.targetSaved(localizeFeaturedBuild(targetBuild, lang).title)}
+              </span>{" "}
+              <span className="text-muted-foreground">{t.targetUse}</span>
+            </p>
+            {onOpenCharacter && (
+              <Button type="button" size="sm" className="shrink-0" onClick={onOpenCharacter}>
+                {t.goToCharacter}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && result && result.builds.length > 0 && hasMine && (
+          <p className="-mb-2 text-sm text-muted-foreground" data-testid="featured-builds-class-first">
+            {t.classFirst(characterClass?.trim() ?? "")}
+          </p>
+        )}
+
         {!loading && !error && result && result.builds.length > 0 && (
           <div className="grid gap-4 lg:grid-cols-2">
-            {result.builds.map((entry, index) => {
+            {ordered.map(({ entry, rank, mine }, position) => {
               const build = localizeFeaturedBuild(entry, lang);
+              const isTarget = targetBuild?.id === entry.id;
               return (
               <article
                 key={build.id}
-                className="grid overflow-hidden rounded-md border border-border/80 bg-background/40 sm:grid-cols-[8.5rem_minmax(0,1fr)]"
+                data-target={isTarget ? "true" : undefined}
+                className={`${!showAll && position >= MOBILE_VISIBLE_BUILDS ? "hidden sm:grid" : "grid"} overflow-hidden rounded-md border bg-background/40 sm:grid-cols-[8.5rem_minmax(0,1fr)] ${
+                  isTarget ? "border-primary/70 ring-1 ring-primary/40" : "border-border/80"
+                }`}
               >
-                <div className="grid min-h-36 place-items-center border-b border-primary/25 bg-primary/[0.07] p-4 sm:border-b-0 sm:border-r">
-                  <div className="text-center">
-                    <span className="dossier-title text-4xl text-primary">#{index + 1}</span>
-                    <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                {/* En móvil el puesto es una franja de una línea, no media pantalla. */}
+                <div className="flex items-center justify-center border-b border-primary/25 bg-primary/[0.07] px-4 py-2 sm:grid sm:min-h-36 sm:place-items-center sm:border-b-0 sm:border-r sm:p-4">
+                  <div className="flex items-baseline gap-2 sm:block sm:text-center">
+                    <span className="dossier-title text-2xl text-primary sm:text-4xl">#{rank}</span>
+                    <p className="text-xs font-semibold text-muted-foreground sm:mt-2">
                       {build.characterClass}
                     </p>
+                    {mine && (
+                      <p className="text-[11px] font-semibold text-primary sm:mt-1">{t.yourClass}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 p-5">
@@ -254,9 +342,19 @@ export function FeaturedBuildsSection({
                   <p className="text-sm leading-relaxed text-muted-foreground">{build.whyFeatured}</p>
                   <p className="text-xs text-amber-200/80">{t.limit} {build.caveats[0]}</p>
                   <div className="mt-auto flex flex-wrap gap-2">
-                    <Button type="button" size="sm" onClick={() => onUseAsTarget(build)}>
-                      <Target className="size-4" aria-hidden="true" />
-                      {t.useAsTarget}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isTarget ? "secondary" : "default"}
+                      aria-pressed={isTarget}
+                      onClick={() => onUseAsTarget(build)}
+                    >
+                      {isTarget ? (
+                        <Check className="size-4" aria-hidden="true" />
+                      ) : (
+                        <Target className="size-4" aria-hidden="true" />
+                      )}
+                      {isTarget ? t.isTarget : t.useAsTarget}
                     </Button>
                     <Button asChild type="button" size="sm" variant="outline">
                       <a
@@ -279,6 +377,18 @@ export function FeaturedBuildsSection({
               );
             })}
           </div>
+        )}
+
+        {!loading && !error && result && result.builds.length > MOBILE_VISIBLE_BUILDS && !showAll && (
+          <Button
+            type="button"
+            variant="outline"
+            className="sm:hidden"
+            onClick={() => setShowAll(true)}
+            data-testid="featured-builds-show-all"
+          >
+            {t.showAll(result.builds.length)}
+          </Button>
         )}
 
         {/* De dónde salen los porcentajes y por qué estas diez: a un clic. */}

@@ -147,7 +147,7 @@ describe("informe local de lectura de crafting", () => {
     expect(summary.recognized).toContain("Base: Ballesta de prueba");
     expect(summary.recognized).toContain("Clase: Ballestas");
     expect(summary.missing).toContain("Nivel de objeto");
-    expect(summary.missing).toContain("Estados especiales del tooltip");
-    expect(summary.missing).toContain("Posición de 1 modificador(es)");
+    expect(summary.missing).toContain("Si está corrupta o bloqueada");
+    expect(summary.missing).toContain("Qué líneas son prefijo y cuáles sufijo (1 sin clasificar)");
   });
 });

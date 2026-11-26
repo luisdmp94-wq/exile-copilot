@@ -37,6 +37,7 @@ import {
   GOAL_LABELS,
 } from "@/lib/format";
 import { useFormatLabels } from "@/lib/formatLabels";
+import { marketName } from "@/lib/marketNames";
 import { texts, useText } from "@/i18n/lang";
 
 interface MarketSectionProps {
@@ -61,12 +62,13 @@ type RatesOrigin = "live" | "cache-fresh" | "cache-stale" | "fixture";
 const TEXT = texts(
   {
     kicker: "Mercado",
-    title: "Qué puedes permitirte ahora",
+    title: "Cuánto cuesta cada cosa hoy",
     query: "Consulta",
     league: "Liga",
     chooseLeague: "Elige una liga",
     itemsToCheck: "Objetos a consultar",
-    namesPlaceholder: "p. ej. Exalted Orb, Chaos Orb",
+    namesPlaceholder: "p. ej. Orbe exaltado, Orbe divino",
+    englishNamesHint: "Sin precio: poe.ninja usa los nombres en inglés. Prueba con el nombre en inglés tal cual sale en la wiki.",
     useMyUniques: "Usar mis únicos",
     missingLeague: "Falta: elige una liga",
     missingItem: "Falta: escribe al menos un objeto",
@@ -105,19 +107,20 @@ const TEXT = texts(
     goal: "Objetivo",
     budget: "Presupuesto (opcional)",
     budgetPlaceholder: "Sin declarar",
-    noBudget: "No has declarado un límite. El Copiloto no usará una cifra de ejemplo para decidir por ti.",
+    noBudget: "No has declarado un límite. El Mentor no usará una cifra de ejemplo para decidir por ti.",
     budgetDeclared: (amount: number, currency: string) =>
       `Límite declarado: ${amount} ${currency.toLocaleLowerCase("es")}.`,
     budgetCurrency: "Moneda del presupuesto",
   },
   {
     kicker: "Market",
-    title: "What you can afford right now",
+    title: "What things cost today",
     query: "Price check",
     league: "League",
     chooseLeague: "Choose a league",
     itemsToCheck: "Items to check",
     namesPlaceholder: "e.g. Exalted Orb, Chaos Orb",
+    englishNamesHint: "No price: poe.ninja needs the exact English name. Check the spelling.",
     useMyUniques: "Use my uniques",
     missingLeague: "Missing: choose a league",
     missingItem: "Missing: type at least one item",
@@ -156,7 +159,7 @@ const TEXT = texts(
     goal: "Goal",
     budget: "Budget (optional)",
     budgetPlaceholder: "Not set",
-    noBudget: "You haven't set a limit. The Copilot won't use a made-up number to decide for you.",
+    noBudget: "You haven't set a limit. The Mentor won't use a made-up number to decide for you.",
     budgetDeclared: (amount: number, currency: string) => `Your limit: ${amount} ${currency}.`,
     budgetCurrency: "Budget currency",
   },
@@ -277,7 +280,8 @@ export function MarketSection({
                 }
                 void market.queryPrices(
                   league,
-                  namesText.split(",").map((n) => n.trim()),
+                  // «Orbe exaltado» → «Exalted Orb»: poe.ninja solo sabe inglés.
+                  namesText.split(",").map((n) => marketName(n)),
                   patch,
                 );
               }}
@@ -383,7 +387,7 @@ export function MarketSection({
                   <TableHead>{t.colItem}</TableHead>
                   <TableHead className="text-right">{t.colPrice}</TableHead>
                   <TableHead>{t.colCurrency}</TableHead>
-                  <TableHead>{t.colChecked}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t.colChecked}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -427,13 +431,18 @@ export function MarketSection({
                       )}
                     </TableCell>
                     <TableCell>{labels.currency[quote.currency]}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDateTime(quote.fetchedAt)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            {prices.quotes.some((quote) => quote.value === null) && (
+              <p className="text-xs text-amber-200/85" data-testid="market-names-hint">
+                {t.englishNamesHint}
+              </p>
+            )}
           </div>
         )}
 

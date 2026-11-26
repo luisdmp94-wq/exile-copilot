@@ -83,7 +83,7 @@ function englishCopy(event: ContextualMentorEvent): EnglishCopy {
     case "welcome":
       return {
         eyebrow: "First step",
-        title: "Hi, I'm your Copilot",
+        title: "Hi, I'm your Mentor",
         message: "I tell you what to improve first on your character. What I don't know, I don't make up.",
       };
     case "ready":
