@@ -382,14 +382,53 @@ exactamente?» repite las dos asistencias (no hay datos de cómo se ponen) y el
 
 **Charlas de control (doce turnos, escritas con las instrucciones ya fijas).**
 
-- Antes: 4 bien, 2 a medias, 6 mal.
-- Después: **sin medir.** Los tres primeros turnos salieron bien; desde el
-  cuarto Groq cortó con un 429: se había gastado el cupo gratis del día
-  (200.000 tokens; usados 199.861). Hay que repetirla otro día.
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Antes (código de main) | 4 | 2 | 6 |
+| Después (26-11-2026, una pasada) | **8** | **3** | **1** |
+
+El 25-11 no se pudo medir el «después»: al cuarto turno Groq cortó con un 429
+(cupo gratis del día gastado). Medido el 26-11 a mediodía: los doce turnos los
+redactó el modelo principal (gpt-oss-120b), ninguno cayó a reglas ni a un
+modelo de reserva, de 0,8 a 1,6 s cada uno. Ningún dato inventado: las frases
+de las guías citadas (muros de hielo, 30–40 % de hielo, escudo de Asala, el
+17 % del parche 0.5.2) están tal cual en `server/data/guideKnowledge.json`.
+Las notas son de quien escribió el código: léelas con ese descuento.
+
+Turno a turno:
+
+- **K1 (guerrero, Terremoto): bien, bien, bien.** Da cuatro asistencias; a «¿y
+  por qué esa primero?» dice la verdad («porque su etiqueta encaja mejor, no
+  porque sea la que más daño haga»); a «dame otra» quita Furia y da tres
+  distintas. Antes repetía la misma lista y hablaba de huecos de equipo. La
+  entrada del tercer turno dice «Lucha I» por «Lucha» (fallo conocido).
+- **K2 (guerrero, el conde): bien, bien, mal.** Reconoce a Geonor, dice que
+  pega con hielo, 30–40 % antes de entrar y qué hacer en la fase 1. A «vale, ¿y
+  qué hago en la pelea?» **vuelve al equipo** (resistencia y huecos vacíos) y
+  no dice nada de la pelea: la regla de «qué hago» («lo siguiente que haría»)
+  se queda la pregunta antes de que la charla llegue a la guía.
+- **K3 (exploradora, acto 2): bien, a medias, bien.** Antes, tres «no sé».
+  Ahora: las Hermanas de Garukhan y las Promesas antiguas; «¿y eso dónde está?»
+  sitúa las Hermanas en Las torres de Deshar pero no dice dónde están las
+  Promesas (Valle de los titanes, y el dato está en la guía); el jefe final,
+  bien (Jamanra, rayo, el escudo de Asala).
+- **K4 (exploradora, Flecha de rayo): a medias, bien, a medias.** A «hace poco
+  daño» da cuatro asistencias y se calla lo que antes sí decía: que el arco
+  no tiene ni un mod. A «ya llevo Aceleración de proyectiles» lo reconoce y da
+  otras. A «¿cuál pongo primero?» no nombra ninguna: repite la lista.
+
+Lo que queda flojo, por si se retoca (y entonces este control deja de valer y
+hay que escribir otro): la repregunta «¿qué hago en la pelea?» tras hablar de
+un jefe; «¿dónde está?» cuando la respuesta anterior nombró dos cosas; «¿cuál
+primero?» sin decir una; y el arma sin mods cuando alguien dice que hace poco
+daño. Los cierres siguen ofreciendo a veces lo que el Mentor no sabe («¿quieres
+que te explique cómo enlazarlas?», «¿tips para la fase 1?»).
 
 Las respuestas, tal cual, están en `docs/mediciones/tarea-13/` (bruja antes y
-después, control antes). El «antes» del control se midió con el código de main:
-no hace falta repetirlo.
+después, control antes y después). El «antes» del control se midió con el
+código de main. La charla de la bruja no se repitió el 26-11: desde su medición
+solo cambiaron los modelos de reserva, no lo que escribe la IA, y cada pasada
+gasta cupo de todos los visitantes.
 
 **Lo que costó la medición.** Cada respuesta redactada gasta de 2.500 a 4.000
 tokens. Con el cupo gratis salen unas 60 respuestas al día para todos los

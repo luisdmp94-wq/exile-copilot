@@ -158,8 +158,15 @@ la siguiente. Nada se sube sin su sí.
   Pagar en Groq está cerrado; para no depender de un solo cupo, si el modelo
   principal se queda sin él la petición va a dos de reserva (gpt-oss-20b y
   qwen3.8-27b): tres cupos de 200.000 tokens al día en vez de uno.
-  **Siguiente:** `node scripts/mentor-charla.mjs --control` y la de la bruja
-  otra vez; si el control mejora, batería completa y decide Luis si se sube.
+  → El 26-11, **control medido: de 4 bien, 2 a medias y 6 mal a 8 bien, 3 a
+  medias y 1 mal** (una pasada, doce turnos, todos con el modelo principal,
+  sin datos inventados). El que falla: tras hablar del conde, «¿y qué hago en
+  la pelea?» vuelve al equipo. A medias: «¿dónde está?» sitúa solo una de dos
+  cosas, «¿cuál pongo primero?» no nombra ninguna y «hace poco daño» se calla
+  el arma sin mods. Detalle turno a turno en `docs/MEDICION-MENTOR-2.md`.
+  En la rama, el 26-11: lint, las 1713 pruebas y `npm run build` en verde; las
+  pruebas de humo, sin pasar (se pasan al fusionar).
+  **Sigue en la rama `mentor-conversa`, sin subir: decide Luis.**
 
 ### Del 8 al 10 de diciembre
 
