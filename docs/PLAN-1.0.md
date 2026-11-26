@@ -168,6 +168,24 @@ la siguiente. Nada se sube sin su sí.
   pruebas de humo, sin pasar (se pasan al fusionar).
   **Subido a main el 26-11 con el «sí, súbelo» de Luis.** Lo flojo del control
   queda para otro chat, con un control nuevo (este ya no vale si se retoca).
+  Comprobado en la web publicada el 26-11 con una charla de dos turnos (el
+  conde del acto 1): contesta la IA, sigue el hilo y tarda 1 s.
+- [ ] **14. Lo flojo de la charla** (propuesta del 26-11, sale del control de
+  la tarea 13; antes del 8-12). Cuatro casos:
+  - Tras hablar de un jefe, «¿y qué hago en la pelea?» vuelve al equipo: la
+    regla de «qué hago» se queda la pregunta antes de llegar a la guía.
+  - «¿Y eso dónde está?» cuando la respuesta anterior nombró dos cosas: sitúa
+    solo una.
+  - «¿Cuál pongo primero?» repite la lista sin nombrar ninguna.
+  - «Hace poco daño» da asistencias y ya no dice que el arma no tiene mods
+    (antes de la tarea 13 sí lo decía).
+  Y los cierres: a veces ofrecen lo que el Mentor no sabe («¿te explico cómo
+  enlazarlas?») o cambian una palabra de la guía («círculos de hielo» por
+  «manchas de hielo», visto en la web el 26-11).
+  Método: primero escribir un control NUEVO (cuatro charlas, otros personajes,
+  sin mirar respuestas) y medirlo antes; arreglar; medirlo después. El control
+  K1-K4 de `scripts/mentor-charla.mjs` ya está visto: sirve de regresión, no de
+  prueba limpia. Como mucho dos pasadas con IA al día.
 
 ### Del 8 al 10 de diciembre
 
