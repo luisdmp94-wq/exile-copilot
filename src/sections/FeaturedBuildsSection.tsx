@@ -162,6 +162,12 @@ export function FeaturedBuildsSection({
   }));
   const ordered = [...ranked.filter((build) => build.mine), ...ranked.filter((build) => !build.mine)];
   const hasMine = ordered.some((build) => build.mine);
+  // El nombre de la clase, en el idioma de la web: el personaje puede traerla
+  // en inglés («Mercenary») aunque la web esté en español.
+  const firstMine = ordered.find((build) => build.mine);
+  const myClassLabel = firstMine
+    ? localizeFeaturedBuild(firstMine.entry, lang).characterClass
+    : (characterClass?.trim() ?? "");
   const targetName = plain(activeTargetName);
   const targetBuild =
     targetName === ""
@@ -289,7 +295,7 @@ export function FeaturedBuildsSection({
 
         {!loading && !error && result && result.builds.length > 0 && hasMine && (
           <p className="-mb-2 text-sm text-muted-foreground" data-testid="featured-builds-class-first">
-            {t.classFirst(characterClass?.trim() ?? "")}
+            {t.classFirst(myClassLabel)}
           </p>
         )}
 

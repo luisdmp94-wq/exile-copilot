@@ -968,6 +968,10 @@ export const emptySlotsRule: Rule = ({ profile, lang }) => {
     (item) => (EMPTY_SLOT_KEYS as readonly string[]).includes(item.slot),
   ).length;
   if (profile.pobImport === undefined && gearSeen < MIN_BROAD_ANALYSIS_EQUIPMENT) return [];
+  // Con piezas pegadas a mano, aunque sean muchas, un hueco sin pieza puede
+  // estar vacío o simplemente sin enseñar: se pregunta, no se afirma. Solo un
+  // código de PoB trae el equipo entero y permite decir «está vacío».
+  const sure = profile.pobImport !== undefined;
   const occupied = new Set(profile.items.map((item) => item.slot));
   const empty = REQUIRED_SLOTS.filter(({ slot }) => !occupied.has(slot));
   if (empty.length === 0) return [];
@@ -976,20 +980,37 @@ export const emptySlotsRule: Rule = ({ profile, lang }) => {
   return [
     {
       ruleId: "huecos-equipo",
-      title: t("Rellenar los huecos de equipo vacíos", "Fill your empty gear slots"),
-      action: t(
-        `Tienes vacío: ${names}. Hasta un objeto raro barato con vida o resistencias ya ayuda.`,
-        `Empty: ${names}. Even a cheap rare with life or resistances already helps.`,
-      ),
-      reason: t(
-        "Cada hueco vacío es vida, resistencias o daño que no estás recibiendo.",
-        "Every empty slot is life, resistances or damage you're not getting.",
-      ),
+      title: sure
+        ? t("Rellenar los huecos de equipo vacíos", "Fill your empty gear slots")
+        : t("Revisar los huecos que no he visto", "Check the slots I haven't seen"),
+      action: sure
+        ? t(
+            `Tienes vacío: ${names}. Hasta un objeto raro barato con vida o resistencias ya ayuda.`,
+            `Empty: ${names}. Even a cheap rare with life or resistances already helps.`,
+          )
+        : t(
+            `No he visto nada en: ${names}. Si lo llevas vacío, ponle algo: hasta un objeto raro barato con vida o resistencias ya ayuda. Si ya llevas una pieza ahí, pégala en Equipo.`,
+            `I haven't seen anything in: ${names}. If it's empty, put something there: even a cheap rare with life or resistances already helps. If you're wearing an item there, paste it under Gear.`,
+          ),
+      reason: sure
+        ? t(
+            "Cada hueco vacío es vida, resistencias o daño que no estás recibiendo.",
+            "Every empty slot is life, resistances or damage you're not getting.",
+          )
+        : t(
+            "Un hueco vacío es vida, resistencias o daño que no recibes. Solo lo sé seguro si me enseñas la pieza.",
+            "An empty slot is life, resistances or damage you're not getting. I can only be sure if you show me the item.",
+          ),
       impactMetric: t("equipo", "gear"),
-      impactDescription: t(
-        "Impacto directo en supervivencia y daño: el hueco no aporta nada ahora mismo.",
-        "Direct impact on survival and damage: the slot gives nothing right now.",
-      ),
+      impactDescription: sure
+        ? t(
+            "Impacto directo en supervivencia y daño: el hueco no aporta nada ahora mismo.",
+            "Direct impact on survival and damage: the slot gives nothing right now.",
+          )
+        : t(
+            "Si de verdad está vacío, es supervivencia y daño que te falta.",
+            "If it really is empty, that's survival and damage you're missing.",
+          ),
       magnitude: missingCore || empty.length >= 3 ? "high" : "medium",
       riskLevel: "low",
       riskDescription: t("No sustituyes nada: solo ocupas un hueco libre.", "You don't replace anything: you just fill a free slot."),
@@ -997,7 +1018,7 @@ export const emptySlotsRule: Rule = ({ profile, lang }) => {
       irreversible: false,
       priceQueries: [],
       goalWeights: { ...BALANCED, survival: 2, mapping: 1.3, bossing: 1.3, balanced: 1.3 },
-      confidenceBase: "high",
+      confidenceBase: sure ? "high" : "medium",
       unverified: [],
       extraSources: [],
       relatedItemIds: [],

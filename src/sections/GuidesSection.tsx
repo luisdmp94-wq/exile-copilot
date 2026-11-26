@@ -425,7 +425,7 @@ export function GuidesSection({
     }
   }, [pastedItems]);
   return (
-    <article className="mx-auto max-w-3xl space-y-4" aria-labelledby="guia-titulo" data-testid="guia-acto">
+    <article className="mx-auto w-full min-w-0 max-w-3xl space-y-4" aria-labelledby="guia-titulo" data-testid="guia-acto">
       <header>
         {/* Quien llega desde Google no sabe qué es esta web. Con un personaje
             cargado ya lo sabe, y la frase sobra. */}

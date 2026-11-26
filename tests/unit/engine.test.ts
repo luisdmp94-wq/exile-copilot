@@ -1002,7 +1002,10 @@ describe("regla de huecos de equipo vacíos", () => {
     expect(candidate).toMatchObject({
       ruleId: "huecos-equipo",
       magnitude: "medium",
-      action: "Tienes vacío: Anillo 2. Hasta un objeto raro barato con vida o resistencias ya ayuda.",
+      // El ejemplo no viene de PoB: un hueco sin pieza se pregunta, no se afirma.
+      title: "Revisar los huecos que no he visto",
+      action:
+        "No he visto nada en: Anillo 2. Si lo llevas vacío, ponle algo: hasta un objeto raro barato con vida o resistencias ya ayuda. Si ya llevas una pieza ahí, pégala en Equipo.",
     });
   });
 

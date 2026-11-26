@@ -89,6 +89,16 @@ describe("huecos que la web no ha visto no son huecos vacíos", () => {
     };
     const [candidate] = emptySlotsRule({ profile: imported, league: "Standard", patch: "0.5.5" });
     expect(candidate?.ruleId).toBe("huecos-equipo");
+    expect(candidate?.title).toBe("Rellenar los huecos de equipo vacíos");
+    expect(candidate?.action).toMatch(/^Tienes vacío: /);
+  });
+
+  it("con muchas piezas pegadas a mano pregunta, no afirma", () => {
+    const pasted = { ...demoProfile(), pobImport: undefined };
+    const [candidate] = emptySlotsRule({ profile: pasted, league: "Standard", patch: "0.5.5" });
+    expect(candidate?.title).toBe("Revisar los huecos que no he visto");
+    expect(candidate?.action).toMatch(/^No he visto nada en: Anillo 2\./);
+    expect(candidate?.action).not.toMatch(/Tienes vacío/);
   });
 });
 

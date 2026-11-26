@@ -220,7 +220,9 @@ export function ItemCompareCard({ patch, profile = null, preset = null }: ItemCo
           const slot = slots[side];
           const label = side === "a" ? t.pieceA : t.pieceB;
           return (
-            <div key={side} data-testid={`comparar-${side}`}>
+            // `min-w-0`: sin él, el nombre largo de una pieza (que no parte
+            // línea) ensanchaba la página entera en el móvil.
+            <div key={side} className="min-w-0" data-testid={`comparar-${side}`}>
               {slot.item ? (
                 <div className="flex items-center gap-2 rounded-lg bg-secondary/60 px-3 py-2 text-sm">
                   <span className="min-w-0 flex-1 truncate">
