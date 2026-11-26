@@ -651,7 +651,7 @@ async function runFlow(mode, port) {
       (await musicToggle.count()) === 1 &&
         (await musicToggle.isVisible()) &&
         (await musicToggle.innerText()).includes("Música") &&
-        (await musicToggle.innerText()).toLowerCase().includes("prueba") &&
+        (await musicToggle.innerText()).toLowerCase().includes("beta") &&
         (await musicToggle.getAttribute("data-state")) === "idle" &&
         (await musicToggle.getAttribute("aria-expanded")) === "false" &&
         (await musicFrame.count()) === 0,

@@ -1100,6 +1100,9 @@ export function CraftingCoach({
     };
     const hasContract =
       goalText.trim() !== "" ||
+      // La pieza de práctica se puede abrir antes de elegir objetivo (copia
+      // incompleta): al recargar debe seguir siendo práctica, no «mi pieza».
+      practiceActive ||
       directionChosen ||
       noEvidence ||
       protectedModifiers.length > 0 ||
@@ -1813,6 +1816,28 @@ export function CraftingCoach({
           {/* Paso 1: hacia dónde quiere ir el jugador. */}
           {!directionChosen ? (
             <div className="min-w-0" data-testid="coach-eleccion">
+              {/* A la pieza de práctica se llega ahora también desde aquí (copia
+                  incompleta): se dice que lo es antes de preguntar nada. */}
+              {practiceActive && (
+                <section
+                  className="mb-4 rounded-md border border-cyan-500/35 bg-cyan-500/[0.07] p-3 text-cyan-50"
+                  data-testid="coach-practice-summary"
+                  role="status"
+                >
+                  <p className="text-sm font-semibold">{t.practiceTitle}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-cyan-100/75">{t.practiceBody}</p>
+                  <Button
+                    className="mt-2"
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={returnToMyItem}
+                    data-testid="coach-practice-return"
+                  >
+                    {t.backToMyItem}
+                  </Button>
+                </section>
+              )}
               <h3 className="dossier-title text-xl font-semibold sm:text-2xl">
                 {t.goalQuestion}
               </h3>
@@ -1872,7 +1897,7 @@ export function CraftingCoach({
               {/* Con una copia incompleta estos atajos llevaban a un callejón:
                   dejaban elegir dos cosas y luego decían que no. Se ocultan
                   hasta que la pieza se pueda leer entera. */}
-              {!activeNeedsRepair && (
+              {!(activeNeedsRepair && simulationMode === null) && (
               <>
               <p className="mt-4 text-xs font-semibold text-muted-foreground">
                 {t.quickOption}
@@ -1941,6 +1966,21 @@ export function CraftingCoach({
                 />
               </div>
               </>
+              )}
+              {/* Sin copia completa no hay consejo sobre esta pieza, pero el
+                  recorrido se puede aprender con una de práctica. */}
+              {activeNeedsRepair && simulationMode === null && (
+                <Button
+                  className="mt-4"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => void loadPracticeItem()}
+                  disabled={practiceLoading}
+                  data-testid="coach-probar-practica"
+                >
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  {t.tryPractice}
+                </Button>
               )}
               {characterQuestion !== null && (
                 <div

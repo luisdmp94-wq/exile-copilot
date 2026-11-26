@@ -686,7 +686,9 @@ async function runFlow(mode, port) {
     await page.locator("#market-budget").fill("50");
     await irA(page, "crafting");
     await page.getByTestId("coach-objeto").waitFor({ timeout: 20000 });
-    await abrirPieza(page, "taller-incompleto", "defence");
+    // Con una copia incompleta ya no se ofrece elegir objetivo (llevaba a un
+    // callejón): la pieza de práctica está a la vista en el primer paso.
+    await elegirPieza(page, "taller-incompleto");
     await page.getByTestId("coach-probar-practica").click();
     await page.getByTestId("coach-practice-summary").waitFor({ timeout: 15000 });
     await page.reload({ waitUntil: "networkidle" });
@@ -1370,24 +1372,33 @@ async function runFlow(mode, port) {
     await changeItemDialog.waitFor({ state: "hidden", timeout: 10000 });
 
     // --- 6. Datos incompletos --------------------------------------------
-    await abrirPieza(page, "taller-incompleto");
-    await recomendacion.getByTestId("crafting-repair-toggle").click();
-    const repairEvidenceText = await recomendacion
+    // El aviso sale al elegir la pieza, antes de preguntar nada: dice qué
+    // hacer en una frase, con el botón de volver a pegar a la vista, y no
+    // deja elegir un objetivo que luego no puede atender.
+    await elegirPieza(page, "taller-incompleto");
+    const incompleteCoach = page.getByTestId("crafting-coach");
+    const incompleteBanner = incompleteCoach.getByTestId("crafting-repair-banner");
+    await incompleteBanner.waitFor({ timeout: 10000 });
+    const repairSummaryText = await incompleteBanner.getByTestId("crafting-repair-summary").innerText();
+    const repasteNowVisible = await incompleteBanner.getByTestId("crafting-repair-repaste-now").isVisible();
+    await incompleteBanner.getByTestId("crafting-repair-toggle").click();
+    const repairEvidenceText = await incompleteBanner
       .getByTestId("crafting-repair-evidence-summary")
       .innerText();
     check(
       `[${mode}] datos incompletos → pedir la evidencia que falta, no gastar`,
-      (await recomendacion.getAttribute("data-kind")) === "needs-data" &&
-        (await recomendacion.getByTestId("crafting-repair-category").getAttribute("data-kind")) ===
+      (await incompleteBanner.getByTestId("crafting-repair-category").getAttribute("data-kind")) ===
           "copy-incomplete" &&
-        (await recomendacion.innerText()).includes("Ctrl+Alt+C") &&
-        /sí he leído/i.test(repairEvidenceText) &&
-        /todavía necesito/i.test(repairEvidenceText) &&
-        (await recomendacion.getByTestId("crafting-repair-repaste").isVisible()) &&
-        (await page.getByTestId("coach-otro-camino").isVisible()),
+        repairSummaryText.includes("Ctrl+Alt+C") &&
+        repasteNowVisible &&
+        /lo que sí veo/i.test(repairEvidenceText) &&
+        /lo que falta/i.test(repairEvidenceText) &&
+        (await incompleteBanner.getByTestId("crafting-repair-repaste").isVisible()) &&
+        (await page.getByTestId("coach-direccion-damage").count()) === 0 &&
+        (await page.getByTestId("coach-probar-practica").isVisible()),
     );
-    await recomendacion.getByTestId("crafting-repair-show-report").click();
-    const importReport = await recomendacion.getByTestId("crafting-repair-report").inputValue();
+    await incompleteBanner.getByTestId("crafting-repair-show-report").click();
+    const importReport = await incompleteBanner.getByTestId("crafting-repair-report").inputValue();
     check(
       `[${mode}] el fallo produce un informe local reproducible y revisable`,
       importReport.includes("Formato: EC-CRAFTING-IMPORT-1") &&
@@ -1396,11 +1407,11 @@ async function runFlow(mode, port) {
         importReport.includes("Botas copiadas a medias") &&
         importReport.includes("No se ha enviado nada"),
     );
-    await recomendacion.getByTestId("crafting-repair-copy-report").click();
+    await incompleteBanner.getByTestId("crafting-repair-copy-report").click();
     check(
       `[${mode}] copiar el informe confirma copia o deja selección manual`,
       /copiado|selección manual/i.test(
-        await recomendacion.getByTestId("crafting-repair-copy-status").innerText(),
+        await incompleteBanner.getByTestId("crafting-repair-copy-status").innerText(),
       ),
     );
 
