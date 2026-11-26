@@ -42,9 +42,10 @@ const KEYS =
  * partida por personaje; 4: clase y ascendencia; 5: recompensas que llegan
  * en varias entregas, como los tres tatuajes; 6: Punta del botín se marca
  * sola con la frase de Farrow y entrar en ella da por cogidos los trozos;
- * 7: los interludios son tres actos más, con sus zonas P y sus recompensas).
+ * 7: los interludios son tres actos más, con sus zonas P y sus recompensas;
+ * 8: Siora, en Las piedras de Serle, se marca sola con su última frase).
  */
-const LOG_FORMAT = 7;
+const LOG_FORMAT = 8;
 
 interface Saved {
   /** La partida del personaje con el que juegas. */
@@ -107,14 +108,40 @@ let contentHeight = 110;
 let contentWidth = BASE_WIDTH;
 /** Capturas de prueba: se pinta fuera de la pantalla y no coge las teclas del jugador. */
 const CAPTURE = process.env.VENTANITA_CAPTURA;
+/** Solo en las capturas de prueba: el parón más largo del hilo principal y lo que tardó el repaso. */
+const trace = { longestStallMs: 0, replayMs: 0 };
+if (CAPTURE) {
+  let last = performance.now();
+  setInterval(() => {
+    const now = performance.now();
+    trace.longestStallMs = Math.max(trace.longestStallMs, Math.round(now - last - 10));
+    last = now;
+  }, 10).unref();
+}
 let userHidden = false;
 const startedAt = Date.now();
 /** Los primeros segundos se ve siempre, para que el jugador sepa que arrancó. */
 const STARTING_MS = 8000;
 const readForeground = createForegroundReader();
-/** Clics y ratón pasan al juego; el movimiento llega igual para notar el asa. */
-const PASS_THROUGH = { forward: true } as const;
 let problem: string | null = null;
+/**
+ * El repaso de Client.txt en marcha, del 0 al 100. Mientras dura, la partida
+ * que se ve es la de antes: no se guarda hasta dónde se leyó ni se marcan
+ * cosas a mano (se perderían al acabar).
+ */
+let replaying: number | null = null;
+
+/**
+ * Los clics pasan al juego. Con `forward`, además, Windows avisa a la ventanita
+ * de cada movimiento del ratón (así nota el asa), y lo hace por este mismo
+ * hilo: si el hilo se para, se para el ratón de todo el equipo. Por eso no se
+ * pide mientras se repasa Client.txt, ni en una captura de prueba, que corre
+ * con el jugador jugando.
+ */
+function passThrough(): void {
+  if (!win || win.isDestroyed()) return;
+  win.setIgnoreMouseEvents(true, { forward: !CAPTURE && replaying === null });
+}
 /** Lo que no se guarda de los personajes: si aún no se sabe quién juega y de cuál se vino. */
 let unsure: Roster["unsure"] = null;
 let cameFrom: Roster["cameFrom"] = null;
@@ -139,15 +166,11 @@ let keyProblem: string | null = null;
 function persist(): void {
   try {
     mkdirSync(dirname(statePath()), { recursive: true });
-    const logOffset = tail?.offset;
-    writeFileSync(
-      statePath(),
-      JSON.stringify(
-        { ...saved, ...(currentLog ? { logPath: currentLog } : {}), ...(logOffset !== undefined ? { logOffset } : {}), logFormat: LOG_FORMAT },
-        null,
-        2,
-      ),
-    );
+    // A medio repaso se guarda lo de antes (registro, posición y formato): si la
+    // ventanita se cierra ahí, la próxima vez repasa otra vez en lugar de seguir
+    // desde la mitad con una partida a medias.
+    const log = replaying === null && currentLog && tail ? { logPath: currentLog, logOffset: tail.offset, logFormat: LOG_FORMAT } : {};
+    writeFileSync(statePath(), JSON.stringify({ ...saved, ...log }, null, 2));
   } catch {
     // Sin poder guardar, la ventanita sigue; solo olvida la partida al cerrarla.
   }
@@ -190,11 +213,14 @@ function render(): void {
     showSettings: panel === "ajustes",
     character: saved.character ?? null,
     problem: problem ?? keyProblem,
+    replaying,
     waitingForGame: !CAPTURE && saved.settings.onlyWithGame && readForeground !== null && isStarting() && !gameInFront(),
   });
 }
 
 function update(run: Run): void {
+  // Durante el repaso la partida es la de antes: lo que se marcara se perdería al acabar.
+  if (replaying !== null) return;
   saved = { ...saved, run };
   persist();
   render();
@@ -216,7 +242,7 @@ function defaultPosition(): { x: number; y: number } {
   };
 }
 
-function startTail(path: string, from: number | null): void {
+async function startTail(path: string, from: number | null): Promise<void> {
   tail?.stop();
   problem = null;
   currentLog = path;
@@ -224,8 +250,8 @@ function startTail(path: string, from: number | null): void {
   // lo que el jugador marcó a mano se conserva.
   const byHand = { checked: saved.run.checked, bosses: saved.run.bosses, pickups: saved.run.pickups ?? [] };
   let replayed = from === null ? EMPTY_ROSTER : roster();
-  tail = new ClientLogTail(path, (event, replaying) => {
-    if (replaying) {
+  const mine = new ClientLogTail(path, (event, isReplay) => {
+    if (isReplay) {
       replayed = onLog(replayed, event);
     } else {
       keepRoster(onLog(roster(), event));
@@ -233,8 +259,25 @@ function startTail(path: string, from: number | null): void {
       render();
     }
   });
+  tail = mine;
+  replaying = 0;
+  passThrough();
+  render();
+  const began = performance.now();
   try {
-    tail.start(from);
+    // A trozos y soltando el hilo: con 194 MB de registro, leerlo de un tirón
+    // dejaba el ratón de todo el equipo parado mientras duraba.
+    const finished = await mine.start(from, (done, total) => {
+      const percent = total > 0 ? Math.min(100, Math.floor((done / total) * 100)) : 100;
+      // Se pinta de cinco en cinco: pintar en cada trozo alargaría el repaso.
+      if (replaying !== null && percent >= replaying + 5) {
+        replaying = percent;
+        render();
+      }
+    });
+    // Se eligió otro registro o se cerró la ventanita a medias: este repaso ya no cuenta.
+    if (!finished || tail !== mine) return;
+    trace.replayMs = Math.round(performance.now() - began);
     let run = replayed.run;
     if (from === null) {
       run = {
@@ -244,12 +287,16 @@ function startTail(path: string, from: number | null): void {
         pickups: [...new Set([...(run.pickups ?? []), ...byHand.pickups])],
       };
     }
+    replaying = null;
     // Lo repasado al arrancar no avisa de nada: ya pasó.
     keepRoster({ ...replayed, run: onDismissNotice(run) });
     persist();
   } catch {
+    if (tail !== mine) return;
+    replaying = null;
     problem = "No puedo leer Client.txt.";
   }
+  passThrough();
   render();
 }
 
@@ -261,9 +308,10 @@ async function chooseLog(): Promise<void> {
   });
   const path = result.filePaths[0];
   if (result.canceled || !path) return;
-  // Otro archivo: se repasa entero.
-  saved = { ...saved, run: NEW_RUN };
-  startTail(path, null);
+  // Otro archivo: se repasa entero, y ya no vale hasta dónde se leyó el anterior.
+  const { logPath: _oldPath, logOffset: _oldOffset, ...rest } = saved;
+  saved = { ...rest, run: NEW_RUN };
+  void startTail(path, null);
 }
 
 const isStarting = () => Date.now() - startedAt < STARTING_MS;
@@ -336,7 +384,7 @@ function endDrag(): void {
   // Se guarda donde quedó a la vista, no donde apuntaba el ratón fuera de la pantalla.
   place = shownPlace();
   savePlace();
-  win.setIgnoreMouseEvents(true, PASS_THROUGH);
+  passThrough();
 }
 
 function resetPosition(): void {
@@ -449,7 +497,7 @@ async function createWindow(): Promise<void> {
     webPreferences: { preload: join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true },
   });
   win.setAlwaysOnTop(true, "screen-saver");
-  win.setIgnoreMouseEvents(true, PASS_THROUGH);
+  passThrough();
   // No tiene botón en la barra de tareas: si «Mostrar escritorio» (Win+D) la
   // minimiza, no habría forma de recuperarla. Vuelve sola, sin robar el foco.
   win.on("minimize", () => {
@@ -464,7 +512,8 @@ async function createWindow(): Promise<void> {
 // El ratón entra o sale del asa, del engranaje o de los ajustes: solo ahí la ventanita coge los clics.
 ipcMain.on("asa", (_event, over: unknown) => {
   if (!win || dragging) return;
-  win.setIgnoreMouseEvents(over !== true, PASS_THROUGH);
+  if (over === true) win.setIgnoreMouseEvents(false);
+  else passThrough();
 });
 
 // Arrastre por el asa: se sigue el cursor desde aquí, que no se pierde aunque el ratón vaya rápido.
@@ -624,10 +673,11 @@ void takeOver().then((mine) => {
     const envLog = process.env.VENTANITA_CLIENT_TXT;
     const known = saved.logPath && existsSync(saved.logPath) ? saved.logPath : null;
     const logPath = envLog ?? known ?? findClientLog();
+    let replay: Promise<void> = Promise.resolve();
     if (logPath) {
       // Mismo archivo que la última vez: se sigue donde se dejó. Si no, se repasa entero.
       const upToDate = logPath === saved.logPath && saved.logFormat === LOG_FORMAT;
-      startTail(logPath, upToDate ? (saved.logOffset ?? null) : null);
+      replay = startTail(logPath, upToDate ? (saved.logOffset ?? null) : null);
     } else {
       problem = "No encuentro Client.txt. Elígelo desde el icono de la bandeja.";
       render();
@@ -638,7 +688,9 @@ void takeOver().then((mine) => {
     // Al terminar el arranque, el aviso «saldrá con PoE2 delante» se va.
     setTimeout(render, STARTING_MS + 100);
 
-    if (process.env.VENTANITA_ACCIONES) void runTestActions(process.env.VENTANITA_ACCIONES);
+    // Las acciones de prueba esperan al repaso: durante él no se puede cambiar de paso ni marcar.
+    const actions = process.env.VENTANITA_ACCIONES;
+    if (actions) void replay.then(() => runTestActions(actions));
     const capture = CAPTURE;
     if (capture) {
       const after = Number(process.env.VENTANITA_CAPTURA_MS ?? 2500);
@@ -647,7 +699,7 @@ void takeOver().then((mine) => {
           const image = await win!.webContents.capturePage();
           writeFileSync(capture, image.toPNG());
           // Junto a la imagen, dónde está y cuánto mide la ventana de verdad.
-          writeFileSync(`${capture}.json`, JSON.stringify({ bounds: win!.getBounds(), place, dragging: dragging !== null }));
+          writeFileSync(`${capture}.json`, JSON.stringify({ bounds: win!.getBounds(), place, dragging: dragging !== null, replaying, ...trace }));
         } finally {
           app.quit();
         }

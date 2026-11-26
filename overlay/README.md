@@ -8,20 +8,27 @@ solo están aquí).
 - **Arrancar:** doble clic en `ventanita.cmd`. La primera vez repasa tu
   Client.txt entero (unos segundos); después, solo lo nuevo. Si ya estaba
   abierta, abrirla otra vez la reinicia con la última versión.
+  Mientras repasa dice «Repasando Client.txt… 40 %» y enseña la partida de
+  antes. El repaso va a trozos y no para nada: ni el ratón ni el juego. En
+  esos segundos Re Pág, Av Pág y Fin no hacen nada, y el asa no se mueve.
 - **PoE2** tiene que estar en *pantalla completa sin bordes* (o en ventana).
 
 ## Qué enseña
 
 - La zona donde estás, en grande, y el texto entero de su paso en la guía,
   **una frase por línea**. El tipo de daño del jefe («pega con rayo») va de su
-  color. En la vista compacta las frases van seguidas, en dos líneas.
+  color: fuego, hielo, rayo, caos y físico (bronce). También el del segundo
+  jefe de la frase («…y Heldra, de la pira negra, con fuego»). Los premios
+  («+10 % de resistencia al hielo») no se pintan: el color es para lo que te
+  pega. En la vista compacta las frases van seguidas, en dos líneas.
 - **La recompensa para siempre** del paso («Para siempre: +10 % resistencia al hielo»)
   con una casilla que **se marca sola** cuando el juego escribe que la has
   recibido. Tu primera ascendencia también: se nota en que tu clase cambia
   («Bruja» → «Liche») en la siguiente subida de nivel. Solo los puntos de la
   Prueba de Caos se marcan a mano (**Fin** o clic).
 - **El jefe de la zona**, cuando el registro deja saber que ha caído (15 de
-  los jefes de los actos 1-4): su casilla también se marca sola.
+  los jefes de los actos 1-4, y Siora en el interludio 1): su casilla también
+  se marca sola.
 - **Los jefes que no hablan** (otros 17: el rey del óxido, el verdugo, Tor Gul,
   la reina de la inmundicia, el prisionero…) tienen casilla a mano: **Fin** o
   clic al matarlos, y la zona ya dice «Zona hecha». Fin funciona también con
@@ -33,7 +40,14 @@ solo están aquí).
     el +5 % de vida, los 2 puntos de Risu, el Pilar de Orbala, el +40 de
     espíritu, los 2 puntos de Hilda y los 2 del final, que da El Encapuchado
     en Marca del rey).
-  - Sus nueve jefes de la historia van a mano: **Fin** al matarlos.
+  - **Siora** (Las piedras de Serle) se marca sola con su última frase («La
+    niebla permanece...»). Los otros ocho jefes de la historia van a mano:
+    **Fin** al matarlos.
+  - **Isolde y Heldra** (Tierras de cultivo calcinadas) no se pueden marcar
+    solas: el juego no escribe nada cuando caen (mirado en 19 entradas a la
+    zona, 26-11-2026). Su última línea es un grito de combate cualquiera.
+  - **Los seis megalitos** de Las piedras de Serle tampoco dejan línea al
+    activarlos (15 entradas a la zona): la ventanita no puede contarlos sola.
   - Los pueblos (El refugio, El bazar de Khari, El claro) no mueven la guía, y
     volver a Marca del rey tampoco te devuelve al acto 4.
   - El cruce de Khari sale en dos pasos: primero la vida, luego Akthi y Anundr.
@@ -158,8 +172,9 @@ la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar»
   juego en español. Los que no hablan (el devorador, el rey del óxido, el
   verdugo, Tor Gul, la reina de la inmundicia, el prisionero…) se marcan a
   mano. Si se te olvida marcar uno, la guía sigue igual: solo esa zona se
-  queda sin su «Zona hecha». Los nueve de los interludios, todos a mano:
-  todavía no se han buscado sus frases.
+  queda sin su «Zona hecha». De los nueve de los interludios, Siora se marca
+  sola, Isolde y Heldra no dejan línea, y de los otros siete todavía no se
+  han buscado sus frases.
 - **Después de los interludios** la ventanita no tiene más guía. Si vuelves a
   una prueba de ascendencia (acto 2 o 3) enseña ese paso, y al pasar luego por
   Marca del rey cree que llegas al acto 4 y repite su aviso de resistencias.
@@ -190,3 +205,12 @@ dentro son tres actos más (5, 6 y 7): `progress.ts` los une a las guías
 
 La ventana se coloca siempre con `setBounds` (posición y tamaño juntos): con
 la pantalla al 125 %, `setPosition` la hace crecer un píxel en cada llamada.
+
+**El hilo principal no se puede parar.** Para notar el asa con los clics
+pasando al juego, Electron pide a Windows cada movimiento del ratón
+(`setIgnoreMouseEvents(true, { forward: true })`), y Windows espera la
+respuesta de ese hilo: si se queda leyendo, el ratón de todo el equipo se
+para. Pasó el 26-11-2026 con el repaso de Client.txt (194 MB de un tirón).
+Por eso `ClientLogTail` lee en trozos de 1 MB y suelta el hilo entre uno y
+otro, y `main.ts` no pide los movimientos del ratón mientras dura el repaso
+ni en las capturas de prueba (`passThrough`).

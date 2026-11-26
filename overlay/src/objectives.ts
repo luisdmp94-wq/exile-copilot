@@ -276,6 +276,20 @@ export const BOSS_SIGNS: Record<number, Record<string, BossSign>> = {
       ],
     },
   },
+  // Interludio 1. En el registro de Luis (26-11-2026): 15 entradas a Las piedras
+  // de Serle con cinco personajes. «La niebla permanece...» sale 8 veces, una por
+  // victoria, y nunca en los intentos perdidos (ahí dice «La niebla te
+  // envuelve...»). Siete segundos después habla Una, solo en esta zona. Un jefe
+  // de mapas (Thariel) repite la frase de Siora: por eso se casa quién la dice.
+  5: {
+    "Las piedras de Serle": {
+      boss: "Siora, la Cuchilla de las nieblas",
+      lines: [
+        ["Siora, la Cuchilla de las nieblas", "La niebla permanece..."],
+        ["Una", "¡Los espíritus feéricos! ¿Qué están haciendo?"],
+      ],
+    },
+  },
 };
 
 /**
@@ -316,12 +330,15 @@ export const SILENT_BOSSES: Record<number, Record<string, string>> = {
     "Isla de los alcaudones": "el azote de los cielos",
     Arastas: "Torvian, la Mano del Salvador",
   },
-  // Interludios: nueve zonas con jefe de la historia. Todos a mano: no se han
-  // buscado todavía frases que solo se digan al caer. Oswin (Fuerte de los
+  // Interludios: ocho zonas con jefe de la historia que van a mano. Siora (Las
+  // piedras de Serle) se marca sola: está en `BOSS_SIGNS`. Oswin (Fuerte de los
   // lobos) y Lythara (Aldea de Kriar) no están: sueltan la recompensa del paso.
+  // Isolde y Heldra están buscadas (26-11-2026, 19 entradas a la zona en el
+  // registro de Luis): no dicen nada al caer, y el juego tampoco escribe nada.
+  // La última línea de cada victoria es un grito de combate cualquiera.
+  // De las otras siete no se han buscado frases todavía.
   5: {
     "Tierras de cultivo calcinadas": "Isolde y Heldra",
-    "Las piedras de Serle": "Siora, la Cuchilla de las nieblas",
     "Finca de Holten": "Wulfric y Elswyth",
   },
   6: {

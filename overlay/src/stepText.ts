@@ -4,7 +4,7 @@
  * para pintarlo de su color. No cambia ni una palabra de la guía.
  */
 
-export type Element = "fuego" | "hielo" | "rayo" | "caos";
+export type Element = "fuego" | "hielo" | "rayo" | "caos" | "fisico";
 
 export interface StepPiece {
   text: string;
@@ -12,9 +12,20 @@ export interface StepPiece {
   element?: Element;
 }
 
-/** «Pega con rayo», «pegan con fuego y hielo», «daño de caos». */
-const HITS_WITH = /\b(pega|pegan|golpea|golpean|daño)\s+(con|de)\s+((?:fuego|hielo|rayo|caos)(?:(?:,\s*|\s+y\s+)(?:fuego|hielo|rayo|caos))*)/gi;
-const ELEMENT = /fuego|hielo|rayo|caos/gi;
+/** Los tipos de daño, como los escribe la guía. «rayos» o «fuegos» no cuentan. */
+const TYPE = "(?:fuego|hielo|rayo|caos|físico)(?!\\p{L})";
+/** Uno o varios seguidos: «rayo», «fuego y hielo», «físico, fuego y caos». */
+const LIST = `${TYPE}(?:(?:,\\s*|\\s+y\\s+)${TYPE})*`;
+/** «Pega con rayo», «pegan con fuego y hielo», «daño de caos», «pega con todo: físico, fuego…». */
+const HITS_WITH = new RegExp(`(?<!\\p{L})(?:pega|pegan|golpea|golpean|daño)\\s+(?:con|de)\\s+(?:todo:\\s+)?(${LIST})`, "giu");
+/**
+ * El segundo jefe de la misma frase, sin repetir el verbo: «Isolde pega con
+ * hielo y Heldra, de la pira negra, con fuego». Solo vale detrás de un «pega con».
+ */
+const ALSO_WITH = new RegExp(`(?<!\\p{L})con\\s+(${LIST})`, "giu");
+const TYPE_WORD = new RegExp(TYPE, "giu");
+
+const ELEMENT_OF: Record<string, Element> = { fuego: "fuego", hielo: "hielo", rayo: "rayo", caos: "caos", físico: "fisico" };
 
 /**
  * Las frases del texto. Solo corta tras un punto, una exclamación o una
@@ -41,16 +52,33 @@ export function withoutBossName(text: string, boss: string): string {
   return rest.length > 0 && rest.length < sentences.length ? rest.join(" ") : text;
 }
 
+/** Dónde empieza y acaba cada lista de tipos de daño de la frase, en orden. */
+function damageLists(sentence: string): Array<{ start: number; end: number }> {
+  const lists: Array<{ start: number; end: number }> = [];
+  const add = (match: RegExpMatchArray) => {
+    const end = match.index! + match[0].length;
+    const start = end - match[1]!.length;
+    if (!lists.some((list) => list.start === start)) lists.push({ start, end });
+  };
+  const hits = [...sentence.matchAll(HITS_WITH)];
+  hits.forEach(add);
+  const first = hits[0];
+  if (first) {
+    const after = first.index! + first[0].length;
+    for (const match of sentence.matchAll(ALSO_WITH)) if (match.index! >= after) add(match);
+  }
+  return lists.sort((a, b) => a.start - b.start);
+}
+
 /** Una frase en trozos: texto corriente y, aparte, cada tipo de daño que te pega. */
 export function sentencePieces(sentence: string): StepPiece[] {
   const pieces: StepPiece[] = [];
   let from = 0;
-  for (const match of sentence.matchAll(HITS_WITH)) {
-    const listStart = match.index! + match[0].length - match[3]!.length;
-    for (const hit of match[3]!.matchAll(ELEMENT)) {
-      const start = listStart + hit.index!;
+  for (const list of damageLists(sentence)) {
+    for (const hit of sentence.slice(list.start, list.end).matchAll(TYPE_WORD)) {
+      const start = list.start + hit.index!;
       if (start > from) pieces.push({ text: sentence.slice(from, start) });
-      pieces.push({ text: hit[0], element: hit[0].toLowerCase() as Element });
+      pieces.push({ text: hit[0], element: ELEMENT_OF[hit[0].toLowerCase()]! });
       from = start + hit[0].length;
     }
   }

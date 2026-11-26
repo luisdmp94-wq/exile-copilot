@@ -11,6 +11,8 @@ interface OverlayState {
   /** El personaje al que se le apunta la partida, si el registro ya lo ha nombrado. */
   character: string | null;
   problem: string | null;
+  /** El repaso de Client.txt en marcha, del 0 al 100; null si ya acabó. */
+  replaying: number | null;
   waitingForGame: boolean;
 }
 
@@ -197,8 +199,12 @@ function draw(state: OverlayState): void {
   // Minimizada: lo justo para saber dónde estás. Con la zona hecha, adónde vas:
   // «✓ La excavación → Ngakanu». Si no cabe, se recorta la zona hecha, no la siguiente.
   const pos = byId("pos");
-  const goingTo = settings.minimized && done ? view.next : null;
-  if (goingTo) {
+  // Mientras repasa Client.txt lo que se ve es la partida de antes: se dice, para que no parezca colgada.
+  const replayText = state.replaying === null ? null : `Repasando Client.txt… ${state.replaying} %`;
+  const goingTo = settings.minimized && done && !replayText ? view.next : null;
+  if (replayText && settings.minimized) {
+    pos.textContent = replayText;
+  } else if (goingTo) {
     const here = document.createElement("span");
     here.className = "ya";
     here.textContent = `✓ ${view.zone}`;
@@ -213,7 +219,7 @@ function draw(state: OverlayState): void {
         ? `${view.ready ? "✓ " : ""}${view.zone} · ${view.number}/${view.total}`
         : `${stageName(view.act)} · paso ${view.number} de ${view.total}`;
   }
-  pos.className = goingTo ? "listo con-luego" : settings.minimized && done ? "listo" : "";
+  pos.className = goingTo ? "listo con-luego" : settings.minimized && done && !replayText ? "listo" : "";
   const minimize = byId("minimizar");
   minimize.textContent = settings.minimized ? "▢" : "–";
   minimize.title = settings.minimized ? "Desplegar" : "Minimizar";
@@ -227,7 +233,9 @@ function draw(state: OverlayState): void {
   // Avisos, de más a menos urgente: problema, arranque, lo que te dejaste, nivel bajo.
   const notice = state.problem
     ? state.problem
-    : state.waitingForGame
+    : replayText
+      ? `${replayText} Enseguida te digo por dónde vas.`
+      : state.waitingForGame
       ? "Lista. Saldrá cuando tengas PoE2 delante."
       : view.leftBehind
         ? `Te dejaste en el ${stageName(view.leftBehind.act).toLowerCase()}: ${view.leftBehind.items.map((item) => `${item.zone} (${item.reward})`).join(", ")}.`

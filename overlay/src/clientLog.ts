@@ -92,31 +92,47 @@ export function findClientLog(env: NodeJS.ProcessEnv = process.env): string | nu
   return candidateLogPaths(env).find((path) => existsSync(path)) ?? null;
 }
 
-/** Se lee por trozos: Client.txt puede pesar cientos de MB. */
-const CHUNK_BYTES = 8 * 1024 * 1024;
+/**
+ * Se lee por trozos pequeños: Client.txt puede pesar cientos de MB, y el hilo
+ * que lo lee es el mismo que atiende la ventana y el ratón. Con trozos de
+ * 8 MB seguidos, el repaso entero dejaba el ratón de todo el equipo parado.
+ */
+const CHUNK_BYTES = 1024 * 1024;
+/** Lo más que lee una vigilancia de una vez; si hay más, sigue en la siguiente. */
+const POLL_MAX_BYTES = 2 * CHUNK_BYTES;
+const NEWLINE = 0x0a;
+const RETURN = 0x0d;
+const NOTHING = Buffer.alloc(0);
 
-function readRange(path: string, start: number, length: number): string {
-  if (length <= 0) return "";
+function readRange(path: string, start: number, length: number): Buffer {
+  if (length <= 0) return NOTHING;
   const buffer = Buffer.alloc(length);
   const fd = openSync(path, "r");
   try {
     const read = readSync(fd, buffer, 0, length, start);
-    return buffer.subarray(0, read).toString("utf8");
+    return buffer.subarray(0, read);
   } finally {
     closeSync(fd);
   }
 }
+
+/** Suelta el hilo un momento: la ventana, el ratón y las teclas se atienden entre trozo y trozo. */
+const breathe = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 /**
  * Sigue Client.txt como `tail -f`. Al arrancar repasa lo que el juego
  * escribió desde la última vez (o todo, la primera vez), para saber qué
  * zonas pisaste aunque la ventanita estuviera cerrada. Luego, cada medio
  * segundo, lee solo lo nuevo. Si el archivo se vacía, vuelve a empezar.
+ *
+ * El repaso no bloquea: lee un trozo, suelta el hilo y sigue.
  */
 export class ClientLogTail {
-  private remainder = "";
+  /** La última línea, a medias: se guarda en bytes para no partir una letra con tilde entre dos trozos. */
+  private remainder: Buffer = NOTHING;
   private timer: NodeJS.Timeout | null = null;
   private position = 0;
+  private stopped = false;
   private readonly path: string;
   private readonly onEvent: (event: LogEvent, replaying: boolean) => void;
   private readonly intervalMs: number;
@@ -130,48 +146,73 @@ export class ClientLogTail {
   /** Hasta dónde se ha leído, para seguir desde ahí la próxima vez. */
   get offset(): number {
     // Una línea a medias se vuelve a leer entera la próxima vez.
-    return Math.max(0, this.position - Buffer.byteLength(this.remainder, "utf8"));
+    return Math.max(0, this.position - this.remainder.length);
   }
 
-  /** Repasa desde `from` (null = desde el principio) y empieza a vigilar. */
-  start(from: number | null): void {
+  /**
+   * Repasa desde `from` (null = desde el principio) y empieza a vigilar.
+   * `onProgress` recibe los bytes repasados y los que hay que repasar.
+   * Devuelve false si se paró (`stop`) antes de acabar el repaso.
+   */
+  async start(from: number | null, onProgress?: (done: number, total: number) => void): Promise<boolean> {
     const size = statSync(this.path).size;
     this.position = from !== null && from <= size ? from : 0;
-    this.read(true);
+    this.stopped = false;
+    const begin = this.position;
+    for (;;) {
+      const more = this.read(true, CHUNK_BYTES);
+      onProgress?.(this.position - begin, Math.max(size, this.position) - begin);
+      if (!more) break;
+      await breathe();
+      if (this.stopped) return false;
+    }
     this.timer = setInterval(() => this.poll(), this.intervalMs);
+    return true;
   }
 
   stop(): void {
+    this.stopped = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
   }
 
   /** Lee lo nuevo. Público para los tests. */
   poll(): void {
-    this.read(false);
+    this.read(false, POLL_MAX_BYTES);
   }
 
-  private read(replaying: boolean): void {
+  /** Lee como mucho `maxBytes`. Dice si queda más por leer. */
+  private read(replaying: boolean, maxBytes: number): boolean {
     let size: number;
     try {
       size = statSync(this.path).size;
     } catch {
-      return;
+      return false;
     }
     if (size < this.position) {
       this.position = 0;
-      this.remainder = "";
+      this.remainder = NOTHING;
     }
-    while (this.position < size) {
-      const length = Math.min(CHUNK_BYTES, size - this.position);
-      const text = this.remainder + readRange(this.path, this.position, length);
-      this.position += length;
-      const lines = text.split(/\r?\n/);
-      this.remainder = lines.pop() ?? "";
-      for (const line of lines) {
+    const until = Math.min(size, this.position + maxBytes);
+    while (this.position < until) {
+      const chunk = readRange(this.path, this.position, Math.min(CHUNK_BYTES, until - this.position));
+      if (chunk.length === 0) break;
+      this.position += chunk.length;
+      const bytes = this.remainder.length > 0 ? Buffer.concat([this.remainder, chunk]) : chunk;
+      // Solo se descifra hasta el último salto de línea, que nunca cae dentro de una letra.
+      const end = bytes.lastIndexOf(NEWLINE);
+      if (end < 0) {
+        this.remainder = bytes;
+        continue;
+      }
+      this.remainder = Buffer.from(bytes.subarray(end + 1));
+      // El retorno de carro de la última línea se queda fuera: con él no casaría ninguna.
+      const textEnd = end > 0 && bytes[end - 1] === RETURN ? end - 1 : end;
+      for (const line of bytes.toString("utf8", 0, textEnd).split(/\r?\n/)) {
         const event = parseLine(line);
         if (event) this.onEvent(event, replaying);
       }
     }
+    return this.position < size;
   }
 }

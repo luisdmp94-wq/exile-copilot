@@ -84,12 +84,12 @@ describe("ventanita: leer Client.txt", () => {
   const dir = mkdtempSync(join(tmpdir(), "ventanita-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-  it("repasa todo al arrancar, luego solo lo nuevo, y aguanta líneas a medias", () => {
+  it("repasa todo al arrancar, luego solo lo nuevo, y aguanta líneas a medias", async () => {
     const path = join(dir, "Client.txt");
     writeFileSync(path, `${area(1, "G1_1")}\n${LEVEL_LINE}\n${area(15, "G1_town")}\n`);
     const seen: Array<[LogEvent, boolean]> = [];
     const tail = new ClientLogTail(path, (event, replaying) => seen.push([event, replaying]), 60_000);
-    tail.start(null);
+    expect(await tail.start(null)).toBe(true);
     tail.stop();
     expect(seen.map(([event, replaying]) => [event.kind, replaying])).toEqual([
       ["area", true],
@@ -113,18 +113,78 @@ describe("ventanita: leer Client.txt", () => {
     expect(seen[4]).toEqual([{ kind: "area", level: 4, code: "G1_3" }, false]);
   });
 
-  it("al volver sigue donde lo dejó: no repite lo ya leído", () => {
+  it("al volver sigue donde lo dejó: no repite lo ya leído", async () => {
     const path = join(dir, "Client2.txt");
     writeFileSync(path, `${area(1, "G1_1")}\n${area(3, "G1_2")}\n`);
     const first = new ClientLogTail(path, () => undefined, 60_000);
-    first.start(null);
+    await first.start(null);
     first.stop();
     appendFileSync(path, `${area(5, "G1_3")}\n`);
     const seen: LogEvent[] = [];
     const second = new ClientLogTail(path, (event) => seen.push(event), 60_000);
-    second.start(first.offset);
+    await second.start(first.offset);
     second.stop();
     expect(seen).toEqual([{ kind: "area", level: 5, code: "G1_3" }]);
+  });
+
+  // Un registro de varios MB, como el de verdad: 194 MB leídos de un tirón dejaban
+  // parado el ratón de todo el equipo (26-11-2026).
+  const filler = "2026/11/26 13:00:00 1 abc [DEBUG Client 1] [BuildPlanner] Registering online build 'yOMXH8' for lazy loading\r\n";
+  const bigLog = (name: string, megabytes: number, lines: string[]) => {
+    const path = join(dir, name);
+    const block = filler.repeat(Math.ceil((1024 * 1024) / filler.length));
+    writeFileSync(path, "");
+    for (let index = 0; index < megabytes; index += 1) appendFileSync(path, `${block}${lines[index] ?? ""}`);
+    return path;
+  };
+
+  it("el repaso suelta el hilo entre trozo y trozo, y no pierde ni una línea ni una tilde", async () => {
+    // Una frase con tildes cada MB: alguna cae partida entre dos trozos.
+    const una = "2026/11/26 13:42:07 1 abc [INFO Client 1] Una: <<set:F>>¡Los espíritus feéricos! ¿Qué están haciendo?\r\n";
+    const path = bigLog("Grande.txt", 6, Array.from({ length: 6 }, (_, index) => `${area(index + 1, "P1_2")}\r\n${una}`));
+    const seen: LogEvent[] = [];
+    const steps: number[] = [];
+    let turns = 0;
+    const tail = new ClientLogTail(path, (event) => seen.push(event), 60_000);
+    const counting = setInterval(() => (turns += 1), 0);
+    const finished = await tail.start(null, (done, total) => steps.push(Math.round((done / total) * 100)));
+    clearInterval(counting);
+    tail.stop();
+    expect(finished).toBe(true);
+    expect(seen.filter((event) => event.kind === "area").map((event) => (event.kind === "area" ? event.level : 0))).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(seen.filter((event) => event.kind === "boss")).toHaveLength(6);
+    // Avisa de por dónde va, de menos a más, y otras cosas corren mientras tanto.
+    expect(steps.length).toBeGreaterThan(5);
+    expect(steps).toEqual([...steps].sort((a, b) => a - b));
+    expect(steps.at(-1)).toBe(100);
+    expect(turns).toBeGreaterThan(3);
+  });
+
+  it("un repaso parado a medias no empieza a vigilar y lo dice", async () => {
+    const path = bigLog("Parado.txt", 4, [`${area(1, "G1_1")}\r\n`]);
+    const seen: LogEvent[] = [];
+    const tail = new ClientLogTail(path, (event) => seen.push(event), 60_000);
+    const running = tail.start(null);
+    tail.stop();
+    expect(await running).toBe(false);
+    expect(tail.offset).toBeLessThan(3 * 1024 * 1024);
+  });
+
+  it("la vigilancia tampoco lee de un tirón: si de golpe hay mucho, sigue en la siguiente", async () => {
+    const path = join(dir, "Crece.txt");
+    writeFileSync(path, `${area(1, "G1_1")}\n`);
+    const seen: LogEvent[] = [];
+    const tail = new ClientLogTail(path, (event) => seen.push(event), 60_000);
+    await tail.start(null);
+    tail.stop();
+    const block = filler.repeat(Math.ceil((1024 * 1024) / filler.length));
+    for (let index = 0; index < 5; index += 1) appendFileSync(path, block);
+    appendFileSync(path, `${area(9, "G1_2")}\n`);
+    tail.poll();
+    expect(seen).toHaveLength(1);
+    tail.poll();
+    tail.poll();
+    expect(seen.at(-1)).toEqual({ kind: "area", level: 9, code: "G1_2" });
   });
 });
 
@@ -293,12 +353,13 @@ describe("ventanita: los interludios en marcha", () => {
     expect(onReward(after, "puntos").checked).toEqual(["7:6", "4:3"]);
   });
 
-  it("los nueve jefes de la historia se marcan a mano con Fin, y La cámara Cuachic pide jefe y premio", () => {
+  it("ocho jefes de la historia se marcan a mano con Fin, y La cámara Cuachic pide jefe y premio", () => {
     const zones = [5, 6, 7].flatMap((act) => Object.keys(SILENT_BOSSES[act] ?? {}));
-    expect(zones).toHaveLength(9);
-    const serle = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_2"]);
-    expect(viewOf(serle, "completa").boss).toEqual({ name: "Siora, la Cuchilla de las nieblas", dead: false, auto: false, label: "Jefe" });
-    expect(viewOf(onMarkStep(serle), "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+    expect(zones).toHaveLength(8);
+    const farm = play([...ACT_FOUR, "P1_Town", "P1_1"]);
+    expect(viewOf(farm, "completa").boss).toEqual({ name: "Isolde y Heldra", dead: false, auto: false, label: "Jefe" });
+    expect(viewOf(onMarkStep(farm), "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+    const serle = play(["P1_2"], farm);
     // Fuerte de los lobos y Aldea de Kriar no tienen casilla de jefe: avisa la recompensa.
     expect(bossOf(5, "Fuerte de los lobos")).toBeNull();
     expect(bossOf(7, "Aldea de Kriar")).toBeNull();
@@ -308,6 +369,42 @@ describe("ventanita: los interludios en marcha", () => {
     expect(killed.bosses).toContain("7:6");
     expect(viewOf(killed, "completa").ready).toBe(false);
     expect(viewOf(onReward(play(["G4_town"], killed), "puntos"), "completa").ready).toBe(true);
+  });
+
+  // Líneas del Client.txt de Luis (26-11-2026), sin datos de la cuenta.
+  const speech = (who: string, text: string) => `2026/11/26 13:42:00 11189625 3ef23348 [INFO Client 20012] ${who}: <<set:F>><<set:S>><<set:FS>>${text}`;
+  const SIORA = "Siora, la Cuchilla de las nieblas";
+
+  it("Siora se marca sola con su última frase, o con la de Una; sus gritos de combate no", () => {
+    const serle = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_2"]);
+    expect(viewOf(serle, "completa").boss).toEqual({ name: SIORA, dead: false, auto: true, label: "Jefe" });
+    const hear = (run: Run, line: string) => onLog({ ...EMPTY_ROSTER, current: "Yo", run }, parseLine(line)!).run;
+
+    expect(parseLine(speech(SIORA, "La niebla permanece..."))).toEqual({ kind: "boss", act: 5, zone: "Las piedras de Serle" });
+    expect(parseLine(speech("Una", "¡Los espíritus feéricos! ¿Qué están haciendo?"))).toEqual({ kind: "boss", act: 5, zone: "Las piedras de Serle" });
+    expect(viewOf(hear(serle, speech(SIORA, "La niebla permanece...")), "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+
+    // Lo que grita peleando, y lo que dice cuando gana ella, no marca nada.
+    for (const shout of ["¡Ruina!", "La oscuridad desciende... y con ella, ¡tu final!", "La niebla te envuelve...", "¡Esto no cambia nada!"]) {
+      expect(parseLine(speech(SIORA, shout)), shout).toBeNull();
+    }
+    // Un jefe de los mapas repite su frase: como no la dice Siora, no cuenta.
+    expect(parseLine(speech("Thariel, el Espectro de la umbra", "La niebla permanece..."))).toBeNull();
+    // Con el juego en otro idioma la frase no sale: Fin la marca igual.
+    expect(viewOf(onMarkStep(serle), "completa")).toMatchObject({ boss: { dead: true }, ready: true });
+  });
+
+  it("Isolde y Heldra no dicen nada al caer: ninguno de sus gritos marca la zona", () => {
+    // Las últimas líneas de las victorias del registro de Luis: gritos de combate cualquiera.
+    const lastLines: Array<[string, string]> = [
+      ["Isolde, del velo blanco", "¡El hielo rasga la tierra!"],
+      ["Isolde, del velo blanco", "¡Tus latidos se ralentizan!"],
+      ["Isolde, del velo blanco", "¡Débil y rota!"],
+      ["Heldra, de la pira negra", "¡Impeh oort kaal!"],
+      ["Heldra, de la pira negra", "¡Ackhh-tack, pok ta!"],
+    ];
+    for (const [who, text] of lastLines) expect(parseLine(speech(who, text)), text).toBeNull();
+    expect(bossOf(5, "Tierras de cultivo calcinadas")).toEqual({ name: "Isolde y Heldra", auto: false, label: "Jefe" });
   });
 
   it("Fuerte de los lobos es opcional pero sigue siendo clave", () => {
@@ -1176,8 +1273,8 @@ describe("ventanita: objetivos que se marcan solos", () => {
         count += 1;
       }
     }
-    // 17 de los actos 1-4 y 9 de los interludios.
-    expect(count).toBe(26);
+    // 17 de los actos 1-4 y 8 de los interludios (Siora ya se marca sola).
+    expect(count).toBe(25);
   });
 
   it("un personaje nuevo empieza sin nada marcado", () => {
@@ -1315,6 +1412,59 @@ describe("ventanita: el texto del paso, una frase por línea", () => {
     expect(sentencePieces("Quijada negra da +10 % de fuego para siempre.").some((piece) => piece.element)).toBe(false);
   });
 
+  /** Los tipos pintados de una frase, en orden. */
+  const painted = (sentence: string) => sentencePieces(sentence).flatMap((piece) => (piece.element ? [`${piece.text}:${piece.element}`] : []));
+
+  it("pinta también el físico, que antes dejaba sin color a toda la lista", () => {
+    expect(painted("Pega con físico y rayo.")).toEqual(["físico:fisico", "rayo:rayo"]);
+    expect(painted("Elzarah, el Señor de las cobras, pega con físico, fuego y caos.")).toEqual(["físico:fisico", "fuego:fuego", "caos:caos"]);
+    expect(painted("El final del interludio: Azmadi, el Príncipe faridun, pega con físico.")).toEqual(["físico:fisico"]);
+    expect(painted("Pega con todo: físico, fuego, hielo, rayo y caos.")).toEqual([
+      "físico:fisico",
+      "fuego:fuego",
+      "hielo:hielo",
+      "rayo:rayo",
+      "caos:caos",
+    ]);
+  });
+
+  it("pinta el daño del segundo jefe de la frase, que no repite «pega»", () => {
+    // Caso real (26-11-2026): «hielo» salía azul y «fuego» sin color.
+    expect(painted("Dos jefas: Isolde, del velo blanco, pega con hielo y Heldra, de la pira negra, con fuego.")).toEqual(["hielo:hielo", "fuego:fuego"]);
+    expect(painted("El final del interludio: Thane Wulfric pega con físico y fuego, y Lady Elswyth con físico y caos.")).toEqual([
+      "físico:fisico",
+      "fuego:fuego",
+      "físico:fisico",
+      "caos:caos",
+    ]);
+    // Un «con fuego» suelto, sin «pega con» delante, no es el daño de nadie.
+    expect(painted("Enciende el brasero con fuego y sigue.")).toEqual([]);
+    expect(painted("Con fuego en el suelo, pega con rayo.")).toEqual(["rayo:rayo"]);
+    // Ni «rayos», ni un nombre propio.
+    expect(painted("Pega con rayos de luna.")).toEqual([]);
+    expect(painted("Tras vencer a Xyclucian puedes hacer la Prueba de Caos.")).toEqual([]);
+  });
+
+  it("en todos los pasos, cada jefe que «pega con» algo lleva todos sus tipos pintados", () => {
+    const TYPE = /(?<!\p{L})(?:fuego|hielo|rayo|caos|físico)(?!\p{L})/giu;
+    const hitting: string[] = [];
+    for (let act = 1; act <= LAST_ACT; act += 1) {
+      for (const step of routeOf(act)) {
+        for (const sentence of stepSentences(step.text)) {
+          const from = sentence.search(/(?<!\p{L})pegan? con /iu);
+          if (from < 0) continue;
+          // Desde el primer «pega con», todo tipo de daño que nombra la frase es un golpe.
+          const named = [...sentence.slice(from).matchAll(TYPE)].map((match) => match[0].toLowerCase());
+          const shown = sentencePieces(sentence).flatMap((piece) => (piece.element ? [piece.text.toLowerCase()] : []));
+          expect(shown, `${stageName(act)} · ${step.zone}: ${sentence}`).toEqual(named);
+          hitting.push(step.zone);
+        }
+      }
+    }
+    // Cinco en los actos 1 a 4 y once en los interludios (26-11-2026).
+    expect(hitting).toHaveLength(16);
+  });
+
   it("con la línea «Jefe:» encima, quita la frase que solo repite su nombre", () => {
     const boss = "Benedictus, Primer heraldo de Utopía";
     expect(withoutBossName(`${boss}. Busca el hueco seguro en los anillos de explosiones.`, boss)).toBe(
@@ -1360,9 +1510,9 @@ describe("ventanita: el texto del paso, una frase por línea", () => {
     ]);
   });
 
-  it("ningún paso de las guías pierde texto al trocearlo", () => {
+  it("ningún paso de las guías ni de los interludios pierde texto al trocearlo", () => {
     let steps = 0;
-    for (const act of [1, 2, 3, 4]) {
+    for (const act of [1, 2, 3, 4, 5, 6, 7]) {
       for (const step of routeOf(act)) {
         steps += 1;
         const rebuilt = stepLines(step.text)
