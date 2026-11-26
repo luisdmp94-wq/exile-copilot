@@ -78,6 +78,9 @@ npm run data:gems
 npm run data:gems -- --en
 ```
 
+Si ese día se toca el texto de una guía por acto, después: `npm run data:guides`
+(el Mentor lee las guías de `server/data/guideKnowledge.json`).
+
 - Al acabar, cada uno dice qué gemas son nuevas, cuáles ya no están y cuáles
   cambian de texto. **«poe2db no ha cambiado ninguna gema» = aún no tiene el
   parche**: repetir más tarde.

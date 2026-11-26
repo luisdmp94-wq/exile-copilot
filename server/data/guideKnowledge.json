@@ -1,0 +1,1394 @@
+{
+ "es": [
+  {
+   "act": 1,
+   "slug": "acto-1",
+   "label": "acto 1",
+   "title": "Acto 1: cómo no morir antes del acto 2",
+   "draft": false,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "El jefe final, el conde Geonor, es el muro más nombrado: entra con al menos un 30 % de resistencia al hielo.",
+    "Al pasar al acto 2 pierdes un 10 % de resistencia al fuego, al hielo y al rayo.",
+    "Al mejorar el equipo, busca primero velocidad de movimiento y después resistencias.",
+    "No te saltes las recompensas para siempre: puntos de pasiva de set de arma, vida y espíritu."
+   ],
+   "focusNote": "El conde Geonor pega con hielo: es la que más importa antes de entrar.",
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "El conde Geonor",
+     "intro": "Jefe final del acto, en la mansión de Ogham. Pega con daño físico y de hielo.",
+     "cards": [
+      "Fase 1: No te quedes a su espalda. Sal rodando de los muros de hielo.",
+      "Desde el 75 %: Se vuelve lobo. No pises el círculo de runas: congela.",
+      "Desde el 50 %: Se cura entero. Muévete sin parar y, en la niebla, solo esquiva."
+     ],
+     "lines": [
+      "Antes de entrar: 30–40 % de resistencia al hielo.",
+      "Fase 1, golpe a golpe: su estocada helada (destello rojo) congela mucho. Si su embestida falla, sigue un tajo enorme a su espalda. Con los dos muros de hielo en V golpea por el medio.",
+      "Fase de lobo: clava la espada rodeada de runas de escarcha e invoca hombres lobo: mátalos o aléjate. Al 50 % se cura entero; su golpe de sangre no se puede bloquear. Sal de las manchas de hielo antes de que salgan los pinchos. Desde el 25 % caen rayos de luna hasta el final. En la niebla no recibe daño y sale embistiendo seis veces.",
+      "El parche 0.5.3 le bajó el daño a sus rayos de luna y a sus tajos hacia atrás.",
+      "El verdugo (pueblo de Ogham): una ráfaga de viento marca dónde caerá su guillotina; apártate. Su grieta avanza en línea recta: muévete de lado. Mata a los esbirros para que no te rodeen.",
+      "El rey de las nieblas (Villafrey, opcional): un efecto te aturde si te quedas quieto y el otro si te mueves: mira cuál llevas. Mata rápido sus tótems. Da +30 de espíritu para siempre."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistencias",
+     "intro": "En el acto 1 no pierdes nada. Desde el acto 2, cada acto te quita más:",
+     "cards": [
+      "Acto 2: −10 %",
+      "Acto 3: −20 %",
+      "Acto 4: −30 %",
+      "Interludios: −40 % a −50 %",
+      "Mapas: −60 %"
+     ],
+     "lines": [
+      "Apunta a un 30 % en las tres. Es la referencia de las guías de la comunidad, no una cifra oficial.",
+      "El tope normal es un 75 %: por encima no sirve, salvo que algo te suba el máximo.",
+      "Beira, de la manada putrefacta (Sierraclara), suelta un trofeo que da +10 % de resistencia al hielo para siempre.",
+      "Maxroll aconseja tener un anillo de zafiro (hielo) hacia el nivel 15, antes de Geonor."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Mejoras baratas",
+     "intro": "Primero velocidad de movimiento, después resistencias. Es una guía orientativa, no una regla fija.",
+     "cards": [],
+     "lines": [
+      "Mira al vendedor cada vez que vuelvas al campamento.",
+      "Usa orbes de transmutación en botas sin miedo: buscas velocidad.",
+      "Recoge siempre: el cuervo repicador y el laúd de Una (2 puntos de pasiva de set de arma cada uno), Cirio (+20 de vida) y el rey de las nieblas (+30 de espíritu).",
+      "En el acto 1 los vendedores llegan hasta nivel de objeto 15.",
+      "Un orbe de aumento añade un modificador a un objeto mágico que solo tiene uno. Guarda los orbes regios para tus mejores piezas.",
+      "Un arma blanca con buen daño base vale la pena: transmútala y auméntala.",
+      "Frascos: el caldero de la cabaña de la bruja, en el bosque singular, da frascos medianos gratis. Una vende frascos mayores por 80–500 de oro.",
+      "Engarza runas de resistencia en tu equipo para tapar la que te falte."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "La orilla del río",
+     "text": "Mata al molinero hinchado: te da tu primera gema de habilidad.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Sierraclara",
+     "text": "Busca a Beira, de la manada putrefacta: +10 % de resistencia al hielo para siempre.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+10 % resistencia al hielo"
+    },
+    {
+     "zone": "Lodazal",
+     "text": "El devorador da una gema de asistencia y 100 de oro.",
+     "optional": true,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "El bosque singular",
+     "text": "Frascos medianos gratis en la Cabaña de la bruja.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "El valle rojo",
+     "text": "Jefe: el rey del óxido. La misión «En busca de la forja» te deja reciclar objetos con Renly.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "El enredo sombrío",
+     "text": "Es el camino al cementerio.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Cementerio de los eternos",
+     "text": "Para llegar a Lachlann del lamento eterno pasa antes por el Mausoleo del pretor y la Tumba de la consorte. Da una gema de asistencia.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Terrenos de caza",
+     "text": "El cuervo repicador da un libro con 2 puntos de pasiva de set de arma.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "Villafrey",
+     "text": "El rey de las nieblas da +30 de espíritu para siempre.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+30 de espíritu"
+    },
+    {
+     "zone": "Tierras de cultivo de Ogham",
+     "text": "Misión «El laúd perdido»: está en La cabaña de Una. Da otro libro con 2 puntos.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "Pueblo de Ogham",
+     "text": "El verdugo: apártate de la ráfaga de viento que marca su guillotina. Da una gema de habilidad de nivel 5.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Mansión de Ogham",
+     "text": "Cirio, el Ritual viviente, da +20 de vida. Al final espera el conde Geonor.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+20 de vida"
+    }
+   ]
+  },
+  {
+   "act": 2,
+   "slug": "acto-2",
+   "label": "acto 2",
+   "title": "Acto 2: cómo cruzar el desierto sin morir",
+   "draft": false,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "Rudja, Ingeniera del terror (mina Mawdun), es el primer muro: sube la resistencia al fuego y sal del alquitrán antes de que lo encienda.",
+    "El jefe final, Jamanra, la Abominación, pega con rayo. En la tormenta de arena, quédate detrás del escudo de la sekhema Asala.",
+    "Fuego y rayo son las resistencias que importan aquí. Al pasar al acto 3 la penalización sube a −20 %.",
+    "No te saltes las Hermanas de Garukhan (+10 % de rayo para siempre) ni las Promesas antiguas (+1 espacio para viales)."
+   ],
+   "focusNote": "Jamanra, la Abominación, el jefe final, pega con rayo: es la que más importa antes de entrar.",
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "Rudja y Jamanra",
+     "intro": "Rudja, en la mina Mawdun. Jamanra, la Abominación, al final, en El Acorazado.",
+     "cards": [
+      "Rudja: Lanza alquitrán que te frena y luego lo prende con su lanzallamas. Sal del alquitrán enseguida.",
+      "Jamanra · fase 1: Rayos y pilares eléctricos. En la tormenta de arena, quédate en la zona del escudo de Asala.",
+      "Jamanra · desde el 66 %: Tornados, lanzas y orbes de rayo. No te quedes quieto."
+     ],
+     "lines": [
+      "Antes de Rudja: fuego lo más alto posible. Según Maxroll, una o dos runas desérticas marcan la diferencia.",
+      "Rudja también tiene una embestida que no se puede bloquear y un gas venenoso que explota si lo toca su fuego.",
+      "Salir de la zona segura durante la tormenta de arena mata muy rápido. Mata a los esbirros que aparezcan.",
+      "El parche 0.5.2 le bajó a Jamanra, la Abominación, alrededor de un 17 % de vida. Desde el 0.5.0 está en El Acorazado: si una guía antigua habla de una «vanguardia», ya no existe.",
+      "Azarian, el Hijo abandonado (Santuarios enterrados): pega con fuego y deja el suelo ardiendo. En la Ofrenda elemental, si vas corto de fuego, elige fuego: da un anillo de rubí.",
+      "Balbala, la Traidora (El pasaje de la traidora, opcional): se hace invisible y suelta gas venenoso. Tus efectos sobre ella siguen viéndose y la delatan. Solo hace falta para la ascendencia."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistencias",
+     "intro": "Qué pega con cada cosa:",
+     "cards": [
+      "Fuego: Rudja, Azarian, Balbala y Tor Gul.",
+      "Rayo: Jamanra, la Abominación (jefe final)."
+     ],
+     "lines": [
+      "Apunta a un 30 % en las tres antes del acto 3. Es una referencia de la comunidad, no una cifra oficial.",
+      "La runa desértica da resistencia al fuego (+10 %, +14 % o +18 % según su nivel) engarzada en una armadura.",
+      "El tope sigue siendo un 75 %."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Recompensas y mejoras baratas",
+     "intro": "Todas son opcionales y fáciles de pasar por alto.",
+     "cards": [],
+     "lines": [
+      "Promesas antiguas: lleva las reliquias de los clanes de Kabala y del sol al medallón del Valle de los titanes. Ganas un espacio más para viales.",
+      "Hermanas de Garukhan: su santuario está en Las torres de Deshar, antes del jefe final.",
+      "Hacia el nivel 30, los vendedores pueden tener botas con 20 % de velocidad, frascos colosales y amuletos de espíritu.",
+      "Las Promesas antiguas también dan, a elegir, +30 % de cargas de viales o +30 % de duración de sus efectos. La elección se puede cambiar luego.",
+      "Kabala, Reina constrictora (Keth): suelta un libro de especialización (2 puntos de pasiva de set de arma).",
+      "El rhoa abandonado (Deshar): busca la Última carta al pie de las torres y llévasela a Shambrin. Da otro libro de especialización."
+     ]
+    },
+    {
+     "id": "trampas",
+     "title": "Trampas del acto",
+     "intro": "Lo que más pilla a los novatos.",
+     "cards": [],
+     "lines": [
+      "Las tres rutas del desierto: la que dejes para el final sube de nivel. No guardes para luego la que peor llevas.",
+      "Las tres rutas se abren tras enfrentarte a Jamanra, el Rey ascendido (no muere: huye), y las tres son obligatorias.",
+      "La Prueba de las sekhemas (ascendencia): es dura si tu personaje es lento. Puedes volver más tarde, con más nivel."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "Alrededores del Vastiri",
+     "text": "Vence a Matajefes para subir a la caravana de los ardura.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Cantera y mina Mawdun",
+     "text": "Rudja, Ingeniera del terror, espera en la mina. Sal del alquitrán antes de que lo encienda.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "El pasaje de la traidora",
+     "text": "Balbala, la Traidora. Al vencerla te llevas la Barya que abre la Prueba de las sekhemas.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Prueba de las sekhemas",
+     "text": "Aquí consigues tu ascendencia. Si se te atraganta, vuelve con más nivel: no caduca.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "tu ascendencia"
+    },
+    {
+     "zone": "Las puertas de Halani",
+     "text": "Jamanra, el Rey ascendido, no muere: huye. Después se abren tres rutas por el desierto y hay que hacer las tres.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Keth",
+     "text": "Kabala, Reina constrictora, suelta un libro con 2 puntos de pasiva de set de arma. Llévate también la reliquia de su clan.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "La ciudad perdida y Santuarios enterrados",
+     "text": "Azarian, el Hijo abandonado, espera al fondo de los santuarios.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Páramo de los mastodontes y La llanura de huesos",
+     "text": "Ekbab, Montura ancestral. En esta ruta está la reliquia del clan del sol: no te vayas sin ella.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Valle de los titanes",
+     "text": "Promesas antiguas: pon las dos reliquias en el medallón y ganas un espacio más para viales.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+1 espacio para viales"
+    },
+    {
+     "zone": "La gruta del titán",
+     "text": "Zalmarath, el Coloso, cierra la ruta del valle.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Deshar",
+     "text": "El rhoa abandonado: busca la Última carta y llévasela a Shambrin. Da otro libro con 2 puntos.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "Las torres de Deshar",
+     "text": "Santuario de las Hermanas de Garukhan: +10 % de resistencia al rayo para siempre. Después, Tor Gul, el Profanador.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+10 % resistencia al rayo"
+    },
+    {
+     "zone": "El Acorazado",
+     "text": "Jamanra, la Abominación, el jefe final. En la tormenta de arena, quédate detrás del escudo de la sekhema Asala.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    }
+   ]
+  },
+  {
+   "act": 3,
+   "slug": "acto-3",
+   "label": "acto 3",
+   "title": "Acto 3: cómo salir vivo de la jungla vaal",
+   "draft": true,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "No te saltes a Quijada negra (+10 % de fuego para siempre) ni a Ignagduk (+30 de espíritu para siempre).",
+    "Hay 4 puntos de pasiva de set de arma: Puñoplateado poderoso y el Corazón sacrificial de Aggorat.",
+    "El jefe final, Doryani, Taumaturgo real, pega con rayo, fuego y algo de hielo. A media vida se sube a un autómata: no te quedes quieto.",
+    "Al pasar al acto 4 la penalización sube a −30 %. Apunta a un 30 % o más en las tres antes de salir."
+   ],
+   "focusNote": "Doryani, el jefe final, usa mucho el rayo (y también fuego): súbela antes de entrar.",
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "Doryani y otros jefes duros",
+     "intro": "Doryani, Taumaturgo real, al final, en Las cámaras negras.",
+     "cards": [
+      "Doryani · a pie: Rayos, lanzallamas y bolas de fuego. Muévete sin parar.",
+      "Doryani · desde el 50 %: Se sube a un autómata. Su puño te persigue: corre por la sala y rueda cuando frene.",
+      "Autómata al 50 %: Doryani vuela un rato con ataques nuevos. Láser de hielo: rueda a través del jefe cuando pase de azul a rojo."
+     ],
+     "lines": [
+      "Descarga estática: ponte dentro del círculo y no te hace daño. Pinchos en el suelo: no los pises.",
+      "Puñoplateado poderoso (Ruinas de la jungla): rueda hacia ti y aturde una y otra vez. Esquiva rodando; con poca armadura es letal.",
+      "Ignagduk, la Bruja del pantano: bajo el 75 % de vida pasa a hechizos de fuego. En el pasillo de huesos, ponte detrás de ella o lejos de la salida.",
+      "Si tu fuego va muy bajo (menos de 30–40 %), Maxroll aconseja el ritual opcional del pantano: da fuego por un rato.",
+      "Mektul, el Maestro de la forja: tienes menos de 4 minutos antes de que el oro fundido cubra la sala. Es opcional.",
+      "Ketzuli, Sumo sacerdote del sol: su rayo de luz quema más cuanto más rato estés dentro. Corre hacia él y rueda para pasarle.",
+      "Napuatzi la Víbora: su mordisco no se puede bloquear: esquiva de lado. La sala se encoge y al final te atacan por los dos lados."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistencias",
+     "intro": "Qué pega con cada cosa:",
+     "cards": [
+      "Fuego: Ignagduk, Quijada negra, Mektul, Ketzuli y Doryani.",
+      "Rayo: Zicoatl, Xyclucian, Napuatzi y Doryani.",
+      "Caos: La reina de la inmundicia y Napuatzi."
+     ],
+     "lines": [
+      "Apunta a un 30 % en las tres antes del acto 4. Es una referencia de la comunidad. Maxroll aconseja acercarte al 75 % todo lo que puedas.",
+      "En el acto 3 el juego te quita un 20 %; en el acto 4, un 30 %.",
+      "Hacia el nivel 35 los vendedores pueden tener anillos prismáticos, con resistencia a las tres.",
+      "El tope sigue siendo un 75 %."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Recompensas y mejoras baratas",
+     "intro": "Todas son opcionales y fáciles de pasar por alto.",
+     "cards": [],
+     "lines": [
+      "Las criptas venenosas: la mejora de Servi no se puede cambiar luego. Elige con calma.",
+      "Botas: pasa a unas con 20 % de velocidad cuanto antes. Mira en los vendedores del Campamento del zigurat.",
+      "Las mejoras de las criptas: +25 % de umbral de aturdimiento, +30 % de umbral de estados alterados elementales o +25 % de regeneración de maná.",
+      "Ignagduk también suelta una gema de espíritu sin tallar.",
+      "Hacia el nivel 40, en La ciudad sumergida, empieza a buscar frascos mejores.",
+      "La Prueba de Caos se puede hacer cuando quieras después de vencer a Xyclucian."
+     ]
+    },
+    {
+     "id": "trampas",
+     "title": "Trampas del acto",
+     "intro": "Lo que más pilla a los novatos.",
+     "cards": [],
+     "lines": [
+      "El Corazón sacrificial: no da nada hasta que lo usas en el altar de Aggorat. Puede caer también en Utzaal.",
+      "El parche 0.5.0 cambió el orden de zonas del acto 3: una guía antigua puede darte otra ruta.",
+      "Mektul y La cámara fundida no hacen falta para la historia: si te cuesta, vuelve más tarde."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "Ciénaga de arena y Campamento del zigurat",
+     "text": "Llegas al pueblo del acto. Dregaraíces es opcional: solo suelta una gema.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Ruinas de la jungla",
+     "text": "Puñoplateado poderoso, entre las ruinas de piedra: 2 puntos de pasiva de set de arma.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "Las criptas venenosas",
+     "text": "Sale de las Ruinas de la jungla. Lleva el veneno a Servi y elige una mejora para siempre: no se puede cambiar.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "mejora permanente"
+    },
+    {
+     "zone": "Yermo infestado y Humedales de las quimerinas",
+     "text": "Xyclucian, la Quimera. Tras vencer a Xyclucian puedes hacer la Prueba de Caos.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Taller de máquinas de Jiquani",
+     "text": "Quijada negra, el Remanente, es opcional pero da +10 % de resistencia al fuego para siempre.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+10 % resistencia al fuego"
+    },
+    {
+     "zone": "Santuario de Jiquani",
+     "text": "Zicoatl, Guardián del núcleo. Pega con rayo.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Los canales de Matlan",
+     "text": "De aquí sale El pantano de los azak. Coge el punto de ruta: tendrás que volver.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "El pantano de los azak",
+     "text": "Zona opcional. Ignagduk, la Bruja del pantano, da +30 de espíritu para siempre.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+30 de espíritu"
+    },
+    {
+     "zone": "Prueba de Caos",
+     "text": "En el templo de Caos. Da los puntos de ascendencia 3 y 4. Si se te atraganta, vuelve con más nivel.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "2 puntos de ascendencia"
+    },
+    {
+     "zone": "La ciudad sumergida",
+     "text": "Coge sus puntos de ruta: de aquí salen La cámara fundida y el Ápice de la inmundicia.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "La cámara fundida",
+     "text": "Mektul, el Maestro de la forja, suelta El martillo de Kamasa: llévaselo a Oswald al pueblo y abres la Mesa de reforja (tres objetos iguales por uno nuevo). También da una gema de habilidad sin tallar de nivel 10. Es una carrera contra el reloj: si te falta daño, vuelve después del acto.",
+     "optional": true,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "Ápice de la inmundicia",
+     "text": "La reina de la inmundicia. Pega con caos y llena el suelo de setas que explotan.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Templo de Kopec",
+     "text": "Ketzuli, Sumo sacerdote del sol. Pega con fuego.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Utzaal (pasado)",
+     "text": "Viajas al pasado. Napuatzi la Víbora espera al final.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Aggorat (pasado)",
+     "text": "Mata vaal hasta que caiga el Corazón sacrificial y úsalo en el altar: 2 puntos de pasiva de set de arma.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "Las cámaras negras (pasado)",
+     "text": "Doryani, Taumaturgo real, el jefe final.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    }
+   ]
+  },
+  {
+   "act": 4,
+   "slug": "acto-4",
+   "label": "acto 4",
+   "title": "Acto 4: las islas sin perderte nada",
+   "draft": true,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "El juego te manda primero a Bahía de las anclas y a El final del viaje. Después, haz las islas en el orden que quieras y deja Arastas y Ngakanu para el final.",
+    "En Salones de los muertos elige los tres tatuajes de resistencia (+5 % cada uno), no los de atributo: no se puede cambiar.",
+    "Hay 4 puntos de pasiva de set de arma: el Tomo envuelto en niebla (tras vencer a Omnifobia) y el Tatuaje de Hinekora (La prueba de los ancestros).",
+    "Tavakai, el jefe final, pega con fuego, hielo y rayo. En los interludios la penalización sube a −40 %: sube las tres antes de salir."
+   ],
+   "focusNote": null,
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "Tavakai y otros jefes duros",
+     "intro": "Tavakai, el Jefe de guerra, al final, en El corazón de la tribu. Tiene tres fases.",
+     "cards": [
+      "Tavakai · al principio: Te lanza un gancho: rueda para esquivarlo.",
+      "Al 50 % y al 25 %: Cambia de fase y suma fuego, hielo y rayo. Muévete sin parar.",
+      "Marca de Kitava: Se cura con el daño que te hace. Cuanto menos te pegue, antes cae."
+     ],
+     "lines": [
+      "El prisionero (Confinamiento solitario): se cura al 50 %, al 25 % y al 10 % de vida. Cada vez, dispárale con la balista para cortarle la cura.",
+      "Yama, el Blanco: pega con caos. Usa los pilares para cubrirte y busca al Yama de verdad entre sus copias. Maxroll aconseja botas con velocidad de movimiento.",
+      "Diamora, Canción de muerte: esquiva sus olas. Cuando canta, su mirada petrifica: no la mires de frente.",
+      "Torvian, la Mano del Salvador: interrumpe a los sacerdotes que le ayudan. No cruces sus muros sagrados: te frenan y recibes más golpes críticos.",
+      "Capitán Hartlin: sal del área del ancla espectral y esquiva los círculos de sus cañonazos."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistencias",
+     "intro": "Qué pega con cada cosa:",
+     "cards": [
+      "Fuego: Torvian y Tavakai.",
+      "Hielo: Hartlin, Diamora, El prisionero y Tavakai.",
+      "Rayo: Krutog, La bestia ciega, Benedictus y Tavakai.",
+      "Caos: Yama, el Blanco."
+     ],
+     "lines": [
+      "Los tres tatuajes de Salones de los muertos dan +5 % a cada resistencia, gratis. Apunta a un 30 % en las tres antes de los interludios. Maxroll aconseja acercarte al 75 % todo lo que puedas.",
+      "En el acto 4 el juego te quita un 30 %. En los interludios, un 40 %, y un 50 % en sus zonas de nivel 60 o más.",
+      "El tope sigue siendo un 75 %."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Recompensas y mejoras baratas",
+     "intro": "Casi todas están en zonas opcionales y son fáciles de pasar por alto.",
+     "cards": [],
+     "lines": [
+      "Omnifobia: si te saltas esa misión pierdes 2 puntos de set de arma y una gema de habilidad de nivel 13.",
+      "Kaimana: la Lección de Kaom es la sencilla: +30 % a armadura, evasión y escudo de energía.",
+      "La Lección de Rakiata: el 15 % de tu armadura también vale contra daño elemental, desvío igual al 12 % de tu evasión y el escudo de energía empieza a recargarse un 12 % antes.",
+      "Arastas y Ngakanu tienen tiendas (hechizos y herrero) que puedes visitar antes de hacerlas."
+     ]
+    },
+    {
+     "id": "trampas",
+     "title": "Trampas del acto",
+     "intro": "Lo que más pilla a los novatos.",
+     "cards": [],
+     "lines": [
+      "Los tatuajes no se pueden cambiar. Si eliges +5 a un atributo en vez de +5 % de resistencia, se queda así para siempre.",
+      "Dónde está Matiki cambia de una liga a otra. Una guía antigua puede mandarte a otra isla.",
+      "La elección de frascos de la Diosa de la justicia sí se puede cambiar: vuelve a la estatua.",
+      "Después del acto 4 vienen tres interludios antes de los mapas. Cada tramo te quita más resistencia."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "Marca del rey",
+     "text": "El pueblo del acto. Desde aquí navegas a las islas: primero a Bahía de las anclas y, después, a las demás en el orden que quieras.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Bahía de las anclas y El final del viaje",
+     "text": "Tu primer viaje: el juego te manda aquí antes que a ninguna otra isla. El capitán Hartlin espera en El final del viaje. Abre el cofre de la bahía: guarda un Trozo de mapa rasgado (1 de 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Isla del clan y Madrigueras volcánicas",
+     "text": "Krutog, Señor del clan, pega con rayo. La bestia ciega es opcional: suelta una runa que Dannig te cambia por otra. Los Gemelos de magma (dos gólems de roca que salen juntos, en las Madrigueras) también son opcionales: no tienen recompensa fija. En la orilla, el cuerpo de un marinero suelta un Trozo de mapa rasgado (2 de 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "El final del viaje",
+     "text": "Misión opcional: hay que volver con Dannig y luego pelear contra Omnifobia, Miedo manifiesto. Tujen te da el Tomo envuelto en niebla: 2 puntos de pasiva de set de arma.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "Prisión abandonada y Confinamiento solitario",
+     "text": "El prisionero se cura al 50 %, al 25 % y al 10 % de vida: dispárale con la balista para cortarle la cura. En la capilla, la Diosa de la justicia te deja elegir +30 % de recuperación de vida o de maná con frascos (se puede cambiar).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Isla Whakapanu y Cavernas melodiosas",
+     "text": "Diamora, Canción de muerte: mientras canta, no la mires de frente (petrifica). Después habla con Ange: abre el intercambio de monedas y el escondite. En esta isla hay otro Trozo de mapa rasgado (3 de 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Isla Whakapanu",
+     "text": "El gran blanco es un jefe opcional. Lleva su Aleta de tiburón a Kaimana y elige una mejora para siempre: Lección de Kaom (+30 % de armadura, evasión y escudo de energía) o Lección de Rakiata.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "mejora de defensa"
+    },
+    {
+     "zone": "El ojo de Hinekora",
+     "text": "Se abre al rescatar a Matiki. Haz sus tres pruebas y presenta tus respetos a Navali: +5 % de maná máximo para siempre y una Runa de la mente mayor.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+5 % de maná"
+    },
+    {
+     "zone": "Salones de los muertos",
+     "text": "Tres pruebas opcionales, cada una con un tatuaje a elegir. Coge los de resistencia: +5 % de fuego, +5 % de hielo y +5 % de rayo. Al final, Yama, el Blanco, pega con caos.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+5 % a las 3 resistencias"
+    },
+    {
+     "zone": "La prueba de los ancestros",
+     "text": "Después de Yama. Habla con Navali arriba del todo y te da el Tatuaje de Hinekora: 2 puntos de pasiva de set de arma.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "2 puntos de pasiva"
+    },
+    {
+     "zone": "Isla de los alcaudones",
+     "text": "El azote de los cielos: quédate delante de él y rueda para esquivar sus morteros de sangre. Aquí está el último Trozo de mapa rasgado (4 de 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Punta del botín",
+     "text": "Isla opcional de Expedición (nivel 53). Solo se abre cuando tienes los cuatro Trozos de mapa rasgado: Bahía de las anclas, Isla del clan, Isla Whakapanu e Isla de los alcaudones.",
+     "optional": true,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "Arastas",
+     "text": "Torvian, la Mano del Salvador. Toca las Campanas doradas: dan orbes regios y exaltados.",
+     "optional": false,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "La excavación",
+     "text": "Benedictus, Primer heraldo de Utopía. Busca el hueco seguro en los anillos de explosiones.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Ngakanu y El corazón de la tribu",
+     "text": "Tavakai, el Jefe de guerra, el jefe final.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    }
+   ]
+  }
+ ],
+ "en": [
+  {
+   "act": 1,
+   "slug": "acto-1",
+   "label": "act 1",
+   "title": "Act 1: how not to die before act 2",
+   "draft": false,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "The final boss, Count Geonor, is the wall people mention most: go in with at least 30% cold resistance.",
+    "When you reach act 2 you lose 10% fire, cold and lightning resistance.",
+    "When upgrading gear, look for movement speed first and resistances second.",
+    "Don't skip the permanent rewards: weapon set passive points, life and spirit."
+   ],
+   "focusNote": "Count Geonor hits with cold: it's the one that matters most before you go in.",
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "Count Geonor",
+     "intro": "Final boss of the act, in Ogham Manor. He hits with physical and cold damage.",
+     "cards": [
+      "Phase 1: Don't stand behind him. Roll out of the ice walls.",
+      "From 75%: He turns into a wolf. Don't step on the rune circle: it freezes.",
+      "From 50%: He heals to full. Keep moving and, in the mist, just dodge."
+     ],
+     "lines": [
+      "Before going in: 30–40% cold resistance.",
+      "Phase 1, hit by hit: his frost thrust (red flash) freezes a lot. If his charge misses, a huge slash behind him follows. With the two ice walls in a V, hit him through the middle.",
+      "Wolf phase: he plants his sword surrounded by frost runes and summons werewolves: kill them or move away. At 50% he heals to full; his blood strike can't be blocked. Leave the ice patches before the spikes come out. From 25%, moonbeams fall until the end. In the mist he takes no damage and comes out charging six times.",
+      "Patch 0.5.3 lowered the damage of his moonbeams and backward slashes.",
+      "The Executioner (Ogham Village): a gust of wind marks where his guillotine will fall; get out of the way. His fissure travels in a straight line: step sideways. Kill the minions so they don't surround you.",
+      "The King in the Mists (Freythorn, optional): one effect stuns you if you stand still and the other if you move: check which one you have. Kill his totems fast. Gives +30 spirit for good."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistances",
+     "intro": "In act 1 you lose nothing. From act 2 on, each act takes away more:",
+     "cards": [
+      "Act 2: −10%",
+      "Act 3: −20%",
+      "Act 4: −30%",
+      "Interludes: −40% to −50%",
+      "Maps: −60%"
+     ],
+     "lines": [
+      "Aim for 30% in all three. It's the reference used by community guides, not an official number.",
+      "The normal cap is 75%: above that it's wasted, unless something raises your maximum.",
+      "Beira of the Rotten Pack (Clearfell) drops a trophy that gives +10% cold resistance for good.",
+      "Maxroll recommends having a Sapphire Ring (cold) around level 15, before Geonor."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Cheap upgrades",
+     "intro": "Movement speed first, then resistances. It's a rule of thumb, not a fixed rule.",
+     "cards": [],
+     "lines": [
+      "Check the vendor every time you go back to town.",
+      "Use Orbs of Transmutation on boots without fear: you're looking for speed.",
+      "Always pick up: The Crowbell and Una's lute (2 weapon set passive points each), Candlemass (+20 life) and The King in the Mists (+30 spirit).",
+      "In act 1, vendors go up to item level 15.",
+      "An Orb of Augmentation adds a modifier to a magic item that has only one. Save Regal Orbs for your best items.",
+      "A white weapon with good base damage is worth it: transmute it and augment it.",
+      "Flasks: the cauldron at the Witch Hut, in The Grelwood, gives free medium flasks. Una sells greater flasks for 80–500 gold.",
+      "Socket resistance runes into your gear to cover whichever one you're missing."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "The Riverbank",
+     "text": "Kill The Bloated Miller: he gives you your first skill gem.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Clearfell",
+     "text": "Find Beira of the Rotten Pack: +10% cold resistance for good.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+10% cold resistance"
+    },
+    {
+     "zone": "Mud Burrow",
+     "text": "The Devourer gives a support gem and 100 gold.",
+     "optional": true,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "The Grelwood",
+     "text": "Free medium flasks at the Witch Hut.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "The Red Vale",
+     "text": "Boss: The Rust King. The quest “Finding the Forge” lets you salvage items with Renly.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "The Grim Tangle",
+     "text": "It's the way to the cemetery.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Cemetery of the Eternals",
+     "text": "To reach Lachlann of Endless Lament, go through the Mausoleum of the Praetor and the Tomb of the Consort first. Gives a support gem.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Hunting Grounds",
+     "text": "The Crowbell gives a book with 2 weapon set passive points.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "Freythorn",
+     "text": "The King in the Mists gives +30 spirit for good.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+30 spirit"
+    },
+    {
+     "zone": "Ogham Farmlands",
+     "text": "Quest “The Lost Lute”: it's at Una's Hut. Gives another book with 2 points.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "Ogham Village",
+     "text": "The Executioner: get away from the gust of wind that marks his guillotine. Gives a level 5 skill gem.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Ogham Manor",
+     "text": "Candlemass, the Living Rite, gives +20 life. Count Geonor waits at the end.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+20 life"
+    }
+   ]
+  },
+  {
+   "act": 2,
+   "slug": "acto-2",
+   "label": "act 2",
+   "title": "Act 2: how to cross the desert without dying",
+   "draft": false,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "Rudja, the Dread Engineer (Mawdun Mine), is the first wall: raise your fire resistance and get out of the tar before she lights it.",
+    "The final boss, Jamanra, the Abomination, hits with lightning. In the sandstorm, stay behind Sekhema Asala's shield.",
+    "Fire and lightning are the resistances that matter here. When you reach act 3 the penalty goes up to −20%.",
+    "Don't skip the Sisters of Garukhan (+10% lightning for good) or Ancient Vows (+1 charm slot)."
+   ],
+   "focusNote": "Jamanra, the Abomination, the final boss, hits with lightning: it's the one that matters most before you go in.",
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "Rudja and Jamanra",
+     "intro": "Rudja, in Mawdun Mine. Jamanra, the Abomination, at the end, in The Dreadnought.",
+     "cards": [
+      "Rudja: She throws tar that slows you and then lights it with her flamethrower. Get out of the tar right away.",
+      "Jamanra · phase 1: Lightning bolts and electric pillars. In the sandstorm, stay inside Asala's shield.",
+      "Jamanra · from 66%: Tornadoes, spears and lightning orbs. Don't stand still."
+     ],
+     "lines": [
+      "Before Rudja: fire as high as you can. According to Maxroll, one or two Lesser Desert Runes make the difference.",
+      "Rudja also has a charge that can't be blocked and a poison gas that explodes if her fire touches it.",
+      "Leaving the safe zone during the sandstorm kills you very fast. Kill the minions that show up.",
+      "Patch 0.5.2 lowered Jamanra, the Abomination's life by about 17%. Since 0.5.0 he's in The Dreadnought: if an old guide mentions a “vanguard”, it no longer exists.",
+      "Azarian, the Forsaken Son (Buried Shrines): he hits with fire and leaves the ground burning. At the Elemental Offering, if you're short on fire, pick fire: it gives a Ruby Ring.",
+      "Balbala, the Traitor (Traitor's Passage, optional): she turns invisible and releases poison gas. Your effects on her stay visible and give her away. You only need her for the ascendancy."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistances",
+     "intro": "What hits with what:",
+     "cards": [
+      "Fire: Rudja, Azarian, Balbala and Tor Gul.",
+      "Lightning: Jamanra, the Abomination (final boss)."
+     ],
+     "lines": [
+      "Aim for 30% in all three before act 3. It's a community reference, not an official number.",
+      "The Lesser Desert Rune gives fire resistance (+10%, +14% or +18% depending on its level) when socketed in armour.",
+      "The cap is still 75%."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Rewards and cheap upgrades",
+     "intro": "All of them are optional and easy to miss.",
+     "cards": [],
+     "lines": [
+      "Ancient Vows: bring the relics from Kabala's clan and the sun clan to the medallion in the Valley of the Titans. You get one more charm slot.",
+      "Sisters of Garukhan: their shrine is in The Spires of Deshar, before the final boss.",
+      "Around level 30, vendors can have boots with 20% movement speed, colossal flasks and spirit amulets.",
+      "Ancient Vows also gives, your choice, +30% charm charges or +30% charm effect duration. You can change the choice later.",
+      "Kabala, Constrictor Queen (Keth): drops a Book of Specialisation (2 weapon set passive points).",
+      "The Abandoned Rhoa (Deshar): find the Final Letter at the foot of the spires and bring it to Shambrin. Gives another Book of Specialisation."
+     ]
+    },
+    {
+     "id": "trampas",
+     "title": "Act traps",
+     "intro": "What catches new players most.",
+     "cards": [],
+     "lines": [
+      "The three desert routes: the one you leave for last goes up in level. Don't save the one you find hardest for later.",
+      "The three routes open after you face Jamanra, the Risen King (he doesn't die: he flees), and all three are required.",
+      "The Trial of the Sekhemas (ascendancy): it's hard if your character is slow. You can come back later, with more levels."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "Vastiri Outskirts",
+     "text": "Beat Rathbreaker to board The Ardura Caravan.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Mawdun Quarry and Mawdun Mine",
+     "text": "Rudja, the Dread Engineer, waits in the mine. Get out of the tar before she lights it.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Traitor's Passage",
+     "text": "Balbala, the Traitor. Beating her gives you Balbala's Barya, which opens the Trial of the Sekhemas.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Trial of the Sekhemas",
+     "text": "This is where you get your ascendancy. If it's too hard, come back with more levels: it doesn't expire.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "your ascendancy"
+    },
+    {
+     "zone": "The Halani Gates",
+     "text": "Jamanra, the Risen King, doesn't die: he flees. Then three routes open across the desert, and you have to do all three.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Keth",
+     "text": "Kabala, Constrictor Queen, drops a book with 2 weapon set passive points. Take her clan's relic too.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "The Lost City and Buried Shrines",
+     "text": "Azarian, the Forsaken Son, waits at the end of the shrines.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Mastodon Badlands and The Bone Pits",
+     "text": "Ekbab, Ancient Steed. The sun clan relic is on this route: don't leave without it.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Valley of the Titans",
+     "text": "Ancient Vows: put both relics in the medallion and you get one more charm slot.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+1 charm slot"
+    },
+    {
+     "zone": "The Titan Grotto",
+     "text": "Zalmarath, the Colossus, closes the valley route.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Deshar",
+     "text": "The Abandoned Rhoa: find the Final Letter and bring it to Shambrin. Gives another book with 2 points.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "The Spires of Deshar",
+     "text": "Shrine of the Sisters of Garukhan: +10% lightning resistance for good. Then Tor Gul, the Defiler.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+10% lightning resistance"
+    },
+    {
+     "zone": "The Dreadnought",
+     "text": "Jamanra, the Abomination, the final boss. In the sandstorm, stay behind Sekhema Asala's shield.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    }
+   ]
+  },
+  {
+   "act": 3,
+   "slug": "acto-3",
+   "label": "act 3",
+   "title": "Act 3: how to get out of the Vaal jungle alive",
+   "draft": true,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "Don't skip Blackjaw (+10% fire for good) or Ignagduk (+30 spirit for good).",
+    "There are 4 weapon set passive points: Mighty Silverfist and the Sacrificial Heart in Aggorat.",
+    "The final boss, Doryani, Royal Thaumaturge, hits with lightning, fire and some cold. At half life he climbs into a mech: keep moving.",
+    "When you reach act 4 the penalty goes up to −30%. Aim for 30% or more in all three before you leave."
+   ],
+   "focusNote": "Doryani, the final boss, uses a lot of lightning (and fire too): raise it before you go in.",
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "Doryani and other tough bosses",
+     "intro": "Doryani, Royal Thaumaturge, at the end, in The Black Chambers.",
+     "cards": [
+      "Doryani · on foot: Lightning, a flamethrower and fireballs. Keep moving.",
+      "Doryani · from 50%: He climbs into a mech. Its fist chases you: run around the room and dodge roll when it slows down.",
+      "Mech at 50%: Doryani flies for a while with new attacks. Frost laser: roll past the boss when it turns from blue to red."
+     ],
+     "lines": [
+      "Static blast: stand inside the circle and it does no damage. Spikes on the floor: don't step on them.",
+      "Mighty Silverfist (Jungle Ruins): he rolls at you and stuns again and again. Dodge roll; with low armour it's deadly.",
+      "Ignagduk, the Bog Witch: below 75% life she switches to fire spells. In the bone corridor, stand behind her or far from the exit.",
+      "If your fire is very low (under 30–40%), Maxroll suggests the optional Flameskin Ritual in the bog: it gives fire for a while.",
+      "Mektul, the Forgemaster: you have under 4 minutes before molten gold covers the room. He's optional.",
+      "Ketzuli, High Priest of the Sun: his light beam burns more the longer you stay in it. Run toward him and roll past him.",
+      "Viper Napuatzi: her bite can't be blocked: dodge sideways. The arena shrinks, and in the end you get hit from both sides."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistances",
+     "intro": "What hits with what:",
+     "cards": [
+      "Fire: Ignagduk, Blackjaw, Mektul, Ketzuli and Doryani.",
+      "Lightning: Zicoatl, Xyclucian, Napuatzi and Doryani.",
+      "Chaos: The Queen of Filth and Napuatzi."
+     ],
+     "lines": [
+      "Aim for 30% in all three before act 4. It's a community reference. Maxroll advises getting as close to 75% as you can.",
+      "In act 3 the game takes away 20%; in act 4, 30%.",
+      "Around level 35, vendors can have Prismatic Rings, with resistance to all three.",
+      "The cap is still 75%."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Rewards and cheap upgrades",
+     "intro": "All of them are optional and easy to miss.",
+     "cards": [],
+     "lines": [
+      "The Venom Crypts: Servi's buff can't be changed later. Choose calmly.",
+      "Boots: switch to a pair with 20% movement speed as soon as you can. Check the vendors in the Ziggurat Encampment.",
+      "The crypt buffs: 25% increased Stun Threshold, 30% increased Elemental Ailment Threshold or 25% increased Mana Regeneration Rate.",
+      "Ignagduk also drops an Uncut Spirit Gem.",
+      "Around level 40, in The Drowned City, start looking for better flasks.",
+      "You can do the Trial of Chaos whenever you like after beating Xyclucian."
+     ]
+    },
+    {
+     "id": "trampas",
+     "title": "Act traps",
+     "intro": "What catches new players most.",
+     "cards": [],
+     "lines": [
+      "The Sacrificial Heart: gives nothing until you use it at the altar in Aggorat. It can also drop in Utzaal.",
+      "Patch 0.5.0 changed the zone order of act 3: an old guide may give you a different route.",
+      "Mektul and The Molten Vault aren't needed for the story: if he's too hard, come back later."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "Sandswept Marsh and Ziggurat Encampment",
+     "text": "You reach the act's town. Rootdredge is optional: he only drops a gem.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Jungle Ruins",
+     "text": "Mighty Silverfist, among the stone ruins: 2 weapon set passive points.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "The Venom Crypts",
+     "text": "Off the Jungle Ruins. Bring the venom to Servi and pick a permanent buff: it can't be changed.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "permanent buff"
+    },
+    {
+     "zone": "Infested Barrens and Chimeral Wetlands",
+     "text": "Xyclucian, the Chimera. After beating Xyclucian you can do the Trial of Chaos.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Jiquani's Machinarium",
+     "text": "Blackjaw, the Remnant, is optional but gives +10% fire resistance for good.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "+10% fire resistance"
+    },
+    {
+     "zone": "Jiquani's Sanctum",
+     "text": "Zicoatl, Warden of the Core. Hits with lightning.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "The Matlan Waterways",
+     "text": "The Azak Bog leads off from here. Take the waypoint: you'll have to come back.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "The Azak Bog",
+     "text": "Optional area. Ignagduk, the Bog Witch, gives +30 spirit for good.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+30 spirit"
+    },
+    {
+     "zone": "Trial of Chaos",
+     "text": "In the Temple of Chaos. Gives ascendancy points 3 and 4. If it's too hard, come back with more levels.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "2 ascendancy points"
+    },
+    {
+     "zone": "The Drowned City",
+     "text": "Take its waypoints: The Molten Vault and the Apex of Filth both lead off from here.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "The Molten Vault",
+     "text": "Mektul, the Forgemaster, drops The Hammer of Kamasa: take it to Oswald in town and you unlock the Reforging Bench (three identical items for a new one). He also gives a level 10 Uncut Skill Gem. It's a race against the clock: if you lack damage, come back after the act.",
+     "optional": true,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "Apex of Filth",
+     "text": "The Queen of Filth. Hits with chaos and fills the floor with exploding mushrooms.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Temple of Kopec",
+     "text": "Ketzuli, High Priest of the Sun. Hits with fire.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Utzaal (Past)",
+     "text": "You travel to the past. Viper Napuatzi waits at the end.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Aggorat (Past)",
+     "text": "Kill Vaal until the Sacrificial Heart drops and use it at the altar: 2 weapon set passive points.",
+     "optional": false,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "The Black Chambers (Past)",
+     "text": "Doryani, Royal Thaumaturge, the final boss.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    }
+   ]
+  },
+  {
+   "act": 4,
+   "slug": "acto-4",
+   "label": "act 4",
+   "title": "Act 4: the islands without missing anything",
+   "draft": true,
+   "checkedPatch": "0.5.5",
+   "essentials": [
+    "The game sends you to Kedge Bay and Journey's End first. After that, do the islands in any order and leave Arastas and Ngakanu for last.",
+    "In the Halls of the Dead pick the three resistance tattoos (+5% each), not the attribute ones: you can't change it.",
+    "There are 4 weapon set passive points: the Mist-shrouded Tome (after beating Omniphobia) and the Tattoo of Hinekora (Trial of the Ancestors).",
+    "Tavakai, the final boss, hits with fire, cold and lightning. In the Interludes the penalty goes up to −40%: raise all three before you leave."
+   ],
+   "focusNote": null,
+   "blocks": [
+    {
+     "id": "jefes",
+     "title": "Tavakai and other hard bosses",
+     "intro": "Tavakai, the Chieftain, at the end, in the Heart of the Tribe. He has three phases.",
+     "cards": [
+      "Tavakai · at the start: He throws a hook: roll to dodge it.",
+      "At 50% and 25%: He changes phase and adds fire, cold and lightning. Keep moving.",
+      "Kitava's mark: He heals from the damage he deals to you. The less he hits you, the sooner he falls."
+     ],
+     "lines": [
+      "The Prisoner (Solitary Confinement): heals at 50%, 25% and 10% life. Each time, shoot him with the ballista to stop it.",
+      "Yama the White: hits with chaos. Use the pillars as cover and find the real Yama among his clones. Maxroll advises boots with movement speed.",
+      "Diamora, Song of Death: dodge her waves. When she sings, her gaze petrifies: don't face her.",
+      "Torvian, Hand of the Saviour: interrupt the priests helping him. Don't cross his holy walls: they slow you and make you easier to crit.",
+      "Captain Hartlin: leave the spectral anchor area and dodge the circles of his cannon barrage."
+     ]
+    },
+    {
+     "id": "resistencias",
+     "title": "Resistances",
+     "intro": "What hits with what:",
+     "cards": [
+      "Fire: Torvian and Tavakai.",
+      "Cold: Hartlin, Diamora, the Prisoner and Tavakai.",
+      "Lightning: Krutog, the Blind Beast, Benedictus and Tavakai.",
+      "Chaos: Yama the White."
+     ],
+     "lines": [
+      "The three Halls of the Dead tattoos give +5% to each resistance, free. Aim for 30% in all three before the Interludes. Maxroll advises getting as close to 75% as you can.",
+      "In act 4 the game takes away 30%. In the Interludes, 40%, and 50% in their areas of level 60 or more.",
+      "The cap is still 75%."
+     ]
+    },
+    {
+     "id": "mejoras",
+     "title": "Rewards and cheap upgrades",
+     "intro": "Almost all are in optional areas and easy to miss.",
+     "cards": [],
+     "lines": [
+      "Omniphobia: skip that quest and you lose 2 weapon set points and a level 13 skill gem.",
+      "Kaimana: Kaom's Lesson is the simple one: +30% to armour, evasion and energy shield.",
+      "Rakiata's Lesson: 15% of your armour also applies to elemental damage, deflection equal to 12% of your evasion, and energy shield starts recharging 12% sooner.",
+      "Arastas and Ngakanu have shops (spells and blacksmith) you can visit before doing them."
+     ]
+    },
+    {
+     "id": "trampas",
+     "title": "Act traps",
+     "intro": "What catches new players most.",
+     "cards": [],
+     "lines": [
+      "Tattoos can't be changed. If you pick +5 to an attribute instead of +5% resistance, it stays that way for good.",
+      "Where Matiki is changes from league to league. An old guide may send you to a different island.",
+      "The Goddess of Justice flask choice can be changed: go back to the statue.",
+      "After act 4 come three Interludes before the maps. Each stretch takes away more resistance."
+     ]
+    }
+   ],
+   "route": [
+    {
+     "zone": "Kingsmarch",
+     "text": "The act's town. From here you sail to the islands: Kedge Bay first, then the rest in any order.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Kedge Bay and Journey's End",
+     "text": "Your first trip: the game sends you here before any other island. Captain Hartlin waits in Journey's End. Open the chest in the bay: it holds a Torn Map Piece (1 of 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Isle of Kin and Volcanic Warrens",
+     "text": "Krutog, Lord of Kin, hits with lightning. The Blind Beast is optional: it drops a rune Dannig swaps for another. The Magma Twins (two rock golems that come as a pair, in the Warrens) are optional too: no set reward. On the shore, a sailor's body drops a Torn Map Piece (2 of 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Journey's End",
+     "text": "Optional quest: go back to Dannig, then fight Omniphobia, Fear Manifest. Tujen gives you the Mist-shrouded Tome: 2 weapon set passive points.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "Abandoned Prison and Solitary Confinement",
+     "text": "The Prisoner heals at 50%, 25% and 10% life: shoot him with the ballista to stop it. In the chapel, the Goddess of Justice lets you pick +30% flask life or mana recovery (you can change it).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Whakapanu Island and Singing Caverns",
+     "text": "Diamora, Song of Death: while she sings, don't face her gaze (it petrifies). Then talk to Ange: it unlocks the currency exchange and your hideout. This island has another Torn Map Piece (3 of 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Whakapanu Island",
+     "text": "The Great White One is an optional boss. Bring its Shark Fin to Kaimana and pick a permanent buff: Kaom's Lesson (+30% armour, evasion and energy shield) or Rakiata's Lesson.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "defence buff"
+    },
+    {
+     "zone": "Eye of Hinekora",
+     "text": "Opens when you rescue Matiki. Do its three tests and pay your respects to Navali: +5% maximum mana for good and a Greater Mind Rune.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+5% mana"
+    },
+    {
+     "zone": "Halls of the Dead",
+     "text": "Three optional tests, each with a tattoo to choose. Take the resistance ones: +5% fire, +5% cold and +5% lightning. At the end, Yama the White hits with chaos.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "+5% to all 3 resistances"
+    },
+    {
+     "zone": "Trial of the Ancestors",
+     "text": "After Yama. Talk to Navali at the very top and she gives you the Tattoo of Hinekora: 2 weapon set passive points.",
+     "optional": true,
+     "priority": "clave",
+     "reward": "2 passive points"
+    },
+    {
+     "zone": "Shrike Island",
+     "text": "Scourge of the Skies: stay in front of it and roll to dodge its blood mortars. The last Torn Map Piece is here (4 of 4).",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Plunder's Point",
+     "text": "Optional Expedition island (level 53). It only opens once you have all four Torn Map Pieces: Kedge Bay, Isle of Kin, Whakapanu Island and Shrike Island.",
+     "optional": true,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "Arastas",
+     "text": "Torvian, Hand of the Saviour. Ring the Golden Bells: they give Regal and Exalted Orbs.",
+     "optional": false,
+     "priority": "recomendable",
+     "reward": null
+    },
+    {
+     "zone": "The Excavation",
+     "text": "Benedictus, First Herald of Utopia. Look for the safe gap in the explosion rings.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    },
+    {
+     "zone": "Ngakanu and Heart of the Tribe",
+     "text": "Tavakai, the Chieftain, the final boss.",
+     "optional": false,
+     "priority": "historia",
+     "reward": null
+    }
+   ]
+  }
+ ]
+}

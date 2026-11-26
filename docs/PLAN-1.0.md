@@ -120,7 +120,7 @@ la siguiente. Nada se sube sin su sí.
   Falta comprobar que la clave de Groq de Render funciona: preguntar en la web
   algo dicho raro; si la respuesta empieza por «Entiendo que…», funciona.
 
-- [ ] **13. El Mentor conversa: la IA contesta con los datos de las reglas**
+- [x] **13. El Mentor conversa: la IA contesta con los datos de las reglas**
   (queja de Luis el 25-11 al probarlo: «responde la web antes que la IA y
   sigue diciendo lo mismo sin ayudarme»). Reproducido en local con una bruja
   de nivel 49 y siete frases seguidas:
@@ -144,6 +144,30 @@ la siguiente. Nada se sube sin su sí.
     sueltas: las mediciones anteriores no veían este fallo.
   - Coste: 1 o 2 s por respuesta y el cupo gratis de Groq (200.000 tokens al
     día, unas cien respuestas). Antes del 8-12, que se congela.
+  → El 25-11, **hecho en local, sin subir: falta medir el control.** La IA lee
+  la charla, elige los datos que contestan y escribe la entrada; los datos
+  salen copiados tal cual (redactando libre llegó a decir lo contrario de la
+  guía). Charla de la bruja: **de 2 bien, 1 a medias y 6 mal a 7 bien, 2 a
+  medias y 0 mal**; ningún dato inventado. Las guías por acto ya son datos, y
+  sin IA el jefe del acto 3 también se contesta. Control nuevo (12 turnos):
+  antes 4 bien, 2 a medias, 6 mal; **después, sin medir: las mediciones
+  gastaron el cupo gratis de Groq del día.** Coste real: de 2.500 a 4.000
+  tokens por respuesta, unas 60 al día con el cupo gratis. Pasadas: 17 pruebas
+  nuevas y las 269 del Mentor y las guías; la batería completa, sin pasar
+  (Luis jugaba). Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 13».
+  Pagar en Groq está cerrado; para no depender de un solo cupo, si el modelo
+  principal se queda sin él la petición va a dos de reserva (gpt-oss-20b y
+  qwen3.8-27b): tres cupos de 200.000 tokens al día en vez de uno.
+  → El 26-11, **control medido: de 4 bien, 2 a medias y 6 mal a 8 bien, 3 a
+  medias y 1 mal** (una pasada, doce turnos, todos con el modelo principal,
+  sin datos inventados). El que falla: tras hablar del conde, «¿y qué hago en
+  la pelea?» vuelve al equipo. A medias: «¿dónde está?» sitúa solo una de dos
+  cosas, «¿cuál pongo primero?» no nombra ninguna y «hace poco daño» se calla
+  el arma sin mods. Detalle turno a turno en `docs/MEDICION-MENTOR-2.md`.
+  En la rama, el 26-11: lint, las 1713 pruebas y `npm run build` en verde; las
+  pruebas de humo, sin pasar (se pasan al fusionar).
+  **Subido a main el 26-11 con el «sí, súbelo» de Luis.** Lo flojo del control
+  queda para otro chat, con un control nuevo (este ya no vale si se retoca).
 
 ### Del 8 al 10 de diciembre
 

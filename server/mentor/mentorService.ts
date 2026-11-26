@@ -45,7 +45,20 @@ import {
 } from "./gameQuestions.js";
 import { answerPassiveTreeQuestion } from "./treeQuestion.js";
 import { answerBasicsQuestion, answerItemCompareQuestion } from "./basicsQuestions.js";
-import { routeInputFor, routedQuestion, understoodLine } from "./questionRouter.js";
+import { routeInputFor, routedQuestion, understoodLine, type RoutedQuestion } from "./questionRouter.js";
+import { answerGuideQuestion, asksAboutRoute, guideInQuestion, guideLines, type GuideKnowledge } from "./guideKnowledge.js";
+import {
+  answerLines,
+  buildFichas,
+  characterFacts,
+  composeWrittenAnswer,
+  topicLines,
+  UnverifiedWriting,
+  writerVocabulary,
+  type FichaOrigin,
+  type TopicLine,
+  type WriterVocabulary,
+} from "./mentorWriter.js";
 import type { TreeKnowledge } from "../advice/passiveTreeAdvisor.js";
 import {
   MentorAiError,
@@ -117,6 +130,8 @@ export interface MentorQueryDependencies {
   gems?: GemKnowledge | null;
   /** Árbol de pasivas: con él contesta «¿por dónde sigo en el árbol?». */
   tree?: TreeKnowledge | null;
+  /** Guías por acto: con ellas contesta por jefes, zonas y recompensas de un acto. */
+  guides?: GuideKnowledge | null;
 }
 
 const UNSUPPORTED_REASON =
@@ -1178,20 +1193,233 @@ export function answerMentorQuery(
   options: MentorQueryOptions,
   deps: MentorQueryDependencies = {},
 ): Promise<MentorAnswer> {
+  const selector = deps.selector ?? null;
+  if (selector !== null && selector.write !== undefined && canConverse(options)) {
+    return converse(options, deps, selector as WritingSelector);
+  }
   return buildAnswer(options, deps);
 }
 
+// ---------------------------------------------------------------------------
+// El Mentor conversa: las reglas ponen los datos y la IA redacta (tarea 13)
+// ---------------------------------------------------------------------------
+
+type RoutingSelector = MentorDecisionSelector & { route: NonNullable<MentorDecisionSelector["route"]> };
+type WritingSelector = MentorDecisionSelector & { write: NonNullable<MentorDecisionSelector["write"]> };
+
+/** Lo que sigue como estaba: botones de la web, áreas en revisión, Crafting y saludos. */
+function canConverse(options: MentorQueryOptions): boolean {
+  if (options.intentHint !== undefined || options.patchFeatureBlock !== undefined) return false;
+  const envelope = options.contextEnvelope;
+  // Un contrato de Crafting abierto se explica con su estado, no con la charla.
+  if (envelope?.activeArea === "crafting" && envelope.craftingState !== null && envelope.craftingState !== undefined) {
+    return false;
+  }
+  return classifyMentorQuestion(options.question).intent !== "conversation";
+}
+
 /**
- * Ninguna regla reconoce la frase: la IA dice de qué tema es y contesta la
- * regla de ese tema, con sus datos. La IA no redacta ni elige nada más. Si
- * dice que no es de ningún tema, o lo que dice no se sostiene, «no lo sé».
+ * Cuánto texto de fichas ve la IA como mucho. Groq gratis deja 8.000 tokens
+ * por minuto: con 9.000 caracteres (unos 4.000 tokens por respuesta) la
+ * tercera pregunta del minuto ya caía en el límite (medido el 25-11-2026).
  */
-async function answerByUnderstanding(
+const MAX_WRITER_DATA_CHARS = 6000;
+/** La guía de un acto no se lleva todo el sitio: lo más útil va primero. */
+const MAX_WRITER_GUIDE_CHARS = 3000;
+/** Turnos de la charla que ve la IA, y cuánto de cada uno. */
+const WRITER_TURNS = 4;
+const WRITER_TURN_CHARS = 400;
+/** Frases de las reglas que no son un dato del juego y despistan a quien redacta. */
+const NOT_A_FACT_RE = /Sale de los datos del juego y de reglas fijas, sin IA\.|This comes from the game's data and fixed rules, no AI\./g;
+
+/**
+ * La respuesta de las reglas, línea a línea. El siguiente paso solo entra en
+ * las de preguntas anteriores: el de ahora ya lo enseña la web en su tarjeta.
+ */
+function rulesLines(answer: MentorAnswer, tema: string, lang: AnswerLang, withNextStep = true): TopicLine[] {
+  const next =
+    withNextStep && answer.nextAction ? [`${lang === "en" ? "Next step" : "Siguiente paso"}: ${answer.nextAction.text}`] : [];
+  return [...answerLines(answer.answer.replace(NOT_A_FACT_RE, "")), ...next].map((texto) => ({ tema, texto }));
+}
+
+const vocabularies = new WeakMap<object, WriterVocabulary>();
+function vocabularyFor(deps: MentorQueryDependencies): WriterVocabulary {
+  const key = deps.gems?.data ?? deps.guides ?? null;
+  if (key === null) return writerVocabulary(null, null);
+  let vocabulary = vocabularies.get(key);
+  if (!vocabulary) {
+    vocabulary = writerVocabulary(deps.gems ?? null, deps.guides ?? null);
+    vocabularies.set(key, vocabulary);
+  }
+  return vocabulary;
+}
+
+/**
+ * Las reglas contestan como siempre y con eso, más lo que se venía hablando,
+ * la IA escribe la respuesta. Si la IA falla, tarda, no hay cupo o escribe
+ * algo que no está en los datos, sale lo que habría salido sin ella.
+ */
+async function converse(
   options: MentorQueryOptions,
   deps: MentorQueryDependencies,
-  selector: MentorDecisionSelector & { route: NonNullable<MentorDecisionSelector["route"]> },
-  normalizedQuestion: string,
+  selector: WritingSelector,
 ): Promise<MentorAnswer> {
+  const lang = langOf(options);
+  const rulesOnly: MentorQueryDependencies = { ...deps, selector: null };
+  const { normalizedQuestion } = classifyMentorQuestion(options.question);
+  const gems = deps.gems ?? null;
+  const guides = deps.guides ?? null;
+
+  /** Lo que sale si la IA no llega a redactar. */
+  let base = await buildAnswer(options, rulesOnly);
+  /** La respuesta de las reglas, sin el «Entiendo que…», como dato. */
+  let rules = base;
+  let understood = false;
+
+  // Las preguntas anteriores del jugador se vuelven a contestar aquí: lo que
+  // el navegador diga que respondió el Mentor no es un dato.
+  const earlierQuestions = (options.conversation ?? [])
+    .filter((turn) => turn.role === "player")
+    .map((turn) => turn.text)
+    .slice(-2);
+  const earlier: Array<{ origen: FichaOrigin; lines: TopicLine[] }> = [];
+  // La más reciente primero: es de la que más se habla.
+  for (const question of [...earlierQuestions].reverse()) {
+    const asked = `«${question.slice(0, 120)}»`;
+    const answer = await buildAnswer({ ...options, question, conversation: [] }, rulesOnly);
+    earlier.push({
+      origen: "anterior",
+      lines: [
+        ...(gems ? topicLines(gems, question, options.profile, lang) : []).map((line) => ({
+          tema: `${lang === "en" ? "earlier topic" : "tema anterior"} ${asked}: ${line.tema}`,
+          texto: line.texto,
+        })),
+        ...(answer.intent === "unsupported"
+          ? []
+          : rulesLines(answer, `${lang === "en" ? "what the Mentor answered to" : "lo que el Mentor contestó a"} ${asked}`, lang)),
+      ],
+    });
+  }
+  const hasEarlier = earlier.some((part) => part.lines.length > 0);
+  const guide = guides
+    ? ([options.question, ...[...earlierQuestions].reverse()]
+        .map((question) => guideInQuestion(guides, question, lang))
+        .find((match) => match !== null) ?? null)
+    : null;
+  let topic = gems ? topicLines(gems, options.question, options.profile, lang) : [];
+
+  // Sin nada con lo que redactar: primero, de qué tema es (tarea 12, paso 1).
+  if (base.intent === "unsupported" && !hasEarlier && guide === null && topic.length === 0) {
+    if (selector.route === undefined) return base;
+    const result = await understand(options, deps, selector as WritingSelector & RoutingSelector, normalizedQuestion);
+    if ("answer" in result) return result.answer;
+    const routedRules = await buildAnswer({ ...options, question: result.routed.question }, rulesOnly, true);
+    if (routedRules.intent === "unsupported") return understoodNothing(options, normalizedQuestion, selector);
+    rules = routedRules;
+    base = understoodAnswer(routedRules, result.routed, normalizedQuestion, selector, lang);
+    topic = gems ? topicLines(gems, result.routed.question, options.profile, lang) : [];
+    understood = true;
+  }
+
+  const looseSentence = lang === "en" ? "loose sentence: what the rules answer without reading the chat" : "frase suelta: lo que contestan las reglas sin mirar la charla";
+  const guideTopic = guide ? `${lang === "en" ? "the site's guide for" : "guía de la web del"} ${guide.guide.label}` : "";
+  const fichas = buildFichas(
+    [
+      { origen: "reglas", lines: rules.intent === "unsupported" ? [] : rulesLines(rules, looseSentence, lang, false) },
+      { origen: "tema", lines: topic },
+      {
+        origen: "guia",
+        lines: guide
+          ? guideLines(guide.guide, lang, asksAboutRoute(options.question, earlierQuestions)).map((texto) => ({ tema: guideTopic, texto }))
+          : [],
+        maxChars: MAX_WRITER_GUIDE_CHARS,
+      },
+      ...earlier,
+    ],
+    MAX_WRITER_DATA_CHARS,
+  );
+  const personaje = characterFacts(gems, options.profile, lang);
+  const charla = (options.conversation ?? []).slice(-WRITER_TURNS).map((turn) => ({
+    quien: turn.role === "player" ? ("jugador" as const) : ("mentor" as const),
+    texto: turn.text.slice(0, WRITER_TURN_CHARS),
+  }));
+
+  /** La IA no ha podido: lo de siempre. Sin tema aún, se pregunta primero de qué va. */
+  const withoutWriter = (reason: string | null): Promise<MentorAnswer> | MentorAnswer => {
+    if (base.intent === "unsupported" && !understood) return buildAnswer(options, deps);
+    if (reason === null || base.responseMode === "ai") return base;
+    return { ...base, ...metadata("rules_fallback", selector.name, reason) };
+  };
+
+  try {
+    const decision = await selector.write(
+      {
+        pregunta: options.question.slice(0, 500),
+        charla,
+        personaje,
+        fichas: fichas.map(({ id, tema, texto }) => ({ id, tema, texto })),
+      },
+      safetyIdentifier(options.safetyIdentifierSeed),
+      lang,
+    );
+    const said = [
+      options.question,
+      ...(options.conversation ?? []).filter((turn) => turn.role === "player").map((turn) => turn.text),
+    ];
+    const written = composeWrittenAnswer(decision, fichas, [JSON.stringify(personaje), ...said].join("\n"), vocabularyFor(deps));
+    // No hay datos y la IA lo confirma: el «no lo sé» de siempre, que además se apunta.
+    if (!decision.enough && base.intent === "unsupported") return withoutWriter(null);
+    if (base.intent === "unsupported" || !written.origins.has("reglas")) {
+      // Habla del tema de la charla o de la guía, no de lo que eligió el motor para la frase suelta.
+      return { ...gemQuestionAnswer(options, normalizedQuestion, written.message), ...metadata("ai", selector.name) };
+    }
+    return MentorAnswerSchema.parse({ ...base, normalizedQuestion, answer: written.message, ...metadata("ai", selector.name) });
+  } catch (error) {
+    if (error instanceof UnverifiedWriting) {
+      console.warn(`[mentor-ai] redacción descartada: ${error.safeReason}${error.detail ? ` («${error.detail.slice(0, 60)}»)` : ""}`);
+    }
+    const reason =
+      error instanceof MentorAiError || error instanceof UnverifiedWriting
+        ? error.safeReason
+        : "La IA no pudo redactar la respuesta; se usaron las reglas.";
+    return withoutWriter(reason);
+  }
+}
+
+function understoodNothing(options: MentorQueryOptions, normalizedQuestion: string, selector: MentorDecisionSelector): MentorAnswer {
+  return { ...unsupportedAnswer(options, normalizedQuestion), ...metadata("ai", selector.name) };
+}
+
+/** La respuesta de la regla del tema, con el «Entiendo que…» delante. */
+function understoodAnswer(
+  answer: MentorAnswer,
+  routed: RoutedQuestion,
+  normalizedQuestion: string,
+  selector: MentorDecisionSelector,
+  lang: AnswerLang,
+): MentorAnswer {
+  return {
+    ...answer,
+    normalizedQuestion,
+    answer: `${understoodLine(routed.topic, lang)}
+
+${answer.answer}`,
+    // Si la respuesta ya cuenta un fallo de la IA al redactar, se deja como está.
+    ...(answer.responseMode === "rules_fallback" ? {} : metadata("ai", selector.name)),
+  };
+}
+
+/**
+ * La IA dice de qué tema es una frase que ninguna regla reconoce. Devuelve la
+ * pregunta ya con las palabras de la regla, o la respuesta «no lo sé» si la IA
+ * falla, dice que no es de ningún tema o lo que dice no se sostiene.
+ */
+async function understand(
+  options: MentorQueryOptions,
+  deps: MentorQueryDependencies,
+  selector: RoutingSelector,
+  normalizedQuestion: string,
+): Promise<{ routed: RoutedQuestion } | { answer: MentorAnswer }> {
   const lang = langOf(options);
   let routed: ReturnType<typeof routedQuestion>;
   try {
@@ -1210,27 +1438,29 @@ async function answerByUnderstanding(
       error instanceof MentorAiError
         ? error.safeReason
         : "La IA no pudo entender la pregunta con seguridad; se usaron las reglas.";
-    return unsupportedAnswer(options, normalizedQuestion, { model: selector.name, reason });
+    return { answer: unsupportedAnswer(options, normalizedQuestion, { model: selector.name, reason }) };
   }
+  if (routed === null) return { answer: understoodNothing(options, normalizedQuestion, selector) };
+  return { routed };
+}
 
-  const understoodNothing = (): MentorAnswer => ({
-    ...unsupportedAnswer(options, normalizedQuestion),
-    ...metadata("ai", selector.name),
-  });
-  if (routed === null) return understoodNothing();
-
-  const answer = await buildAnswer({ ...options, question: routed.question }, deps, true);
+/**
+ * Ninguna regla reconoce la frase: la IA dice de qué tema es y contesta la
+ * regla de ese tema, con sus datos. Si dice que no es de ningún tema, o lo que
+ * dice no se sostiene, «no lo sé».
+ */
+async function answerByUnderstanding(
+  options: MentorQueryOptions,
+  deps: MentorQueryDependencies,
+  selector: RoutingSelector,
+  normalizedQuestion: string,
+): Promise<MentorAnswer> {
+  const result = await understand(options, deps, selector, normalizedQuestion);
+  if ("answer" in result) return result.answer;
+  const answer = await buildAnswer({ ...options, question: result.routed.question }, deps, true);
   // La regla del tema tampoco la reconoció (faltan los datos de gemas, por ejemplo).
-  if (answer.intent === "unsupported") return understoodNothing();
-  return {
-    ...answer,
-    normalizedQuestion,
-    answer: `${understoodLine(routed.topic, lang)}
-
-${answer.answer}`,
-    // Si la respuesta ya cuenta un fallo de la IA al redactar, se deja como está.
-    ...(answer.responseMode === "rules_fallback" ? {} : metadata("ai", selector.name)),
-  };
+  if (answer.intent === "unsupported") return understoodNothing(options, normalizedQuestion, selector);
+  return understoodAnswer(answer, result.routed, normalizedQuestion, selector, langOf(options));
 }
 
 async function buildAnswer(
@@ -1317,6 +1547,13 @@ async function buildAnswer(
     if (basicsAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, basicsAnswer);
   }
 
+  // «¿Cómo mato al jefe del acto 3?»: la guía de ese acto, tal cual. Solo
+  // cuando ninguna otra regla la ha reconocido.
+  if (deps.guides && intent === "unsupported" && options.intentHint === undefined) {
+    const guideAnswer = answerGuideQuestion(deps.guides, options.question, lang);
+    if (guideAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, guideAnswer);
+  }
+
   // Ninguna regla la reconoce: si hay IA, dice de qué tema es y contesta la
   // regla de ese tema. Un área en revisión para este parche se respeta antes.
   if (
@@ -1330,7 +1567,7 @@ async function buildAnswer(
     return answerByUnderstanding(
       options,
       deps,
-      selector as MentorDecisionSelector & { route: NonNullable<MentorDecisionSelector["route"]> },
+      selector as RoutingSelector,
       normalizedQuestion,
     );
   }

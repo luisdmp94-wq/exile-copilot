@@ -9,6 +9,15 @@ import {
   type MentorRouteDecision,
   type MentorRouteInput,
 } from "./questionRouter.js";
+import {
+  MentorWriteDecisionSchema,
+  MentorWriteInputSchema,
+  WRITE_INSTRUCTIONS,
+  WRITE_INSTRUCTIONS_EN,
+  WRITE_JSON_SCHEMA,
+  type MentorWriteDecision,
+  type MentorWriteInput,
+} from "./mentorWriter.js";
 
 /**
  * Decisión y redacción fundamentada de Mentor v4. Los campos generativos son
@@ -138,6 +147,11 @@ export interface MentorDecisionSelector {
    * ver `questionRouter.ts`. Opcional: sin él, el Mentor no cambia.
    */
   route?(input: MentorRouteInput, safetyIdentifier: string): Promise<MentorRouteDecision>;
+  /**
+   * Redacta la respuesta con los datos que le dan las reglas, mirando la
+   * charla: ver `mentorWriter.ts`. Opcional: sin él, salen los textos fijos.
+   */
+  write?(input: MentorWriteInput, safetyIdentifier: string, lang?: "es" | "en"): Promise<MentorWriteDecision>;
 }
 
 export class MentorAiError extends Error {
@@ -149,6 +163,9 @@ export class MentorAiError extends Error {
     this.safeReason = safeReason;
   }
 }
+
+/** Tope de salida al redactar: el texto, el JSON y lo que el modelo razona antes. */
+const WRITE_MAX_OUTPUT_TOKENS = 900;
 
 type FetchLike = (
   input: string | URL | Request,
@@ -350,6 +367,24 @@ export class ResponsesMentorSelector implements MentorDecisionSelector {
     );
   }
 
+  async write(
+    rawInput: MentorWriteInput,
+    safetyIdentifier: string,
+    lang: "es" | "en" = "es",
+  ): Promise<MentorWriteDecision> {
+    const input = MentorWriteInputSchema.parse(rawInput);
+    return this.request(
+      lang === "en" ? WRITE_INSTRUCTIONS_EN : WRITE_INSTRUCTIONS,
+      input,
+      { name: "exile_copilot_mentor_write", schema: WRITE_JSON_SCHEMA },
+      safetyIdentifier,
+      (parsed) => MentorWriteDecisionSchema.parse(parsed),
+      // Una respuesta entera pide más que una decisión: con el tope de las
+      // decisiones (256) se quedaba a medias.
+      Math.max(this.config.mentorAiMaxOutputTokens, WRITE_MAX_OUTPUT_TOKENS),
+    );
+  }
+
   /** Una petición con salida estructurada: límite de tiempo, un reintento y errores sin secretos. */
   private async request<T>(
     instructions: string,
@@ -357,6 +392,7 @@ export class ResponsesMentorSelector implements MentorDecisionSelector {
     format: { name: string; schema: unknown },
     safetyIdentifier: string,
     parse: (parsed: unknown) => T,
+    maxOutputTokens: number = this.config.mentorAiMaxOutputTokens,
   ): Promise<T> {
     const apiKey = this.config.mentorAiApiKey;
     const provider = providerRequest(this.config);
@@ -378,7 +414,7 @@ export class ResponsesMentorSelector implements MentorDecisionSelector {
       const operation = (async (): Promise<T> => {
         const requestBody: Record<string, unknown> = {
           model: this.config.mentorAiModel,
-          max_output_tokens: this.config.mentorAiMaxOutputTokens,
+          max_output_tokens: maxOutputTokens,
           reasoning: { effort: this.config.mentorAiReasoningEffort },
           input: [
             { role: "system", content: instructions },
@@ -455,6 +491,8 @@ ${JSON.stringify(context)}`,
     } catch (error) {
       if (error instanceof MentorAiError) throw error;
       if (error instanceof z.ZodError) {
+        // Solo qué campo falló, nunca lo que escribió la IA ni el jugador.
+        console.warn(`[mentor-ai] ${format.name}: no pasa la validación en ${error.issues.map((issue) => issue.path.join(".") || "(raíz)").join(", ")}`);
         throw new MentorAiError("La decisión de IA no pasó la validación; se usaron las reglas.");
       }
       if (error instanceof Error && error.name === "AbortError") {

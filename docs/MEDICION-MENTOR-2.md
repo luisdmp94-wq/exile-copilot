@@ -340,3 +340,120 @@ Para comprobarlo: poner la clave nueva en el `.env` local y repetir (unos 7 minu
   cuántos novatos pegan todo el equipo.
 - Las veinte preguntas las escribí yo imitando a un novato. No son de jugadores
   reales. Las de verdad llegarán con la tarea 3 (guardar lo que no sabe contestar).
+
+## Tarea 13 · el Mentor conversa (25-11-2026)
+
+Se mide con **charlas** (una pregunta y dos repreguntas seguidas), no con
+preguntas sueltas: `node scripts/mentor-charla.mjs` (la bruja de nivel 49) y
+`--control` (cuatro charlas nuevas con el guerrero y la exploradora).
+
+**Qué cambia.** Las reglas siguen poniendo los datos. El servidor los parte en
+frases sueltas («fichas»): la respuesta de las reglas a la pregunta, la de las
+dos preguntas anteriores del jugador (recalculadas en el servidor), las ocho
+asistencias que mejor le van a la habilidad de la que se habla, las que hacen
+aguantar a los esbirros y la guía del acto que se nombre. La IA lee la charla,
+elige de una a cuatro fichas y escribe una entrada corta y una pregunta de
+cierre. Las fichas se enseñan copiadas tal cual.
+
+**Por qué no redacta entera.** Primera prueba, redactando libre: siguió el hilo,
+pero escribió «evita los círculos de descarga estática» (la guía dice que hay
+que meterse dentro) y «lanzar más rápido sin perder daño» de una gema que quita
+velocidad. Un filtro de nombres y cifras no ve eso. Copiando la frase no pasa.
+
+**Filtro.** La entrada y el cierre no pueden traer una cifra, un grado, una gema
+ni un nombre propio que no esté en las fichas, en el personaje o en lo que
+escribió el jugador. El cierre solo se enseña si es una pregunta. Si algo
+falla, tarda o no hay cupo, sale el texto de las reglas.
+
+**Charla de la bruja (nueve turnos).** Con ella se escribieron las
+instrucciones de la IA: no es una prueba limpia.
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Antes | 2 | 1 | 6 |
+| Después | 7 | 2 | 0 |
+
+Antes: repite la misma lista letra a letra, contesta «rellena los huecos de
+equipo» a «¿y por qué esa?», lista todas las gemas de esbirro a «se me mueren»
+y dice «no lo sé» al jefe del acto 3. Después: las nueve redactadas por la IA,
+ninguna cae a reglas y ningún dato inventado. A medias: «ya, pero ¿qué hago
+exactamente?» repite las dos asistencias (no hay datos de cómo se ponen) y el
+último turno mezcla el consejo de equipo con el del jefe. Tarda de 0,9 a 2,1 s.
+
+**Charlas de control (doce turnos, escritas con las instrucciones ya fijas).**
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Antes (código de main) | 4 | 2 | 6 |
+| Después (26-11-2026, una pasada) | **8** | **3** | **1** |
+
+El 25-11 no se pudo medir el «después»: al cuarto turno Groq cortó con un 429
+(cupo gratis del día gastado). Medido el 26-11 a mediodía: los doce turnos los
+redactó el modelo principal (gpt-oss-120b), ninguno cayó a reglas ni a un
+modelo de reserva, de 0,8 a 1,6 s cada uno. Ningún dato inventado: las frases
+de las guías citadas (muros de hielo, 30–40 % de hielo, escudo de Asala, el
+17 % del parche 0.5.2) están tal cual en `server/data/guideKnowledge.json`.
+Las notas son de quien escribió el código: léelas con ese descuento.
+
+Turno a turno:
+
+- **K1 (guerrero, Terremoto): bien, bien, bien.** Da cuatro asistencias; a «¿y
+  por qué esa primero?» dice la verdad («porque su etiqueta encaja mejor, no
+  porque sea la que más daño haga»); a «dame otra» quita Furia y da tres
+  distintas. Antes repetía la misma lista y hablaba de huecos de equipo. La
+  entrada del tercer turno dice «Lucha I» por «Lucha» (fallo conocido).
+- **K2 (guerrero, el conde): bien, bien, mal.** Reconoce a Geonor, dice que
+  pega con hielo, 30–40 % antes de entrar y qué hacer en la fase 1. A «vale, ¿y
+  qué hago en la pelea?» **vuelve al equipo** (resistencia y huecos vacíos) y
+  no dice nada de la pelea: la regla de «qué hago» («lo siguiente que haría»)
+  se queda la pregunta antes de que la charla llegue a la guía.
+- **K3 (exploradora, acto 2): bien, a medias, bien.** Antes, tres «no sé».
+  Ahora: las Hermanas de Garukhan y las Promesas antiguas; «¿y eso dónde está?»
+  sitúa las Hermanas en Las torres de Deshar pero no dice dónde están las
+  Promesas (Valle de los titanes, y el dato está en la guía); el jefe final,
+  bien (Jamanra, rayo, el escudo de Asala).
+- **K4 (exploradora, Flecha de rayo): a medias, bien, a medias.** A «hace poco
+  daño» da cuatro asistencias y se calla lo que antes sí decía: que el arco
+  no tiene ni un mod. A «ya llevo Aceleración de proyectiles» lo reconoce y da
+  otras. A «¿cuál pongo primero?» no nombra ninguna: repite la lista.
+
+Lo que queda flojo, por si se retoca (y entonces este control deja de valer y
+hay que escribir otro): la repregunta «¿qué hago en la pelea?» tras hablar de
+un jefe; «¿dónde está?» cuando la respuesta anterior nombró dos cosas; «¿cuál
+primero?» sin decir una; y el arma sin mods cuando alguien dice que hace poco
+daño. Los cierres siguen ofreciendo a veces lo que el Mentor no sabe («¿quieres
+que te explique cómo enlazarlas?», «¿tips para la fase 1?»).
+
+Las respuestas, tal cual, están en `docs/mediciones/tarea-13/` (bruja antes y
+después, control antes y después). El «antes» del control se midió con el
+código de main. La charla de la bruja no se repitió el 26-11: desde su medición
+solo cambiaron los modelos de reserva, no lo que escribe la IA, y cada pasada
+gasta cupo de todos los visitantes.
+
+**Lo que costó la medición.** Cada respuesta redactada gasta de 2.500 a 4.000
+tokens. Con el cupo gratis salen unas 60 respuestas al día para todos los
+visitantes juntos; después contestan las reglas. Para gastar menos, la IA ve
+como mucho 6.000 caracteres de fichas y los cuatro últimos turnos.
+
+**Modelo de reserva (25-11-2026, tarde).** Pagar en Groq no se puede: su
+consola dice que el plan de pago está cerrado «por alta demanda». El 429 de
+Groq nombra el modelo («Rate limit reached for model openai/gpt-oss-120b… on
+tokens per day»): el cupo es por modelo. Ahora, si el modelo principal contesta
+429, la misma petición va a `openai/gpt-oss-20b`
+(`MENTOR_AI_FALLBACK_MODELS`). Probado con una charla de la bruja contestada
+solo por el de reserva: sigue el hilo, elige bien los datos y tarda 0,7 s; la
+entrada es algo más floja. La tabla de límites de Groq (console.groq.com →
+Limits, leída por Luis el 25-11) da 200.000 tokens al día a cada modelo:
+gpt-oss-120b, gpt-oss-20b y qwen3.8-27b. Los tres quedan en cadena: unos
+600.000 tokens al día, unas 180 respuestas redactadas. Qwen, probado con otra
+charla de la bruja, dice lo que ya llevas puesto y no repite; es también el
+modelo que lee las capturas, así que va el último.
+
+**Sin IA también mejora:** «¿cómo mato al jefe del acto 3?» ya contesta con la
+guía (regla nueva, `server/mentor/guideKnowledge.ts`). Las guías se leen de
+`server/data/guideKnowledge.json`: tras tocar una guía, `npm run data:guides`
+(una prueba falla si se queda atrás).
+
+**Fallos conocidos.** La entrada puede decir mal un nombre que sí está en los
+datos («Lucha I» por «Lucha»). El cierre a veces ofrece explicar algo que el
+Mentor no sabe («¿quieres saber cómo enlazarlas?»).
