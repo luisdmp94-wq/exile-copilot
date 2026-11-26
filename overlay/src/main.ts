@@ -20,6 +20,7 @@ import {
   type Run,
 } from "./run";
 import { DEFAULT_SETTINGS, SIZE_SCALE, sanitizeSettings, type Settings } from "./settings";
+import { updateStatus, watchForUpdates } from "./updates";
 
 /**
  * Ventanita guía de Exile Copilot. Una ventana aparte, siempre encima, que
@@ -214,6 +215,9 @@ function render(): void {
     character: saved.character ?? null,
     problem: problem ?? keyProblem,
     replaying,
+    version: app.getVersion(),
+    installed: app.isPackaged,
+    updateReady: updateStatus.ready,
     waitingForGame: !CAPTURE && saved.settings.onlyWithGame && readForeground !== null && isStarting() && !gameInFront(),
   });
 }
@@ -434,7 +438,8 @@ function buildTrayMenu(): void {
   const s = saved.settings;
   tray?.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Exile Copilot · ventanita guía", enabled: false },
+      { label: `Exile Copilot · ventanita guía ${app.getVersion()}`, enabled: false },
+      ...(updateStatus.ready ? [{ label: `La versión ${updateStatus.ready} se instala al cerrarla`, enabled: false }] : []),
       { type: "separator" },
       { label: "Ruta completa", type: "radio", checked: s.route === "completa", click: () => updateSettings({ route: "completa" }) },
       { label: "Ruta rápida (sin lo que no da nada para siempre)", type: "radio", checked: s.route === "rapida", click: () => updateSettings({ route: "rapida" }) },
@@ -577,6 +582,10 @@ ipcMain.on("accion", (_event, name: unknown, value: unknown) => {
       return toggleMinimized();
     case "solo-juego":
       return updateSettings({ onlyWithGame: !s.onlyWithGame });
+    case "versiones":
+      // Quitarlo vale para la próxima vez que se abra; ponerlo, desde ya.
+      updateSettings({ autoUpdate: !s.autoUpdate });
+      return startUpdates();
     case "sitio":
       return resetPosition();
     case "cero":
@@ -627,8 +636,27 @@ async function runTestActions(list: string): Promise<void> {
   }
 }
 
-// Para pruebas: guardar el estado en otra carpeta y no pisar el del jugador.
-if (process.env.VENTANITA_DATOS) app.setPath("userData", process.env.VENTANITA_DATOS);
+/**
+ * La carpeta de la partida, siempre la misma: instalada, el programa se llama
+ * «Exile Copilot Ventanita» y Electron guardaría en otra carpeta, perdiendo la
+ * partida y el sitio de quien venía de abrirla desde el código.
+ * Para pruebas: otra carpeta, y no se pisa la del jugador.
+ */
+app.setPath("userData", process.env.VENTANITA_DATOS ?? join(app.getPath("appData"), "exile-copilot-ventanita"));
+
+/** Solo la versión instalada, y solo si el jugador no lo ha quitado. */
+function startUpdates(): void {
+  if (!saved.settings.autoUpdate) return;
+  watchForUpdates({
+    onChange: () => {
+      render();
+      buildTrayMenu();
+    },
+    // Una captura de prueba baja la versión nueva, pero no la instala.
+    installOnQuit: !CAPTURE,
+    feedUrl: process.env.VENTANITA_ACTUALIZAR_URL ?? null,
+  });
+}
 
 /**
  * Solo una ventanita a la vez. Si ya hay una abierta, se le pide que se cierre
@@ -685,6 +713,8 @@ void takeOver().then((mine) => {
     }
 
     setInterval(syncVisibility, 250);
+    // Mirar si hay versión nueva espera al repaso: primero, que la guía esté al día.
+    void replay.then(startUpdates);
     // Al terminar el arranque, el aviso «saldrá con PoE2 delante» se va.
     setTimeout(render, STARTING_MS + 100);
 
@@ -699,7 +729,7 @@ void takeOver().then((mine) => {
           const image = await win!.webContents.capturePage();
           writeFileSync(capture, image.toPNG());
           // Junto a la imagen, dónde está y cuánto mide la ventana de verdad.
-          writeFileSync(`${capture}.json`, JSON.stringify({ bounds: win!.getBounds(), place, dragging: dragging !== null, replaying, ...trace }));
+          writeFileSync(`${capture}.json`, JSON.stringify({ bounds: win!.getBounds(), place, dragging: dragging !== null, replaying, ...trace, installed: app.isPackaged, version: app.getVersion(), update: updateStatus, foreground: readForeground !== null }));
         } finally {
           app.quit();
         }

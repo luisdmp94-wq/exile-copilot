@@ -11,6 +11,8 @@ export interface Settings {
   onlyWithGame: boolean;
   /** Minimizada: una sola línea con la zona, para que no tape el juego. */
   minimized: boolean;
+  /** Solo en la versión instalada: mirar si hay versión nueva e instalarla al cerrar. */
+  autoUpdate: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -20,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   opacity: "normal",
   onlyWithGame: true,
   minimized: false,
+  autoUpdate: true,
 };
 
 export const SIZE_SCALE: Record<Settings["size"], number> = { pequena: 0.9, normal: 1, grande: 1.15 };
@@ -35,5 +38,6 @@ export function sanitizeSettings(value: unknown): Settings {
     opacity: pick(raw.opacity, ["clara", "normal", "opaca"] as const, DEFAULT_SETTINGS.opacity),
     onlyWithGame: raw.onlyWithGame !== false,
     minimized: raw.minimized === true,
+    autoUpdate: raw.autoUpdate !== false,
   };
 }

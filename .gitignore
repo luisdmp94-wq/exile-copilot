@@ -3,6 +3,7 @@ node_modules
 dist
 dist-server
 dist-check
+overlay/release
 /data/
 .env
 *.tsbuildinfo

@@ -6,12 +6,59 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node build.mjs",
-    "start": "node build.mjs && electron ."
+    "start": "node build.mjs && electron .",
+    "instalador": "node build.mjs && electron-builder --win nsis --publish never",
+    "empaquetar": "node build.mjs && electron-builder --win --dir --publish never"
   },
   "devDependencies": {
-    "electron": "45.4.1"
+    "electron": "45.4.1",
+    "electron-builder": "26.18.0"
   },
   "dependencies": {
+    "electron-updater": "6.8.11",
     "koffi": "3.3.7"
+  },
+  "author": "Exile Copilot",
+  "build": {
+    "appId": "com.exilecopilot.ventanita",
+    "productName": "Exile Copilot Ventanita",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "ExileCopilotVentanita-Setup-${version}.${ext}",
+      "shortcutName": "Exile Copilot Ventanita",
+      "createDesktopShortcut": true,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://exilecopilot.com/ventanita"
+      }
+    ]
   }
 }

@@ -947,6 +947,10 @@ describe("ventanita: solo con PoE2 delante", () => {
     expect(DEFAULT_SETTINGS.onlyWithGame).toBe(true);
     expect(sanitizeSettings({ onlyWithGame: false }).onlyWithGame).toBe(false);
     expect(sanitizeSettings({}).onlyWithGame).toBe(true);
+    // Buscar versiones nuevas (solo la instalada): puesto de serie, y se puede quitar.
+    expect(DEFAULT_SETTINGS.autoUpdate).toBe(true);
+    expect(sanitizeSettings({}).autoUpdate).toBe(true);
+    expect(sanitizeSettings({ autoUpdate: false }).autoUpdate).toBe(false);
   });
 });
 

@@ -5,7 +5,8 @@ leveo de WoW (Polestar): sigue la zona donde estás y te dice el paso de la
 guía (actos 1 a 4, las guías de `src/guides`, y los tres interludios, que
 solo están aquí).
 
-- **Arrancar:** doble clic en `ventanita.cmd`. La primera vez repasa tu
+- **Arrancar:** doble clic en `ventanita.cmd` (desde el código) o el acceso
+  directo, si la instalaste con el instalador. La primera vez repasa tu
   Client.txt entero (unos segundos); después, solo lo nuevo. Si ya estaba
   abierta, abrirla otra vez la reinicia con la última versión.
   Mientras repasa dice «Repasando Client.txt… 40 %» y enseña la partida de
@@ -154,8 +155,54 @@ la flecha ^): el mismo menú con clic izquierdo o derecho, y además «Ocultar»
   cada uno. De los demás jugadores no guarda el nombre: solo una huella que
   no se puede leer, para no confundir su nivel o sus recompensas con los tuyos.
 - No lee la memoria del juego, no le inyecta nada y no le manda teclas ni
-  clics. No pide cuenta ni contraseña. Nada sale del equipo.
-- Guarda la partida en `%APPDATA%\exile-copilot-ventanita\estado.json`.
+  clics. No pide cuenta ni contraseña. Nada tuyo sale del equipo.
+- **No lee la pantalla.** Las normas de GGG para herramientas
+  (pathofexile.com/developer/docs, «API Policies and Third-Party
+  Requirements», leídas el 26-11-2026) solo dejan leer la pantalla o el
+  portapapeles «una vez por pulsación manual de tecla», nunca con un
+  temporizador. Leer el registro sí vale, si el jugador sabe qué se hace con
+  él: es lo que cuenta este apartado. Por eso los megalitos de Serle o la
+  muerte de Isolde y Heldra, que el registro no escribe, no se leen de la
+  pantalla.
+- La versión instalada, y solo ella, pregunta al arrancar (y cada seis horas)
+  si hay versión nueva: baja un archivo pequeño de la dirección de descargas
+  y, si hace falta, el instalador. No manda nada. Se quita en los ajustes:
+  «Buscar versiones nuevas».
+- Guarda la partida en `%APPDATA%\exile-copilot-ventanita\estado.json`, la
+  misma carpeta abierta desde el código o instalada.
+
+## Instalador y versiones nuevas
+
+Para pasársela a alguien que no tiene el código. **No está publicado nada:**
+el instalador se queda en `overlay/release/` (fuera de git).
+
+- **Hacerlo:** en `overlay/`, `npm run instalador`. Sale
+  `release/ExileCopilotVentanita-Setup-<versión>.exe` (unos 120 MB), su
+  `.blockmap` y `latest.yml`. `npm run empaquetar` deja solo la carpeta
+  `release/win-unpacked`, sin instalador, para probar rápido.
+- **Qué hace el instalador:** se instala para tu usuario (no pide permisos de
+  administrador), pone un acceso directo en el escritorio y en el menú Inicio
+  y abre la ventanita. Desinstalar no borra la partida.
+- **Sin firmar:** Windows enseña «Windows protegió su PC» la primera vez
+  (Más información → Ejecutar de todas formas). Quitarlo cuesta un
+  certificado de firma de código, de pago.
+- **Sin icono propio:** el `.exe` lleva el de Electron
+  (`signAndEditExecutable: false`, que además evita una descarga que falla en
+  Windows sin modo desarrollador). Pendiente.
+- **Versiones nuevas:** la instalada mira `publish.url` de `package.json`
+  (hoy `https://exilecopilot.com/ventanita`, donde **no hay nada subido**: la
+  búsqueda falla en silencio). Publicar una versión es subir ahí los tres
+  archivos de `release/` tras subir `version` en `package.json`. Si además se
+  deja el `.blockmap` de la versión anterior, baja solo lo que cambió y no
+  los 120 MB.
+- **Cómo se actualiza:** baja la versión de fondo y la instala **al cerrar la
+  ventanita**; nunca reinicia nada a media partida. Los ajustes dicen «La
+  0.1.1 ya está bajada: se instala sola al cerrar la ventanita».
+- **Probado (26-11-2026), aislado:** la carpeta empaquetada arranca, lee el
+  registro y nota la ventana de delante; una 0.1.0 encontró una 0.1.1 en un
+  servidor de este mismo equipo (`VENTANITA_ACTUALIZAR_URL`), la bajó y lo
+  avisó. **Sin probar:** ejecutar el instalador, la instalación de la versión
+  nueva al cerrar y desinstalar.
 
 ## Límites conocidos
 

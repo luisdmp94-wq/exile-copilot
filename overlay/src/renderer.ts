@@ -13,6 +13,10 @@ interface OverlayState {
   problem: string | null;
   /** El repaso de Client.txt en marcha, del 0 al 100; null si ya acabó. */
   replaying: number | null;
+  /** La versión de la ventanita, si es la instalada, y la nueva que espera a que se cierre. */
+  version: string;
+  installed: boolean;
+  updateReady: string | null;
   waitingForGame: boolean;
 }
 
@@ -170,6 +174,18 @@ function drawSettings(settings: Settings): void {
   };
   toggle("ajuste-compacta", "Compacta", settings.compact);
   toggle("ajuste-solo-juego", "Solo con PoE2 delante", settings.onlyWithGame);
+  toggle("ajuste-versiones", "Buscar versiones nuevas", settings.autoUpdate);
+}
+
+/** Qué versión es y, si ya hay una nueva bajada, que se pone sola al cerrar. */
+function drawVersion(state: OverlayState): void {
+  // Abierta desde la carpeta del código no se actualiza sola: el botón sobra.
+  byId("ajuste-versiones").hidden = !state.installed;
+  byId("version").textContent = state.updateReady
+    ? `Versión ${state.version}. La ${state.updateReady} ya está bajada: se instala sola al cerrar la ventanita.`
+    : state.installed
+      ? `Versión ${state.version}.`
+      : `Versión ${state.version}, abierta desde el código: se actualiza al compilar.`;
 }
 
 function levelText(view: StepView, character: string | null): string | null {
@@ -318,6 +334,7 @@ function draw(state: OverlayState): void {
 
   drawSummary(view);
   drawSettings(settings);
+  drawVersion(state);
 }
 
 window.ventanita.onState(draw);
