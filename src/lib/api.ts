@@ -5,6 +5,7 @@ import {
   type PassiveTreeAdviceRequest,
   type PassiveTreeAdviceResponse,
 } from "@shared/passiveTreeRequest.js";
+import { SkillChoiceListResponseSchema, type SkillChoiceListResponse } from "@shared/skillChoice.js";
 import {
   GemSkillListResponseSchema,
   SupportAdviceResponseSchema,
@@ -303,6 +304,10 @@ export const api = {
 
   gemSkills: (lang: "es" | "en" = "es"): Promise<GemSkillListResponse> =>
     request(lang === "en" ? "/api/gems/skills?lang=en" : "/api/gems/skills", GemSkillListResponseSchema),
+
+  /** Todo lo que se puede tallar, con su arma: la lista de «Monta tu build». */
+  skillChoices: (lang: "es" | "en" = "es"): Promise<SkillChoiceListResponse> =>
+    request(lang === "en" ? "/api/gems/skill-choices?lang=en" : "/api/gems/skill-choices", SkillChoiceListResponseSchema),
 
   supportGemAdvice: (payload: SupportAdviceRequest): Promise<SupportAdviceResponse> =>
     request("/api/advice/support-gem", SupportAdviceResponseSchema, jsonInit(payload)),

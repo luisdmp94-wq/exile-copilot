@@ -237,6 +237,33 @@ la siguiente. Nada se sube sin su sí.
   en el filtro de cierres y el registro guarda por qué se descarta una
   redacción. Lint, 1746 pruebas y `npm run build` en verde. **Sigue sin commit
   y sin subir.** Falta: regresión K1-K4 y repetir P2 y P3; otro día, N1-N4.
+  → El 27-11 a las 16:00, **no se midió: ya iban tres pasadas con IA ese día
+  (03:30, 04:20 y 13:15) y Luis eligió esperar al 28-11.** El arreglo está en
+  un commit local (a751af8), sin subir. `npm run build` (código de salida 0) y
+  las 1746 pruebas, en verde otra vez; el lint no se repitió. Sigue faltando
+  lo mismo: regresión K1-K4 y repetir P2 y P3 (el 28-11); N1-N4, otro día.
+- [ ] **16. Elegir habilidades y «Monta tu build»** (pedido por Luis el 27-11,
+  a partir de lo que contó su hermano Gabo: «lo peor es elegir habilidades»,
+  quiere montar la suya y saber si le vale con sus armas; acabó copiando una
+  build porque montar la suya era difícil y lento). Dos partes:
+  - El Mentor contesta cuatro preguntas con los datos de gemas, sin IA: «¿qué
+    habilidad me cojo?», «¿me vale X con mi arma?», «¿por qué combina esta
+    asistencia con esta habilidad?» y «¿cómo monto mi build?».
+  - Un configurador en Guías (pestaña de gemas y piezas): arma → habilidades →
+    «puedes usar 3 de 4» → asistencias de cada una.
+  Lo que no hace, a propósito: un porcentaje de efectividad. La web no calcula
+  daño; el recuento dice qué se puede usar con qué arma.
+  → El 27-11, **hecho en local, en la rama `tarea-16-elegir-habilidades`, sin
+  subir.** Control nuevo (`node scripts/mentor-elegir.mjs --control`, doce
+  preguntas con cuatro personajes), SOLO REGLAS: **de 0 bien y 12 mal a 12
+  bien** (notas de quien escribió el código). Las 98 preguntas de siempre,
+  solo reglas, no cambian ni una. Lint, 1787 pruebas y `npm run build` en
+  verde; el configurador, visto en el navegador en escritorio y en móvil con
+  el personaje de la base local. **Sin medir con IA** (el cupo del día estaba
+  gastado): con la IA encendida las respuestas pasan por la redacción y eso no
+  se ha visto. Tampoco se ha pasado el humo del Mentor ni las pruebas e2e.
+  Falta: medir con IA (después de cerrar la 15), el sí de Luis y fusionar.
+  Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 16».
 
 ### Del 8 al 10 de diciembre
 

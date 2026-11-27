@@ -32,7 +32,7 @@ const ATTRIBUTE: Record<AdviceLang, Record<GemAttribute, string>> = {
 /** Etiquetas que casi todas las habilidades llevan: no dicen a qué se dedica un personaje. */
 const GENERIC_TAGS = new Set(["AdE", "Duración", "Repetible", "Activación", "Condicional", "Sostenida"]);
 
-const sourceNote = (lang: AdviceLang) =>
+export const sourceNote = (lang: AdviceLang) =>
   lang === "en"
     ? "This comes from the game's data and fixed rules, no AI."
     : "Sale de los datos del juego y de reglas fijas, sin IA.";
@@ -40,14 +40,14 @@ const sourceNote = (lang: AdviceLang) =>
 const sentence = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
 
 /** La primera frase de una descripción: qué hace, sin el detalle. */
-const firstSentence = (text: string) => sentence(text.trim().split(/(?<=[.!?])\s+/)[0] ?? text);
+export const firstSentence = (text: string) => sentence(text.trim().split(/(?<=[.!?])\s+/)[0] ?? text);
 
 /** Etiquetas de utilidad: dicen que la habilidad ayuda, no con qué hace daño el personaje. */
 const UTILITY_TAGS = new Set(["Maldición", "Efecto beneficioso", "Persistente", "Aura", "Metahabilidad", "Viaje", "Grito de guerra"]);
 const ELEMENT_TAGS = new Set(["Caos", "Fuego", "Hielo", "Rayo", "Físico"]);
 
 /** Las habilidades del personaje que la web reconoce en los datos del juego, sin repetir. */
-function ownSkills(gems: GemKnowledge, profile: CharacterProfile | null): GemSkill[] {
+export function ownSkills(gems: GemKnowledge, profile: CharacterProfile | null): GemSkill[] {
   const seen = new Set<string>();
   const found: GemSkill[] = [];
   for (const setup of profile?.skills ?? []) {

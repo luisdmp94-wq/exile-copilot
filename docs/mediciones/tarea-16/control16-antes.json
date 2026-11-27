@@ -1,0 +1,122 @@
+[
+  {
+    "id": "C1",
+    "personaje": "Mi mercenario",
+    "question": "q habilidad me pillo ahora?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C2",
+    "personaje": "Mi mercenario",
+    "question": "cuales son las habilidades de ballesta?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C3",
+    "personaje": "Mi mercenario",
+    "question": "puedo usar cascada glacial con la ballesta?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C4",
+    "personaje": "Mi monje",
+    "question": "no tengo ni idea de que skills coger",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C5",
+    "personaje": "Mi monje",
+    "question": "que ataques hay para baston?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C6",
+    "personaje": "Mi monje",
+    "question": "flecha de rayo sirve con mi baston?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C7",
+    "personaje": "Mi hechicera",
+    "question": "que hechizos puedo elegir?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C8",
+    "personaje": "Mi hechicera",
+    "question": "bola de fuego me vale con mi baculo?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C9",
+    "personaje": "Mi hechicera",
+    "question": "terremoto me sirve si llevo baculo?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C10",
+    "personaje": "Mi cazadora",
+    "question": "que habilidades van con lanza?",
+    "status": 200,
+    "intent": "unsupported",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Eso todavía no sé contestarlo con datos, y no me lo voy a inventar. Lo que sí sé decirte: qué mejorar primero, por qué mueres o te falta daño, qué asistencia poner, qué habilidad tallar con una gema sin tallar, qué maldiciones y gemas de esbirro hay, qué subir en atributos y por dónde seguir en el árbol."
+  },
+  {
+    "id": "C11",
+    "personaje": "Mi cazadora",
+    "question": "por que combina ataques rapidos con corte giratorio?",
+    "status": 200,
+    "intent": "explain_priority",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Tu principal problema ahora es «Cubrir resistencias elementales». Tienes resistencias elementales conocidas por debajo del umbral provisional: fuego 11% (te faltan 64 puntos), hielo 9% (te faltan 66 puntos), rayo 22% (te faltan 53 puntos). Con hielo al 9% recibes 3,6 veces más daño de hielo que con el 75%."
+  },
+  {
+    "id": "C12",
+    "personaje": "Mi cazadora",
+    "question": "quiero montarme mi propia build, por donde empiezo?",
+    "status": 200,
+    "intent": "next_improvement",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Lo siguiente que haría: Cubrir resistencias elementales. Tienes resistencias elementales conocidas por debajo del umbral provisional: fuego 11% (te faltan 64 puntos), hielo 9% (te faltan 66 puntos), rayo 22% (te faltan 53 puntos). Con hielo al 9% recibes 3,6 veces más daño de hielo que con el 75%."
+  }
+]

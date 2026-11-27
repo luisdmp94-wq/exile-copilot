@@ -45,6 +45,7 @@ import {
 } from "./gameQuestions.js";
 import { answerPassiveTreeQuestion } from "./treeQuestion.js";
 import { answerBasicsQuestion, answerItemCompareQuestion } from "./basicsQuestions.js";
+import { answerSkillChoiceTopic } from "./skillChoiceQuestions.js";
 import { routeInputFor, routedQuestion, understoodLine, type RoutedQuestion } from "./questionRouter.js";
 import { answerGuideQuestion, asksAboutFight, guideAsk, guideInQuestion, guideLines, stepsNamedIn, type GuideKnowledge } from "./guideKnowledge.js";
 import {
@@ -1636,6 +1637,15 @@ async function buildAnswer(
   if (deps.guides && intent === "unsupported" && options.intentHint === undefined) {
     const guideAnswer = answerGuideQuestion(deps.guides, options.question, lang);
     if (guideAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, guideAnswer);
+  }
+
+  // Elegir habilidades («¿qué habilidad me cojo?», «¿me vale con mi mazo?»,
+  // «¿por qué combina Furia con Terremoto?», «¿cómo monto mi build?»). Va
+  // detrás de todas las reglas anteriores para no quitarles ninguna pregunta,
+  // y delante del motor: un «¿por qué…?» suelto acababa en las resistencias.
+  if (deps.gems && options.intentHint === undefined) {
+    const choiceAnswer = answerSkillChoiceTopic(deps.gems, options.question, options.profile, lang);
+    if (choiceAnswer !== null) return gemQuestionAnswer(options, normalizedQuestion, choiceAnswer);
   }
 
   // Ninguna regla la reconoce: si hay IA, dice de qué tema es y contesta la

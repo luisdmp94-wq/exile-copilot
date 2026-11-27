@@ -1,0 +1,122 @@
+[
+  {
+    "id": "C1",
+    "personaje": "Mi mercenario",
+    "question": "q habilidad me pillo ahora?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Llevas ballesta: el juego tiene 25 habilidades de ballesta, y solo valen con esa arma en la mano. Las que más se parecen a lo que ya usas:\n• Disparo explosivo (nivel de gema 7): Carga tu ballesta con saetas ardientes que explotan al chocar.\n• Disparo incendiario (nivel de gema 3): Carga tu ballesta con saetas ardientes que se fragmentan durante el vuelo e infligen daño y queman a los enemigos al impactarlos y en un cono pequeño detrás de su objetivo final.\n• Granada de aceite (nivel de gema 9): Dispara una granada que rebota y que, cuando expira su mecha o impacta a un enemigo, estalla rociando aceite.\n• Balista de asedio (nivel de gema 9): Despliega un tótem balista que dispara saetas al aire para que exploten poco después de caer.\n• Esquirlas galvánicas (nivel de gema 5): Carga tu ballesta con saetas cargadas que se fragmentan durante el vuelo y liberan haces de rayo que se encadenan cuando impactan a los enemigos.\n\nHay 16 más. Para verlas todas y elegir con clics: Guías → Herramientas → «Monta tu build».\n\n«Nivel de gema» es el nivel de la gema de habilidad sin tallar que hace falta para tallarla. Tu gema más alta es de nivel 12: con una sin tallar como esa puedes tallar cualquiera de nivel de gema 12 o menos. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C2",
+    "personaje": "Mi mercenario",
+    "question": "cuales son las habilidades de ballesta?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Llevas ballesta: el juego tiene 25 habilidades de ballesta, y solo valen con esa arma en la mano. Las que más se parecen a lo que ya usas:\n• Disparo explosivo (nivel de gema 7): Carga tu ballesta con saetas ardientes que explotan al chocar.\n• Disparo incendiario (nivel de gema 3): Carga tu ballesta con saetas ardientes que se fragmentan durante el vuelo e infligen daño y queman a los enemigos al impactarlos y en un cono pequeño detrás de su objetivo final.\n• Granada de aceite (nivel de gema 9): Dispara una granada que rebota y que, cuando expira su mecha o impacta a un enemigo, estalla rociando aceite.\n• Balista de asedio (nivel de gema 9): Despliega un tótem balista que dispara saetas al aire para que exploten poco después de caer.\n• Esquirlas galvánicas (nivel de gema 5): Carga tu ballesta con saetas cargadas que se fragmentan durante el vuelo y liberan haces de rayo que se encadenan cuando impactan a los enemigos.\n\nHay 16 más. Para verlas todas y elegir con clics: Guías → Herramientas → «Monta tu build».\n\n«Nivel de gema» es el nivel de la gema de habilidad sin tallar que hace falta para tallarla. Tu gema más alta es de nivel 12: con una sin tallar como esa puedes tallar cualquiera de nivel de gema 12 o menos. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C3",
+    "personaje": "Mi mercenario",
+    "question": "puedo usar cascada glacial con la ballesta?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "No. Cascada glacial es una habilidad de bastón: solo vale con bastón en la mano, y tú llevas ballesta. Con ballesta sí tienes 25 habilidades: pregúntame «¿qué habilidades hay de ballesta?».\n\nSale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C4",
+    "personaje": "Mi monje",
+    "question": "no tengo ni idea de que skills coger",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Llevas bastón: el juego tiene 21 habilidades de bastón, y solo valen con esa arma en la mano. Las que más se parecen a lo que ya usas:\n• Palma desestabilizadora (nivel de gema 3): Te abalanzas sobre un enemigo y lo golpeas, y si está listo para ser aturdido, lo aturdes totalmente.\n• Mano de Chayula (nivel de gema 9): Te abalanzas sobre un enemigo y lo golpeas, lo que activa las señales engarzadas con efecto aumentado y aplica las maldiciones engarzadas con duración aumentada.\n• Golpe de sustracción (nivel de gema 7): Te abalanzas sobre un objetivo y lo golpeas con tu bastón.\n• Ola de escarcha (nivel de gema 7): Das un salto hacia atrás y envías una ola congelante delante de ti que congela inmediatamente a los enemigos que están listos para ser congelados.\n• Arrebato de tempestad (nivel de gema 5): Ejecuta una serie de golpes agresivos.\n\nHay 12 más. Para verlas todas y elegir con clics: Guías → Herramientas → «Monta tu build».\n\n«Nivel de gema» es el nivel de la gema de habilidad sin tallar que hace falta para tallarla. Tu gema más alta es de nivel 9: con una sin tallar como esa puedes tallar cualquiera de nivel de gema 9 o menos. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C5",
+    "personaje": "Mi monje",
+    "question": "que ataques hay para baston?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Llevas bastón: el juego tiene 21 habilidades de bastón, y solo valen con esa arma en la mano. Las que más se parecen a lo que ya usas:\n• Palma desestabilizadora (nivel de gema 3): Te abalanzas sobre un enemigo y lo golpeas, y si está listo para ser aturdido, lo aturdes totalmente.\n• Mano de Chayula (nivel de gema 9): Te abalanzas sobre un enemigo y lo golpeas, lo que activa las señales engarzadas con efecto aumentado y aplica las maldiciones engarzadas con duración aumentada.\n• Golpe de sustracción (nivel de gema 7): Te abalanzas sobre un objetivo y lo golpeas con tu bastón.\n• Ola de escarcha (nivel de gema 7): Das un salto hacia atrás y envías una ola congelante delante de ti que congela inmediatamente a los enemigos que están listos para ser congelados.\n• Arrebato de tempestad (nivel de gema 5): Ejecuta una serie de golpes agresivos.\n\nHay 10 más. Para verlas todas y elegir con clics: Guías → Herramientas → «Monta tu build».\n\n«Nivel de gema» es el nivel de la gema de habilidad sin tallar que hace falta para tallarla. Tu gema más alta es de nivel 9: con una sin tallar como esa puedes tallar cualquiera de nivel de gema 9 o menos. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C6",
+    "personaje": "Mi monje",
+    "question": "flecha de rayo sirve con mi baston?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "No. Flecha de rayo es una habilidad de arco: solo vale con arco en la mano, y tú llevas bastón. Con bastón sí tienes 21 habilidades: pregúntame «¿qué habilidades hay de bastón?».\n\nSale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C7",
+    "personaje": "Mi hechicera",
+    "question": "que hechizos puedo elegir?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Los hechizos no piden un arma concreta. En elemental el juego tiene 24 habilidades. Los que más se parecen a lo que ya usas:\n• Ruptura (nivel de gema 5, inteligencia): Consume la energía elemental de un enemigo congelado, electrocutado o quemado para crear una explosión elemental que deja tras de sí un remanente de infusión.\n• Debilidad elemental (nivel de gema 7, inteligencia): Maldice a todos los objetivos en un área tras una breve demora para disminuir sus resistencias elementales.\n• Descarga de escarcha (nivel de gema 5, inteligencia): Disparas un proyectil perforante de movimiento lento que es eficaz a la hora de escarchar a los enemigos y explota al chocar con el terreno.\n• Dardos de escarcha (nivel de gema 3, inteligencia): Conjura una cantidad de proyectiles helados que se lanzan hacia el objetivo.\n• Bomba de escarcha (nivel de gema 1, inteligencia): Creas un orbe pulsante de escarcha.\n\nHay 15 más. Para verlas todas y elegir con clics: Guías → Herramientas → «Monta tu build».\n\n«Nivel de gema» es el nivel de la gema de habilidad sin tallar que hace falta para tallarla. Tu gema más alta es de nivel 8: con una sin tallar como esa puedes tallar cualquiera de nivel de gema 8 o menos. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C8",
+    "personaje": "Mi hechicera",
+    "question": "bola de fuego me vale con mi baculo?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Sí. Bola de fuego es un hechizo (elemental) y los hechizos no piden un arma concreta.\n\nQué hace: Lanza una bola de fuego grande que explota al chocar.\n\nEsto dice qué puedes usar y por qué, no cuánto daño hace: eso no lo calculo. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C9",
+    "personaje": "Mi hechicera",
+    "question": "terremoto me sirve si llevo baculo?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "No. Terremoto es una habilidad de maza: solo vale con maza en la mano, y tú llevas un arma de hechicero (báculo, varita o cetro). Lo suyo son los hechizos, que no piden un arma concreta.\n\nSale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C10",
+    "personaje": "Mi cazadora",
+    "question": "que habilidades van con lanza?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Llevas lanza: el juego tiene 22 habilidades de lanza, y solo valen con esa arma en la mano. Las que más se parecen a lo que ya usas:\n• Cacería de sangre (nivel de gema 7, destreza): Te abalanzas sobre un objetivo y lo ensartas.\n• Asalto rápido (nivel de gema 5, destreza): Ejecuta una serie de seis puñaladas rápidas.\n• Acabar con el débil (nivel de gema 3, destreza): Te abalanzas sobre un enemigo, lo atropellas y, si su vida es lo suficientemente baja, le infliges un golpe de gracia.\n• Colmillos de escarcha (nivel de gema 3, destreza): Ejecutas una puñalada helada que se aprovecha de los enemigos que ya están desequilibrados.\n• Tajo (nivel de gema 3, destreza): Te abalanzas sobre un enemigo y ejecutas un corte lacerante que aplica sangrado a todos los enemigos golpeados.\n\nHay 13 más. Para verlas todas y elegir con clics: Guías → Herramientas → «Monta tu build».\n\n«Nivel de gema» es el nivel de la gema de habilidad sin tallar que hace falta para tallarla. Tu gema más alta es de nivel 7: con una sin tallar como esa puedes tallar cualquiera de nivel de gema 7 o menos. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C11",
+    "personaje": "Mi cazadora",
+    "question": "por que combina ataques rapidos con corte giratorio?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Ataques rápidos sí encaja con Corte giratorio. Comparten la etiqueta ataque: la gema asiste justo ese tipo de habilidad.\n• Qué le da (grado I): Las habilidades asistidas tienen la velocidad de ataque aumentada un 15%.\n• Qué hace Corte giratorio: Ejecutas un corte circular que levanta un remolino a tu alrededor, que ralentiza a los enemigos y los ciega dentro de su área de efecto.\n• En mi lista para Corte giratorio es la número 44 de 55 asistencias que le valen, ordenadas por etiquetas.\n\nEsto dice qué puedes usar y por qué, no cuánto daño hace: eso no lo calculo. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C12",
+    "personaje": "Mi cazadora",
+    "question": "quiero montarme mi propia build, por donde empiezo?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules",
+    "model": null,
+    "answer": "Te ayudo a montar la tuya, paso a paso. No te doy una build hecha.\n• Paso 1, el arma manda. Cada ataque solo vale con un tipo de arma; los hechizos no piden un arma concreta. Llevas lanza: el juego tiene 22 habilidades de lanza.\n• Paso 2, elige una habilidad principal. Pregúntame «¿qué habilidades hay de lanza?».\n• Paso 3, ponle asistencias que le encajen. Pregúntame «¿qué asistencia le pongo a Lanza de rayos?» o «¿por qué combina … con …?».\n• Paso 4, comprueba que todo vale con tu arma: «¿mi build me vale con mi arma?».\n\nPara hacerlo con clics: Guías → Herramientas → «Monta tu build».\n\nEsto dice qué puedes usar y por qué, no cuánto daño hace: eso no lo calculo. Sale de los datos del juego y de reglas fijas, sin IA."
+  }
+]

@@ -739,3 +739,70 @@ Lint, 1746 pruebas y `npm run build` en verde.
 están vistos: desde ahora valen de regresión, no de prueba limpia.
 
 Las respuestas, tal cual, en `docs/mediciones/tarea-15/`.
+
+## Tarea 16 · elegir habilidades y «Monta tu build» (27-11-2026)
+
+**De dónde sale.** Gabo, hermano de Luis, por WhatsApp: «Lo peor es elegir
+habilidades», quiere que se explique por qué combinan las gemas y un
+«configurador propio en vez de que te den la build», con algo que diga si le
+vale con sus armas («5/10 o 50 % compatible»). Según Luis, al final copió una
+build porque montar la suya era difícil y lento.
+
+**Cómo se mide.** `node scripts/mentor-elegir.mjs` (diez de desarrollo) y
+`--control` (doce de control). Solo reglas: no gasta cupo. El control se
+escribió antes de tocar el código, con los cuatro personajes de `--control14`
+(ballesta, bastón, báculo y lanza). Lo que cuenta como «bien» está escrito en
+el script antes de medir. Las notas son de quien escribió el código.
+
+| Solo reglas | Bien | A medias | Mal |
+|---|---|---|---|
+| Antes | 0 | 0 | 12 |
+| Después | 12 | 0 | 0 |
+
+Antes: diez «eso todavía no sé contestarlo» y dos que contestaban de
+resistencias («¿por qué combina…?» y «quiero montarme mi build»). Las diez de
+desarrollo, igual: nueve «no lo sé» y una de resistencias.
+
+Después, pregunta a pregunta:
+
+- C1, C2, C4, C5, C7, C10 (qué habilidad coger, cuáles hay): cinco habilidades
+  de verdad del arma que lleva, con qué hace cada una y su nivel de gema.
+  Ninguna de otra arma, ninguna que ya tenga. C7 solo enseña la escuela de la
+  que ya lleva hechizos (elemental); no nombra las otras dos.
+- C3, C6, C9 (¿me vale con mi arma?): «No», con qué arma sale y cuántas hay
+  de la suya. C8 (Bola de fuego con báculo): «Sí», es un hechizo.
+- C11 (¿por qué combina Ataques rápidos con Corte giratorio?): la etiqueta que
+  comparten, qué le da la gema y que es la 44 de 55 en la lista por etiquetas.
+- C12 (montar mi build): cuatro pasos con su arma y su habilidad, y el
+  configurador.
+
+**De dónde salen los datos.** De `cutGroups` en `gems.es.json` (la tabla de
+tallado de poe2db): cada habilidad se talla en un grupo. Cinco grupos son un
+arma (maza, arco, lanza, ballesta, bastón), tres son escuelas de hechizos y
+uno es espíritu. 235 de las 399 habilidades tienen grupo; de las otras 164
+(las da un arma, una ascendencia u otra gema) el Mentor dice «no lo sé».
+
+**Lo que no hace, a propósito.** Un porcentaje de efectividad. La web no
+calcula daño. El «3 de 4» del configurador cuenta habilidades que se pueden
+usar con esa arma, y cada respuesta lo avisa.
+
+**Regresión.** Las 98 preguntas de siempre (las tres tandas de
+`mentor-medicion.mjs` y los tres controles de charlas), solo reglas, con y sin
+el cambio: 0 de 98 respuestas cambian. La regla nueva va detrás de todas las
+anteriores.
+
+**Lo que no está medido.**
+
+- Con la IA encendida. En la web publicada las respuestas de reglas pasan por
+  la redacción (fichas); no se ha visto qué hace con estas. El cupo del día
+  estaba gastado.
+- El clasificador de la IA no tiene un tema «elegir habilidad»: solo se ha
+  comprobado que las reglas reconocen la frase. No se han tocado las
+  instrucciones de la IA.
+- El humo del Mentor y las pruebas e2e.
+- El arma se reconoce por el nombre de la pieza (maza, mazo, martillo,
+  garrote, arco, lanza, ballesta, bastón; báculo, varita, cetro) o, si no, por
+  las habilidades que lleva. Un arma con otro nombre no se adivina.
+- La pelea de C7: una hechicera puede coger hechizos de las tres escuelas.
+
+Respuestas, tal cual, en `docs/mediciones/tarea-16/`.

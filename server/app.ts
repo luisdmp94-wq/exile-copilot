@@ -108,6 +108,7 @@ import {
 } from "../shared/mentorThreadPersistence.js";
 import { answerMentorQuery } from "./mentor/mentorService.js";
 import { loadGuideKnowledge } from "./mentor/guideKnowledge.js";
+import { skillChoices } from "./mentor/skillChoiceQuestions.js";
 import {
   adviseSupportGem,
   adviseSupportPlan,
@@ -883,6 +884,13 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
       skills: gemData.skills.map((skill) => ({ name: localizeSkill(skill, lang, gemLocale).name, tags: skill.tags })),
       fetchedAt: gemData.fetchedAt,
     });
+  });
+
+  // GET /gems/skill-choices — todo lo que se puede tallar, con el arma de cada
+  // habilidad, para «Monta tu build». Solo datos del juego: ni IA ni personaje.
+  app.get("/gems/skill-choices", (req, res) => {
+    const lang = req.query.lang === "en" ? "en" : "es";
+    res.json({ skills: skillChoices(gemData, gemLocale, lang), source: gemData.source, fetchedAt: gemData.fetchedAt });
   });
 
   // POST /advice/support-gem — «¿qué asistencia le pongo a esta habilidad?».

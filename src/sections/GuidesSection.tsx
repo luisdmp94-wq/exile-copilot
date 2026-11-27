@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ItemSchema, type BuildMemoryEntry, type CharacterProfile, type Item } from "@shared/domain.js";
+import { BuildConfigurator } from "@/components/BuildConfigurator";
 import { GemAdvisorCard } from "@/components/GemAdvisorCard";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
 import { ItemCompareCard } from "@/components/ItemCompareCard";
@@ -65,8 +66,8 @@ const TEXT = texts(
     checkLead: (act: string) =>
       `Pega tu equipo una vez y sirve para las dos comprobaciones del ${act}. Se queda guardado en este navegador.`,
     toolsLead: SHOW_PASSIVE_ROUTE
-      ? "Tres dudas de cada partida, en cualquier acto: dónde poner los puntos del árbol, qué gema de asistencia poner y cuál de dos piezas te conviene."
-      : "Dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.",
+      ? "Monta tu build y resuelve tres dudas de cada partida, en cualquier acto: dónde poner los puntos del árbol, qué gema de asistencia poner y cuál de dos piezas te conviene."
+      : "Monta tu build y resuelve dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.",
   },
   {
     views: { guia: "Act guide", comprobar: "Check my character", herramientas: SHOW_PASSIVE_ROUTE ? "Gems, items and tree" : "Gems and items" },
@@ -99,8 +100,8 @@ const TEXT = texts(
     checkLead: (act: string) =>
       `Paste your gear once and it works for both ${act} checks. It stays saved in this browser.`,
     toolsLead: SHOW_PASSIVE_ROUTE
-      ? "Three questions every run has, in any act: where to put your passive points, which support gem to use and which of two items suits you."
-      : "Two questions every run has, in any act: which support gem to use and which of two items suits you.",
+      ? "Build your own and settle three questions every run has, in any act: where to put your passive points, which support gem to use and which of two items suits you."
+      : "Build your own and settle two questions every run has, in any act: which support gem to use and which of two items suits you.",
   },
 );
 type GuidesText = (typeof TEXT)["es"];
@@ -621,6 +622,7 @@ export function GuidesSection({
           {t.toolsLead}
         </p>
         {SHOW_PASSIVE_ROUTE && <PassiveRouteCard profile={profile} />}
+        <BuildConfigurator profile={profile} />
         <GemAdvisorCard
           profile={profile}
           buildMemory={buildMemory ?? []}
