@@ -210,8 +210,8 @@ export function answerItemCompareQuestion(question: string, profile: CharacterPr
   const q = normalizeQuestion(question);
 
   const where = en
-    ? "That is decided by comparing the two items, and the site does it: Guides → open your act → “Gems and items” → “Which of these two is better?”. Copy each item in the game with Ctrl+C and paste it in its box: it tells you which one to keep and why."
-    : "Eso se decide comparando las dos piezas, y la web lo hace: Guías → abre tu acto → «Gemas y piezas» → «¿Cuál de estas dos es mejor?». Copia cada pieza en el juego con Ctrl+C y pégala en su casilla: te dice cuál conviene y por qué.";
+    ? "That is decided by comparing the two items, and the site does it: Guides → open your act → “Gems and items” → “Which of these two is better?”. Copy each item in the game with Ctrl+Alt+C and paste it in its box: it tells you which one to keep and why."
+    : "Eso se decide comparando las dos piezas, y la web lo hace: Guías → abre tu acto → «Gemas y piezas» → «¿Cuál de estas dos es mejor?». Copia cada pieza en el juego con Ctrl+Alt+C y pégala en su casilla: te dice cuál conviene y por qué.";
 
   // La pieza de la que habla, si la web la conoce.
   const asked = SLOT_WORDS.find((entry) => entry.asks.test(q)) ?? null;
@@ -257,7 +257,10 @@ export function isResistanceAmountQuestion(normalizedQuestion: string): boolean 
   if (!/\bresistencias?\b|\bresis\b|\bresistances?\b|\bres\b/.test(q)) return false;
   return (
     /\b(cuanta|cuantas|cuanto|necesito|necesitan|hace falta|hacen falta|tope|maximo|maxima|limite|suficiente|bastan?|deberia tener|tengo que tener|a cuanto)\b/.test(q) ||
-    /\b(how much|how many|need|cap|max|enough|should i have)\b/.test(q)
+    /\b(how much|how many|need|cap|max|enough|should i have)\b/.test(q) ||
+    // «¿Y de resistencias voy bien?»: pregunta por las suyas (tarea 14).
+    /\b(voy bien|voy mal|voy corto|voy justo|como voy|como ando|ando bien|estan bien|estoy bien|que tal)\b/.test(q) ||
+    /\b(am i ok|am i fine|are my|how are my|good enough)\b/.test(q)
   );
 }
 

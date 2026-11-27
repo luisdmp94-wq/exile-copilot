@@ -6,8 +6,11 @@
  * Uso:
  *   node scripts/mentor-charla.mjs            → las charlas de la bruja, con la IA del .env
  *   node scripts/mentor-charla.mjs --sin-ia   → solo reglas
- *   node scripts/mentor-charla.mjs --control  → las charlas de control
+ *   node scripts/mentor-charla.mjs --control  → las charlas de control (K1-K4, ya vistas: regresión)
+ *   node scripts/mentor-charla.mjs --control14 → el control de la tarea 14 (N1-N4)
  *   MEDIR_SOLO=B1,B3 pregunta solo esas charlas.
+ *   --perfiles escribe solo los personajes (para scripts/mentor-fichas.ts, que
+ *   enseña las fichas que ve la IA en cada turno sin gastar cupo).
  *
  * Cada turno manda los anteriores en `conversation`, igual que la web
  * (src/lib/mentorRequest.ts: los últimos ocho, 800 caracteres cada uno).
@@ -166,7 +169,147 @@ const CONTROL = [
   ]],
 ];
 
-const ASKED = process.argv.includes("--control") ? CONTROL : CHARLAS;
+const mercenario = {
+  ...base,
+  id: "charla-mercenario", name: "Mi mercenario", characterClass: "Mercenario", ascendancy: null, level: 47,
+  archetype: "ballesta con granadas",
+  items: [
+    item("m-arma", "weapon", "Ballesta de asedio", "Ballesta de asedio", 43, { requirements: { level: 40, str: 52, dex: 52 } }),
+    item("m-pecho", "body", "Coraza de escamas", "Coraza de escamas", 45),
+    item("m-casco", "helmet", "Yelmo de visera", "Yelmo de visera", 41),
+    item("m-guantes", "gloves", "Guanteletes de escamas", "Guanteletes de escamas", 44),
+    item("m-botas", "boots", "Botas de escamas", "Botas de escamas", 46),
+    item("m-cinto", "belt", "Cinturón de cuero ancho", "Cinturón de cuero ancho", 42),
+  ],
+  skills: [
+    skill("m-s1", "Saetas de fragmentación", 12, ["Perforar I"]),
+    skill("m-s2", "Granada explosiva", 12),
+    skill("m-s3", "Disparo rápido", 11),
+    skill("m-s4", "Granada de gas", 10),
+  ],
+  attributes: { str: 68, dex: 74, int: 19 },
+  resistances: { fire: 24, cold: 6, lightning: 31, chaos: 0 },
+  life: 1120, armour: 640, evasion: 510,
+};
+
+const monje = {
+  ...base,
+  id: "charla-monje", name: "Mi monje", characterClass: "Monje", ascendancy: null, level: 35,
+  archetype: "bastón de hielo, cuerpo a cuerpo",
+  items: [
+    item("j-arma", "weapon", "Bastón largo de hierro", "Bastón largo", 31, { requirements: { level: 28, dex: 40, int: 22 } }),
+    item("j-pecho", "body", "Túnica de peregrino", "Túnica de peregrino", 33),
+    item("j-casco", "helmet", "Capucha de lino", "Capucha de lino", 30),
+    item("j-botas", "boots", "Sandalias de cuerda", "Sandalias de cuerda", 34),
+    item("j-amuleto", "amulet", "Amuleto de jade", "Amuleto de jade", 29),
+  ],
+  skills: [
+    skill("j-s1", "Golpe de hielo", 9, ["Ataques rápidos I"]),
+    skill("j-s2", "Campana de tempestad", 9),
+    skill("j-s3", "Cascada glacial", 8),
+    skill("j-s4", "Palma mortal", 7),
+  ],
+  attributes: { str: 16, dex: 71, int: 48 },
+  resistances: { fire: 12, cold: 28, lightning: 4, chaos: 0 },
+  life: 790, evasion: 480, energyShield: 140,
+};
+
+const hechicera = {
+  ...base,
+  id: "charla-hechicera", name: "Mi hechicera", characterClass: "Hechicera", ascendancy: null, level: 28,
+  archetype: "hechizos de rayo",
+  items: [
+    item("h-arma", "weapon", "Báculo de ceniza", "Báculo de ceniza", 24),
+    item("h-pecho", "body", "Toga de aprendiz", "Toga de aprendiz", 26),
+    item("h-guantes", "gloves", "Guantes de lana", "Guantes de lana", 22),
+    item("h-botas", "boots", "Zapatillas de lana", "Zapatillas de lana", 27),
+    item("h-anillo", "ring1", "Anillo de topacio", "Anillo de topacio", 25),
+  ],
+  skills: [
+    skill("h-s1", "Chispa", 8),
+    skill("h-s2", "Arco eléctrico", 7),
+    skill("h-s3", "Orbe de tormentas", 7),
+    skill("h-s4", "Muro de hielo", 5),
+  ],
+  attributes: { str: 9, dex: 18, int: 82 },
+  resistances: { fire: 8, cold: 14, lightning: 26, chaos: 0 },
+  life: 520, energyShield: 260,
+};
+
+const cazadora = {
+  ...base,
+  id: "charla-cazadora", name: "Mi cazadora", characterClass: "Cazadora", ascendancy: null, level: 24,
+  archetype: "lanza de rayo, a media distancia",
+  items: [
+    // Blanca de verdad: el caso «arma sin mods» de un novato.
+    item("c-arma", "weapon", "Lanza de caza", "Lanza de caza", 17, { rarity: "normal", requirements: { level: 16, dex: 41 } }),
+    item("c-escudo", "offhand", "Rodela de cuero", "Rodela de cuero", 20),
+    item("c-pecho", "body", "Chaleco de cuero curtido", "Chaleco de cuero curtido", 22),
+    item("c-casco", "helmet", "Gorro de cuero", "Gorro de cuero", 19),
+    item("c-botas", "boots", "Botas de cuero", "Botas de cuero", 23),
+  ],
+  skills: [
+    skill("c-s1", "Lanza de rayos", 7),
+    skill("c-s2", "Lanzada de tormentas", 6),
+    skill("c-s3", "Retroceso", 5),
+    skill("c-s4", "Corte giratorio", 5),
+  ],
+  attributes: { str: 21, dex: 66, int: 17 },
+  resistances: { fire: 11, cold: 9, lightning: 22, chaos: 0 },
+  life: 610, evasion: 390,
+};
+
+/**
+ * Control de la tarea 14 (26-11-2026): escrito ANTES de tocar nada y sin ver
+ * ninguna respuesta. Cuatro personajes nuevos y los actos 3 y 4. Cada charla
+ * busca uno de los cuatro casos flojos que dejó el control K1-K4:
+ *  N1 tras hablar de un jefe, qué hacer en la pelea (K2 volvía al equipo);
+ *  N2 «¿y eso dónde está?» tras nombrar varias cosas (K3 situaba solo una);
+ *  N3 «¿cuál pongo primero?» (K4 repetía la lista sin nombrar ninguna);
+ *  N4 «hace poco daño» con un arma sin mods (K4 se callaba el arma).
+ * Lo que cuenta como «bien», fijado antes de medir:
+ *  N1.3 enseña la pelea de Tavakai (gancho, fases, Marca de Kitava), no equipo.
+ *  N2.2 dice la zona de cada cosa que nombró el turno anterior.
+ *  N3.2 nombra UNA gema y dice por qué va primero.
+ *  N4.1 dice que el arma no tiene mods; N4.2 la pone la primera.
+ *  En todos: el cierre no ofrece lo que el Mentor no sabe ni cambia palabras de la guía.
+ * Ya medido antes y después (docs/MEDICION-MENTOR-2.md, «Tarea 14») y con sus
+ * respuestas vistas al arreglar: desde ahora sirve de regresión, como K1-K4.
+ * Para una prueba limpia hay que escribir otro.
+ */
+const CONTROL_14 = [
+  ["N1", mercenario, [
+    "tavakai me mata una y otra vez",
+    "y de resistencias voy bien?",
+    "vale, y en la pelea que tengo que hacer?",
+  ]],
+  ["N2", monje, [
+    "que cosas para siempre me llevo del acto 3?",
+    "y eso donde esta?",
+    "y hay algun jefe duro por el camino?",
+  ]],
+  ["N3", hechicera, [
+    "que gemas de asistencia le van a chispa?",
+    "cual pongo primero?",
+    "y si esa no me ha salido?",
+  ]],
+  ["N4", cazadora, [
+    "lanza de rayos hace poco daño",
+    "y que cambio primero?",
+    "vale, y de gemas que le pongo?",
+  ]],
+];
+
+const ASKED = process.argv.includes("--control14")
+  ? CONTROL_14
+  : process.argv.includes("--control") ? CONTROL : CHARLAS;
+
+// Solo los personajes, para scripts/mentor-fichas.ts: no arranca nada ni pregunta.
+if (process.argv.includes("--perfiles")) {
+  writeFileSync(OUT, JSON.stringify(Object.fromEntries(ASKED.map(([id, profile]) => [id, profile])), null, 2), "utf8");
+  console.log(`perfiles en ${OUT}`);
+  process.exit(0);
+}
 
 const env = {
   ...process.env,

@@ -46,11 +46,13 @@ import {
 import { answerPassiveTreeQuestion } from "./treeQuestion.js";
 import { answerBasicsQuestion, answerItemCompareQuestion } from "./basicsQuestions.js";
 import { routeInputFor, routedQuestion, understoodLine, type RoutedQuestion } from "./questionRouter.js";
-import { answerGuideQuestion, asksAboutRoute, guideInQuestion, guideLines, type GuideKnowledge } from "./guideKnowledge.js";
+import { answerGuideQuestion, asksAboutFight, guideAsk, guideInQuestion, guideLines, stepsNamedIn, type GuideKnowledge } from "./guideKnowledge.js";
 import {
   answerLines,
+  asksWhichFirst,
   buildFichas,
   characterFacts,
+  checkWrittenMessage,
   composeWrittenAnswer,
   topicLines,
   UnverifiedWriting,
@@ -1233,13 +1235,22 @@ const WRITER_TURN_CHARS = 400;
 const NOT_A_FACT_RE = /Sale de los datos del juego y de reglas fijas, sin IA\.|This comes from the game's data and fixed rules, no AI\./g;
 
 /**
- * La respuesta de las reglas, línea a línea. El siguiente paso solo entra en
- * las de preguntas anteriores: el de ahora ya lo enseña la web en su tarjeta.
+ * La respuesta de las reglas, línea a línea, con su siguiente paso. Si la IA
+ * enseña el siguiente paso de la pregunta de ahora, la tarjeta de la web se
+ * quita para no decirlo dos veces (`converse`).
  */
-function rulesLines(answer: MentorAnswer, tema: string, lang: AnswerLang, withNextStep = true): TopicLine[] {
-  const next =
-    withNextStep && answer.nextAction ? [`${lang === "en" ? "Next step" : "Siguiente paso"}: ${answer.nextAction.text}`] : [];
+function rulesLines(answer: MentorAnswer, tema: string, lang: AnswerLang): TopicLine[] {
+  const next = answer.nextAction ? [nextStepLine(answer, lang)] : [];
   return [...answerLines(answer.answer.replace(NOT_A_FACT_RE, "")), ...next].map((texto) => ({ tema, texto }));
+}
+
+/**
+ * El siguiente paso de una respuesta de las reglas, como frase. Ahí está lo
+ * concreto del personaje («tu arma no tiene ni un mod»): si la IA no lo ve, la
+ * respuesta se lo calla (tarea 14: «hace poco daño» solo daba asistencias).
+ */
+function nextStepLine(answer: MentorAnswer, lang: AnswerLang): string {
+  return `${lang === "en" ? "Next step" : "Siguiente paso"}: ${answer.nextAction?.text ?? ""}`;
 }
 
 const vocabularies = new WeakMap<object, WriterVocabulary>();
@@ -1283,6 +1294,8 @@ async function converse(
     .map((turn) => turn.text)
     .slice(-2);
   const earlier: Array<{ origen: FichaOrigin; lines: TopicLine[] }> = [];
+  // «¿Cuál pongo primero?»: solo entonces se dice en una frase cuál es la primera.
+  const firstPick = asksWhichFirst(options.question);
   // La más reciente primero: es de la que más se habla.
   for (const question of [...earlierQuestions].reverse()) {
     const asked = `«${question.slice(0, 120)}»`;
@@ -1290,7 +1303,7 @@ async function converse(
     earlier.push({
       origen: "anterior",
       lines: [
-        ...(gems ? topicLines(gems, question, options.profile, lang) : []).map((line) => ({
+        ...(gems ? topicLines(gems, question, options.profile, lang, firstPick) : []).map((line) => ({
           tema: `${lang === "en" ? "earlier topic" : "tema anterior"} ${asked}: ${line.tema}`,
           texto: line.texto,
         })),
@@ -1306,7 +1319,8 @@ async function converse(
         .map((question) => guideInQuestion(guides, question, lang))
         .find((match) => match !== null) ?? null)
     : null;
-  let topic = gems ? topicLines(gems, options.question, options.profile, lang) : [];
+  let topic = gems ? topicLines(gems, options.question, options.profile, lang, firstPick) : [];
+  const lastMentorTurn = (options.conversation ?? []).filter((turn) => turn.role === "mentor").at(-1)?.text ?? "";
 
   // Sin nada con lo que redactar: primero, de qué tema es (tarea 12, paso 1).
   if (base.intent === "unsupported" && !hasEarlier && guide === null && topic.length === 0) {
@@ -1317,25 +1331,42 @@ async function converse(
     if (routedRules.intent === "unsupported") return understoodNothing(options, normalizedQuestion, selector);
     rules = routedRules;
     base = understoodAnswer(routedRules, result.routed, normalizedQuestion, selector, lang);
-    topic = gems ? topicLines(gems, result.routed.question, options.profile, lang) : [];
+    topic = gems ? topicLines(gems, result.routed.question, options.profile, lang, firstPick) : [];
     understood = true;
   }
 
-  const looseSentence = lang === "en" ? "loose sentence: what the rules answer without reading the chat" : "frase suelta: lo que contestan las reglas sin mirar la charla";
-  const guideTopic = guide ? `${lang === "en" ? "the site's guide for" : "guía de la web del"} ${guide.guide.label}` : "";
+  // «Me falta daño» o «me matan» lo contesta la revisión del personaje: es lo
+  // que le falla a ÉL, no una frase suelta. Lo demás («¿y qué hago?») sí lo es.
+  const focus = classifyMentorQuestion(options.question).focus;
+  const rulesTopic =
+    focus === "damage"
+      ? lang === "en"
+        ? "review of this character: the first thing holding back its damage"
+        : "revisión de este personaje: lo primero que le quita daño"
+      : focus === "survival"
+        ? lang === "en"
+          ? "review of this character: the first thing getting it killed"
+          : "revisión de este personaje: lo primero por lo que muere"
+        : lang === "en"
+          ? "loose sentence: what the rules answer without reading the chat"
+          : "frase suelta: lo que contestan las reglas sin mirar la charla";
+  const ask = guide ? guideAsk(options.question, earlierQuestions) : "fight";
+  const rulesPart = { origen: "reglas" as const, lines: rules.intent === "unsupported" ? [] : rulesLines(rules, rulesTopic, lang) };
+  const guidePart = {
+    origen: "guia" as const,
+    lines:
+      guide && guides
+        ? guideLines(guide.guide, lang, ask, ask === "where" ? stepsNamedIn(guides, guide.guide, lang, lastMentorTurn) : [])
+        : [],
+    maxChars: MAX_WRITER_GUIDE_CHARS,
+  };
+  // Con un jefe en la charla, «¿y qué hago en la pelea?» es de la guía: lo que
+  // las reglas dicen de la frase suelta («rellena los huecos») va detrás.
+  const guideLeads = guide !== null && focus === null && (asksAboutFight(options.question) || ask === "where");
   const fichas = buildFichas(
-    [
-      { origen: "reglas", lines: rules.intent === "unsupported" ? [] : rulesLines(rules, looseSentence, lang, false) },
-      { origen: "tema", lines: topic },
-      {
-        origen: "guia",
-        lines: guide
-          ? guideLines(guide.guide, lang, asksAboutRoute(options.question, earlierQuestions)).map((texto) => ({ tema: guideTopic, texto }))
-          : [],
-        maxChars: MAX_WRITER_GUIDE_CHARS,
-      },
-      ...earlier,
-    ],
+    guideLeads
+      ? [guidePart, { origen: "tema", lines: topic }, ...earlier, rulesPart]
+      : [rulesPart, { origen: "tema", lines: topic }, guidePart, ...earlier],
     MAX_WRITER_DATA_CHARS,
   );
   const personaje = characterFacts(gems, options.profile, lang);
@@ -1368,12 +1399,24 @@ async function converse(
     ];
     const written = composeWrittenAnswer(decision, fichas, [JSON.stringify(personaje), ...said].join("\n"), vocabularyFor(deps));
     // No hay datos y la IA lo confirma: el «no lo sé» de siempre, que además se apunta.
-    if (!decision.enough && base.intent === "unsupported") return withoutWriter(null);
+    // Pero en mitad de una charla, si dice «eso no lo tengo» y enseña lo más
+    // cercano, vale más eso que volver a la lista de la frase suelta: «¿y si
+    // esa no me ha salido?» recibía otra vez la misma lista (tarea 14).
+    const nearestInChat = written.shown.length > 0 && (hasEarlier || guide !== null);
+    if (!decision.enough && base.intent === "unsupported" && !nearestInChat) return withoutWriter(null);
     if (base.intent === "unsupported" || !written.origins.has("reglas")) {
       // Habla del tema de la charla o de la guía, no de lo que eligió el motor para la frase suelta.
       return { ...gemQuestionAnswer(options, normalizedQuestion, written.message), ...metadata("ai", selector.name) };
     }
-    return MentorAnswerSchema.parse({ ...base, normalizedQuestion, answer: written.message, ...metadata("ai", selector.name) });
+    // El siguiente paso ya va escrito en la respuesta: la tarjeta lo repetiría.
+    const saysNextStep = rules.nextAction !== null && written.shown.some((ficha) => ficha.texto === nextStepLine(rules, lang));
+    return MentorAnswerSchema.parse({
+      ...base,
+      normalizedQuestion,
+      answer: written.message,
+      ...(saysNextStep ? { nextAction: null } : {}),
+      ...metadata("ai", selector.name),
+    });
   } catch (error) {
     if (error instanceof UnverifiedWriting) {
       console.warn(`[mentor-ai] redacción descartada: ${error.safeReason}${error.detail ? ` («${error.detail.slice(0, 60)}»)` : ""}`);
@@ -1761,6 +1804,20 @@ async function buildAnswer(
     const copy = generatedCopy(decision, context);
 
     if (decision.kind === "conversation") {
+      // La charla de cortesía se escribe libre, pero no nombra gemas, jefes ni
+      // cifras que no estén en el contexto: «vale, ¿y de gemas qué le pongo?»
+      // llegó aquí y la IA se inventó tres gemas (tarea 14). Ante la duda, el
+      // saludo fijo.
+      try {
+        checkWrittenMessage(
+          copy ?? "",
+          [meaningfulContextText(context), options.question, "Path of Exile 2, PoE2"].join("\n"),
+          vocabularyFor(deps),
+        );
+      } catch (error) {
+        if (error instanceof UnverifiedWriting) throw new MentorAiError(error.safeReason);
+        throw error;
+      }
       return conversationalAnswer(
         decision,
         context,

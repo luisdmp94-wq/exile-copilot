@@ -119,7 +119,7 @@ describe("comparar dos piezas manda al comparador de la web", () => {
     });
     const answer = answerItemCompareQuestion(LUIS, unique, "es")!;
     expect(answer).toContain("Guías → abre tu acto → «Gemas y piezas» → «¿Cuál de estas dos es mejor?»");
-    expect(answer).toContain("Ctrl+C");
+    expect(answer).toContain("Ctrl+Alt+C");
     expect(answer).toContain("Ahora llevas de arma: «Vara del pecador» (Varita de hueso, única, nivel de objeto 40)");
     expect(answer).toContain("Que sea única o amarilla no decide");
     expect(answer).toContain("No calcula el daño por segundo");

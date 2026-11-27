@@ -294,6 +294,28 @@ const CONVERSATION_PATTERNS: readonly string[] = [
 ];
 
 /**
+ * Palabras de cortesía que pueden acompañar a un saludo sin volverlo una
+ * pregunta del juego («hola, ¿qué tal?», «vale, muchas gracias», «ok, lo tengo
+ * claro»). «Vale, ¿y de gemas qué le pongo?» empieza igual y NO es un saludo:
+ * antes lo era, y la IA contestaba de charla, sin datos (tarea 14).
+ */
+const SOCIAL_WORDS = new Set(
+  (
+    "hola buenas buenos dias tardes noches hey gracias muchas vale entendido ok okay oki perfecto genial claro " +
+    "que tal como estas va todo bien y por la tu ayuda a ti de nada mentor tio amigo crack lo tengo ya me queda " +
+    "una un duda pregunta mil eso es asi pues nada mas muchisimas otra vez verdad majo maquina " +
+    "lot lots very really again appreciate much many cheers bye ok " +
+    "hi hello good morning evening afternoon thanks thank you so much for the help got it there how are doing is " +
+    "going great cool nice all alright man mate i have a question that s"
+  ).split(" "),
+);
+
+/** ¿Toda la frase es cortesía? Una palabra de fuera («gemas», «pongo») la convierte en pregunta. */
+function isSocialOnly(normalized: string): boolean {
+  return normalized.split(" ").every((word) => SOCIAL_WORDS.has(word));
+}
+
+/**
  * Preguntas sobre la identidad y el alcance del propio Mentor. Son conversación
  * de producto, no consultas de juego: nunca deben producir una recomendación.
  */
@@ -392,6 +414,7 @@ export function classifyMentorQuestion(question: string): {
     };
   }
   if (
+    isSocialOnly(normalized) &&
     CONVERSATION_PATTERNS.some(
       (pattern) => normalized === pattern || normalized.startsWith(`${pattern} `),
     )

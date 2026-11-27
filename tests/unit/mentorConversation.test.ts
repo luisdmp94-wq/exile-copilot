@@ -5,12 +5,15 @@ import { loadEnglishGemLocale } from "../../server/advice/gemLocale.js";
 import { loadConfig } from "../../server/config.js";
 import { createDatabase } from "../../server/db/database.js";
 import { MentorAiError, type MentorDecisionSelector } from "../../server/mentor/mentorAi.js";
-import { answerGuideQuestion, guideInQuestion, loadGuideKnowledge } from "../../server/mentor/guideKnowledge.js";
+import { classifyMentorQuestion } from "../../shared/mentorIntent.js";
+import { answerBasicsQuestion } from "../../server/mentor/basicsQuestions.js";
+import { answerGuideQuestion, guideInQuestion, loadGuideKnowledge, stepsNamedIn } from "../../server/mentor/guideKnowledge.js";
 import { answerMentorQuery } from "../../server/mentor/mentorService.js";
 import {
   buildFichas,
   checkWrittenMessage,
   composeWrittenAnswer,
+  isOffer,
   UnverifiedWriting,
   writerVocabulary,
   type MentorWriteDecision,
@@ -203,6 +206,158 @@ describe("la respuesta se monta con las fichas copiadas tal cual", () => {
       vocabulary,
     );
     expect(written.message).not.toContain("distraerlo");
+  });
+
+  it("un cierre que ofrece no se enseña: nadie ha comprobado que el Mentor sepa cumplirlo", () => {
+    const withClosing = (cierre: string) =>
+      composeWrittenAnswer({ intro: "Esta.", fichas: ["f1"], cierre, enough: true }, fichas, "", vocabulary).message;
+    expect(withClosing("¿Quieres que te explique cómo enlazarlas?")).not.toContain("enlazarlas");
+    expect(withClosing("¿Te interesan también los pasivos que ya tienes?")).not.toContain("pasivos");
+    expect(withClosing("¿Te explico cómo llegar?")).not.toContain("llegar");
+    expect(isOffer("Do you want tips for the first phase?")).toBe(true);
+    // Preguntar por su partida sí vale.
+    expect(withClosing("¿Qué fase te cuesta más?")).toContain("¿Qué fase te cuesta más?");
+    expect(isOffer("¿Cuál de esas tienes ya?")).toBe(false);
+  });
+});
+
+describe("lo flojo de la charla (tarea 14)", () => {
+  /** Pregunta con la charla anterior y devuelve las fichas que vio la IA. */
+  async function offeredFor(question: string, conversation: Array<{ role: "player" | "mentor"; text: string }>) {
+    let offered: MentorWriteInput["fichas"] = [];
+    const { selector } = writer((input) => {
+      offered = input.fichas;
+      return { intro: "Mira esto.", fichas: [input.fichas[0]!.id], cierre: null, enough: true };
+    });
+    const answer = await answerMentorQuery({ ...BASE, question, conversation }, deps(selector));
+    return { offered, answer };
+  }
+
+  it("con un jefe en la charla, «¿y qué hago en la pelea?» ve primero la pelea y el equipo al final", async () => {
+    const { offered } = await offeredFor("vale, y que hago en la pelea?", [
+      { role: "player", text: "como mato al jefe del acto 3?" },
+      { role: "mentor", text: "Doryani, Taumaturgo real, al final, en Las cámaras negras." },
+    ]);
+    expect(offered[0]!.tema).toContain("la pelea contra el jefe final");
+    expect(offered[0]!.texto).toContain("Doryani");
+    const loose = offered.findIndex((ficha) => ficha.tema.startsWith("frase suelta"));
+    const lastFight = offered.map((ficha) => ficha.tema.includes("la pelea contra el jefe final")).lastIndexOf(true);
+    expect(loose).toBeGreaterThan(lastFight);
+  });
+
+  it("«¿y eso dónde está?» trae primero una zona por cada cosa que se acaba de nombrar", async () => {
+    const { offered } = await offeredFor("y eso donde esta?", [
+      { role: "player", text: "que cosas para siempre me llevo del acto 3?" },
+      {
+        role: "mentor",
+        text:
+          "• No te saltes a Quijada negra (+10 % de fuego para siempre) ni a Ignagduk (+30 de espíritu para siempre).\n" +
+          "• Hay 4 puntos de pasiva de set de arma: Puñoplateado poderoso y el Corazón sacrificial de Aggorat.",
+      },
+    ]);
+    const named = offered.filter((ficha) => ficha.tema.includes("acaba de nombrar"));
+    expect(named.map((ficha) => ficha.texto.split(":")[0])).toEqual([
+      "Taller de máquinas de Jiquani",
+      "El pantano de los azak (opcional)",
+      "Ruinas de la jungla",
+      "Aggorat (pasado)",
+    ]);
+    expect(offered.slice(0, 4)).toEqual(named);
+  });
+
+  it("las zonas se buscan por nombres que solo salen en una: un texto sin nombres no sitúa nada", () => {
+    const act3 = guides.es.find((guide) => guide.act === 3)!;
+    expect(stepsNamedIn(guides, act3, "es", "Busca bien y coge todo lo que puedas del acto.")).toEqual([]);
+    expect(stepsNamedIn(guides, act3, "es", "ignagduk da espíritu").map((step) => step.zone)).toEqual(["El pantano de los azak"]);
+  });
+
+  it("«hace poco daño»: lo que le falla a su arma llega a la IA y no sale dos veces", async () => {
+    let offered: MentorWriteInput["fichas"] = [];
+    const { selector } = writer((input) => {
+      offered = input.fichas;
+      const step = input.fichas.find((ficha) => ficha.texto.startsWith("Siguiente paso:"));
+      return { intro: "Antes que las gemas, mira esto.", fichas: [step?.id ?? input.fichas[0]!.id], cierre: null, enough: true };
+    });
+    const answer = await answerMentorQuery({ ...BASE, question: "descarga de caos hace poco daño" }, deps(selector));
+    const step = offered.find((ficha) => ficha.texto.startsWith("Siguiente paso:"));
+    expect(step).toBeDefined();
+    expect(step!.tema).toContain("revisión de este personaje");
+    expect(answer.answer).toContain(step!.texto);
+    // Ya va escrito en la respuesta: la tarjeta de «tu próxima acción» lo repetiría.
+    expect(answer.nextAction).toBeNull();
+  });
+
+  it("«¿cuál pongo primero?» tiene una ficha que nombra una sola gema: la primera de la lista", async () => {
+    const { offered } = await offeredFor("cual pongo primero?", [
+      { role: "player", text: GEM_QUESTION },
+      { role: "mentor", text: "Para Descarga de caos, estas." },
+    ]);
+    const first = offered.find((ficha) => ficha.tema.includes("cuál poner primero en Descarga de caos"))!;
+    const list = offered.filter((ficha) => ficha.tema.includes("asistencias que le van a Descarga de caos"));
+    expect(first.texto).toContain(`la primera de la lista es ${list[0]!.texto.split(" (")[0]}:`);
+    // Si no lo pregunta, esa ficha no está: «¿qué le pongo?» recibía una sola gema.
+    const plain = await offeredFor(GEM_QUESTION, []);
+    expect(plain.offered.some((ficha) => ficha.tema.includes("cuál poner primero"))).toBe(false);
+  });
+
+  it("un encabezado de las reglas («…son:») no es una ficha", async () => {
+    const { offered } = await offeredFor(GEM_QUESTION, []);
+    expect(offered.length).toBeGreaterThan(3);
+    expect(offered.some((ficha) => ficha.texto.endsWith(":"))).toBe(false);
+  });
+
+  it("en mitad de una charla, «eso no lo tengo» con lo más cercano vale más que repetir la lista", async () => {
+    const rulesAnswer = await answerMentorQuery({ ...BASE, question: GEM_QUESTION }, { gems, guides });
+    const { selector } = writer((input) => {
+      const others = input.fichas.filter(
+        (ficha) => ficha.tema.includes("asistencias que le van a Descarga de caos") && !rulesAnswer.answer.includes(ficha.texto.split(" (")[0]!),
+      );
+      return { intro: "Dónde sale no lo sé, pero esta otra también encaja.", fichas: [others[0]!.id], cierre: null, enough: false };
+    });
+    const answer = await answerMentorQuery(
+      {
+        ...BASE,
+        question: "y si esa no me ha salido?",
+        conversation: [
+          { role: "player", text: GEM_QUESTION },
+          { role: "mentor", text: rulesAnswer.answer.slice(0, 800) },
+        ],
+      },
+      deps(selector),
+    );
+    expect(answer.answer.startsWith("Dónde sale no lo sé, pero esta otra también encaja.\n\n• ")).toBe(true);
+    expect(answer.answer).not.toContain("Entiendo que preguntas");
+    // Sin charla detrás, el «no lo sé» de siempre.
+    const alone = writer(() => ({ intro: "Eso no lo tengo.", fichas: [], cierre: null, enough: false }));
+    const lost = await answerMentorQuery({ ...BASE, question: "y si esa no me ha salido?" }, deps(alone.selector));
+    expect(lost.intent).toBe("unsupported");
+  });
+
+  it("«vale, ¿y de gemas qué le pongo?» es una pregunta, no un saludo", () => {
+    expect(classifyMentorQuestion("vale, y de gemas que le pongo?").intent).not.toBe("conversation");
+    expect(classifyMentorQuestion("ok y cual pongo").intent).not.toBe("conversation");
+    expect(classifyMentorQuestion("vale, muchas gracias").intent).toBe("conversation");
+    expect(classifyMentorQuestion("hola, ¿qué tal?").intent).toBe("conversation");
+  });
+
+  it("la charla de cortesía no nombra gemas ni cifras que no estén en el contexto", async () => {
+    const select = vi.fn(async () => ({
+      kind: "conversation" as const,
+      recommendationId: null,
+      missingFactId: null,
+      message: "¡Claro! Lo típico es usar Rayo de Relámpago y alguna de apoyo como Hipnosis.",
+      followUpQuestion: null,
+    }));
+    const selector: MentorDecisionSelector = { name: "ia-de-prueba", select };
+    const answer = await answerMentorQuery({ ...BASE, question: "hola" }, deps(selector));
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(answer.responseMode).toBe("rules_fallback");
+    expect(answer.answer).not.toContain("Hipnosis");
+  });
+
+  it("«¿y de resistencias voy bien?» contesta con las suyas", () => {
+    const answer = answerBasicsQuestion(gems, "y de resistencias voy bien?", witch, "es");
+    expect(answer).toContain("Tu personaje tiene: fuego 17 %, hielo -42 %, rayo 9 %.");
   });
 });
 

@@ -457,3 +457,124 @@ guía (regla nueva, `server/mentor/guideKnowledge.ts`). Las guías se leen de
 **Fallos conocidos.** La entrada puede decir mal un nombre que sí está en los
 datos («Lucha I» por «Lucha»). El cierre a veces ofrece explicar algo que el
 Mentor no sabe («¿quieres saber cómo enlazarlas?»).
+
+## Tarea 14 · lo flojo de la charla (26-11-2026)
+
+Control NUEVO, escrito antes de tocar nada y sin ver respuestas:
+`node scripts/mentor-charla.mjs --control14`. Cuatro personajes nuevos
+(mercenario 47, monje 35, hechicera 28, cazadora 24), actos 3 y 4, doce turnos.
+Lo que cuenta como «bien» quedó escrito en el script antes de medir.
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Antes (código de main, f498a66) | 6 | 5 | 1 |
+| Después (una pasada completa) | **8** | **3** | **1** |
+| Tras un retoque (repetidas solo N3 y N4) | **9** | **3** | **0** |
+
+Los doce turnos de cada pasada los redactó el modelo principal (gpt-oss-120b).
+Las notas son de quien escribió el código, que además vio las respuestas del
+«antes» al arreglar: léelas con ese descuento. Entre dos pasadas iguales una
+nota puede bailar (N3.3 salió bien, mal y bien sin que cambiara su caso).
+
+**Lo más grave que encontró el control: un dato inventado.** «vale, y de gemas
+que le pongo?» empezaba por «vale» y el Mentor la tomaba por un saludo. Los
+saludos los escribía la IA libre, y contestó con gemas que no existen («Rayo de
+Relámpago», «Hipnosis», «Aceleración»). No era de la tarea 13: ese camino viene
+de antes.
+
+Turno a turno (antes → después):
+
+- **N1 (mercenario, Tavakai).**
+  - «tavakai me mata…»: bien → bien. Ahora salen los tres datos de la pelea
+    (antes faltaba la Marca de Kitava).
+  - «y de resistencias voy bien?»: a medias → **bien**. Antes decía «van bajas»
+    sin cifras; ahora «fuego 24 %, hielo 6 %, rayo 31 %. Por debajo del 30 %:
+    fuego, hielo».
+  - «vale, y en la pelea que tengo que hacer?»: a medias → a medias. No vuelve
+    al equipo (tampoco antes, en este control), pero repite los tres datos del
+    primer turno y la entrada lía una frase («evita que su Marca de Kitava se
+    cure»). La guía no tiene más de esa pelea.
+- **N2 (monje, acto 3).**
+  - «que cosas para siempre me llevo…»: bien → bien.
+  - «y eso donde esta?»: a medias → **bien**. Antes situaba 2 de 4 cosas; ahora
+    las 4 (Taller de máquinas de Jiquani, El pantano de los azak, Ruinas de la
+    jungla, Aggorat).
+  - «y hay algun jefe duro por el camino?»: a medias → a medias. Antes
+    contestaba con el jefe final; ahora con uno del camino (Puñoplateado), pero
+    solo uno y la guía trae cinco.
+- **N3 (hechicera, Chispa).**
+  - «que gemas de asistencia le van…»: bien → bien.
+  - «cual pongo primero?»: bien → bien. Ya nombraba una; ahora hay una ficha
+    que lo dice en una frase.
+  - «y si esa no me ha salido?»: bien → **mal** → bien tras el retoque. En la
+    pasada completa la IA dijo «no tengo datos» y el Mentor volvió a la lista
+    de la frase suelta, con la gema que no tiene arriba del todo. Retoque: en
+    mitad de una charla, si la IA dice que no lo tiene y enseña lo más cercano,
+    sale eso.
+- **N4 (cazadora, Lanza de rayos, lanza blanca).**
+  - «lanza de rayos hace poco daño»: a medias → **bien**. Antes, cuatro
+    asistencias y ni palabra del arma; ahora «Tu arma "Lanza de caza" está sin
+    calidad y sin ningún mod explícito».
+  - «y que cambio primero?»: bien → bien.
+  - «vale, y de gemas que le pongo?»: **mal → a medias**. Antes, gemas
+    inventadas; ahora Voltio, con su texto del juego. Da una sola.
+
+**Los cierres.** Antes, 9 de 12 ofrecían algo («¿quieres saber cómo llegar a
+esos lugares?», «¿quieres ideas de armas con buenos mods?»). Después, 0 de 12:
+un cierre que ofrece se borra, y las instrucciones piden preguntar por la
+partida del jugador. Lo que queda flojo: unos 4 de 12 preguntan lo que el
+Mentor ya sabe («¿qué arma llevas ahora?» justo después de decirle cuál lleva).
+
+**Qué cambió en el código.**
+
+- Las fichas de la guía dicen de qué parte son (la pelea del jefe final, otros
+  jefes, dónde está cada cosa). Si se pregunta por la pelea con un jefe en la
+  charla, la guía va delante y lo de equipo al final.
+- «¿Y eso dónde está?»: el servidor busca en la guía las zonas de lo que se
+  acaba de nombrar y las pone las primeras, una por cosa.
+- «¿Cuál pongo primero?»: una ficha que nombra la primera de la lista (solo si
+  se pregunta eso).
+- El «siguiente paso» de las reglas (ahí está el arma sin mods) ya llega a la
+  IA. Si lo enseña, la tarjeta de «tu próxima acción» no lo repite.
+- «Vale, y…», «ok, y…» ya no son un saludo. Y un saludo de la IA que nombre una
+  gema, un jefe o una cifra que no esté en el contexto se tira: sale el fijo.
+- «¿De resistencias voy bien?» lo contesta la regla de resistencias.
+- El motor decía «solo 0 mods explícitos»: ahora «sin ningún mod explícito».
+- `scripts/mentor-fichas.ts`: enseña las fichas que vería la IA en cada turno
+  de una charla, sin gastar cupo.
+
+**Regresión K1-K4 (27-11-2026, una pasada, doce turnos).** El control de la
+tarea 13, con el código de la tarea 14. Los doce los redactó el modelo
+principal (gpt-oss-120b), sin datos inventados.
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Tarea 13 (26-11) | 8 | 3 | 1 |
+| Tarea 14 (27-11) | **11** | **1** | **0** |
+
+Ningún turno baja de nota. Las notas son de quien escribió el código y K1-K4
+ya estaba visto: es una regresión, no una prueba limpia.
+
+- **K2.3 «vale, ¿y qué hago en la pelea?»: mal → a medias.** Ya no vuelve al
+  equipo: habla de la pelea. Pero repite las tres frases del primer turno, y
+  la guía tenía dos más de esa pelea (la estocada helada, los hombres lobo).
+- **K3.2 «¿y eso dónde está?»: a medias → bien.** Sitúa las dos cosas (Las
+  torres de Deshar y Valle de los titanes).
+- **K4.1 «hace poco daño»: a medias → bien.** Dice el arco sin calidad y sin
+  ningún mod. Ya no da asistencias en ese turno (las da en el siguiente) y la
+  segunda frase es relleno: la descripción de la habilidad.
+- **K4.3 «¿cuál pongo primero?»: a medias → bien.** Nombra Voltio.
+- Los otros ocho siguen bien. Más cortos: a «dame otra» y «¿otra cosa?» da
+  una sola (antes, tres). K2.1 ya no dice el 30–40 % de hielo en el primer
+  turno (lo dice en el segundo, al preguntar).
+
+Lo que sigue flojo, visto aquí: **6 de 12 cierres preguntan lo que el Mentor
+ya sabe** («¿qué arco estás usando ahora?» justo después de nombrarlo, dos
+veces seguidas en K4). Ningún cierre ofrece (antes, 7 de 12). La entrada de
+K1.3 dice «Lucha I» por «Lucha» (fallo conocido).
+
+**Sin probar.** La charla de la bruja. La web en inglés. Los modelos de
+reserva con las instrucciones nuevas.
+
+Las respuestas, tal cual, en `docs/mediciones/tarea-14/` (la regresión, en
+`regresion-K.json`).

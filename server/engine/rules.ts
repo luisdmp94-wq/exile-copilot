@@ -503,7 +503,14 @@ export const weaponUpgradeRule: Rule = ({ profile, lang }) => {
 
   const issues: string[] = [];
   if (lacksQuality) issues.push(t("sin calidad", "without quality"));
-  if (fewMods) issues.push(t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit modifiers`));
+  if (fewMods) {
+    // «Solo 0 mods explícitos» no lo entiende un novato: un arma blanca no tiene ninguno.
+    issues.push(
+      explicitCount === 0
+        ? t(caster ? "cero mods explícitos" : "sin ningún mod explícito", caster ? "no explicit modifiers" : "without explicit modifiers")
+        : t(`solo ${explicitCount} mods explícitos`, `only ${explicitCount} explicit modifiers`),
+    );
+  }
 
   // Solo hay precio consultable para ÚNICOS (match exacto de nombre). Un rare
   // nunca se valora con precios de únicos aunque coincida la base.

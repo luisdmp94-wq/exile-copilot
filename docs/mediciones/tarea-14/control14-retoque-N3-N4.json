@@ -1,0 +1,80 @@
+[
+  {
+    "id": "N3.1",
+    "personaje": "Mi hechicera",
+    "question": "que gemas de asistencia le van a chispa?",
+    "status": 200,
+    "ms": 960,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Para Chispa las asistencias que mejor encajan, de mayor a menor, son:\n\n• Electrocución duradera (grado II, destreza): Las habilidades asistidas tienen la duración de la electrocución aumentada un 100%. Las habilidades asistidas tienen un 30% menos de probabilidad de electrocutar.\n• Electrocución (grado I, destreza): Las habilidades asistidas tienen un 100% más de probabilidad de electrocutar.\n• Robo electrocutante (grado I, inteligencia): Recuperas un 4% de tu escudo de energía máximo cuando una habilidad asistida inflige un impacto mortal a un enemigo electrocutado.\n• Lanzamiento calculado (grado II, inteligencia): Las habilidades de hechizos asistidas tienen un 15% menos de velocidad de lanzamiento de hechizos. Los hechizos asistidos infligen un 35% más de daño.\n\n¿Qué otras habilidades quieres potenciar?",
+    "nextAction": null
+  },
+  {
+    "id": "N3.2",
+    "personaje": "Mi hechicera",
+    "question": "cual pongo primero?",
+    "status": 200,
+    "ms": 1005,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "La primera gema que debes poner en Chispa es Electrocución duradera.\n\n• Para Chispa, la primera de la lista es Electrocución duradera: es la que mejor encaja por etiquetas. No es una medida de daño.\n• Las asistencias se ordenan por cómo encajan sus etiquetas con Chispa (Hechizo, Proyectil, Activación, Rayo, Hielo, Duración, Repetible), hasta grado II. No es una medida de daño.\n\n¿Qué otras asistencias tienes disponibles?",
+    "nextAction": null
+  },
+  {
+    "id": "N3.3",
+    "personaje": "Mi hechicera",
+    "question": "y si esa no me ha salido?",
+    "status": 200,
+    "ms": 2846,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Si la Electrocución duradera no te sale, la siguiente opción con buen encaje es Electrocución.\n\n• Electrocución (grado I, destreza): Las habilidades asistidas tienen un 100% más de probabilidad de electrocutar.\n\n¿Qué grado de gema tienes disponible?",
+    "nextAction": null
+  },
+  {
+    "id": "N4.1",
+    "personaje": "Mi cazadora",
+    "question": "lanza de rayos hace poco daño",
+    "status": 200,
+    "ms": 1287,
+    "intent": "explain_priority",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Si tu daño es bajo, lo primero es mirar el arma que usas.\n\n• Siguiente paso: Tu arma \"Lanza de caza\" (Lanza de caza) está sin calidad y sin ningún mod explícito. Busca otra con mejores mods, o de una base de más nivel, dentro de tu presupuesto.\n• Si te falta daño, lo primero que revisaría es «Mejorar el arma». El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.\n\n¿Qué arma llevas ahora y con qué mods?",
+    "nextAction": null
+  },
+  {
+    "id": "N4.2",
+    "personaje": "Mi cazadora",
+    "question": "y que cambio primero?",
+    "status": 200,
+    "ms": 1929,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Lo primero es mejorar tu arma, ya que es la mayor palanca de daño.\n\n• Si te falta daño, lo primero que revisaría es «Mejorar el arma». El arma es la principal palanca de daño en la mayoría de builds de ataque; una base mejor compensa varios upgrades menores.\n• Siguiente paso: Tu arma \"Lanza de caza\" (Lanza de caza) está sin calidad y sin ningún mod explícito. Busca otra con mejores mods, o de una base de más nivel, dentro de tu presupuesto.\n\n¿Qué arma estás usando actualmente?",
+    "nextAction": null
+  },
+  {
+    "id": "N4.3",
+    "personaje": "Mi cazadora",
+    "question": "vale, y de gemas que le pongo?",
+    "status": 200,
+    "ms": 1054,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Para subir daño con Lanza de rayos, la asistencia que mejor encaja es Voltio.\n\n• Voltio (grado II, destreza): Las habilidades asistidas ganan 2 carga voltaica por cada metro recorrido. Las habilidades asistidas pueden tener 30 cargas voltaicas como máximo Las habilidades asistidas consumen todas las cargas voltaicas al usarse. Las habilidades asistidas ganan el 1% del daño como daño de rayo extra por cada carga voltaica consumida.\n• Las asistencias se ordenan por cómo encajan sus etiquetas con Lanza de rayos (Ataque, AdE, Proyectil, Rayo, Repetible), hasta grado II. No es una medida de daño.\n\n¿Has probado ya mejorar la calidad o añadir mods a la lanza?",
+    "nextAction": null
+  }
+]

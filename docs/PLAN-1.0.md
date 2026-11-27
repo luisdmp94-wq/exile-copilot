@@ -170,7 +170,7 @@ la siguiente. Nada se sube sin su sí.
   queda para otro chat, con un control nuevo (este ya no vale si se retoca).
   Comprobado en la web publicada el 26-11 con una charla de dos turnos (el
   conde del acto 1): contesta la IA, sigue el hilo y tarda 1 s.
-- [ ] **14. Lo flojo de la charla** (propuesta del 26-11, sale del control de
+- [x] **14. Lo flojo de la charla** (propuesta del 26-11, sale del control de
   la tarea 13; antes del 8-12). Cuatro casos:
   - Tras hablar de un jefe, «¿y qué hago en la pelea?» vuelve al equipo: la
     regla de «qué hago» se queda la pregunta antes de llegar a la guía.
@@ -186,6 +186,22 @@ la siguiente. Nada se sube sin su sí.
   sin mirar respuestas) y medirlo antes; arreglar; medirlo después. El control
   K1-K4 de `scripts/mentor-charla.mjs` ya está visto: sirve de regresión, no de
   prueba limpia. Como mucho dos pasadas con IA al día.
+  → El 26-11, **arreglado en local, sin subir: falta la regresión K1-K4.**
+  Control nuevo (`--control14`, doce turnos): **de 6 bien, 5 a medias y 1 mal
+  a 8, 3 y 1 en la pasada completa; 9, 3 y 0 tras un retoque** (repetidas solo
+  dos charlas). «¿Dónde está?» sitúa las 4 cosas (antes 2), «hace poco daño»
+  dice el arma sin mods, y los cierres ya no ofrecen (de 9 de 12 a 0). El
+  control encontró un dato inventado: «vale, y de gemas…» pasaba por saludo y
+  la IA contestaba libre, con gemas que no existen; cerrado. Queda flojo: la
+  repregunta de la pelea repite lo del primer turno, «¿algún jefe duro?» da
+  uno solo y algún cierre pregunta lo que el Mentor ya sabe. Lint y las 1567
+  pruebas en verde. Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 14».
+  → El 27-11, **regresión K1-K4 pasada y subido a main: de 8 bien, 3 a medias
+  y 1 mal a 11, 1 y 0** (una pasada, doce turnos con el modelo principal, sin
+  datos inventados; ningún turno baja). Lo que queda flojo: 6 de 12 cierres
+  preguntan lo que el Mentor ya sabe y «¿qué hago en la pelea?» repite el
+  primer turno. Lint, 1734 pruebas, `npm run build` y el humo del Mentor
+  (51/51) en verde. De paso: el Mentor ya dice Ctrl+Alt+C al comparar piezas.
 
 ### Del 8 al 10 de diciembre
 

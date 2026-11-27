@@ -245,34 +245,127 @@ export function answerGuideQuestion(knowledge: GuideKnowledge, question: string,
 }
 
 
+export interface GuideLine {
+  /** De qué parte de la guía es: la IA elige por esto (tarea 14). */
+  tema: string;
+  texto: string;
+}
+
+/** Qué parte de la guía va primero cuando no cabe entera. */
+export type GuideAsk = "fight" | "route" | "where";
+
+export type GuideStep = GuideKnowledgeAct["route"][number];
+
 /**
  * Las frases de una guía, por orden de utilidad, para que la IA elija cuáles
- * enseñar. Cada una se enseña tal cual: aquí solo se le pone delante de qué
- * parte de la guía es, para que se entienda suelta.
+ * enseñar. Cada una se enseña tal cual; el tema dice de qué parte de la guía
+ * es (la pelea del jefe final, otros jefes, dónde está cada cosa…).
  */
-export function guideLines(guide: GuideKnowledgeAct, lang: "es" | "en", routeFirst = false): string[] {
+export function guideLines(
+  guide: GuideKnowledgeAct,
+  lang: "es" | "en",
+  ask: GuideAsk = "fight",
+  /** Zonas de lo que se acaba de nombrar (`stepsNamedIn`): van las primeras si pregunta dónde. */
+  named: readonly GuideStep[] = [],
+): GuideLine[] {
   const en = lang === "en";
+  const of = en ? `(the site's guide for ${guide.label})` : `(guía de la web del ${guide.label})`;
+  const tagged = (tema: string, lines: readonly string[]): GuideLine[] => lines.map((texto) => ({ tema: `${tema} ${of}`, texto }));
   const bosses = block(guide, "jefes");
   const others = guide.blocks.filter((entry) => entry.id !== "jefes");
-  const fight = [
-    ...(guide.focusNote ? [en ? `Before the final boss: ${guide.focusNote}` : `Antes del jefe final: ${guide.focusNote}`] : []),
+  const fight = tagged(en ? "the final boss fight, phase by phase" : "la pelea contra el jefe final, fase a fase", [
     ...(bosses ? [bosses.intro, ...bosses.cards] : []),
-  ];
-  const step = (entry: GuideKnowledgeAct["route"][number]) =>
-    `${entry.zone}${entry.optional ? (en ? " (optional)" : " (opcional)") : ""}: ${entry.text}`;
+    ...(guide.focusNote ? [en ? `Before the final boss: ${guide.focusNote}` : `Antes del jefe final: ${guide.focusNote}`] : []),
+  ]);
+  const essentials = tagged(en ? "the essentials of the act" : "lo esencial del acto", guide.essentials);
+  const step = (entry: GuideStep) => `${entry.zone}${entry.optional ? (en ? " (optional)" : " (opcional)") : ""}: ${entry.text}`;
   // Primero las zonas que dan algo para siempre: es por lo que se pregunta.
+  const ordered = [
+    ...guide.route.filter((entry) => entry.priority === "clave"),
+    ...guide.route.filter((entry) => entry.priority !== "clave"),
+  ];
+  const whereTopic = en ? "where each thing is: zone and what you get there" : "dónde está cada cosa: zona y lo que hay en ella";
+  // «¿Y eso dónde está?»: las zonas de lo que se acaba de nombrar, por orden de mención.
   const route = [
-    ...guide.route.filter((entry) => entry.priority === "clave").map(step),
-    ...guide.route.filter((entry) => entry.priority !== "clave").map(step),
+    ...tagged(en ? "where what the Mentor just named is: one zone per thing" : "dónde está lo que el Mentor acaba de nombrar: una zona por cosa", named.map(step)),
+    ...tagged(whereTopic, ordered.filter((entry) => !named.includes(entry)).map(step)),
   ];
-  const rest = [
-    ...(bosses ? bosses.lines : []),
-    ...others.flatMap((entry) => [...entry.cards.map((card) => `${entry.title} · ${card}`), ...entry.lines]),
-  ];
-  return routeFirst ? [...guide.essentials, ...route, ...fight, ...rest] : [...fight, ...guide.essentials, ...rest, ...route];
+  const otherBosses = tagged(en ? "other tough bosses on the way" : "otros jefes duros por el camino", bosses ? bosses.lines : []);
+  const rest = others.flatMap((entry) => tagged(entry.title, [...entry.cards.map((card) => `${entry.title} · ${card}`), ...entry.lines]));
+  return ask === "fight"
+    ? [...fight, ...otherBosses, ...essentials, ...rest, ...route]
+    : ask === "where"
+      ? [...route, ...essentials, ...fight, ...otherBosses, ...rest]
+      : [...essentials, ...route, ...fight, ...otherBosses, ...rest];
+}
+
+const lowercaseCache = new WeakMap<readonly GuideKnowledgeAct[], Set<string>>();
+/** Palabras que las guías escriben alguna vez en minúscula: no son un nombre. */
+function lowercaseWords(guides: readonly GuideKnowledgeAct[]): Set<string> {
+  let cached = lowercaseCache.get(guides);
+  if (!cached) {
+    cached = new Set<string>();
+    for (const guide of guides) {
+      for (const text of allTexts(guide)) {
+        for (const match of text.matchAll(WORD_RE)) {
+          if (!/^\p{Lu}/u.test(match[0])) cached.add(foldText(match[0]));
+        }
+      }
+    }
+    lowercaseCache.set(guides, cached);
+  }
+  return cached;
+}
+
+/**
+ * Las zonas de la ruta que tocan algo de lo que dice un texto, por orden de
+ * mención. Se mira por los nombres que solo salen en esa zona («Ignagduk»,
+ * «Aggorat»): un nombre que está en media guía no sitúa nada. El texto puede
+ * venir del navegador: solo decide el orden de frases que ya son de la guía.
+ */
+export function stepsNamedIn(knowledge: GuideKnowledge, guide: GuideKnowledgeAct, lang: "es" | "en", text: string): GuideStep[] {
+  const folded = foldText(text);
+  if (folded.trim().length === 0) return [];
+  const lowercase = lowercaseWords(lang === "en" ? knowledge.en : knowledge.es);
+  const namesOf = (entry: GuideStep): string[] => {
+    const names = new Set<string>();
+    for (const match of `${entry.zone}. ${entry.text}`.matchAll(WORD_RE)) {
+      const word = foldText(match[0]);
+      if (word.length >= 5 && /^\p{Lu}/u.test(match[0]) && !NOT_A_NAME.has(word) && !lowercase.has(word)) names.add(word);
+    }
+    return [...names];
+  };
+  const byStep = guide.route.map((entry) => ({ entry, names: namesOf(entry) }));
+  const hits: Array<{ entry: GuideStep; at: number }> = [];
+  for (const { entry, names } of byStep) {
+    const own = names.filter((name) => byStep.filter((other) => other.names.includes(name)).length === 1);
+    const positions = own
+      .map((name) => new RegExp(`(?<![\\p{L}])${name}(?![\\p{L}])`, "u").exec(folded)?.index ?? -1)
+      .filter((at) => at >= 0);
+    if (positions.length > 0) hits.push({ entry, at: Math.min(...positions) });
+  }
+  return hits.sort((a, b) => a.at - b.at).map((hit) => hit.entry);
 }
 
 const WHERE_ASK = /\b(donde|zonas?|where|zones?)\b/;
+const FIGHT_ASK = /\b(pelea\w*|combate|lucha\w*|fases?|esquiv\w+|fight|phases?|dodge)\b/;
+
+/**
+ * Qué parte de la guía pide la frase. Decide qué ve primero la IA cuando la
+ * guía no cabe entera, y si la respuesta de las reglas a la frase suelta
+ * («lo siguiente que haría: rellenar huecos») se queda detrás de la guía.
+ */
+export function guideAsk(question: string, earlierQuestions: readonly string[]): GuideAsk {
+  const q = normalizeQuestion(question);
+  if (WHERE_ASK.test(q)) return "where";
+  if (BOSS_ASK.test(q) || FIGHT_ASK.test(q)) return "fight";
+  return asksAboutRoute(question, earlierQuestions) ? "route" : "fight";
+}
+
+/** ¿Pregunta por la pelea en sí (y no por equipo)? Con un jefe en la charla, manda la guía. */
+export function asksAboutFight(question: string): boolean {
+  return FIGHT_ASK.test(normalizeQuestion(question));
+}
 
 /**
  * ¿La charla va de zonas y recompensas más que de un jefe? Decide qué parte
