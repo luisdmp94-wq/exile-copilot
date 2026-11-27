@@ -202,6 +202,41 @@ la siguiente. Nada se sube sin su sí.
   preguntan lo que el Mentor ya sabe y «¿qué hago en la pelea?» repite el
   primer turno. Lint, 1734 pruebas, `npm run build` y el humo del Mentor
   (51/51) en verde. De paso: el Mentor ya dice Ctrl+Alt+C al comparar piezas.
+- [ ] **15. Los cierres y las repreguntas del Mentor** (lo flojo que dejó la
+  regresión K1-K4 del 27-11; antes del 8-12). Tres casos:
+  - Cierres que preguntan lo que el Mentor ya sabe (6 de 12 en K1-K4: «¿qué
+    arco estás usando ahora?» justo después de nombrarlo).
+  - «¿Y qué hago en la pelea?» repite las frases del primer turno aunque la
+    guía tenga más de esa pelea.
+  - A «dame otra» o «¿otra cosa?» da una sola; antes daba tres.
+  Método: control NUEVO (`--control15`, cuatro charlas, otros personajes, sin
+  mirar respuestas) medido antes de tocar nada; mirar las fichas gratis con
+  `scripts/mentor-fichas.ts`; arreglar; medir después. K1-K4 y N1-N4 ya están
+  vistos: solo valen de regresión. Como mucho dos pasadas con IA al día. Si no
+  mejora, no se sube.
+  → El 27-11, **arreglado en local, sin subir: falta medir el «después».**
+  Control nuevo (`--control15`, doce turnos), antes: **4 bien, 7 a medias y 1
+  mal; 8 de 12 cierres malos** (preguntan lo sabido o repiten el anterior). El
+  control encontró dos cosas más: a la primera pregunta de gemas también daba
+  una sola, y la tarjeta de Rudja salía como si fuera de Jamanra. Causas, vistas
+  en las fichas: el detalle de la pelea del jefe final iba etiquetado como
+  «otros jefes», nada decía qué frases estaban ya dichas y las instrucciones
+  del cierre se contradecían. Arreglo: las guías marcan qué es de la pelea
+  final, el servidor marca lo «ya dicho» y lo quita si se pide más, completa a
+  tres asistencias y borra los cierres que preguntan por la hoja del personaje.
+  Lint, 1744 pruebas y `npm run build` en verde. El «después» no se midió ese
+  día: ya iban dos pasadas con IA (la regresión K de las 04:00 y este «antes»).
+  Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 15».
+  → El 27-11 a las 13:15, **medido el «después»: 8 bien, 3 a medias y 1 mal;
+  1 de 12 cierres malos** (una pasada, modelo principal, notas de quien
+  escribió el código). Suben seis turnos y bajan dos: a «dame otra» no dio
+  ninguna gema (P3.2, mal) y «¿qué resistencia subo?» cayó a la regla genérica
+  porque la redacción de la IA se descartó (P2.3, a medias). Sin datos
+  inventados en las frases enseñadas. Retoque después, **sin medir con IA**:
+  «dame otra» da las tres siguientes si la IA no elige ninguna, «piezas» entra
+  en el filtro de cierres y el registro guarda por qué se descarta una
+  redacción. Lint, 1746 pruebas y `npm run build` en verde. **Sigue sin commit
+  y sin subir.** Falta: regresión K1-K4 y repetir P2 y P3; otro día, N1-N4.
 
 ### Del 8 al 10 de diciembre
 

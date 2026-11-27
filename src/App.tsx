@@ -108,7 +108,7 @@ import {
   loadPlanningWorkspaceProgress,
   savePlanningWorkspaceProgress,
 } from "@/lib/planningWorkspaceProgress";
-import { mentorInputsKey } from "@shared/mentorQuery.js";
+import { MAX_MENTOR_TURN_LENGTH, mentorInputsKey } from "@shared/mentorQuery.js";
 import { useJournal } from "@/hooks/useJournal";
 import { JournalSection } from "@/sections/JournalSection";
 import {
@@ -1640,7 +1640,7 @@ export default function App() {
         envelope,
         mentor.turns.slice(-8).map((turn) => ({
           role: turn.role,
-          text: turn.text.slice(0, 800),
+          text: turn.text.slice(0, MAX_MENTOR_TURN_LENGTH),
         })),
     );
     const outcome = await mentor.ask(gameOnly ? { ...request, gameOnly: true } : request, {

@@ -31,6 +31,17 @@
       "El parche 0.5.3 le bajó el daño a sus rayos de luna y a sus tajos hacia atrás.",
       "El verdugo (pueblo de Ogham): una ráfaga de viento marca dónde caerá su guillotina; apártate. Su grieta avanza en línea recta: muévete de lado. Mata a los esbirros para que no te rodeen.",
       "El rey de las nieblas (Villafrey, opcional): un efecto te aturde si te quedas quieto y el otro si te mueves: mira cuál llevas. Mata rápido sus tótems. Da +30 de espíritu para siempre."
+     ],
+     "finalCards": [
+      "Fase 1: No te quedes a su espalda. Sal rodando de los muros de hielo.",
+      "Desde el 75 %: Se vuelve lobo. No pises el círculo de runas: congela.",
+      "Desde el 50 %: Se cura entero. Muévete sin parar y, en la niebla, solo esquiva."
+     ],
+     "finalLines": [
+      "Antes de entrar: 30–40 % de resistencia al hielo.",
+      "Fase 1, golpe a golpe: su estocada helada (destello rojo) congela mucho. Si su embestida falla, sigue un tajo enorme a su espalda. Con los dos muros de hielo en V golpea por el medio.",
+      "Fase de lobo: clava la espada rodeada de runas de escarcha e invoca hombres lobo: mátalos o aléjate. Al 50 % se cura entero; su golpe de sangre no se puede bloquear. Sal de las manchas de hielo antes de que salgan los pinchos. Desde el 25 % caen rayos de luna hasta el final. En la niebla no recibe daño y sale embistiendo seis veces.",
+      "El parche 0.5.3 le bajó el daño a sus rayos de luna y a sus tajos hacia atrás."
      ]
     },
     {
@@ -49,7 +60,9 @@
       "El tope normal es un 75 %: por encima no sirve, salvo que algo te suba el máximo.",
       "Beira, de la manada putrefacta (Sierraclara), suelta un trofeo que da +10 % de resistencia al hielo para siempre.",
       "Maxroll aconseja tener un anillo de zafiro (hielo) hacia el nivel 15, antes de Geonor."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -65,7 +78,9 @@
       "Un arma blanca con buen daño base vale la pena: transmútala y auméntala.",
       "Frascos: el caldero de la cabaña de la bruja, en el bosque singular, da frascos medianos gratis. Una vende frascos mayores por 80–500 de oro.",
       "Engarza runas de resistencia en tu equipo para tapar la que te falte."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [
@@ -186,6 +201,14 @@
       "El parche 0.5.2 le bajó a Jamanra, la Abominación, alrededor de un 17 % de vida. Desde el 0.5.0 está en El Acorazado: si una guía antigua habla de una «vanguardia», ya no existe.",
       "Azarian, el Hijo abandonado (Santuarios enterrados): pega con fuego y deja el suelo ardiendo. En la Ofrenda elemental, si vas corto de fuego, elige fuego: da un anillo de rubí.",
       "Balbala, la Traidora (El pasaje de la traidora, opcional): se hace invisible y suelta gas venenoso. Tus efectos sobre ella siguen viéndose y la delatan. Solo hace falta para la ascendencia."
+     ],
+     "finalCards": [
+      "Jamanra · fase 1: Rayos y pilares eléctricos. En la tormenta de arena, quédate en la zona del escudo de Asala.",
+      "Jamanra · desde el 66 %: Tornados, lanzas y orbes de rayo. No te quedes quieto."
+     ],
+     "finalLines": [
+      "Salir de la zona segura durante la tormenta de arena mata muy rápido. Mata a los esbirros que aparezcan.",
+      "El parche 0.5.2 le bajó a Jamanra, la Abominación, alrededor de un 17 % de vida. Desde el 0.5.0 está en El Acorazado: si una guía antigua habla de una «vanguardia», ya no existe."
      ]
     },
     {
@@ -200,7 +223,9 @@
       "Apunta a un 30 % en las tres antes del acto 3. Es una referencia de la comunidad, no una cifra oficial.",
       "La runa desértica da resistencia al fuego (+10 %, +14 % o +18 % según su nivel) engarzada en una armadura.",
       "El tope sigue siendo un 75 %."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -214,7 +239,9 @@
       "Las Promesas antiguas también dan, a elegir, +30 % de cargas de viales o +30 % de duración de sus efectos. La elección se puede cambiar luego.",
       "Kabala, Reina constrictora (Keth): suelta un libro de especialización (2 puntos de pasiva de set de arma).",
       "El rhoa abandonado (Deshar): busca la Última carta al pie de las torres y llévasela a Shambrin. Da otro libro de especialización."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "trampas",
@@ -225,7 +252,9 @@
       "Las tres rutas del desierto: la que dejes para el final sube de nivel. No guardes para luego la que peor llevas.",
       "Las tres rutas se abren tras enfrentarte a Jamanra, el Rey ascendido (no muere: huye), y las tres son obligatorias.",
       "La Prueba de las sekhemas (ascendencia): es dura si tu personaje es lento. Puedes volver más tarde, con más nivel."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [
@@ -354,6 +383,14 @@
       "Mektul, el Maestro de la forja: tienes menos de 4 minutos antes de que el oro fundido cubra la sala. Es opcional.",
       "Ketzuli, Sumo sacerdote del sol: su rayo de luz quema más cuanto más rato estés dentro. Corre hacia él y rueda para pasarle.",
       "Napuatzi la Víbora: su mordisco no se puede bloquear: esquiva de lado. La sala se encoge y al final te atacan por los dos lados."
+     ],
+     "finalCards": [
+      "Doryani · a pie: Rayos, lanzallamas y bolas de fuego. Muévete sin parar.",
+      "Doryani · desde el 50 %: Se sube a un autómata. Su puño te persigue: corre por la sala y rueda cuando frene.",
+      "Autómata al 50 %: Doryani vuela un rato con ataques nuevos. Láser de hielo: rueda a través del jefe cuando pase de azul a rojo."
+     ],
+     "finalLines": [
+      "Descarga estática: ponte dentro del círculo y no te hace daño. Pinchos en el suelo: no los pises."
      ]
     },
     {
@@ -370,7 +407,9 @@
       "En el acto 3 el juego te quita un 20 %; en el acto 4, un 30 %.",
       "Hacia el nivel 35 los vendedores pueden tener anillos prismáticos, con resistencia a las tres.",
       "El tope sigue siendo un 75 %."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -384,7 +423,9 @@
       "Ignagduk también suelta una gema de espíritu sin tallar.",
       "Hacia el nivel 40, en La ciudad sumergida, empieza a buscar frascos mejores.",
       "La Prueba de Caos se puede hacer cuando quieras después de vencer a Xyclucian."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "trampas",
@@ -395,7 +436,9 @@
       "El Corazón sacrificial: no da nada hasta que lo usas en el altar de Aggorat. Puede caer también en Utzaal.",
       "El parche 0.5.0 cambió el orden de zonas del acto 3: una guía antigua puede darte otra ruta.",
       "Mektul y La cámara fundida no hacen falta para la historia: si te cuesta, vuelve más tarde."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [
@@ -543,7 +586,13 @@
       "Diamora, Canción de muerte: esquiva sus olas. Cuando canta, su mirada petrifica: no la mires de frente.",
       "Torvian, la Mano del Salvador: interrumpe a los sacerdotes que le ayudan. No cruces sus muros sagrados: te frenan y recibes más golpes críticos.",
       "Capitán Hartlin: sal del área del ancla espectral y esquiva los círculos de sus cañonazos."
-     ]
+     ],
+     "finalCards": [
+      "Tavakai · al principio: Te lanza un gancho: rueda para esquivarlo.",
+      "Al 50 % y al 25 %: Cambia de fase y suma fuego, hielo y rayo. Muévete sin parar.",
+      "Marca de Kitava: Se cura con el daño que te hace. Cuanto menos te pegue, antes cae."
+     ],
+     "finalLines": []
     },
     {
      "id": "resistencias",
@@ -559,7 +608,9 @@
       "Los tres tatuajes de Salones de los muertos dan +5 % a cada resistencia, gratis. Apunta a un 30 % en las tres antes de los interludios. Maxroll aconseja acercarte al 75 % todo lo que puedas.",
       "En el acto 4 el juego te quita un 30 %. En los interludios, un 40 %, y un 50 % en sus zonas de nivel 60 o más.",
       "El tope sigue siendo un 75 %."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -571,7 +622,9 @@
       "Kaimana: la Lección de Kaom es la sencilla: +30 % a armadura, evasión y escudo de energía.",
       "La Lección de Rakiata: el 15 % de tu armadura también vale contra daño elemental, desvío igual al 12 % de tu evasión y el escudo de energía empieza a recargarse un 12 % antes.",
       "Arastas y Ngakanu tienen tiendas (hechizos y herrero) que puedes visitar antes de hacerlas."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "trampas",
@@ -583,7 +636,9 @@
       "Dónde está Matiki cambia de una liga a otra. Una guía antigua puede mandarte a otra isla.",
       "La elección de frascos de la Diosa de la justicia sí se puede cambiar: vuelve a la estatua.",
       "Después del acto 4 vienen tres interludios antes de los mapas. Cada tramo te quita más resistencia."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [
@@ -727,6 +782,17 @@
       "Patch 0.5.3 lowered the damage of his moonbeams and backward slashes.",
       "The Executioner (Ogham Village): a gust of wind marks where his guillotine will fall; get out of the way. His fissure travels in a straight line: step sideways. Kill the minions so they don't surround you.",
       "The King in the Mists (Freythorn, optional): one effect stuns you if you stand still and the other if you move: check which one you have. Kill his totems fast. Gives +30 spirit for good."
+     ],
+     "finalCards": [
+      "Phase 1: Don't stand behind him. Roll out of the ice walls.",
+      "From 75%: He turns into a wolf. Don't step on the rune circle: it freezes.",
+      "From 50%: He heals to full. Keep moving and, in the mist, just dodge."
+     ],
+     "finalLines": [
+      "Before going in: 30–40% cold resistance.",
+      "Phase 1, hit by hit: his frost thrust (red flash) freezes a lot. If his charge misses, a huge slash behind him follows. With the two ice walls in a V, hit him through the middle.",
+      "Wolf phase: he plants his sword surrounded by frost runes and summons werewolves: kill them or move away. At 50% he heals to full; his blood strike can't be blocked. Leave the ice patches before the spikes come out. From 25%, moonbeams fall until the end. In the mist he takes no damage and comes out charging six times.",
+      "Patch 0.5.3 lowered the damage of his moonbeams and backward slashes."
      ]
     },
     {
@@ -745,7 +811,9 @@
       "The normal cap is 75%: above that it's wasted, unless something raises your maximum.",
       "Beira of the Rotten Pack (Clearfell) drops a trophy that gives +10% cold resistance for good.",
       "Maxroll recommends having a Sapphire Ring (cold) around level 15, before Geonor."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -761,7 +829,9 @@
       "A white weapon with good base damage is worth it: transmute it and augment it.",
       "Flasks: the cauldron at the Witch Hut, in The Grelwood, gives free medium flasks. Una sells greater flasks for 80–500 gold.",
       "Socket resistance runes into your gear to cover whichever one you're missing."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [
@@ -882,6 +952,14 @@
       "Patch 0.5.2 lowered Jamanra, the Abomination's life by about 17%. Since 0.5.0 he's in The Dreadnought: if an old guide mentions a “vanguard”, it no longer exists.",
       "Azarian, the Forsaken Son (Buried Shrines): he hits with fire and leaves the ground burning. At the Elemental Offering, if you're short on fire, pick fire: it gives a Ruby Ring.",
       "Balbala, the Traitor (Traitor's Passage, optional): she turns invisible and releases poison gas. Your effects on her stay visible and give her away. You only need her for the ascendancy."
+     ],
+     "finalCards": [
+      "Jamanra · phase 1: Lightning bolts and electric pillars. In the sandstorm, stay inside Asala's shield.",
+      "Jamanra · from 66%: Tornadoes, spears and lightning orbs. Don't stand still."
+     ],
+     "finalLines": [
+      "Leaving the safe zone during the sandstorm kills you very fast. Kill the minions that show up.",
+      "Patch 0.5.2 lowered Jamanra, the Abomination's life by about 17%. Since 0.5.0 he's in The Dreadnought: if an old guide mentions a “vanguard”, it no longer exists."
      ]
     },
     {
@@ -896,7 +974,9 @@
       "Aim for 30% in all three before act 3. It's a community reference, not an official number.",
       "The Lesser Desert Rune gives fire resistance (+10%, +14% or +18% depending on its level) when socketed in armour.",
       "The cap is still 75%."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -910,7 +990,9 @@
       "Ancient Vows also gives, your choice, +30% charm charges or +30% charm effect duration. You can change the choice later.",
       "Kabala, Constrictor Queen (Keth): drops a Book of Specialisation (2 weapon set passive points).",
       "The Abandoned Rhoa (Deshar): find the Final Letter at the foot of the spires and bring it to Shambrin. Gives another Book of Specialisation."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "trampas",
@@ -921,7 +1003,9 @@
       "The three desert routes: the one you leave for last goes up in level. Don't save the one you find hardest for later.",
       "The three routes open after you face Jamanra, the Risen King (he doesn't die: he flees), and all three are required.",
       "The Trial of the Sekhemas (ascendancy): it's hard if your character is slow. You can come back later, with more levels."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [
@@ -1050,6 +1134,14 @@
       "Mektul, the Forgemaster: you have under 4 minutes before molten gold covers the room. He's optional.",
       "Ketzuli, High Priest of the Sun: his light beam burns more the longer you stay in it. Run toward him and roll past him.",
       "Viper Napuatzi: her bite can't be blocked: dodge sideways. The arena shrinks, and in the end you get hit from both sides."
+     ],
+     "finalCards": [
+      "Doryani · on foot: Lightning, a flamethrower and fireballs. Keep moving.",
+      "Doryani · from 50%: He climbs into a mech. Its fist chases you: run around the room and dodge roll when it slows down.",
+      "Mech at 50%: Doryani flies for a while with new attacks. Frost laser: roll past the boss when it turns from blue to red."
+     ],
+     "finalLines": [
+      "Static blast: stand inside the circle and it does no damage. Spikes on the floor: don't step on them."
      ]
     },
     {
@@ -1066,7 +1158,9 @@
       "In act 3 the game takes away 20%; in act 4, 30%.",
       "Around level 35, vendors can have Prismatic Rings, with resistance to all three.",
       "The cap is still 75%."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -1080,7 +1174,9 @@
       "Ignagduk also drops an Uncut Spirit Gem.",
       "Around level 40, in The Drowned City, start looking for better flasks.",
       "You can do the Trial of Chaos whenever you like after beating Xyclucian."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "trampas",
@@ -1091,7 +1187,9 @@
       "The Sacrificial Heart: gives nothing until you use it at the altar in Aggorat. It can also drop in Utzaal.",
       "Patch 0.5.0 changed the zone order of act 3: an old guide may give you a different route.",
       "Mektul and The Molten Vault aren't needed for the story: if he's too hard, come back later."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [
@@ -1239,7 +1337,13 @@
       "Diamora, Song of Death: dodge her waves. When she sings, her gaze petrifies: don't face her.",
       "Torvian, Hand of the Saviour: interrupt the priests helping him. Don't cross his holy walls: they slow you and make you easier to crit.",
       "Captain Hartlin: leave the spectral anchor area and dodge the circles of his cannon barrage."
-     ]
+     ],
+     "finalCards": [
+      "Tavakai · at the start: He throws a hook: roll to dodge it.",
+      "At 50% and 25%: He changes phase and adds fire, cold and lightning. Keep moving.",
+      "Kitava's mark: He heals from the damage he deals to you. The less he hits you, the sooner he falls."
+     ],
+     "finalLines": []
     },
     {
      "id": "resistencias",
@@ -1255,7 +1359,9 @@
       "The three Halls of the Dead tattoos give +5% to each resistance, free. Aim for 30% in all three before the Interludes. Maxroll advises getting as close to 75% as you can.",
       "In act 4 the game takes away 30%. In the Interludes, 40%, and 50% in their areas of level 60 or more.",
       "The cap is still 75%."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "mejoras",
@@ -1267,7 +1373,9 @@
       "Kaimana: Kaom's Lesson is the simple one: +30% to armour, evasion and energy shield.",
       "Rakiata's Lesson: 15% of your armour also applies to elemental damage, deflection equal to 12% of your evasion, and energy shield starts recharging 12% sooner.",
       "Arastas and Ngakanu have shops (spells and blacksmith) you can visit before doing them."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     },
     {
      "id": "trampas",
@@ -1279,7 +1387,9 @@
       "Where Matiki is changes from league to league. An old guide may send you to a different island.",
       "The Goddess of Justice flask choice can be changed: go back to the statue.",
       "After act 4 come three Interludes before the maps. Each stretch takes away more resistance."
-     ]
+     ],
+     "finalCards": [],
+     "finalLines": []
     }
    ],
    "route": [

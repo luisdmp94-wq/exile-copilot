@@ -22,7 +22,18 @@ const GuideKnowledgeActSchema = z.object({
   checkedPatch: z.string(),
   essentials: z.array(z.string()),
   focusNote: z.string().nullable(),
-  blocks: z.array(z.object({ id: z.string(), title: z.string(), intro: z.string(), cards: z.array(z.string()), lines: z.array(z.string()) })),
+  blocks: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      intro: z.string(),
+      cards: z.array(z.string()),
+      lines: z.array(z.string()),
+      /** Del bloque de jefes: las tarjetas y los consejos que son de la pelea contra el jefe final (tarea 15). */
+      finalCards: z.array(z.string()).default([]),
+      finalLines: z.array(z.string()).default([]),
+    }),
+  ),
   route: z.array(
     z.object({
       zone: z.string(),
@@ -225,9 +236,11 @@ export function answerGuideQuestion(knowledge: GuideKnowledge, question: string,
     // Sin nombre, el jefe final: sus fases son las tarjetas del bloque.
     const lines = aboutNamed
       ? [...new Set(everything.filter((line) => mentions(line, named)))].slice(0, 5)
-      : bosses.cards.length > 0
-        ? bosses.cards
-        : bosses.lines.slice(0, 4);
+      : bosses.finalCards.length > 0
+        ? bosses.finalCards
+        : bosses.cards.length > 0
+          ? bosses.cards
+          : bosses.lines.slice(0, 4);
     // La nota es del jefe final: no se pega a una pregunta sobre otro nombre.
     const note = guide.focusNote && (!aboutNamed || mentions(guide.focusNote, named)) ? guide.focusNote : null;
     const before = note ? (en ? `Before you go in: ${note}` : `Antes de entrar: ${note}`) : "";
@@ -249,6 +262,11 @@ export interface GuideLine {
   /** De qué parte de la guía es: la IA elige por esto (tarea 14). */
   tema: string;
   texto: string;
+  /**
+   * Frases que contestan lo mismo (la pelea del jefe final): si se pide más de
+   * eso, las ya dichas se quitan mientras queden otras del grupo (tarea 15).
+   */
+  grupo?: string;
 }
 
 /** Qué parte de la guía va primero cuando no cabe entera. */
@@ -270,13 +288,26 @@ export function guideLines(
 ): GuideLine[] {
   const en = lang === "en";
   const of = en ? `(the site's guide for ${guide.label})` : `(guía de la web del ${guide.label})`;
-  const tagged = (tema: string, lines: readonly string[]): GuideLine[] => lines.map((texto) => ({ tema: `${tema} ${of}`, texto }));
+  const tagged = (tema: string, lines: readonly string[], grupo?: string): GuideLine[] =>
+    lines.map((texto) => ({ tema: `${tema} ${of}`, texto, ...(grupo ? { grupo } : {}) }));
   const bosses = block(guide, "jefes");
   const others = guide.blocks.filter((entry) => entry.id !== "jefes");
-  const fight = tagged(en ? "the final boss fight, phase by phase" : "la pelea contra el jefe final, fase a fase", [
-    ...(bosses ? [bosses.intro, ...bosses.cards] : []),
-    ...(guide.focusNote ? [en ? `Before the final boss: ${guide.focusNote}` : `Antes del jefe final: ${guide.focusNote}`] : []),
-  ]);
+  // Sin marcas (unos datos antiguos), todas las tarjetas son del jefe final, como antes.
+  const finalCards = bosses ? (bosses.finalCards.length > 0 ? bosses.finalCards : bosses.cards) : [];
+  const finalLines = bosses ? bosses.finalLines : [];
+  // El grupo son las fases y su detalle: lo que dice qué hacer en la pelea. La
+  // presentación del jefe y la nota de resistencias no cuentan como «algo nuevo
+  // que decir»: con solo eso por decir, las fases ya dichas no se quitan.
+  const fightGroup = `pelea-final:${guide.act}`;
+  const fightTopic = en ? "the final boss fight, phase by phase" : "la pelea contra el jefe final, fase a fase";
+  const fight = [
+    ...tagged(fightTopic, bosses ? [bosses.intro] : []),
+    ...tagged(fightTopic, finalCards, fightGroup),
+    ...tagged(fightTopic, guide.focusNote ? [en ? `Before the final boss: ${guide.focusNote}` : `Antes del jefe final: ${guide.focusNote}`] : []),
+    // El detalle de esa misma pelea: lo que queda por decir cuando ya se han
+    // dicho las fases. Antes iba mezclado con los otros jefes y no se elegía.
+    ...tagged(en ? "more on the final boss fight, hit by hit" : "más de la pelea contra el jefe final, golpe a golpe", finalLines, fightGroup),
+  ];
   const essentials = tagged(en ? "the essentials of the act" : "lo esencial del acto", guide.essentials);
   const step = (entry: GuideStep) => `${entry.zone}${entry.optional ? (en ? " (optional)" : " (opcional)") : ""}: ${entry.text}`;
   // Primero las zonas que dan algo para siempre: es por lo que se pregunta.
@@ -290,7 +321,10 @@ export function guideLines(
     ...tagged(en ? "where what the Mentor just named is: one zone per thing" : "dónde está lo que el Mentor acaba de nombrar: una zona por cosa", named.map(step)),
     ...tagged(whereTopic, ordered.filter((entry) => !named.includes(entry)).map(step)),
   ];
-  const otherBosses = tagged(en ? "other tough bosses on the way" : "otros jefes duros por el camino", bosses ? bosses.lines : []);
+  const otherBosses = tagged(
+    en ? "other tough bosses on the way (not the final boss)" : "otros jefes duros por el camino (no son el jefe final)",
+    bosses ? [...bosses.cards.filter((card) => !finalCards.includes(card)), ...bosses.lines.filter((line) => !finalLines.includes(line))] : [],
+  );
   const rest = others.flatMap((entry) => tagged(entry.title, [...entry.cards.map((card) => `${entry.title} · ${card}`), ...entry.lines]));
   return ask === "fight"
     ? [...fight, ...otherBosses, ...essentials, ...rest, ...route]

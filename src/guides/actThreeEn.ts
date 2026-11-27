@@ -183,6 +183,7 @@ export const ACT_THREE_GUIDE_EN: ActGuide = {
       more: [
         {
           text: "Static blast: stand inside the circle and it does no damage. Spikes on the floor: don't step on them.",
+          finalBoss: true,
           sourceIds: ["maxroll-jefes"],
         },
         {

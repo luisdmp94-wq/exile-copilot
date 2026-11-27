@@ -160,6 +160,7 @@ export const ACT_TWO_GUIDE: ActGuide = {
         {
           title: "Rudja",
           text: "Lanza alquitrán que te frena y luego lo prende con su lanzallamas. Sal del alquitrán enseguida.",
+          otherBoss: true,
         },
         {
           title: "Jamanra · fase 1",
@@ -183,10 +184,12 @@ export const ACT_TWO_GUIDE: ActGuide = {
         },
         {
           text: "Salir de la zona segura durante la tormenta de arena mata muy rápido. Mata a los esbirros que aparezcan.",
+          finalBoss: true,
           sourceIds: ["wiki-jamanra", "maxroll-jefes"],
         },
         {
           text: "El parche 0.5.2 le bajó a Jamanra, la Abominación, alrededor de un 17 % de vida. Desde el 0.5.0 está en El Acorazado: si una guía antigua habla de una «vanguardia», ya no existe.",
+          finalBoss: true,
           sourceIds: ["ggg-052", "ggg-050"],
         },
         {

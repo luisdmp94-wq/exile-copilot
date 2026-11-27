@@ -19,6 +19,11 @@ export interface GuideTip {
   lead?: string;
   text: string;
   sourceIds: string[];
+  /**
+   * En el bloque de jefes: este consejo es de la pelea contra el jefe final
+   * del acto. El Mentor lo usa para no mezclar jefes (tarea 15).
+   */
+  finalBoss?: boolean;
 }
 
 export interface GuideBlock {
@@ -26,7 +31,7 @@ export interface GuideBlock {
   title: string;
   intro: string;
   /** Tarjetas cortas (fases de un jefe); se muestran en rejilla. */
-  cards?: Array<{ title: string; text: string }>;
+  cards?: Array<{ title: string; text: string; /** En el bloque de jefes: la tarjeta es de otro jefe, no del final. */ otherBoss?: boolean }>;
   /** Lo que se ve sin desplegar: dos o tres frases cortas como mucho. */
   tips: GuideTip[];
   /** Detalle plegado en «Más detalle», para quien quiera leer más. */

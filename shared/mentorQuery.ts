@@ -41,9 +41,16 @@ export type MentorIntent = z.infer<typeof MentorIntent>;
  * Memoria breve y no autoritativa del chat. El servidor la trata como texto
  * del jugador: ayuda a mantener el hilo, pero jamás crea hechos de PoE2.
  */
+/**
+ * Cuánto de cada turno viaja al servidor. Con 800 una respuesta de tres gemas
+ * llegaba cortada y el Mentor no sabía que ya había dicho la tercera (tarea
+ * 15). A la IA le llega mucho menos: lo recorta el servidor.
+ */
+export const MAX_MENTOR_TURN_LENGTH = 1600;
+
 export const MentorConversationTurnSchema = z.strictObject({
   role: z.enum(["player", "mentor"]),
-  text: z.string().trim().min(1).max(800),
+  text: z.string().trim().min(1).max(MAX_MENTOR_TURN_LENGTH),
 });
 export type MentorConversationTurn = z.infer<typeof MentorConversationTurnSchema>;
 

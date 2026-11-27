@@ -201,6 +201,7 @@ export const ACT_THREE_GUIDE: ActGuide = {
       more: [
         {
           text: "Descarga estática: ponte dentro del círculo y no te hace daño. Pinchos en el suelo: no los pises.",
+          finalBoss: true,
           sourceIds: ["maxroll-jefes"],
         },
         {

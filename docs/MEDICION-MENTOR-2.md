@@ -578,3 +578,164 @@ reserva con las instrucciones nuevas.
 
 Las respuestas, tal cual, en `docs/mediciones/tarea-14/` (la regresión, en
 `regresion-K.json`).
+
+## Tarea 15 · los cierres y las repreguntas (27-11-2026)
+
+Control NUEVO, escrito antes de tocar nada y sin ver respuestas ni fichas:
+`node scripts/mentor-charla.mjs --control15`. Cuatro personajes nuevos (druida
+30, arquera de veneno 40, ballestero de hielo 26, maga de fuego 36), doce
+turnos. Lo que cuenta como «bien» quedó escrito en el script antes de medir.
+
+### El antes (código de main, 6edc72e, una pasada)
+
+Los doce turnos los redactó el modelo principal (gpt-oss-120b). Las notas son
+de quien escribió el código: léelas con ese descuento.
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Antes | 4 | 7 | 1 |
+
+- **P1 (druida, Jamanra).**
+  - «no puedo con jamanra…»: a medias. Da las dos fases de Jamanra, pero mete
+    la tarjeta de Rudja (otro jefe) y la entrada le cuelga a Jamanra «el
+    alquitrán», que es de Rudja.
+  - «y durante la pelea que tengo que hacer?»: a medias. Repite las dos frases
+    del primer turno. La guía tenía dos más de esa pelea.
+  - «algo mas que deba saber de esa pelea?»: mal. Repite la nota de
+    resistencias y dice dónde está el jefe. La entrada tuerce la guía («el
+    escudo de Asala es clave antes de entrar»).
+- **P2 (arquera, Doryani).**
+  - «doryani me mata cuando se sube al robot»: bien. Entiende «robot» y da las
+    dos frases del autómata.
+  - «y que hago en esa pelea exactamente?»: bien por los pelos. Dos frases
+    repetidas y una nueva (Doryani a pie). La de la descarga estática no sale.
+  - «y que resistencia subo antes de volver?»: bien (rayo, y fuego).
+- **P3 (ballestero, Esquirlas de hielo).**
+  - «que le meto… para que haga mas daño?»: a medias. Una sola asistencia.
+  - «no tengo ninguna de esas, dame otra»: a medias. Una sola, nueva.
+  - «y otra mas?»: bien. Otra distinta.
+- **P4 (maga, Bola de fuego).**
+  - «que gemas de asistencia le van bien…?»: a medias. Pregunta en plural y
+    recibe una.
+  - «quemadura ya la llevo puesta, otra cosa?»: a medias. Una sola.
+  - «ya le he puesto dos de esas. y ahora que mas hago?»: a medias. Otra gema
+    más; nada de lo que le falla al personaje.
+
+**Los cierres, contados aparte.** 8 de 12 son malos seguros: preguntan lo que
+el Mentor tiene delante («¿Qué ballesta estás usando ahora?», «¿Ya usas alguna
+asistencia en esa habilidad?», «¿qué huecos tienes vacíos en tu equipo?») o
+repiten letra a letra el del turno anterior. 2 más son dudosos: preguntan por
+el cinturón y los anillos, que el Mentor no ha visto, pero en mitad de una
+pelea. 2 valen.
+
+**Lo que enseñaron las fichas** (`scripts/mentor-fichas.ts`, gratis):
+
+- El detalle de la pelea del jefe final («Fase 1, golpe a golpe», «Salir de la
+  zona segura…», «Descarga estática…») iba con el tema «otros jefes duros por
+  el camino». La IA no lo elegía porque el servidor le decía que era de otro
+  jefe. Y la tarjeta de Rudja iba como «la pelea contra el jefe final».
+- Nada le decía a la IA qué frases ya había enseñado: tenía que compararlas
+  ella con un turno recortado a 400 caracteres.
+- Las instrucciones del cierre se contradecían: pedían preguntar «qué lleva
+  puesto» y, una línea después, no preguntar lo que ya dice el personaje. Y el
+  ejemplo de lo prohibido («qué huecos tiene vacíos») salía copiado en los
+  cierres.
+
+### Qué cambió en el código
+
+- **Guías.** Cada consejo del bloque de jefes dice si es de la pelea del jefe
+  final (`finalBoss` en `src/guides`, en español y en inglés). Sale un tema
+  nuevo, «más de la pelea contra el jefe final, golpe a golpe», y la tarjeta
+  de Rudja pasa a «otros jefes».
+- **Ya dicho.** El servidor mira lo que el Mentor escribió antes en la charla
+  y marca cada ficha repetida con «YA DICHO». Si se pide más de lo mismo
+  («dame otra», «¿otra cosa?», «¿y qué hago en la pelea?»), las ya dichas se
+  quitan mientras quede algo nuevo de ese grupo. Si no queda nada nuevo, se
+  quedan y la IA tiene que decir que no hay más.
+- **Tres, no una.** Si la IA propone asistencias nuevas pero menos de tres, el
+  servidor completa con las siguientes de la lista. No lo hace si se pregunta
+  cuál va primero, si se habla de una ya dicha («¿por qué esa?») ni si la
+  respuesta es el fallo concreto del personaje.
+- **Cierres.** Un cierre que pregunta por la hoja del personaje (arma, equipo,
+  huecos, gemas, resistencias, vida, nivel), que pregunta «¿ya la has
+  probado?» o que repite el de un turno anterior se borra. Las instrucciones
+  ya no dan ejemplos que copiar y el personaje que ve la IA lleva su arma.
+- **Turnos enteros.** La web manda hasta 1.600 caracteres de cada turno (antes
+  800): con tres gemas la respuesta llegaba cortada y no se sabía que la
+  tercera ya estaba dicha. A la IA le siguen llegando 400.
+
+### El después (27-11-2026, 13:15, una pasada)
+
+Mismo control, con el arreglo en local (sin commit). Los doce turnos pasaron
+por el modelo principal (gpt-oss-120b). Las notas son de quien escribió el
+código, con los criterios del script: léelas con ese descuento. Fue la tercera
+pasada con IA en 24 horas (el tope es dos): no se repitió nada.
+
+| | Bien | A medias | Mal | Cierres malos |
+|---|---|---|---|---|
+| Antes | 4 | 7 | 1 | 8 de 12 |
+| Después | 8 | 3 | 1 | 1 de 12 |
+
+Suben seis turnos, bajan dos, cuatro se quedan igual.
+
+- **P1 (druida, Jamanra).**
+  - P1.1: bien, justo (antes a medias). Ya no sale Rudja ni «el alquitrán».
+    Pero la respuesta empieza por los huecos de equipo (dos frases de cuatro)
+    y la pelea va detrás.
+  - P1.2: bien (antes a medias). Tres frases nuevas de la pelea, nada de
+    equipo. Una es la nota del parche, que no dice qué hacer.
+  - P1.3: a medias (antes mal). Ya no repite, pero de la pelea no quedaba nada
+    nuevo y no lo dice: enseña la nota de resistencias y dónde está el jefe.
+    Cierre malo: «¿Qué piezas tienes vacías actualmente?».
+- **P2 (arquera, Doryani).**
+  - P2.1: bien (igual). Tres frases de Doryani.
+  - P2.2: bien (igual, ahora sin pelos). Sale la descarga estática, que antes
+    faltaba.
+  - P2.3: **a medias (antes bien). Baja.** La redacción de la IA se descartó
+    («intentó mostrar datos internos», una línea en el registro) y contestó la
+    regla de resistencias: da las cifras del personaje (rayo 9 %) y el 30 % de
+    referencia, pero no dice «rayo, y fuego, para Doryani». Qué escribió la IA
+    no se sabe: el registro no lo guardaba.
+- **P3 (ballestero, Esquirlas de hielo).**
+  - P3.1: bien (antes a medias). Tres asistencias.
+  - P3.2: **mal (antes a medias). Baja.** A «dame otra» no da ninguna: dice
+    «no tengo más asistencias que encajen mejor que las ya vistas» y manda a
+    cambiar el arma. Tenía cinco sin decir, y en el turno siguiente da tres.
+  - P3.3: bien (igual). Tres nuevas.
+- **P4 (maga, Bola de fuego).**
+  - P4.1: bien (antes a medias). Tres.
+  - P4.2: bien (antes a medias). Tres nuevas, ninguna puesta.
+  - P4.3: a medias (igual). Dos gemas más; nada de lo que le falla al
+    personaje. La entrada escribe «Impulso II»; la ficha dice «Impulso (grado
+    II)».
+
+**Los cierres.** 1 malo (P1.3), 2 dudosos (P3.1 da a elegir entre arma y
+asistencias; P4.2 pregunta «qué tipo de daño» a una maga de fuego), 4 valen
+(«¿qué fase de Jamanra te cuesta más?») y 5 turnos salen sin cierre.
+
+**Datos inventados.** Ninguno en las frases enseñadas: todas son fichas,
+comprobado con `scripts/mentor-fichas.ts`. En las entradas, el «Impulso II» de
+P4.3 y dos vaguedades (P1.2 «evita la tormenta de arena», P1.3 «la posición
+del escudo»).
+
+### Retoque tras el después (sin medir con IA)
+
+Tres cambios pequeños en el servidor, con pruebas. **No están medidos con IA.**
+
+- **«Dame otra» sin gemas (P3.2).** Si el jugador pide otra justo después de
+  una lista de asistencias, quedan nuevas y la IA no elige ninguna, salen las
+  tres siguientes con una entrada fija («Estas no te las había dicho:»).
+  «¿Y ahora qué más hago?» no cuenta: ahí sigue mandando la IA
+  (`asksForAnother`, `anotherSupports`).
+- **El cierre de P1.3.** «Piezas» entra en lo que el filtro toma por hoja del
+  personaje.
+- **El descarte de P2.3.** El registro guarda ya qué palabra hizo saltar el
+  filtro de «datos internos». P2.3 no está arreglado: no se sabe la causa.
+
+Lint, 1746 pruebas y `npm run build` en verde.
+
+**Pendiente.** Regresión K1-K4 (`--control`) y repetir P2 y P3
+(`MEDIR_SOLO=P2,P3 … --control15`); otro día, N1-N4 (`--control14`). P1-P4 ya
+están vistos: desde ahora valen de regresión, no de prueba limpia.
+
+Las respuestas, tal cual, en `docs/mediciones/tarea-15/`.

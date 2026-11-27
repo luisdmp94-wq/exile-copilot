@@ -10,10 +10,15 @@ import { answerBasicsQuestion } from "../../server/mentor/basicsQuestions.js";
 import { answerGuideQuestion, guideInQuestion, loadGuideKnowledge, stepsNamedIn } from "../../server/mentor/guideKnowledge.js";
 import { answerMentorQuery } from "../../server/mentor/mentorService.js";
 import {
+  alreadySaid,
+  asksForAnother,
+  asksForMore,
+  asksWhatIsKnown,
   buildFichas,
   checkWrittenMessage,
   composeWrittenAnswer,
   isOffer,
+  repeatsClosing,
   UnverifiedWriting,
   writerVocabulary,
   type MentorWriteDecision,
@@ -457,5 +462,205 @@ describe("el Mentor conversa", () => {
     await answerMentorQuery({ ...BASE, question: "hola" }, deps(selector));
     await answerMentorQuery({ ...BASE, question: "¿Qué mejoro ahora?", intentHint: "next_improvement" }, deps(selector));
     expect(write).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Tarea 15 (27-11-2026): los cierres preguntaban lo que el Mentor ya sabe,
+ * «¿y qué hago en la pelea?» repetía el primer turno y «dame otra» daba una sola.
+ */
+describe("los cierres y las repreguntas (tarea 15)", () => {
+  type Turn = { role: "player" | "mentor"; text: string };
+
+  /** Pregunta con la charla anterior; la IA de mentira elige con `pick` entre lo que ve. */
+  async function ask(question: string, conversation: Turn[], pick: (fichas: MentorWriteInput["fichas"]) => string[] = (fichas) => [fichas[0]!.id]) {
+    let offered: MentorWriteInput["fichas"] = [];
+    let personaje: MentorWriteInput["personaje"] = {};
+    const { selector } = writer((input) => {
+      offered = input.fichas;
+      personaje = input.personaje;
+      return { intro: "Mira esto.", fichas: pick(input.fichas), cierre: null, enough: true };
+    });
+    const answer = await answerMentorQuery({ ...BASE, question, conversation }, deps(selector));
+    return { offered, answer, personaje };
+  }
+  const bullets = (answer: string) => answer.split("\n").filter((line) => line.startsWith("• "));
+  const supportsFor = (fichas: MentorWriteInput["fichas"]) =>
+    fichas.filter((ficha) => ficha.tema.includes("asistencias que le van a Descarga de caos") && !ficha.tema.startsWith("YA DICHO"));
+
+  const GEONOR_PHASES =
+    "El conde Geonor pega con hielo.\n\n" +
+    "• Fase 1: No te quedes a su espalda. Sal rodando de los muros de hielo.\n" +
+    "• Desde el 75 %: Se vuelve lobo. No pises el círculo de runas: congela.\n" +
+    "• Desde el 50 %: Se cura entero. Muévete sin parar y, en la niebla, solo esquiva.";
+
+  it("un cierre que pregunta por la hoja del personaje se borra; lo que la hoja no dice, no", () => {
+    for (const closing of [
+      "¿qué arco estás usando ahora?",
+      "¿Qué arco tienes equipado ahora?",
+      "¿Qué resistencia al hielo llevas ahora?",
+      "¿Qué armas y gemas llevas en tu arco de rayo?",
+      "¿Qué huecos tienes vacíos en cinturón, amuleto o anillos?",
+      "¿Qué piezas tienes vacías actualmente?",
+      "¿Ya usas alguna asistencia en esa habilidad?",
+      "¿Qué otras habilidades de fuego sueles usar?",
+      "¿Ya la has equipado y probado en combate?",
+      "Which bow are you using right now?",
+    ]) {
+      expect(asksWhatIsKnown(closing), closing).toBe(true);
+    }
+    for (const closing of [
+      "¿En qué fase te mata?",
+      "¿Qué es lo que más te cuesta de la pelea?",
+      "¿Qué otras gemas de asistencia tienes libres?",
+      "¿Tienes alguna gema de asistencia sin tallar guardada?",
+      "¿Ya completaste alguna de esas misiones?",
+    ]) {
+      expect(asksWhatIsKnown(closing), closing).toBe(false);
+    }
+  });
+
+  it("el cierre no sale si pregunta lo sabido ni si repite el del turno anterior", () => {
+    const fichas = buildFichas([{ origen: "guia", lines: [{ tema: "guía", texto: "Descarga estática: ponte dentro del círculo." }] }], 6000);
+    const withClosing = (cierre: string, mentorTurns: string[] = []) =>
+      composeWrittenAnswer({ intro: "Esto.", fichas: ["f1"], cierre, enough: true }, fichas, "", vocabulary, mentorTurns).message;
+    expect(withClosing("¿Qué arco llevas ahora?")).toBe("Esto.\n\n• Descarga estática: ponte dentro del círculo.");
+    expect(withClosing("¿En qué fase te mata?")).toContain("¿En qué fase te mata?");
+    const before = ["Sal del círculo.\n\n• Una frase.\n\n¿En qué fase te mata más?"];
+    expect(withClosing("¿En qué fase te mata?", before)).not.toContain("¿En qué fase");
+    expect(repeatsClosing("¿Cuánto oro puedes gastar?", before)).toBe(false);
+  });
+
+  it("la IA ve el arma del personaje: no tiene que preguntarla", async () => {
+    const { personaje } = await ask(GEM_QUESTION, []);
+    expect(personaje.arma).toBe("Varita de hueso");
+  });
+
+  it("«¿y qué hago en la pelea?»: las fases ya dichas no se ofrecen y va delante el detalle de esa pelea", async () => {
+    const { offered } = await ask("vale, y que hago en la pelea?", [
+      { role: "player", text: "el conde geonor me revienta" },
+      { role: "mentor", text: GEONOR_PHASES },
+    ]);
+    expect(offered.some((ficha) => ficha.texto.startsWith("Fase 1: No te quedes"))).toBe(false);
+    expect(offered.some((ficha) => ficha.texto.startsWith("Desde el 75 %"))).toBe(false);
+    const more = offered.filter((ficha) => ficha.tema.startsWith("más de la pelea contra el jefe final"));
+    expect(more.map((ficha) => ficha.texto.split(":")[0])).toEqual(
+      expect.arrayContaining(["Fase 1, golpe a golpe", "Fase de lobo"]),
+    );
+    // Y van antes que los otros jefes y que el equipo.
+    const firstOther = offered.findIndex((ficha) => ficha.tema.startsWith("otros jefes"));
+    const lastMore = offered.map((ficha) => ficha.tema.startsWith("más de la pelea")).lastIndexOf(true);
+    expect(lastMore).toBeLessThan(firstOther);
+  });
+
+  it("si de esa pelea ya está todo dicho, se queda, marcado «YA DICHO»", async () => {
+    const act4 = guides.es.find((guide) => guide.act === 4)!;
+    const bosses = act4.blocks.find((block) => block.id === "jefes")!;
+    const { offered } = await ask("y en la pelea que hago?", [
+      { role: "player", text: "tavakai me mata una y otra vez" },
+      { role: "mentor", text: [bosses.intro, ...bosses.cards].map((line) => `• ${line}`).join("\n") },
+    ]);
+    const fight = offered.filter((ficha) => ficha.tema.includes("la pelea contra el jefe final"));
+    expect(fight.length).toBeGreaterThanOrEqual(4);
+    expect(fight.every((ficha) => ficha.tema.startsWith("YA DICHO en la charla · "))).toBe(true);
+  });
+
+  it("la pelea del jefe final no mezcla a otro jefe: Rudja no es Jamanra", async () => {
+    const { offered } = await ask("no puedo con jamanra, me mata siempre", []);
+    const rudja = offered.find((ficha) => ficha.texto.startsWith("Rudja: Lanza alquitrán"))!;
+    expect(rudja.tema).toContain("otros jefes duros por el camino");
+    const fight = offered.filter((ficha) => ficha.tema.includes("pelea contra el jefe final"));
+    expect(fight.some((ficha) => ficha.texto.startsWith("Salir de la zona segura"))).toBe(true);
+    expect(fight.some((ficha) => /alquitr/.test(ficha.texto))).toBe(false);
+    // Las dos lenguas llevan las mismas marcas.
+    for (const act of [1, 2, 3, 4]) {
+      const final = (lang: "es" | "en") => {
+        const block = guides[lang].find((guide) => guide.act === act)!.blocks.find((entry) => entry.id === "jefes")!;
+        return [block.finalCards.length, block.finalLines.length];
+      };
+      expect(final("en")).toEqual(final("es"));
+    }
+  });
+
+  it("«dame otra»: lo ya dicho no se ofrece y una sola gema se completa hasta tres nuevas", async () => {
+    const rulesAnswer = await answerMentorQuery({ ...BASE, question: GEM_QUESTION }, { gems, guides });
+    const { offered, answer } = await ask(
+      "no tengo ninguna de esas, dame otra",
+      [
+        { role: "player", text: GEM_QUESTION },
+        { role: "mentor", text: rulesAnswer.answer },
+      ],
+      (fichas) => [supportsFor(fichas)[0]!.id],
+    );
+    const fresh = supportsFor(offered);
+    expect(fresh.length).toBeGreaterThanOrEqual(3);
+    const name = (texto: string) => texto.split(" (")[0]!;
+    for (const ficha of fresh) expect(rulesAnswer.answer, ficha.texto).not.toContain(`${name(ficha.texto)} (`);
+    expect(bullets(answer.answer).map((line) => name(line.slice(2)))).toEqual(fresh.slice(0, 3).map((ficha) => name(ficha.texto)));
+  });
+
+  it("«dame otra» y la IA no elige ninguna asistencia nueva: salen las tres siguientes, sin su entrada", async () => {
+    const rulesAnswer = await answerMentorQuery({ ...BASE, question: GEM_QUESTION }, { gems, guides });
+    const chat: Turn[] = [
+      { role: "player", text: GEM_QUESTION },
+      { role: "mentor", text: rulesAnswer.answer },
+    ];
+    const notSupport = (fichas: MentorWriteInput["fichas"]) => [fichas.find((ficha) => !ficha.tema.includes("asistencias que le van"))!.id];
+    const { offered, answer } = await ask("no tengo ninguna de esas, dame otra", chat, notSupport);
+    const fresh = supportsFor(offered);
+    expect(fresh.length).toBeGreaterThanOrEqual(3);
+    expect(answer.answer.startsWith("Estas no te las había dicho:")).toBe(true);
+    expect(answer.answer).not.toContain("Mira esto.");
+    expect(bullets(answer.answer)).toEqual(fresh.slice(0, 3).map((ficha) => `• ${ficha.texto}`));
+    // «¿Y ahora qué más hago?» pide el paso siguiente, no otra gema: ahí manda la IA.
+    const next = await ask("vale, ya le he puesto dos de esas. y ahora que mas hago?", chat, notSupport);
+    expect(next.answer.answer.startsWith("Mira esto.")).toBe(true);
+    expect(bullets(next.answer.answer)).toHaveLength(1);
+  });
+
+  it("«otra» pide otra de lo mismo; «¿qué más hago?» y «¿qué otro jefe hay?», no", () => {
+    for (const question of ["no tengo ninguna de esas, dame otra", "y otra mas?", "quemadura ya la llevo puesta, otra cosa?", "que otra le pongo?", "any other gems?", "anything else?"]) {
+      expect(asksForAnother(question), question).toBe(true);
+    }
+    for (const question of ["y ahora que mas hago?", "que otro jefe hay en este acto?", "algo mas que deba saber de esa pelea?", "y por que esa?"]) {
+      expect(asksForAnother(question), question).toBe(false);
+    }
+  });
+
+  it("«¿qué le pongo?»: si la IA elige una sola asistencia, salen tres", async () => {
+    const { offered, answer } = await ask(GEM_QUESTION, [], (fichas) => [supportsFor(fichas)[0]!.id]);
+    expect(bullets(answer.answer)).toHaveLength(3);
+    // La misma gema no sale dos veces (la frase de las reglas y la de la lista).
+    const names = bullets(answer.answer).map((line) => line.slice(2).split(" (")[0]);
+    expect(new Set(names).size).toBe(3);
+    expect(offered.length).toBeGreaterThan(3);
+  });
+
+  it("«¿cuál pongo primero?» y «¿por qué esa?» siguen dando una: ahí no se completa", async () => {
+    const rulesAnswer = await answerMentorQuery({ ...BASE, question: GEM_QUESTION }, { gems, guides });
+    const chat: Turn[] = [
+      { role: "player", text: GEM_QUESTION },
+      { role: "mentor", text: rulesAnswer.answer },
+    ];
+    const first = await ask("cual pongo primero?", chat, (fichas) => [
+      fichas.find((ficha) => ficha.tema.includes("asistencias que le van a Descarga de caos"))!.id,
+    ]);
+    expect(bullets(first.answer.answer)).toHaveLength(1);
+    // Habla de una que ya se dijo: se pregunta por esa, no por más.
+    const why = await ask("y por que esa?", chat, (fichas) => [
+      fichas.find((ficha) => ficha.tema.startsWith("YA DICHO") && ficha.tema.includes("asistencias que le van"))!.id,
+    ]);
+    expect(bullets(why.answer.answer)).toHaveLength(1);
+  });
+
+  it("solo es «dame otra» si pide más: «para que haga más daño» no lo es", () => {
+    for (const question of ["dame otra", "otra cosa?", "y otra mas?", "que mas hay?", "algo mas que deba saber de esa pelea?", "anything else?"]) {
+      expect(asksForMore(question), question).toBe(true);
+    }
+    for (const question of ["que le meto para que haga mas daño?", "con que gema aguantan mas?", "y por que esa?"]) {
+      expect(asksForMore(question), question).toBe(false);
+    }
+    expect(alreadySaid("Fase 1: No te quedes a su espalda. Sal rodando de los muros de hielo.", [GEONOR_PHASES])).toBe(true);
+    expect(alreadySaid("Fase 1, golpe a golpe: su estocada helada (destello rojo) congela mucho.", [GEONOR_PHASES])).toBe(false);
   });
 });

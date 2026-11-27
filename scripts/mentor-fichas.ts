@@ -68,7 +68,7 @@ for (const [chat, turns] of chats) {
     const input = seen as MentorWriteInput | null;
     if (!input) console.log("  (no pasa por el redactor)");
     else for (const ficha of input.fichas) console.log(`  ${ficha.id} [${ficha.tema}] ${ficha.texto}`);
-    conversation.push({ role: "player", text: turn.question.slice(0, 800) }, { role: "mentor", text: turn.answer.slice(0, 800) });
+    conversation.push({ role: "player", text: turn.question.slice(0, 1600) }, { role: "mentor", text: turn.answer.slice(0, 1600) });
   }
 }
 process.exit(0);

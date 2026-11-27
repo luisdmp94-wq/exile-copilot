@@ -48,9 +48,17 @@ import { answerBasicsQuestion, answerItemCompareQuestion } from "./basicsQuestio
 import { routeInputFor, routedQuestion, understoodLine, type RoutedQuestion } from "./questionRouter.js";
 import { answerGuideQuestion, asksAboutFight, guideAsk, guideInQuestion, guideLines, stepsNamedIn, type GuideKnowledge } from "./guideKnowledge.js";
 import {
+  adoptSupportGroups,
+  alreadySaid,
+  anotherSupports,
   answerLines,
+  arrangeSaid,
+  asksForAnother,
+  asksForMore,
+  SUPPORT_GROUP,
   asksWhichFirst,
   buildFichas,
+  topUpSupports,
   characterFacts,
   checkWrittenMessage,
   composeWrittenAnswer,
@@ -1304,8 +1312,8 @@ async function converse(
       origen: "anterior",
       lines: [
         ...(gems ? topicLines(gems, question, options.profile, lang, firstPick) : []).map((line) => ({
+          ...line,
           tema: `${lang === "en" ? "earlier topic" : "tema anterior"} ${asked}: ${line.tema}`,
-          texto: line.texto,
         })),
         ...(answer.intent === "unsupported"
           ? []
@@ -1362,13 +1370,24 @@ async function converse(
   };
   // Con un jefe en la charla, «¿y qué hago en la pelea?» es de la guía: lo que
   // las reglas dicen de la frase suelta («rellena los huecos») va detrás.
-  const guideLeads = guide !== null && focus === null && (asksAboutFight(options.question) || ask === "where");
-  const fichas = buildFichas(
-    guideLeads
-      ? [guidePart, { origen: "tema", lines: topic }, ...earlier, rulesPart]
-      : [rulesPart, { origen: "tema", lines: topic }, guidePart, ...earlier],
-    MAX_WRITER_DATA_CHARS,
+  const fightAsk = guide !== null && asksAboutFight(options.question);
+  const guideLeads = guide !== null && focus === null && (fightAsk || ask === "where");
+  // Lo que el Mentor ya enseñó en la charla queda marcado; si se pide más
+  // de lo mismo («dame otra», «¿y qué hago en la pelea?»), se quita mientras
+  // quede algo nuevo que decir (tarea 15: repetía el primer turno).
+  const mentorTurns = (options.conversation ?? []).filter((turn) => turn.role === "mentor").map((turn) => turn.text);
+  const parts: Array<{ origen: FichaOrigin; lines: readonly TopicLine[]; maxChars?: number }> = guideLeads
+    ? [guidePart, { origen: "tema", lines: topic }, ...earlier, rulesPart]
+    : [rulesPart, { origen: "tema", lines: topic }, guidePart, ...earlier];
+  const grouped = adoptSupportGroups(parts);
+  // Las listas de asistencias que el Mentor enseñó en su último turno: de esas habla «dame otra».
+  const listedLast = new Set(
+    grouped
+      .flatMap((part) => part.lines)
+      .filter((line) => line.grupo?.startsWith(SUPPORT_GROUP) === true && alreadySaid(line.texto, [lastMentorTurn]))
+      .map((line) => line.grupo as string),
   );
+  const fichas = buildFichas(arrangeSaid(grouped, mentorTurns, fightAsk || asksForMore(options.question), lang), MAX_WRITER_DATA_CHARS);
   const personaje = characterFacts(gems, options.profile, lang);
   const charla = (options.conversation ?? []).slice(-WRITER_TURNS).map((turn) => ({
     quien: turn.role === "player" ? ("jugador" as const) : ("mentor" as const),
@@ -1397,7 +1416,29 @@ async function converse(
       options.question,
       ...(options.conversation ?? []).filter((turn) => turn.role === "player").map((turn) => turn.text),
     ];
-    const written = composeWrittenAnswer(decision, fichas, [JSON.stringify(personaje), ...said].join("\n"), vocabularyFor(deps));
+    // Una sola asistencia nueva sabe a poco: se completa hasta tres con las
+    // siguientes de la lista. No si pregunta cuál va primero (ahí es UNA), ni
+    // si la respuesta es el fallo concreto del personaje y no una lista.
+    const nextStep = lang === "en" ? "Next step:" : "Siguiente paso:";
+    const chosenIds = new Set(decision.fichas.map((entry) => entry.trim()));
+    const showsNextStep = fichas.some((ficha) => chosenIds.has(ficha.id) && ficha.texto.startsWith(nextStep));
+    // «Dame otra» tras una lista de asistencias, quedan nuevas y la IA no
+    // elige ninguna: salen las tres siguientes, con una entrada fija (la suya
+    // decía que no había más).
+    const another = !firstPick && asksForAnother(options.question) ? anotherSupports(decision.fichas, fichas, listedLast) : null;
+    const completed =
+      another !== null
+        ? { ...decision, intro: lang === "en" ? "These I had not told you yet:" : "Estas no te las había dicho:", fichas: another }
+        : firstPick || showsNextStep
+          ? decision
+          : { ...decision, fichas: topUpSupports(decision.fichas, fichas) };
+    const written = composeWrittenAnswer(
+      completed,
+      fichas,
+      [JSON.stringify(personaje), ...said].join("\n"),
+      vocabularyFor(deps),
+      mentorTurns,
+    );
     // No hay datos y la IA lo confirma: el «no lo sé» de siempre, que además se apunta.
     // Pero en mitad de una charla, si dice «eso no lo tengo» y enseña lo más
     // cercano, vale más eso que volver a la lista de la frase suelta: «¿y si

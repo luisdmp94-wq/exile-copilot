@@ -24,6 +24,12 @@ function actKnowledge(guide: ActGuide): GuideKnowledgeAct {
       intro: block.intro,
       cards: (block.cards ?? []).map((card) => `${card.title}: ${card.text}`),
       lines: [...block.tips, ...(block.more ?? [])].map((tip) => `${tip.lead ? `${tip.lead} ` : ""}${tip.text}`),
+      // Lo que es de la pelea contra el jefe final: las tarjetas (salvo las de otro
+      // jefe) y los consejos marcados. Con esto el Mentor no mezcla jefes.
+      finalCards: (block.id === "jefes" ? (block.cards ?? []) : []).filter((card) => card.otherBoss !== true).map((card) => `${card.title}: ${card.text}`),
+      finalLines: [...block.tips, ...(block.more ?? [])]
+        .filter((tip) => tip.finalBoss === true)
+        .map((tip) => `${tip.lead ? `${tip.lead} ` : ""}${tip.text}`),
     })),
     route: (guide.route ?? []).map((step) => ({
       zone: step.zone,

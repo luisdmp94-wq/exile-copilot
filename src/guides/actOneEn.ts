@@ -151,6 +151,7 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
         {
           lead: "Before going in:",
           text: "30–40% cold resistance.",
+          finalBoss: true,
           sourceIds: ["wiki-geonor", "maxroll-subida"],
         },
       ],
@@ -158,15 +159,18 @@ export const ACT_ONE_GUIDE_EN: ActGuide = {
         {
           lead: "Phase 1, hit by hit:",
           text: "his frost thrust (red flash) freezes a lot. If his charge misses, a huge slash behind him follows. With the two ice walls in a V, hit him through the middle.",
+          finalBoss: true,
           sourceIds: ["wiki-geonor"],
         },
         {
           lead: "Wolf phase:",
           text: "he plants his sword surrounded by frost runes and summons werewolves: kill them or move away. At 50% he heals to full; his blood strike can't be blocked. Leave the ice patches before the spikes come out. From 25%, moonbeams fall until the end. In the mist he takes no damage and comes out charging six times.",
+          finalBoss: true,
           sourceIds: ["wiki-geonor"],
         },
         {
           text: "Patch 0.5.3 lowered the damage of his moonbeams and backward slashes.",
+          finalBoss: true,
           sourceIds: ["ggg-053"],
         },
         {

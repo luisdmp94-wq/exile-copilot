@@ -157,6 +157,7 @@ export const ACT_ONE_GUIDE: ActGuide = {
         {
           lead: "Antes de entrar:",
           text: "30–40 % de resistencia al hielo.",
+          finalBoss: true,
           sourceIds: ["wiki-geonor", "maxroll-subida"],
         },
       ],
@@ -164,15 +165,18 @@ export const ACT_ONE_GUIDE: ActGuide = {
         {
           lead: "Fase 1, golpe a golpe:",
           text: "su estocada helada (destello rojo) congela mucho. Si su embestida falla, sigue un tajo enorme a su espalda. Con los dos muros de hielo en V golpea por el medio.",
+          finalBoss: true,
           sourceIds: ["wiki-geonor"],
         },
         {
           lead: "Fase de lobo:",
           text: "clava la espada rodeada de runas de escarcha e invoca hombres lobo: mátalos o aléjate. Al 50 % se cura entero; su golpe de sangre no se puede bloquear. Sal de las manchas de hielo antes de que salgan los pinchos. Desde el 25 % caen rayos de luna hasta el final. En la niebla no recibe daño y sale embistiendo seis veces.",
+          finalBoss: true,
           sourceIds: ["wiki-geonor"],
         },
         {
           text: "El parche 0.5.3 le bajó el daño a sus rayos de luna y a sus tajos hacia atrás.",
+          finalBoss: true,
           sourceIds: ["ggg-053"],
         },
         {

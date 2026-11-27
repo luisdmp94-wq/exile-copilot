@@ -146,6 +146,7 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
         {
           title: "Rudja",
           text: "She throws tar that slows you and then lights it with her flamethrower. Get out of the tar right away.",
+          otherBoss: true,
         },
         {
           title: "Jamanra · phase 1",
@@ -169,10 +170,12 @@ export const ACT_TWO_GUIDE_EN: ActGuide = {
         },
         {
           text: "Leaving the safe zone during the sandstorm kills you very fast. Kill the minions that show up.",
+          finalBoss: true,
           sourceIds: ["wiki-jamanra", "maxroll-jefes"],
         },
         {
           text: "Patch 0.5.2 lowered Jamanra, the Abomination's life by about 17%. Since 0.5.0 he's in The Dreadnought: if an old guide mentions a “vanguard”, it no longer exists.",
+          finalBoss: true,
           sourceIds: ["ggg-052", "ggg-050"],
         },
         {

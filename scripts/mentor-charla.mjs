@@ -7,13 +7,14 @@
  *   node scripts/mentor-charla.mjs            → las charlas de la bruja, con la IA del .env
  *   node scripts/mentor-charla.mjs --sin-ia   → solo reglas
  *   node scripts/mentor-charla.mjs --control  → las charlas de control (K1-K4, ya vistas: regresión)
- *   node scripts/mentor-charla.mjs --control14 → el control de la tarea 14 (N1-N4)
+ *   node scripts/mentor-charla.mjs --control14 → el control de la tarea 14 (N1-N4, ya visto: regresión)
+ *   node scripts/mentor-charla.mjs --control15 → el control de la tarea 15 (P1-P4)
  *   MEDIR_SOLO=B1,B3 pregunta solo esas charlas.
  *   --perfiles escribe solo los personajes (para scripts/mentor-fichas.ts, que
  *   enseña las fichas que ve la IA en cada turno sin gastar cupo).
  *
  * Cada turno manda los anteriores en `conversation`, igual que la web
- * (src/lib/mentorRequest.ts: los últimos ocho, 800 caracteres cada uno).
+ * (src/App.tsx: los últimos ocho, 1600 caracteres cada uno).
  *
  * Servidor local aislado: puerto propio y base SQLite temporal. No toca la web
  * publicada, sus estadísticas ni la base real. Las respuestas se escriben en un
@@ -300,9 +301,154 @@ const CONTROL_14 = [
   ]],
 ];
 
-const ASKED = process.argv.includes("--control14")
-  ? CONTROL_14
-  : process.argv.includes("--control") ? CONTROL : CHARLAS;
+const druida = {
+  ...base,
+  id: "charla-druida", name: "Mi druida", characterClass: "Druida", ascendancy: null, level: 30,
+  archetype: "hechizos de fuego y plantas",
+  items: [
+    item("d-arma", "weapon", "Bastón de roble", "Bastón de roble", 26, { requirements: { level: 24, str: 30, int: 30 } }),
+    item("d-pecho", "body", "Pieles de oso", "Pieles de oso", 28),
+    item("d-casco", "helmet", "Capucha de piel", "Capucha de piel", 25),
+    item("d-guantes", "gloves", "Brazales de piel", "Brazales de piel", 27),
+    item("d-botas", "boots", "Botas de piel de lobo", "Botas de piel de lobo", 29),
+    item("d-anillo", "ring1", "Anillo de rubí", "Anillo de rubí", 24),
+  ],
+  skills: [
+    skill("d-s1", "Volcán", 9, ["Llama eterna I"]),
+    skill("d-s2", "Enredo", 8),
+    skill("d-s3", "Bola de magma", 8),
+    skill("d-s4", "Aullido ártico", 7),
+  ],
+  attributes: { str: 44, dex: 15, int: 52 },
+  resistances: { fire: 33, cold: 12, lightning: 8, chaos: 0 },
+  life: 760, armour: 310, energyShield: 90,
+};
+
+const venenosa = {
+  ...base,
+  id: "charla-venenosa", name: "Mi arquera", characterClass: "Exploradora", ascendancy: null, level: 40,
+  archetype: "arco de veneno",
+  items: [
+    item("v-arma", "weapon", "Arco compuesto", "Arco compuesto", 36, { requirements: { level: 33, dex: 80 } }),
+    item("v-carcaj", "offhand", "Carcaj de flechas dentadas", "Carcaj de flechas dentadas", 35),
+    item("v-pecho", "body", "Chaqueta de explorador", "Chaqueta de explorador", 38),
+    item("v-casco", "helmet", "Capucha de cazador", "Capucha de cazador", 34),
+    item("v-guantes", "gloves", "Guantes de arquero", "Guantes de arquero", 37),
+    item("v-botas", "boots", "Botas de montaraz", "Botas de montaraz", 39),
+  ],
+  skills: [
+    skill("v-s1", "Flecha de estallido venenoso", 11, ["Veneno I"]),
+    skill("v-s2", "Flecha de gas", 11),
+    skill("v-s3", "Crecimiento tóxico", 10),
+    skill("v-s4", "Flecha de enredaderas", 9),
+  ],
+  attributes: { str: 20, dex: 104, int: 31 },
+  resistances: { fire: 18, cold: 22, lightning: 9, chaos: 5 },
+  life: 980, evasion: 870,
+};
+
+const ballestero = {
+  ...base,
+  id: "charla-ballestero", name: "Mi ballestero", characterClass: "Mercenario", ascendancy: null, level: 26,
+  archetype: "ballesta de hielo",
+  items: [
+    item("l-arma", "weapon", "Ballesta de tensión", "Ballesta de tensión", 22, { requirements: { level: 20, str: 30, dex: 30 } }),
+    item("l-pecho", "body", "Jubón tachonado", "Jubón tachonado", 24),
+    item("l-casco", "helmet", "Casco de soldado", "Casco de soldado", 21),
+    item("l-botas", "boots", "Botas tachonadas", "Botas tachonadas", 25),
+    item("l-cinto", "belt", "Cinturón de tela", "Cinturón de tela", 23),
+  ],
+  skills: [
+    skill("l-s1", "Esquirlas de hielo", 8),
+    skill("l-s2", "Saetas de escarcha permanente", 8),
+    skill("l-s3", "Granada aturdidora", 7),
+    skill("l-s4", "Saeta glacial", 7),
+  ],
+  attributes: { str: 41, dex: 46, int: 14 },
+  resistances: { fire: 14, cold: 27, lightning: 10, chaos: 0 },
+  life: 640, armour: 280, evasion: 260,
+};
+
+const piromante = {
+  ...base,
+  id: "charla-piromante", name: "Mi maga", characterClass: "Hechicera", ascendancy: null, level: 36,
+  archetype: "hechizos de fuego",
+  items: [
+    item("p-arma", "weapon", "Báculo de brasas", "Báculo de brasas", 32),
+    item("p-pecho", "body", "Toga de adepta", "Toga de adepta", 34),
+    item("p-casco", "helmet", "Diadema de cobre", "Diadema de cobre", 31),
+    item("p-guantes", "gloves", "Guantes de seda", "Guantes de seda", 33),
+    item("p-botas", "boots", "Zapatillas de seda", "Zapatillas de seda", 35),
+    item("p-amuleto", "amulet", "Amuleto de lapislázuli", "Amuleto de lapislázuli", 30),
+  ],
+  skills: [
+    skill("p-s1", "Bola de fuego", 10, ["Quemadura I"]),
+    skill("p-s2", "Muro de fuego", 10),
+    skill("p-s3", "Ráfaga de brasas", 9),
+    skill("p-s4", "Incinerar", 9),
+  ],
+  attributes: { str: 12, dex: 24, int: 101 },
+  resistances: { fire: 29, cold: 11, lightning: 16, chaos: 0 },
+  life: 690, energyShield: 410,
+};
+
+/**
+ * Control de la tarea 15 (27-11-2026): escrito ANTES de tocar nada y sin ver
+ * ninguna respuesta ni ninguna ficha de estas charlas. Cuatro personajes
+ * nuevos (druida 30, arquera de veneno 40, ballestero de hielo 26, maga de
+ * fuego 36). Busca los tres casos flojos que dejó la regresión K1-K4:
+ *  - el cierre pregunta lo que el Mentor ya sabe (se cuenta en los doce turnos);
+ *  - «¿y qué hago en la pelea?» repite el primer turno (P1 y P2);
+ *  - a «dame otra» / «¿otra cosa?» da una sola (P3 y P4).
+ * Lo que cuenta como «bien», fijado antes de medir:
+ *  P1.1 y P2.1 dicen lo que la guía trae de ese jefe (Jamanra, Doryani).
+ *  P1.2 y P2.2 hablan de la pelea, no de equipo, y traen al menos UNA frase de
+ *    esa pelea que no haya salido ya en la charla (si la guía la tiene).
+ *  P1.3 trae otra frase nueva de esa pelea, o dice con franqueza que no hay
+ *    más. Repetir las mismas tres es «mal».
+ *  P2.3 dice qué resistencia sube para Doryani (rayo, y fuego), con la frase
+ *    de la guía o con las cifras del personaje.
+ *  P3.1 y P4.1 dan asistencias para esa habilidad, ninguna que ya lleve.
+ *  P3.2 y P4.2 dan DOS o más asistencias que no se hayan dicho ya y que el
+ *    personaje no lleve. Una sola es «a medias». Repetir una ya dicha, «mal».
+ *  P3.3 da al menos una más, distinta de todas las anteriores.
+ *  P4.3 dice un paso concreto para ESTE personaje que no sea repetir las
+ *    gemas que el jugador acaba de decir que ya ha puesto.
+ *  En todos: ni un dato que no esté en las fichas.
+ * El cierre se cuenta aparte, como en la tarea 14. Es un cierre «malo» si
+ * pregunta algo que ya contestan el personaje, la respuesta del propio Mentor
+ * o lo que el jugador ha escrito en la charla («¿qué arco llevas?», «¿ya la
+ * has probado?» tras «no la tengo»), si repite el cierre anterior o si ofrece.
+ * Sin cierre no es fallo.
+ */
+const CONTROL_15 = [
+  ["P1", druida, [
+    "no puedo con jamanra, me mata siempre",
+    "y durante la pelea que tengo que hacer?",
+    "algo mas que deba saber de esa pelea?",
+  ]],
+  ["P2", venenosa, [
+    "doryani me mata cuando se sube al robot",
+    "y que hago en esa pelea exactamente?",
+    "y que resistencia subo antes de volver?",
+  ]],
+  ["P3", ballestero, [
+    "que le meto a esquirlas de hielo para que haga mas daño?",
+    "no tengo ninguna de esas, dame otra",
+    "y otra mas?",
+  ]],
+  ["P4", piromante, [
+    "que gemas de asistencia le van bien a bola de fuego?",
+    "quemadura ya la llevo puesta, otra cosa?",
+    "vale, ya le he puesto dos de esas. y ahora que mas hago?",
+  ]],
+];
+
+const ASKED = process.argv.includes("--control15")
+  ? CONTROL_15
+  : process.argv.includes("--control14")
+    ? CONTROL_14
+    : process.argv.includes("--control") ? CONTROL : CHARLAS;
 
 // Solo los personajes, para scripts/mentor-fichas.ts: no arranca nada ni pregunta.
 if (process.argv.includes("--perfiles")) {
@@ -369,8 +515,8 @@ try {
         answer, nextAction: a?.nextAction?.text ?? null,
       });
       console.log(`${id}.${turn + 1} ${res.status} ${a?.intent} ${a?.responseMode} ${a?.fallbackReason ?? ""} ${ms} ms`);
-      conversation.push({ role: "player", text: question.slice(0, 800) });
-      if (a?.answer) conversation.push({ role: "mentor", text: a.answer.slice(0, 800) });
+      conversation.push({ role: "player", text: question.slice(0, 1600) });
+      if (a?.answer) conversation.push({ role: "mentor", text: a.answer.slice(0, 1600) });
       await wait(a?.model ? ESPERA_IA_MS : 500);
     }
   }
