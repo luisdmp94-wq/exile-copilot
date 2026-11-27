@@ -803,6 +803,6 @@ anteriores.
 - El arma se reconoce por el nombre de la pieza (maza, mazo, martillo,
   garrote, arco, lanza, ballesta, bastón; báculo, varita, cetro) o, si no, por
   las habilidades que lleva. Un arma con otro nombre no se adivina.
-- La pelea de C7: una hechicera puede coger hechizos de las tres escuelas.
+- C7 se queda corta: una hechicera puede coger hechizos de las tres escuelas y solo se le enseña una.
 
 Respuestas, tal cual, en `docs/mediciones/tarea-16/`.
