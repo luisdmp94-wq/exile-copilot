@@ -23,6 +23,8 @@ interface WelcomePanelProps {
   onLoadDemo: () => void;
   /** Abre el área «Guías»: lo primero que necesita quien empieza en PoE2. */
   onOpenGuides?: () => void;
+  /** Abre una herramienta de Guías que no pide personaje. */
+  onOpenTool?: (tool: "build" | "gems" | "compare") => void;
   loadingDemo: boolean;
   previousCharacterName?: string | null;
   onRestorePrevious?: () => void;
@@ -67,6 +69,8 @@ const TEXT = texts(
     lead: "Exile Copilot lee tu situación, elige una prioridad y te enseña a comprobarla en el juego. No juega ni craftea por ti.",
     guideTitle: "¿Empiezas en PoE2? Lee la guía del acto 1",
     guideText: "Cómo no morir antes del acto 2, en 2 minutos. Sin registrarte.",
+    toolsLead: "Sin personaje también puedes:",
+    tools: { build: "Montar tu build", gems: "Elegir una gema de asistencia", compare: "Comparar dos piezas" },
     saved: (total: number) => `Tus personajes guardados · ${total}`,
     change: "Cambiar",
     close: "Cerrar",
@@ -100,6 +104,8 @@ const TEXT = texts(
     lead: "Exile Copilot reads your situation, picks one priority and shows you how to check it in game. It doesn't play or craft for you.",
     guideTitle: "New to PoE2? Read the act 1 guide",
     guideText: "How not to die before act 2, in 2 minutes. No sign-up.",
+    toolsLead: "Without a character you can also:",
+    tools: { build: "Build your own", gems: "Pick a support gem", compare: "Compare two items" },
     saved: (total: number) => `Your saved characters · ${total}`,
     change: "Switch",
     close: "Close",
@@ -122,6 +128,7 @@ export function WelcomePanel({
   onStartItem,
   onLoadDemo,
   onOpenGuides,
+  onOpenTool,
   loadingDemo,
   previousCharacterName = null,
   onRestorePrevious,
@@ -220,6 +227,23 @@ export function WelcomePanel({
             </span>
             <ArrowRight className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
           </button>
+        )}
+
+        {onOpenTool && (
+          <div className="flex flex-wrap items-center gap-2" data-testid="bienvenida-herramientas">
+            <span className="text-xs text-muted-foreground sm:text-sm">{t.toolsLead}</span>
+            {(Object.keys(t.tools) as Array<keyof typeof t.tools>).map((tool) => (
+              <button
+                key={tool}
+                type="button"
+                onClick={() => onOpenTool(tool)}
+                className="min-h-9 rounded-full border border-border/80 bg-background/65 px-3 text-xs font-semibold text-foreground transition-colors hover:border-primary/60 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+                data-testid={`bienvenida-herramienta-${tool}`}
+              >
+                {t.tools[tool]}
+              </button>
+            ))}
+          </div>
         )}
 
         {savedCharactersTotal > 1 && onRestoreCharacter && (

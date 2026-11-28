@@ -326,6 +326,7 @@ const APP_TEXT = texts(
     guidesLoading: "Abriendo las guías…",
     planTitle: "Decide el rumbo antes de gastar",
     moreQuestions: "Otras dudas de cada partida",
+    askBuild: "Monta tu build",
     askGem: "¿Qué gema de asistencia pongo?",
     askFound: "¿Me sirve lo que he encontrado?",
     askCompare: "¿Cuál de estas dos piezas es mejor?",
@@ -394,6 +395,7 @@ const APP_TEXT = texts(
     guidesLoading: "Opening the guides…",
     planTitle: "Pick your direction before spending",
     moreQuestions: "Other questions every run has",
+    askBuild: "Build your own",
     askGem: "Which support gem should I use?",
     askFound: "Is what I found any good?",
     askCompare: "Which of these two items is better?",
@@ -1205,6 +1207,13 @@ export default function App() {
     scrollToWhenPainted('[data-testid="asistencia"]');
   };
 
+  /** Abre «Monta tu build», la primera herramienta de «Gemas y piezas». */
+  const openBuildConfigurator = () => {
+    setGuideViewRequest((current) => ({ view: "herramientas", seq: (current?.seq ?? 0) + 1 }));
+    navigateWorkspace("guias");
+    scrollToWhenPainted('[data-testid="monta-build"]');
+  };
+
   /** Abre «¿Cuál de estas dos es mejor?», que vive junto al consejero de gemas. */
   const openItemCompare = () => {
     setGuideViewRequest((current) => ({ view: "herramientas", seq: (current?.seq ?? 0) + 1 }));
@@ -2000,6 +2009,11 @@ export default function App() {
                     setGuideSlug(DEFAULT_GUIDE_SLUG);
                     navigateWorkspace("guias");
                   }}
+                  onOpenTool={(tool) => {
+                    if (tool === "build") openBuildConfigurator();
+                    else if (tool === "gems") openGemAdvisor();
+                    else openItemCompare();
+                  }}
                   onGoToImport={() => openEditor(true)}
                   onStartNew={() => {
                     setQuickCompleting(false);
@@ -2230,6 +2244,9 @@ export default function App() {
                     <section className="superficie-panel p-4 sm:p-5" data-testid="personaje-mas-dudas">
                       <h3 className="text-sm font-semibold text-foreground">{t.moreQuestions}</h3>
                       <div className="mt-3 flex flex-wrap gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={openBuildConfigurator} data-testid="abrir-monta-build">
+                          {t.askBuild}
+                        </Button>
                         <Button type="button" variant="outline" size="sm" onClick={openGemAdvisor}>
                           {t.askGem}
                         </Button>

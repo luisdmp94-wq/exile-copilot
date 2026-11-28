@@ -67,9 +67,15 @@ const TEXT = texts(
       `Datos comprobados el ${date}. Path of Exile 2 es de Grinding Gear Games; esta guía no es oficial.`,
     checkLead: (act: string) =>
       `Pega tu equipo una vez y sirve para las dos comprobaciones del ${act}. Se queda guardado en este navegador.`,
-    toolsLead: SHOW_PASSIVE_ROUTE
-      ? "Monta tu build y resuelve tres dudas de cada partida, en cualquier acto: dónde poner los puntos del árbol, qué gema de asistencia poner y cuál de dos piezas te conviene."
-      : "Monta tu build y resuelve dos dudas de cada partida, en cualquier acto: qué gema de asistencia poner y cuál de dos piezas te conviene.",
+    toolsTitle: "Gemas y piezas: herramientas para cualquier acto",
+    toolsLead: "No dependen del acto. Elige la que necesitas:",
+    toolsIndex: "Herramientas de gemas y piezas",
+    toolNames: {
+      "monta-build": "Monta tu build",
+      asistencia: "¿Qué gema de asistencia pongo?",
+      "me-sirve": "¿Me sirve lo que he encontrado?",
+      comparar: "¿Cuál de estas dos es mejor?",
+    },
   },
   {
     views: { guia: "Act guide", comprobar: "Check my character", herramientas: SHOW_PASSIVE_ROUTE ? "Gems, items and tree" : "Gems and items" },
@@ -101,9 +107,15 @@ const TEXT = texts(
       `Data checked on ${date}. Path of Exile 2 belongs to Grinding Gear Games; this guide is not official.`,
     checkLead: (act: string) =>
       `Paste your gear once and it works for both ${act} checks. It stays saved in this browser.`,
-    toolsLead: SHOW_PASSIVE_ROUTE
-      ? "Build your own and settle three questions every run has, in any act: where to put your passive points, which support gem to use and which of two items suits you."
-      : "Build your own and settle two questions every run has, in any act: which support gem to use and which of two items suits you.",
+    toolsTitle: "Gems and items: tools for any act",
+    toolsLead: "They don't depend on the act. Pick the one you need:",
+    toolsIndex: "Gem and item tools",
+    toolNames: {
+      "monta-build": "Build your own",
+      asistencia: "Which support gem should I use?",
+      "me-sirve": "Is what I found any good?",
+      comparar: "Which of these two is better?",
+    },
   },
 );
 type GuidesText = (typeof TEXT)["es"];
@@ -144,6 +156,16 @@ const VIEWS = [
   { id: "herramientas", icon: Gem },
 ] as const;
 export type GuideView = (typeof VIEWS)[number]["id"];
+
+/** Las herramientas de «Gemas y piezas», en el orden en que se pintan (su `data-testid`). */
+const TOOL_IDS = ["monta-build", "asistencia", "me-sirve", "comparar"] as const;
+
+/** Baja hasta una herramienta dejando su título bajo la cabecera y la barra de áreas, que son fijas. */
+function scrollToTool(id: (typeof TOOL_IDS)[number]) {
+  const target = document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+  if (!target) return;
+  window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 132 });
+}
 
 function readStoredView(): GuideView {
   try {
@@ -437,7 +459,7 @@ export function GuidesSection({
             <strong className="font-semibold text-foreground">Exile Copilot</strong> {t.intro}
           </p>
         )}
-        <nav aria-label={t.guidesNav} className="flex flex-wrap items-center gap-2">
+        <nav aria-label={t.guidesNav} className="flex flex-wrap items-center gap-2" hidden={view === "herramientas"}>
           <span className="text-sm text-muted-foreground">{t.guides}</span>
           {guides.map((item) => {
             const active = item.slug === guide.slug;
@@ -472,7 +494,7 @@ export function GuidesSection({
           ))}
         </nav>
         <h1 id="guia-titulo" className="dossier-title mt-3 text-2xl leading-tight text-foreground sm:text-3xl">
-          {guide.title}
+          {view === "herramientas" ? t.toolsTitle : guide.title}
         </h1>
         <div
           className="mt-3 grid grid-cols-1 gap-1.5 rounded-xl border border-border bg-card p-1.5 sm:grid-cols-3"
@@ -620,9 +642,20 @@ export function GuidesSection({
         hidden={view !== "herramientas"}
         className="space-y-4"
       >
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {t.toolsLead}
-        </p>
+        <nav aria-label={t.toolsIndex} className="flex flex-wrap items-center gap-2" data-testid="guia-herramientas-indice">
+          <span className="w-full text-sm leading-relaxed text-muted-foreground">{t.toolsLead}</span>
+          {TOOL_IDS.filter((id) => id !== "me-sirve" || (profile !== null && hasWornGear(profile))).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => scrollToTool(id)}
+              className="min-h-9 rounded-full border border-border bg-secondary px-3.5 py-1.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/70 hover:text-primary"
+              data-testid={`guia-herramienta-${id}`}
+            >
+              {t.toolNames[id]}
+            </button>
+          ))}
+        </nav>
         {SHOW_PASSIVE_ROUTE && <PassiveRouteCard profile={profile} />}
         <BuildConfigurator profile={profile} />
         <GemAdvisorCard

@@ -1,11 +1,12 @@
 # Planificadores de crafteo avanzado (tarea 19)
 
-Rama `planificadores-crafteo`, carpeta `exile-copilot-planificadores`. Hecho el
-28-11-2026. **Apagado en la web publicada**: va detrás del mismo interruptor
+Hecho el 28-11-2026 en la rama `planificadores-crafteo` y unido a main ese día. **Apagado en la web publicada**: va detrás del mismo interruptor
 que Essences y Alloys (`advanced-crafting` en
 `server/data/patchCompatibility.json`, «review-required»). Para verlo en local:
-servidor `planificadores-7212`, abrir con `?avanzado=1`, Crafting → «Banco
+la web en local, abrir con `?avanzado=1`, Crafting → «Banco
 manual» con una pieza **pegada** (las del ejemplo bloquean las herramientas).
+Con el interruptor apagado sus pestañas ni se pintan (Essences y Alloys sí,
+bloqueadas, como siempre).
 
 ## Qué son
 

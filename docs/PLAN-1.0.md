@@ -519,6 +519,44 @@ la siguiente. Nada se sube sin su sí.
   tocar: al pegar una joya, Crafting dice «todavía caben 3 más» (cuenta seis
   huecos, como en el equipo).
 
+- [x] **20. Repaso de cómo está colocada la web** (pedido por Luis el 28-11,
+  con las tareas 16 a 19 ya dentro: «que esté organizada con todo lo que hemos
+  implementado»). Recorrida en local con todo unido, sin personaje y con el de
+  ejemplo, en ordenador y en móvil, y la publicada en solo lectura.
+  Lo que estaba descolocado y cómo queda:
+  - Las cuatro herramientas (Monta tu build, gema de asistencia, «¿Me sirve lo
+    que he encontrado?» y comparar dos piezas) salían apiladas bajo el título
+    «Acto 1: cómo no morir…», con un texto que hablaba de «dos dudas». Ahora
+    esa vista se titula «Gemas y piezas: herramientas para cualquier acto», no
+    enseña el selector de actos y empieza con un índice de botones que baja a
+    cada herramienta.
+  - Desde Personaje, «Otras dudas de cada partida» no llevaba a «Monta tu
+    build» (apuntado sin arreglar el 28-11 de madrugada). Ya tiene su botón,
+    el primero.
+  - En la portada, quien llega sin personaje no veía ninguna herramienta
+    aunque tres no lo piden. Hay una fila nueva: «Sin personaje también
+    puedes: Montar tu build · Elegir una gema de asistencia · Comparar dos
+    piezas».
+  - En Crafting, con el crafteo avanzado apagado, las cinco pestañas de los
+    planificadores salían grises junto a Essences y Alloys. Ya no se pintan
+    hasta que se encienda (Essences y Alloys siguen como estaban).
+  Sin tocar, para decidir: las herramientas siguen dentro del área «Guías»
+  (darles un área propia cambia la barra de arriba, que en móvil tiene cuatro
+  huecos); la pestaña del navegador sigue diciendo «Acto 1…» en esa vista; y
+  tras «Cargar ejemplo» la página se queda a media altura en vez de arriba,
+  donde ahora está la caja del Mentor.
+  Publicado ese día. Antes: lint, 1898 pruebas, `npm run build` (salida 0) y
+  los recorridos del navegador y del Mentor, con la IA apagada. **Ojo con el
+  recorrido del navegador:** lanzado con `--all` (producción y desarrollo
+  seguidos) falla siempre una comprobación del modo desarrollo, «PoB2 corre
+  en el navegador» (se agota su espera de 120 s); lanzado solo con `--dev`
+  pasa entera, las dos veces que se probó. No sé si ya pasaba antes del
+  28-11: mirarlo antes de congelar.
+  Comprobado en exilecopilot.com tras la primera subida (solo lectura, con
+  «Cargar ejemplo»): la tarjeta «¿Me sirve lo que he encontrado?» y su botón
+  en Personaje están; en Crafting los planificadores no se ven; sin errores
+  de consola.
+
 ### Del 8 al 10 de diciembre
 
 - [ ] **11. Congelar:** batería completa y ningún cambio de última hora.

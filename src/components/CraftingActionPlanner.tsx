@@ -200,6 +200,8 @@ const CRAFTING_TOOLS: CraftingTool[] = ["currency", "essence", "alloy", "fractur
 const REPLACING_TOOLS: ReadonlySet<CraftingTool> = new Set(["essence", "alloy"]);
 /** Planificadores que solo leen la pieza (tarea 19): no crean sesión ni cambian lo guardado. */
 const READ_ONLY_PLANNERS = ["fracturing", "foresight", "sacrifice", "emotion", "flux"] as const satisfies readonly CraftingTool[];
+/** Con el crafteo avanzado apagado sus pestañas no se pintan (Essences y Alloys sí, bloqueadas). */
+const READ_ONLY_PLANNER_SET: ReadonlySet<CraftingTool> = new Set(READ_ONLY_PLANNERS);
 
 const TEXT = texts(
   {
@@ -365,7 +367,7 @@ const TEXT = texts(
     noFullData: "Sin datos completos para calcular probabilidades.",
     whatTool: "¿Con qué vas a intentarlo?",
     toolsAria: "Herramientas de crafting",
-    advancedGate: "El crafteo avanzado (Essences, Alloys y los planificadores) está en revisión para este parche. Las monedas básicas siguen disponibles.",
+    advancedGate: "Essences y Alloys en revisión para este parche. Las monedas básicas siguen disponibles.",
     corruptedStillTakes: "Las monedas normales ya no valen en esta pieza. Lo que sí admite una pieza corrupta:",
     availableCurrency: "Monedas disponibles",
     onlyCompatible: "Solo te dejo usar lo que encaja con la pieza que has pegado.",
@@ -574,7 +576,7 @@ const TEXT = texts(
     noFullData: "Not enough data to work out chances.",
     whatTool: "What will you try it with?",
     toolsAria: "Crafting tools",
-    advancedGate: "Advanced crafting (Essences, Alloys and the planners) is under review for this patch. Basic currency is still available.",
+    advancedGate: "Essences and Alloys are under review for this patch. Basic currency is still available.",
     corruptedStillTakes: "Regular currency no longer works on this item. What a corrupted item does take:",
     availableCurrency: "Available currency",
     onlyCompatible: "The app only enables actions that fit the data you pasted.",
@@ -1802,11 +1804,11 @@ export function CraftingActionPlanner({
           {t.whatTool}
         </h3>
         <div
-          className="grid grid-cols-2 gap-2 lg:grid-cols-4"
+          className={`grid gap-2 ${advancedCraftingAvailable ? "grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}
           role="tablist"
           aria-label={t.toolsAria}
         >
-          {CRAFTING_TOOLS.map((toolId) => {
+          {CRAFTING_TOOLS.filter((toolId) => advancedCraftingAvailable || !READ_ONLY_PLANNER_SET.has(toolId)).map((toolId) => {
             const tool = { id: toolId, ...t.tools[toolId] };
             const selected = availableActiveTool === tool.id;
             const isAdvanced = tool.id !== "currency";
