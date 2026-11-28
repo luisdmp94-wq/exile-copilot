@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Check, HelpCircle, Loader2, PackageSearch, X } from "lucide-react";
 import type { CharacterProfile, Item } from "@shared/domain.js";
 import { weaponInText } from "@shared/skillChoice.js";
+import { attributeRiskText, attributeSwapRisks } from "@shared/gearSwap.js";
+import { GearMentorAsk } from "@/components/GearMentorAsk";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiRequestError, api, getErrorMessage } from "@/lib/api";
@@ -60,7 +62,7 @@ const TEXT = texts(
     styles: { caster: "Hechizos y esbirros", melee: "Cuerpo a cuerpo", ranged: "Arco o ballesta" },
     minions: "Llevo esbirros",
     disclaimer:
-      "Comparo solo lo que pone en las dos piezas. No miro tu árbol de pasivas ni tus gemas. Reglas fijas, sin IA.",
+      "Comparo solo lo que pone en las dos piezas. No miro tu árbol de pasivas ni tus gemas. El sí o el no sale de reglas fijas, sin IA.",
     slots: {
       weapon: "el arma",
       offhand: "la mano secundaria",
@@ -110,7 +112,7 @@ const TEXT = texts(
     styles: { caster: "Spells and minions", melee: "Melee", ranged: "Bow or crossbow" },
     minions: "I use minions",
     disclaimer:
-      "I only compare what's written on the two items. I don't look at your passive tree or gems. Fixed rules, no AI.",
+      "I only compare what's written on the two items. I don't look at your passive tree or gems. The yes or no comes from fixed rules, no AI.",
     slots: {
       weapon: "your weapon slot",
       offhand: "your off hand",
@@ -225,6 +227,13 @@ export function FoundItemCard({ patch, profile }: FoundItemCardProps) {
     const context = { ...contextFromProfile(profile, found.slot), equipped: worn };
     return compareItems(worn, found, style, lang, { ...context, minions: style === "caster" && minions });
   }, [found, worn, profile, style, lang, minions]);
+
+  // «Si me quito esto, ¿se me cae otra cosa?»: el atributo que daba la puesta
+  // puede ser el que le hace falta a otra pieza que lleva.
+  const risks = useMemo(
+    () => (found && worn ? attributeSwapRisks(worn, found, profile.items, profile.attributes) : []),
+    [found, worn, profile],
+  );
 
   const needsRingChoice = found !== null && candidates.length > 1 && worn === null;
   const verdict: FoundVerdict | null = found && !needsRingChoice ? foundVerdict(requirements, result) : null;
@@ -378,6 +387,13 @@ export function FoundItemCard({ patch, profile }: FoundItemCardProps) {
               ))}
             </ul>
           )}
+          {worn && risks.length > 0 && (
+            <ul className="mt-2 space-y-1 text-sm leading-relaxed text-amber-200" data-testid="me-sirve-atributos">
+              {risks.map((risk) => (
+                <li key={`${risk.attribute}:${risk.itemName}`}>{attributeRiskText(risk, worn.name, lang)}</li>
+              ))}
+            </ul>
+          )}
 
           {result && worn && (
             <>
@@ -459,6 +475,16 @@ export function FoundItemCard({ patch, profile }: FoundItemCardProps) {
               )}
             </div>
           )}
+
+          {/* El Mentor de equipo: preguntas sobre ESTA comparación. Otra pieza, otro estilo: charla nueva. */}
+          <GearMentorAsk
+            key={`${found.id}:${worn?.id ?? "vacio"}:${style}:${minions ? "esbirros" : "sin"}`}
+            profile={profile}
+            found={found}
+            worn={worn}
+            style={style}
+            minions={minions}
+          />
 
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <Button type="button" variant="outline" size="sm" onClick={() => setFound(null)} data-testid="me-sirve-otra">

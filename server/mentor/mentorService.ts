@@ -18,6 +18,7 @@ import {
   MENTOR_SUGGESTIONS,
   type MentorAnswer,
   type MentorConversationTurn,
+  type MentorGearAsk,
   type MentorIntent,
   type MentorNextAction,
 } from "../../shared/mentorQuery.js";
@@ -46,6 +47,7 @@ import {
 import { answerPassiveTreeQuestion } from "./treeQuestion.js";
 import { answerBasicsQuestion, answerItemCompareQuestion } from "./basicsQuestions.js";
 import { answerSkillChoiceTopic } from "./skillChoiceQuestions.js";
+import { gearReading, gearRulesAnswer } from "./gearQuestion.js";
 import { routeInputFor, routedQuestion, understoodLine, type RoutedQuestion } from "./questionRouter.js";
 import { answerGuideQuestion, asksAboutFight, guideAsk, guideInQuestion, guideLines, stepsNamedIn, type GuideKnowledge } from "./guideKnowledge.js";
 import {
@@ -106,6 +108,10 @@ export interface MentorQueryOptions {
   intentHint?: Exclude<MentorIntent, "unsupported">;
   /** Sin equipo: solo preguntas del juego, sin motor ni IA. */
   gameOnly?: boolean;
+  /** La comparación de equipo de la que pregunta (Mentor de equipo). */
+  gear?: MentorGearAsk;
+  /** Mentor de equipo sin redacción de IA: contestan las reglas (`MENTOR_GEAR_AI_ENABLED`). */
+  gearRulesOnly?: boolean;
   profile: CharacterProfile;
   target?: BuildTarget;
   budget: Budget | null;
@@ -1205,6 +1211,9 @@ export function answerMentorQuery(
   deps: MentorQueryDependencies = {},
 ): Promise<MentorAnswer> {
   const selector = deps.selector ?? null;
+  // Pregunta por una comparación de equipo abierta: su propio camino, sin
+  // tocar nada del Mentor de siempre.
+  if (options.gear !== undefined) return answerAboutGear(options, deps, options.gear);
   if (selector !== null && selector.write !== undefined && canConverse(options)) {
     return converse(options, deps, selector as WritingSelector);
   }
@@ -1470,6 +1479,77 @@ async function converse(
     return withoutWriter(reason);
   }
 }
+
+// ---------------------------------------------------------------------------
+// El Mentor de equipo: preguntas sobre una comparación de dos piezas (tarea 18)
+// ---------------------------------------------------------------------------
+
+/**
+ * Las reglas comparan (`gearReading`) y de ahí salen las frases. Con IA, ella
+ * elige cuáles contestan y escribe la entrada; sin IA, con cupo gastado o si
+ * escribe algo que no está en las frases, contesta `gearRulesAnswer`.
+ */
+async function answerAboutGear(
+  options: MentorQueryOptions,
+  deps: MentorQueryDependencies,
+  gear: MentorGearAsk,
+): Promise<MentorAnswer> {
+  const lang = langOf(options);
+  const { normalizedQuestion } = classifyMentorQuestion(options.question);
+  const reading = gearReading(options.profile, gear, lang, deps.gems ?? null);
+  const rules = gemQuestionAnswer(options, normalizedQuestion, gearRulesAnswer(reading, options.question, lang));
+  const selector = deps.selector ?? null;
+  if (selector === null || selector.write === undefined || options.gearRulesOnly) return rules;
+
+  const mentorTurns = (options.conversation ?? []).filter((turn) => turn.role === "mentor").map((turn) => turn.text);
+  const parts = [{ origen: "reglas" as const, lines: reading.lines }];
+  const fichas = buildFichas(arrangeSaid(parts, mentorTurns, asksForMore(options.question), lang), MAX_WRITER_DATA_CHARS);
+  const personaje = characterFacts(deps.gems ?? null, options.profile, lang);
+  const charla = (options.conversation ?? []).slice(-WRITER_TURNS).map((turn) => ({
+    quien: turn.role === "player" ? ("jugador" as const) : ("mentor" as const),
+    texto: turn.text.slice(0, WRITER_TURN_CHARS),
+  }));
+  try {
+    const decision = await selector.write(
+      {
+        pregunta: options.question.slice(0, 500),
+        charla,
+        personaje,
+        fichas: fichas.map(({ id, tema, texto }) => ({ id, tema, texto })),
+      },
+      safetyIdentifier(options.safetyIdentifierSeed),
+      lang,
+    );
+    const said = [
+      options.question,
+      ...(options.conversation ?? []).filter((turn) => turn.role === "player").map((turn) => turn.text),
+    ];
+    const written = composeWrittenAnswer(
+      decision,
+      fichas,
+      [JSON.stringify(personaje), ...said].join("\n"),
+      vocabularyFor(deps),
+      mentorTurns,
+    );
+    // Sin ninguna frase de la comparación, la entrada sola no es una respuesta.
+    if (written.shown.length === 0) return { ...rules, ...metadata("rules_fallback", selector.name, GEAR_NOTHING_CHOSEN[lang]) };
+    return { ...gemQuestionAnswer(options, normalizedQuestion, written.message), ...metadata("ai", selector.name) };
+  } catch (error) {
+    if (error instanceof UnverifiedWriting) {
+      console.warn(`[mentor-ai] redacción de equipo descartada: ${error.safeReason}${error.detail ? ` («${error.detail.slice(0, 60)}»)` : ""}`);
+    }
+    const reason =
+      error instanceof MentorAiError || error instanceof UnverifiedWriting
+        ? error.safeReason
+        : "La IA no pudo redactar la respuesta; se usaron las reglas.";
+    return { ...rules, ...metadata("rules_fallback", selector.name, reason) };
+  }
+}
+
+const GEAR_NOTHING_CHOSEN = {
+  es: "La IA no encontró en la comparación con qué contestar; se usaron las reglas.",
+  en: "The AI found nothing in the comparison to answer with; the rules were used.",
+} as const;
 
 function understoodNothing(options: MentorQueryOptions, normalizedQuestion: string, selector: MentorDecisionSelector): MentorAnswer {
   return { ...unsupportedAnswer(options, normalizedQuestion), ...metadata("ai", selector.name) };

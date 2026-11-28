@@ -1849,6 +1849,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): Express {
           ...(body.conversation !== undefined ? { conversation: body.conversation } : {}),
           ...(body.lang !== undefined ? { lang: body.lang } : {}),
           ...(body.gameOnly ? { gameOnly: true } : {}),
+          ...(body.gear !== undefined ? { gear: body.gear, gearRulesOnly: !config.mentorGearAiEnabled } : {}),
           ...(blockedFeature !== null
             ? {
                 patchFeatureBlock: {

@@ -5,6 +5,7 @@ import {
   CharacterProfileSchema,
   ConfidenceLevel,
   GoalSchema,
+  ItemSchema,
   RecommendationMemoryImpactSchema,
   RecommendationSchema,
   SourceEvidenceSchema,
@@ -133,6 +134,23 @@ export const MentorAnswerSchema = z.strictObject({
 });
 export type MentorAnswer = z.infer<typeof MentorAnswerSchema>;
 
+/**
+ * El Mentor de equipo: la pregunta va sobre UNA comparación que el jugador
+ * tiene abierta en «¿Me sirve lo que he encontrado?». Viaja la pieza
+ * encontrada (no está en el personaje) y cuál de las que lleva sustituiría.
+ * El servidor rehace la comparación con sus reglas: del navegador no se fía
+ * de ningún veredicto.
+ */
+export const MentorGearAskSchema = z.strictObject({
+  found: ItemSchema,
+  /** La pieza puesta con la que se compara; null si ese hueco está vacío. */
+  wornId: z.string().min(1).max(200).nullable(),
+  /** Cómo juega, como lo tiene elegido en la tarjeta. */
+  style: z.enum(["caster", "melee", "ranged"]),
+  minions: z.boolean(),
+});
+export type MentorGearAsk = z.infer<typeof MentorGearAskSchema>;
+
 // POST /api/mentor/query
 export const MentorQueryRequestSchema = z.object({
   question: z.string().trim().min(1).max(MAX_MENTOR_QUESTION_LENGTH),
@@ -164,6 +182,8 @@ export const MentorQueryRequestSchema = z.object({
    * web la revisión rápida; aquí no corre el motor ni la IA.
    */
   gameOnly: z.boolean().optional(),
+  /** La comparación de equipo de la que se pregunta (Mentor de equipo). */
+  gear: MentorGearAskSchema.optional(),
 });
 export type MentorQueryRequest = z.infer<typeof MentorQueryRequestSchema>;
 

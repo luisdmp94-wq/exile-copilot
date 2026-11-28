@@ -1,4 +1,5 @@
 import type { CharacterProfile, Item, ItemSlot, Resistances } from "@shared/domain.js";
+import { resistancesFromPastedItems } from "../../shared/pastedItemResistances.js";
 
 /**
  * Comprobación «¿está listo tu personaje?» de las guías por acto.
@@ -77,40 +78,6 @@ export function guideSlotLabel(slot: ItemSlot, lang: GuideCheckLang = "es"): str
   return lang === "en" ? (SLOT_LABELS_EN[slot] ?? spanish) : spanish;
 }
 
-/** El texto avanzado escribe la tirada con su rango: `+28(25-30)%`. */
-const ROLL_RANGE = /\((-?\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)/g;
-
-/**
- * Elementos a los que afecta una línea de resistencia, o null si la línea no
- * es una resistencia plana. Se ignoran las resistencias MÁXIMAS, que no suman
- * a la resistencia actual.
- */
-function resistanceTargets(line: string): Array<Element | "chaos"> | null {
-  const text = line.toLocaleLowerCase("es");
-  if (!/resistanc|resistencia/.test(text)) return null;
-  if (/maximum|máxima|maxima/.test(text)) return null;
-  if (/all elemental|todas las resistencias elementales|resistencias elementales/.test(text)) {
-    return [...ELEMENTS];
-  }
-  const found: Array<Element | "chaos"> = [];
-  if (/fire|fuego/.test(text)) found.push("fire");
-  if (/cold|frío|frio|hielo/.test(text)) found.push("cold");
-  if (/lightning|rayo/.test(text)) found.push("lightning");
-  if (/chaos|caos/.test(text)) found.push("chaos");
-  return found.length > 0 ? found : null;
-}
-
-/**
- * Valor plano de una línea `+12% to Fire Resistance` / `+12% a la resistencia
- * al fuego`. Exige el número con `%` al principio para no confundir frases
- * como «penetra un 10% de la resistencia».
- */
-function resistanceValue(line: string): number | null {
-  const clean = line.replace(ROLL_RANGE, "");
-  const match = /^\s*([+-]\d+(?:\.\d+)?)%\s+(?:to|a)\b/i.exec(clean);
-  return match ? Number(match[1]) : null;
-}
-
 /** Cada objeto copiado del juego empieza por esta línea, en inglés o en español. */
 const ITEM_START = /^(?:Item Class|Clase de objeto):/;
 
@@ -134,21 +101,7 @@ export function splitPastedItems(text: string): string[] {
 }
 
 /** Suma de resistencias de las piezas pegadas (solo mods de esas piezas). */
-export function resistancesFromItems(items: Item[]): Resistances {
-  const totals = { fire: 0, cold: 0, lightning: 0, chaos: 0 };
-  for (const item of items) {
-    for (const modifier of item.modifiers) {
-      for (const line of modifier.text.split("\n")) {
-        const targets = resistanceTargets(line);
-        if (targets === null) continue;
-        const value = resistanceValue(line);
-        if (value === null) continue;
-        for (const target of targets) totals[target] += value;
-      }
-    }
-  }
-  return totals;
-}
+export const resistancesFromItems = resistancesFromPastedItems;
 
 /**
  * Coloca una pieza nueva en la lista. El lector marca todos los anillos como
