@@ -120,16 +120,11 @@ function gemSentence(gem: string): string {
 /** Lo que la zona da de más: sus gemas fijas y el jefe que te puedes saltar. */
 function drawExtras(view: StepView, route: Settings["route"]): void {
   const gems = view.gems.map((gem) => line("◆", gemSentence(gem)));
-  // En una zona que ya es opcional entera, repetir «opcional» para su jefe no dice nada.
-  const skip = !view.skip
-    ? []
-    : route === "rapida"
-      ? [line("»", skipSentence(view.skip), "saltar")]
-      : view.optional
-        ? []
-        : [line("○", `Opcional: ${view.skip}.`)];
+  // Con la ruta completa el opcional tiene su fila con casilla (`draw`), no una línea aquí.
+  const skip = view.skip && route === "rapida" ? [line("»", skipSentence(view.skip), "saltar")] : [];
   const needs = view.needs ? [line("!", view.needs, "falta")] : [];
-  const notes = view.notes.map((note) => line("○", note));
+  // Un punto, no un circulito: el circulito parecía una casilla y no se podía pulsar.
+  const notes = view.notes.map((note) => line("•", note));
   byId("extras").replaceChildren(...needs, ...gems, ...skip, ...notes);
 }
 
@@ -306,6 +301,15 @@ function draw(state: OverlayState): void {
     goal("objeto", "objeto-casilla", view.pickup.got);
     byId("objeto-nombre").textContent = view.pickup.text;
     byId("objeto-nota").textContent = view.pickup.got ? `cogido · llevas ${view.pickup.count}` : "pulsa la casilla al cogerlo";
+  }
+  // El jefe opcional del paso: se marca a mano (el registro no dice cuándo cae). En una zona
+  // que ya es opcional entera sobra, y con la ruta rápida lo que se dice es que te lo saltes.
+  const showSkip = Boolean(view.skip) && !view.optional && settings.route !== "rapida";
+  byId("opcional").hidden = !showSkip;
+  if (showSkip) {
+    goal("opcional", "opcional-casilla", view.skipDone);
+    byId("opcional-nombre").textContent = view.skip ?? "";
+    byId("opcional-nota").textContent = view.skipDone ? "hecho" : "pulsa Fin o la casilla si lo haces";
   }
   setText(
     "hecho",

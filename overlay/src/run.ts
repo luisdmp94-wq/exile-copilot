@@ -58,6 +58,8 @@ export interface Run {
   bosses: string[];
   /** Objetos recogidos que hacen falta más adelante (trozos de mapa), marcados a mano: «acto:paso». */
   pickups?: string[];
+  /** Jefes u objetivos opcionales que el jugador ha marcado como hechos, a mano: «acto:paso». */
+  skips?: string[];
   /** Código de la zona donde está ahora, también fuera de las guías. */
   area: string | null;
   areaLevel: number | null;
@@ -120,6 +122,7 @@ export const NEW_RUN: Run = {
   partial: {},
   bosses: [],
   pickups: [],
+  skips: [],
   area: null,
   areaLevel: null,
   charLevel: null,
@@ -340,7 +343,22 @@ export function onToggleBoss(run: Run): Run {
 export function onMarkStep(run: Run): Run {
   const { act, index } = run.progress;
   const step = routeOf(act)[index];
+  // Sin recompensa ni jefe que marcar, lo único que deja marcar el paso es su opcional.
+  if (step?.skip && !step.reward && !bossOf(act, step.zone)) return onToggleSkip(run);
   return SILENT_BOSSES[act]?.[step?.zone ?? ""] || !step?.reward ? onToggleBoss(run) : onToggleReward(run);
+}
+
+/**
+ * Marca o desmarca a mano el jefe u objetivo opcional del paso que se ve. El
+ * registro no dice cuándo caen (no dan nada), así que solo se sabe si lo marca
+ * el jugador. Nunca frena la guía: sin marcar, el paso se puede dar por hecho igual.
+ */
+export function onToggleSkip(run: Run): Run {
+  const { act, index } = run.progress;
+  if (!routeOf(act)[index]?.skip) return run;
+  const key = stepKey(act, index);
+  const had = run.skips ?? [];
+  return { ...run, skips: had.includes(key) ? had.filter((item) => item !== key) : [...had, key] };
 }
 
 /** Marca o desmarca a mano el objeto que se recoge en el paso que se ve (un trozo de mapa). */
@@ -429,6 +447,7 @@ export function sanitizeRun(value: unknown): Run {
     ),
     bosses: strings(raw.bosses),
     pickups: strings(raw.pickups),
+    skips: strings(raw.skips),
     area: typeof raw.area === "string" ? raw.area : null,
     areaLevel: level(raw.areaLevel),
     charLevel: level(raw.charLevel),
@@ -503,6 +522,8 @@ export interface StepView {
   gems: string[];
   /** Jefe u objetivo opcional de la zona: no da nada para siempre. */
   skip: string | null;
+  /** El jugador ha marcado ese opcional como hecho. */
+  skipDone: boolean;
   /** Cosas fijas de la zona que la guía no cuenta (una fosa abisal que siempre está), una frase por línea. */
   notes: string[];
   /** El paso siguiente: la zona y, si la tiene, su recompensa para siempre. */
@@ -636,7 +657,11 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
   // con el jefe que no habla sin marcar.
   const checkable = stepReady(run, progress.act, progress.index);
   const byHand = [...(pickup ? [pickup.got] : []), ...(boss && !boss.auto ? [boss.dead] : [])];
-  const ready = byHand.length > 0 ? (checkable ?? true) && byHand.every(Boolean) : checkable;
+  const checked = byHand.length > 0 ? (checkable ?? true) && byHand.every(Boolean) : checkable;
+  // El opcional marcado es lo único que hay que hacer en un paso sin nada más que comprobar:
+  // entonces la zona está hecha. Sin marcar no cuenta: es opcional.
+  const skipDone = Boolean(step.skip) && (run.skips ?? []).includes(key);
+  const ready = checked === null && skipDone ? true : checked;
   return {
     act: progress.act,
     number,
@@ -653,6 +678,7 @@ export function viewOf(run: Run, mode: RouteMode): StepView {
     ready,
     gems: step.gems ?? [],
     skip: step.skip ?? null,
+    skipDone,
     notes: ZONE_NOTES[progress.act]?.[step.zone] ?? [],
     next: nextStep ? { zone: nextStep.zone, reward: nextStep.reward ?? null } : null,
     outside: progress.outside,

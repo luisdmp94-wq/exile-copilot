@@ -48,6 +48,11 @@
       /* Si la recompensa es larga («+10 % resistencia al hielo»), la nota baja a la línea siguiente. */
       .objetivo { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; margin-top: 5px; font-size: 12px; }
       #recompensa + #jefe, #recompensa + #objeto, #jefe + #objeto { margin-top: 3px; }
+      /* El opcional no da nada para siempre: su nombre va más apagado que un jefe o un premio.
+         Suele ser largo (dos jefes con su título): la nota se queda arriba, junto a «Opcional:»,
+         y el nombre ocupa entero el renglón de debajo. */
+      #opcional .que { order: 3; flex-basis: 100%; color: var(--suave); font-weight: 400; }
+      #opcional.hecho .que { color: var(--oro); }
       .casilla { width: 13px; height: 13px; flex-shrink: 0; border: 1px solid var(--oro); border-radius: 3px; font-size: 11px; line-height: 13px; text-align: center; color: #0a0806; cursor: pointer; }
       .casilla.hecha { background: var(--oro); }
       .objetivo .etq { flex-shrink: 0; color: var(--suave); }
@@ -165,6 +170,10 @@
       <div id="objeto" class="objetivo" hidden>
         <span id="objeto-casilla" class="casilla" data-raton data-accion="objeto"></span>
         <span class="etq">Coge:</span><span id="objeto-nombre" class="que"></span><span id="objeto-nota" class="nota"></span>
+      </div>
+      <div id="opcional" class="objetivo" hidden>
+        <span id="opcional-casilla" class="casilla" data-raton data-accion="opcional"></span>
+        <span class="etq">Opcional:</span><span id="opcional-nombre" class="que"></span><span id="opcional-nota" class="nota"></span>
       </div>
       <div id="ahora">Buscando tu zona en Client.txt…</div>
       <ul id="extras"></ul>

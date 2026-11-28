@@ -39,6 +39,7 @@ import {
   onReward,
   onToggleBoss,
   onTogglePickup,
+  onToggleSkip,
   onToggleReward,
   pickupCount,
   resistanceNotice,
@@ -257,6 +258,35 @@ describe("ventanita: los interludios en marcha", () => {
     expect(viewOf(holten, "completa").next).toEqual({ zone: "Fuerte de los lobos", reward: "2 puntos de pasiva" });
     expect(viewOf(play(["P2_5"], holten), "completa")).toMatchObject({ act: 6, zone: "Las puertas de Galai", number: 5, total: 7 });
     expect(viewOf(play(["P3_7"], holten), "completa")).toMatchObject({ act: 7, zone: "La cámara Cuachic", number: 7, total: 7, next: null });
+  });
+
+  it("el jefe opcional de un paso se marca a mano, con la casilla o con Fin (Holten, 28-11-2026)", () => {
+    // Luis mató a Sigbert y a Godwin y no había dónde marcarlo: era una línea con un circulito.
+    const holten = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_2", "P1_3", "P1_4"]);
+    expect(viewOf(holten, "completa")).toMatchObject({
+      zone: "Holten",
+      skip: "Sigbert, del Juramento manchado, y Godwin, del Credo destrozado",
+      skipDone: false,
+      boss: null,
+      reward: null,
+      ready: null,
+    });
+    const marked = onToggleSkip(holten);
+    expect(marked.skips).toEqual(["5:3"]);
+    // Sin nada más que comprobar en la zona, con el opcional hecho la zona está hecha.
+    expect(viewOf(marked, "completa")).toMatchObject({ skipDone: true, ready: true });
+    expect(viewOf(onToggleSkip(marked), "completa")).toMatchObject({ skipDone: false, ready: null });
+    // La tecla Fin hace lo mismo: en Holten no hay recompensa ni jefe que marcar.
+    expect(onMarkStep(holten).skips).toEqual(["5:3"]);
+    expect(onMarkStep(onMarkStep(holten)).skips).toEqual([]);
+    // Lo marcado no se pierde al guardar y volver a leer la partida.
+    expect(sanitizeRun(JSON.parse(JSON.stringify(marked))).skips).toEqual(["5:3"]);
+  });
+
+  it("un paso sin opcional no deja marcar ninguno, y Fin sigue marcando lo de siempre", () => {
+    const serle = play([...ACT_FOUR, "P1_Town", "P1_1", "P1_2"]);
+    expect(onToggleSkip(serle)).toBe(serle);
+    expect(onMarkStep(serle).skips ?? []).toEqual([]);
   });
 
   it("los pueblos de los interludios no mueven la guía", () => {

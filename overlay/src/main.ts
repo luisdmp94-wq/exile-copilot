@@ -14,6 +14,7 @@ import {
   onMarkStep,
   onToggleBoss,
   onTogglePickup,
+  onToggleSkip,
   onToggleReward,
   sanitizeRun,
   viewOf,
@@ -252,7 +253,7 @@ async function startTail(path: string, from: number | null): Promise<void> {
   currentLog = path;
   // Repasar desde el principio es reconstruir la partida desde cero;
   // lo que el jugador marcó a mano se conserva.
-  const byHand = { checked: saved.run.checked, bosses: saved.run.bosses, pickups: saved.run.pickups ?? [] };
+  const byHand = { checked: saved.run.checked, bosses: saved.run.bosses, pickups: saved.run.pickups ?? [], skips: saved.run.skips ?? [] };
   let replayed = from === null ? EMPTY_ROSTER : roster();
   const mine = new ClientLogTail(path, (event, isReplay) => {
     if (isReplay) {
@@ -289,6 +290,7 @@ async function startTail(path: string, from: number | null): Promise<void> {
         checked: [...new Set([...run.checked, ...byHand.checked])],
         bosses: [...new Set([...run.bosses, ...byHand.bosses])],
         pickups: [...new Set([...(run.pickups ?? []), ...byHand.pickups])],
+        skips: [...new Set([...(run.skips ?? []), ...byHand.skips])],
       };
     }
     replaying = null;
@@ -566,6 +568,8 @@ ipcMain.on("accion", (_event, name: unknown, value: unknown) => {
       return update(onToggleBoss(saved.run));
     case "objeto":
       return update(onTogglePickup(saved.run));
+    case "opcional":
+      return update(onToggleSkip(saved.run));
     case "cerrar-resistencias":
       return update(onDismissResistNotice(saved.run));
     case "cerrar-dejado":
