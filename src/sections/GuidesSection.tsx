@@ -15,10 +15,12 @@ import {
 } from "lucide-react";
 import { ItemSchema, type BuildMemoryEntry, type CharacterProfile, type Item } from "@shared/domain.js";
 import { BuildConfigurator } from "@/components/BuildConfigurator";
+import { FoundItemCard } from "@/components/FoundItemCard";
 import { GemAdvisorCard } from "@/components/GemAdvisorCard";
 import { GuideCharacterCheck } from "@/components/GuideCharacterCheck";
 import { ItemCompareCard } from "@/components/ItemCompareCard";
 import { RewardCheckCard } from "@/components/RewardCheckCard";
+import { hasWornGear } from "@/lib/foundItem";
 import type { ActGuide, GuideBlock, GuideRoutePriority, GuideTip } from "@/guides/guide";
 import { UPCOMING_GUIDES, UPCOMING_GUIDES_EN, findGuide, guidesFor } from "@/guides";
 import { cn } from "@/lib/utils";
@@ -629,6 +631,8 @@ export function GuidesSection({
           onCreateCharacter={onCreateCharacter}
           onOwnSupport={onOwnSupport}
         />
+        {/* Con equipo guardado basta pegar UNA pieza: la otra es la que lleva. */}
+        {profile && hasWornGear(profile) && <FoundItemCard patch={patch} profile={profile} />}
         <ItemCompareCard patch={patch} profile={profile} preset={compareRequest} />
       </div>
     </article>

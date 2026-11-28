@@ -327,6 +327,7 @@ const APP_TEXT = texts(
     planTitle: "Decide el rumbo antes de gastar",
     moreQuestions: "Otras dudas de cada partida",
     askGem: "¿Qué gema de asistencia pongo?",
+    askFound: "¿Me sirve lo que he encontrado?",
     askCompare: "¿Cuál de estas dos piezas es mejor?",
     savedStep: "Siguiente paso guardado",
     openFollowUp: "Abrir seguimiento",
@@ -394,6 +395,7 @@ const APP_TEXT = texts(
     planTitle: "Pick your direction before spending",
     moreQuestions: "Other questions every run has",
     askGem: "Which support gem should I use?",
+    askFound: "Is what I found any good?",
     askCompare: "Which of these two items is better?",
     savedStep: "Saved next step",
     openFollowUp: "Open follow-up",
@@ -1208,6 +1210,13 @@ export default function App() {
     setGuideViewRequest((current) => ({ view: "herramientas", seq: (current?.seq ?? 0) + 1 }));
     navigateWorkspace("guias");
     scrollToWhenPainted('[data-testid="comparar"]');
+  };
+
+  /** Abre «¿Me sirve lo que he encontrado?»: una pieza frente a la que lleva puesta. */
+  const openFoundItem = () => {
+    setGuideViewRequest((current) => ({ view: "herramientas", seq: (current?.seq ?? 0) + 1 }));
+    navigateWorkspace("guias");
+    scrollToWhenPainted('[data-testid="me-sirve"]');
   };
 
   const startManualJourney = (intent: "new" | "item") => {
@@ -2206,6 +2215,12 @@ export default function App() {
                         <Button type="button" variant="outline" size="sm" onClick={openGemAdvisor}>
                           {t.askGem}
                         </Button>
+                        {/* Solo con equipo guardado: sin él no hay con qué comparar. */}
+                        {wornItemCount > 0 && (
+                          <Button type="button" variant="outline" size="sm" onClick={openFoundItem} data-testid="abrir-me-sirve">
+                            {t.askFound}
+                          </Button>
+                        )}
                         <Button type="button" variant="outline" size="sm" onClick={openItemCompare}>
                           {t.askCompare}
                         </Button>
