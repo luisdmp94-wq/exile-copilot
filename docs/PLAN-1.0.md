@@ -545,12 +545,22 @@ la siguiente. Nada se sube sin su sí.
   huecos); y la pestaña del navegador sigue diciendo «Acto 1…» en esa vista.
   **Decisiones de Luis ese día (preguntadas de una en una):**
   - «Cargar ejemplo» deja la página arriba, donde ahora está la caja del
-    Mentor (antes se quedaba a media altura). Hecho.
+    Mentor (antes se quedaba a media altura). Hecho, publicado y comprobado
+    en exilecopilot.com.
   - Copia de la versión de septiembre: en un repositorio **privado**. Falta
     que Luis lo cree en GitHub (el navegador de trabajo no tiene su sesión);
     después se sube la rama `crafting-real-item-coach`.
   - Limpieza de carpetas y ramas viejas: sí, comprobando antes una a una que
     todo está en main. La de septiembre y la ventanita no se tocan.
+    **Hecha:** retiradas 17 carpetas de trabajo (las tres de ese día, trece
+    antiguas y una copia temporal rota) y borradas 30 ramas locales, todas
+    con su contenido ya en main; las ramas que estaban en GitHub siguen allí.
+    Antes de borrar se guardaron en `data/antiguas/` (fuera de git) las cinco
+    bases de datos de agosto que había en esas carpetas y cuatro capturas del
+    prototipo visual. Se queda `exile-copilot-hito-6e` (rama
+    `hito-6e-mentor-ia`): la rama está en main, pero la carpeta tiene 13
+    archivos con cambios sin guardar de agosto; decide Luis. Quedan cuatro
+    carpetas: la principal, la de septiembre, la de la ventanita y esa.
   - De ahora en adelante, lo terminado y comprobado se publica en la misma
     sesión sin preguntar y se le avisa; lo que use IA sin medir o cambie mucho
     la web se sigue preguntando.
