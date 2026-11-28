@@ -371,6 +371,9 @@ la siguiente. Nada se sube sin su sí.
   (pega unos guantes y lee el veredicto frente a los puestos), **sin commit**.
   Falta: que Luis la vea (abierta en `me-sirve-7210`), juntarla con main y su
   sí para publicar.
+  → El 28-11 por la tarde, con el «sube todo lo que hayas acabado» de Luis,
+  **unida a main y publicada** junto con las tareas 18 y 19 (ver la 19 para la
+  batería). La unión no dio conflictos.
   **Claves en la rama de septiembre:** revisados los 517 commits que GitHub no
   tiene. Ninguna clave real (solo valores de prueba: `synthetic-…`,
   `test-key-not-real`), ningún `.env` ni base de datos. Si se sube al
@@ -426,12 +429,95 @@ la siguiente. Nada se sube sin su sí.
   importado en inglés salgan en español, llevarlo también a «¿Cuál de estas
   dos es mejor?», que Luis lo pruebe y su sí para publicar (detrás de «el
   Mentor arriba» y de «¿Me sirve…?»).
+  → El 28-11 por la tarde, con el «sube todo lo que hayas acabado» de Luis,
+  **unido a main y publicado, contestando con las reglas.** Como la redacción
+  con IA de estas respuestas no se ha medido, va detrás de un interruptor
+  apagado (`MENTOR_GEAR_AI_ENABLED`, en `server/config.ts`; Render no lo
+  tiene puesto): la caja «Pregúntale al Mentor por este cambio» contesta con
+  las frases de la comparación, sin llamar a la IA. **Falta:** tres preguntas
+  con IA en local (a partir del 29-11 a las 13:30) y, si van bien, encenderlo
+  en Render; lo demás de la lista de arriba sigue igual.
 
 - [ ] **19. Planificadores de crafteo avanzado** (también de septiembre,
   pedido por Luis el 28-11 para después de la 18): flujos, emociones,
   fracturar, sacrificio y previsión. Son reglas, sin IA, pero grandes y atados
-  a las sesiones de decisión del servidor (el formato guardado cambia). Sin
-  empezar. Ojo con la fecha: la web se congela el 8-12.
+  a las sesiones de decisión del servidor (el formato guardado cambia). Ojo con
+  la fecha: la web se congela el 8-12.
+  → El 28-11 por la tarde Luis pidió empezarlos. **Dato que cambia el plan:** la
+  web tiene apagado todo el crafteo avanzado (`advanced-crafting` en
+  `server/data/patchCompatibility.json` está en «review-required» para 0.5.4f,
+  0.5.5 y 1.0), así que Essences y Alloys tampoco se ven hoy; y el servidor
+  vuelve a apagarlo si se cambia el estado sin evidencia («Detenido por
+  evidencia inconsistente»). Además, las reglas de septiembre de los cinco
+  tenían `testedAgainstPatch: null`. **Decisión de Luis: hacerlos y dejarlos
+  apagados** hasta revisar todo el crafteo avanzado con la 1.0.
+  → **Primero, el Orbe fracturante, hecho en local** (rama
+  `planificadores-crafteo` sobre main 1f5ed07, carpeta
+  `exile-copilot-planificadores`, SIN commit y SIN subir). Regla comprobada el
+  28-11 en poe2db (inglés y español): objeto raro, al menos 4 modificadores,
+  uno al azar queda fijo, no vale en objetos ya fracturados; nombre del juego
+  en español, «Orbe fracturante». Rehecho con respuesta primero: en vez de
+  pedir que el jugador copie la descripción del orbe y marque tres casillas,
+  la tarjeta mira la pieza y dice si se puede usar, dónde puede caer y la
+  probabilidad de que el fijo sea uno de los que marcó para conservar («2 de 5
+  (40 %)»). No crea sesión ni toca el formato guardado.
+  - `shared/craftingFracturing.ts`, `src/components/FracturingPlanner.tsx`,
+    pestaña nueva en `CraftingActionPlanner.tsx` (detrás del mismo interruptor;
+    no pide el consentimiento de reemplazo, porque no quita nada) y la
+    herramienta nueva en el contexto del Mentor (`shared/mentorContext.ts`).
+  - Vista previa solo en desarrollo: `?avanzado=1`
+    (`src/lib/advancedCraftingPreview.ts`; en la versión publicada no existe).
+  - Con tres explícitos y un implícito no afirma nada: el texto dice «4
+    modificadores» sin decir si cuentan los implícitos.
+  **Faltan** flujos, emociones, sacrificio y previsión (cada uno: leer su
+  texto de hoy en poe2db antes de escribir una regla), y decidir con la 1.0 si
+  se enciende el crafteo avanzado.
+  → El 28-11 por la tarde, **hechos los otros cuatro, en local** (misma rama y
+  carpeta, SIN commit y SIN subir; siguen apagados en la web publicada). El
+  jugador ya no copia ninguna descripción: el texto de cada moneda sale del
+  juego (poe2db, español e inglés, leído ese día).
+  - **Mechón de Hinekora** (previsión; en español no se llama «Cierre»): dice
+    si se le puede poner a la pieza y para qué sirve. El resultado previsto lo
+    enseña el juego.
+  - **Orbes de sacrificio:** dice cuál de los cuatro le toca a la pieza (arma o
+    carcaj, armadura, amuleto/anillo/cinturón, joya), si se puede usar (rara,
+    corrupta, con encantamiento) y la probabilidad de perder un modificador
+    marcado. Una pieza corrupta ya no se queda en «no admite este craft»:
+    debajo sale esta tarjeta.
+  - **Emociones líquidas:** las 26 del juego (13 normales y 13 antiguas) con lo
+    que pone cada una en cada joya, en un archivo generado
+    (`node scripts/refresh-emotion-data.mjs`). Se elige la emoción y dice qué
+    modificador pondría en esa joya.
+  - **Flujos:** lee las resistencias de la pieza y dice qué haría cada uno de
+    los cuatro, con la tabla de equivalencias del juego (hacia caos el rango
+    baja).
+  - Los modificadores que se quieren conservar se marcan con un toque en la
+    propia tarjeta (también en el Orbe fracturante).
+  - **Lo que no se sabe, y la tarjeta lo dice:** en qué se convierte cada
+    encantamiento corrupto; si un flujo conserva el número exacto o qué pasa
+    con dos líneas iguales; si el Mechón vale en piezas corruptas; si una joya
+    con un modificador de fabricación admite otro.
+  - **Dos erratas del juego en español** frente al inglés: el orbe de Yugul
+    dice «armadura rara» (en inglés, joya) y el Flujo electrizante nombra
+    también el rayo como origen. Se enseña el texto tal cual y, en el orbe, se
+    avisa.
+  Visto en el navegador con cuatro piezas de prueba pegadas (ballesta, anillo
+  con resistencias, botas corruptas y un rubí), en español e inglés, en
+  ordenador y en móvil. Detalle en `docs/PLANIFICADORES-CRAFTEO.md`.
+  → El mismo día, con el «sube todo lo que hayas acabado» de Luis, **unidas a
+  main las tareas 17, 18 y 19 y publicadas** (las tres uniones, sin
+  conflictos). En producción los planificadores no se ven: siguen detrás del
+  interruptor del crafteo avanzado. Batería en main con todo junto y la IA
+  apagada: lint, 1898 pruebas, `npm run build` (salida 0), el recorrido del
+  navegador en producción y en desarrollo y el del Mentor, en verde. (La
+  primera pasada falló una comprobación del modo desarrollo, «PoB2 corre en
+  el navegador», por tener cuatro servidores de prueba abiertos a la vez;
+  cerrados, pasa entera.) Subida también la rama `ventanita-guia` (8 commits;
+  no publica la web).
+  **Falta:** nada se ha probado con la moneda en la mano dentro del juego;
+  decidir con la 1.0 si se enciende el crafteo avanzado. Visto de paso, sin
+  tocar: al pegar una joya, Crafting dice «todavía caben 3 más» (cuenta seis
+  huecos, como en el equipo).
 
 ### Del 8 al 10 de diciembre
 
