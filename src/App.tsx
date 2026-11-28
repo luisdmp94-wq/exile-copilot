@@ -2004,7 +2004,11 @@ export default function App() {
                 <ResumeBanner onContinue={continueGuide} />
                 <WelcomePanel
                   loadingDemo={character.busy === "demo"}
-                  onLoadDemo={() => void character.loadDemo()}
+                  // El ejemplo se carga desde abajo de la portada: la ficha empieza arriba,
+                  // donde está la caja del Mentor.
+                  onLoadDemo={() =>
+                    void character.loadDemo().then(() => window.requestAnimationFrame(() => window.scrollTo({ top: 0 })))
+                  }
                   onOpenGuides={() => {
                     setGuideSlug(DEFAULT_GUIDE_SLUG);
                     navigateWorkspace("guias");

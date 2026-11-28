@@ -542,16 +542,26 @@ la siguiente. Nada se sube sin su sí.
     hasta que se encienda (Essences y Alloys siguen como estaban).
   Sin tocar, para decidir: las herramientas siguen dentro del área «Guías»
   (darles un área propia cambia la barra de arriba, que en móvil tiene cuatro
-  huecos); la pestaña del navegador sigue diciendo «Acto 1…» en esa vista; y
-  tras «Cargar ejemplo» la página se queda a media altura en vez de arriba,
-  donde ahora está la caja del Mentor.
+  huecos); y la pestaña del navegador sigue diciendo «Acto 1…» en esa vista.
+  **Decisiones de Luis ese día (preguntadas de una en una):**
+  - «Cargar ejemplo» deja la página arriba, donde ahora está la caja del
+    Mentor (antes se quedaba a media altura). Hecho.
+  - Copia de la versión de septiembre: en un repositorio **privado**. Falta
+    que Luis lo cree en GitHub (el navegador de trabajo no tiene su sesión);
+    después se sube la rama `crafting-real-item-coach`.
+  - Limpieza de carpetas y ramas viejas: sí, comprobando antes una a una que
+    todo está en main. La de septiembre y la ventanita no se tocan.
+  - De ahora en adelante, lo terminado y comprobado se publica en la misma
+    sesión sin preguntar y se le avisa; lo que use IA sin medir o cambie mucho
+    la web se sigue preguntando.
   Publicado ese día. Antes: lint, 1898 pruebas, `npm run build` (salida 0) y
   los recorridos del navegador y del Mentor, con la IA apagada. **Ojo con el
-  recorrido del navegador:** lanzado con `--all` (producción y desarrollo
-  seguidos) falla siempre una comprobación del modo desarrollo, «PoB2 corre
-  en el navegador» (se agota su espera de 120 s); lanzado solo con `--dev`
-  pasa entera, las dos veces que se probó. No sé si ya pasaba antes del
-  28-11: mirarlo antes de congelar.
+  recorrido del navegador en modo desarrollo:** la primera pasada después de
+  compilar (`npm run build`) falla siempre una comprobación, «PoB2 corre en
+  el navegador» (se agota su espera de 120 s); repetida justo después, pasa
+  entera. Visto cuatro veces el 28-11, con y sin `--all`. El de producción
+  pasa siempre. Parece el arranque en frío de Vite, no la web; no sé si ya
+  pasaba antes del 28-11: mirarlo antes de congelar.
   Comprobado en exilecopilot.com tras la primera subida (solo lectura, con
   «Cargar ejemplo»): la tarjeta «¿Me sirve lo que he encontrado?» y su botón
   en Personaje están; en Crafting los planificadores no se ven; sin errores
