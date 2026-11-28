@@ -51,13 +51,27 @@ const MentorCraftingBuildIntentSchema = z.strictObject({
     .max(5),
 });
 
+/**
+ * Planificadores de crafteo avanzado que solo leen la pieza (tarea 19 del
+ * plan): cómo se llama cada uno cuando el Mentor dice qué hay abierto.
+ */
+export const MENTOR_PLANNER_TOOL_NAMES = {
+  fracturing: { es: "el Orbe fracturante", en: "the Fracturing Orb" },
+  foresight: { es: "el Mechón de Hinekora", en: "Hinekora's Lock" },
+  sacrifice: { es: "los Orbes de sacrificio", en: "the Orbs of Sacrifice" },
+  emotion: { es: "las emociones líquidas", en: "liquid emotions" },
+  flux: { es: "los flujos", en: "fluxes" },
+} as const;
+export type MentorPlannerTool = keyof typeof MENTOR_PLANNER_TOOL_NAMES;
+export const isMentorPlannerTool = (tool: string): tool is MentorPlannerTool => tool in MENTOR_PLANNER_TOOL_NAMES;
+
 const MentorAdvancedCraftingStateSchema = z.strictObject({
   mode: z.literal("advanced"),
   goalCategory: CraftingGoalCategorySchema,
   buildIntent: MentorCraftingBuildIntentSchema.nullable().default(null),
   protectedModifierCount: z.number().int().min(0).max(12),
   stopCriteria: z.array(MentorAdvancedStopCriterionSchema).max(3),
-  tool: z.enum(["currency", "essence", "alloy"]),
+  tool: z.enum(["currency", "essence", "alloy", "fracturing", "foresight", "sacrifice", "emotion", "flux"]),
   action: CraftingActionIdSchema.nullable(),
   variant: z.enum(["base", "greater", "perfect"]).nullable(),
   preflightConfirmed: z.boolean(),

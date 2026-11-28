@@ -29,6 +29,11 @@ import {
 } from "@shared/craftingEssences.js";
 import type { Budget, BuildTarget, CharacterProfile, GoalKind, Item } from "@shared/domain.js";
 import { AlloyPlanner } from "@/components/AlloyPlanner";
+import { EmotionPlanner } from "@/components/EmotionPlanner";
+import { FluxPlanner } from "@/components/FluxPlanner";
+import { ForesightPlanner } from "@/components/ForesightPlanner";
+import { FracturingPlanner } from "@/components/FracturingPlanner";
+import { SacrificePlanner } from "@/components/SacrificePlanner";
 import { CraftingBaseWorkbench } from "@/components/CraftingBaseWorkbench";
 import { CraftingRepairBanner } from "@/components/CraftingRepairBanner";
 import { CraftingExpertBlueprint } from "@/components/CraftingExpertBlueprint";
@@ -142,7 +147,7 @@ const AFFIX_ASSESSMENT_STYLE = {
   contextual: "border-border bg-muted/20 text-muted-foreground",
 } as const;
 
-type CraftingTool = "currency" | "essence" | "alloy";
+type CraftingTool = "currency" | "essence" | "alloy" | "fracturing" | "foresight" | "sacrifice" | "emotion" | "flux";
 
 /**
  * Parada que el Taller propone sin preguntar: un afijo más de lo que buscas o,
@@ -190,7 +195,11 @@ function useProtectedModifiers(item: Item, initialIds: string[] = []) {
   return [value, update] as const;
 }
 
-const CRAFTING_TOOLS: CraftingTool[] = ["currency", "essence", "alloy"];
+const CRAFTING_TOOLS: CraftingTool[] = ["currency", "essence", "alloy", "fracturing", "foresight", "sacrifice", "emotion", "flux"];
+/** Estas cambian una línea por otra: piden que el jugador vea antes el riesgo. El Orbe fracturante no quita nada. */
+const REPLACING_TOOLS: ReadonlySet<CraftingTool> = new Set(["essence", "alloy"]);
+/** Planificadores que solo leen la pieza (tarea 19): no crean sesión ni cambian lo guardado. */
+const READ_ONLY_PLANNERS = ["fracturing", "foresight", "sacrifice", "emotion", "flux"] as const satisfies readonly CraftingTool[];
 
 const TEXT = texts(
   {
@@ -225,6 +234,31 @@ const TEXT = texts(
         label: "Alloys",
         eyebrow: "Fabricación",
         description: "Cambia una línea por la que anuncia su descripción.",
+      },
+      fracturing: {
+        label: "Orbe fracturante",
+        eyebrow: "Fijar una línea",
+        description: "Deja fijo un modificador al azar. Mira antes dónde puede caer.",
+      },
+      foresight: {
+        label: "Mechón de Hinekora",
+        eyebrow: "Mirar antes",
+        description: "Ver el resultado antes de gastar.",
+      },
+      sacrifice: {
+        label: "Orbes de sacrificio",
+        eyebrow: "Pieza corrupta",
+        description: "Solo en piezas corruptas.",
+      },
+      emotion: {
+        label: "Emociones líquidas",
+        eyebrow: "Joyas",
+        description: "Solo en joyas raras.",
+      },
+      flux: {
+        label: "Flujos",
+        eyebrow: "Resistencias",
+        description: "Cambian resistencias de elemento.",
       },
     } as Record<CraftingTool, { label: string; eyebrow: string; description: string }>,
     baseDecision: "¿Merece la pena esta pieza?",
@@ -331,7 +365,8 @@ const TEXT = texts(
     noFullData: "Sin datos completos para calcular probabilidades.",
     whatTool: "¿Con qué vas a intentarlo?",
     toolsAria: "Herramientas de crafting",
-    advancedGate: "Essences y Alloys en revisión para este parche. Las monedas básicas siguen disponibles.",
+    advancedGate: "El crafteo avanzado (Essences, Alloys y los planificadores) está en revisión para este parche. Las monedas básicas siguen disponibles.",
+    corruptedStillTakes: "Las monedas normales ya no valen en esta pieza. Lo que sí admite una pieza corrupta:",
     availableCurrency: "Monedas disponibles",
     onlyCompatible: "Solo te dejo usar lo que encaja con la pieza que has pegado.",
     noActions: "El registro no contiene acciones compatibles con este módulo.",
@@ -408,6 +443,31 @@ const TEXT = texts(
         label: "Alloys",
         eyebrow: "Crafting",
         description: "Replaces a modifier with a crafted one from the tooltip.",
+      },
+      fracturing: {
+        label: "Fracturing Orb",
+        eyebrow: "Lock a modifier",
+        description: "Locks one random modifier. See first where it can land.",
+      },
+      foresight: {
+        label: "Hinekora's Lock",
+        eyebrow: "Look first",
+        description: "See the result before spending.",
+      },
+      sacrifice: {
+        label: "Orbs of Sacrifice",
+        eyebrow: "Corrupted item",
+        description: "Corrupted items only.",
+      },
+      emotion: {
+        label: "Liquid emotions",
+        eyebrow: "Jewels",
+        description: "Rare jewels only.",
+      },
+      flux: {
+        label: "Fluxes",
+        eyebrow: "Resistances",
+        description: "Change resistances to another element.",
       },
     },
     baseDecision: "Decision on the base",
@@ -514,7 +574,8 @@ const TEXT = texts(
     noFullData: "Not enough data to work out chances.",
     whatTool: "What will you try it with?",
     toolsAria: "Crafting tools",
-    advancedGate: "Essences and Alloys are under review for this patch. Basic currency is still available.",
+    advancedGate: "Advanced crafting (Essences, Alloys and the planners) is under review for this patch. Basic currency is still available.",
+    corruptedStillTakes: "Regular currency no longer works on this item. What a corrupted item does take:",
     availableCurrency: "Available currency",
     onlyCompatible: "The app only enables actions that fit the data you pasted.",
     noActions: "The registry has no compatible actions for this module.",
@@ -1083,6 +1144,13 @@ export function CraftingActionPlanner({
           item={item}
           patch={patch}
         />
+        {/* Una pieza corrupta no admite monedas normales, pero sí un Orbe de sacrificio (tarea 19). */}
+        {advancedCraftingAvailable && !isExampleItem && item.craftingState?.corrupted && (
+          <div className="flex flex-col gap-2" data-testid="crafting-tool-panel-sacrifice">
+            <p className="text-sm font-semibold text-foreground">{t.corruptedStillTakes}</p>
+            <SacrificePlanner item={item} patch={patch ?? ""} protectedModifierIds={protectedModifierIds} onProtectedChange={setProtectedModifierIds} />
+          </div>
+        )}
         <section className="pointer-events-none rounded-md border border-border/60 bg-background/30 p-4 opacity-55" aria-hidden="true">
           <p className="text-xs font-semibold text-cyan-300/70">{t.craftProject}</p>
           <h3 className="mt-1 text-lg font-semibold">{item.name || item.baseType}</h3>
@@ -1734,7 +1802,7 @@ export function CraftingActionPlanner({
           {t.whatTool}
         </h3>
         <div
-          className="grid gap-2 sm:grid-cols-3"
+          className="grid grid-cols-2 gap-2 lg:grid-cols-4"
           role="tablist"
           aria-label={t.toolsAria}
         >
@@ -1743,7 +1811,7 @@ export function CraftingActionPlanner({
             const selected = availableActiveTool === tool.id;
             const isAdvanced = tool.id !== "currency";
             const locked = isExampleItem || (isAdvanced && (
-              !advancedCraftingAvailable || (replacementNeedsConsent && !showReplacementRisk)
+              !advancedCraftingAvailable || (REPLACING_TOOLS.has(tool.id) && replacementNeedsConsent && !showReplacementRisk)
             ));
             return (
               <button
@@ -2023,6 +2091,32 @@ export function CraftingActionPlanner({
           onEditIntention={() => revealRouteTarget(`crafting-intention-${item.id}`)}
         />
       </div>
+      {/* Planificadores de la tarea 19: solo leen la pieza y el plan; no crean sesión. */}
+      {READ_ONLY_PLANNERS.map((tool) => {
+        const hidden = isExampleItem || availableActiveTool !== tool;
+        return (
+          <div
+            key={tool}
+            id={`crafting-tool-content-${item.id}-${tool}`}
+            tabIndex={-1}
+            hidden={hidden}
+            style={hidden ? { display: "none" } : undefined}
+            data-testid={`crafting-tool-panel-${tool}`}
+          >
+            {tool === "fracturing" && (
+              <FracturingPlanner item={item} patch={patch ?? ""} protectedModifierIds={protectedModifierIds} onProtectedChange={setProtectedModifierIds} />
+            )}
+            {tool === "foresight" && <ForesightPlanner item={item} patch={patch ?? ""} protectedModifierIds={protectedModifierIds} />}
+            {tool === "sacrifice" && (
+              <SacrificePlanner item={item} patch={patch ?? ""} protectedModifierIds={protectedModifierIds} onProtectedChange={setProtectedModifierIds} />
+            )}
+            {tool === "emotion" && (
+              <EmotionPlanner item={item} patch={patch ?? ""} protectedModifierIds={protectedModifierIds} onProtectedChange={setProtectedModifierIds} />
+            )}
+            {tool === "flux" && <FluxPlanner item={item} patch={patch ?? ""} />}
+          </div>
+        );
+      })}
     </div>
   );
 }

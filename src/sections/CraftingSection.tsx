@@ -10,6 +10,7 @@ import {
   Wrench,
 } from "lucide-react";
 import type { StartCraftingDecision } from "@shared/craftingActions.js";
+import { previewsAdvancedCrafting } from "@/lib/advancedCraftingPreview";
 import type { StartAlloyDecision } from "@shared/craftingAlloys.js";
 import { diagnoseCraftingItem } from "@shared/craftingDiagnosis.js";
 import type { StartEssenceDecision } from "@shared/craftingEssences.js";
@@ -417,8 +418,8 @@ export function CraftingSection({
    */
   const advancedVisible =
     advancedOpen || activeCrafting !== null || pausedCrafts.length > 0;
-  const advancedCraftingAvailable = patchCompatibility !== null &&
-    allowsPatchFeature(patchCompatibility, "advanced-crafting");
+  const advancedCraftingAvailable = previewsAdvancedCrafting() || (patchCompatibility !== null &&
+    allowsPatchFeature(patchCompatibility, "advanced-crafting"));
   const advancedCraftingNote = patchCompatibility
     ? patchFeatureCoverage(patchCompatibility, "advanced-crafting").note
     : t.patchCoverageLoading;
