@@ -2041,6 +2041,35 @@ export default function App() {
                     personaje, y al final lo avanzado. En móvil el equipo va
                     antes que la conversación: sigue en la primera pantalla. */}
                 <ResumeBanner onContinue={continueGuide} className="order-0 lg:col-span-2" />
+                {/* El Mentor al centro (28-11-2026): la caja para preguntar es
+                    lo primero de la página, y la conversación se abre ahí
+                    mismo. Va antes que «tu siguiente paso» también en móvil. */}
+                <div className="order-0 lg:col-span-2">
+                  <MentorBriefing
+                    open={mentorBriefingOpen}
+                    onOpenChange={setMentorBriefingOpen}
+                    askSlot={
+                      <MentorQuickAsk examplesOnly={mentorBriefingOpen} onAsk={askMentorQuickQuestion} />
+                    }
+                  >
+                    <MentorChatSection
+                      profile={character.profile}
+                      patchCompatibility={activePatchCompatibility}
+                      mentor={mentor}
+                      savingNextAction={journal.saving}
+                      onAsk={askMentor}
+                      onSaveNextAction={(answer) => {
+                        const recommendation = answer.nextAction?.recommendation ?? null;
+                        if (recommendation === null) return;
+                        trackRecommendation(recommendation);
+                      }}
+                      onFocusItem={focusItem}
+                      onEditProfile={completeProfile}
+                      onOpenQuickReview={() => openQuickReview()}
+                      pendingQuestion={mentorQuickQuestion}
+                    />
+                  </MentorBriefing>
+                </div>
                 <div className="order-1 lg:col-span-2">
                   <OpenCase
                     selection={selection}
@@ -2133,17 +2162,6 @@ export default function App() {
                         ? { title: quickTopFinding.title, action: quickTopFinding.action }
                         : null
                     }
-                    mentorAskSlot={
-                      <MentorQuickAsk
-                        onAsk={(text) => {
-                          setMentorQuickQuestion((current) => ({
-                            text,
-                            seq: (current?.seq ?? 0) + 1,
-                          }));
-                          openMentorConversation();
-                        }}
-                      />
-                    }
                   />
                 </div>
 
@@ -2221,32 +2239,6 @@ export default function App() {
                       onSavePassives={character.savePassives}
                     />
                   )}
-                </div>
-
-                {/* La conversación completa: en ordenador justo bajo «tu
-                    siguiente paso»; en móvil, después del equipo. */}
-                <div className="order-4 lg:order-2 lg:col-span-2">
-                  <MentorBriefing
-                    open={mentorBriefingOpen}
-                    onOpenChange={setMentorBriefingOpen}
-                  >
-                    <MentorChatSection
-                      profile={character.profile}
-                      patchCompatibility={activePatchCompatibility}
-                      mentor={mentor}
-                      savingNextAction={journal.saving}
-                      onAsk={askMentor}
-                      onSaveNextAction={(answer) => {
-                        const recommendation = answer.nextAction?.recommendation ?? null;
-                        if (recommendation === null) return;
-                        trackRecommendation(recommendation);
-                      }}
-                      onFocusItem={focusItem}
-                      onEditProfile={completeProfile}
-                      onOpenQuickReview={() => openQuickReview()}
-                      pendingQuestion={mentorQuickQuestion}
-                    />
-                  </MentorBriefing>
                 </div>
 
                 {/* Memoria y alternativas: al final, a todo lo ancho. */}

@@ -38,12 +38,32 @@ la siguiente. Nada se sube sin su sí.
   manda al comparador. Ojo: las reglas se escribieron mirando estas veinte
   preguntas; con preguntas nuevas saldrá menos. A medias quedan el árbol sin
   marcar (G4, E9), escudo o dos manos (G6) y qué ascendencia (G9): faltan datos.
-- [ ] **5. Si la tarea 1 llega al umbral: el Mentor al centro de la portada**
+- [x] **5. Si la tarea 1 llega al umbral: el Mentor al centro de la portada**
   (caja para preguntar arriba, con el personaje ya cargado). Si no llega, se
   queda donde está y sube en enero.
   → La tarea 1 no llegó (5 de 20). Tras la tarea 4 la misma medición da 16 de 20,
   justo el umbral, pero con preguntas ya conocidas. **Decide Luis** si sube ahora
   o en enero.
+  → El 28-11 Luis dijo «hazlo». **Hecho en local, SIN commit y SIN subir**
+  (se publica con su sí, después de la comprobación con IA de las 13:15): con
+  personaje, la tarjeta «Pregúntale a tu Mentor» es lo primero de la página
+  (caja, tres ejemplos y la conversación, que se abre ahí mismo); «Tu
+  siguiente paso» va debajo y ya no lleva la caja. También en móvil: el equipo
+  baja de la primera pantalla (antes se exigía lo contrario; los dos recorridos
+  de humo se actualizaron). No cambia nada de lo que contesta el Mentor.
+  **Sin hacer:** quien entra sin personaje sigue sin poder preguntar (el
+  Mentor necesita un personaje; habría que abrir en el servidor las preguntas
+  del juego sin él).
+  → El 28-11 a las 13:30, **comprobado, sigue sin commit y sin subir:** lint,
+  1787 pruebas, `npm run build` (salida 0) y los dos recorridos de humo
+  (navegador y Mentor 51/51), con la IA apagada. Y una pregunta real con IA
+  desde la caja de arriba (bruja de la base local): contesta la IA y la
+  conversación se abre en la misma tarjeta, sin errores de consola. Copia de
+  seguridad de los cambios en `refs/backup/mentor-arriba-28-11`. Falta solo el
+  sí de Luis para publicarlo.
+  → El 28-11 por la tarde, **publicado en main con el «sí, publícalo» de Luis.**
+  Antes de subir se repitieron lint, pruebas, `npm run build` y los dos
+  recorridos de humo.
 - [ ] **6. Botón de donación** discreto.
   → Hecho el 25-11 salvo un dato: enlace de Ko-fi en el pie («¿Te ha servido?
   Invítame a un café»), junto a «Privacidad» y «Avisar de un problema». Los
@@ -251,6 +271,18 @@ la siguiente. Nada se sube sin su sí.
   3 h y media desde la última pasada (13:15) y tres pasadas en el día. Eligió
   **medir el 28-11 a partir de las 13:15**. No se midió nada ni se tocó código;
   la web publicada responde (portada 200, `/api/health` ok).
+  → El 28-11 a las 13:16, **medida la regresión con IA, con el cambio ya
+  publicado** (dos pasadas, modelo principal, sin datos inventados; notas de
+  quien escribió el código). K1-K4: **de 11 bien y 1 a medias a 9 bien y 3 a
+  medias; cierres que preguntan lo sabido, de 6 de 12 a 0.** Sube «¿y qué hago
+  en la pelea?» (ya no repite). Bajan tres turnos de las charlas de gemas: la
+  primera lista no empieza por las que mejor encajan, «dame otra» vuelve a dar
+  la gema que el jugador dijo que no tenía, y «¿cuál de esas pongo primero?»
+  nombra una que no estaba entre las tres recién dadas. P2 y P3: los seis
+  turnos bien; los dos que bajaron el 27-11 (P2.3 y P3.2) están arreglados.
+  **Propuesto, sin hacer (decide Luis):** tres arreglos de reglas en el
+  servidor y medirlos otro día; N1-N4 sigue pendiente. Detalle en
+  `docs/MEDICION-MENTOR-2.md`, «Comprobación con IA de las tareas 15 y 16».
 - [ ] **16. Elegir habilidades y «Monta tu build»** (pedido por Luis el 27-11,
   a partir de lo que contó su hermano Gabo: «lo peor es elegir habilidades»,
   quiere montar la suya y saber si le vale con sus armas; acabó copiando una
@@ -279,8 +311,11 @@ la siguiente. Nada se sube sin su sí.
   a Gabo.
   → El 28-11 de madrugada (la medición con IA esperaba a las 13:15), **repaso
   de «Monta tu build» como jugador nuevo, en local: sin personaje, con la bruja
-  de la base local, en inglés y en móvil. Arreglado en local, SIN commit y SIN
-  subir** (no toca el Mentor: la regresión con IA no cambia):
+  de la base local, en inglés y en móvil. Arreglado y, con el «sí, publícalo»
+  de Luis, publicado en main (a933f14) a las 03:26.** Comprobado en
+  exilecopilot.com sin personaje: `?open=gems` y `?open=build` pintan la
+  herramienta y la portada sigue saliendo. No toca el Mentor: la regresión con
+  IA no cambia.
   - **Fallo en producción desde el 25-11:** `?open=gems` y `?open=compare`
     dejaban el área de guías en blanco a quien llega sin personaje (pestaña
     elegida, nada pintado). Visto en exilecopilot.com el 28-11. Causa: el área
@@ -301,6 +336,102 @@ la siguiente. Nada se sube sin su sí.
   qué hacer con las otras tres; dos frases pegadas sin punto en los datos de
   «Maleficio duradero»; a Ofrenda de dolor le propone acortar su duración; no
   hay prueba automática de los enlaces directos sin personaje.
+  → El 28-11 a las 13:25, **medida con la IA encendida: 10 bien, 1 a medias y
+  1 mal** (solo reglas daba 12 bien). El que falla: «¿cuáles son las
+  habilidades de ballesta?» → la IA no enseña ningún dato y contesta con las
+  que el personaje ya lleva. A medias: «¿qué hechizos puedo elegir?» trae tres
+  hechizos de verdad, pero la entrada generaliza por su cuenta. Uno cayó a las
+  reglas (bien). **Propuesto, sin hacer:** si las reglas tenían respuesta y la
+  IA no enseña ninguna frase, que salga la de las reglas. Sigue faltando
+  enseñársela a Gabo.
+
+- [ ] **17. Aprovechar la versión de septiembre** (pedido por Luis el 28-11).
+  La rama `crafting-real-item-coach` guarda 517 cambios del 3 al 20-09 que no
+  están en la web de hoy y que solo existen en su portátil (GitHub se quedó en
+  el primero). Era la versión buena en septiembre; al relanzar en octubre se
+  partió de `main` del 4-09 y eso quedó fuera. Unirla entera no es viable
+  (ensayo: 152 archivos en choque). Se traen piezas sueltas, rehechas para la
+  web de hoy, cada una en su rama y sin publicar hasta el sí de Luis.
+  → El 28-11, **primera pieza hecha en local, en la rama
+  `me-sirve-lo-encontrado` (faf1c10), SIN subir:** «¿Me sirve lo que he
+  encontrado?». Se pega una pieza y la web la compara con la que el personaje
+  lleva en ese hueco; contesta sí, no o da igual, y avisa si no llega de nivel
+  o de atributos. Reglas, sin IA; español e inglés. Lint, 1802 pruebas y
+  `npm run build` en verde; probada en local con el personaje de ejemplo.
+  Falta: que Luis la vea, el humo y decidir cuándo se publica.
+  Pendiente aparte: copia de la rama de septiembre en GitHub (el repositorio
+  es público: antes, buscar claves en sus commits).
+  Tropiezo del 28-11: al arrancar la versión de septiembre usó la base de datos
+  local de la web de hoy y dejó una tabla vacía (`mentor_rate_limits`); nada
+  más cambió. Desde entonces las otras carpetas se arrancan con
+  `.claude/vite-aislado.mjs`.
+  → El 28-11 a mediodía, en la carpeta de «¿Me sirve…?»: lint, 1802 pruebas,
+  `npm run build` y los dos recorridos de humo en verde. Los recorridos pasaban
+  sin tocar la tarjeta: añadida una comprobación propia a `browser-smoke.mjs`
+  (pega unos guantes y lee el veredicto frente a los puestos), **sin commit**.
+  Falta: que Luis la vea (abierta en `me-sirve-7210`), juntarla con main y su
+  sí para publicar.
+  **Claves en la rama de septiembre:** revisados los 517 commits que GitHub no
+  tiene. Ninguna clave real (solo valores de prueba: `synthetic-…`,
+  `test-key-not-real`), ningún `.env` ni base de datos. Si se sube al
+  repositorio público se verían la carpeta de usuario de Windows en cinco
+  documentos (`AGENTS.md`, `HANDOFF.md` y tres de `docs/`) y cuatro páginas
+  oficiales guardadas en `docs/evidence/sources/`. Alternativa: copia en un
+  repositorio privado. **Decide Luis.**
+  **Qué más hay en septiembre que hoy no está** (repaso de solo lectura):
+  aviso de atributos al cambiar una pieza (hecho en la tarea 18), tabla de
+  cifras lado a lado (necesita `displayedProperties`, que hoy no existe), guía
+  de qué recoger (el código es poco; el contenido era una sola build de arco
+  de veneno), Mentor de equipo con IA (tarea 18) y cinco planificadores de
+  crafteo avanzado (tarea 19). El gestor de varios personajes y «me falta
+  daño» ya están cubiertos hoy.
+
+- [ ] **18. El Mentor de equipo** (idea de Luis, de la versión de septiembre;
+  pedido el 28-11: «púlelo antes de subirlo, mételo con tu código»). En
+  septiembre la IA elegía la pieza y escribía los motivos: 27 archivos de
+  filtros, unos 7.500 tokens por consulta, y aun así confundía habilidades y
+  se quedaba sin cupo. Rehecho como el Mentor de hoy: **las reglas comparan y
+  deciden; la IA solo elige frases y redacta.**
+  → El 28-11, **hecho en local, en la rama `mentor-equipo` (sobre
+  `me-sirve-lo-encontrado`), carpeta `exile-copilot-mentor-equipo`, SIN commit
+  y SIN subir.** Debajo del veredicto de «¿Me sirve lo que he encontrado?» hay
+  una caja «Pregúntale al Mentor por este cambio», con tres ejemplos («¿Por
+  qué?», «¿Qué pierdo si me la pongo?», «¿Le sirve a mi habilidad?») y
+  pregunta libre; la charla es de esa pieza.
+  - El comparador pasa a `shared/` (`itemCompare.ts`, `foundItem.ts`,
+    `pastedItemResistances.ts`): el servidor rehace la comparación y no se fía
+    del veredicto del navegador. La petición lleva `gear` (pieza encontrada,
+    cuál sustituye, estilo).
+  - `server/mentor/gearQuestion.ts`: de la comparación salen frases con tema
+    (veredicto, motivo, lo que gana, lo que pierde, requisitos, atributos,
+    líneas que no aprovecha) y la respuesta sin IA. Camino propio en
+    `answerMentorQuery` (`answerAboutGear`): no toca el Mentor de siempre ni
+    las instrucciones de la IA.
+  - `shared/gearSwap.ts`: «si me quito esto, ¿se me cae otra cosa?». Avisa,
+    con los cuatro números, de la pieza que se quedaría sin su requisito de
+    fuerza, destreza o inteligencia. También se ve en la tarjeta, sin preguntar.
+  - `server/mentor/gearSkillFit.ts`: con las etiquetas de la gema, qué líneas
+    de daño le llegan a la habilidad principal y cuáles no («es para ataques y
+    Descarga de caos no es un ataque»). No juzga el daño físico ni lo que la
+    línea no deja claro.
+  - Una cifra o un nombre que no esté en las frases tira la redacción y salen
+    las reglas, como en el Mentor de siempre.
+  Lint, 1842 pruebas (40 más que «¿Me sirve…?»), `npm run build` y los dos recorridos de humo
+  en verde; visto en el navegador en escritorio y en móvil con el personaje de
+  ejemplo, **solo con reglas**. De paso: la compilación fallaba con un `@shared`
+  en `guideCheck.ts` (el generador de guías no lo resuelve); va con ruta
+  relativa.
+  **Falta:** probarlo con la IA encendida (el 28-11 ya iban dos pasadas),
+  comprobación propia en el recorrido de humo, que las líneas de un personaje
+  importado en inglés salgan en español, llevarlo también a «¿Cuál de estas
+  dos es mejor?», que Luis lo pruebe y su sí para publicar (detrás de «el
+  Mentor arriba» y de «¿Me sirve…?»).
+
+- [ ] **19. Planificadores de crafteo avanzado** (también de septiembre,
+  pedido por Luis el 28-11 para después de la 18): flujos, emociones,
+  fracturar, sacrificio y previsión. Son reglas, sin IA, pero grandes y atados
+  a las sesiones de decisión del servidor (el formato guardado cambia). Sin
+  empezar. Ojo con la fecha: la web se congela el 8-12.
 
 ### Del 8 al 10 de diciembre
 

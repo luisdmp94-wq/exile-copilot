@@ -1290,27 +1290,33 @@ async function runFlow(mode, port) {
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
     check(`[${mode}] ejemplo precargado visible`, true);
 
-    // En móvil la cabecera ya ofrece «Mentor». La conversación completa debe
-    // esperar a que el jugador vea su equipo, no repetir la misma entrada justo
-    // después de «Generar recomendaciones» y empujar el expediente hacia abajo.
+    // El Mentor al centro (28-11-2026, decisión de Luis): la caja para
+    // preguntar es lo primero de la página también en móvil, y va una sola
+    // vez. Antes se exigía lo contrario: el equipo en la primera pantalla y la
+    // conversación después.
     await page.setViewportSize({ width: 390, height: 844 });
     const mentorFirstScreen = await page.evaluate(() => {
       const equipment = document.querySelector("#equipo-titulo")?.closest("section");
-      const briefing = document.querySelector('[data-testid="mentor-briefing"]');
+      const nextStep = document.querySelector('[data-testid="tu-siguiente-paso"]');
+      const ask = document.querySelector('[data-testid="mentor-pregunta-rapida-form"]');
       const mainAction = document.querySelector('[data-testid="cabecera-accion-principal"]');
       return {
-        equipmentTop: equipment?.getBoundingClientRect().top ?? 9999,
-        briefingTop: briefing?.getBoundingClientRect().top ?? -1,
+        equipmentTop: equipment?.getBoundingClientRect().top ?? -1,
+        nextStepTop: nextStep?.getBoundingClientRect().top ?? -1,
+        askBottom: ask?.getBoundingClientRect().bottom ?? 9999,
+        askCount: document.querySelectorAll('[data-testid="mentor-pregunta-rapida-form"]').length,
         actionLabel: mainAction?.getAttribute("aria-label") ?? "",
         viewportHeight: window.innerHeight,
         overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       };
     });
     check(
-      `[${mode}] móvil muestra el equipo antes de repetir la conversación del Mentor`,
+      `[${mode}] móvil: la caja del Mentor cabe en la primera pantalla, una sola vez y antes que el siguiente paso y el equipo`,
       mentorFirstScreen.actionLabel === "Abrir Mentor" &&
-        mentorFirstScreen.equipmentTop < mentorFirstScreen.briefingTop &&
-        mentorFirstScreen.equipmentTop < mentorFirstScreen.viewportHeight &&
+        mentorFirstScreen.askCount === 1 &&
+        mentorFirstScreen.askBottom < mentorFirstScreen.viewportHeight &&
+        mentorFirstScreen.askBottom <= mentorFirstScreen.nextStepTop &&
+        mentorFirstScreen.nextStepTop < mentorFirstScreen.equipmentTop &&
         !mentorFirstScreen.overflow,
     );
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -1550,20 +1556,21 @@ async function runFlow(mode, port) {
     await page.waitForSelector("text=/Confianza|confianza/", { timeout: 15000 });
     const desktopCaseSpacing = await page.evaluate(() => {
       const openCase = document.querySelector('[data-testid="caso-abierto"]');
-      const mentor = document.querySelector('[data-testid="mentor-briefing"]');
+      const mentor = document.querySelector('[data-testid="mentor-bloque"]');
       if (!(openCase instanceof HTMLElement) || !(mentor instanceof HTMLElement)) {
         return null;
       }
-      // El caso vive dentro de la tarjeta «Tu siguiente paso»; el grupo que
-      // precede al Mentor es el contenedor de esa tarjeta y su evidencia.
+      // Desde el 28-11-2026 el Mentor va primero y el caso justo debajo. El
+      // caso vive dentro de la tarjeta «Tu siguiente paso»; su grupo es el
+      // contenedor de esa tarjeta y su evidencia.
       const openCaseGroup =
         openCase.closest('[data-testid="tu-siguiente-paso"]')?.parentElement ??
         openCase.parentElement;
       if (!(openCaseGroup instanceof HTMLElement)) return null;
-      return mentor.getBoundingClientRect().top - openCaseGroup.getBoundingClientRect().bottom;
+      return openCaseGroup.getBoundingClientRect().top - mentor.getBoundingClientRect().bottom;
     });
     check(
-      `[${mode}] Mentor continúa debajo del caso sin un vacío provocado por el equipo (separación ${desktopCaseSpacing ?? "desconocida"}px)`,
+      `[${mode}] el caso continúa debajo del Mentor sin un vacío provocado por el equipo (separación ${desktopCaseSpacing ?? "desconocida"}px)`,
       desktopCaseSpacing !== null && desktopCaseSpacing >= 0 && desktopCaseSpacing <= 64,
     );
     // La principal domina el Caso Abierto; las demás viven en «Otras

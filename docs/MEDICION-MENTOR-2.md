@@ -806,3 +806,101 @@ anteriores.
 - C7 se queda corta: una hechicera puede coger hechizos de las tres escuelas y solo se le enseña una.
 
 Respuestas, tal cual, en `docs/mediciones/tarea-16/`.
+
+## Comprobación con IA de las tareas 15 y 16 (28-11-2026, 13:16-13:29)
+
+Con las dos tareas ya publicadas (main a933f14). Dos pasadas, 30 respuestas,
+todas con el modelo principal (gpt-oss-120b) salvo una que cayó a las reglas
+(C10). Ningún dato inventado en las frases enseñadas. Las notas son de quien
+escribió el código y los tres controles ya estaban vistos: es regresión, no
+prueba limpia.
+
+### Regresión K1-K4 (`--control`)
+
+| | Bien | A medias | Mal | Cierres que preguntan lo sabido |
+|---|---|---|---|---|
+| Tarea 14 (27-11) | 11 | 1 | 0 | 6 de 12 |
+| Tareas 15 y 16 (28-11) | 9 | 3 | 0 | 0 de 12 |
+
+Sube un turno, bajan tres, ocho se quedan igual.
+
+- **K2.3 «vale, ¿y qué hago en la pelea?»: a medias → bien.** Ya no repite
+  las tres fases: da dos frases nuevas de esa pelea (dónde está y la fase de
+  lobo, con los hombres lobo, el golpe de sangre y los rayos de luna).
+- **K1.1 «¿qué le pongo a terremoto para que pegue más?»: bien → a medias.**
+  Da tres asistencias, pero no las tres primeras de la lista: Puño de guerra I,
+  Área concentrada y Persecución I (esta pide haber pegado con proyectiles, y
+  es un guerrero de maza). Furia I y Lucha, las dos primeras, no salen.
+- **K1.3 «no me suena tenerla, dame otra»: bien → a medias.** Da tres (antes
+  una), pero la tercera es Furia I, justo la que el jugador dice que no tiene.
+  Causa: su frase de la lista no se había enseñado en la charla (K1.1 no la
+  eligió; K1.2 solo la nombró), así que no estaba marcada «ya dicha» y el
+  relleno hasta tres la metió.
+- **K4.3 «¿y cuál de esas pongo primero?»: bien → a medias.** Nombra Voltio,
+  que es la primera de la lista entera pero no está entre las tres que el
+  Mentor acababa de dar en K4.2 (Emoción asesina, Conducción eléctrica,
+  Electrocución duradera). Antes K4.2 daba solo Voltio y coincidía.
+- K1.2 sigue bien, con el mismo desajuste: dice que «la primera es Furia I»
+  cuando en K1.1 la primera enseñada fue Puño de guerra I.
+- K2.1 da cuatro frases (entra «golpe a golpe»); K4.1 ya no trae la frase de
+  relleno y añade una asistencia; K4.2 da tres nuevas (antes una).
+
+Los cierres: ninguno pregunta por la hoja del personaje ni ofrece. Cuatro
+turnos salen sin cierre.
+
+### P2 y P3 (`MEDIR_SOLO=P2,P3 --control15`)
+
+Los seis turnos, bien. Los dos que bajaron el 27-11 están arreglados:
+
+- **P2.3 «¿qué resistencia subo antes de volver?»: a medias → bien.** Rayo, y
+  también fuego, con la frase de la guía. La redacción ya no se descarta.
+- **P3.2 «no tengo ninguna de esas, dame otra»: mal → bien.** Tres nuevas.
+- P3.3 da dos más, distintas. Su cierre («¿has probado mejorar la calidad de
+  tu ballesta?») es dudoso.
+
+### Tarea 16 con la IA encendida (`mentor-elegir.mjs --control --con-ia`)
+
+| | Bien | A medias | Mal |
+|---|---|---|---|
+| Solo reglas (27-11) | 12 | 0 | 0 |
+| Con IA (28-11) | 10 | 1 | 1 |
+
+- **C2 «¿cuáles son las habilidades de ballesta?»: mal.** La IA no eligió
+  ninguna frase y contestó con las cuatro habilidades que el personaje ya
+  lleva («Tus habilidades de ballesta son…»), sacadas de su hoja. Las reglas
+  daban cinco de ballesta que no tiene. Causa: en `converse`, si la IA no
+  enseña ninguna ficha, sale su entrada sola aunque las reglas tuvieran
+  respuesta.
+- **C7 «¿qué hechizos puedo elegir?»: a medias.** Tres hechizos de verdad,
+  pero la entrada generaliza por su cuenta («cualquier gema de hechizo que
+  requiera inteligencia y cuyo nivel sea 8 o menor»); el filtro la deja pasar
+  porque el 8 está en los datos.
+- C10: la redacción se descartó y contestaron las reglas (bien). El script no
+  guarda el motivo.
+- C12: bien, con una entrada rara en primera persona («Empiezo por el arma…»).
+- C1, C3-C6, C8, C9 y C11, bien. Con IA salen tres o cuatro habilidades en
+  vez de cinco, y se pierde la línea que manda a «Monta tu build».
+
+### Pregunta real desde la caja nueva (tarea 5)
+
+Servidor local de la carpeta principal, personaje de la base local (bruja
+Liche 49), «que gema de asistencia le pongo a descarga de caos?» escrita en
+la caja de arriba: contesta la IA («IA fundamentada») con tres asistencias y
+la conversación se abre en la misma tarjeta. Sin errores de consola.
+
+### Arreglos propuestos (sin hacer: decide Luis)
+
+1. Si las reglas tenían respuesta y la IA no enseña ninguna ficha, sale la de
+   las reglas (C2).
+2. «Dame otra» no vuelve a dar una asistencia que el Mentor ya nombró en la
+   charla, aunque no enseñara su frase entera (K1.3).
+3. «¿Cuál de esas pongo primero?» elige entre las que el Mentor acaba de
+   listar, no la primera de la lista entera (K4.3, K1.2).
+
+Los tres son reglas del servidor, sin tocar las instrucciones de la IA.
+Hay que medirlos con IA otro día (el 28-11 se gastaron las dos pasadas).
+Pendiente además: N1-N4 (`--control14`).
+
+Respuestas, tal cual: `docs/mediciones/tarea-15/regresion-K-28-11.json`,
+`docs/mediciones/tarea-15/control15-P2-P3-28-11.json` y
+`docs/mediciones/tarea-16/control16-con-ia-28-11.json`.

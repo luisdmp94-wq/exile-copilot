@@ -1,0 +1,122 @@
+[
+  {
+    "id": "C1",
+    "personaje": "Mi mercenario",
+    "question": "q habilidad me pillo ahora?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Te recomiendo probar una nueva gema de disparo para potenciar tu ballesta.\n\n• Disparo explosivo (nivel de gema 7): Carga tu ballesta con saetas ardientes que explotan al chocar.\n• Disparo incendiario (nivel de gema 3): Carga tu ballesta con saetas ardientes que se fragmentan durante el vuelo e infligen daño y queman a los enemigos al impactarlos y en un cono pequeño detrás de su objetivo final.\n• Esquirlas galvánicas (nivel de gema 5): Carga tu ballesta con saetas cargadas que se fragmentan durante el vuelo y liberan haces de rayo que se encadenan cuando impactan a los enemigos.\n\n¿qué tipo de enemigos te cuesta más?"
+  },
+  {
+    "id": "C2",
+    "personaje": "Mi mercenario",
+    "question": "cuales son las habilidades de ballesta?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Tus habilidades de ballesta son Saetas de fragmentación, Granada explosiva, Disparo rápido y Granada de gas.\n\n¿Qué asistencia te gustaría añadir a alguna de esas habilidades?"
+  },
+  {
+    "id": "C3",
+    "personaje": "Mi mercenario",
+    "question": "puedo usar cascada glacial con la ballesta?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "No, Cascada glacial solo funciona con bastón, no con tu ballesta.\n\n• No. Cascada glacial es una habilidad de bastón: solo vale con bastón en la mano, y tú llevas ballesta. Con ballesta sí tienes 25 habilidades: pregúntame «¿qué habilidades hay de ballesta?»."
+  },
+  {
+    "id": "C4",
+    "personaje": "Mi monje",
+    "question": "no tengo ni idea de que skills coger",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Prueba esas tres gemas básicas para empezar a armar tu rotación.\n\n• Palma desestabilizadora (nivel de gema 3): Te abalanzas sobre un enemigo y lo golpeas, y si está listo para ser aturdido, lo aturdes totalmente.\n• Ola de escarcha (nivel de gema 7): Das un salto hacia atrás y envías una ola congelante delante de ti que congela inmediatamente a los enemigos que están listos para ser congelados.\n• Arrebato de tempestad (nivel de gema 5): Ejecuta una serie de golpes agresivos.\n\n¿qué tipo de enemigos sueles enfrentar?"
+  },
+  {
+    "id": "C5",
+    "personaje": "Mi monje",
+    "question": "que ataques hay para baston?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Con el bastón tienes varios ataques básicos que puedes usar.\n\n• Palma desestabilizadora (nivel de gema 3): Te abalanzas sobre un enemigo y lo golpeas, y si está listo para ser aturdido, lo aturdes totalmente.\n• Golpe de sustracción (nivel de gema 7): Te abalanzas sobre un objetivo y lo golpeas con tu bastón.\n• Ola de escarcha (nivel de gema 7): Das un salto hacia atrás y envías una ola congelante delante de ti que congela inmediatamente a los enemigos que están listos para ser congelados.\n• Arrebato de tempestad (nivel de gema 5): Ejecuta una serie de golpes agresivos.\n\n¿Cuál de esos te llama más la atención?"
+  },
+  {
+    "id": "C6",
+    "personaje": "Mi monje",
+    "question": "flecha de rayo sirve con mi baston?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "No, Flecha de rayo solo funciona con arco, no con tu bastón.\n\n• No. Flecha de rayo es una habilidad de arco: solo vale con arco en la mano, y tú llevas bastón. Con bastón sí tienes 21 habilidades: pregúntame «¿qué habilidades hay de bastón?».\n\n¿qué otra habilidad de bastón te interesa?"
+  },
+  {
+    "id": "C7",
+    "personaje": "Mi hechicera",
+    "question": "que hechizos puedo elegir?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Puedes usar cualquier gema de hechizo que requiera inteligencia y cuyo nivel sea 8 o menor.\n\n• Ruptura (nivel de gema 5, inteligencia): Consume la energía elemental de un enemigo congelado, electrocutado o quemado para crear una explosión elemental que deja tras de sí un remanente de infusión.\n• Debilidad elemental (nivel de gema 7, inteligencia): Maldice a todos los objetivos en un área tras una breve demora para disminuir sus resistencias elementales.\n• Descarga de escarcha (nivel de gema 5, inteligencia): Disparas un proyectil perforante de movimiento lento que es eficaz a la hora de escarchar a los enemigos y explota al chocar con el terreno.\n\n¿Cuál de esos te llama más la atención?"
+  },
+  {
+    "id": "C8",
+    "personaje": "Mi hechicera",
+    "question": "bola de fuego me vale con mi baculo?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Sí, Bola de fuego funciona con tu báculo.\n\n• Sí. Bola de fuego es un hechizo (elemental) y los hechizos no piden un arma concreta.\n• Bola de fuego: Lanza una bola de fuego grande que explota al chocar. La explosión consume una infusión de fuego si es posible para lanzar un anillo de bolas de fuego más pequeñas.\n\n¿Qué otras habilidades quieres mejorar?"
+  },
+  {
+    "id": "C9",
+    "personaje": "Mi hechicera",
+    "question": "terremoto me sirve si llevo baculo?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "No, Terremoto solo funciona con maza, y tú llevas un báculo.\n\n• No. Terremoto es una habilidad de maza: solo vale con maza en la mano, y tú llevas un arma de hechicero (báculo, varita o cetro). Lo suyo son los hechizos, que no piden un arma concreta.\n\n¿qué tipo de asistencia te gustaría probar?"
+  },
+  {
+    "id": "C10",
+    "personaje": "Mi cazadora",
+    "question": "que habilidades van con lanza?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "rules_fallback",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Llevas lanza: el juego tiene 22 habilidades de lanza, y solo valen con esa arma en la mano. Las que más se parecen a lo que ya usas:\n• Cacería de sangre (nivel de gema 7, destreza): Te abalanzas sobre un objetivo y lo ensartas.\n• Asalto rápido (nivel de gema 5, destreza): Ejecuta una serie de seis puñaladas rápidas.\n• Acabar con el débil (nivel de gema 3, destreza): Te abalanzas sobre un enemigo, lo atropellas y, si su vida es lo suficientemente baja, le infliges un golpe de gracia.\n• Colmillos de escarcha (nivel de gema 3, destreza): Ejecutas una puñalada helada que se aprovecha de los enemigos que ya están desequilibrados.\n• Tajo (nivel de gema 3, destreza): Te abalanzas sobre un enemigo y ejecutas un corte lacerante que aplica sangrado a todos los enemigos golpeados.\n\nHay 13 más. Para verlas todas y elegir con clics: en Guías, «Monta tu build» (pestaña de gemas y piezas).\n\n«Nivel de gema» es el nivel de la gema de habilidad sin tallar que hace falta para tallarla. Tu gema más alta es de nivel 7: con una sin tallar como esa puedes tallar cualquiera de nivel de gema 7 o menos. Sale de los datos del juego y de reglas fijas, sin IA."
+  },
+  {
+    "id": "C11",
+    "personaje": "Mi cazadora",
+    "question": "por que combina ataques rapidos con corte giratorio?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Los ataques rápidos encajan con Corte giratorio porque comparten la etiqueta ataque y reciben bonificaciones de velocidad.\n\n• Ataques rápidos sí encaja con Corte giratorio. Comparten la etiqueta ataque: la gema asiste justo ese tipo de habilidad.\n• Las asistencias se ordenan por cómo encajan sus etiquetas con Corte giratorio (Ataque, AdE, Cuerpo a cuerpo, Golpe, Fases, Viento), hasta grado II. No es una medida de daño.\n• Qué le da (grado I): Las habilidades asistidas tienen la velocidad de ataque aumentada un 15%.\n\n¿qué objetivo buscas al usar Corte giratorio?"
+  },
+  {
+    "id": "C12",
+    "personaje": "Mi cazadora",
+    "question": "quiero montarme mi propia build, por donde empiezo?",
+    "status": 200,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "answer": "Empiezo por el arma y luego elijo la habilidad principal.\n\n• Te ayudo a montar la tuya, paso a paso. No te doy una build hecha.\n• Paso 1, el arma manda. Cada ataque solo vale con un tipo de arma; los hechizos no piden un arma concreta. Llevas lanza: el juego tiene 22 habilidades de lanza.\n• Paso 2, elige una habilidad principal. Pregúntame «¿qué habilidades hay de lanza?».\n• Paso 3, ponle asistencias que le encajen. Pregúntame «¿qué asistencia le pongo a Lanza de rayos?» o «¿por qué combina … con …?».\n\n¿Qué habilidad principal te interesa usar con la lanza?"
+  }
+]

@@ -29,7 +29,8 @@ const TEXT = texts(
 );
 
 /**
- * Pregunta rápida al pie de «Tu siguiente paso». No responde aquí: entrega el
+ * Pregunta rápida en la tarjeta del Mentor, lo primero de la página del
+ * personaje (hasta el 28-11-2026 iba al pie de «Tu siguiente paso»). No responde aquí: entrega el
  * texto a la conversación del Mentor, que es la única que valida, envía y
  * guarda el hilo.
  *
@@ -37,7 +38,14 @@ const TEXT = texts(
  * noviembre de 2026 el Mentor recibió 5 preguntas de 153 visitantes, y nadie
  * sabía qué preguntarle.
  */
-export function MentorQuickAsk({ onAsk }: { onAsk: (question: string) => void }) {
+export function MentorQuickAsk({
+  onAsk,
+  examplesOnly = false,
+}: {
+  onAsk: (question: string) => void;
+  /** Con la conversación abierta ya hay una caja para escribir: solo los ejemplos. */
+  examplesOnly?: boolean;
+}) {
   const t = useText(TEXT);
   const [question, setQuestion] = useState("");
   const canSend = question.trim().length > 0;
@@ -45,7 +53,8 @@ export function MentorQuickAsk({ onAsk }: { onAsk: (question: string) => void })
   return (
     <div className="flex flex-col gap-2.5">
       <form
-        className="flex items-center gap-2"
+        hidden={examplesOnly}
+        className={examplesOnly ? undefined : "flex items-center gap-2"}
         data-testid="mentor-pregunta-rapida-form"
         onSubmit={(event) => {
           event.preventDefault();

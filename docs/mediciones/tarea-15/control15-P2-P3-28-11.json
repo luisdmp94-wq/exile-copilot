@@ -1,0 +1,80 @@
+[
+  {
+    "id": "P2.1",
+    "personaje": "Mi arquera",
+    "question": "doryani me mata cuando se sube al robot",
+    "status": 200,
+    "ms": 1054,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Cuando Doryani sube al autómata, su puño te persigue y su movimiento cambia; es clave moverse y rodar.\n\n• Doryani · desde el 50 %: Se sube a un autómata. Su puño te persigue: corre por la sala y rueda cuando frene.\n• Autómata al 50 %: Doryani vuela un rato con ataques nuevos. Láser de hielo: rueda a través del jefe cuando pase de azul a rojo.\n• Doryani · a pie: Rayos, lanzallamas y bolas de fuego. Muévete sin parar.",
+    "nextAction": null
+  },
+  {
+    "id": "P2.2",
+    "personaje": "Mi arquera",
+    "question": "y que hago en esa pelea exactamente?",
+    "status": 200,
+    "ms": 1009,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Cuando Doryani se sube al autómata debes moverte y rodar, y evitar los ataques específicos del suelo.\n\n• El jefe final, Doryani, Taumaturgo real, pega con rayo, fuego y algo de hielo. A media vida se sube a un autómata: no te quedes quieto.\n• Descarga estática: ponte dentro del círculo y no te hace daño. Pinchos en el suelo: no los pises.\n\n¿en qué fase sueles morir más?",
+    "nextAction": null
+  },
+  {
+    "id": "P2.3",
+    "personaje": "Mi arquera",
+    "question": "y que resistencia subo antes de volver?",
+    "status": 200,
+    "ms": 1128,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Sube la resistencia al rayo antes de volver, pues Doryani la usa mucho en la fase final.\n\n• Antes del jefe final: Doryani, el jefe final, usa mucho el rayo (y también fuego): súbela antes de entrar.",
+    "nextAction": null
+  },
+  {
+    "id": "P3.1",
+    "personaje": "Mi ballestero",
+    "question": "que le meto a esquirlas de hielo para que haga mas daño?",
+    "status": 200,
+    "ms": 982,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Para subir el daño de Esquirlas de hielo añade asistencias que aumenten daño y penetración.\n\n• Amargar (grado II, inteligencia): Si las habilidades asistidas fueran a ganar daño extra de cualquier tipo que no sea hielo, ganarán daño de hielo extra en su lugar.\n• Penetración de hielo (grado II, inteligencia): Las habilidades asistidas penetran el 30% de la resistencia al hielo.\n• Armamento elemental II (grado II, fuerza): Las habilidades asistidas infligen un 25% más de daño elemental con ataques.\n\n¿qué otra cosa te gustaría mejorar?",
+    "nextAction": null
+  },
+  {
+    "id": "P3.2",
+    "personaje": "Mi ballestero",
+    "question": "no tengo ninguna de esas, dame otra",
+    "status": 200,
+    "ms": 1126,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Prueba estas asistencias que aún no has usado:\n\n• Conservación de munición I (grado II, destreza): Las saetas disparadas por los ataques de ballesta asistidos tienen un 20% de probabilidad de no gastar munición.\n• Extensión excesiva (grado II, destreza): Las habilidades asistidas tienen el área de efecto aumentada un 40%. Las habilidades asistidas tienen un 80% menos de precisión contra los enemigos que están a menos de dos metros.\n• Congelamiento (grado II, inteligencia): Las habilidades asistidas acumulan un 50% más de congelamiento.\n\n¿qué parte del uso de Esquirlas de hielo te resulta más difícil?",
+    "nextAction": null
+  },
+  {
+    "id": "P3.3",
+    "personaje": "Mi ballestero",
+    "question": "y otra mas?",
+    "status": 200,
+    "ms": 1035,
+    "intent": "conversation",
+    "responseMode": "ai",
+    "model": "openai/gpt-oss-120b",
+    "fallbackReason": null,
+    "answer": "Prueba estas asistencias que encajan bien con Esquirlas de hielo:\n\n• Bifurcación helada (grado I, inteligencia): Las habilidades asistidas se bifurcan al impactar a los enemigos congelados. Las habilidades asistidas no pueden acumular congelamiento.\n• Ultracongelación (grado I, inteligencia): Las habilidades asistidas tienen la duración del congelamiento en los enemigos aumentada un 50%.\n\n¿has probado mejorar la calidad de tu ballesta?",
+    "nextAction": null
+  }
+]

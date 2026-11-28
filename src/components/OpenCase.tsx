@@ -35,7 +35,8 @@ const TEXT = texts(
     evidence: "Qué sé y qué no",
     firstFix: "Lo primero que arreglaría",
     seeFullReview: "Ver la revisión completa",
-    talkToMentor: "Habla con tu Mentor",
+    talkToMentor: "Pregúntale a tu Mentor",
+    mentorLead: "Ya conoce tu personaje. Pregúntale lo que quieras del juego.",
     openChat: "Abrir conversación",
     close: "Cerrar",
     checkDecision: "Comprobar una decisión",
@@ -68,7 +69,8 @@ const TEXT = texts(
     evidence: "What I know and what I don't",
     firstFix: "What I'd fix first",
     seeFullReview: "See the full review",
-    talkToMentor: "Talk to your Mentor",
+    talkToMentor: "Ask your Mentor",
+    mentorLead: "It already knows your character. Ask anything about the game.",
     openChat: "Open chat",
     close: "Close",
     checkDecision: "Check a decision",
@@ -90,8 +92,6 @@ interface OpenCaseProps {
   generateSlot: ReactNode;
   /** Evidencia del caso; `null` cuando el caso no tiene snapshot que enseñar. */
   evidenceSlot: ReactNode | null;
-  /** Pregunta rápida al Mentor, al pie de la tarjeta y fuera del caso medido. */
-  mentorAskSlot?: ReactNode;
   /**
    * Lo que más frena según la revisión rápida, si ya se sabe. Respuesta
    * primero: antes la cabecera mandaba a «contestar la revisión, aquí abajo»
@@ -120,7 +120,6 @@ export function OpenCase({
   recommendationSlot,
   generateSlot,
   evidenceSlot,
-  mentorAskSlot,
   quickAnswer = null,
   onSeeQuickReview,
 }: OpenCaseProps) {
@@ -252,9 +251,6 @@ export function OpenCase({
           <div className="min-w-0">{dominant}</div>
         </div>
       </section>
-      {mentorAskSlot && (
-        <div className="border-t border-border/70 px-4 py-3.5 sm:px-5">{mentorAskSlot}</div>
-      )}
       </div>
 
       {/* Sin evidencia no se pinta el marco vacío: quedaba una raya suelta. */}
@@ -283,43 +279,59 @@ export function MentorBriefing({
   children,
   open,
   onOpenChange,
+  askSlot,
 }: {
   children: ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * La caja para preguntar y sus ejemplos. Va en la misma tarjeta, debajo, y
+   * se ve con la conversación cerrada: es lo primero de la página (28-11-2026,
+   * «el Mentor al centro»). Antes iba al pie de «Tu siguiente paso».
+   */
+  askSlot?: ReactNode;
 }) {
   const t = useText(TEXT);
   return (
-    <details
-      id="mentor-briefing"
-      data-testid="mentor-briefing"
-      className="group superficie-panel scroll-mt-20"
-      open={open}
-      onToggle={(event) => onOpenChange(event.currentTarget.open)}
-    >
-      <summary
-        className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 marker:content-none sm:px-5"
-        data-testid="mentor-briefing-toggle"
+    <div className="case-panel superficie-accion" data-testid="mentor-bloque">
+      <details
+        id="mentor-briefing"
+        data-testid="mentor-briefing"
+        className="group scroll-mt-20"
+        open={open}
+        onToggle={(event) => onOpenChange(event.currentTarget.open)}
       >
-        <span>
-          <span
-            id="mentor-briefing-titulo"
-            className="dossier-title block text-lg font-semibold text-foreground"
-          >
-            {t.talkToMentor}
+        <summary
+          className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 marker:content-none sm:px-5"
+          data-testid="mentor-briefing-toggle"
+        >
+          <span>
+            <span
+              id="mentor-briefing-titulo"
+              className="dossier-title block text-lg font-semibold text-foreground"
+            >
+              {t.talkToMentor}
+            </span>
+            <span className="mt-0.5 block text-sm text-muted-foreground group-open:hidden">
+              {t.mentorLead}
+            </span>
           </span>
-        </span>
-        <span className="shrink-0 text-xs text-muted-foreground group-open:hidden">
-          {t.openChat}
-        </span>
-        <span className="hidden shrink-0 text-xs text-muted-foreground group-open:inline">
-          {t.close}
-        </span>
-      </summary>
-      <div className="border-t border-primary/15 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-        {children}
-      </div>
-    </details>
+          {/* En el móvil apretaba el título en dos líneas, y la caja ya está debajo. */}
+          <span className="shrink-0 text-xs text-muted-foreground group-open:hidden max-sm:hidden">
+            {t.openChat}
+          </span>
+          <span className="hidden shrink-0 text-xs text-muted-foreground group-open:inline">
+            {t.close}
+          </span>
+        </summary>
+        <div className="border-t border-primary/15 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+          {children}
+        </div>
+      </details>
+      {askSlot && (
+        <div className="border-t border-border/70 px-4 py-3.5 sm:px-5">{askSlot}</div>
+      )}
+    </div>
   );
 }
 

@@ -386,10 +386,10 @@ async function runFlow(mode, port) {
     await abrirMentor(page);
     await seccion.waitFor({ state: "visible", timeout: 20000 });
 
-    // Antes de preguntar, los ejemplos van en «Tu siguiente paso» y no se
-    // repiten en la conversación.
+    // Antes de preguntar, los ejemplos van en la tarjeta del Mentor (bajo la
+    // conversación abierta) y no se repiten dentro de ella.
     check(
-      `[${mode}] los ejemplos están en «Tu siguiente paso» y no se repiten en la conversación`,
+      `[${mode}] los ejemplos están en la tarjeta del Mentor y no se repiten en la conversación`,
       (await page.getByTestId("mentor-ejemplo").count()) === 3 &&
         (await page.getByTestId("mentor-sugerencia").count()) === 0,
     );
