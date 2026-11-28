@@ -79,9 +79,11 @@ import {
   type MentorAiDecision,
   type MentorDecisionSelector,
 } from "./mentorAi.js";
-import type {
-  ContextEnvelope,
-  MentorCraftingState,
+import {
+  MENTOR_PLANNER_TOOL_NAMES,
+  isMentorPlannerTool,
+  type ContextEnvelope,
+  type MentorCraftingState,
 } from "../../shared/mentorContext.js";
 import { COACH_FOCUS_LABELS } from "../../shared/craftingFocus.js";
 import { COACH_ROLL_MINIMUM_LABELS } from "../../shared/craftingCoach.js";
@@ -656,7 +658,9 @@ function craftingContextAnswer(
         const action = state.action === null
           ? state.tool === "currency"
             ? "Todavía no has elegido una moneda compatible."
-            : `Has abierto ${state.tool === "essence" ? "Essences" : "Alloys"}, pero su preflight todavía se completa dentro de ese panel.`
+            : isMentorPlannerTool(state.tool)
+              ? `Has abierto ${MENTOR_PLANNER_TOOL_NAMES[state.tool].es}: ese panel dice si se puede usar en la pieza y qué pasaría.`
+              : `Has abierto ${state.tool === "essence" ? "Essences" : "Alloys"}, pero su preflight todavía se completa dentro de ese panel.`
           : `La moneda preparada es ${
               OBSERVED_CRAFTING_ACTIONS.find((candidate) => candidate.id === state.action)?.label ??
               "la moneda mostrada"

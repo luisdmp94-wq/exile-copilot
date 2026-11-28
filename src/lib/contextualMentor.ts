@@ -4,7 +4,7 @@ import {
   type CraftingGoalCategory,
 } from "@shared/craftingGoal.js";
 import type { MentorIntent } from "@shared/mentorQuery.js";
-import type { MentorCraftingState } from "@shared/mentorContext.js";
+import { MENTOR_PLANNER_TOOL_NAMES, isMentorPlannerTool, type MentorCraftingState } from "@shared/mentorContext.js";
 import type { CoachFocus } from "@shared/craftingFocus.js";
 import type { CraftingBudgetStatus } from "@shared/craftingBudget.js";
 import type {
@@ -419,7 +419,9 @@ export function contextualMentorCue(event: ContextualMentorEvent): ContextualMen
           ? "sin moneda elegida"
           : state.tool === "essence"
             ? "Essence todavía sin preflight completo"
-            : "Alloy todavía sin preflight completo"
+            : isMentorPlannerTool(state.tool)
+              ? `mirando ${MENTOR_PLANNER_TOOL_NAMES[state.tool].es}`
+              : "Alloy todavía sin preflight completo"
         : OBSERVED_CRAFTING_ACTIONS.find((action) => action.id === state.action)?.label ??
           "moneda observada";
       const buildCopy = state.buildIntent === null

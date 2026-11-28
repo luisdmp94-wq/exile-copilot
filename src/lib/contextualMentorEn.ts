@@ -1,5 +1,6 @@
 import type { CurrencyKind, GoalKind, ItemSlot } from "@shared/domain.js";
 import { CRAFTING_GOAL_LABELS_EN } from "@shared/craftingGoal.js";
+import { MENTOR_PLANNER_TOOL_NAMES, isMentorPlannerTool } from "@shared/mentorContext.js";
 import { COACH_FOCUS_LABELS_EN } from "@shared/craftingFocus.js";
 import {
   COACH_DIRECTION_LABELS_EN,
@@ -255,7 +256,9 @@ function englishCopy(event: ContextualMentorEvent): EnglishCopy {
           ? "no currency chosen"
           : state.tool === "essence"
             ? "Essence checks not complete yet"
-            : "Alloy checks not complete yet"
+            : isMentorPlannerTool(state.tool)
+              ? `looking at ${MENTOR_PLANNER_TOOL_NAMES[state.tool].en}`
+              : "Alloy checks not complete yet"
         : CRAFTING_ACTION_LABELS_EN[state.action] ?? "currency";
       const buildCopy = state.buildIntent === null
         ? "fit with your character not checked"
