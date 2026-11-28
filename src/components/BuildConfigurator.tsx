@@ -62,6 +62,7 @@ const TEXT = texts(
     first: "Empieza por",
     also: "También le van",
     tier: (grade: string) => `grado ${grade}`,
+    inExchange: "A cambio:",
     gradeNote: "«Nivel de gema» es el de la gema de habilidad sin tallar que hace falta para tallarla.",
     footer: "Esto dice qué puedes usar y por qué, no cuánto daño hace. Datos del juego y reglas fijas, sin IA.",
     loading: "Cargando las habilidades…",
@@ -100,6 +101,7 @@ const TEXT = texts(
     first: "Start with",
     also: "These fit too",
     tier: (grade: string) => `tier ${grade}`,
+    inExchange: "In exchange:",
     gradeNote: "\"Gem level\" is the level of the uncut skill gem you need to engrave it.",
     footer: "This says what you can use and why, not how much damage it does. Game data and fixed rules, no AI.",
     loading: "Loading skills…",
@@ -113,6 +115,38 @@ const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().t
 /** La habilidad de la lista con ese nombre, en español o en inglés. */
 const findChoice = (choices: readonly SkillChoice[], name: string) =>
   choices.find((entry) => sameName(entry.name, name) || sameName(entry.alias, name));
+/** ¿Es esa habilidad? Lo guardado puede venir en el otro idioma. */
+const isSkill = (saved: string, skill: SkillChoice) => sameName(saved, skill.name) || sameName(saved, skill.alias);
+
+const ENDS_IN_GRADE = /\s[IVX]+$/;
+const GAIN = /\bmás de\b|\baumentad|\bmore\b|\bincreased\b/i;
+const LOSS = /\bmenos de\b|\breducid|\bless\b|\breduced\b/i;
+const lowerFirst = (text: string) => `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+
+/**
+ * Lo que da la asistencia, en una línea. Si la primera línea de la gema es lo
+ * que quita («un 15 % menos de velocidad») y otra dice lo que da, va primero
+ * lo que da y después la pega: una pega sola parece un mal consejo.
+ */
+function benefitLine(option: { effects: readonly string[]; description: string }, inExchange: string): string {
+  const main = supportMainBenefit(option);
+  if (!LOSS.test(main) || GAIN.test(main)) return main;
+  const gain = option.effects.find((effect) => GAIN.test(effect) && !LOSS.test(effect));
+  return gain ? `${gain}. ${inExchange} ${lowerFirst(main)}` : main;
+}
+
+/**
+ * El motivo trae una sola línea de la gema. Si esa línea es la condición
+ * («consume un cadáver») y la gema tiene otra, falta lo que se gana: se añade.
+ * Si el motivo no cita ninguna línea (lo cuenta con la descripción), se deja.
+ */
+function reasonWithExtra(recommended: { reason: string; effects: readonly string[] }): string {
+  const used = recommended.effects.find((effect) => recommended.reason.includes(effect));
+  // Solo si la línea citada no dice ya una ganancia, y solo una línea que sí la diga.
+  if (used === undefined || GAIN.test(used)) return recommended.reason;
+  const extra = recommended.effects.find((effect) => effect !== used && GAIN.test(effect));
+  return extra === undefined ? recommended.reason : `${recommended.reason.replace(/\.\s*$/, "")}. ${extra}`;
+}
 
 interface Saved {
   hand: Hand | null;
@@ -228,10 +262,18 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
   );
   const visible = showAll ? inGroup : inGroup.slice(0, SHOWN_AT_FIRST);
 
+  /** La misma habilidad, se guardara en español o en inglés. */
+  const same = (saved: string, name: string) => {
+    const choice = findChoice(choices, name);
+    return choice ? isSkill(saved, choice) : sameName(saved, name);
+  };
+  /** El nombre en el idioma de la web; si la web no la conoce, como se escribió. */
+  const shown = (name: string) => findChoice(choices, name)?.name ?? name;
+
   const toggle = (name: string) => {
     setPicked((current) =>
-      current.some((entry) => sameName(entry, name))
-        ? current.filter((entry) => !sameName(entry, name))
+      current.some((entry) => same(entry, name))
+        ? current.filter((entry) => !same(entry, name))
         : current.length >= MAX_PICKED
           ? current
           : [...current, name],
@@ -247,8 +289,8 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
       for (const name of ownNames) {
         if (next.length >= MAX_PICKED) break;
         // Con el nombre de la lista si la web la conoce; si no, como la escribió.
-        const known = findChoice(choices, name)?.name ?? name;
-        if (!next.some((entry) => sameName(entry, known))) next.push(known);
+        const known = shown(name);
+        if (!next.some((entry) => same(entry, known))) next.push(known);
       }
       return next;
     });
@@ -257,11 +299,18 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
   const askSupports = (name: string) => {
     setSupports((current) => ({ ...current, [name]: "loading" }));
     const reading = profile ? readCharacterLevel(profile) : null;
+    // Una asistencia solo va en una habilidad: la que ya se propuso como
+    // primera para otra de la build no se vuelve a proponer aquí.
+    const taken = picked.flatMap((other) => {
+      const answer = other === name ? undefined : supports[other];
+      return typeof answer === "object" && answer.recommended ? [answer.recommended.name] : [];
+    });
     api
       .supportGemPreview({
         skill: name.slice(0, 80),
         maxGrade: teaserGradeFor(reading?.known ? reading.level : null),
         attributes: ["Int", "Des", "Fue"],
+        ...(taken.length > 0 ? { socketed: taken } : {}),
         lang,
       })
       .then((response) => setSupports((current) => ({ ...current, [name]: response.recommended ? response : "none" })))
@@ -360,9 +409,11 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {hand === "spells" ? t.spellCount(inGroup.length, label(group)) : t.weaponCount(inGroup.length, label(group))}
               </p>
+              {/* Arriba de la lista: explica por qué el resto sale apagado. */}
+              {picked.length >= MAX_PICKED && <p className="mt-1.5 text-xs font-medium text-foreground/90">{t.full(MAX_PICKED)}</p>}
               <ul className="mt-2 space-y-1.5" data-testid="monta-build-lista">
                 {visible.map((skill) => {
-                  const isPicked = picked.some((entry) => sameName(entry, skill.name));
+                  const isPicked = picked.some((entry) => isSkill(entry, skill));
                   const blocked = !isPicked && picked.length >= MAX_PICKED;
                   return (
                     <li key={skill.name}>
@@ -406,7 +457,6 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
                   </Button>
                 )}
               </div>
-              {picked.length >= MAX_PICKED && <p className="mt-1.5 text-xs text-muted-foreground">{t.full(MAX_PICKED)}</p>}
             </>
           )}
 
@@ -425,7 +475,7 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
                   return (
                     <li key={entry.name} className="border-t border-border/60 pt-2 first:border-t-0 first:pt-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-sm font-semibold text-foreground">{entry.name}</span>
+                        <span className="text-sm font-semibold text-foreground">{shown(entry.name)}</span>
                         <span
                           className={cn(
                             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
@@ -448,7 +498,7 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
                           variant="ghost"
                           size="icon-sm"
                           className="ml-auto"
-                          aria-label={t.remove(entry.name)}
+                          aria-label={t.remove(shown(entry.name))}
                           onClick={() => toggle(entry.name)}
                         >
                           <X className="size-4" aria-hidden="true" />
@@ -468,19 +518,23 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
                         <div className="mt-1.5 text-sm leading-relaxed">
                           <p className="text-foreground/90">
                             <span className="text-xs font-semibold uppercase tracking-wide text-primary">{t.first}</span>{" "}
-                            <span className="font-semibold text-foreground">{answer.recommended.name}</span>{" "}
-                            <span className="text-xs text-muted-foreground">
-                              · {t.tier(ROMAN[answer.recommended.grade] ?? String(answer.recommended.grade))}
-                            </span>
+                            <span className="font-semibold text-foreground">{answer.recommended.name}</span>
+                            {/* «Furia I · grado I» dice lo mismo dos veces. */}
+                            {!ENDS_IN_GRADE.test(answer.recommended.name) && (
+                              <span className="text-xs text-muted-foreground">
+                                {" "}
+                                · {t.tier(ROMAN[answer.recommended.grade] ?? String(answer.recommended.grade))}
+                              </span>
+                            )}
                           </p>
-                          <p className="text-muted-foreground">{answer.recommended.reason}</p>
+                          <p className="text-muted-foreground">{reasonWithExtra(answer.recommended)}</p>
                           {answer.alternatives.length > 0 && (
                             <>
                               <p className="mt-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.also}</p>
                               <ul className="mt-0.5 space-y-1">
                                 {answer.alternatives.slice(0, 2).map((option) => (
                                   <li key={option.name} className="text-muted-foreground">
-                                    <span className="font-semibold text-foreground">{option.name}</span> — {supportMainBenefit(option)}
+                                    <span className="font-semibold text-foreground">{option.name}</span> — {benefitLine(option, t.inExchange)}
                                   </li>
                                 ))}
                               </ul>
@@ -496,7 +550,8 @@ export function BuildConfigurator({ profile }: BuildConfiguratorProps) {
           )}
 
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            {t.gradeNote} {t.footer}
+            {group !== null && `${t.gradeNote} `}
+            {t.footer}
           </p>
         </>
       )}

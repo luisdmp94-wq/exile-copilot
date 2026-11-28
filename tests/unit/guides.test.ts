@@ -56,6 +56,8 @@ describe("enlaces directos a una herramienta", () => {
     expect(directToolFromSearch("?abrir=gemas")).toBe("gems");
     expect(directToolFromSearch("?abrir=piezas")).toBe("compare");
     expect(directToolFromSearch("?open=GEMS ")).toBe("gems");
+    expect(directToolFromSearch("?open=build")).toBe("build");
+    expect(directToolFromSearch("?abrir=monta")).toBe("build");
   });
 
   it("sin nada, o con algo que no existe, la web abre como siempre", async () => {

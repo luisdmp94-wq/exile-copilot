@@ -242,6 +242,15 @@ la siguiente. Nada se sube sin su sí.
   un commit local (a751af8), sin subir. `npm run build` (código de salida 0) y
   las 1746 pruebas, en verde otra vez; el lint no se repitió. Sigue faltando
   lo mismo: regresión K1-K4 y repetir P2 y P3 (el 28-11); N1-N4, otro día.
+  → El 27-11 por la tarde, **publicado en main (b8061ef) con el «súbelo todo»
+  de Luis, sin la regresión con IA.** Antes de subir: lint, 1787 pruebas,
+  `npm run build` y el humo del Mentor (51/51), todo sin IA. La regresión
+  K1-K4, P2 y P3 y N1-N4 quedan pendientes con el cambio ya publicado: si algo
+  baja, se arregla o se revierte.
+  → El 27-11 a las 16:40 Luis volvió a pegar el prompt de la medición; iban
+  3 h y media desde la última pasada (13:15) y tres pasadas en el día. Eligió
+  **medir el 28-11 a partir de las 13:15**. No se midió nada ni se tocó código;
+  la web publicada responde (portada 200, `/api/health` ok).
 - [ ] **16. Elegir habilidades y «Monta tu build»** (pedido por Luis el 27-11,
   a partir de lo que contó su hermano Gabo: «lo peor es elegir habilidades»,
   quiere montar la suya y saber si le vale con sus armas; acabó copiando una
@@ -264,6 +273,34 @@ la siguiente. Nada se sube sin su sí.
   se ha visto. Tampoco se ha pasado el humo del Mentor ni las pruebas e2e.
   Falta: medir con IA (después de cerrar la 15), el sí de Luis y fusionar.
   Detalle en `docs/MEDICION-MENTOR-2.md`, «Tarea 16».
+  → El 27-11 por la tarde, **publicado en main (b8061ef) con el «súbelo todo»
+  de Luis, sin medir con IA.** Humo del Mentor 51/51. Falta medirla con la IA
+  encendida (`node scripts/mentor-elegir.mjs --control --con-ia`) y enseñársela
+  a Gabo.
+  → El 28-11 de madrugada (la medición con IA esperaba a las 13:15), **repaso
+  de «Monta tu build» como jugador nuevo, en local: sin personaje, con la bruja
+  de la base local, en inglés y en móvil. Arreglado en local, SIN commit y SIN
+  subir** (no toca el Mentor: la regresión con IA no cambia):
+  - **Fallo en producción desde el 25-11:** `?open=gems` y `?open=compare`
+    dejaban el área de guías en blanco a quien llega sin personaje (pestaña
+    elegida, nada pintado). Visto en exilecopilot.com el 28-11. Causa: el área
+    inicial se calculaba dos veces en `src/App.tsx` y una se olvidó del enlace
+    directo. Ahora se calcula una vez.
+  - Enlace directo nuevo: `?open=build` (o `?abrir=monta`) abre «Monta tu
+    build». Sirve para pasárselo a Gabo.
+  - Ya no propone la misma asistencia como primera para dos habilidades (la web
+    reparte una copia por familia; la tarjeta no lo respetaba).
+  - Las habilidades del personaje importado salen en el idioma de la web (antes
+    «Chaos Bolt»), y al cambiar de idioma la build elegida sigue marcada.
+  - Textos: «ade» pasa a «área»; «Furia I · grado I» ya no repite el grado; si
+    la primera línea de una gema es lo que quita, va delante lo que da y
+    después «A cambio: …»; el aviso «Ya tienes 4» sube encima de la lista; la
+    nota de «nivel de gema» solo sale cuando hay lista.
+  Lint, 1787 pruebas y `npm run build` (salida 0) en verde. Sin arreglar,
+  apuntado: desde la portada nada lleva a «Monta tu build»; «1 de 4» no dice
+  qué hacer con las otras tres; dos frases pegadas sin punto en los datos de
+  «Maleficio duradero»; a Ofrenda de dolor le propone acortar su duración; no
+  hay prueba automática de los enlaces directos sin personaje.
 
 ### Del 8 al 10 de diciembre
 

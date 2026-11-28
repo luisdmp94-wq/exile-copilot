@@ -289,12 +289,12 @@ describe("las cuatro juntas", () => {
 });
 
 describe("la lista para «Monta tu build»", () => {
-  it("trae solo lo que se puede tallar, con su grupo", () => {
+  it("trae lo que se puede tallar con su grupo, y lo demás sin grupo", () => {
     const list = skillChoices(gems.data, gems.locale, "es");
-    expect(list.length).toBeGreaterThan(200);
-    for (const skill of list) expect(skill.groups.length).toBeGreaterThan(0);
+    expect(list.filter((skill) => skill.groups.length > 0).length).toBeGreaterThan(200);
     expect(list.find((skill) => skill.name === "Terremoto")).toMatchObject({ groups: ["Maza"], grade: 1 });
-    expect(list.find((skill) => skill.name === "Descarga de caos")).toBeUndefined();
+    // La da la varita: no se elige en la lista, pero hace falta su nombre en los dos idiomas.
+    expect(list.find((skill) => skill.name === "Descarga de caos")).toMatchObject({ groups: [], alias: "Chaos Bolt" });
   });
 
   it("en inglés trae los nombres en inglés", () => {

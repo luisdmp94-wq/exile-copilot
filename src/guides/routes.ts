@@ -29,12 +29,16 @@ export function guidePath(slug: string): string {
 
 /**
  * Enlaces que abren directamente una herramienta: `?open=gems` lleva al
- * consejero de gemas y `?open=compare` al comparador de piezas. Sirven para
- * compartir («prueba esto») sin que la persona tenga que encontrar la pestaña.
+ * consejero de gemas, `?open=compare` al comparador de piezas y `?open=build`
+ * a «Monta tu build». Sirven para compartir («prueba esto») sin que la persona
+ * tenga que encontrar la pestaña.
  */
-export type DirectTool = "gems" | "compare";
+export type DirectTool = "gems" | "compare" | "build";
 
 const DIRECT_TOOLS: Record<string, DirectTool> = {
+  build: "build",
+  monta: "build",
+  habilidades: "build",
   gems: "gems",
   gemas: "gems",
   compare: "compare",
@@ -51,7 +55,7 @@ export function directToolFromSearch(search: string): DirectTool | null {
 }
 
 /** El elemento de la página al que hay que bajar para cada herramienta. */
-export const DIRECT_TOOL_TEST_ID: Record<DirectTool, string> = { gems: "asistencia", compare: "comparar" };
+export const DIRECT_TOOL_TEST_ID: Record<DirectTool, string> = { gems: "asistencia", compare: "comparar", build: "monta-build" };
 
 /** Título de la pestaña del navegador a partir del nombre corto del acto. */
 export function pageTitleForAct(actLabel: string, lang: GuideLang = "es"): string {

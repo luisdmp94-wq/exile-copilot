@@ -117,10 +117,15 @@ const namedSkill = (gems: GemKnowledge, q: string): GemSkill | null => {
 // La lista para el configurador de la web
 // ---------------------------------------------------------------------------
 
-/** Todo lo que se puede tallar, con su arma: lo que enseña «Monta tu build». */
+/**
+ * Las habilidades con su arma: lo que enseña «Monta tu build». Las que no
+ * están en las tablas de tallado (las da un arma o una ascendencia) vienen
+ * con `groups` vacío: no salen en las listas para elegir, pero la web necesita
+ * su nombre en los dos idiomas para enseñar bien las que el jugador ya lleva.
+ */
 export function skillChoices(data: GemData, locale: GemLocale, lang: AdviceLang): SkillChoice[] {
   return data.skills
-    .filter((skill) => skill.grade !== null && (skill.cutGroups ?? []).length > 0)
+    .filter((skill) => skill.grade !== null)
     .map((skill) => {
       const shown = localizeSkill(skill, lang, locale);
       return {

@@ -97,7 +97,11 @@ function rulesReason(skill: GemSkill, support: GemSupport, lang: AdviceLang = "e
   } else {
     why =
       shared.length > 0
-        ? `Es la que más encaja con ${skill.name} por lo que comparten (${shared.join(", ").toLocaleLowerCase("es")}).`
+        ? // «AdE» es la abreviatura del juego para «área de efecto»: a un novato no le dice nada.
+          `Es la que más encaja con ${skill.name} por lo que comparten (${shared
+            .map((tag) => (tag === "AdE" ? "área" : tag))
+            .join(", ")
+            .toLocaleLowerCase("es")}).`
         : `Vale para ${skill.name} y no depende de nada más.`;
   }
   return `${why} ${supportMainBenefit(support)}`.trim();

@@ -498,10 +498,11 @@ export default function App() {
   // permanecen montadas para no perder formularios, selección ni sesiones.
   const [mountedWorkspaces, setMountedWorkspaces] = useState<Set<WorkspaceTab>>(
     () =>
-      new Set([
-        "expediente",
-        openedFromGuideUrl() ? "guias" : initialWorkspace,
-      ]),
+      // El área que se abre al entrar va siempre montada: se toma de `tab` y no
+      // se repite la cuenta. Repetida, se olvidó el enlace directo (`?open=gems`)
+      // y a quien llegaba sin personaje se le quedaba el área en blanco: pestaña
+      // de guías elegida y nada pintado (del 25 al 28-11-2026).
+      new Set(["expediente", tab]),
   );
   const [workspaceHistory, setWorkspaceHistory] = useState<WorkspaceTab[]>(
     initialWorkspace !== "expediente" ? ["expediente"] : [],
