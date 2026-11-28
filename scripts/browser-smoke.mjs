@@ -1289,6 +1289,26 @@ async function runFlow(mode, port) {
     await page.getByRole("button", { name: "Cargar ejemplo" }).locator("visible=true").click();
     await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
     check(`[${mode}] ejemplo precargado visible`, true);
+    // «¿Me sirve lo que he encontrado?» (28-11-2026): con equipo puesto se pega
+    // UNA pieza y la tarjeta la compara con la que el personaje lleva en ese
+    // hueco. El ejemplo lleva guantes: tiene que nombrarlos y decidirse.
+    await page.getByTestId("abrir-me-sirve").locator("visible=true").first().click();
+    const meSirve = page.getByTestId("me-sirve");
+    await meSirve.waitFor({ state: "visible", timeout: 15000 });
+    await meSirve.getByTestId("me-sirve-texto").fill(REPLACEMENT_GLOVES);
+    await meSirve.getByTestId("me-sirve-leer").click();
+    const meSirveVerdict = meSirve.getByTestId("me-sirve-veredicto");
+    await meSirveVerdict.waitFor({ state: "visible", timeout: 15000 });
+    const meSirveKind = await meSirveVerdict.getAttribute("data-veredicto");
+    const meSirveText = await meSirve.getByTestId("me-sirve-resultado").innerText();
+    check(
+      `[${mode}] «¿Me sirve lo que he encontrado?» lee la pieza pegada y la compara con los guantes puestos (${meSirveKind})`,
+      (await meSirve.getByTestId("me-sirve-pieza").innerText()).includes("Replacement Grip") &&
+        ["better", "worse", "tie", "blocked"].includes(meSirveKind) &&
+        meSirveText.includes("Fist Wraps"),
+    );
+    await irA(page, "expediente");
+    await page.getByText("Demo Gemling").first().waitFor({ timeout: 10000 });
 
     // El Mentor al centro (28-11-2026, decisión de Luis): la caja para
     // preguntar es lo primero de la página también en móvil, y va una sola
