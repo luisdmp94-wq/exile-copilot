@@ -33,6 +33,12 @@ export interface ServerConfig {
   explainerLlmEnabled: boolean;
   /** Mentor v4: conversación IA fundamentada y memoria segura de sesión. */
   mentorAiEnabled: boolean;
+  /**
+   * Mentor de equipo (tarea 18): que la IA redacte las respuestas sobre una
+   * comparación de piezas. Apagado hasta medirlo con IA; sin esto contestan
+   * las reglas, que son las que comparan.
+   */
+  mentorGearAiEnabled: boolean;
   /** Proveedor de inferencia. Groq permite probar el mentor sin facturación. */
   mentorAiProvider: "groq" | "openai";
   /** Solo se lee en el servidor y nunca se expone a la interfaz. */
@@ -164,6 +170,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     gggOauthEnabled: bool(env.GGG_OAUTH_ENABLED, false),
     explainerLlmEnabled: bool(env.EXPLAINER_LLM_ENABLED, false),
     mentorAiEnabled: bool(env.MENTOR_AI_ENABLED, false),
+    mentorGearAiEnabled: bool(env.MENTOR_GEAR_AI_ENABLED, false),
     mentorAiProvider: provider,
     mentorAiApiKey:
       (provider === "groq" ? env.GROQ_API_KEY : env.OPENAI_API_KEY)?.trim() || null,
